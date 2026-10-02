@@ -89,8 +89,84 @@
       sha256: ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/Swift-Qwen3.8-27B-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
-      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
+      sha256: 9f3a5e81486b0c0270eff405b9a22911bf388aa7b58f3788eed9b0774904283b
+- name: cyber-ornith-1.5-9b-obliterated
+  variants:
+    - model: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q4_K_M GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      sha256: 5b7bdec6919db868e517e9ab9a05ce8be096f6f139798a7b94a3aa3d2d1eab28
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+- name: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q6_K GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      sha256: 0a43704d7b18c2eb62fdc6d67b4cf32d5fd4d7a147e1bf0b00d3dc75d88822fd
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -297,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: bfca14d287c9fd865529e02efa0ba6f572fb7bef623fa0bf4b0fb6214ee63a5e
+      sha256: 69bd869c7924086f5d8a3a86ca9663a1f331b7bd231121262e1989c59ee2179f
 - name: "qwopus3.8-27b-flash-v2"
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -53768,6 +53844,167 @@
     - filename: parakeet-cpp/tdt_ctc-110m-f16.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-110m-f16.gguf
       sha256: 7f9a6376edde6a74592ace48b2ebdc27a1ac972d0be9dfcc29e668d99381faf1
+- name: parakeet-cpp-nemotron-3-diarization-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer) with WeSpeaker ResNet34 speaker
+    identification, for the parakeet-cpp backend. Speakers you register with
+    /v1/voice/register (using the voice-detect-wespeaker-resnet34 model) come back
+    by name in /v1/audio/diarization, next to the SPEAKER_NN label. Speakers that
+    are not registered keep only their SPEAKER_NN label. The diarization model is
+    OpenMDW-1.1, the speaker model is CC-BY-4.0. Naming was measured on one
+    two-voice fixture only; check the threshold on your own audio.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - diarization
+    - speaker-diarization
+    - speaker-recognition
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization-speakers
+    options:
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-nemotron-3-diarization-asr-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer) paired with the Parakeet TDT+CTC 110M
+    ASR model through the asr_model option, both Q8_0/F16 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Served through
+    /v1/audio/diarization with include_text: each speaker segment comes back
+    with its transcribed text in one call. Diarization model is
+    OpenMDW-1.1, ASR model is CC-BY-4.0. Also loads WeSpeaker ResNet34
+    (CC-BY-4.0) through the speaker_model option: speakers registered with
+    /v1/voice/register (voice-detect-wespeaker-resnet34 model) come back by
+    name, next to the SPEAKER_NN label.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - asr
+    - diarization
+    - speaker-diarization
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization-asr-speakers
+    options:
+      - asr_model:parakeet-cpp/tdt_ctc-110m-f16.gguf
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/tdt_ctc-110m-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-110m-f16.gguf
+      sha256: 7f9a6376edde6a74592ace48b2ebdc27a1ac972d0be9dfcc29e668d99381faf1
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-realtime-scene-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-tiny
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU)
+    detection, 120M, paired with Nemotron-3-Diarization and CED-Tiny through
+    the diarization_model and sound_model options. F16/Q8_0 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Use with streaming
+    transcription: while a turn is live, closed speaker segments and sound
+    events are surfaced alongside the ASR text (realtime
+    conversation.item.input_audio_transcription.segment and
+    conversation.item.sound_detection events). Live speaker/sound events only
+    fire during speech turns under semantic_vad; sounds between turns are not
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Tiny Apache-2.0,
+    WeSpeaker ResNet34 CC-BY-4.0. Also loads WeSpeaker ResNet34 through the
+    speaker_model option, so live speaker segments carry the name of a voice
+    registered with /v1/voice/register (voice-detect-wespeaker-resnet34 model)
+    once the speaker is identified.
+  license: nvidia-open-model-license
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - streaming
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime-scene-speakers
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-tiny-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
 - name: parakeet-cpp-ced-tiny
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63875,6 +64112,125 @@
           type: huggingface
           repo: mudler/kev-0.8b-vllm-cpp
           revision: c17e73666ded1e9d284470eae7e0de9a27294e77
+- name: nimble-9b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/Bespoke-Nimble-9B-vllm-cpp
+    - https://huggingface.co/bespokelabs/Bespoke-Nimble-9B
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Nimble is a decision model from Bespoke Labs (the model Ollama serves as
+    nimble). For each question it runs one forward pass and reads the logits
+    of the answer letters at the last prompt position. It answers typed
+    choice, noul and score questions about a text state and does not
+    generate text.
+
+    This entry installs a converted redistribution of
+    bespokelabs/Bespoke-Nimble-9B: the LoRA adapter is merged into its
+    Qwen3.5-9B base in BF16 and config.json names the NimbleModel
+    architecture. The checkpoint only works with vllm.cpp (the vllm-cpp
+    backend); transformers and vLLM cannot load it.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp project compared
+    this converted directory on CPU against the Bespoke authors' own code over
+    seven questions: 7 of 7 answers equal, largest probability difference
+    0.0054. This entry was installed and served through LocalAI on CPU and
+    gave the answers shown in the model card example. There is no accuracy
+    benchmark and no GPU (CUDA, ROCm, Metal) run. The engine refuses fields
+    with more than 26 choices (upstream allows 255).
+
+    The entry sets an 8192-token context (Nimble's own prompt limit) and a
+    KV pool that holds four such sequences. BF16 weights,
+    about 19.3 GB, pinned to a revision. On CPU the model needs about 20 GB
+    of free RAM (measured peak 18.4 GB resident). On a 20-thread CPU a
+    request with three questions (988 prompt tokens) took 30 seconds warm.
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 19.33GB
+  last_checked: "2026-10-01"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    engine_args:
+      block_size: 32
+      num_blocks: 1024
+      max_num_seqs: 4
+    parameters:
+      model: mudler/Bespoke-Nimble-9B-vllm-cpp
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/Bespoke-Nimble-9B-vllm-cpp
+          revision: 52eead25b6723710ec16378942c9ae914d179b6f
+- name: clm-v0.1-8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/CLM-v0.1-8B-vllm-cpp
+    - https://huggingface.co/Contrastive-LM/CLM-v0.1-8B
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    CLM is a bi-encoder decision model from Contrastive-LM. A frozen Qwen3-8B
+    backbone encodes the state and each candidate answer separately, two MLP
+    heads project them into a 512-dimensional space, and the answer
+    distribution is a softmax over the cosine similarities at scale 100. It
+    answers typed choice, noul and score questions and does not generate
+    text.
+
+    This entry installs a converted redistribution: the CLM-v0.1-8B heads as
+    head.safetensors next to the unchanged Qwen3-8B backbone and tokenizer,
+    with config.json naming the ClmModel architecture. The checkpoint only
+    works with vllm.cpp (the vllm-cpp backend); transformers, vLLM and
+    llama.cpp cannot load it.
+
+    In LocalAI, serve it via POST /v1/systemone. Put the question in
+    instructions: the state head reads the state followed by the
+    instructions. The vllm.cpp project compared this checkpoint on CPU with the
+    reference code over eight questions: 8 of 8 answers agree, largest
+    probability difference 0.029 against the reference in bf16 (transformers
+    stood in for the reference's GPU encoder). This entry was installed and
+    served through LocalAI on CPU and gave the model card's example answer
+    (person, 0.950). There is no accuracy benchmark and no GPU run.
+
+    The entry sets a 4096-token context and a KV pool that holds four such
+    sequences. BF16 backbone with F32 heads, about 16.5 GB, pinned to a
+    revision. On CPU the model needs about 19 GB of free RAM (measured peak
+    17.9 GB resident).
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 16.47GB
+  last_checked: "2026-10-01"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    context_size: 4096
+    engine_args:
+      block_size: 32
+      num_blocks: 512
+      max_num_seqs: 4
+    parameters:
+      model: mudler/CLM-v0.1-8B-vllm-cpp
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/CLM-v0.1-8B-vllm-cpp
+          revision: 0d1903b14024c721594e1794aa48818f20f6bdb3
 - name: qwen3-vl-4b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

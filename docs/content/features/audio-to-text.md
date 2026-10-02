@@ -112,6 +112,8 @@ In addition to `file` and `model`, the endpoint accepts the following multipart 
 | `stream` | When `true`, the endpoint emits an SSE stream of `transcript.text.delta` events followed by a final `transcript.text.done` event. |
 | `diarize` | LocalAI extension - speaker diarization. WhisperX requires `HF_TOKEN`; requests fail with `FailedPrecondition` when it is missing. |
 
+If speaker diarization fails after transcription succeeded, the WhisperX backend logs the error and returns the transcript without speaker labels. Other transcription failures return an error instead of an empty transcript. Diarization still requires `HF_TOKEN`.
+
 The response body for `verbose_json` includes `text`, `language`, `duration`, and `segments[]` (with `speaker` populated when diarization is enabled).
 
 ## Streaming transcriptions
@@ -200,8 +202,13 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 | `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
 | `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
+| `speaker_model:<path>` | a model with a diarization model | names registered speakers (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
+| `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
 
 With a `diarization_model` companion, `/v1/audio/transcriptions` labels each segment with its `speaker` (`"0"`, `"1"`, ... in order of first appearance) and splits segments where the speaker changes; with `timestamp_granularities[]=word` each word carries its speaker too. With `stream=true` the closing `transcript.text.done` event lists the segments with their speakers. Pass `-F diarize=false` to skip diarization for one request. The diarization GGUF can also be imported directly: `local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-f16.gguf`.
+
+`speaker_model:` needs libparakeet with C-API v10. A wrong setup fails at load time with one of these errors: `parakeet-cpp: speaker_model needs libparakeet.so ABI 10 (parakeet_capi_speaker_registry_add_embedding); the loaded library is older`, `parakeet-cpp: speaker_model needs a diarization model (the primary or diarization_model:)`, `parakeet-cpp: a speaker model cannot be the primary model; use it as speaker_model: next to a diarization model`, `parakeet-cpp: speaker_model "<path>" is a <kind> model, expected a speaker model` (the file is not a speaker encoder GGUF), or `parakeet-cpp: speaker_threshold "<value>" must be a distance in (0, 2) (1 minus cosine similarity)` / `parakeet-cpp: speaker_margin "<value>" must be a number in [0, 1)` for a bad number.
 
 The loader rejects a companion whose role duplicates the primary's own (for example `asr_model:` on an already-ASR primary, or `sound_model:` on a CED primary), and rejects a companion GGUF that does not match the role its option names (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
 

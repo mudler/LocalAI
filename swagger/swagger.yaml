@@ -1,5 +1,50 @@
 basePath: /
 definitions:
+  schema.SpeakerProfiles:
+    type: object
+    properties:
+      version:
+        type: integer
+      encoder:
+        $ref: '#/definitions/schema.SpeakerEncoder'
+      speakers:
+        type: array
+        items:
+          $ref: '#/definitions/schema.SpeakerProfile'
+  schema.SpeakerProfile:
+    type: object
+    properties:
+      speaker:
+        type: integer
+        description: Raw numeric slot matching the decimal segment/summary label, not
+          SPEAKER_NN.
+      clean_duration:
+        type: number
+      intervals:
+        type: array
+        items:
+          $ref: '#/definitions/schema.SpeakerProfileInterval'
+      unavailable_reason:
+        type: string
+        x-nullable: true
+      embedding:
+        type: array
+        items:
+          type: number
+  schema.SpeakerProfileInterval:
+    type: object
+    properties:
+      start:
+        type: number
+      end:
+        type: number
+  schema.SpeakerEncoder:
+    type: object
+    properties:
+      identity:
+        type: string
+      dimension:
+        type: integer
   config.Gallery:
     properties:
       artifact_verification:
@@ -1050,6 +1095,7 @@ definitions:
         type: string
     type: object
   schema.DiarizationResult:
+    type: object
     properties:
       duration:
         type: number
@@ -1058,16 +1104,17 @@ definitions:
       num_speakers:
         type: integer
       segments:
+        type: array
         items:
           $ref: '#/definitions/schema.DiarizationSegment'
-        type: array
       speakers:
+        type: array
         items:
           $ref: '#/definitions/schema.DiarizationSpeaker'
-        type: array
       task:
         type: string
-    type: object
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
   schema.DiarizationSegment:
     properties:
       end:
@@ -1076,6 +1123,14 @@ definitions:
         type: integer
       label:
         type: string
+      name:
+        description: |-
+          Name is the registered speaker this segment was matched to, and NameScore
+          the cosine similarity of the match. Both are omitted when the backend did
+          not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+        type: string
+      name_score:
+        type: number
       speaker:
         type: string
       start:
@@ -1088,6 +1143,8 @@ definitions:
       id:
         type: string
       label:
+        type: string
+      name:
         type: string
       segment_count:
         type: integer
@@ -3242,20 +3299,26 @@ definitions:
         type: array
     type: object
   schema.VoiceRegisterRequest:
+    type: object
     properties:
       audio:
         type: string
       labels:
+        type: object
         additionalProperties:
           type: string
-        type: object
       model:
         type: string
       name:
         type: string
       store:
         type: string
-    type: object
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
+      speaker_slot:
+        type: integer
+        description: Required with speaker_profiles, mutually exclusive with audio;
+          explicit raw numeric speaker slot.
   schema.VoiceRegisterResponse:
     properties:
       id:
@@ -5328,62 +5391,70 @@ paths:
     post:
       consumes:
       - multipart/form-data
+      - application/json
+      tags:
+      - audio
+      summary: Identify speakers in audio (who spoke when).
       parameters:
-      - description: model
-        in: formData
+      - type: string
+        description: model
         name: model
-        required: true
-        type: string
-      - description: audio file
         in: formData
+        required: true
+      - type: file
+        description: audio file
         name: file
+        in: formData
         required: true
-        type: file
-      - description: exact speaker count (>0 forces; 0 = auto)
-        in: formData
+      - type: integer
+        description: exact speaker count (>0 forces; 0 = auto)
         name: num_speakers
-        type: integer
-      - description: lower bound when auto-detecting
         in: formData
+      - type: integer
+        description: lower bound when auto-detecting
         name: min_speakers
-        type: integer
-      - description: upper bound when auto-detecting
         in: formData
+      - type: integer
+        description: upper bound when auto-detecting
         name: max_speakers
-        type: integer
-      - description: clustering distance threshold when num_speakers is unknown
         in: formData
+      - type: number
+        description: clustering distance threshold when num_speakers is unknown
         name: clustering_threshold
-        type: number
-      - description: discard segments shorter than this (seconds)
         in: formData
+      - type: number
+        description: discard segments shorter than this (seconds)
         name: min_duration_on
-        type: number
-      - description: merge gaps shorter than this (seconds)
         in: formData
+      - type: number
+        description: merge gaps shorter than this (seconds)
         name: min_duration_off
-        type: number
-      - description: audio language hint (only meaningful for backends that bundle
-          ASR)
         in: formData
+      - type: string
+        description: audio language hint (only meaningful for backends that bundle ASR)
         name: language
-        type: string
-      - description: include per-segment transcript when the backend supports it
         in: formData
+      - type: boolean
+        description: include per-segment transcript when the backend supports it
         name: include_text
-        type: boolean
-      - description: json (default), verbose_json, or rttm
         in: formData
+      - type: string
+        description: json (default), verbose_json, or rttm
         name: response_format
-        type: string
+        in: formData
+      - type: boolean
+        description: Export portable biometric profiles; requires voice-recognition
+          permission. Omitted by default.
+        name: include_speaker_profiles
+        in: formData
       responses:
-        "200":
+        '200':
           description: OK
           schema:
             $ref: '#/definitions/schema.DiarizationResult'
-      summary: Identify speakers in audio (who spoke when).
-      tags:
-      - audio
+      description: JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles
+        and response_format. Profiles require voice-recognition permission and json
+        or verbose_json; unsupported backends return 501.
   /v1/audio/speech:
     post:
       consumes:
@@ -6166,21 +6237,25 @@ paths:
       - voice-recognition
   /v1/voice/register:
     post:
+      tags:
+      - voice-recognition
+      summary: Register a speaker for 1:N identification.
       parameters:
       - description: query params
-        in: body
         name: request
+        in: body
         required: true
         schema:
           $ref: '#/definitions/schema.VoiceRegisterRequest'
       responses:
-        "200":
+        '200':
           description: Response
           schema:
             $ref: '#/definitions/schema.VoiceRegisterResponse'
-      summary: Register a speaker for 1:N identification.
-      tags:
-      - voice-recognition
+      description: Supply either audio or speaker_profiles plus an explicit numeric
+        speaker_slot. The selected model must expose matching trusted encoder metadata
+        for portable enrollment. Registrations are global and ephemeral, with a fresh
+        ID for each request.
   /v1/voice/verify:
     post:
       parameters:

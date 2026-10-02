@@ -81,7 +81,7 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	// scene error.
 	var scene sceneStreamHandle
 	if p.sceneWanted() {
-		scene = p.sceneBegin()
+		scene = p.sceneBegin(cfg.GetKnownVoices())
 		if scene.s == 0 {
 			xlog.Warn("parakeet-cpp: scene stream begin failed; live continues without speaker/sound events")
 		}
@@ -118,7 +118,7 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 		if r.Delta != "" {
 			full.WriteString(r.Delta)
 		}
-		speakers := liveSpeakersToProto(sceneDoc.Speakers)
+		speakers := liveSpeakersToProto(sceneDoc.Speakers, sceneDoc.Names)
 		sounds := liveSoundsToProto(sceneDoc.Sounds)
 		if r.Delta != "" || r.Eou || r.Eob || len(r.Words) > 0 || len(speakers) > 0 || len(sounds) > 0 {
 			out <- &pb.TranscriptLiveResponse{
@@ -154,7 +154,7 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 			p.sceneFree(scene)
 			scene = sceneStreamHandle{}
 			if p.sceneWanted() {
-				scene = p.sceneBegin()
+				scene = p.sceneBegin(payload.Config.GetKnownVoices())
 				if scene.s == 0 {
 					xlog.Warn("parakeet-cpp: scene stream begin failed; live continues without speaker/sound events")
 				}

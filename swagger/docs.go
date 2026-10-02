@@ -2910,7 +2910,8 @@ const docTemplate = `{
         "/v1/audio/diarization": {
             "post": {
                 "consumes": [
-                    "multipart/form-data"
+                    "multipart/form-data",
+                    "application/json"
                 ],
                 "tags": [
                     "audio"
@@ -2933,7 +2934,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "exact speaker count (\u003e0 forces; 0 = auto)",
+                        "description": "exact speaker count (>0 forces; 0 = auto)",
                         "name": "num_speakers",
                         "in": "formData"
                     },
@@ -2984,6 +2985,12 @@ const docTemplate = `{
                         "description": "json (default), verbose_json, or rttm",
                         "name": "response_format",
                         "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Export portable biometric profiles; requires voice-recognition permission. Omitted by default.",
+                        "name": "include_speaker_profiles",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -2993,7 +3000,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.DiarizationResult"
                         }
                     }
-                }
+                },
+                "description": "JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501."
             }
         },
         "/v1/audio/speech": {
@@ -4220,7 +4228,8 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.VoiceRegisterResponse"
                         }
                     }
-                }
+                },
+                "description": "Supply either audio or speaker_profiles plus an explicit numeric speaker_slot. The selected model must expose matching trusted encoder metadata for portable enrollment. Registrations are global and ephemeral, with a fresh ID for each request."
             }
         },
         "/v1/voice/verify": {
@@ -4328,6 +4337,73 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "schema.SpeakerProfiles": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "integer"
+                },
+                "encoder": {
+                    "$ref": "#/definitions/schema.SpeakerEncoder"
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfile"
+                    }
+                }
+            }
+        },
+        "schema.SpeakerProfile": {
+            "type": "object",
+            "properties": {
+                "speaker": {
+                    "type": "integer",
+                    "description": "Raw numeric slot matching the decimal segment/summary label, not SPEAKER_NN."
+                },
+                "clean_duration": {
+                    "type": "number"
+                },
+                "intervals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfileInterval"
+                    }
+                },
+                "unavailable_reason": {
+                    "type": "string",
+                    "x-nullable": true
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        "schema.SpeakerProfileInterval": {
+            "type": "object",
+            "properties": {
+                "start": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SpeakerEncoder": {
+            "type": "object",
+            "properties": {
+                "identity": {
+                    "type": "string"
+                },
+                "dimension": {
+                    "type": "integer"
+                }
+            }
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
@@ -5836,6 +5912,9 @@ const docTemplate = `{
                 },
                 "task": {
                     "type": "string"
+                },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
                 }
             }
         },
@@ -5850,6 +5929,13 @@ const docTemplate = `{
                 },
                 "label": {
                     "type": "string"
+                },
+                "name": {
+                    "description": "Name is the registered speaker this segment was matched to, and NameScore\nthe cosine similarity of the match. Both are omitted when the backend did\nnot identify the speaker. Speaker stays the normalized SPEAKER_NN label.",
+                    "type": "string"
+                },
+                "name_score": {
+                    "type": "number"
                 },
                 "speaker": {
                     "type": "string"
@@ -5869,6 +5955,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "segment_count": {
@@ -8889,6 +8978,13 @@ const docTemplate = `{
                 },
                 "store": {
                     "type": "string"
+                },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
+                },
+                "speaker_slot": {
+                    "type": "integer",
+                    "description": "Required with speaker_profiles, mutually exclusive with audio; explicit raw numeric speaker slot."
                 }
             }
         },

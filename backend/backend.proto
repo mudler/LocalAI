@@ -628,6 +628,7 @@ message TranscriptLiveConfig {
   string language = 1;             // "" => model default
   int32 sample_rate = 2;           // 0 => 16000; backends may reject others
   map<string, string> params = 3;  // backend-specific tuning
+  repeated KnownVoice known_voices = 4;   // see DiarizeRequest.known_voices
 }
 
 message TranscriptLiveAudio {
@@ -649,6 +650,7 @@ message LiveSpeakerSegment {
   string speaker = 1;   // decimal speaker index
   int64 start = 2;      // stream-relative nanoseconds
   int64 end = 3;
+  string name = 4;      // registered speaker name when the backend identified the speaker, else empty
 }
 
 message LiveSoundEvent {
@@ -825,6 +827,10 @@ message DiarizeRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 11;
+  // Registered voices the backend may use to name speakers. Only backends that
+  // identify speakers themselves read this; others ignore it.
+  repeated KnownVoice known_voices = 12;
+  bool include_speaker_profiles = 13; // opt-in sensitive embeddings; unsupported backends must reject
 }
 
 message DiarizeSegment {
@@ -833,9 +839,22 @@ message DiarizeSegment {
   float  end = 3;                      // seconds
   string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
   string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+  string name = 6;                     // registered speaker name, empty when unknown or not identified
+  float  name_score = 7;               // match score of that name (cosine similarity), 0 when unnamed
+}
+
+// KnownVoice is one registered voice: a name and its speaker embedding. `model`
+// names the encoder that produced it, so a backend with a different encoder can
+// refuse vectors that are not comparable.
+message KnownVoice {
+  string id = 4; // registration ID; native keys must not aggregate duplicate display names
+  string name = 1;
+  repeated float embedding = 2;
+  string model = 3;
 }
 
 message DiarizeResponse {
+  string speaker_profiles_json = 5; // versioned speaker_profiles object only; absent by default
   repeated DiarizeSegment segments = 1;
   int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
   float  duration = 3;                 // total audio duration in seconds (0 if unknown)
@@ -891,6 +910,11 @@ message MemoryUsageData {
   map<string, uint64> breakdown = 2;
 }
 
+message SpeakerEncoder {
+  string identity = 1; // sha256 of loaded GGUF bytes
+  int32 dimension = 2;
+}
+
 message StatusResponse {
   enum State {
     UNINITIALIZED = 0;
@@ -900,6 +924,7 @@ message StatusResponse {
   }
   State state = 1;
   MemoryUsageData memory = 2;
+  SpeakerEncoder speaker_encoder = 3; // trusted metadata from the loaded server encoder, never request data
 }
 
 message Message {
