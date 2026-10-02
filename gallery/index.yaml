@@ -746,6 +746,168 @@
     - filename: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
       sha256: 98fa9aad59b42449786a16bbce96bcd92204d03cac0aee0cdccca711c2adefd1
       uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+- name: qwen3.8-3.6-27b-blend
+  variants:
+    - model: qwen3.8-3.6-27b-blend-iq3-s
+    - model: qwen3.8-3.6-27b-blend-q5-k-m
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF
+  description: |
+    JetBrains' 27B blend combines Qwen3.6-27B and Qwen3.8-27B weights equally, retaining the Qwen3.8 tokenizer and chat template.
+    This Q4_K_M GGUF build uses llama.cpp with native MTP decoding and includes the BF16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-09-29"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      preserve_thinking: true
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Qwen3.8-3.6-27B-blend-Q4_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+  files:
+    - filename: Qwen3.8-3.6-27B-blend-Q4_K_M.gguf
+      sha256: 5f54ded85a78f11ad7a1c02d17564a268238ac8afe9b3d94fb0b614e473006a1
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/Qwen3.8-3.6-27B-blend-Q4_K_M.gguf
+    - filename: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+      sha256: 4568f7e9f79ef5b942be9acc8be717156482d0659a6fde111df660f57a1875c8
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+- name: qwen3.8-3.6-27b-blend-iq3-s
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF
+  description: |
+    JetBrains' 27B blend combines Qwen3.6-27B and Qwen3.8-27B weights equally, retaining the Qwen3.8 tokenizer and chat template.
+    This IQ3_S GGUF build uses llama.cpp with native MTP decoding and includes the BF16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-09-29"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      preserve_thinking: true
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Qwen3.8-3.6-27B-blend-IQ3_S.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+  files:
+    - filename: Qwen3.8-3.6-27B-blend-IQ3_S.gguf
+      sha256: 94cc60e6ba6150003ae956d5a98c3914e8d9fe18ecafc3fe400e00232c8cecd2
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/Qwen3.8-3.6-27B-blend-IQ3_S.gguf
+    - filename: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+      sha256: 4568f7e9f79ef5b942be9acc8be717156482d0659a6fde111df660f57a1875c8
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+- name: qwen3.8-3.6-27b-blend-q5-k-m
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend
+    - https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF
+  description: |
+    JetBrains' 27B blend combines Qwen3.6-27B and Qwen3.8-27B weights equally, retaining the Qwen3.8 tokenizer and chat template.
+    This Q5_K_M GGUF build uses llama.cpp with native MTP decoding and includes the BF16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-09-29"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      preserve_thinking: true
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Qwen3.8-3.6-27B-blend-Q5_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+  files:
+    - filename: Qwen3.8-3.6-27B-blend-Q5_K_M.gguf
+      sha256: d095b2807e5b120b57caf6a6c4bfeddf17f3ebf605279a64fe3a0fcb98722ba0
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/Qwen3.8-3.6-27B-blend-Q5_K_M.gguf
+    - filename: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+      sha256: 4568f7e9f79ef5b942be9acc8be717156482d0659a6fde111df660f57a1875c8
+      uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
 - name: hemmingway-1
   variants:
     - model: hemmingway-1-q8
