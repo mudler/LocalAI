@@ -564,6 +564,106 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: qwen3.8-27b-twin-turbo-fable-709-ultra
+  variants:
+    - model: qwen3.8-27b-twin-turbo-fable-709-ultra-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF
+  description: |
+    Twin-Turbo Fable Cold Fusion 709-ULTRA is DavidAU's 27B Qwen3.8 fine-tune for reasoning, coding, and creative writing.
+    This NEO MAX Q4_K_M GGUF build uses llama.cpp with the embedded chat template and includes the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q4_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+      repeat_penalty: 1.0
+      presence_penalty: 0.0
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q4_K_M.gguf
+      sha256: 2b8f005068ad0adaa36f12d295528775d974ed684b64adf3465dd59c6a83cb4d
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/7dafa1583bef3c77dd3b72262a207cfad39d377f/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q4_K_M.gguf
+    - filename: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/mmproj-F16.gguf
+      sha256: cd20ce309b744aab7e3baab5c91cddbadf6daef61626820ae213f734ea3cd81f
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/7dafa1583bef3c77dd3b72262a207cfad39d377f/mmproj-F16.gguf
+- name: qwen3.8-27b-twin-turbo-fable-709-ultra-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF
+  description: |
+    Twin-Turbo Fable Cold Fusion 709-ULTRA is DavidAU's 27B Qwen3.8 fine-tune for reasoning, coding, and creative writing.
+    This NEO MAX Q8_0 GGUF build uses llama.cpp with the embedded chat template and includes the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q8_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+      repeat_penalty: 1.0
+      presence_penalty: 0.0
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q8_0.gguf
+      sha256: cb6d30dfbdecd6cc76d10bb1b15c87ee6cceaaf31a34c0d650983ad4bf73194c
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/7dafa1583bef3c77dd3b72262a207cfad39d377f/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-U-Httic-Uncen-NM-DAU-NEO-MAX-Q8_0.gguf
+    - filename: llama-cpp/models/qwen3.8-27b-twin-turbo-fable-709-ultra/mmproj-F16.gguf
+      sha256: cd20ce309b744aab7e3baab5c91cddbadf6daef61626820ae213f734ea3cd81f
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-ULTRA-HERETIC-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/7dafa1583bef3c77dd3b72262a207cfad39d377f/mmproj-F16.gguf
 - name: mimo-v2.6-distill-qwen-9b
   variants:
     - model: mimo-v2.6-distill-qwen-9b-q8
