@@ -36,7 +36,9 @@ type decisionRunner struct {
 // registry replacements), retaining the permit until the underlying operation
 // finishes. Cancellation releases the caller, not the loader or backend itself.
 // Saturation fails promptly rather than spawning an unbounded goroutine queue.
-var decisionOperations = make(chan struct{}, 8)
+const maxDecisionOperations = 8
+
+var decisionOperations = make(chan struct{}, maxDecisionOperations)
 
 func (r *decisionRunner) Decide(ctx context.Context, req *schema.SystemOneRequest) (*schema.SystemOneResponse, error) {
 	if err := ctx.Err(); err != nil {

@@ -108,7 +108,7 @@ var _ = Describe("internal decision runner", func() {
 		Expect(calls.Load()).To(BeZero())
 	})
 	It("rejects malformed and oversized responses", func() {
-		for _, body := range []string{`null`, `[]`, `{}`, `{"answers":null}`, `{"answers":{}} trailing`, strings.Repeat("x", 65537)} {
+		for _, body := range []string{`null`, `[]`, `{}`, `{"answers":null}`, `{"answers":{}} trailing`, `{"answers":{"q":{"type":"noul","noul":"0.5"}}}`, `{"answers":{"q":{"type":"noul","noul":true}}}`, `{"answers":{"q":{"type":"noul","noul":1e999}}}`, strings.Repeat("x", 65537)} {
 			runner.load = func(string, config.ModelConfig) (func(context.Context) (string, error), error) {
 				return func(context.Context) (string, error) { return body, nil }, nil
 			}

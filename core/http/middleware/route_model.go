@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/systemone"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -102,8 +103,9 @@ func (s *reseedingVectorStore) Search(ctx context.Context, vec []float32) (float
 // score classifier runs unwrapped and the embedding-cache YAML is
 // ignored with a warning.
 type ClassifierDeps struct {
-	Scorer   ScorerFactory
-	Embedder EmbedderFactory
+	Decisions func(string) backend.DecisionRunner
+	Scorer    ScorerFactory
+	Embedder  EmbedderFactory
 	// EmbedderFingerprint identifies the weights/config behind Embedder so
 	// KNN corpus vectors cannot be queried across embedding spaces.
 	EmbedderFingerprint EmbedderFingerprintFactory
@@ -152,6 +154,7 @@ type ClassifierDeps struct {
 func NewClassifierDeps(app *application.Application) ClassifierDeps {
 	return ClassifierDeps{
 		Scorer:              app.Scorer,
+		Decisions:           app.DecisionRunner,
 		Corpus:              app.RouterCorpus(),
 		TokenCounter:        app.TokenCounter,
 		Embedder:            app.Embedder,
@@ -346,6 +349,19 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 	h := fnv.New64a()
 	h.Write(bytes)
 	if classifierCfg != nil {
+		if rc.Classifier == router.ClassifierDecisions {
+			native, err := yaml.Marshal(classifierCfg)
+			if err != nil {
+				return uint64(time.Now().UnixNano())
+			}
+			h.Write(native)
+			h.Write([]byte(classifierCfg.PersistedConfigRevision()))
+			if classifierCfg.KnownUsecases != nil {
+				h.Write([]byte(fmt.Sprintf("usecases:%d", *classifierCfg.KnownUsecases)))
+			} else {
+				h.Write([]byte("usecases:nil"))
+			}
+		}
 		// Narrow projection: only the fields buildClassifier reads (renderer,
 		// stop tokens, context_size → MaxContextTokens). Hashing the whole
 		// ModelConfig would invalidate the cache on irrelevant changes;
@@ -406,6 +422,21 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 
 	var inner router.Classifier
 	switch name {
+	case router.ClassifierDecisions:
+		if rc.ClassifierModel == "" || deps.Decisions == nil || deps.ModelLookup == nil {
+			return nil, fmt.Errorf("decisions requires classifier_model, native factory and model lookup")
+		}
+		if rc.KNN != nil || rc.EmbeddingCache != nil {
+			return nil, fmt.Errorf("decisions does not support knn or embedding_cache composition")
+		}
+		modelCfg := deps.ModelLookup(rc.ClassifierModel)
+		if modelCfg == nil {
+			return nil, fmt.Errorf("decision model not available")
+		}
+		if err := systemone.ValidateDecisionModel(*modelCfg); err != nil {
+			return nil, err
+		}
+		return router.NewDecisionsClassifier(policies, deps.Decisions(rc.ClassifierModel), rc.ActivationThreshold)
 	case router.ClassifierScore:
 		if rc.ClassifierModel == "" {
 			return nil, fmt.Errorf("router classifier score requires classifier_model")
