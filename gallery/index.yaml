@@ -13953,6 +13953,106 @@
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
       sha256: 7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578
+- name: "gemma-4-e4b-obliterated-q4"
+  variants:
+    - model: gemma-4-e4b-obliterated-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED
+  description: |
+    OBLITERATED is an abliterated derivative of Google's Gemma 4 E4B instruction model.
+    This Q4_K_M GGUF build uses llama.cpp and includes the publisher's F16 projector for image input.
+    Uses the embedded chat template, the model card's sampling settings, and an 8192-token default context.
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - vision
+    - uncensored
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 40
+      repeat_penalty: 1.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-Q4_K_M.gguf
+      sha256: 819372c2cd9e5aa62950f07db6c5e849769a2fd17f2f25d4932b6f2dd567d4e2
+      uri: https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED/resolve/d8678bbb9e0d4f5729c115087485a4e25ba89d65/gemma-4-E4B-it-OBLITERATED-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
+      sha256: b75adfbc8d804d782d935df4e59f8b559a6abefba47193d1591bd8fc38ea77e0
+      uri: https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED/resolve/d8678bbb9e0d4f5729c115087485a4e25ba89d65/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
+- name: "gemma-4-e4b-obliterated-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED
+  description: |
+    OBLITERATED is an abliterated derivative of Google's Gemma 4 E4B instruction model.
+    This Q8_0 GGUF build uses llama.cpp and includes the publisher's F16 projector for image input.
+    Uses the embedded chat template, the model card's sampling settings, and an 8192-token default context.
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - vision
+    - uncensored
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 40
+      repeat_penalty: 1.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-Q8_0.gguf
+      sha256: 274af0544e684bc25f1816a021cb462aa1e006c0f1915c362dc6df879a9f2e2b
+      uri: https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED/resolve/d8678bbb9e0d4f5729c115087485a4e25ba89d65/gemma-4-E4B-it-OBLITERATED-Q8_0.gguf
+    - filename: llama-cpp/mmproj/gemma-4-e4b-obliterated/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
+      sha256: b75adfbc8d804d782d935df4e59f8b559a6abefba47193d1591bd8fc38ea77e0
+      uri: https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED/resolve/d8678bbb9e0d4f5729c115087485a4e25ba89d65/gemma-4-E4B-it-OBLITERATED-mmproj-f16.gguf
 - name: "gemma-4-e4b-hauhaucs-aggressive-q4"
   variants:
     - model: gemma-4-e4b-hauhaucs-aggressive-q5

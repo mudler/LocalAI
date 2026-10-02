@@ -39,6 +39,25 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Gemma 4 E4B OBLITERATED
+
+The gallery includes Q4_K_M and Q8_0 builds of [Gemma 4 E4B OBLITERATED](https://huggingface.co/OBLITERATUS/gemma-4-E4B-it-OBLITERATED).
+Both use llama.cpp with the embedded chat template and the publisher's F16 projector for text chat and image input.
+The default context is 8192 tokens.
+Sampling follows the model card: temperature 0.7, top-p 0.9, top-k 40, and repetition penalty 1.1.
+
+Install the Q4 entry and let LocalAI select a variant that fits your hardware:
+
+```bash
+local-ai models install gemma-4-e4b-obliterated-q4
+```
+
+To choose Q8_0 explicitly:
+
+```bash
+local-ai models install gemma-4-e4b-obliterated-q4 --variant gemma-4-e4b-obliterated-q8
+```
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
