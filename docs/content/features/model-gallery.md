@@ -115,6 +115,28 @@ All builds use a 32,768-token default context and the embedded Sharp-Spark chat 
 That template adds a terseness instruction to the system prompt.
 See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF) for quantization and template details.
 
+## Holo4-27B
+
+Holo4-27B is a vision-language model for screenshot understanding and computer-use workflows.
+The weights use the [CC BY-NC 4.0 license](https://huggingface.co/Hcompany/Holo4-27B), which permits noncommercial use.
+Install the model with llama.cpp:
+
+```bash
+local-ai models install holo4-27b
+```
+
+The gallery groups H Company's Q4_K_M build with mradermacher's Q8_0 build.
+Each build includes its corresponding F16 vision projector and uses the embedded chat template with a 32,768-token default context.
+To select Q8_0 explicitly, run:
+
+```bash
+local-ai models install holo4-27b --variant holo4-27b-q8
+```
+
+An external agent harness must supply screenshots, execute requested actions, and return tool results.
+Installing the model does not provide desktop control.
+See the [publisher's model card](https://huggingface.co/Hcompany/Holo4-27B) for harness integration details.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.

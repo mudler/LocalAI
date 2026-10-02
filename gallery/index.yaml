@@ -564,6 +564,92 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: holo4-27b
+  variants:
+    - model: holo4-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Hcompany/Holo4-27B
+    - https://huggingface.co/Hcompany/Holo4-27B-GGUF
+  description: |
+    Holo4-27B is H Company's Qwen3.8-based vision-language model for computer use, screenshot understanding, and tool calls.
+    This Q4_K_M GGUF build uses llama.cpp with the embedded chat template and an F16 vision projector.
+    Computer actions require an external harness. Model weights are licensed CC BY-NC 4.0 for noncommercial use.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Holo4-27B.official-mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Holo4-27B.Q4_K_M.gguf
+  files:
+    - filename: Holo4-27B.Q4_K_M.gguf
+      sha256: 8071d3ed5f59c88282e6466add0b344b51d49c8c630ae8f93d673ac0911ab962
+      uri: https://huggingface.co/Hcompany/Holo4-27B-GGUF/resolve/045834b6864fb5cee8e9c72e47ef4c19140ce932/q4_k_m.gguf
+    - filename: Holo4-27B.official-mmproj-f16.gguf
+      sha256: b4038c228fcf84b0528e327c314204d165f6fa97ebb74d766424f49d2eba0d9c
+      uri: https://huggingface.co/Hcompany/Holo4-27B-GGUF/resolve/045834b6864fb5cee8e9c72e47ef4c19140ce932/mmproj.f16.gguf
+- name: holo4-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Hcompany/Holo4-27B
+    - https://huggingface.co/mradermacher/Holo4-27B-GGUF
+  description: |
+    Holo4-27B is H Company's Qwen3.8-based vision-language model for computer use, screenshot understanding, and tool calls.
+    This Q8_0 GGUF build uses llama.cpp with the embedded chat template and an F16 vision projector.
+    Computer actions require an external harness. Model weights are licensed CC BY-NC 4.0 for noncommercial use.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Holo4-27B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Holo4-27B.Q8_0.gguf
+  files:
+    - filename: Holo4-27B.Q8_0.gguf
+      sha256: 1e2602ed3684cf0f75ea99463883b53e3f4bcb0ba527e2117092ed4341a8656a
+      uri: https://huggingface.co/mradermacher/Holo4-27B-GGUF/resolve/fbea0b1f39f642f50e79cab173fb7bace2206107/Holo4-27B.Q8_0.gguf
+    - filename: Holo4-27B.mmproj-f16.gguf
+      sha256: 06f73bc964dfb091c09d5cfead39d1dc234d9fae4d7a7dd05c7703c6fd5eee7d
+      uri: https://huggingface.co/mradermacher/Holo4-27B-GGUF/resolve/fbea0b1f39f642f50e79cab173fb7bace2206107/Holo4-27B.mmproj-f16.gguf
 - name: mimo-v2.6-distill-qwen-9b
   variants:
     - model: mimo-v2.6-distill-qwen-9b-q8
