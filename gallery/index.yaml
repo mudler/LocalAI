@@ -12773,6 +12773,142 @@
     - filename: llama-cpp/models/Qwen3.6-27B-NVFP4-MTP-GGUF/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
       sha256: d088e57e8c35ff62c2a420cb888dad3fd53c8db3ed9ead4286bd383224f81b50
       uri: https://huggingface.co/michaelw9999/Qwen3.6-27B-NVFP4-MTP-GGUF/resolve/main/Qwen3.6-27B-NVFP4-MTP-GGUF.gguf
+- name: redcell-26b-a4b
+  variants:
+    - model: redcell-26b-a4b-i-compact
+    - model: redcell-26b-a4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-26B-A4B-it
+    - https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF
+  description: |
+    REDCELL is a Gemma 4 fine-tune for open-source intelligence, threat analysis,
+    and investigative journalism, with 26B total and approximately 4B active parameters.
+    This I-Balanced mixed-precision build includes an F16 vision projector and uses
+    the embedded chat template with a 32768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Balanced.gguf
+      temperature: 0.5
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.0
+      repeat_penalty: 1.0
+  files:
+    - filename: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Balanced.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Balanced.gguf
+      sha256: 3057d9183b725d346a91094ba43ce616d5b0e719da312167284352549dac613f
+    - filename: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/mmproj-F16.gguf
+      sha256: d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1
+- name: redcell-26b-a4b-i-compact
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-26B-A4B-it
+    - https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF
+  description: |
+    REDCELL is a Gemma 4 fine-tune for open-source intelligence, threat analysis,
+    and investigative journalism, with 26B total and approximately 4B active parameters.
+    This I-Compact mixed-precision build includes an F16 vision projector and uses
+    the embedded chat template with a 32768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Compact.gguf
+      temperature: 0.5
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.0
+      repeat_penalty: 1.0
+  files:
+    - filename: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Compact.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/REDCELL-26B-A4B-OSINT-Cyber-APEX-I-Compact.gguf
+      sha256: ad5c0b11bef54a419a33ea24e49f8dcc311d3e5208b1aba6f731fd9fd0af1899
+    - filename: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/mmproj-F16.gguf
+      sha256: d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1
+- name: redcell-26b-a4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/unsloth/gemma-4-26B-A4B-it
+    - https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF
+  description: |
+    REDCELL is a Gemma 4 fine-tune for open-source intelligence, threat analysis,
+    and investigative journalism, with 26B total and approximately 4B active parameters.
+    This Q8_0 build includes an F16 vision projector and uses
+    the embedded chat template with a 32768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-Q8_0.gguf
+      temperature: 0.5
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.0
+      repeat_penalty: 1.0
+  files:
+    - filename: llama-cpp/models/redcell-26b-a4b/REDCELL-26B-A4B-OSINT-Cyber-Q8_0.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/REDCELL-26B-A4B-OSINT-Cyber-Q8_0.gguf
+      sha256: 376eb366f894922048ecd566aae818ce64cd4ab30b89bdf154e33ab4448e9f53
+    - filename: llama-cpp/mmproj/redcell-26b-a4b/mmproj-F16.gguf
+      uri: https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF/resolve/ba311d958b4ed191a7291b38a6d805662415a570/mmproj-F16.gguf
+      sha256: d00f211a7d4f7fb19bd9b75d8e9342eccffb5920b08fd9562167560fdfcc5dd1
+
 - &grug-12b
   name: "grug-12b"
   variants:

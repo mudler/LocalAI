@@ -60,6 +60,23 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## REDCELL 26B-A4B
+
+[REDCELL](https://huggingface.co/terrorswift/REDCELL-26B-A4B-OSINT-Cyber-APEX-GGUF)
+is a Gemma 4 fine-tune for OSINT, threat intelligence, and investigative journalism.
+Its llama.cpp entries include the F16 vision projector and use the embedded chat template.
+
+Install the I-Balanced build with automatic variant selection:
+
+```bash
+local-ai models install redcell-26b-a4b
+```
+
+To select a specific build, use `--variant redcell-26b-a4b-i-compact`,
+`--variant redcell-26b-a4b-q8`, or `--variant redcell-26b-a4b` for I-Balanced.
+All three entries default to a 32768-token context and the publisher's suggested sampling settings.
+The model card includes an optional system prompt for its analytical workflow.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
