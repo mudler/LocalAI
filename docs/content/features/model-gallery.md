@@ -60,6 +60,19 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## Swift Bonsai 2
+
+Install the current PQ2_0 build for text chat with the Bonsai backend:
+
+```bash
+local-ai models install swift-bonsai-2-pq2
+```
+
+This experimental 27B reasoning model uses Prism's ternary tensor format.
+The entry sets a 32,768-token context and the publisher's sampling defaults.
+The publisher's PTQ1_0 file contains an earlier Swift release, so it is not grouped as a quantization variant.
+See the [model card](https://huggingface.co/ukisai/Swift-Bonsai-2-GGUF) for details and the Apache-2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
