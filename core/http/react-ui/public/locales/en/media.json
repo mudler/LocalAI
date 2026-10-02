@@ -302,7 +302,7 @@
     "sections": {
       "reference": {
         "title": "Reference audio",
-        "body": "Record in the browser or upload an existing clip. Speech should be clean, natural, and from one speaker."
+        "body": "Record, upload, or generate a reference clip. Speech should be clean, natural, and from one speaker."
       },
       "details": {
         "title": "Identity and transcript",
@@ -358,6 +358,18 @@
     },
     "toasts": {
       "created": "{{name}} is ready to use"
+    },
+    "design": {
+      "source": "Reference source",
+      "upload": "Upload or record",
+      "title": "Design a voice",
+      "model": "Voice design model",
+      "hint": "Choose a TTS model that supports voice design. The list includes all TTS models; some do not support voice instructions. Describe the voice, generate a sample, and listen before saving.",
+      "instructions": "Voice instructions",
+      "text": "Sample text",
+      "generate": "Generate reference",
+      "generating": "Generating reference…",
+      "error": "Could not generate the voice reference."
     }
   },
   "sound": {

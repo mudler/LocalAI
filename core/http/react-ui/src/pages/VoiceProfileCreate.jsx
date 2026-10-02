@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -7,7 +7,9 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import MediaInput from '../components/biometrics/MediaInput'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { audioBufferToWavBlob } from '../hooks/useMediaCapture'
-import { voiceProfilesApi } from '../utils/api'
+import ModelSelector from '../components/ModelSelector'
+import { CAP_TTS } from '../utils/capabilities'
+import { ttsApi, voiceProfilesApi } from '../utils/api'
 
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024
 const REFERENCE_SAMPLE_RATE = 24000
@@ -59,6 +61,12 @@ export default function VoiceProfileCreate() {
   const { t } = useTranslation('media')
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const [referenceMode, setReferenceMode] = useState('upload')
+  const [designModel, setDesignModel] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [sampleText, setSampleText] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const generationId = useRef(0)
   const [audio, setAudio] = useState(null)
   const [audioProcessing, setAudioProcessing] = useState(false)
   const [audioError, setAudioError] = useState('')
@@ -74,10 +82,53 @@ export default function VoiceProfileCreate() {
     if (audio?.objectUrl) URL.revokeObjectURL(audio.dataUrl)
   }, [audio])
 
+  useEffect(() => () => { generationId.current += 1 }, [])
+
+  const designBusy = generating || audioProcessing || submitting
+  const canGenerate = !!(designModel && instructions.trim() && sampleText.trim()) && !designBusy
+
+  const clearReference = () => {
+    setAudio(null)
+    setTranscript('')
+    setAudioError('')
+  }
+
+  const changeDesign = (setter, value) => {
+    clearReference()
+    setter(value)
+  }
+
+  const generateReference = async () => {
+    if (!canGenerate) return
+    const currentGeneration = ++generationId.current
+    const input = sampleText.trim()
+    clearReference()
+    setGenerating(true)
+    try {
+      const { blob } = await ttsApi.generate({ model: designModel, input, instructions: instructions.trim() })
+      if (currentGeneration !== generationId.current) return
+      const normalized = await normalizeAudioSample({ blob, name: 'designed-reference.wav' })
+      if (currentGeneration !== generationId.current) {
+        URL.revokeObjectURL(normalized.dataUrl)
+        return
+      }
+      if (normalized.duration < 1 || normalized.duration > 120) {
+        URL.revokeObjectURL(normalized.dataUrl)
+        throw new Error(t('voiceCreate.audio.durationError'))
+      }
+      setAudio(normalized)
+      setTranscript(input)
+    } catch (err) {
+      if (currentGeneration === generationId.current) setAudioError(err.message || t('voiceCreate.design.error'))
+    } finally {
+      if (currentGeneration === generationId.current) setGenerating(false)
+    }
+  }
+
   const durationValid = audio?.duration >= 1 && audio?.duration <= 120
   const durationRecommended = audio?.duration >= 6 && audio?.duration <= 30
   const additionalReady = additionalReferences.every(reference => reference.audio && reference.transcript.trim())
-  const formReady = !!audio && durationValid && name.trim() && transcript.trim() && additionalReady && consent && !audioProcessing
+  const formReady = !!audio && durationValid && name.trim() && transcript.trim() && additionalReady && consent && !audioProcessing && !generating
 
   const readiness = useMemo(() => ({
     audio: !!audio && durationValid,
@@ -156,7 +207,7 @@ export default function VoiceProfileCreate() {
   return (
     <main className="voice-create-page">
       <UnsavedChangesGuard
-        when={!submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent)}
+        when={!submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent || instructions || sampleText)}
       />
       <PageHeader
         eyebrow={t('voiceCreate.eyebrow')}
@@ -172,7 +223,30 @@ export default function VoiceProfileCreate() {
               <span>01</span>
               <div><h2 id="voice-reference-heading">{t('voiceCreate.sections.reference.title')}</h2><p>{t('voiceCreate.sections.reference.body')}</p></div>
             </div>
-            <MediaInput
+            <div className="hstack" role="group" aria-label={t('voiceCreate.design.source')}>
+              <button type="button" className={referenceMode === 'upload' ? 'btn btn-primary' : 'btn btn-secondary'} aria-pressed={referenceMode === 'upload'} disabled={designBusy} onClick={() => { if (referenceMode !== 'upload') { clearReference(); setReferenceMode('upload') } }}>{t('voiceCreate.design.upload')}</button>
+              <button type="button" className={referenceMode === 'design' ? 'btn btn-primary' : 'btn btn-secondary'} aria-pressed={referenceMode === 'design'} disabled={designBusy} onClick={() => { if (referenceMode !== 'design') { clearReference(); setReferenceMode('design') } }}>{t('voiceCreate.design.title')}</button>
+            </div>
+            {referenceMode === 'design' ? (
+              <div className="stack">
+                <p className="form-hint">{t('voiceCreate.design.hint')}</p>
+                <div className="form-group" role="group" aria-label={t('voiceCreate.design.model')}>
+                  <span className="form-label">{t('voiceCreate.design.model')}</span>
+                  <ModelSelector value={designModel} onChange={(value) => changeDesign(setDesignModel, value)} capability={CAP_TTS} disabled={designBusy} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="voice-design-instructions">{t('voiceCreate.design.instructions')}</label>
+                  <textarea id="voice-design-instructions" className="textarea" rows={3} value={instructions} disabled={designBusy} onChange={(event) => changeDesign(setInstructions, event.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="voice-design-text">{t('voiceCreate.design.text')}</label>
+                  <textarea id="voice-design-text" className="textarea" rows={3} maxLength={4000} value={sampleText} disabled={designBusy} onChange={(event) => changeDesign(setSampleText, event.target.value)} />
+                </div>
+                <button type="button" className="btn btn-secondary" disabled={!canGenerate} onClick={generateReference}>
+                  {generating ? <><LoadingSpinner size="sm" /> {t('voiceCreate.design.generating')}</> : t('voiceCreate.design.generate')}
+                </button>
+              </div>
+            ) : <MediaInput
               mode="audio"
               label={t('voiceCreate.audio.label')}
               value={audio}
@@ -181,7 +255,7 @@ export default function VoiceProfileCreate() {
               maxBytes={MAX_AUDIO_BYTES}
               preferBlob
               idPrefix="voice-profile"
-            />
+            />}
             {audioProcessing && <div className="voice-create-processing"><LoadingSpinner size="sm" /> {t('voiceCreate.audio.normalizing')}</div>}
             {audioError && <p className="form-error" role="alert">{audioError}</p>}
             {audio && (
