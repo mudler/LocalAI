@@ -1,4 +1,98 @@
 ---
+- name: holo4-35b-a3b
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: holo4-35b-a3b-q8
+  urls:
+    - https://huggingface.co/Hcompany/Holo4-35B-A3B
+    - https://huggingface.co/Hcompany/Holo4-35B-A3B-GGUF
+  description: |
+    Holo4-35B-A3B is H Company's Qwen3.6 MoE fine-tune for computer use,
+    with 35B total and 3B active parameters. This Q4_K_M GGUF includes
+    the F16 vision projector for screenshot understanding and uses the embedded
+    chat template. An external agent harness must execute computer actions.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/holo4-35b-a3b/q4/mmproj.f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/holo4-35b-a3b/q4/q4_k_m.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/holo4-35b-a3b/q4/q4_k_m.gguf
+      sha256: 4c51212a4b5673d6a4215b9d708cd1730f1b6b4dbb5f75552df18de8341ce669
+      uri: https://huggingface.co/Hcompany/Holo4-35B-A3B-GGUF/resolve/93400a4734519493de4f49910de1f6e0e24be46b/q4_k_m.gguf
+    - filename: llama-cpp/models/holo4-35b-a3b/q4/mmproj.f16.gguf
+      sha256: e1076d4179a6d82dbc7f129f043ac5cb03e4584ef5c1ed4a0c31eca5d1a187e4
+      uri: https://huggingface.co/Hcompany/Holo4-35B-A3B-GGUF/resolve/93400a4734519493de4f49910de1f6e0e24be46b/mmproj.f16.gguf
+- name: holo4-35b-a3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Hcompany/Holo4-35B-A3B
+    - https://huggingface.co/mradermacher/Holo4-35B-A3B-GGUF
+  description: |
+    Holo4-35B-A3B is H Company's Qwen3.6 MoE fine-tune for computer use,
+    with 35B total and 3B active parameters. This Q8_0 GGUF includes
+    the F16 vision projector for screenshot understanding and uses the embedded
+    chat template. An external agent harness must execute computer actions.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/holo4-35b-a3b/q8/Holo4-35B-A3B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/holo4-35b-a3b/q8/Holo4-35B-A3B.Q8_0.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/holo4-35b-a3b/q8/Holo4-35B-A3B.Q8_0.gguf
+      sha256: 1c954f44abc3d6a3953cbc99fba33042761adf5ef5aa9e380f7ec30099fa75df
+      uri: https://huggingface.co/mradermacher/Holo4-35B-A3B-GGUF/resolve/ee1e4e064ef283aee440f5518303b7b0fe91cfd9/Holo4-35B-A3B.Q8_0.gguf
+    - filename: llama-cpp/models/holo4-35b-a3b/q8/Holo4-35B-A3B.mmproj-f16.gguf
+      sha256: 9fe08693f0ae3c02b3ef76a2762475366c98dcdced879ff90e8258734b5bf6d1
+      uri: https://huggingface.co/mradermacher/Holo4-35B-A3B-GGUF/resolve/ee1e4e064ef283aee440f5518303b7b0fe91cfd9/Holo4-35B-A3B.mmproj-f16.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

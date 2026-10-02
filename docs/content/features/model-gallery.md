@@ -438,6 +438,29 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+### Holo4-35B-A3B for computer use
+
+[Holo4-35B-A3B](https://huggingface.co/Hcompany/Holo4-35B-A3B) is a
+Qwen3.6 MoE fine-tune from H Company, released under Apache-2.0. The gallery
+provides Q4_K_M and Q8_0 GGUF builds for llama.cpp. Both include an F16 vision
+projector, use the embedded chat template, and default to a 32,768-token context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install holo4-35b-a3b
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install holo4-35b-a3b --variant holo4-35b-a3b-q8
+```
+
+The model can interpret screenshots and request tool calls. An external agent
+harness, such as [hai-agents](https://github.com/hcompai/hai-agents-python),
+must execute clicks, typing, and other computer actions.
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
