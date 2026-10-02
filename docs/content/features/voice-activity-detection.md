@@ -93,9 +93,33 @@ name: silero-vad
 backend: silero-vad
 ```
 
+Detection parameters can be overridden via model `options` (`key:value` entries):
+
+```yaml
+name: silero-vad
+backend: silero-vad
+options:
+  - threshold:0.55
+  - min_silence_duration_ms:50
+  - speech_pad_ms:450
+```
+
+Supported options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `threshold` | float | `0.5` | Speech probability threshold |
+| `min_silence_duration_ms` | int | `100` | Minimum silence before ending a speech segment |
+| `speech_pad_ms` | int | `30` | Padding added around each speech segment |
+
+Thresholds must be greater than 0 and less than 1. Durations must be nonnegative integers.
+Malformed values, negative durations, and NaN thresholds are ignored; the default or last valid value remains in use.
+
+Reload the model (or restart LocalAI) after changing these options.
+
 ## Detection Parameters
 
-The Silero VAD backend uses the following internal defaults:
+The Silero VAD backend uses the following internal defaults (overridable via `options` above):
 
 - **Sample rate:** 16kHz
 - **Threshold:** 0.5
