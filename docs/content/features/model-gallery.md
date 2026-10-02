@@ -39,6 +39,27 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Twin-Turbo Fable 709-L 27B
+
+Twin-Turbo Fable Cold Fusion 709-L is DavidAU's Qwen3.8 fine-tune for reasoning, coding, and creative writing.
+The gallery includes NEO Q4_K_M and Q8_0 GGUF builds for llama.cpp.
+Both include the F16 vision projector and use the embedded chat template with a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-twin-turbo-fable-709-l
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-twin-turbo-fable-709-l --variant qwen3.8-27b-twin-turbo-fable-709-l-q8
+```
+
+These entries use the regular NEO weights and do not enable MTP speculative decoding.
+See the [model card](https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored-NM-DAU-NEO-MTP-GGUF) for reasoning controls and the Apache-2.0 license.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
