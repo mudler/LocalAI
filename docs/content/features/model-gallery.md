@@ -86,6 +86,22 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Swift 1.5 Qwen3.8 Flash Next
+
+Install `swift-1.5-qwen3.8-flash-next` for reasoning, coding, and image chat with llama.cpp.
+The gallery groups Q4_K_M and Q8_0 builds; both include the BF16 vision projector.
+To select a build explicitly:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-flash-next --variant swift-1.5-qwen3.8-flash-next-q8
+```
+
+Both builds use the embedded chat template and a 32,768-token default context.
+All weight shards and the projector are pinned to one Hugging Face revision with SHA256 checksums.
+See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF)
+and [license](https://huggingface.co/ukisai/Swift-Qwen3.8-Flash-Next/blob/main/LICENSE)
+for the Swift and underlying Qwen usage terms.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

@@ -1811,6 +1811,132 @@
     - filename: llama-cpp/mmproj/huihui-qwen3.8-flash-next-abliterated-q4/mmproj-model-bf16.gguf
       uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/mmproj-model-bf16.gguf
       sha256: dbac7334a8a433abd6cd1d1db82398ba123faa2f328696da20848e605e645ca1
+- name: swift-1.5-qwen3.8-flash-next
+  variants:
+    - model: swift-1.5-qwen3.8-flash-next-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-Flash-Next
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-Flash-Next/blob/main/LICENSE
+  description: |
+    Swift 1.5 is UkisAI's Qwen3.8-Flash-Next derivative for reasoning, coding, and vision tasks with shorter thinking traces.
+    This Q4_K_M GGUF build includes the BF16 vision projector and uses the embedded chat template with a 32K default context.
+    Weights are subject to Swift Open License v1.0 and the underlying Qwen Community License 1.0.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - coding
+    - vision
+    - multimodal
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/swift-1.5-qwen3.8-flash-next/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00001-of-00003.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00001-of-00003.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q4_K_M/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00001-of-00003.gguf
+      sha256: 994d3e3303eba363662dfc513e5fdb0c9802df141b456e4ad0200888a31b3d94
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00002-of-00003.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q4_K_M/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00002-of-00003.gguf
+      sha256: 2fcea3b32795ea415a2a58fb6d81829de3d4f195d6d14ab1f62a382765140a80
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00003-of-00003.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q4_K_M/Swift-1.5-Qwen3.8-Flash-Next-Q4_K_M-00003-of-00003.gguf
+      sha256: 479377e61b50d8542627f99219480f37aeeafa7fcb6cf4f530f56642c60feaa1
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: cd1140f4abba943ce8d9fa92fed8407e389954d26907efde7b72153c75bd8a60
+- name: swift-1.5-qwen3.8-flash-next-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-Flash-Next
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-Flash-Next/blob/main/LICENSE
+  description: |
+    Swift 1.5 is UkisAI's Qwen3.8-Flash-Next derivative for reasoning, coding, and vision tasks with shorter thinking traces.
+    This Q8_0 GGUF build includes the BF16 vision projector and uses the embedded chat template with a 32K default context.
+    Weights are subject to Swift Open License v1.0 and the underlying Qwen Community License 1.0.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - coding
+    - vision
+    - multimodal
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/swift-1.5-qwen3.8-flash-next/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00001-of-00005.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00001-of-00005.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q8_0/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00001-of-00005.gguf
+      sha256: faaae3162c70d3970d18c2e74702adf090f4c71801f59ff7e7753fd207d29a2e
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00002-of-00005.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q8_0/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00002-of-00005.gguf
+      sha256: 8aeb4c8e478809a91b2094f61ba276265d10425d036a3a9c5c9959ea650858d4
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00003-of-00005.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q8_0/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00003-of-00005.gguf
+      sha256: 85f477cd99f6070315d4dcc80fd1956dfe94a0795ee9885bdccce27eac1d15ba
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00004-of-00005.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q8_0/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00004-of-00005.gguf
+      sha256: 297389c30cdffe92a6970a59f767bf835b906fa68914ee361493e150bfdc9a2d
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00005-of-00005.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/Q8_0/Swift-1.5-Qwen3.8-Flash-Next-Q8_0-00005-of-00005.gguf
+      sha256: cad9c5a60edc7697b28da03b38d1f41aeeca9ae809d242919c540db7c5de80f8
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-flash-next/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GGUF/resolve/0142554c963a8653912c0c8283f05f13f63653f3/mmproj-Swift-1.5-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: cd1140f4abba943ce8d9fa92fed8407e389954d26907efde7b72153c75bd8a60
 - &qwen3-8-flash-next
   name: "qwen3.8-flash-next-q4"
   variants:
