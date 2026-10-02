@@ -1,4 +1,151 @@
 ---
+- name: qwen3.8-27b-agention-ap
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: qwen3.8-27b-agention-ap-iq2-s
+    - model: qwen3.8-27b-agention-ap-q4-k-xl
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF
+  description: |
+    Agention Precision is a mixed-precision GGUF quantization of Qwen3.8-27B
+    for reasoning, coding, and image input. This IQ4_XS build includes the
+    BF16 vision projector and uses the embedded chat template.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: agention-qwen3.8-27b-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.8-27B-AP-IQ4_XS.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Qwen3.8-27B-AP-IQ4_XS.gguf
+      sha256: 2074fd5c3c7f6540913c2f62ad02c50b3f7dde7880d18b3acb02432f2edcab67
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/Qwen3.8-27B-AP-IQ4_XS.gguf
+    - filename: agention-qwen3.8-27b-mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/mmproj-BF16.gguf
+- name: qwen3.8-27b-agention-ap-iq2-s
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF
+  description: |
+    Agention Precision is a mixed-precision GGUF quantization of Qwen3.8-27B
+    for reasoning, coding, and image input. This IQ2_S build includes the
+    BF16 vision projector and uses the embedded chat template.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: agention-qwen3.8-27b-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.8-27B-AP-IQ2_S.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Qwen3.8-27B-AP-IQ2_S.gguf
+      sha256: daf741050fd1dd35a88e035d0b69a0bdd6e01f83d6f7ed0b722b7c88487ebf89
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/Qwen3.8-27B-AP-IQ2_S.gguf
+    - filename: agention-qwen3.8-27b-mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/mmproj-BF16.gguf
+- name: qwen3.8-27b-agention-ap-q4-k-xl
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF
+  description: |
+    Agention Precision is a mixed-precision GGUF quantization of Qwen3.8-27B
+    for reasoning, coding, and image input. This Q4_K_XL build includes the
+    BF16 vision projector and uses the embedded chat template.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: agention-qwen3.8-27b-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.8-27B-AP-Q4_K_XL.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Qwen3.8-27B-AP-Q4_K_XL.gguf
+      sha256: 5490390fa01335062247d4f43190a6659117e3c388b26260b81285531edc3dfc
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/Qwen3.8-27B-AP-Q4_K_XL.gguf
+    - filename: agention-qwen3.8-27b-mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/b51f047c2342c2e5e48ca8c442fac0865d109111/mmproj-BF16.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
