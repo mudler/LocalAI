@@ -1,51 +1,40 @@
-package schema
+package schema_test
 
 import (
 	"encoding/json"
-	"reflect"
-	"testing"
+
+	"github.com/mudler/LocalAI/core/schema"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestSystemOnePreservesStructuredInput(t *testing.T) {
-	for _, input := range []string{
-		`{"state":{"messages":[{"content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]}]},"questions":{"q":{"type":"choice","instructions":{"text":"choose"},"criteria":{"yes":null,"no":"negative"}}},"images":["data:image/png;base64,AA=="]}`,
-		`{"state":"text","questions":{},"images":[]}`,
-		`{"state":"text","questions":{},"images":null}`,
-		`{"state":"text","questions":{}}`,
-	} {
-		t.Run(input, func(t *testing.T) {
-			var req SystemOneRequest
-			if err := json.Unmarshal([]byte(input), &req); err != nil {
-				t.Fatal(err)
-			}
+var _ = Describe("SystemOne input preservation", func() {
+	It("preserves structured input and absent, null, or empty images semantically", func() {
+		for _, input := range []string{
+			`{"state":{"messages":[{"content":[{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]}]},"questions":{"q":{"type":"choice","instructions":{"text":"choose"},"criteria":{"yes":null,"no":"negative"}}},"images":["data:image/png;base64,AA=="]}`,
+			`{"state":"text","questions":{},"images":[]}`,
+			`{"state":"text","questions":{},"images":null}`,
+			`{"state":"text","questions":{}}`,
+		} {
+			var req schema.SystemOneRequest
+			Expect(json.Unmarshal([]byte(input), &req)).To(Succeed())
 			output, err := json.Marshal(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var want, got map[string]interface{}
-			json.Unmarshal([]byte(input), &want)
-			json.Unmarshal(output, &got)
-			if !reflect.DeepEqual(want, got) {
-				t.Fatalf("round trip changed input: want %s, got %s", input, output)
-			}
-		})
-	}
-}
-
-func TestSystemOnePermutePreservesImages(t *testing.T) {
-	input := `{"request":{"state":"text","questions":{},"images":[{"url":"data:image/png;base64,AA=="}]},"question":"q"}`
-	var req SystemOnePermuteRequest
-	if err := json.Unmarshal([]byte(input), &req); err != nil {
-		t.Fatal(err)
-	}
-	output, err := json.Marshal(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var want, got interface{}
-	json.Unmarshal([]byte(input), &want)
-	json.Unmarshal(output, &got)
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("round trip changed request: %s", output)
-	}
-}
+			Expect(err).NotTo(HaveOccurred())
+			var want, got any
+			Expect(json.Unmarshal([]byte(input), &want)).To(Succeed())
+			Expect(json.Unmarshal(output, &got)).To(Succeed())
+			Expect(got).To(Equal(want))
+		}
+	})
+	It("preserves images in permute requests semantically", func() {
+		input := `{"request":{"state":"text","questions":{},"images":[{"url":"data:image/png;base64,AA=="}]},"question":"q"}`
+		var req schema.SystemOnePermuteRequest
+		Expect(json.Unmarshal([]byte(input), &req)).To(Succeed())
+		output, err := json.Marshal(req)
+		Expect(err).NotTo(HaveOccurred())
+		var want, got any
+		Expect(json.Unmarshal([]byte(input), &want)).To(Succeed())
+		Expect(json.Unmarshal(output, &got)).To(Succeed())
+		Expect(got).To(Equal(want))
+	})
+})

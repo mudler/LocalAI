@@ -9,7 +9,7 @@ type SystemOneRequest struct {
 	// State is the text (or any JSON value) to extract from. A non-string
 	// value is rendered to its JSON representation before NER.
 	State json.RawMessage `json:"state"`
-	// Images is preserved verbatim for backend-specific validation. RawMessage
+	// Images preserves JSON values for backend-specific validation. RawMessage
 	// distinguishes absence from explicit null and an empty array. Unsupported
 	// image input must be rejected, never silently discarded.
 	Images json.RawMessage `json:"images,omitempty"`
