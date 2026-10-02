@@ -564,6 +564,72 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: qwen3.5-9b-lukey03-abliterated
+  variants:
+    - model: qwen3.5-9b-lukey03-abliterated-f16
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/lukey03/Qwen3.5-9B-abliterated
+    - https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF
+  description: |
+    A 9B Qwen3.5 derivative by lukey03, modified through refusal ablation
+    and LoRA fine-tuning. This text-only Q4_K_M GGUF build uses llama.cpp
+    with the embedded chat template and a 32K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - abliterated
+  last_checked: "2026-10-01"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-lukey03-abliterated/Qwen3.5-9B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-lukey03-abliterated/Qwen3.5-9B-abliterated-Q4_K_M.gguf
+      uri: https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF/resolve/dac35c6385d79a6a9fe113d7a3b730348791d37f/Qwen3.5-9B-abliterated-Q4_K_M.gguf
+      sha256: dba64d0e5cce0739e27535ee0a6b75249eb8006ce8b2d6c060e20750035c4695
+- name: qwen3.5-9b-lukey03-abliterated-f16
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/lukey03/Qwen3.5-9B-abliterated
+    - https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF
+  description: |
+    A 9B Qwen3.5 derivative by lukey03, modified through refusal ablation
+    and LoRA fine-tuning. This text-only F16 GGUF build uses llama.cpp
+    with the embedded chat template and a 32K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - abliterated
+  last_checked: "2026-10-01"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-lukey03-abliterated/Qwen3.5-9B-abliterated-F16.gguf
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-lukey03-abliterated/Qwen3.5-9B-abliterated-F16.gguf
+      uri: https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF/resolve/dac35c6385d79a6a9fe113d7a3b730348791d37f/Qwen3.5-9B-abliterated-F16.gguf
+      sha256: 6f1af44a2c8bc8b9dcf68cddee30227d1f17f70bf6360be7fd1d45094042ef6f
 - name: mimo-v2.6-distill-qwen-9b
   variants:
     - model: mimo-v2.6-distill-qwen-9b-q8
