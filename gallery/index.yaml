@@ -11718,6 +11718,141 @@
     - filename: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q8_0.gguf
       sha256: 855be85429300602eda72958547614703541b7d6dd965a8f8f6052b85a7aa935
       uri: https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF/resolve/main/LFM2.5-230M-Q8_0.gguf
+- name: lfm2.5-2.6b-turbo-brilliance
+  variants:
+    - model: lfm2.5-2.6b-turbo-brilliance-q6
+    - model: lfm2.5-2.6b-turbo-brilliance-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF
+  description: |
+    DavidAU's Turbo Brilliance edition of LiquidAI's LFM2.5-2.6B text model
+    includes a custom chat template with selectable reasoning and instruction modes.
+    This NEO-MAX IQ4_XS GGUF build uses llama.cpp with a 32K-token default context.
+    The weights retain the LFM Open License v1.0 metadata from the base model.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - text-generation
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
+      uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
+      sha256: 9b8f0f2a602dd160cb841da273ee33ecb8ca5386d4bd46f59fbb20191d0303f7
+- name: lfm2.5-2.6b-turbo-brilliance-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF
+  description: |
+    DavidAU's Turbo Brilliance edition of LiquidAI's LFM2.5-2.6B text model
+    includes a custom chat template with selectable reasoning and instruction modes.
+    This NEO-MAX Q6_K GGUF build uses llama.cpp with a 32K-token default context.
+    The weights retain the LFM Open License v1.0 metadata from the base model.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - text-generation
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
+      uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
+      sha256: f55f86ac8f456807834b5f97f8f25c9c057b59ae7741bc546be10c2068416bd6
+- name: lfm2.5-2.6b-turbo-brilliance-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF
+  description: |
+    DavidAU's Turbo Brilliance edition of LiquidAI's LFM2.5-2.6B text model
+    includes a custom chat template with selectable reasoning and instruction modes.
+    This NEO-MAX Q8_0 GGUF build uses llama.cpp with a 32K-token default context.
+    The weights retain the LFM Open License v1.0 metadata from the base model.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - text-generation
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
+      uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
+      sha256: 524dbaa84e79279977f62978a12f4d97c76e30a2c3976f7f21ed78e73e4b837e
 - &lfm2-5-2-6b
   name: "lfm2.5-2.6b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
