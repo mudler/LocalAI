@@ -1,4 +1,101 @@
 ---
+- name: "qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: "apache-2.0"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill
+    - https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF
+  description: |
+    IsValorum's abliterated Qwen3.8-35B-A3B-Distill uses mixed-precision APEX-I-MiniPlus V2.1 GGUF weights.
+    This 35B MoE reasoning model includes a Q8_0 vision projector.
+    The publisher reports repetition during very long responses in the upstream Distill checkpoint.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.05
+      repeat_penalty: 1
+      presence_penalty: 0
+      frequency_penalty: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+      sha256: 0dae47840f8115d894e74c5cd1a6aca27e01feaa4f07890a50bdcf7db4c56227
+      uri: https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF/resolve/8d8d1724acac089556b26c5c36258ed80df4693d/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mmproj-Q8_0.gguf
+      sha256: d526b0a3910992e2af1cf56aae8785f7f38942e7a875e60590f7049b5c7112ca
+      uri: https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF/resolve/8d8d1724acac089556b26c5c36258ed80df4693d/mmproj-Q8_0.gguf
+  variants:
+    - model: qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated-mtp
+- name: "qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  license: "apache-2.0"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill
+    - https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF
+  description: |
+    IsValorum's abliterated Qwen3.8-35B-A3B-Distill uses mixed-precision APEX-I-MiniPlus V2.1 GGUF weights.
+    This 35B MoE reasoning model includes a Q8_0 vision projector and enables MTP with a separate Q8_0 draft head.
+    The publisher reports repetition during very long responses in the upstream Distill checkpoint.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+    - speculative
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mtp-Qwen3.8-35B-A3B-Distill-Q8_0.gguf
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.05
+      repeat_penalty: 1
+      presence_penalty: 0
+      frequency_penalty: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+      sha256: 0dae47840f8115d894e74c5cd1a6aca27e01feaa4f07890a50bdcf7db4c56227
+      uri: https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF/resolve/8d8d1724acac089556b26c5c36258ed80df4693d/Qwen3.8-35B-A3B-Distill.APEX-I-MiniPlus-V2.1-Abliterated.gguf
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mmproj-Q8_0.gguf
+      sha256: d526b0a3910992e2af1cf56aae8785f7f38942e7a875e60590f7049b5c7112ca
+      uri: https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF/resolve/8d8d1724acac089556b26c5c36258ed80df4693d/mmproj-Q8_0.gguf
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated/mtp-Qwen3.8-35B-A3B-Distill-Q8_0.gguf
+      sha256: 6dc07405819c36492fc32ce40a2c709f647e0d2284facbbb6cca72b929e25021
+      uri: https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF/resolve/8d8d1724acac089556b26c5c36258ed80df4693d/mtp-Qwen3.8-35B-A3B-Distill-Q8_0.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
