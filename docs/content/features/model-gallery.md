@@ -23,6 +23,21 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Humanlike Chat 27B
+
+Humanlike Chat is a text-only Qwen3.8 adaptation for roleplay and interactive fiction.
+The gallery groups Q4_K_M and Q8_0 GGUF builds for llama.cpp:
+
+```bash
+local-ai models install qwen3.8-27b-humanlike-chat
+local-ai models install qwen3.8-27b-humanlike-chat --variant qwen3.8-27b-humanlike-chat-q8
+```
+
+Both builds include the merged adapter and use the publisher's sampling preset,
+with thinking disabled and a 32768-token context. No separate adapter or vision
+projector is required. The weights use Apache-2.0; see the
+[publisher's model card](https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF).
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
