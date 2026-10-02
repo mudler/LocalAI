@@ -324,3 +324,7 @@ has actually gone away; a client that waits receives the full context worth of
 tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 `1` so a repetition loop terminates on its own.
 {{% /notice %}}
+
+### Motion capture
+
+- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture](/features/motion/).

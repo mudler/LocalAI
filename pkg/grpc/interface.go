@@ -13,6 +13,7 @@ type AnimationMetadataModel interface {
 }
 
 type AIModel interface {
+	MotionStream(context.Context, func() (*pb.MotionRequest, error), func(*pb.MotionResponse) error) error
 	Busy() bool
 	Lock()
 	Unlock()

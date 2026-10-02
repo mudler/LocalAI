@@ -3,7 +3,8 @@
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
-    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "filters": {
+    "motion": "Motion Capture", "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
     "installed": {
       "searchPlaceholder": "Search installed models",
       "count": "{{shown}} of {{total}}",
@@ -82,6 +83,7 @@
     "delete": "Delete"
   },
   "filters": {
+    "motion": "Motion Capture",
     "all": "All",
     "llm": "Chat",
     "image": "Image",

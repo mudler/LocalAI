@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+syntax = "proto3";
+package localai.motion.v1;
+option go_package = "github.com/mudler/LocalAI/pkg/motion/proto;motionpb";
+
+// Public protocol, independent of LocalAI's internal backend service.
+// All float arrays are joint-major, component-minor packed float32.
+message Input {
+  oneof payload {
+    Frame frame = 1;
+    bool reset_state = 2;
+  }
+}
+message Frame {
+  uint64 sequence = 1;
+  int64 source_time_us = 2; // Nonnegative, relative to caller-declared origin.
+  bytes rgb = 3; // Tightly packed RGB8, width*height*3 bytes.
+  uint32 width = 4;
+  uint32 height = 5;
+  repeated float subject_box = 6; // Optional source-pixel XYXY, exactly 4 values.
+  uint64 subject_id = 7;
+}
+message Definition {
+  string schema = 1;
+  repeated string joint_names = 2;
+  repeated sint32 parents = 3;
+  uint32 root = 4;
+  repeated float rest_local_translations = 5;
+  repeated float rest_local_rotations = 6;
+  // Coordinate/shape/timing conventions only; never model paths.
+  map<string, string> conventions = 7;
+  string profile = 8;
+  repeated string channels = 9;
+}
+message Pose {
+  uint64 sequence = 1;
+  int64 source_time_us = 2;
+  uint64 epoch = 3;
+  uint64 track_epoch = 4;
+  uint32 flags = 5; // 1 reset, 2 reused crop, 4 full image, 8 detector, 16 caller box.
+  repeated float positions = 6;
+  repeated float local_rotations = 7; // SOMA XYZW; absent for SMPL.
+  repeated float local_translations = 8;
+  repeated float anchor = 9; // SMPL WXYZ; absent for SOMA.
+  repeated float root_axis_angle = 10; // SOMA radians; absent for SMPL.
+  repeated float root_translation = 11; // Zero; no world trajectory recovery.
+  repeated float box = 12;
+  // Optional source-image pixel XY pairs in Definition.joint_names order.
+  // Upper-left origin, +X right, +Y down; no mirroring or crop transform.
+  // Same submitted Frame sequence/time and dimensions. Empty if not projectable.
+  repeated float image_positions = 13;
+  // Optional SMPL-only closed-interval displacement, metres in the END pose's
+  // anchor-local basis. Rotate by anchor for gravity-aligned Z-up displacement.
+  // Not velocity. Interval is [displacement_start_time_us, source_time_us].
+  // Empty when unsupported. Consumers must fence epochs and missing intervals;
+  // no absolute world position or contact-refined trajectory is implied.
+  repeated float root_displacement = 14;
+  int64 displacement_start_time_us = 15;
+}
+message Event {
+  string type = 1; // warmup, lost, ambiguous, reset, error, closed
+  string message = 2;
+  uint64 sequence = 3;
+  int64 source_time_us = 4;
+  uint64 epoch = 5;
+  uint64 track_epoch = 6;
+  uint32 flags = 7;
+}
+message Output {
+  oneof payload {
+    Definition definition = 1;
+    Pose pose = 2;
+    Event event = 3;
+  }
+}

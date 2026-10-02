@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"syscall"
 
@@ -82,9 +83,11 @@ var _ = Describe("Stopping a backend whose Free never returns", func() {
 		// actually dead afterwards, not merely that Stop() returned. It
 		// outlives every timeout below, so if it is gone at the end it is
 		// because the supervisor signalled it.
+		sleepPath, err := exec.LookPath("sleep")
+		Expect(err).NotTo(HaveOccurred())
 		proc = process.New(
 			process.WithTemporaryStateDir(),
-			process.WithName("/bin/sleep"),
+			process.WithName(sleepPath),
 			process.WithArgs("300"),
 		)
 		Expect(proc.Run()).To(Succeed())
