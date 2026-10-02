@@ -62,6 +62,10 @@ import (
 //	                         model output into ChatDelta.tool_calls.
 //	                         "image" exercises the GenerateImage RPC and asserts a
 //	                         non-empty file is written to the requested dst path.
+//	                         "context_overflow" streams a prompt longer than the
+//	                         context and asserts the backend fails the stream with
+//	                         an error status WITHOUT first sending the error text as
+//	                         a content chunk (which clients would read as model output).
 //	                         "long_prefill" sends a prompt long enough to span more
 //	                         than one prefill batch and asserts the answer still
 //	                         reflects the prompt. Catches GPU backends whose kernels
@@ -98,6 +102,7 @@ const (
 	capLoad           = "load"
 	capPredict        = "predict"
 	capStream         = "stream"
+	capCtxOverflow    = "context_overflow"
 	capEmbeddings     = "embeddings"
 	capTools          = "tools"
 	capTranscription  = "transcription"
@@ -538,6 +543,39 @@ var _ = Describe("Backend container", Ordered, func() {
 				"first content token was duplicated: %v", firstChunks)
 		}
 		GinkgoWriter.Printf("Stream: %d chunks, combined=%q\n", chunks, combined)
+	})
+
+	It("fails a stream whose prompt exceeds the context without emitting content", func() {
+		if !caps[capCtxOverflow] {
+			Skip("context_overflow capability not enabled")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		// Far more tokens than any test context (default 512).
+		stream, err := client.PredictStream(ctx, &pb.PredictOptions{
+			Prompt: strings.Repeat("overflow ", 8*int(envInt32("BACKEND_TEST_CTX_SIZE", 512))+64),
+			Tokens: 8,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		var content string
+		var streamErr error
+		for {
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				streamErr = err
+				break
+			}
+			content += string(msg.GetMessage())
+		}
+		Expect(streamErr).To(HaveOccurred(), "an over-long prompt must fail the stream")
+		Expect(streamErr.Error()).To(ContainSubstring("exceeds the available context size"))
+		// Before the fix the backend wrote the error text as a Reply message
+		// first. LocalAI forwarded it as assistant content on a 200 stream.
+		Expect(content).To(BeEmpty(), "error text was streamed as content: %q", content)
 	})
 
 	// Logprobs: backends that wire OpenAI-compatible logprobs return a
