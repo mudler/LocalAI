@@ -141,22 +141,8 @@ else ifeq ($(BUILD_TYPE),metal)
 	CMAKE_ARGS+=-DGGML_METAL=ON
 endif
 
-# ggml-patches/ is a CUDA series. Every kernel it adds lives under
-# src/ggml-cuda/; the only files it touches outside that directory are enum and
-# name-table entries in include/ggml.h and src/ggml.c plus, in ggml-cpu, a
-# supports_op returning false and an abort case for the CUDA-only op. Upstream
-# agrees: its metal-* and vulkan-* CMake presets inherit the cpu-* ones, which
-# set NEMO_SPEECH_GGML_PATCHED=OFF, and every use of a patch-only symbol in the
-# ASR sources sits behind NEMO_SPEECH_FUSED_RELPOS_ATTN /
-# NEMO_SPEECH_FASTCONFORMER_CUDA_FUSIONS (both force-OFF without GGML_CUDA) or
-# behind NEMO_SPEECH_GGML_PATCHED itself, which guards a Q8_PLANAR flag write
-# that a non-CUDA buffer already throws before reaching.
-#
-# So on macOS the series buys nothing, and it cannot be applied there anyway:
-# upstream's scripts/apply-ggml-patches.sh uses mapfile, a bash 4 builtin, and
-# macOS ships bash 3.2 as the only bash on the runner's PATH. Skip the patch
-# step and tell cmake the linked ggml is stock, which is exactly upstream's own
-# Metal configuration. Linux keeps applying the series unchanged.
+# Upstream CMake applies patches/ to a build-local copy of llama.cpp, which
+# also provides ggml. Keep the existing unpatched Metal configuration.
 ifeq ($(shell uname -s),Darwin)
 	GGML_PATCHED?=OFF
 else
@@ -164,7 +150,7 @@ else
 endif
 CMAKE_ARGS+=-DNEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED)
 
-.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn sentencepiece patch-itn-headers
+.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs engine itn sentencepiece patch-itn-headers
 
 all: nemo-speech-cpp-grpc package
 
@@ -175,28 +161,7 @@ sources/NeMo-Speech.cpp:
 	# NMT links llama.cpp; ja needs open_jtalk; zh needs cppjieba. flashlight and
 	# kenlm are deliberately not initialized, they are out of scope.
 	cd sources/NeMo-Speech.cpp && git submodule update --init --recursive \
-		ggml llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
-
-# NEMO_SPEECH_GGML_PATCHED defaults ON and silently assumes the ggml-patches
-# series is applied. An unpatched checkout builds fine and produces wrong CUDA
-# encoder output, so a failure here must stop the build rather than warn.
-#
-# Upstream's own script is the right tool: it applies the series in filename
-# order, exits non-zero when a patch does not apply, and decides "already
-# applied" by comparing the full-series tree hash rather than a timestamp. That
-# makes it safe to run unconditionally, so there is no sentinel file to go stale
-# or to wedge the build when deleted.
-#
-# Both branches keep the order-only clone prerequisite: it is the only thing
-# that pulls sources/ in on a WITH_NORM=OFF tree, where the library rule has no
-# other prerequisite left.
-ifeq ($(GGML_PATCHED),ON)
-patch-ggml: | sources/NeMo-Speech.cpp
-	cd sources/NeMo-Speech.cpp && bash scripts/apply-ggml-patches.sh
-else
-patch-ggml: | sources/NeMo-Speech.cpp
-	@echo "[ggml-patch] skipped: NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED), the series is CUDA-only"
-endif
+		llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
 
 # The Sparrowhawk/OpenFST text-normalization stack, as a target in its own right
 # keyed on a file the build script actually produces.
@@ -305,10 +270,8 @@ endif
 # Upstream sets CMAKE_LIBRARY_OUTPUT_DIRECTORY to ${CMAKE_BINARY_DIR}/bin, so the
 # shared objects land in build/bin rather than at the top of the build tree.
 #
-# patch-ggml is order-only: it is phony and therefore always runs, but an
-# order-only prerequisite does not mark this target out of date, so an
-# already-built tree is not relinked on every invocation.
-sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so: $(NEMO_RUNTIME_PREREQS) | patch-ggml
+# WITH_NORM=OFF still needs the pinned source checkout before configuration.
+sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so: $(NEMO_RUNTIME_PREREQS) | sources/NeMo-Speech.cpp
 	cd sources/NeMo-Speech.cpp && cmake -B build -G Ninja $(CMAKE_ARGS)
 	cd sources/NeMo-Speech.cpp && cmake --build build -j$(JOBS)
 
