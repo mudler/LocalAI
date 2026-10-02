@@ -60,6 +60,15 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## Dolphin3-Cyber-8B
+
+Install `dolphin3-cyber-8b` for cybersecurity chat with llama.cpp.
+The gallery offers Q4_K_M and Q8_0 GGUF builds as variants.
+To select Q8 explicitly, run `local-ai models install dolphin3-cyber-8b --variant dolphin3-cyber-8b-q8`.
+
+The default context is 2,048 tokens, matching the fine-tuning context reported in the [model card](https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF).
+The model uses the Llama 3.1 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
