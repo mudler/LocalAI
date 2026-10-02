@@ -160,6 +160,21 @@ To select a specific build, use `local-ai models install hemmingway-1 --variant 
 The configurations default to 32,768 context tokens. Increase the context size only if available memory permits.
 The [model license](https://huggingface.co/Altworld/Hemmingway-1) is CC BY-NC 4.0; commercial use requires a separate agreement.
 
+### Hemmingway-1 Heretic
+
+Install `hemmingway-1-heretic` for the version with the merged Heretic adapter.
+This English text model uses llama.cpp with the embedded chat template and a 32,768-token default context.
+The gallery groups its Q4_K_M and Q8_0 builds as variants:
+
+```bash
+local-ai models install hemmingway-1-heretic
+local-ai models install hemmingway-1-heretic --variant hemmingway-1-heretic-q8
+```
+
+Both downloads are pinned to a Hugging Face revision and verified with SHA256.
+The [publisher's model card](https://huggingface.co/Abiray/Hemmingway-1-heretic-GGUF) specifies CC BY-NC 4.0.
+Commercial use requires a separate agreement with Altworld.
+
 ## Qwen-Image 2.1
 
 For image generation, install `qwen-image-2.1-q4_k-ggml` or its `qwen-image-2.1-q8_0-ggml` variant.
