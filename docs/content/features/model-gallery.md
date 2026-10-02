@@ -902,3 +902,25 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## Swift 1.5 Qwen3.8 27B Uncensored MTP
+
+Ajgazin's abliterated Swift 1.5 model supports text and image chat with llama.cpp.
+The gallery offers UD-Q4_K_XL and UD-Q8_K_XL builds with a BF16 vision projector.
+Both enable MTP speculative decoding and use the embedded chat template with a 32,768-token default context.
+The weights use [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b/blob/main/LICENSE).
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-uncensored-mtp
+```
+
+To select UD-Q8_K_XL explicitly:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-uncensored-mtp --variant swift-1.5-qwen3.8-27b-uncensored-mtp-q8
+```
+
+See the [source model](https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-MTP)
+and [GGUF model card](https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF).
