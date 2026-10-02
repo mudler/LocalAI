@@ -6912,6 +6912,78 @@
     - filename: llama-cpp/models/qwen3.8-2b/Qwen3.8-2B-Q8_0.gguf
       uri: huggingface://empero-ai/Qwen3.8-2B-GGUF/Qwen3.8-2B-Q8_0.gguf
       sha256: 866773b0d68f09a1db9733555e92daff85b617f9a2e601773dff494c5ca2bbf2
+- name: twil-lm3-pro-q4
+  variants:
+    - model: twil-lm3-pro-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+    - https://huggingface.co/webAI-Official/TwIL-LM3-Pro
+  description: |
+    TwIL-LM3-Pro is a 3.66B Granite 4.2 fine-tune for formal logic,
+    entailment, semantic parsing, and Lean formalization. This Q4_K_M GGUF
+    uses llama.cpp with the embedded reasoning template and greedy sampling.
+    The model license permits noncommercial research and educational use only.
+  license: "webai-non-commercial-license-ver.-1.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - formal-logic
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q4_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q4_K_M.gguf
+      uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q4_K_M.gguf
+      sha256: 7a3edb4edbcf960f8282faa2b5f71ccd26e2a6bdbf1b4889179ff173cd13e161
+- name: twil-lm3-pro-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+    - https://huggingface.co/webAI-Official/TwIL-LM3-Pro
+  description: |
+    TwIL-LM3-Pro is a 3.66B Granite 4.2 fine-tune for formal logic,
+    entailment, semantic parsing, and Lean formalization. This Q8_0 GGUF
+    uses llama.cpp with the embedded reasoning template and greedy sampling.
+    The model license permits noncommercial research and educational use only.
+  license: "webai-non-commercial-license-ver.-1.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - formal-logic
+  last_checked: "2026-10-02"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q8_0.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q8_0.gguf
+      uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q8_0.gguf
+      sha256: 4b4ba4a94bc5cbe4783f43be3ae428be9b5d9e3dffb725c36ae4908d27067906
 - &twil-lm3
   name: "twil-lm3-q4"
   variants:
