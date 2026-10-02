@@ -101,6 +101,23 @@ These builds support text chat only: the publisher has no verified vision projec
 They use standard GGUF files without MTP decoding.
 See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
 
+## Sharp-MiniCPM5-2B
+
+Install Sharp-MiniCPM5-2B with the llama.cpp backend:
+
+```bash
+local-ai models install sharp-minicpm5-2b
+```
+
+LocalAI selects from Q4_K_S, Q6_K_XL, and Q8_K_M builds according to available memory.
+Use `--variant sharp-minicpm5-2b-q6` or `--variant sharp-minicpm5-2b-q8` to select a specific build.
+All builds use an 8,192-token default context and the embedded Sharp-MiniCPM chat template.
+The publisher's template adds a terseness instruction to the system prompt.
+Sampling defaults are temperature 1.0, top-p 0.95, top-k 20, and min-p 0.
+Keep min-p at 0: the publisher reports repetition with llama.cpp's 0.05 default.
+
+See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF) for quantization and template details.
+
 ## Sharp-Spark-X2.5-4B
 
 Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
