@@ -138,7 +138,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			reader = f
 			sourceName = path.Base(file.Filename)
 		}
-		defer reader.Close()
+		defer func() { _ = reader.Close() }()
 
 		dir, err := os.MkdirTemp("", "diarize")
 		if err != nil {

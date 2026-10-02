@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+//
+//nolint:errcheck,forbidigo // These focused HTTP harnesses use testing.T and assert response status inline.
 package localai_test
 
 import (

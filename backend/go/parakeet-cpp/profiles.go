@@ -8,7 +8,7 @@ import pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 func (p *ParakeetCpp) Status() (pb.StatusResponse, error) {
 	result, err := p.Base.Status()
 	if err != nil {
-		return result, err
+		return pb.StatusResponse{}, err
 	}
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
@@ -19,5 +19,9 @@ func (p *ParakeetCpp) Status() (pb.StatusResponse, error) {
 			result.SpeakerEncoder = &pb.SpeakerEncoder{Identity: goStringFromCPtr(identity), Dimension: dim}
 		}
 	}
-	return result, nil
+	return pb.StatusResponse{
+		State:          result.GetState(),
+		Memory:         result.GetMemory(),
+		SpeakerEncoder: result.GetSpeakerEncoder(),
+	}, nil
 }
