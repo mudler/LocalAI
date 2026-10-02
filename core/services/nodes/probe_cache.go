@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +34,7 @@ type probeCache struct {
 }
 
 // newProbeCache returns a probeCache with the given TTL. Zero TTL disables
-// caching: every call to DoOrCached invokes the probe.
+// caching: every call to DoOrCachedResult invokes the probe.
 func newProbeCache(ttl time.Duration) *probeCache {
 	return &probeCache{
 		ttl:  ttl,
@@ -68,27 +69,67 @@ func (c *probeCache) Invalidate(key string) {
 	delete(c.seen, key)
 }
 
-// DoOrCached returns true if key is fresh; otherwise it runs probe (coalescing
-// concurrent callers via singleflight) and caches a successful result. Failed
-// probes invalidate the cache, so a transient miss doesn't pin every
-// subsequent request to a re-probe.
-func (c *probeCache) DoOrCached(key string, probe func() bool) bool {
-	if c.IsFresh(key) {
-		return true
+// InvalidateNode drops every cached probe for nodeID.
+//
+// Keys are "<nodeID>|<addr>", so this is a prefix scan and not a lookup: a
+// departed worker that comes back with recycled ports would otherwise serve one
+// request per still-fresh address with no probe at all, which is the one moment
+// the cache is asked about a process that certainly is not the one it saw.
+func (c *probeCache) InvalidateNode(nodeID string) {
+	if nodeID == "" {
+		return
 	}
-	v, _, _ := c.flight.Do(key, func() (any, error) {
+	prefix := nodeID + "|"
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k := range c.seen {
+		if strings.HasPrefix(k, prefix) {
+			delete(c.seen, k)
+		}
+	}
+}
+
+// DoOrCachedResult returns true if key is fresh; otherwise it runs probe
+// (coalescing concurrent callers via singleflight) and caches a successful
+// result. Failed probes invalidate the cache, so a transient miss does not pin
+// every subsequent request to a re-probe.
+//
+// It is the ONLY entry point. A boolean-only sibling, DoOrCached, stood beside
+// it until probeHealth stopped using it, after which it was production code
+// held green by nothing but its own specs; the shim that reads it as a boolean
+// now lives in probe_cache_test.go, where its one caller is.
+//
+// The second result is the reason the probe never reached the backend, or nil
+// when it did.
+//
+// The second result travels through the SINGLEFLIGHT, which is the whole reason
+// it is not simply a variable the caller closes over. A closed-over variable is
+// only written by the goroutine that actually runs the probe; every other
+// caller coalesced into that flight adopts the leader's boolean and sees its own
+// unset variable, so the leader would correctly decline to reap while its
+// joiners reaped on the very same observation. Carrying it in singleflight's
+// error slot hands every joiner the leader's reason as well as its answer.
+//
+// A probe that could not reach the backend is NOT cached either way. Caching it
+// as fresh would hide a genuinely dead backend behind a network blip, and
+// caching it as a failure is what Invalidate already does.
+func (c *probeCache) DoOrCachedResult(key string, probe func() (bool, error)) (bool, error) {
+	if c.IsFresh(key) {
+		return true, nil
+	}
+	v, unreached, _ := c.flight.Do(key, func() (any, error) {
 		// Double-check after potentially waiting: another caller in this
 		// flight may have just populated the cache.
 		if c.IsFresh(key) {
 			return true, nil
 		}
-		ok := probe()
+		ok, unreached := probe()
 		if ok {
 			c.markFresh(key)
 		} else {
 			c.Invalidate(key)
 		}
-		return ok, nil
+		return ok, unreached
 	})
-	return v.(bool)
+	return v.(bool), unreached
 }

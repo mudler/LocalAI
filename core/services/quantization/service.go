@@ -40,7 +40,8 @@ type QuantizationService struct {
 	mu sync.Mutex
 
 	// jobs is the cross-replica job store: an in-memory map kept consistent across
-	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
+	// replicas over the deployment's fan-out carrier, optionally read-through to
+	// PostgreSQL in distributed mode.
 	jobs *syncstate.SyncedMap[string, *schema.QuantizationJob]
 
 	// progressMu guards progressSubs.
@@ -67,14 +68,19 @@ func isTerminalStatus(status string) bool {
 }
 
 // NewQuantizationService creates a new QuantizationService. In distributed mode
-// pass the shared NATS client and PostgreSQL store so jobs stay consistent across
-// replicas; pass nil for both in standalone mode, where the disk Loader hydrates
-// the map and there is nothing to broadcast.
+// pass the deployment's broadcast carrier and PostgreSQL store so jobs stay
+// consistent across replicas; pass nil for both in standalone mode, where the
+// disk Loader hydrates the map and there is nothing to broadcast.
+//
+// bus is messaging.Broadcaster and not a concrete carrier: this state.*.delta
+// family travels on whatever the deployment's fan-out carrier is, and in
+// distributed mode that is PostgreSQL LISTEN/NOTIFY. Which one it gets is
+// decided in core/application, not here.
 func NewQuantizationService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
-	nats messaging.MessagingClient,
+	bus messaging.Broadcaster,
 	store *distributed.QuantStore,
 ) *QuantizationService {
 	s := &QuantizationService{
@@ -95,7 +101,7 @@ func NewQuantizationService(
 	s.jobs = syncstate.New(syncstate.Config[string, *schema.QuantizationJob]{
 		Name:   "quant.jobs",
 		Key:    func(j *schema.QuantizationJob) string { return j.ID },
-		Nats:   nats,
+		Bus:    bus,
 		Store:  syncStore,
 		Loader: s.loadJobsFromDisk, // ignored when Store is set (distributed mode)
 	})

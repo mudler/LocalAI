@@ -2,9 +2,18 @@ package distributed_test
 
 import (
 	"context"
-	"sync/atomic"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/libp2p/go-yamux/v5"
 
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/agentworker"
+	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/nodes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -106,57 +115,101 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 	// Conversation history is managed client-side (browser localStorage).
 	// No server-side conversation storage tests needed.
 
-	Context("Agent SSE Events via NATS", func() {
-		It("should bridge agent SSE events via NATS", func() {
-			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
+	Context("Agent SSE events on the broadcast carrier", func() {
+		It("bridges an agent's SSE events from a peer replica's carrier", func() {
+			// Two carriers, because the whole point of this bridge is that the
+			// user's SSE connection and the replica running the agent are not
+			// the same process.
+			watcher := agents.NewEventBridge(infra.Bus(), store, "instance-1", nil)
+			runner := agents.NewEventBridge(infra.Bus(), store, "instance-2", nil)
 
-			var received []agents.AgentEvent
-			sub, err := bridge.SubscribeEvents("my-agent", "user1", func(evt agents.AgentEvent) {
-				received = append(received, evt)
+			received := make(chan agents.AgentEvent, 16)
+			sub, err := watcher.SubscribeEvents("my-agent", "user1", func(evt agents.AgentEvent) {
+				received <- evt
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			FlushNATS(infra.NC)
+			// Published on the OTHER replica, as an agent execution there would.
+			Expect(runner.PublishMessage("my-agent", "user1", "user", "What's the weather?", "msg-1")).To(Succeed())
+			Expect(runner.PublishStatus("my-agent", "user1", "processing")).To(Succeed())
+			Expect(runner.PublishMessage("my-agent", "user1", "agent", "The weather is sunny.", "msg-2")).To(Succeed())
+			Expect(runner.PublishStatus("my-agent", "user1", "completed")).To(Succeed())
 
-			// Publish events (simulating agent execution on another instance)
-			bridge.PublishMessage("my-agent", "user1", "user", "What's the weather?", "msg-1")
-			bridge.PublishStatus("my-agent", "user1", "processing")
-			bridge.PublishMessage("my-agent", "user1", "agent", "The weather is sunny.", "msg-2")
-			bridge.PublishStatus("my-agent", "user1", "completed")
-
-			Eventually(func() int { return len(received) }, "5s").Should(Equal(4))
-			Expect(received[0].EventType).To(Equal("json_message"))
-			Expect(received[0].Sender).To(Equal("user"))
-			Expect(received[1].EventType).To(Equal("json_message_status"))
-			Expect(received[2].Sender).To(Equal("agent"))
+			var evts []agents.AgentEvent
+			for i := 0; i < 4; i++ {
+				var evt agents.AgentEvent
+				Eventually(received, "20s").Should(Receive(&evt))
+				evts = append(evts, evt)
+			}
+			Expect(evts[0].EventType).To(Equal("json_message"))
+			Expect(evts[0].Sender).To(Equal("user"))
+			Expect(evts[1].EventType).To(Equal("json_message_status"))
+			Expect(evts[2].Sender).To(Equal("agent"))
 		})
 
 		// Conversation persistence removed — chat history is browser-only.
 
-		It("should cancel running agent via NATS", func() {
-			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
+		// The whole cancel path, end to end and with nothing doubled: a real
+		// agent worker holding a real WebSocket + yamux tunnel, a real
+		// connection row deciding which replica owns it, the real selection
+		// over the real node rows, and the real control client on top.
+		//
+		// A cancel does not travel on a carrier any more. Its far end is the
+		// agent WORKER, which has no database and so cannot join the carrier
+		// the rest of the deployment fans out on, and it holds an outward
+		// tunnel instead. This is what that is.
+		It("cancels an agent run on a real worker over the tunnel it holds", func() {
+			const replica = "instance-1"
 
-			// Start cancel listener
-			cancelSub, err := bridge.StartCancelListener()
+			registry, err := nodes.NewNodeRegistry(db)
 			Expect(err).ToNot(HaveOccurred())
-			defer cancelSub.Unsubscribe()
+			clusterReg := cluster.NewRegistry(db)
+			Expect(clusterReg.Register(infra.Ctx, replica, "10.0.0.1:8080", "v1", "")).To(Succeed())
+			tunnels := cluster.NewTunnelRegistry(clusterReg, replica)
 
-			// Register a cancellable context
-			_, cancel := context.WithCancel(infra.Ctx)
-			var cancelled atomic.Bool
-			wrappedCancel := context.CancelFunc(func() {
-				cancelled.Store(true)
-				cancel()
+			// The worker's own bridge, and the run registered on it. This is
+			// the state a dispatched agent execution leaves on a worker.
+			workerBridge := agents.NewWorkerEventBridge("agent-worker-e2e")
+			executor := agents.NewWorkerExecutor(workerBridge, nil, "http://127.0.0.1:1", "token")
+			cancelled := make(chan struct{})
+			workerBridge.RegisterCancel("msg-e2e", func() { close(cancelled) })
+
+			node := &nodes.BackendNode{Name: "agent-e2e", NodeType: nodes.NodeTypeAgent, Address: "agent-e2e:50051"}
+			Expect(registry.Register(infra.Ctx, node, true)).To(Succeed())
+			registered, err := registry.GetByName(infra.Ctx, "agent-e2e")
+			Expect(err).ToNot(HaveOccurred())
+
+			frontend := newTunnelFrontend()
+			rt, err := agentworker.Start(infra.Ctx, agentworker.Options{
+				FrontendURL:  frontend.URL(),
+				NodeID:       registered.ID,
+				TunnelToken:  func() string { return "tunnel-secret" },
+				ControlToken: "control-token",
+				Handlers:     agentworker.Config{AgentCancel: executor.Cancel},
 			})
-			bridge.RegisterCancel("test-msg-id", wrappedCancel)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = rt.Close() })
+			_, err = tunnels.Attach(infra.Ctx, registered.ID, frontend.Session())
+			Expect(err).ToNot(HaveOccurred())
 
-			FlushNATS(infra.NC)
+			control := nodes.NewControlClient(nodes.WorkerNetDialerFor(func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
+				return cluster.NewWorkerDialer(tunnels, nil).DialerFor(nodeID, cluster.StreamTagHTTP)
+			}), "control-token")
+			agentControl := nodes.NewAgentControlClient(
+				nodes.NewAgentSelector(registry, clusterReg, replica, time.Hour), control)
 
-			// Cancel via NATS
-			Expect(bridge.CancelExecution("my-agent", "user1", "test-msg-id")).To(Succeed())
+			// Issued through the frontend's own bridge, which is what a cancel
+			// request landing on a replica reaches.
+			bridge := agents.NewEventBridge(infra.Bus(), store, replica, agentControl)
+			Expect(bridge.CancelExecution(infra.Ctx, "my-agent", "user1", "msg-e2e")).To(Succeed())
+			Eventually(cancelled, "20s").Should(BeClosed())
 
-			Eventually(func() bool { return cancelled.Load() }, "5s").Should(BeTrue())
+			// And the second of the three answers, from the same live fleet:
+			// a run no worker holds is NOT reported as cancelled.
+			err = bridge.CancelExecution(infra.Ctx, "my-agent", "user1", "msg-nobody-holds")
+			Expect(err).To(MatchError(nodes.ErrAgentRunNotOnAnyWorker))
+			Expect(err).ToNot(MatchError(nodes.ErrAgentCancelUndelivered))
 		})
 
 		// Agent execution is now dispatched via AgentPoolService.dispatchChat(),
@@ -193,3 +246,53 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 		})
 	})
 })
+
+// tunnelFrontend is the far side of a worker's tunnel: the real WebSocket
+// upgrade and the real yamux server handshake, with no LocalAI frontend behind
+// it. It is what lets these specs put a REAL agent worker on a REAL tunnel
+// without starting a whole server.
+type tunnelFrontend struct {
+	srv      *httptest.Server
+	sessions chan *yamux.Session
+}
+
+func newTunnelFrontend() *tunnelFrontend {
+	GinkgoHelper()
+	f := &tunnelFrontend{sessions: make(chan *yamux.Session, 4)}
+	upgrader := websocket.Upgrader{}
+	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != cluster.ConnectPath {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		sess, err := yamux.Server(cluster.WebsocketConn(ws), nil, nil)
+		if err != nil {
+			_ = ws.Close()
+			return
+		}
+		select {
+		case f.sessions <- sess:
+		default:
+			_ = sess.Close()
+		}
+	}))
+	DeferCleanup(f.srv.Close)
+	return f
+}
+
+func (f *tunnelFrontend) URL() string { return f.srv.URL }
+
+// Session waits for the worker to dial in and hands back its tunnel session.
+// Waited for on a channel rather than slept on: the dial is the worker's own
+// and nothing in this process orders it against the next line of the spec.
+func (f *tunnelFrontend) Session() *yamux.Session {
+	GinkgoHelper()
+	var sess *yamux.Session
+	Eventually(f.sessions, "20s").Should(Receive(&sess))
+	DeferCleanup(func() { _ = sess.Close() })
+	return sess
+}

@@ -91,7 +91,7 @@ type OpStatus struct {
 }
 
 // opStatusWire is the JSON shape used when an OpStatus crosses a process
-// boundary (NATS broadcast). The Error field on OpStatus is an `error`
+// boundary (a cross-replica broadcast). The Error field on OpStatus is an `error`
 // interface, which json.Marshal flattens to `{}` because the concrete error
 // type usually has no exported fields — so a failed install replicated to a
 // peer frontend would arrive with a nil error and the UI would never surface
@@ -165,7 +165,7 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// OpCacheEvent is the NATS payload broadcast by frontend replicas when an
+// OpCacheEvent is the payload broadcast by frontend replicas when an
 // admin operation is admitted (SubjectGalleryOpStart) or dismissed
 // (SubjectGalleryOpEnd). Peers merge these into their local OpCache so a
 // load-balanced /api/operations poll never returns an empty list while a
@@ -176,15 +176,15 @@ type OpCacheEvent struct {
 	IsBackend bool   `json:"is_backend"`
 }
 
-// GalleryProgressEvent is the NATS payload for an OpStatus broadcast. It
+// GalleryProgressEvent is the payload for an OpStatus broadcast. It
 // wraps OpStatus with the opID/JobID so subscribers reading the wildcard
-// subject don't need to parse it back out of the NATS subject string.
+// subject don't need to parse it back out of the subject string.
 type GalleryProgressEvent struct {
 	JobID  string    `json:"job_id"`
 	Status *OpStatus `json:"status"`
 }
 
-// GalleryCancelEvent is the NATS payload for a gallery cancellation. The
+// GalleryCancelEvent is the payload for a gallery cancellation. The
 // local cancellation func may live on a different frontend replica than the
 // one that received the UI cancel button click; the broadcast subscriber
 // runs the cancel func on whichever replica registered it.
@@ -236,10 +236,14 @@ type OpCache struct {
 	started *xsync.SyncedMap[string, time.Time]
 
 	// Distributed sync (nil when standalone).
-	mu    sync.RWMutex
-	nats  messaging.MessagingClient
-	store *distributed.GalleryStore
-	subs  []messaging.Subscription
+	//
+	// ONE carrier field, read by both the start/end publishes and by the
+	// subscriptions Start opens, so this cache cannot publish where its peers
+	// are not listening.
+	mu          sync.RWMutex
+	broadcaster messaging.Broadcaster
+	store       *distributed.GalleryStore
+	subs        []messaging.Subscription
 }
 
 func NewOpCache(galleryService *GalleryService) *OpCache {
@@ -252,13 +256,17 @@ func NewOpCache(galleryService *GalleryService) *OpCache {
 	}
 }
 
-// SetMessagingClient enables cross-replica OpCache sync. Once set, Set/
+// SetBroadcaster enables cross-replica OpCache sync on the deployment's
+// fan-out carrier, which is PostgreSQL LISTEN/NOTIFY. Once set, Set/
 // SetBackend/DeleteUUID publish OpCacheEvent messages that peer OpCaches
 // merge into their local maps. Call Start after this to subscribe.
-func (m *OpCache) SetMessagingClient(nc messaging.MessagingClient) {
+//
+// messaging.Broadcaster and not the wider client: this cache needs Publish and
+// Subscribe and nothing else.
+func (m *OpCache) SetBroadcaster(b messaging.Broadcaster) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.nats = nc
+	m.broadcaster = b
 }
 
 // SetGalleryStore enables PostgreSQL-backed OpCache persistence.
@@ -273,17 +281,17 @@ func (m *OpCache) SetGalleryStore(s *distributed.GalleryStore) {
 }
 
 // Start hydrates the in-memory maps from PostgreSQL (if a store was wired)
-// and subscribes to the broadcast subjects (if NATS was wired). It returns
+// and subscribes to the broadcast subjects (if a carrier was wired). It returns
 // the first subscribe error; hydration errors are logged but non-fatal so
 // the frontend still comes up.
 //
-// Safe to call exactly once after SetMessagingClient / SetGalleryStore. The
+// Safe to call exactly once after SetBroadcaster / SetGalleryStore. The
 // ctx parameter is reserved for future cancellation — current subscriptions
 // live for the lifetime of the OpCache and are released by Close.
 func (m *OpCache) Start(_ context.Context) error {
 	m.mu.RLock()
 	store := m.store
-	nc := m.nats
+	nc := m.broadcaster
 	m.mu.RUnlock()
 
 	if store != nil {
@@ -318,7 +326,7 @@ func (m *OpCache) Start(_ context.Context) error {
 	return nil
 }
 
-// Close drops all NATS subscriptions. Safe to call multiple times.
+// Close drops all broadcast subscriptions. Safe to call multiple times.
 func (m *OpCache) Close() {
 	m.mu.Lock()
 	subs := m.subs
@@ -421,7 +429,7 @@ func (m *OpCache) dropReplacedStamp(key, jobID string) {
 func (m *OpCache) persistAndBroadcastStart(key, value string, isBackend bool) {
 	m.mu.RLock()
 	store := m.store
-	nc := m.nats
+	nc := m.broadcaster
 	m.mu.RUnlock()
 
 	if store != nil {
@@ -467,7 +475,7 @@ const (
 //
 // Safe to call for an unknown job ID (no key, no record) and safe to call
 // twice for the same job (the ring dedupes), which is what makes it usable
-// from both the local delete path and the NATS end event.
+// from both the local delete path and the broadcast end event.
 func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 	if jobID == "" {
 		return
@@ -628,7 +636,7 @@ func (m *OpCache) DeleteUUID(uuid string) {
 		return
 	}
 	m.mu.RLock()
-	nc := m.nats
+	nc := m.broadcaster
 	m.mu.RUnlock()
 	if nc != nil {
 		if err := nc.Publish(messaging.SubjectGalleryOpEnd, OpCacheEvent{JobID: uuid}); err != nil {

@@ -17,6 +17,13 @@ import (
 // Parking is what makes the running phase observable at all: without it the
 // handler-entry status is overwritten by the terminal write before a spec can
 // read it.
+//
+// The gate CHANNEL is under the mutex, not only the recorded names. A spec that
+// frees the worker replaces the channel so the next operation parks on a fresh
+// one, and the worker goroutine reads the field to park on it; the two happen
+// on different goroutines and raced. It was a race in this double and not in
+// anything it stands for, which is exactly why it survived: the suite passed
+// every run and only -race said so.
 type gatedModelManager struct {
 	mu      sync.Mutex
 	started []string
@@ -39,15 +46,44 @@ func (m *gatedModelManager) Started() []string {
 	return append([]string(nil), m.started...)
 }
 
+// gateCh reads the current gate, for a handler about to park on it.
+func (m *gatedModelManager) gateCh() chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gate
+}
+
+// releaseGate frees every handler parked on the current gate and arms a fresh
+// one, so the next operation parks again.
+func (m *gatedModelManager) releaseGate() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	close(m.gate)
+	m.gate = make(chan struct{})
+}
+
+// closeGate frees every parked handler without arming another. It is what
+// cleanup does, and it is idempotent so a spec that already released can be
+// cleaned up after.
+func (m *gatedModelManager) closeGate() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	select {
+	case <-m.gate:
+	default:
+		close(m.gate)
+	}
+}
+
 func (m *gatedModelManager) InstallModel(_ context.Context, op *galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], _ galleryop.ProgressCallback) error {
 	m.record(op.GalleryElementName)
-	<-m.gate
+	<-m.gateCh()
 	return nil
 }
 
 func (m *gatedModelManager) DeleteModel(name string) error {
 	m.record(name)
-	<-m.gate
+	<-m.gateCh()
 	return nil
 }
 
@@ -120,7 +156,7 @@ var _ = Describe("operation cancellability by phase", func() {
 
 		BeforeEach(func() {
 			manager = newGatedModelManager()
-			DeferCleanup(func() { close(manager.gate) })
+			DeferCleanup(manager.closeGate)
 
 			svc.SetModelManager(manager)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -188,8 +224,7 @@ var _ = Describe("operation cancellability by phase", func() {
 
 			// Free the worker: it loops back to an empty channel because the
 			// delivery goroutine gave up on the send.
-			close(manager.gate)
-			manager.gate = make(chan struct{})
+			manager.releaseGate()
 
 			Consistently(manager.Started, "500ms", "20ms").ShouldNot(
 				ContainElement("localai@doomed-removal"),

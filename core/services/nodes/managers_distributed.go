@@ -14,11 +14,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 )
 
-// DistributedModelManager wraps a local ModelManager and adds NATS fan-out
-// for model deletion so worker nodes clean up stale files.
+// DistributedModelManager wraps a local ModelManager and fans model deletion
+// out to the worker nodes so they clean up stale files. The fan-out is a
+// control RPC over each worker's tunnel; see RemoteUnloaderAdapter.
 type DistributedModelManager struct {
 	local   galleryop.ModelManager
 	adapter *RemoteUnloaderAdapter
@@ -56,8 +56,9 @@ type nodeProgressSink interface {
 	UpdateNodeProgress(opID, nodeID string, np galleryop.NodeProgress)
 }
 
-// DistributedBackendManager wraps a local BackendManager and adds NATS fan-out
-// for backend deletion so worker nodes clean up stale files.
+// DistributedBackendManager wraps a local BackendManager and fans backend
+// deletion out to the worker nodes so they clean up stale files. The fan-out is
+// a control RPC over each worker's tunnel; see RemoteUnloaderAdapter.
 type DistributedBackendManager struct {
 	local            galleryop.BackendManager
 	adapter          *RemoteUnloaderAdapter
@@ -122,7 +123,7 @@ func (r BackendOpResult) Err() error {
 // nodes get an immediate attempt; success deletes the row, failure records
 // the error and leaves the row for the reconciler to retry.
 //
-// `apply` is the NATS round-trip for one node. Returning an error keeps the
+// `apply` is the control RPC for one node. Returning an error keeps the
 // row in the queue and marks the per-node status as "error"; returning nil
 // deletes the row and reports "success". For non-healthy nodes the status
 // is "queued" — no attempt is made right now, reconciler will pick it up
@@ -167,9 +168,11 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		if node.Status == StatusPending {
 			continue
 		}
-		// Backend lifecycle ops only make sense on backend-type workers.
-		// Agent workers don't subscribe to backend.install/delete/list, so
-		// enqueueing for them guarantees a forever-retrying row that the
+		// Backend lifecycle ops only make sense on backend-type workers. An
+		// agent worker holds a tunnel and serves a control plane, but not
+		// THESE verbs: it runs no backend processes, so it mounts none of the
+		// install/upgrade/delete routes and answers the catch-all 404 for
+		// them. Enqueueing for one guarantees a forever-retrying row that the
 		// reconciler can never drain. Silently skip - they aren't consumers.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
@@ -213,8 +216,7 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			continue
 		}
 
-		// Record failure for backoff. If it's an ErrNoResponders, the node's
-		// gone AWOL - mark unhealthy so the router stops picking it too.
+		// Record failure for backoff.
 		errMsg := applyErr.Error()
 
 		// Worker-still-installing is a "soft" failure: the worker is most
@@ -234,10 +236,14 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			continue
 		}
 
-		if errors.Is(applyErr, nats.ErrNoResponders) {
-			xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-			d.registry.MarkUnhealthy(ctx, node.ID)
-		}
+		// A failed control RPC does not demote the node, and that is the point
+		// rather than an omission. The control plane's failures mean "this
+		// frontend could not route to it", which is equally true of a worker
+		// that is heartbeating, serving another replica and re-homing its
+		// tunnel. Demoting on that is the fleet-wide eviction this phase exists
+		// to prevent. Absence is a separate fact, read from the database
+		// identically on every replica; the scheduler reads it through
+		// cluster.Presence and nothing on this path does.
 		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 			_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
 		}
@@ -331,9 +337,9 @@ func (d *DistributedBackendManager) DeleteBackendDetailed(ctx context.Context, n
 // populated from the first node seen so single-node-minded callers still work.
 //
 // Pending/offline/draining nodes are skipped because they aren't expected to
-// answer NATS requests, and so are non-backend workers, which do not subscribe
-// to backend.list at all; unhealthy backend nodes are still queried —
-// ErrNoResponders then marks them unhealthy and the loop continues.
+// answer, and so are non-backend workers, which serve no control plane at all;
+// unhealthy backend nodes are still queried, and a node that does not answer is
+// skipped rather than demoted.
 func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	result := make(gallery.SystemBackends)
 	allNodes, err := d.registry.List(context.Background())
@@ -345,21 +351,20 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		if node.Status == StatusPending || node.Status == StatusOffline || node.Status == StatusDraining {
 			continue
 		}
-		// Only backend workers subscribe to backend.list. Asking an agent
-		// worker can only answer "no responders", which the error handling
-		// below reads as a node that has gone away, so every poll of this view
-		// marked every agent node unhealthy and its next heartbeat marked it
-		// healthy again. The backend-op fan-out skips them for the same reason.
+		// Only backend workers serve backend.list. An agent worker holds a
+		// tunnel but runs no backend processes, so it mounts no such route and
+		// asking one can only 404, and the failure handling used to read that
+		// as a node that had gone away: every poll of this view marked every
+		// agent node unhealthy and its next heartbeat marked it healthy again.
+		// The backend-op fan-out skips them for the same reason.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
 		}
 		reply, err := d.adapter.ListBackends(node.ID)
 		if err != nil {
-			if errors.Is(err, nats.ErrNoResponders) {
-				xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
-				d.registry.MarkUnhealthy(context.Background(), node.ID)
-				continue
-			}
+			// Skipped, never demoted. Listing a node's backends is a read, and
+			// a read this frontend could not route says nothing about whether
+			// the worker is there; see the fan-out above for the same rule.
 			xlog.Warn("Failed to list backends on worker", "node", node.Name, "error", err)
 			continue
 		}
@@ -453,7 +458,7 @@ func (d *DistributedBackendManager) clearSatisfiedInstallRows(ctx context.Contex
 
 // InstallBackend fans out installation through the pending-ops queue so
 // non-healthy nodes get retried when they come back instead of being silently
-// skipped. Reply success from the NATS round-trip deletes the queue row;
+// skipped. Reply success from the control RPC deletes the queue row;
 // reply.Success==false is treated as an error so the row stays for retry.
 //
 // When op.TargetNodeID is set, only that node is visited - the same allowlist
@@ -493,9 +498,10 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 				})
 			}
 		}
-		// nil-callback shortcut: when there is nothing to deliver to,
-		// hand the adapter a nil onProgress so it skips the per-op NATS
-		// subscription. Matches the pre-Phase-4 bridgeProgressCb semantics.
+		// nil-callback shortcut: when there is nothing to deliver to, hand the
+		// adapter a nil onProgress so it discards the worker's progress lines
+		// instead of decoding them. They ride the install response itself, so
+		// there is nothing to arrange either way.
 		var onProgressArg func(messaging.BackendInstallProgressEvent)
 		if progressCb != nil || d.progressSink != nil {
 			onProgressArg = onProgress
@@ -530,7 +536,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 	return nil
 }
 
-// UpgradeBackend uses a separate NATS subject (backend.upgrade) so the slow
+// UpgradeBackend uses a separate control verb (backend.upgrade) so the slow
 // force-reinstall path doesn't head-of-line-block routine model loads on
 // the same worker. Only nodes that already report this backend as installed
 // are targeted — fanning out to every node would ask workers to "upgrade"
@@ -538,7 +544,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // worker has no platform variant for a linux-only backend) and leaves a
 // forever-retrying pending_backend_ops row.
 //
-// Rolling-update fallback: when a worker returns nats.ErrNoResponders on
+// Rolling-update fallback: when a worker answers that it does not serve
 // backend.upgrade, we try the legacy backend.install Force=true path so a
 // new master + old worker still converges. Drop the fallback once every
 // worker in the fleet is on 2026-05-08 or newer.
@@ -600,8 +606,11 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 		if err != nil {
 			// Rolling-update fallback: an older worker doesn't know
-			// backend.upgrade. Try the legacy install-with-force path.
-			if errors.Is(err, nats.ErrNoResponders) {
+			// backend.upgrade and answers 404 for it. ONLY that answer
+			// triggers the fallback: a worker this frontend merely could not
+			// route to has said nothing, and re-firing a force-reinstall at it
+			// would turn a lost route into a destructive retry.
+			if errors.Is(err, ErrWorkerControlUnsupported) {
 				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 				if instErr != nil {
 					return instErr
@@ -625,8 +634,10 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		return hardErr
 	}
 	// Same in-progress surfacing as InstallBackend: a long-running worker
-	// upgrade that timed out the NATS round-trip must not be reported as
-	// green success.
+	// upgrade that outlived the caller's budget must not be reported as green
+	// success. Pinned by "reports an upgrade that ran out of budget as still
+	// installing", because this is the second of the rule's two call sites and
+	// dropping it here left the suite green.
 	for _, n := range result.Nodes {
 		if n.Status == galleryop.NodeStatusRunningOnWorker {
 			return fmt.Errorf("%w: %s", galleryop.ErrWorkerStillInstalling, summarizeRunningOnWorker(result.Nodes))

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"net"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
@@ -29,7 +30,141 @@ func NewClientWithToken(address string, parallel bool, wd WatchDog, enableWatchD
 	return buildClient(address, parallel, wd, enableWatchDog, token)
 }
 
-func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) Backend {
+// NewClientWithDialer creates a gRPC client that reaches its backend through
+// dialer rather than by connecting to address.
+//
+// It is what distributed mode uses to reach a backend process on a worker: the
+// worker holds one multiplexed tunnel to a frontend replica and listens on
+// nothing, so address names which backend process the stream is for and the
+// dialer decides how the stream gets there. A nil dialer is a programming
+// error on this path rather than a fallback, because falling back to a direct
+// dial would work in a single-replica test and fail in production; callers with
+// no dialer call NewClientWithToken and mean it.
+func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string, dialer func(ctx context.Context, addr string) (net.Conn, error)) Backend {
+	if bc, ok := embeds[address]; ok {
+		return bc
+	}
+	// Assigned on the concrete type rather than through a checked assertion:
+	// an assertion that failed would silently hand back a client that dials
+	// the address directly, which is the exact bypass this constructor exists
+	// to close.
+	c := buildClient(address, parallel, wd, enableWatchDog, token)
+	// Wrapped rather than stored bare, so every dial outcome is recorded. This
+	// is the seam that carries the reason a dial failed past gRPC, which
+	// flattens it into codes.Unavailable; see (*Client).LastDialError.
+	c.dialer = func(ctx context.Context, addr string) (net.Conn, error) {
+		conn, err := dialer(ctx, addr)
+		c.recordDialErr(err)
+		return conn, err
+	}
+	return c
+}
+
+// DialErrorReporter is implemented by a Backend that reaches its process
+// through a custom transport and can say whether that transport, rather than
+// the process, is what failed.
+//
+// It is a separate interface and NOT part of Backend on purpose: only the
+// handful of callers that act on the difference need it, and widening Backend
+// would make every wrapper and every test double implement a method they have
+// no answer for.
+type DialErrorReporter interface {
+	LastDialError() error
+}
+
+// BackendUnwrapper is implemented by a Backend that DECORATES another one.
+//
+// Every wrapper in this codebase must implement it, and the reason is a defect
+// that shipped: a wrapper embeds the Backend interface, so it inherits every
+// declared method and NOTHING else. DialErrorReporter is deliberately not
+// declared on Backend, so a wrapped client silently stopped answering "did the
+// transport fail" and the guard built on that answer read nil in production
+// while passing every spec that constructed a raw client by hand.
+//
+// Implementing this is what makes a decorator transparent to LastDialErrorOf,
+// and it is one line rather than a re-implementation per wrapper, so there is
+// no per-wrapper policy to get wrong.
+type BackendUnwrapper interface {
+	Unwrap() Backend
+}
+
+// WrappedBackend is what a decorator embeds INSTEAD of a Backend.
+//
+// It provides the pass-through method set exactly as embedding the interface
+// did, and it provides Unwrap, so a decorator built on it is transparent to
+// LastDialErrorOf by CONSTRUCTION rather than by remembering. That is the whole
+// design: the same defect shipped twice, both times because a wrapper inherited
+// only what Backend declares and DialErrorReporter is deliberately not on
+// Backend, so the transport answer every reaping guard depends on silently
+// became nil.
+//
+// Forgetting is therefore no longer possible for anything that embeds this, and
+// embedding the raw interface instead is caught by the ruleguard rule in
+// hack/lint/. A compile-time assertion cannot do that job: it only fires for a
+// type that already declares the intent, which is precisely the type that did
+// not forget.
+//
+// Unwrap takes a VALUE receiver, which is safe because this holds one interface
+// and no lock, and is what lets the value type of any embedder satisfy
+// BackendUnwrapper.
+//
+// It is NOT for every decorator. Embedding this promotes the whole Backend
+// surface as pass-through, so a decorator that deliberately embeds a NARROWER
+// interface to force itself to handle each method (see
+// nodes.InFlightTrackingClient) must keep doing that and declare Unwrap by
+// hand; adopting this there would restore pass-through silently.
+type WrappedBackend struct{ Backend }
+
+// Unwrap exposes the decorated client.
+func (w WrappedBackend) Unwrap() Backend { return w.Backend }
+
+// maxBackendUnwrapDepth bounds the walk below. Three wrappers exist today and
+// they nest at most two deep; the bound is a guard against a cycle a future
+// wrapper could introduce, not a limit anything real approaches.
+const maxBackendUnwrapDepth = 16
+
+// LastDialErrorOf reports why the most recent dial under b failed, looking
+// THROUGH any decorators, or nil when the dial succeeded or nothing under b has
+// a custom transport.
+//
+// It is the single implementation of that question. Its callers
+// (core/services/nodes and pkg/model) each had their own type assertion, and an
+// assertion cannot see past a wrapper: in production the client handed to
+// pkg/model is an *InFlightTrackingClient over a *FileStagingClient over the
+// real one, so both callers were asking a wrapper that had no answer and
+// reading nil as "the transport was fine".
+//
+// WHAT IT ANSWERS IS NOT "was this the transport's fault". It answers "what did
+// the dialler last return", and in distributed mode some of those values are a
+// WORKER'S OWN REFUSAL, which means the tunnel worked and the worker spoke.
+// Telling those apart is cluster.IsWorkerAnswer, and the two production callers
+// (nodes.unroutable, model.transportFailure) both go through it. A new caller
+// that matches on sentinels of its own would be re-creating the collapse this
+// phase spent two rounds removing: the reap guards and the dialler would stop
+// agreeing on which errors are evidence.
+//
+// Nothing structural prevents that, unlike the WrappedBackend rule in
+// hack/lint/ which makes decorator transparency impossible to forget. With two
+// callers, both funnelling through one predicate, a ruleguard rule is not worth
+// its false positives; if a third appears, it is. Recorded as a phase-3 note.
+func LastDialErrorOf(b Backend) error {
+	for range maxBackendUnwrapDepth {
+		if b == nil {
+			return nil
+		}
+		if reporter, ok := b.(DialErrorReporter); ok {
+			return reporter.LastDialError()
+		}
+		wrapper, ok := b.(BackendUnwrapper)
+		if !ok {
+			return nil
+		}
+		b = wrapper.Unwrap()
+	}
+	return nil
+}
+
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) *Client {
 	if !enableWatchDog {
 		wd = nil
 	}

@@ -120,6 +120,22 @@ func (ix *Index) InvalidateNode(model, nodeID string) {
 	}
 }
 
+// DropNode drops entries for ALL replicas of nodeID in EVERY model.
+//
+// InvalidateNode's sibling, and the difference is the caller. InvalidateNode
+// serves the registry chokepoint, which fires per model because a replica row
+// IS per model. A departure names no model at all: the node is gone from every
+// model it ever served, and asking the caller to enumerate those would make the
+// eviction depend on a registry read that a departed node's rows may already
+// have left. Like its sibling it never interns a tree.
+func (ix *Index) DropNode(nodeID string) {
+	ix.mu.RLock()
+	defer ix.mu.RUnlock()
+	for _, t := range ix.trees {
+		t.RemoveFunc(func(k ReplicaKey) bool { return k.NodeID == nodeID })
+	}
+}
+
 func (ix *Index) Evict(now time.Time) {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()

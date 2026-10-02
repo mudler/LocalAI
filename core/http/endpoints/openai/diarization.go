@@ -75,6 +75,9 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			IncludeText:            parseFormBool(c, "include_text", input.IncludeText),
 			IncludeSpeakerProfiles: parseFormBool(c, "include_speaker_profiles", input.IncludeSpeakerProfiles),
 		}
+		if language := c.FormValue("language"); language != "" {
+			req.Language = language
+		}
 		if req.IncludeSpeakerProfiles {
 			var db *gorm.DB
 			if len(authDB) > 0 {

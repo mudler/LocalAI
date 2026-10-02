@@ -54,7 +54,7 @@ func (r *failoverPinnedResolver) GetPinnedModelNames() []string {
 
 // startFailoverDistributed makes the failover manager cluster-aware: one
 // frontend (the advisory-lock holder) probes and decides, and pins, target
-// health and chain state are shared over NATS. A sync failure is logged and
+// health and chain state are shared over the PostgreSQL bus. A sync failure is logged and
 // the manager keeps probing on its own, as in standalone mode.
 func (a *Application) startFailoverDistributed(ctx context.Context) {
 	db := a.distributedDB()
@@ -63,7 +63,7 @@ func (a *Application) startFailoverDistributed(ctx context.Context) {
 		xlog.Error("failover: pins will not persist, could not prepare the pin store", "error", err)
 		pins = nil // distsync.New treats a nil store as "no durable pins"
 	}
-	s, err := distsync.New(ctx, a.distributed.Nats, pins, a.failoverManager)
+	s, err := distsync.New(ctx, a.distributed.Broadcast(), pins, a.failoverManager)
 	if err != nil {
 		xlog.Error("failover: state will not be shared between frontends", "error", err)
 		return

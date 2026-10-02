@@ -1,11 +1,8 @@
 package distributed_test
 
 import (
-	"sync/atomic"
-
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,61 +86,22 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS cache invalidation", func() {
-		It("should publish cache invalidation via NATS on skill change", func() {
-			// Subscribe to skills cache invalidation
-			var received atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectCacheInvalidateSkills, func(data []byte) {
-				received.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
-
-			// Save a skill and publish cache invalidation
-			rec := &distributed.SkillMetadataRecord{
-				UserID: "u1", Name: "new-skill", SourceType: "inline",
-			}
-			Expect(skillStore.Save(rec)).To(Succeed())
-
-			// Publish invalidation (in production this is done by the service layer)
-			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
-				"user_id": "u1",
-				"name":    "new-skill",
-				"action":  "save",
-			})).To(Succeed())
-
-			Eventually(func() int32 { return received.Load() }, "5s").Should(Equal(int32(1)))
-
-			// Delete and publish another invalidation
-			Expect(skillStore.Delete("u1", "new-skill")).To(Succeed())
-			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateSkills, map[string]string{
-				"user_id": "u1",
-				"name":    "new-skill",
-				"action":  "delete",
-			})).To(Succeed())
-
-			Eventually(func() int32 { return received.Load() }, "5s").Should(Equal(int32(2)))
-		})
-
-		It("should broadcast collection cache invalidation", func() {
-			var received atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectCacheInvalidateCollection("my-collection"), func(data []byte) {
-				received.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
-
-			Expect(infra.NC.Publish(messaging.SubjectCacheInvalidateCollection("my-collection"), map[string]string{
-				"reason": "skill_updated",
-			})).To(Succeed())
-
-			Eventually(func() int32 { return received.Load() }, "5s").Should(Equal(int32(1)))
-		})
-	})
+	// The "NATS cache invalidation" Context that stood here is deleted with the
+	// two builders it was the only caller of.
+	//
+	// Its two Its published on messaging.SubjectCacheInvalidateSkills and
+	// messaging.SubjectCacheInvalidateCollection through one client and counted
+	// their own deliveries back. Their own comment admitted the publish was
+	// simulated ("in production this is done by the service layer"), and no
+	// service layer published on either subject: the two subjects had no
+	// production publisher and no production subscriber, on any carrier. Only
+	// the model and backend caches have cross-replica invalidation (see
+	// galleryop.Service), and they are untouched here.
+	//
+	// So what these Its actually pinned was the carrier round trip, which
+	// core/services/pgbus/bus_test.go pins on two instances, and the subject
+	// literals, which core/services/messaging/subjects_wire_test.go now pins
+	// directly for every subject that survives.
 
 	Context("Without --distributed", func() {
 		It("should use filesystem without --distributed", func() {
@@ -151,8 +109,10 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 			Expect(appCfg.Distributed.Enabled).To(BeFalse())
 
 			// Without distributed mode, skills are stored on the local
-			// filesystem. No PostgreSQL metadata or NATS cache invalidation.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			// filesystem. No PostgreSQL metadata and no cache invalidation.
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })

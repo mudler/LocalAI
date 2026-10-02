@@ -53,6 +53,10 @@ type deadlineClientFactory struct{ client *deadlineBackend }
 
 func (f *deadlineClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
 
+func (f *deadlineClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 var _ = Describe("remote LoadModel deadline", func() {
 	var (
 		reg      *fakeModelRouter
@@ -67,7 +71,7 @@ var _ = Describe("remote LoadModel deadline", func() {
 		backend = &deadlineBackend{}
 		factory = &deadlineClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 	})
 

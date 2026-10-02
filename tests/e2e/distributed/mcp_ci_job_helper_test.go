@@ -16,10 +16,20 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// publishTestEvent is the one place this helper publishes from, so a carrier
+// that refuses a publish is reported rather than swallowed. A dropped progress
+// line has no other symptom: the spec's subscriber simply never fires and the
+// failure surfaces as a timeout that names the wrong thing.
+func publishTestEvent(pub messaging.Publisher, subject string, payload any) {
+	if err := pub.Publish(subject, payload); err != nil {
+		xlog.Error("test worker failed to publish", "subject", subject, "error", err)
+	}
+}
+
 // processMCPCIJobForTest replicates the logic of handleMCPCIJob from agent_worker.go
 // for testing purposes. This allows e2e testing of the full MCP CI job execution path
 // without needing to start an actual agent worker binary.
-func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *messaging.Client) {
+func processMCPCIJobForTest(data []byte, apiURL, apiToken string, pub messaging.Publisher) {
 	var evt jobs.JobEvent
 	if err := json.Unmarshal(data, &evt); err != nil {
 		xlog.Error("Failed to unmarshal job event", "error", err)
@@ -30,30 +40,30 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 	task := evt.Task
 	if job == nil || task == nil {
 		xlog.Error("MCP CI job missing enriched data", "jobID", evt.JobID)
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", "job or task data missing from NATS event")
+		publishTestJobResult(pub, evt.JobID, "failed", "", "job or task data missing from the job event")
 		return
 	}
 
 	modelCfg := evt.ModelConfig
 	if modelCfg == nil {
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", "model config missing from job event")
+		publishTestJobResult(pub, evt.JobID, "failed", "", "model config missing from job event")
 		return
 	}
 
 	// Publish running status
-	natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+	publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 		JobID: evt.JobID, Status: "running", Message: "Job started on test worker",
 	})
 
 	// Parse MCP config
 	if modelCfg.MCP.Servers == "" && modelCfg.MCP.Stdio == "" {
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", "no MCP servers configured for model")
+		publishTestJobResult(pub, evt.JobID, "failed", "", "no MCP servers configured for model")
 		return
 	}
 
 	remote, stdio, err := modelCfg.MCP.MCPConfigFromYAML()
 	if err != nil {
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
+		publishTestJobResult(pub, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
 		return
 	}
 
@@ -64,7 +74,7 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 		if err != nil {
 			errMsg = fmt.Sprintf("failed to create MCP sessions: %v", err)
 		}
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", errMsg)
+		publishTestJobResult(pub, evt.JobID, "failed", "", errMsg)
 		return
 	}
 
@@ -92,7 +102,7 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 	defer cancel()
 
 	// Publish running status
-	publishTestJobStatus(natsClient, evt.JobID, "running", "")
+	publishTestJobStatus(pub, evt.JobID, "running", "")
 
 	// Buffer stream tokens
 	var reasoningBuf, contentBuf strings.Builder
@@ -100,13 +110,13 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 
 	flushStreamBuf := func() {
 		if reasoningBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "reasoning", TraceContent: reasoningBuf.String(),
 			})
 			reasoningBuf.Reset()
 		}
 		if contentBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "content", TraceContent: contentBuf.String(),
 			})
 			contentBuf.Reset()
@@ -119,13 +129,13 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 		cogito.WithMCPs(sessions...),
 		cogito.WithStatusCallback(func(status string) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "status", TraceContent: status,
 			})
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "tool_result", TraceContent: fmt.Sprintf("%s: %s", t.Name, t.Result),
 			})
 		}),
@@ -140,7 +150,7 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 			case cogito.StreamEventContent:
 				contentBuf.WriteString(ev.Content)
 			case cogito.StreamEventToolCall:
-				natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+				publishTestEvent(pub, messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 					JobID: evt.JobID, TraceType: "tool_call", TraceContent: fmt.Sprintf("%s(%s)", ev.ToolName, ev.ToolArgs),
 				})
 			}
@@ -155,7 +165,7 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 	flushStreamBuf()
 
 	if err != nil {
-		publishTestJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
+		publishTestJobResult(pub, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
 		return
 	}
 
@@ -163,27 +173,27 @@ func processMCPCIJobForTest(data []byte, apiURL, apiToken string, natsClient *me
 	if msg := f.LastMessage(); msg != nil {
 		result = msg.Content
 	}
-	publishTestJobResult(natsClient, evt.JobID, "completed", result, "")
+	publishTestJobResult(pub, evt.JobID, "completed", result, "")
 }
 
-func publishTestJobStatus(nc *messaging.Client, jobID, status, message string) {
-	nc.Publish(messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
+func publishTestJobStatus(pub messaging.Publisher, jobID, status, message string) {
+	publishTestEvent(pub, messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
 		JobID:  jobID,
 		Status: status,
 	})
-	nc.Publish(messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
+	publishTestEvent(pub, messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
 		JobID: jobID, Status: status, Message: message,
 	})
 }
 
-func publishTestJobResult(nc *messaging.Client, jobID, status, result, errMsg string) {
-	nc.Publish(messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
+func publishTestJobResult(pub messaging.Publisher, jobID, status, result, errMsg string) {
+	publishTestEvent(pub, messaging.SubjectJobResult(jobID), jobs.JobResultEvent{
 		JobID:  jobID,
 		Status: status,
 		Result: result,
 		Error:  errMsg,
 	})
-	nc.Publish(messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
+	publishTestEvent(pub, messaging.SubjectJobProgress(jobID), jobs.ProgressEvent{
 		JobID: jobID, Status: status, Message: errMsg,
 	})
 }

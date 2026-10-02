@@ -29,7 +29,7 @@ const pinReconcileInterval = 30 * time.Second
 //     Start, not just from whatever peers happen to broadcast afterwards,
 //     and re-reads it every pinReconcileInterval to repair a missed delta.
 //   - failover.targets and failover.chains are ephemeral live-health state,
-//     NATS-only with no Store and no Reconcile: with neither set, a Reconcile
+//     broadcast-only with no Store and no Reconcile: with neither set, a Reconcile
 //     tick's hydrate is a no-op (nothing durable to pull from), so it could
 //     never help a late joiner catch up anyway. A late joiner instead catches
 //     up from the leader's periodic Republish (see failover.Manager.Republish).
@@ -41,7 +41,7 @@ type Sync struct {
 
 // New builds and starts the three maps, then attaches the result to m via
 // SetStateSync so any already-durable pins hydrate onto m immediately.
-func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Store[string, PinRecord], m *failover.Manager) (*Sync, error) {
+func New(ctx context.Context, bus messaging.Broadcaster, pins syncstate.Store[string, PinRecord], m *failover.Manager) (*Sync, error) {
 	s := &Sync{}
 
 	// pins is already typed as the Store interface (the brief fixes this
@@ -67,7 +67,7 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 	s.pins = syncstate.New(syncstate.Config[string, PinRecord]{
 		Name:      "failover.pins",
 		Key:       func(p PinRecord) string { return p.Chain },
-		Nats:      nats,
+		Bus:       bus,
 		Store:     pinStore,
 		Reconcile: reconcile,
 		OnApply: func(op string, chain string, v PinRecord) {
@@ -85,7 +85,7 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 	s.targets = syncstate.New(syncstate.Config[string, failover.TargetSnapshot]{
 		Name: "failover.targets",
 		Key:  func(t failover.TargetSnapshot) string { return t.Target },
-		Nats: nats,
+		Bus:  bus,
 		OnApply: func(_ string, _ string, v failover.TargetSnapshot) {
 			m.ApplyTarget(v)
 		},
@@ -98,7 +98,7 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 	s.chains = syncstate.New(syncstate.Config[string, failover.ChainSnapshot]{
 		Name: "failover.chains",
 		Key:  func(c failover.ChainSnapshot) string { return c.Chain },
-		Nats: nats,
+		Bus:  bus,
 		OnApply: func(_ string, _ string, v failover.ChainSnapshot) {
 			m.ApplyChain(v)
 		},
@@ -113,7 +113,7 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 	// The pins map re-hydrates from the DB on reconnect without OnApply, so
 	// hand the manager the result. Registered after the map's own callback,
 	// which runs first.
-	if r, ok := nats.(interface{ OnReconnect(func()) }); ok {
+	if r, ok := bus.(interface{ OnReconnect(func()) }); ok {
 		r.OnReconnect(m.ReconcilePins)
 	}
 	return s, nil
@@ -129,7 +129,7 @@ func isNilStore(pins syncstate.Store[string, PinRecord]) bool {
 		return true
 	}
 	v := reflect.ValueOf(pins)
-	return v.Kind() == reflect.Ptr && v.IsNil()
+	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
 // Close releases all three maps' subscriptions and background workers.
@@ -139,7 +139,7 @@ func (s *Sync) Close() error {
 
 // PublishTarget shares a target health transition. StateSync's methods
 // return no error to the manager, and a publish must never block it (the
-// manager calls this outside its lock precisely so a synchronous NATS echo
+// manager calls this outside its lock precisely so a synchronous broadcast echo
 // is safe) - so a failure here is logged and dropped; a missed publish
 // self-heals on the leader's next Republish.
 func (s *Sync) PublishTarget(t failover.TargetSnapshot) {

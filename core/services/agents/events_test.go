@@ -9,41 +9,25 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// fakeMessagingClient implements messaging.MessagingClient and captures the
-// last published payload so tests can assert on it.
-type fakeMessagingClient struct {
+// recordingBus is a messaging.Broadcaster that captures the last published
+// payload. A Broadcaster and not a MessagingClient because fan-out is the whole
+// of what an EventBridge may do with a carrier.
+type recordingBus struct {
 	lastSubject string
 	lastData    any
 }
 
-func (f *fakeMessagingClient) Publish(subject string, data any) error {
+func (f *recordingBus) Publish(subject string, data any) error {
 	f.lastSubject = subject
 	f.lastData = data
 	return nil
 }
 
-func (f *fakeMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
+func (f *recordingBus) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
 	return &fakeSub{}, nil
 }
 
-func (f *fakeMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (f *fakeMessagingClient) IsConnected() bool { return true }
-func (f *fakeMessagingClient) Close()            {}
+var _ messaging.Broadcaster = (*recordingBus)(nil)
 
 type fakeSub struct{}
 
@@ -57,8 +41,8 @@ var _ = Describe("EventBridge", func() {
 		// React UI both expect Unix milliseconds. Nanoseconds also overflow JS's
 		// safe-integer range. The timestamp must be in milliseconds.
 		It("emits the timestamp in Unix milliseconds", func() {
-			fake := &fakeMessagingClient{}
-			bridge := NewEventBridge(fake, nil, "instance-1")
+			fake := &recordingBus{}
+			bridge := NewEventBridge(fake, nil, "instance-1", nil)
 
 			before := time.Now().UnixMilli()
 			err := bridge.PublishMessage("agent", "user", "agent", "hello", "msg-1")

@@ -153,7 +153,7 @@ This is worth more than it looks. Measured over the week to 2026-07-30, **97% of
 
 The volume is real: 13 gallery-only PRs merged that week with 10 open at once, and 78 of the 137 PRs opened were bot-generated.
 
-`paths-ignore` on the PR trigger of `image-pr.yml` (7 jobs), `build-test.yaml` (3), `lint.yml` (2) and `tests-e2e.yml` (1) drops 13 of those 20. The excluded set:
+`paths-ignore` on the PR trigger of `image-pr.yml` (7 jobs), `build-test.yaml` (3), `lint.yml` (2) and `tests-e2e.yml` (1) drops 13 of those 20, measured before `tests-e2e-distributed.yml` (2 jobs) landed. That workflow carries the same exclusion set for the same reason: its dependency graph is 99 packages, so an allowlist of paths would silently stop guarding the moment code moved, while a diff confined to the paths below provably cannot reach it. The excluded set:
 
 | Path | Why no image or Go build can see it |
 |---|---|
@@ -192,7 +192,7 @@ What still runs, and why it has to:
 Two properties this relies on:
 
 - `paths-ignore` skips a run only when **every** changed file matches, so a PR touching the gallery *and* Go code still runs everything. That is what makes the exclusion safe rather than a hole.
-- `master` carries no branch protection and no rulesets, so a skipped workflow reports no status and nothing waits on it. If required status checks are ever introduced, these four entries must be excluded from the required set or PRs will hang on "Expected — Waiting for status to be reported".
+- `master` carries no branch protection and no rulesets, so a skipped workflow reports no status and nothing waits on it. If required status checks are ever introduced, these five entries must be excluded from the required set or PRs will hang on "Expected — Waiting for status to be reported".
 
 ### `image.yml` on master push is gated too, by a job rather than a path filter
 

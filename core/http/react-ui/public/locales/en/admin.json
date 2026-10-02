@@ -180,7 +180,32 @@
   "backendLogs": {
     "title": "Backend Logs",
     "subtitle": "View logs from running backends",
-    "empty": "No logs available"
+    "empty": "No logs available",
+    "backToNodes": "Back to nodes",
+    "backToNode": "Back to {{name}}",
+    "noSelectionTitle": "No node or model selected",
+    "noSelectionPrefix": "View backend logs from the",
+    "nodesPage": "Nodes page",
+    "replica": "Replica {{number}}",
+    "merged": "Merged · {{count}} replicas",
+    "fromNode": "Backend logs from node",
+    "replicaScope": "Replica scope",
+    "allMerged": "All merged",
+    "allMergedHelp": "Show an interleaved timeline of all replicas — useful for comparing replica behavior side by side",
+    "filterAll": "All",
+    "export": "Export",
+    "clear": "Clear",
+    "cleared": "Logs cleared",
+    "textOnly": "Text only",
+    "showDetails": "Show details",
+    "hideDetailsHelp": "Hide timestamps and stream labels for easier copying",
+    "showDetailsHelp": "Show timestamps and stream labels",
+    "live": "Live",
+    "reconnecting": "Reconnecting…",
+    "autoScroll": "Auto-scroll",
+    "noLines": "No log lines",
+    "noFilteredLines": "No {{stream}} output. Try switching to All.",
+    "waitingForLines": "Log output will appear here as the backend process runs."
   },
   "traces": {
     "title": "Traces",
@@ -188,7 +213,25 @@
   },
   "nodes": {
     "title": "Distributed Nodes",
-    "subtitle": "Manage backend and agent worker nodes"
+    "subtitle": "Manage backend and agent worker nodes",
+    "selectionVisibility": "{{visible}} visible, {{hidden}} outside this view",
+    "workerSetup": {
+      "title": "Add worker",
+      "eyebrow": "Worker setup",
+      "description": "Choose a worker role and hardware target, then run one of the generated commands on the machine you want to connect.",
+      "close": "Close worker setup",
+      "type": "Worker type",
+      "backend": "Backend",
+      "agent": "Agent",
+      "hardware": "Hardware",
+      "cli": "CLI",
+      "docker": "Docker",
+      "copy": "Copy command",
+      "copied": "Copied to clipboard",
+      "docs": "Distributed mode documentation",
+      "emptyTitle": "No workers registered yet",
+      "emptyDescription": "Add a worker to bring compute capacity into this fleet."
+    }
   },
   "scheduling": {
     "title": "Scheduling",

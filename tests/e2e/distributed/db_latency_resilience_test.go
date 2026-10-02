@@ -32,10 +32,11 @@ const (
 // that failed evicted a healthy model that had done nothing wrong.
 var _ = Describe("Control plane under a failing database", Label("Distributed"), func() {
 	var (
-		infra    *TestInfra
-		db       *gorm.DB
-		routerDB *gorm.DB
-		ctx      context.Context
+		infra          *TestInfra
+		db             *gorm.DB
+		routerDB       *gorm.DB
+		routerRegistry *nodes.NodeRegistry
+		ctx            context.Context
 	)
 
 	openDB := func(dsn string) *gorm.DB {
@@ -60,7 +61,8 @@ var _ = Describe("Control plane under a failing database", Label("Distributed"),
 		ctx = context.Background()
 		db = openDB(infra.PGURL)
 
-		_, err := nodes.NewNodeRegistry(db)
+		var err error
+		routerRegistry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(db.Create(&nodes.BackendNode{
@@ -73,7 +75,7 @@ var _ = Describe("Control plane under a failing database", Label("Distributed"),
 		// would evict when it could not read the slot table.
 		Expect(db.Create(&nodes.NodeModel{
 			ID: "nm-victim", NodeID: "n-keep", ModelName: "victim", ReplicaIndex: 0,
-			State: "loaded", InFlight: 0, Address: "10.0.0.1:9001",
+			State: "loaded", InFlight: 0, WorkerLocalAddress: "10.0.0.1:9001",
 			LastUsed: time.Now().Add(-time.Hour),
 		}).Error).ToNot(HaveOccurred())
 
@@ -127,11 +129,10 @@ END $$`, routerRole)).Error).ToNot(HaveOccurred())
 	}
 
 	It("does not evict a loaded model when the database refuses the slot lookup", func() {
-		// Built before the revoke: AutoMigrate inspects the schema, and a
-		// migration that cannot run would degrade this spec into asserting
-		// almost nothing.
-		routerRegistry, err := nodes.NewNodeRegistry(routerDB)
-		Expect(err).ToNot(HaveOccurred())
+		// Migration finished on the admin handle in BeforeEach. Only runtime
+		// queries use the restricted handle, so missing schema privileges cannot
+		// move the injected failure into registry construction.
+		routerRegistry.UseDBForTest(routerDB)
 
 		revokeSlotReads()
 

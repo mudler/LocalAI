@@ -97,13 +97,17 @@ type SystemInfo struct {
 }
 
 // Node is one entry in list_nodes.
+//
+// It carries no address. A worker holds one outbound tunnel to a frontend
+// replica and advertises no endpoint, so both `address` and `http_address` are
+// empty on every node registered by a current worker. They were dropped rather
+// than left empty because this struct is read by the LocalAI Assistant, and an
+// always-blank field an operator can ask about invites an answer built on it.
 type Node struct {
-	ID          string `json:"id"`
-	Address     string `json:"address,omitempty"`
-	HTTPAddress string `json:"http_address,omitempty"`
-	TotalVRAM   uint64 `json:"total_vram,omitempty"`
-	Healthy     bool   `json:"healthy"`
-	LastSeen    string `json:"last_seen,omitempty"`
+	ID        string `json:"id"`
+	TotalVRAM uint64 `json:"total_vram,omitempty"`
+	Healthy   bool   `json:"healthy"`
+	LastSeen  string `json:"last_seen,omitempty"`
 }
 
 // SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs

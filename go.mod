@@ -24,14 +24,16 @@ require (
 	github.com/gofrs/flock v0.13.0
 	github.com/google/go-containerregistry v0.21.6
 	github.com/google/uuid v1.6.0
-	github.com/gpustack/gguf-parser-go v0.25.0
+	github.com/gpustack/gguf-parser-go v0.26.3
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jaypipes/ghw v0.24.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/libp2p/go-libp2p v0.48.0
+	github.com/libp2p/go-yamux/v5 v5.1.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
@@ -42,9 +44,6 @@ require (
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
 	github.com/mudler/nib v0.12.1
 	github.com/mudler/xlog v0.0.6
-	github.com/nats-io/jwt/v2 v2.7.4
-	github.com/nats-io/nats.go v1.52.0
-	github.com/nats-io/nkeys v0.4.15
 	github.com/ollama/ollama v0.20.4
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
@@ -53,6 +52,7 @@ require (
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.23.2
+	github.com/quasilyte/go-ruleguard/dsl v0.3.23
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/russross/blackfriday v1.6.0
 	github.com/sashabaranov/go-openai v1.41.2
@@ -63,7 +63,6 @@ require (
 	github.com/swaggo/echo-swagger v1.5.2
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.42.0
-	github.com/testcontainers/testcontainers-go/modules/nats v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	github.com/timbutler/zxcvbn v1.0.4
 	github.com/valkey-io/valkey-go v1.0.76
@@ -174,7 +173,6 @@ require (
 	github.com/msuozzo/bonsai/bonsai-yaml v0.4.0 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
@@ -249,7 +247,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
@@ -326,7 +323,6 @@ require (
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
-	github.com/libp2p/go-yamux/v5 v5.1.0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect

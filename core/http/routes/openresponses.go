@@ -1,14 +1,16 @@
 package routes
 
 import (
+	"context"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/xlog"
 )
 
@@ -16,18 +18,11 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application) {
 
-	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
-	var natsClient mcpTools.MCPNATSClient
+	// How the MCP endpoints reach an agent worker; nil outside distributed mode.
+	agentControl := mcpAgentControl(application)
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
-
-		// Replicate response metadata across frontend replicas and subscribe to
-		// delegated cancels. Without this a GET, a previous_response_id lookup or
-		// a cancel that the load balancer sends to a replica other than the
-		// creator 404s, and the cancel never reaches the CancelFunc (#10993).
-		// Standalone deployments skip this entirely and stay process-local.
-		if err := openresponses.GetGlobalStore().EnableDistributed(
-			application.ApplicationConfig().Context, d.Nats, application.InstanceID()); err != nil {
+		if err := enableDistributedResponses(application.ApplicationConfig().Context, d,
+			openresponses.GetGlobalStore(), application.InstanceID()); err != nil {
 			xlog.Error("Failed to enable cross-replica Open Responses store", "error", err)
 		}
 	}
@@ -38,7 +33,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	responsesMiddleware := []echo.MiddlewareFunc{
@@ -84,4 +79,33 @@ func setOpenResponsesRequestContext(re *middleware.RequestExtractor) echo.Middle
 			return next(c)
 		}
 	}
+}
+
+// enableDistributedResponses replicates response metadata across frontend
+// replicas and subscribes to delegated cancels. Without it a GET, a
+// previous_response_id lookup or a cancel that the load balancer sends to a
+// replica other than the creator 404s, and the cancel never reaches the
+// CancelFunc (#10993). Standalone deployments never reach here and stay
+// process-local.
+//
+// The durable store is what a replica re-hydrates from after its subscription
+// missed a delta; without it the same response_id answers 404 here and 200 on
+// the peer that created it, forever.
+//
+// A named function rather than a block inside route registration, and that is
+// the point of it. EnableDistributed takes a messaging.Broadcaster, as it must:
+// its own specs publish through a double. So handing it any carrier other than
+// the deployment's COMPILES and reddens nothing anywhere, and the only symptom
+// is a cancel that answers 404 on every replica but one. The broker client that
+// used to be the second carrier in scope is gone; what pins the choice is the
+// spec beside this file, which drives it from the OTHER carrier. Registering
+// routes needs a whole Application and therefore has no spec; this needs a
+// DistributedServices and a store, and therefore has one.
+func enableDistributedResponses(ctx context.Context, d *application.DistributedServices,
+	store *openresponses.ResponseStore, replicaID string) error {
+	var responseStore *distributed.ResponseMetadataStore
+	if d.DistStores != nil {
+		responseStore = d.DistStores.Responses
+	}
+	return store.EnableDistributed(ctx, d.Broadcast(), replicaID, responseStore)
 }

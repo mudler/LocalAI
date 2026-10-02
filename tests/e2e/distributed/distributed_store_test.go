@@ -2,6 +2,7 @@ package distributed_test
 
 import (
 	"context"
+	"net"
 
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -13,6 +14,25 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// directBackendClients stands in for the worker tunnel in these specs.
+//
+// The store refuses to build a client for a remote model without a way to reach
+// the worker, which is the point: a model built with no client dials its raw
+// address on first use. These specs have no worker tunnel and no worker, so the
+// dial is a plain TCP one; production supplies the real dialer from
+// core/application.
+func directBackendClients() nodes.BackendClientFactory {
+	GinkgoHelper()
+	clients, err := nodes.NewTunnelClientFactory("", func(string) func(ctx context.Context, addr string) (net.Conn, error) {
+		var d net.Dialer
+		return func(ctx context.Context, addr string) (net.Conn, error) {
+			return d.DialContext(ctx, "tcp", addr)
+		}
+	})
+	Expect(err).ToNot(HaveOccurred())
+	return clients
+}
 
 var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 	var (
@@ -36,7 +56,7 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		localStore = model.NewInMemoryModelStore()
-		dStore = nodes.NewDistributedModelStore(localStore, registry)
+		dStore = nodes.NewDistributedModelStore(localStore, registry, directBackendClients())
 	})
 
 	Context("Get", func() {
@@ -97,7 +117,11 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "range-node", Address: "range:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", 0, "loaded", "", 0)).To(Succeed())
+			// The replica address is load-bearing, not decoration. Range lists a
+			// remote replica by the endpoint its OWN backend process listens on;
+			// a row that names none is skipped, because workers advertise nothing
+			// and there is no node address left to fall back to.
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", 0, "loaded", "127.0.0.1:59001", 0)).To(Succeed())
 
 			visited := map[string]bool{}
 			dStore.Range(func(id string, m *model.Model) bool {
@@ -112,7 +136,11 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "dup-node", Address: "dup:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", 0, "loaded", "", 0)).To(Succeed())
+			// A named replica address is what makes this spec test deduplication
+			// at all: an unnamed row is dropped by Range before the seen-set is
+			// ever consulted, so the count would stay at one even with the
+			// dedup check removed.
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", 0, "loaded", "127.0.0.1:59002", 0)).To(Succeed())
 
 			// Also in local store
 			localStore.Set("shared-model", model.NewModel("shared-model", "dup:9000", nil))

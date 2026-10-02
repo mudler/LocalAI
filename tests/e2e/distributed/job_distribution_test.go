@@ -3,10 +3,12 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
-	"sync/atomic"
+	"errors"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -168,110 +170,113 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 
-	Context("Job Distribution via NATS", func() {
-		It("should enqueue job via NATS and worker picks it up", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
-			var processed atomic.Int32
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				processed.Add(1)
-				store.UpdateJobStatus(job.ID, "completed", "done", "")
-				return nil
-			})
+	Context("Job distribution through the claim queue", func() {
+		It("enqueues a claim and drives it on a worker, persisting what the worker answered", func() {
+			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
+			const owner = "test-instance"
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8090", "v1", "")).To(Succeed())
 
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
-			// Create task and job
 			task := &jobs.TaskRecord{UserID: "u1", Name: "dispatch-test", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
 			store.CreateJob(job)
 
-			// Enqueue
 			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
+			Expect(db.Model(&jobs.WorkClaim{}).Where("kind = ?", string(jobs.ClaimKindTask)).
+				Update("kind", string(jobs.ClaimKindMCPCI)).Error).To(Succeed())
 
-			// Wait for processing
-			Eventually(func() int32 { return processed.Load() }, "10s").Should(Equal(int32(1)))
+			worker := &scriptedWorker{reply: jobs.ClaimReply{JobID: job.ID, Status: "completed", Result: "done"}}
+			loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
+				DB: db, Owner: owner, Selector: fixedAgent{}, Control: worker,
+				Store: store, Liveness: time.Minute,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loop.DispatchOnce(infra.Ctx)).To(Succeed())
 
-			// Verify status updated
 			updated, _ := store.GetJob(job.ID)
 			Expect(updated.Status).To(Equal("completed"))
 		})
 
-		It("should cancel running job via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
-			jobStarted := make(chan struct{})
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				close(jobStarted)
-				// Simulate long work — wait for cancellation
-				<-ctx.Done()
-				return ctx.Err()
-			})
+		It("returns a claim to the pool when the dispatch obtained no answer, rather than losing the work", func() {
+			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
+			const owner = "lossy-instance"
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8091", "v1", "")).To(Succeed())
 
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
-
-			task := &jobs.TaskRecord{UserID: "u1", Name: "cancel-test", Model: "m1", Prompt: "p1"}
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
+			task := &jobs.TaskRecord{UserID: "u1", Name: "lossy-test", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
 			store.CreateJob(job)
+			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
+			Expect(db.Model(&jobs.WorkClaim{}).Where("kind = ?", string(jobs.ClaimKindTask)).
+				Update("kind", string(jobs.ClaimKindMCPCI)).Error).To(Succeed())
 
-			dispatcher.Enqueue(job.ID, task.ID, "u1")
-
-			// Wait for job to start
-			Eventually(jobStarted, "10s").Should(BeClosed())
-
-			// Cancel via NATS
-			Expect(dispatcher.Cancel(job.ID)).To(Succeed())
-
-			// Wait for cancellation
-			Eventually(func() string {
-				j, _ := store.GetJob(job.ID)
-				if j == nil {
-					return ""
-				}
-				return j.Status
-			}, "10s").Should(Equal("cancelled"))
-		})
-
-		It("should report job progress via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				dispatcher.PublishProgress(job.ID, "running", "step 1")
-				time.Sleep(50 * time.Millisecond)
-				dispatcher.PublishProgress(job.ID, "running", "step 2")
-				store.UpdateJobStatus(job.ID, "completed", "done", "")
-				return nil
-			})
-
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
-
-			task := &jobs.TaskRecord{UserID: "u1", Name: "progress-test", Model: "m1", Prompt: "p1"}
-			store.CreateTask(task)
-			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
-			store.CreateJob(job)
-
-			// Subscribe to progress before enqueuing
-			var progressEvents []jobs.ProgressEvent
-			sub, err := dispatcher.SubscribeProgress(job.ID, func(evt jobs.ProgressEvent) {
-				progressEvents = append(progressEvents, evt)
+			worker := &scriptedWorker{err: errors.New("the tunnel died mid-verb")}
+			loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
+				DB: db, Owner: owner, Selector: fixedAgent{}, Control: worker,
+				Store: store, Liveness: time.Minute,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
+			Expect(loop.DispatchOnce(infra.Ctx)).To(HaveOccurred())
 
-			dispatcher.Enqueue(job.ID, task.ID, "u1")
+			var rows []jobs.WorkClaim
+			Expect(db.Find(&rows).Error).To(Succeed())
+			Expect(rows).To(HaveLen(1), "a transport failure must not complete or discard the work")
+			Expect(rows[0].ClaimedAt).To(BeNil())
+			Expect(rows[0].Attempts).To(Equal(1))
+			updated, _ := store.GetJob(job.ID)
+			Expect(updated.Status).ToNot(Equal("completed"), "nothing was learned, so nothing may be written about the job")
+		})
 
-			// Wait for completion
-			Eventually(func() int { return len(progressEvents) }, "10s").Should(BeNumerically(">=", 3))
+		It("broadcasts a cancel on the job's own cancel subject", func() {
+			// Two carriers, because the replica that holds the execution is
+			// never the one an API cancel lands on. A cancel that does not
+			// arrive is not a cancel that was refused, so this pins ARRIVAL.
+			publisher, listener := infra.Bus(), infra.Bus()
+			dispatcher := jobs.NewDispatcher(store, publisher, db, "test-instance")
+			seen := make(chan string, 1)
+			sub, err := listener.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
+				var evt jobs.CancelEvent
+				if json.Unmarshal(data, &evt) == nil {
+					select {
+					case seen <- evt.JobID:
+					default:
+					}
+				}
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = sub.Unsubscribe() }()
 
-			// Should have received progress events
+			Expect(dispatcher.Cancel("job-to-cancel")).To(Succeed())
+			Eventually(seen, "10s").Should(Receive(Equal("job-to-cancel")))
+		})
+
+		It("reports job progress on the job's own progress subject", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
+
+			var progressEvents []jobs.ProgressEvent
+			var mu sync.Mutex
+			sub, err := dispatcher.SubscribeProgress("progress-job", func(evt jobs.ProgressEvent) {
+				mu.Lock()
+				progressEvents = append(progressEvents, evt)
+				mu.Unlock()
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = sub.Unsubscribe() }()
+
+			Expect(dispatcher.PublishProgress("progress-job", "running", "step 1")).To(Succeed())
+			Expect(dispatcher.PublishProgress("progress-job", "running", "step 2")).To(Succeed())
+			Expect(dispatcher.PublishProgress("progress-job", "completed", "done")).To(Succeed())
+
+			Eventually(func() int {
+				mu.Lock()
+				defer mu.Unlock()
+				return len(progressEvents)
+			}, "10s").Should(BeNumerically(">=", 3))
+			mu.Lock()
+			defer mu.Unlock()
 			Expect(progressEvents[0].Status).To(Equal("running"))
 		})
 	})
@@ -315,9 +320,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 
-	Context("Progress Streaming (NATS → SSE bridge)", func() {
-		It("should bridge NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+	Context("Progress streaming to the SSE bridge", func() {
+		It("bridges progress events to a per-job subscription", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -330,9 +335,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				events = append(events, evt)
 			})
 			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
+			defer func() { _ = sub.Unsubscribe() }()
 
 			// Publish progress events
 			dispatcher.PublishProgress("job-123", "running", "processing")
@@ -345,7 +348,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should filter SSE events by job ID", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -358,8 +361,6 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				eventsA = append(eventsA, evt)
 			})
 			defer subA.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Publish to both job-A and job-B
 			dispatcher.PublishProgress("job-A", "running", "A progress")
@@ -374,110 +375,37 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 
-	Context("Enriched Job Payload (DB-free worker)", func() {
-		It("should enrich JobEvent with full Job and Task data", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "enrichment-test", 0)
+	Context("Enriched claim payload (DB-free worker)", func() {
+		It("stores the full Job and Task on the claim row, so the worker needs no database", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "enrichment-test")
 
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
-
-			// Create task and job
 			task := &jobs.TaskRecord{UserID: "u1", Name: "enrich-task", Model: "m1", Prompt: "hello {{.name}}"}
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
 			store.CreateJob(job)
 
-			// Capture the raw NATS event
-			var capturedEvt jobs.JobEvent
-			var captured atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectJobsNew, func(data []byte) {
-				var evt jobs.JobEvent
-				if json.Unmarshal(data, &evt) == nil {
-					capturedEvt = evt
-					captured.Add(1)
-				}
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
-
-			// Enqueue — this should embed Job+Task in the event
 			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
 
-			Eventually(func() int32 { return captured.Load() }, "5s").Should(BeNumerically(">=", 1))
+			var rows []jobs.WorkClaim
+			Expect(db.Find(&rows).Error).To(Succeed())
+			Expect(rows).To(HaveLen(1))
 
-			// Verify enriched payload
-			Expect(capturedEvt.Job).ToNot(BeNil(), "JobEvent should contain embedded Job")
-			Expect(capturedEvt.Task).ToNot(BeNil(), "JobEvent should contain embedded Task")
-			Expect(capturedEvt.Job.ID).To(Equal(job.ID))
-			Expect(capturedEvt.Task.Name).To(Equal("enrich-task"))
-			Expect(capturedEvt.Task.Prompt).To(Equal("hello {{.name}}"))
+			var evt jobs.JobEvent
+			Expect(json.Unmarshal(rows[0].Payload, &evt)).To(Succeed())
+			Expect(evt.Job).ToNot(BeNil(), "the claim payload should contain the embedded Job")
+			Expect(evt.Task).ToNot(BeNil(), "the claim payload should contain the embedded Task")
+			Expect(evt.Job.ID).To(Equal(job.ID))
+			Expect(evt.Task.Name).To(Equal("enrich-task"))
+			Expect(evt.Task.Prompt).To(Equal("hello {{.name}}"))
 		})
 
-		It("should process job from enriched payload without DB access", func() {
-			// Create a worker-side dispatcher with NO store (simulating DB-free worker)
-			workerDispatcher := jobs.NewDispatcher(nil, infra.NC, nil, "worker-no-db", 0)
-
-			var receivedJob *jobs.JobRecord
-			var receivedTask *jobs.TaskRecord
-			processed := make(chan struct{})
-
-			workerDispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				receivedJob = job
-				receivedTask = task
-				job.Result = "processed without DB"
-				close(processed)
-				return nil
-			})
-
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(workerDispatcher.Start(dCtx)).To(Succeed())
-			defer workerDispatcher.Stop()
-
-			FlushNATS(infra.NC)
-
-			// Publish an enriched event directly (simulating what the frontend does)
-			evt := jobs.JobEvent{
-				JobID:  "test-job-123",
-				TaskID: "test-task-456",
-				UserID: "u1",
-				Job: &jobs.JobRecord{
-					ID:          "test-job-123",
-					TaskID:      "test-task-456",
-					UserID:      "u1",
-					Status:      "pending",
-					TriggeredBy: "api",
-				},
-				Task: &jobs.TaskRecord{
-					ID:     "test-task-456",
-					Name:   "embedded-task",
-					Model:  "test-model",
-					Prompt: "do something",
-				},
-			}
-			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
-
-			Eventually(processed, "10s").Should(BeClosed())
-
-			// Verify the worker received data from the payload, not from DB
-			Expect(receivedJob).ToNot(BeNil())
-			Expect(receivedJob.ID).To(Equal("test-job-123"))
-			Expect(receivedTask).ToNot(BeNil())
-			Expect(receivedTask.Name).To(Equal("embedded-task"))
-			Expect(receivedTask.Model).To(Equal("test-model"))
-		})
-
-		It("should publish job result via NATS on completion", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "result-test", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				job.Result = "job finished successfully"
-				return nil
-			})
-
+		// The two subscriptions the dispatcher KEEPS. A worker's result and
+		// trace lines are re-broadcast by the replica that claimed the work, and
+		// every replica persists them, because the SSE stream a user is watching
+		// may be open on a replica that claimed nothing.
+		It("persists a result a worker's re-broadcast carried, whichever replica reads it", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "result-test")
+			peer := infra.Bus()
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
@@ -485,35 +413,25 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "result-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
-			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
+			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "running", TriggeredBy: "api"}
 			store.CreateJob(job)
 
-			// Subscribe to result events
-			var resultEvt jobs.JobResultEvent
-			var received atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectJobResult(job.ID), func(data []byte) {
-				json.Unmarshal(data, &resultEvt)
-				received.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
+			// Published by a PEER replica's carrier: this is the fan-out copy of
+			// a terminal line the claiming replica already persisted, and the
+			// replica asserted on here claimed nothing.
+			jobs.PublishJobResult(peer, job.ID, "completed", "job finished successfully", "")
 
-			FlushNATS(infra.NC)
-			dispatcher.Enqueue(job.ID, task.ID, "u1")
-
-			Eventually(func() int32 { return received.Load() }, "10s").Should(BeNumerically(">=", 1))
-			Expect(resultEvt.JobID).To(Equal(job.ID))
-			Expect(resultEvt.Status).To(Equal("completed"))
+			Eventually(func() string {
+				j, _ := store.GetJob(job.ID)
+				if j == nil {
+					return ""
+				}
+				return j.Status
+			}, "10s").Should(Equal("completed"))
 		})
 
-		It("should stream traces via NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "trace-test", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")
-				dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")
-				return nil
-			})
-
+		It("appends a trace a worker's re-broadcast carried", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "trace-test")
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
@@ -521,25 +439,23 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "trace-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
-			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
+			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "running", TriggeredBy: "api"}
 			store.CreateJob(job)
 
-			// Subscribe to progress events
-			var traceEvents []jobs.ProgressEvent
-			sub, err := dispatcher.SubscribeProgress(job.ID, func(evt jobs.ProgressEvent) {
-				if evt.TraceType != "" {
-					traceEvents = append(traceEvents, evt)
+			Expect(dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")).To(Succeed())
+			Expect(dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")).To(Succeed())
+
+			Eventually(func() int {
+				j, _ := store.GetJob(job.ID)
+				if j == nil || j.TracesJSON == "" {
+					return 0
 				}
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			dispatcher.Enqueue(job.ID, task.ID, "u1")
-
-			Eventually(func() int { return len(traceEvents) }, "10s").Should(BeNumerically(">=", 2))
-			Expect(traceEvents[0].TraceType).To(Equal("reasoning"))
-			Expect(traceEvents[0].TraceContent).To(Equal("thinking about the problem"))
-			Expect(traceEvents[1].TraceType).To(Equal("tool_call"))
+				var traces []map[string]string
+				if json.Unmarshal([]byte(j.TracesJSON), &traces) != nil {
+					return 0
+				}
+				return len(traces)
+			}, "10s").Should(BeNumerically(">=", 2))
 		})
 
 		It("should append traces incrementally to job record", func() {

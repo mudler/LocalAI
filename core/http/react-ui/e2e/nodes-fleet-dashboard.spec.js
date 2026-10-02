@@ -134,6 +134,7 @@ test.describe('Nodes fleet dashboard', () => {
     await page.getByRole('checkbox', { name: 'Select page' }).check()
     await page.getByRole('searchbox', { name: 'Search nodes' }).fill('worker-1')
     await expect(page.getByText('12 selected')).toBeVisible()
+    await expect(page.getByText('3 visible, 9 outside this view')).toBeVisible()
     await page.getByRole('button', { name: 'Drain selected' }).evaluate(button => {
       button.click()
       button.click()
@@ -148,6 +149,45 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByText(/1 succeeded, 0 failed, 11 skipped/)).toBeVisible()
     expect(drainRequests).not.toContain('n9')
     expect(resumeRequests).not.toContain('n9')
+  })
+
+  test('opens Add worker as an accessible setup drawer and restores focus', async ({ page }) => {
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto('/app/nodes')
+
+    const trigger = page.getByRole('button', { name: 'Add worker' })
+    await trigger.click()
+    const drawer = page.getByRole('dialog', { name: 'Add worker' })
+    await expect(drawer).toBeVisible()
+    await expect(drawer.getByRole('radiogroup', { name: 'Worker type' })).toBeVisible()
+    await expect(drawer.getByText('CLI', { exact: true })).toBeVisible()
+    await expect(drawer.getByText('Docker', { exact: true })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: 'Copy command' })).toHaveCount(2)
+    await expect(drawer.getByRole('link', { name: 'Distributed mode documentation' })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: 'Close worker setup' })).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(trigger).toBeFocused()
+  })
+
+  test('presents worker setup as a modal drawer on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto('/app/nodes')
+    await page.getByRole('button', { name: 'Add worker' }).click()
+    await expect(page.getByRole('dialog', { name: 'Add worker' })).toHaveAttribute('aria-modal', 'true')
+  })
+
+  test('opens running-model logs with a fleet return destination', async ({ page }) => {
+    await mockNodes(page)
+    await page.route('**/api/nodes/models', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([baseModels[3]]) }))
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: /Running models/ }).click()
+    await page.getByRole('button', { name: 'Actions for Whisper large v3' }).click()
+    await page.getByRole('menuitem', { name: 'View logs…' }).click()
+    await page.getByRole('link', { name: 'Back to nodes' }).click()
+    await expect(page).toHaveURL(/\/app\/nodes$/)
   })
 
   test('disables bulk controls and remove confirmation while removal is running', async ({ page }) => {
@@ -504,10 +544,12 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(modelControl).toHaveAttribute('aria-expanded', 'false')
     await expect(modelControl).not.toHaveAttribute('aria-controls')
 
-    await page.getByRole('button', { name: 'Inspect Whisper large v3' }).click()
+    const whisperControl = page.getByRole('button', { name: 'Inspect Whisper large v3' })
+    await whisperControl.click()
     await expect(page.getByRole('complementary', { name: 'Model inspector' })).toContainText('missing')
     await expect(page.getByRole('complementary', { name: 'Model inspector' })).toContainText('Unknown')
     await page.getByRole('button', { name: 'Close model inspector' }).click()
+    await expect(whisperControl).toBeFocused()
 
     await modelsTab.focus()
     await modelsTab.press('ArrowLeft')
@@ -570,7 +612,7 @@ test.describe('Nodes fleet dashboard', () => {
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector).toBeVisible()
 
-    await page.getByRole('button', { name: 'Remove selected' }).click()
+    await page.getByRole('button', { name: 'Remove selected' }).evaluate(button => button.click())
     await expect(page.getByRole('alertdialog')).toBeVisible()
     await page.keyboard.press('Escape')
 

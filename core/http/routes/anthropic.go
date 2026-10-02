@@ -10,7 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/anthropic"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
@@ -25,17 +24,14 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	application *application.Application,
 ) {
 	// Anthropic Messages API endpoint
-	var natsClient mcpTools.MCPNATSClient
-	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
-	}
+	agentControl := mcpAgentControl(application)
 
 	messagesHandler := anthropic.MessagesEndpoint(
 		application.ModelConfigLoader(),
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{

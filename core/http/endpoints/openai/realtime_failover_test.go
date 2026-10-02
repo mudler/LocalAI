@@ -86,7 +86,7 @@ var _ = Describe("realtime failover", func() {
 		t := &fakeTransport{}
 		failoverEvents := func() []types.ModelFailoverEvent {
 			var out []types.ModelFailoverEvent
-			for _, e := range t.events() {
+			for _, e := range t.recordedEvents() {
 				if fe, ok := e.(types.ModelFailoverEvent); ok {
 					out = append(out, fe)
 				}
@@ -136,7 +136,7 @@ var _ = Describe("realtime failover in transcription-only and sound-only session
 	failoverEvents := func(t *fakeTransport) func() []types.ModelFailoverEvent {
 		return func() []types.ModelFailoverEvent {
 			var out []types.ModelFailoverEvent
-			for _, e := range t.events() {
+			for _, e := range t.recordedEvents() {
 				if fe, ok := e.(types.ModelFailoverEvent); ok {
 					out = append(out, fe)
 				}
