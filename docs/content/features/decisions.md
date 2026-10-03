@@ -239,8 +239,8 @@ All entries are text-only and omit projectors. Download size is not a RAM estima
 | `laya-llama-cpp` | Q8_0 | 449,397,600 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
 | `kev-4b-llama-cpp` | Q4_K_M | 3,033,489,824 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
 | `lev-llama-cpp` | Q4_K_M | 3,011,777,440 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
-| `openjev-llama-cpp` | Q4_K_M | 18,973,872,288 | **CC-BY-NC-4.0** | Artifact metadata verified; installation/runtime validation pending |
-| `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Artifact metadata verified; installation/runtime validation pending |
+| `openjev-llama-cpp` | Q4_K_M | 18,973,872,288 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+| `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
 
 OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
 capability does **not** imply LocalAI decision-image support. Nimble requires the
@@ -252,3 +252,19 @@ The published entries pin revisions and SHA-256 checksums, but metadata verifica
 alone is not a runtime test. No model-quality guarantee follows from these smoke
 tests. Laya, Kev-4B, and lev were also retested against the newer native backend
 with 1- and 11-level score requests correctly rejected.
+
+OpenJev and Nimble validation used the native backend at llama.cpp revision
+`bed0a856606ee4a24a164066f73d2379447033f5`, CPU-only with two threads, a 2048-token
+context, and batch size 512. Each artifact was installed through the gallery,
+SHA-256 verified, and checked for its decision metadata and SystemOne template.
+Each request included choice, score, and noul questions together, including the
+full question set required by Nimble. Response-shape, probability-normalization,
+and noul-bound assertions passed; 1- and 11-level score requests were rejected.
+The test requests reported 224 input tokens for OpenJev and 933 for Nimble, with
+explicit zero output tokens for both. No projector was installed or tested.
+
+These are bounded text contract smoke tests, not accuracy benchmarks or
+performance guarantees. Floating-point probabilities can vary with hardware and
+build settings; tests do not require exact answer probabilities or token counts.
+Neither image support nor interruption during active evaluation is established
+by these tests. CC-BY-NC-4.0's noncommercial restriction still applies.
