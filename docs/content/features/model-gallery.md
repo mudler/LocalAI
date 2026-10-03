@@ -39,6 +39,28 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Gmcoder 9B
+
+Gmcoder merges Qwen3.5-9B and Ornith-1.5-9B for coding tasks.
+The gallery includes Q4_K_M and Q8_0 GGUF builds for text chat with llama.cpp.
+Both use the embedded chat template and a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install gmcoder-9b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install gmcoder-9b-q4 --variant gmcoder-9b-q8
+```
+
+These entries configure text input only and do not enable MTP speculative decoding.
+See the [model card and GGUF downloads](https://huggingface.co/emperorofrome/Gmcoder)
+for the publisher's MIT license and evaluation details.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

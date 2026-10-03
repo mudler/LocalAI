@@ -91,6 +91,80 @@
     - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
       sha256: 9f3a5e81486b0c0270eff405b9a22911bf388aa7b58f3788eed9b0774904283b
+- &gmcoder-9b
+  name: gmcoder-9b-q4
+  variants:
+    - model: gmcoder-9b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/emperorofrome/Gmcoder
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  description: |
+    Gmcoder is a 9B merge of Qwen3.5 and Ornith 1.5 for code generation,
+    debugging, and explanations. This Q4_K_M GGUF build uses llama.cpp
+    for text chat with the embedded template and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/gmcoder-9b/gmcoder.Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+  files:
+    - filename: llama-cpp/models/gmcoder-9b/gmcoder.Q4_K_M.gguf
+      uri: https://huggingface.co/emperorofrome/Gmcoder/resolve/952bd98b90b50a648ad2041e14269036fee5338d/gmcoder.Q4_K_M.gguf
+      sha256: 612f8a6df4300e1a28e2737b164e718ab981d2d14f49d9f5646208bef43323c5
+- !!merge <<: *gmcoder-9b
+  name: gmcoder-9b-q8
+  variants: []
+  description: |
+    Gmcoder is a 9B merge of Qwen3.5 and Ornith 1.5 for code generation,
+    debugging, and explanations. This Q8_0 GGUF build uses llama.cpp
+    for text chat with the embedded template and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/gmcoder-9b/gmcoder.Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+  files:
+    - filename: llama-cpp/models/gmcoder-9b/gmcoder.Q8_0.gguf
+      uri: https://huggingface.co/emperorofrome/Gmcoder/resolve/952bd98b90b50a648ad2041e14269036fee5338d/gmcoder.Q8_0.gguf
+      sha256: a99f45fd1349a0830b48f9fbf28552f524340e3f25b8e3a3e40c14526a053a1d
 - name: cyber-ornith-1.5-9b-obliterated
   variants:
     - model: cyber-ornith-1.5-9b-obliterated-q6
