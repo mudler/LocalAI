@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"gorm.io/gorm"
+	"slices"
 )
 
 // ListModelCapabilitiesEndpoint is a LocalAI-specific extension of the OpenAI
@@ -43,6 +44,14 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 					cfg.ContextSize = &appConfig.ContextSize
 				}
 				entry.Capabilities = cfg.Capabilities()
+				// Generation aliases inherit target capabilities, but the router's
+				// native classifier loads the named config directly (no alias resolution).
+				original, exists := bcl.GetModelConfig(m)
+				if !exists || !original.NativeDecisionsEligible() {
+					entry.Capabilities = slices.DeleteFunc(entry.Capabilities, func(capability string) bool {
+						return capability == config.UsecaseDecisions
+					})
+				}
 				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
 				entry.OutputModalities = cfg.OutputModalities()

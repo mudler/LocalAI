@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/systemone"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -75,6 +76,23 @@ var _ = Describe("systemOneBind", func() {
 		}
 		return http.StatusOK, nil
 	}
+
+	It("accepts HTTP text whose JSON escaping exceeds the internal serialized bound", func() {
+		body := `{"state":"` + strings.Repeat("<", 11000) + `","questions":{"q":{"type":"noul"}}}`
+		Expect(len(body)).To(BeNumerically("<", systemOneMaxBody))
+		e := echo.New()
+		r := httptest.NewRequest(http.MethodPost, "/v1/systemone", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		c := e.NewContext(r, httptest.NewRecorder())
+		var out schema.SystemOneRequest
+		Expect(systemOneBind(c, &out)).To(Succeed())
+		serialized, err := json.Marshal(out)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(serialized)).To(BeNumerically(">", systemOneMaxBody))
+		Expect(validateSystemOneRequest(&out)).To(Succeed())
+		// The internal transport still bounds its actual serialized representation.
+		Expect(systemone.ValidateRequest(&out)).To(MatchError(ContainSubstring("exceeds 64 KiB")))
+	})
 
 	It("binds a normal body", func() {
 		status, err := bind(`{"model":"m","state":"x","questions":{}}`)

@@ -1146,10 +1146,11 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.classifier": {
 			Section:     "router",
 			Label:       "Classifier",
-			Description: "How the router picks labels for a prompt. \"score\" asks the classifier_model to rank each policy label and reads off the softmax; \"colbert\" reranks policy descriptions against the prompt via a reranker model; \"knn\" votes over a curated corpus of labelled example prompts (seeded via the corpus API) and routes to the fallback when the prompt is unlike all corpus entries. Empty defaults to \"score\".",
+			Description: "How the router picks labels for a prompt. Decisions returns independent label probabilities, not an exclusive choice. \"score\" asks the classifier_model to rank each policy label and reads off the softmax; \"colbert\" reranks policy descriptions against the prompt via a reranker model; \"knn\" votes over a curated corpus of labelled example prompts (seeded via the corpus API) and routes to the fallback when the prompt is unlike all corpus entries. Empty defaults to \"score\".",
 			Component:   "select",
 			Options: []FieldOption{
 				{Value: "score", Label: "Score (Arch-Router-style)"},
+				{Value: "decisions", Label: "Decisions (native probabilities)"},
 				{Value: "colbert", Label: "Colbert (reranker)"},
 				{Value: "knn", Label: "KNN (labelled corpus)"},
 			},
@@ -1158,9 +1159,10 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.classifier_model": {
 			Section:              "router",
 			Label:                "Classifier Model",
-			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation (for colbert: the reranker model). Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold. Not used by the knn classifier.",
+			Description:          "Installed classifier model. Score uses a ChatML continuation model; Colbert uses a reranker. Decisions uses a native decision model explicitly declaring known_usecases: [decisions] on a Score-capable backend, with no ChatML template required. Not used by KNN.",
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsScore,
+			AutocompleteBy:       &ConditionalProvider{Field: "router.classifier", Providers: map[string]string{"decisions": "models:decisions", "colbert": "models:rerank", "knn": ""}},
 			Order:                231,
 		},
 		"router.fallback": {
@@ -1174,7 +1176,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.activation_threshold": {
 			Section:     "router",
 			Label:       "Activation Threshold",
-			Description: "Softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
+			Description: "For Decisions, use 0.5 as a starting threshold for independent label probabilities (0 selects its default of 0.5). Switching classifiers preserves your threshold. For Score: softmax-probability floor a policy must clear to join the active label set for a request. Higher → single-label dominant routes; lower → more multi-label activations. 0 picks the package default (0.15). On Arch-Router-1.5B a value around 0.40 keeps the dominant label clean without losing genuine compound activations.",
 			Component:   "slider",
 			Min:         f64(0),
 			Max:         f64(1),

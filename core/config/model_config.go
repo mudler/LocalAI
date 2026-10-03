@@ -352,7 +352,7 @@ func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
 // config load to keep the dispatch graph acyclic and predictable. The
 // middleware also asserts depth ≤ 1 at runtime as a defensive check.
 type RouterConfig struct {
-	// Classifier picks the implementation. Only "score" ships today:
+	// Classifier selects score, colbert, knn, or native decisions. For score:
 	// it asks the classifier model to score every Policy label as a
 	// continuation of the routing prompt and reads off the
 	// distribution. Empty defaults to "score".
@@ -390,6 +390,8 @@ type RouterConfig struct {
 	// 0 disables the cache. Default 1024.
 	ClassifierCacheSize int `yaml:"classifier_cache_size,omitempty" json:"classifier_cache_size,omitempty"`
 
+	// For decisions, ActivationThreshold is an independent P(true) floor;
+	// zero selects the default 0.5.
 	// ActivationThreshold is the softmax-probability floor a policy
 	// must clear to be considered "active" for the request. 0
 	// defaults to a sensible value (~0.15) inside the classifier.
@@ -1813,6 +1815,29 @@ func (c *ModelConfig) Validate() (bool, error) {
 	default:
 		return false, fmt.Errorf("router: unknown score_normalization %q (expected %q or %q)",
 			c.Router.ScoreNormalization, ScoreNormalizationRaw, ScoreNormalizationMean)
+	}
+
+	if c.Router.Classifier == "decisions" {
+		t := c.Router.ActivationThreshold
+		if math.IsNaN(t) || math.IsInf(t, 0) || t < 0 || t > 1 {
+			return false, fmt.Errorf("router.decisions activation_threshold must be finite and in [0,1]")
+		}
+		if c.Router.ClassifierModel == "" {
+			return false, fmt.Errorf("router.decisions requires classifier_model")
+		}
+		if len(c.Router.Policies) == 0 || len(c.Router.Policies) > 64 {
+			return false, fmt.Errorf("router.decisions requires 1 to 64 policies")
+		}
+		seen := map[string]bool{}
+		for _, p := range c.Router.Policies {
+			if strings.TrimSpace(p.Label) == "" || strings.TrimSpace(p.Description) == "" || seen[p.Label] {
+				return false, fmt.Errorf("router.decisions requires unique nonblank labels and descriptions")
+			}
+			seen[p.Label] = true
+		}
+		if c.Router.KNN != nil || c.Router.EmbeddingCache != nil {
+			return false, fmt.Errorf("router.decisions does not support knn or embedding_cache composition")
+		}
 	}
 	if c.Router.KNN != nil {
 		if err := c.Router.KNN.Validate(); err != nil {

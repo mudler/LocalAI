@@ -47,7 +47,7 @@ type Probe struct {
 // surrounding middleware picks the first candidate whose Labels
 // superset the active label set; that lets one prompt activate multiple
 // policies and route to a model capable of all of them. Score is the
-// softmax probability of the top label — kept for the decision log so
+// maximum label score (independent P(true) for decisions) — kept for the decision log so
 // admins can spot uncertain calls.
 type Decision struct {
 	Labels  []string      `json:"labels"`
@@ -57,7 +57,8 @@ type Decision struct {
 	// LabelScores carries the full per-label score distribution that
 	// fed the threshold check, in policy-declaration order. Score
 	// classifier emits softmax probabilities (sum to 1.0); rerank
-	// emits independent relevance in [0, 1]. Empty on cache hits —
+	// emits independent relevance and decisions emits independent P(true)
+	// in [0, 1]. Empty on cache hits —
 	// the cache stores only the final label set, not the distribution.
 	LabelScores []LabelScore `json:"label_scores,omitempty"`
 
@@ -144,7 +145,8 @@ const (
 	// model (Arch-Router-style) to score each policy label as a
 	// continuation of the routing prompt. See router/score.go for
 	// the full rationale.
-	ClassifierScore = "score"
+	ClassifierScore     = "score"
+	ClassifierDecisions = "decisions"
 
 	// ClassifierColbert picks labels by reranking each policy's
 	// description against the prompt via LocalAI's rerankers
@@ -169,7 +171,7 @@ const (
 // available_classifiers field both derive from it, so a new classifier
 // added to the buildClassifier switch shows up on every surface by
 // extending this one slice (colbert once drifted out of both).
-var AllClassifiers = []string{ClassifierScore, ClassifierColbert, ClassifierKNN}
+var AllClassifiers = []string{ClassifierScore, ClassifierColbert, ClassifierKNN, ClassifierDecisions}
 
 // LabelFallback is the synthetic label written to the decision
 // store when the middleware uses cfg.Router.Fallback rather than a

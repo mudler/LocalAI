@@ -170,3 +170,101 @@ common case. These behaviors differ:
 When authentication is on, the three routes need the `decisions` feature. It is
 on by default for every user, like the other API features, and an administrator
 can turn it off per user.
+
+## Native llama.cpp decisions
+
+The stock `llama-cpp` backend supports text-only decision GGUFs carrying upstream
+SystemOne metadata. Declare `known_usecases: [decisions]`; ordinary `score` need
+not be enabled. Requests use the existing internal Score RPC, not a backend HTTP
+server. Choice, score, and noul questions may be combined in one request. Structured
+state and questions are forwarded without NER rendering. llama.cpp score questions
+accept 2–10 levels; this backend-specific limit does not constrain vllm-cpp.
+Older forks without native decision support return 501. Missing decision metadata
+also returns 501, while backend invalid requests return 400.
+
+### Initial image policy
+
+This release validates text-only llama.cpp decisions, not full OpenJev image or
+projector compatibility. The public routes retain a 64 KiB raw request limit
+(413 on overflow), independently of the internal router's serialized request
+budget. Image inputs are preserved, with at most eight images and 32 KiB aggregate
+encoded data-URL bytes. Only base64 `data:image/...` URLs are accepted. Oversized
+image payloads return 413; malformed payloads or excessive image count return 400.
+The NER path and native llama.cpp bridge reject image input explicitly with 501;
+they never silently discard images. Other native backends receive validated image
+fields unchanged and determine their own image support.
+
+Native responses report backend input/output usage, including zero generated
+tokens. LocalAI records supplied usage once; explicit zero counts are distinct
+from missing usage. Missing counts are not estimated, and invalid negative counts
+are rejected rather than billed.
+
+### Julia-1 CPU example
+
+Install the separate stock llama.cpp entry (existing vllm-cpp entries are unchanged):
+
+```sh
+local-ai models install julia-1-llama-cpp
+```
+
+Julia-1 is a 144.3M-parameter multilingual text decision model. The gallery pins
+`ggml-org/Julia-1-GGUF` revision `16fee17949206fbf58da9347daea44d792a81211`,
+file `Julia-1-Q8_0.gguf` (168,166,496 bytes, about 160.4 MiB), SHA-256
+`1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069`.
+The source model and GGUF publisher declare Apache-2.0. Source provenance:
+`SupersonicLabs/Julia-1` revision `a85b127321d580d65176c89ced8273f305745d85`,
+based on `jhu-clsp/mmBERT-small`. This is a real model, not the upstream tiny test
+fixture; assess its accuracy for your own tasks.
+
+```sh
+curl http://localhost:8080/v1/systemone \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"julia-1-llama-cpp","state":"I was charged twice and need a refund.","questions":{"route":{"type":"choice","instructions":"Which team should handle this?","criteria":{"billing":"payments and refunds","shipping":"delivery problems","technical":"software issues"}},"refund":{"type":"noul","instructions":"Does the customer request a refund?"}}}'
+```
+
+The pinned artifact was installed through the gallery installer, checksum-verified,
+and tested on CPU with the native Score RPC using choice, score, and noul in one
+request. That smoke returned 97 input tokens and zero output tokens; token counts
+vary with the request. This does not establish broad model accuracy or image
+support.
+
+### Native family defaults
+
+Each family has a separately named default; these do not replace vllm-cpp entries.
+All entries are text-only and omit projectors. Download size is not a RAM estimate.
+
+| Gallery entry | Quantization | Artifact bytes | License | Validation status |
+|---|---|---:|---|---|
+| `julia-1-llama-cpp` | Q8_0 | 168,166,496 | Apache-2.0 | Gallery install and CPU request verified |
+| `laya-llama-cpp` | Q8_0 | 449,397,600 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `kev-4b-llama-cpp` | Q4_K_M | 3,033,489,824 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `lev-llama-cpp` | Q4_K_M | 3,011,777,440 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `openjev-llama-cpp` | Q4_K_M | 18,973,872,288 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+| `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+
+OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
+capability does **not** imply LocalAI decision-image support. Nimble requires the
+native Nimble integration included in this source tree's llama.cpp pin
+`bed0a856606ee4a24a164066f73d2379447033f5`; older installed backends must be
+updated before serving it. This source prerequisite is integrated, but the
+OpenJev and Nimble installation/runtime checks remain pending as listed above.
+The published entries pin revisions and SHA-256 checksums, but metadata verification
+alone is not a runtime test. No model-quality guarantee follows from these smoke
+tests. Laya, Kev-4B, and lev were also retested against the newer native backend
+with 1- and 11-level score requests correctly rejected.
+
+OpenJev and Nimble validation used the native backend at llama.cpp revision
+`bed0a856606ee4a24a164066f73d2379447033f5`, CPU-only with two threads, a 2048-token
+context, and batch size 512. Each artifact was installed through the gallery,
+SHA-256 verified, and checked for its decision metadata and SystemOne template.
+Each request included choice, score, and noul questions together, including the
+full question set required by Nimble. Response-shape, probability-normalization,
+and noul-bound assertions passed; 1- and 11-level score requests were rejected.
+The test requests reported 224 input tokens for OpenJev and 933 for Nimble, with
+explicit zero output tokens for both. No projector was installed or tested.
+
+These are bounded text contract smoke tests, not accuracy benchmarks or
+performance guarantees. Floating-point probabilities can vary with hardware and
+build settings; tests do not require exact answer probabilities or token counts.
+Neither image support nor interruption during active evaluation is established
+by these tests. CC-BY-NC-4.0's noncommercial restriction still applies.

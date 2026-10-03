@@ -292,6 +292,12 @@ export default function ModelEditor() {
       for (const path of activeFieldPaths) {
         if (path in values) patchFlat[path] = values[path]
       }
+      if (patchFlat['router.classifier'] === 'decisions') {
+        const available = await modelsApi.listNativeCapabilities()
+        if (!available?.data?.some(m => m.id === patchFlat['router.classifier_model'] && m.capabilities?.includes('decisions'))) {
+          throw new Error('Select an eligible native Decisions classifier model')
+        }
+      }
       const config = unflattenConfig(patchFlat)
 
       if (isCreateMode) {
@@ -407,7 +413,16 @@ export default function ModelEditor() {
   }
 
   const handleFieldChange = (path, val) => {
-    setValues(prev => ({ ...prev, [path]: val }))
+    setValues(prev => {
+      const next = { ...prev, [path]: val }
+      // A classifier change invalidates its dependent model, not a tuned threshold.
+      if (prev[path] !== val) {
+        for (const field of fields) {
+          if (field.autocomplete_by?.field === path) next[field.path] = ''
+        }
+      }
+      return next
+    })
   }
 
   const toggleSection = (id) => {

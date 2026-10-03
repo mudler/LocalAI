@@ -28,6 +28,9 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 		return nil, fmt.Errorf("systemone not supported by backend %q", modelConfig.Backend)
 	}
 	return func(ctx context.Context) (string, error) {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		release, err := AcquireGlobalBackendSlot()
 		if err != nil {
 			return "", err
@@ -43,7 +46,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 				Type:      trace.BackendTraceScore,
 				ModelName: modelConfig.Name,
 				Backend:   modelConfig.Backend,
-				Summary:   trace.TruncateString(requestJSON, 200),
+				Summary:   "native decision request",
 			})
 		}
 		defer trace.CancelBackendTrace(traceID)
@@ -55,7 +58,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 		if appConfig.EnableTracing {
 			errStr := ""
 			if err != nil {
-				errStr = err.Error()
+				errStr = "native decision backend failed"
 			}
 			trace.RecordBackendTrace(trace.BackendTrace{
 				ID:        traceID,
@@ -64,7 +67,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 				Type:      trace.BackendTraceScore,
 				ModelName: modelConfig.Name,
 				Backend:   modelConfig.Backend,
-				Summary:   trace.TruncateString(requestJSON, 200),
+				Summary:   "native decision request",
 				Error:     errStr,
 			})
 		}

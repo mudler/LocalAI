@@ -72,3 +72,12 @@ var _ = Describe("systemone routing by model kind", func() {
 		})
 	})
 })
+
+var _ = Describe("native decision capabilities", func() {
+	It("advertises stock llama-cpp decisions without advertising older forks", func() {
+		Expect(config.PossibleUsecasesForBackend("llama-cpp")).To(ContainElement(config.UsecaseDecisions))
+		for _, name := range []string{"bonsai", "turboquant", "ik-llama-cpp"} {
+			Expect(config.PossibleUsecasesForBackend(name)).NotTo(ContainElement(config.UsecaseDecisions))
+		}
+	})
+})
