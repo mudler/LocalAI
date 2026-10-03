@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 )
 
 // RegisterSystemOneRoutes wires the kev-compatible SystemOne endpoints.
@@ -14,7 +15,7 @@ import (
 // under n_perm option orders; POST /v1/systemone/separate answers each
 // question in its own NER pass.
 func RegisterSystemOneRoutes(e *echo.Echo, app *application.Application) {
-	e.POST("/v1/systemone", localai.SystemOneEndpoint(app))
+	e.POST("/v1/systemone", localai.SystemOneEndpoint(app), middleware.UsageMiddleware(app.StatsRecorder(), app.FallbackUser()))
 	e.POST("/v1/systemone/permute", localai.SystemOnePermuteEndpoint(app))
 	e.POST("/v1/systemone/separate", localai.SystemOneSeparateEndpoint(app))
 }

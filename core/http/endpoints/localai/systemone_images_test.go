@@ -40,3 +40,25 @@ var _ = Describe("SystemOne image admission", func() {
 		Expect(systemOneBindStatus(systemOneBind(c, &req))).To(Equal(http.StatusRequestEntityTooLarge))
 	})
 })
+
+var _ = Describe("SystemOne bounded wire and image parsing", func() {
+	It("rejects trailing JSON and counts trailing whitespace toward the wire cap", func() {
+		for _, item := range []struct {
+			body string
+			code int
+		}{{`{} {}`, 400}, {`{}` + strings.Repeat(" ", systemOneMaxBody), 413}} {
+			e := echo.New()
+			r := httptest.NewRequest(http.MethodPost, "/v1/systemone", strings.NewReader(item.body))
+			r.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			var req schema.SystemOneRequest
+			Expect(systemOneBindStatus(systemOneBind(e.NewContext(r, httptest.NewRecorder()), &req))).To(Equal(item.code))
+		}
+	})
+	It("rejects empty MIME subtype or image data", func() {
+		for _, image := range []string{"data:image/;base64,", "data:image/png;base64,", "data:image/;base64,AA=="} {
+			data, err := json.Marshal([]string{image})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(validateSystemOneImages(&schema.SystemOneRequest{State: json.RawMessage(`"x"`), Images: data})).NotTo(Succeed())
+		}
+	})
+})

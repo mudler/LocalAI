@@ -66,11 +66,11 @@ var _ = Describe("SystemOne native route accounting", func() {
 			Expect(capture.records[0].CompletionTokens).To(Equal(int64(0)))
 		}
 	},
-		Entry("positive input zero output", `{"usage":{"input_tokens":12,"output_tokens":0}}`, 200, 1),
-		Entry("explicit zeros", `{"usage":{"input_tokens":0,"output_tokens":0}}`, 200, 1),
-		Entry("missing", `{}`, 200, 0),
-		Entry("incomplete", `{"usage":{"input_tokens":12}}`, 500, 0),
-		Entry("negative", `{"usage":{"input_tokens":-1,"output_tokens":0}}`, 500, 0),
+		Entry("positive input zero output", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":12,"output_tokens":0}}`, 200, 1),
+		Entry("explicit zeros", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":0,"output_tokens":0}}`, 200, 1),
+		Entry("missing", `{"answers":{"q":{"type":"noul","noul":0.5}}}`, 200, 0),
+		Entry("incomplete", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":12}}`, 500, 0),
+		Entry("negative", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":-1,"output_tokens":0}}`, 500, 0),
 	)
 	DescribeTable("maps RPC errors at the HTTP route", func(code codes.Code, want int) {
 		e := echo.New()

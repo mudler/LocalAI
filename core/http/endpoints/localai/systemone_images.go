@@ -87,7 +87,7 @@ func validateSystemOneImages(req *schema.SystemOneRequest) error {
 			return errSystemOneImagesTooLarge
 		}
 		header, data, ok := strings.Cut(image, ",")
-		if !ok || !strings.HasPrefix(header, "data:image/") || !strings.HasSuffix(header, ";base64") {
+		if !ok || !strings.HasPrefix(header, "data:image/") || !strings.HasSuffix(header, ";base64") || len(header) <= len("data:image/;base64") || data == "" {
 			return fmt.Errorf("images must be base64 image data URLs")
 		}
 		if _, err := base64.StdEncoding.Strict().DecodeString(data); err != nil {

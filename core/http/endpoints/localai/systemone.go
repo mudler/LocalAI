@@ -1,10 +1,12 @@
 package localai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -70,6 +72,18 @@ func respondSystemOne(c echo.Context, model string, run func(context.Context) (s
 	response, err := run(c.Request().Context())
 	if err != nil {
 		return systemOneError(c, systemOneBackendStatus(err), err.Error())
+	}
+	var envelope struct {
+		Answers map[string]json.RawMessage `json:"answers"`
+	}
+	if err := json.Unmarshal([]byte(response), &envelope); err != nil || len(envelope.Answers) == 0 {
+		return systemOneError(c, http.StatusInternalServerError, "invalid decision response: answers required")
+	}
+	for _, answer := range envelope.Answers {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(answer, &fields); err != nil || len(fields) == 0 {
+			return systemOneError(c, http.StatusInternalServerError, "invalid decision answer")
+		}
 	}
 	if err := stampSystemOneUsage(c, model, response); err != nil {
 		return systemOneError(c, http.StatusInternalServerError, "invalid decision response")
@@ -504,7 +518,16 @@ const (
 // systemOneBind binds the JSON body with a size cap. Bind reads the whole body
 // first, so the cap has to be on the reader.
 func systemOneBind(c echo.Context, v any) error {
-	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, systemOneMaxBody)
+	data, err := io.ReadAll(http.MaxBytesReader(c.Response(), c.Request().Body, systemOneMaxBody))
+	if err != nil {
+		return err
+	}
+	// Unmarshal consumes the whole payload: trailing JSON or garbage is invalid,
+	// and trailing whitespace is included in the raw wire-byte budget above.
+	if !json.Valid(data) {
+		return fmt.Errorf("invalid request body")
+	}
+	c.Request().Body = io.NopCloser(bytes.NewReader(data))
 	return c.Bind(v)
 }
 
