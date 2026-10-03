@@ -86,6 +86,35 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Index-Translate-35B-A3B-preview
+
+[Index-Translate-35B-A3B-preview](https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview)
+is a multilingual text translation model with 35B total parameters and 3B active parameters.
+It supports 150 languages, including translation instructions for terminology, formatting, and style.
+The official Apache-2.0 GGUF builds run with `llama-cpp`.
+
+Install the Q4_K_M build explicitly:
+
+```bash
+local-ai models install index-translate-35b-a3b-preview --variant self
+```
+
+Use `--variant index-translate-35b-a3b-preview-q8` for Q8_0.
+Without `--variant`, LocalAI selects a build based on available memory.
+Both entries use a 32,768-token context, greedy decoding (`temperature: 0`), and thinking disabled.
+They provide text translation through chat; no vision projector is installed.
+
+Include the target language and source text in your message. The publisher recommends this prompt format:
+
+```text
+请将以下文本翻译为英语，直接输出翻译结果，不要进行任何解释。
+
+你好，世界！
+```
+
+This asks for an English translation without explanation. Replace `英语` with the desired target language.
+Set the request's `max_tokens` high enough for the translation; the input and output must fit within the context.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

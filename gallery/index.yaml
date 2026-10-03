@@ -3497,6 +3497,84 @@
     - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
       uri: huggingface://huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/mmproj-model-bf16.gguf
       sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
+- name: "index-translate-35b-a3b-preview"
+  variants:
+    - model: index-translate-35b-a3b-preview-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview
+    - https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview-GGUF
+  description: |
+    Index-Translate-35B-A3B-preview is a Qwen3.5 MoE model with 35B total
+    parameters and 3B active parameters. It translates text across 150
+    languages and follows terminology, formatting, and style instructions.
+    This official Q4_K_M GGUF uses a 32K context window, greedy decoding,
+    and the embedded chat template with thinking disabled. Include the
+    target language and source text in your prompt.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/index-translate-35b-a3b-preview/Index-Translate-35B-A3B-preview.Q4_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/index-translate-35b-a3b-preview/Index-Translate-35B-A3B-preview.Q4_K_M.gguf
+      uri: https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview-GGUF/resolve/38a612daea2be89160816d65435a87a261c54730/Index-Translate-35B-A3B-preview.Q4_K_M.gguf
+      sha256: 7d803928b68110b64880206f79ccd18e209d11091a21c689ca9e369687cb93f6
+- name: "index-translate-35b-a3b-preview-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview
+    - https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview-GGUF
+  description: |
+    Index-Translate-35B-A3B-preview is a Qwen3.5 MoE model with 35B total
+    parameters and 3B active parameters. It translates text across 150
+    languages and follows terminology, formatting, and style instructions.
+    This official Q8_0 GGUF uses a 32K context window, greedy decoding,
+    and the embedded chat template with thinking disabled. Include the
+    target language and source text in your prompt.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/index-translate-35b-a3b-preview/Index-Translate-35B-A3B-preview.Q8_0.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/index-translate-35b-a3b-preview/Index-Translate-35B-A3B-preview.Q8_0.gguf
+      uri: https://huggingface.co/IndexTeam/Index-Translate-35B-A3B-preview-GGUF/resolve/38a612daea2be89160816d65435a87a261c54730/Index-Translate-35B-A3B-preview.Q8_0.gguf
+      sha256: 066fe7db409c1fb41f5b0016e8c43cd1b683b6c6f61eb037283e4ad0a4ceac2a
 - name: "hy-mt2-7b-q4"
   variants:
     - model: hy-mt2-7b-q6
