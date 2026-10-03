@@ -1109,6 +1109,8 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
       PASSWORD: block
       CREDITCARD: block
       EMAIL: mask
+    extend_to_next_word:      # optional: also mask the word right after these
+      - ZIPCODE               # groups on the same line (e.g. the town after a postal code)
   ```
 
 - **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:
