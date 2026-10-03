@@ -64574,3 +64574,132 @@
     - filename: Julia-1-Q8_0.gguf
       uri: https://huggingface.co/ggml-org/Julia-1-GGUF/resolve/16fee17949206fbf58da9347daea44d792a81211/Julia-1-Q8_0.gguf
       sha256: 1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069
+- name: laya-llama-cpp
+  urls:
+  - https://huggingface.co/convaiinnovations/laya
+  - https://huggingface.co/ggml-org/Laya-GGUF/tree/da4b4753d62197659d8c90103cd4c43bef9afea6
+  description: Laya typed decision model for text-only choice, score, and noul requests
+    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
+    image/projector support. Evaluate accuracy for your own tasks.
+  license: apache-2.0
+  tags:
+  - decisions
+  - systemone
+  - gguf
+  - cpu
+  size: 449MB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+    - decisions
+    context_size: 2048
+    parameters:
+      model: Laya-Q8_0.gguf
+  files:
+  - filename: Laya-Q8_0.gguf
+    uri: https://huggingface.co/ggml-org/Laya-GGUF/resolve/da4b4753d62197659d8c90103cd4c43bef9afea6/Laya-Q8_0.gguf
+    sha256: c06528c5746d3bb8baa72a27938be95abbfd0b226f8471e8a9e365ed0bb066d2
+- name: kev-4b-llama-cpp
+  urls:
+  - https://huggingface.co/jaredpalmer/kev-4b
+  - https://huggingface.co/ggml-org/Kev-4B-GGUF/tree/d924f2e2c3872da8b8aaf3eb4453b4126deceb79
+  description: Kev-4B typed decision model for text-only choice, score, and noul requests
+    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
+    image/projector support. Evaluate accuracy for your own tasks.
+  license: apache-2.0
+  tags:
+  - decisions
+  - systemone
+  - gguf
+  - cpu
+  size: 3.03GB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+    - decisions
+    context_size: 2048
+    parameters:
+      model: Kev-4B-Q4_K_M.gguf
+  files:
+  - filename: Kev-4B-Q4_K_M.gguf
+    uri: https://huggingface.co/ggml-org/Kev-4B-GGUF/resolve/d924f2e2c3872da8b8aaf3eb4453b4126deceb79/Kev-4B-Q4_K_M.gguf
+    sha256: 33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9
+- name: lev-llama-cpp
+  urls:
+  - https://huggingface.co/interfaze-ai/lev
+  - https://huggingface.co/ggml-org/lev-GGUF/tree/3e9286a79ae857b4e1de051c92fab6dc574581ce
+  description: lev typed decision model for text-only choice, score, and noul requests
+    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
+    image/projector support. Evaluate accuracy for your own tasks.
+  license: apache-2.0
+  tags:
+  - decisions
+  - systemone
+  - gguf
+  - cpu
+  size: 3.01GB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+    - decisions
+    context_size: 2048
+    parameters:
+      model: lev-Q4_K_M.gguf
+  files:
+  - filename: lev-Q4_K_M.gguf
+    uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
+    sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
+- name: openjev-llama-cpp
+  urls:
+  - https://huggingface.co/openjev/openjev
+  - https://huggingface.co/ggml-org/OpenJev-GGUF/tree/10840f375658dea7afc5ff4711127bca8218b560
+  description: 'OpenJev typed decision model for text-only choice, score, and noul
+    requests through /v1/systemone. Uses native llama.cpp decisions, not text generation.
+    No image/projector support. Evaluate accuracy for your own tasks. Noncommercial
+    use only under CC-BY-NC-4.0. Large model: provision memory separately from download
+    size.'
+  license: cc-by-nc-4.0
+  tags:
+  - decisions
+  - systemone
+  - gguf
+  - cpu
+  size: 18.97GB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+    - decisions
+    context_size: 2048
+    parameters:
+      model: OpenJev-Q4_K_M.gguf
+  files:
+  - filename: OpenJev-Q4_K_M.gguf
+    uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/OpenJev-Q4_K_M.gguf
+    sha256: 38b512277edaeec6cd251d146bff6d97bc328fa9db19755401d6e9ab1ccbcba5
+- name: nimble-9b-v3-llama-cpp
+  urls:
+    - https://huggingface.co/bespokelabs/Bespoke-Nimble-9B-v3/tree/8e927b9b4afdbb14479fac10a7364d1a695be208
+    - https://huggingface.co/ggml-org/Bespoke-Nimble-9B-v3-GGUF/tree/a72bdbadb355ca3014f7f9d2585380917cc59971
+  description: |
+    Bespoke Nimble 9B v3 typed decision model, Q4_K_M, for native llama.cpp
+    text-only SystemOne requests. Requires a llama.cpp backend with Nimble
+    decision support. Noncommercial use only under CC-BY-NC-4.0.
+    No image/projector support. Evaluate accuracy for your own tasks.
+  license: cc-by-nc-4.0
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+  size: 6.32GB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 2048
+    parameters:
+      model: Bespoke-Nimble-9B-v3-Q4_K_M.gguf
+  files:
+    - filename: Bespoke-Nimble-9B-v3-Q4_K_M.gguf
+      uri: https://huggingface.co/ggml-org/Bespoke-Nimble-9B-v3-GGUF/resolve/a72bdbadb355ca3014f7f9d2585380917cc59971/Bespoke-Nimble-9B-v3-Q4_K_M.gguf
+      sha256: 613a9b8c77ae1648b234d7202464d2e8e8da632910e9c59fbb22c13e027ca999

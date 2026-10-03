@@ -227,3 +227,25 @@ and tested on CPU with the native Score RPC using choice, score, and noul in one
 request. That smoke returned 97 input tokens and zero output tokens; token counts
 vary with the request. This does not establish broad model accuracy or image
 support.
+
+### Native family defaults
+
+Each family has a separately named default; these do not replace vllm-cpp entries.
+All entries are text-only and omit projectors. Download size is not a RAM estimate.
+
+| Gallery entry | Quantization | Artifact bytes | License | Validation status |
+|---|---|---:|---|---|
+| `julia-1-llama-cpp` | Q8_0 | 168,166,496 | Apache-2.0 | Gallery install and CPU request verified |
+| `laya-llama-cpp` | Q8_0 | 449,397,600 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `kev-4b-llama-cpp` | Q4_K_M | 3,033,489,824 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `lev-llama-cpp` | Q4_K_M | 3,011,777,440 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `openjev-llama-cpp` | Q4_K_M | 18,973,872,288 | **CC-BY-NC-4.0** | Artifact metadata verified; installation/runtime validation pending |
+| `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Artifact metadata verified; installation/runtime validation pending |
+
+OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
+capability does **not** imply LocalAI decision-image support. Nimble requires the
+newer llama.cpp native Nimble integration; older backends cannot serve it. The
+published entries pin revisions and SHA-256 checksums, but metadata verification
+alone is not a runtime test. No model-quality guarantee follows from these smoke
+tests. Laya, Kev-4B, and lev were also retested against the newer native backend
+with 1- and 11-level score requests correctly rejected.

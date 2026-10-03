@@ -30,3 +30,32 @@ var _ = Describe("Julia native decision gallery", func() {
 		Expect(entry.AdditionalFiles[0].SHA256).To(Equal("1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069"))
 	})
 })
+
+var _ = Describe("native decision family defaults", func() {
+	It("pins all six defaults with distinct names, licenses, and no projectors", func() {
+		data, err := os.ReadFile("../../gallery/index.yaml")
+		Expect(err).NotTo(HaveOccurred())
+		var entries []gallery.GalleryModel
+		Expect(yaml.Unmarshal(data, &entries)).To(Succeed())
+		expected := map[string]string{"julia-1-llama-cpp": "apache-2.0", "laya-llama-cpp": "apache-2.0", "kev-4b-llama-cpp": "apache-2.0", "lev-llama-cpp": "apache-2.0", "openjev-llama-cpp": "cc-by-nc-4.0", "nimble-9b-v3-llama-cpp": "cc-by-nc-4.0"}
+		found := map[string]int{}
+		for _, entry := range entries {
+			license, ok := expected[entry.Name]
+			if !ok {
+				continue
+			}
+			found[entry.Name]++
+			Expect(entry.License).To(Equal(license))
+			Expect(entry.Overrides["backend"]).To(Equal("llama-cpp"))
+			Expect(entry.Overrides["known_usecases"]).To(ConsistOf("decisions"))
+			Expect(entry.AdditionalFiles).To(HaveLen(1))
+			Expect(entry.AdditionalFiles[0].URI).To(MatchRegexp(`^https://huggingface.co/ggml-org/[^/]+/resolve/[0-9a-f]{40}/[^/]+\.gguf$`))
+			Expect(entry.AdditionalFiles[0].SHA256).To(MatchRegexp(`^[0-9a-f]{64}$`))
+			Expect(entry.Overrides).NotTo(HaveKey("mmproj"))
+			Expect(entry.Tags).NotTo(ContainElement("vision"))
+		}
+		for name := range expected {
+			Expect(found[name]).To(Equal(1), name)
+		}
+	})
+})
