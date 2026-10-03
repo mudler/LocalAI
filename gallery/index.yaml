@@ -2478,6 +2478,92 @@
     parameters:
       max_tokens: 4096
       model: danish-foundation-models/DFM-Mimir
+- name: "qwen3.8-27b:tensorfold"
+  url: github:mudler/LocalAI/gallery/tensorfold.yaml@master
+  urls:
+    - https://huggingface.co/Vontra/Qwen3.8-27B-MLX-4bit
+    - https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2
+    - https://github.com/ashhart/TensorFold
+  description: |
+    Qwen3.8 27B, 4-bit MLX weights served by TensorFold with the z-lab DFlash2 drafter (about 16 GB plus 4 GB). Runs on Apple Silicon today; the NVIDIA (CUDA 13) image follows. TensorFold accepts a draft only when it equals the token the engine would produce serially, so output is exact against the same engine, weights, runtime and settings.
+  license: apache-2.0
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - tensorfold
+    - mlx
+    - dflash
+    - gpu
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Vontra/Qwen3.8-27B-MLX-4bit
+    options:
+      - drafter:z-lab/Qwen3.8-27B-DFlash2
+- name: "nemotron-3.5-lightning-30b-a3b:tensorfold"
+  url: github:mudler/LocalAI/gallery/tensorfold.yaml@master
+  urls:
+    - https://huggingface.co/Vontra/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit
+    - https://github.com/ashhart/TensorFold
+  description: |
+    NVIDIA Nemotron 3.5 Lightning 30B-A3B, 4-bit MLX weights (about 18.5 GB) served by TensorFold with the checkpoint's included MTP head, on Apple Silicon. License: openmdw-1.1.
+  license: openmdw-1.1
+  tags:
+    - llm
+    - chat
+    - tensorfold
+    - mlx
+    - gpu
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Vontra/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit
+- name: "gemma-4-26b-a4b:tensorfold"
+  url: github:mudler/LocalAI/gallery/tensorfold.yaml@master
+  urls:
+    - https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-4bit
+    - https://huggingface.co/z-lab/gemma-4-26B-A4B-it-DFlash
+    - https://github.com/ashhart/TensorFold
+  description: |
+    Gemma 4 26B-A4B instruct, 4-bit MLX weights (about 15 GB) served by TensorFold with the optional z-lab DFlash drafter. Apple Silicon only.
+  license: apache-2.0
+  tags:
+    - llm
+    - chat
+    - tensorfold
+    - mlx
+    - dflash
+    - gpu
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 8192
+    parameters:
+      model: mlx-community/gemma-4-26b-a4b-it-4bit
+    options:
+      - drafter:z-lab/gemma-4-26B-A4B-it-DFlash
+- name: "qwen3.8-flash-next:tensorfold"
+  url: github:mudler/LocalAI/gallery/tensorfold.yaml@master
+  urls:
+    - https://huggingface.co/Vontra/Qwen3.8-Flash-Next-MLX-4bit-MTP
+    - https://github.com/ashhart/TensorFold
+  description: |
+    Qwen3.8 Flash-Next, 4-bit MLX weights with MTP head (about 113 GB). Needs a Mac with 128 GB or more of unified memory. License: qwen-community-1.0, read it before commercial use.
+  license: qwen-community-1.0
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - tensorfold
+    - mlx
+    - gpu
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 8192
+    parameters:
+      model: Vontra/Qwen3.8-Flash-Next-MLX-4bit-MTP
 - &ling-3-0-tiny
   name: "ling-3.0-tiny-q4"
   variants:

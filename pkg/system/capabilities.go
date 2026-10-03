@@ -49,10 +49,11 @@ const (
 	// Engine names (private). Unlike the tokens above these are whole backend
 	// identities as a gallery entry's `backend:` field spells them, not build
 	// tags. See the two preference tables below for why the distinction matters.
-	engineVLLM     = "vllm"
-	engineSGLang   = "sglang"
-	engineLlamaCpp = "llama-cpp"
-	engineMLX      = "mlx"
+	engineVLLM       = "vllm"
+	engineSGLang     = "sglang"
+	engineLlamaCpp   = "llama-cpp"
+	engineMLX        = "mlx"
+	engineTensorfold = "tensorfold"
 
 	// Serving feature names (private). A third vocabulary again: not a build
 	// tag and not an engine, but the inference-time strategy a published build
@@ -153,13 +154,31 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 	// SGLang sits directly behind it: same class of GPU serving engine, ships
 	// cuda/rocm/intel builds alike, but it is behind vLLM because vLLM covers
 	// far more of the gallery. llama-cpp is the portable fallback.
-	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	//
+	// TensorFold ships an Apple silicon image today; its CUDA 13 images ship
+	// in a follow-up, and these NVIDIA rows are in place ahead of them. No
+	// gallery variant names tensorfold yet, so the rows have no effect until
+	// then. Once shipped it is ranked on "nvidia-l4t-cuda-13" and, through the
+	// generic Nvidia row, on "nvidia" and "nvidia-cuda-13" (plain "nvidia"
+	// maps to its CUDA 13 image), behind the established serving engines until
+	// it has been measured. The NVIDIA hosts that will have no TensorFold
+	// image ("nvidia-cuda-12", "nvidia-l4t", "nvidia-l4t-cuda-12") get their
+	// own rows without it, because a ranked engine with no image there would
+	// win the variant pick and then fail to install. Rules match by prefix and the
+	// first match wins, so these rows must precede the generic Nvidia row and
+	// the l4t CUDA 13 row must precede the l4t one.
+	{nvidiaL4TCuda13, []string{engineVLLM, engineSGLang, engineTensorfold, engineLlamaCpp}},
+	{nvidiaL4T, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{nvidiaCuda12, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	{Nvidia, []string{engineVLLM, engineSGLang, engineTensorfold, engineLlamaCpp}},
 	{AMD, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
 	{Intel, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
 	// MLX is the native accelerated runtime on Apple silicon, whereas a
 	// metal-enabled GGUF build is the portable engine merely compiled with GPU
 	// offload. No vLLM or SGLang build targets metal, so neither is listed.
-	{metal, []string{engineMLX, engineLlamaCpp}},
+	// TensorFold runs on MLX too, but ranks behind plain MLX until it has
+	// shipped and been measured, and ahead of the portable GGUF fallback.
+	{metal, []string{engineMLX, engineTensorfold, engineLlamaCpp}},
 	// A Vulkan host has exactly one LLM engine with a Vulkan build, so a
 	// llama-cpp variant is the only one that will use the GPU at all.
 	{vulkan, []string{engineLlamaCpp}},
