@@ -131,17 +131,19 @@ func (rt *oauth2ClientCredentialsRoundTripper) currentToken(ctx context.Context)
 	if rt.token != nil && now.Before(rt.refreshAt) {
 		return rt.token, nil
 	}
-	if rt.token != nil && now.Before(rt.nextAttempt) {
+	if now.Before(rt.nextAttempt) {
 		if rt.stillUsable(now) {
 			return rt.token, nil
 		}
-		return nil, fmt.Errorf("oauth2: token for %s expired and refresh is failing", rt.conf.TokenURL)
+		return nil, fmt.Errorf("oauth2: token for %s is unavailable and refresh is failing", rt.conf.TokenURL)
 	}
 
 	fetchCtx, cancel := context.WithTimeout(context.WithValue(ctx, oauth2.HTTPClient, rt.tokenClient), oauth2TokenRequestTimeout)
 	defer cancel()
 	tok, err := rt.conf.Token(fetchCtx)
 	if err != nil {
+		// A slow token request can consume the remaining safety margin.
+		now = rt.now()
 		rt.nextAttempt = now.Add(oauth2RetryInterval)
 		if rt.stillUsable(now) {
 			xlog.Warn("MCP OAuth2 token refresh failed, keeping current token until near expiry",
