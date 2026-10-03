@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -258,6 +259,18 @@ func processStreamWithTools(
 
 	result := ""
 	lastEmittedCount := 0
+	// Unless LocalAI sent its own grammar, tool calls are checked against the
+	// request's tools, whether they come from the C++ autoparser or from
+	// Go-side parsing (see functions.ValidatesToolCalls). Both kinds are
+	// emitted at the end of the stream, once they can be checked: the
+	// autoparser's already are, and Go-side calls found while streaming are
+	// held back. detectedCalls counts the Go-side calls seen so far, so
+	// content still stops streaming as soon as one appears; streamedContent
+	// is the content already sent, so a dropped call's text can follow it.
+	declared := functions.DeclaredFunctions(req.Functions, req.Tools)
+	validateCalls := functions.ValidatesToolCalls(cfg.Grammar, cfg.FunctionsConfig, declared)
+	detectedCalls := 0
+	var streamedContent strings.Builder
 	sentInitialRole := false
 	sentReasoning := false
 	hasChatDeltaToolCalls := false
@@ -328,7 +341,7 @@ func processStreamWithTools(
 		// Stream content deltas (cleaned of reasoning tags) while no tool calls
 		// have been detected. Once the incremental parser finds tool calls,
 		// content stops: per OpenAI spec, content and tool_calls don't mix.
-		if lastEmittedCount == 0 && contentDelta != "" {
+		if lastEmittedCount == 0 && detectedCalls == 0 && contentDelta != "" {
 			if !sentInitialRole {
 				responses <- schema.OpenAIResponse{
 					ID: id, Created: created, Model: req.Model,
@@ -345,6 +358,7 @@ func processStreamWithTools(
 				}},
 				Object: "chat.completion.chunk",
 			}
+			streamedContent.WriteString(contentDelta)
 		}
 
 		// Issue #9722: when the C++ autoparser is already producing tool
@@ -375,7 +389,9 @@ func processStreamWithTools(
 		// Use iterative parser for streaming (partial parsing enabled)
 		// Try XML parsing first
 		partialResults, parseErr := functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
-		if parseErr == nil && len(partialResults) > 0 {
+		if parseErr == nil && len(partialResults) > 0 && validateCalls {
+			detectedCalls = max(detectedCalls, len(partialResults))
+		} else if parseErr == nil && len(partialResults) > 0 {
 			// Emit new XML tool calls that weren't emitted before
 			if len(partialResults) > lastEmittedCount {
 				for i := lastEmittedCount; i < len(partialResults); i++ {
@@ -414,7 +430,14 @@ func processStreamWithTools(
 			// Try JSON tool call parsing for streaming.
 			// Only emit NEW tool calls (same guard as XML parser above).
 			jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-			if jsonErr == nil {
+			if jsonErr == nil && validateCalls {
+				for i, obj := range jsonResults {
+					if name, _ := obj["name"].(string); name == "" {
+						break
+					}
+					detectedCalls = max(detectedCalls, i+1)
+				}
+			} else if jsonErr == nil {
 				lastEmittedCount = emitJSONToolCallDeltas(
 					jsonResults, lastEmittedCount, id, req.Model, created, responses,
 				)
@@ -431,7 +454,7 @@ func processStreamWithTools(
 			// tool calls and content are delivered via ChatDeltas while the
 			// raw message is cleared. Without this check, we'd retry
 			// unnecessarily, losing valid results and concatenating output.
-			hasToolCalls := lastEmittedCount > 0 || hasChatDeltaToolCalls
+			hasToolCalls := lastEmittedCount > 0 || detectedCalls > 0 || hasChatDeltaToolCalls
 			hasContent := cleaned != "" || hasChatDeltaContent
 			if !hasContent && !hasToolCalls {
 				xlog.Warn("Streaming: backend produced only reasoning, retrying",
@@ -439,6 +462,8 @@ func processStreamWithTools(
 				extractor.ResetAndSuppressReasoning()
 				result = ""
 				lastEmittedCount = 0
+				detectedCalls = 0
+				streamedContent.Reset()
 				sentInitialRole = false
 				hasChatDeltaToolCalls = false
 				hasChatDeltaContent = false
@@ -453,10 +478,12 @@ func processStreamWithTools(
 	// Try using pre-parsed tool calls from C++ autoparser (chat deltas)
 	var functionResults []functions.FuncCallResults
 	var reasoning string
+	fromDeltas := false
 
 	if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 		xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
 		functionResults = deltaToolCalls
+		fromDeltas = true
 		// Use content/reasoning from deltas too
 		*textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
 		reasoning = functions.ReasoningFromChatDeltas(chatDeltas)
@@ -476,6 +503,39 @@ func processStreamWithTools(
 		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
 		functionResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
 	}
+
+	// answer is the text to reply with when every call was dropped and no
+	// content has been streamed yet.
+	answer := ""
+	if validateCalls && len(functionResults) > 0 {
+		valid, dropped := functions.SplitFuncCalls(functionResults, declared, noAction)
+		functionResults = valid
+		if len(dropped) > 0 && !hasRealCall(valid, noAction) {
+			*textContentToReturn = ""
+			// Calls parsed from text are in the extractor's content; the
+			// autoparser's source text is not, so they are rendered as text.
+			text := extractor.CleanedContent()
+			if fromDeltas {
+				text = functions.AnswerText(functions.ContentFromChatDeltas(chatDeltas), dropped, true)
+			}
+			if sentInitialRole {
+				// Part of the text already went out as content; send the rest.
+				rest := text
+				if sent := streamedContent.String(); strings.HasPrefix(rest, sent) {
+					rest = rest[len(sent):]
+				}
+				if rest != "" {
+					responses <- schema.OpenAIResponse{
+						ID: id, Created: created, Model: req.Model,
+						Choices: []schema.Choice{{Delta: &schema.Message{Content: &rest}, Index: 0}},
+						Object:  "chat.completion.chunk",
+					}
+				}
+			} else {
+				answer = text
+			}
+		}
+	}
 	xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", *textContentToReturn)
 	// noAction is a sentinel "just answer" pseudo-function: not a real
 	// tool call. Scan the whole slice rather than only index 0 so we
@@ -490,8 +550,8 @@ func processStreamWithTools(
 		// stream_options.include_usage) is built by the outer streaming
 		// loop from the TokenUsage this function returns, not from any
 		// chunk on the responses channel.
-		var result string
-		if !sentInitialRole {
+		result := answer
+		if !sentInitialRole && answer == "" {
 			var hqErr error
 			result, hqErr = handleQuestion(cfg, functionResults, extractor.CleanedContent(), prompt)
 			if hqErr != nil {

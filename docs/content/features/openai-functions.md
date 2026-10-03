@@ -265,6 +265,40 @@ will catch
 function_name({ "foo": "bar"})
 ```
 
+### Tool call validation
+
+A tool's schema does not always constrain the arguments the model writes:
+
+- llama.cpp's autoparser checks the tool name against the request's tools,
+  but it parses the arguments as any JSON. Only a grammar built from the
+  schema constrains them, and with `tool_choice: auto` llama.cpp builds that
+  grammar only when the template's tool format has a trigger marker.
+- When the backend's parser returns no tool call, LocalAI parses the model's
+  text for tool calls, with no grammar at all.
+
+So unless LocalAI sends its own grammar, it checks every tool call against
+the request's tools, in the chat completions, Anthropic messages and Responses
+endpoints, streaming and non-streaming. A call is dropped when:
+
+- the tool is not in the request,
+- arguments contain a JSON value other than an object, including `null`,
+- an argument is not in the tool's schema (unless the schema sets
+  `additionalProperties` to `true` or to a schema), or
+- a required argument is missing.
+
+When every call is dropped, the response answers with the model's text as
+normal content (a text block for Anthropic, an `output_text` message for
+Responses). A call returned by llama.cpp's autoparser is not in the model's
+text, so it is written out as `{"name": ..., "arguments": ...}`. The server log
+names the tool and the unknown or missing arguments.
+
+To keep every call, as older versions did:
+
+```yaml
+function:
+  disable_tool_call_validation: true
+```
+
 ### Parallel tools calls
 
 This feature is experimental and has to be configured in the YAML of the model by enabling `function.parallel_calls`:
