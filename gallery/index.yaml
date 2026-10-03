@@ -53764,6 +53764,171 @@
     - filename: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       sha256: ba2f13eccd4a5245be728f77e6149bd6a4fdcdd133ff2e08ac6005bcef7a99f1
+- name: parakeet-cpp-moondream-ultra-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Moondream Ultra, F16: Moondream's post-trained derivative of NVIDIA parakeet-tdt-0.6b-v3 (TDT, 0.6B). Runs on CPU and GPU. Full-precision file, about 1.4 GB.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    model has a voice-activity-detection head, and the vad:true option cuts long
+    audio at pauses before transcription. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-moondream-ultra-f16
+    options:
+      - vad:true
+    parameters:
+      model: parakeet-cpp/ultra-f16.gguf
+  files:
+    - filename: parakeet-cpp/ultra-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/ultra-f16.gguf
+      sha256: 5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f
+- name: parakeet-cpp-moondream-ultra-q8_0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Moondream Ultra, Q8_0: the same model as the F16 file, quantized to 8 bits (about 0.9 GB). Runs on CPU and GPU.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    model has a voice-activity-detection head, and the vad:true option cuts long
+    audio at pauses before transcription. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-moondream-ultra-q8_0
+    options:
+      - vad:true
+    parameters:
+      model: parakeet-cpp/ultra-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/ultra-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/ultra-q8_0.gguf
+      sha256: c2fb452a9df468a141012b01c8c168a25ce93f710897c7de6e353c6cc250986a
+- name: parakeet-cpp-moondream-redux-packed
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Moondream Redux, packed ternary weights (about 213 MB). Redux is Moondream's ternary-encoder derivative of NVIDIA parakeet-tdt-0.6b-v3 (TDT, 0.6B). CPU only and offline only: the library refuses to load it on a GPU backend and does not stream it. For a GPU or for streaming, use the redux-f16 or redux-q8_0 entry instead.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    model has a voice-activity-detection head, and the vad:true option cuts long
+    audio at pauses before transcription. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-moondream-redux-packed
+    options:
+      - vad:true
+    parameters:
+      model: parakeet-cpp/redux-packed.gguf
+  files:
+    - filename: parakeet-cpp/redux-packed.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/redux-packed.gguf
+      sha256: 574614b9a4d9f72ab202877a7ad6a1f4bf819dd1d27b9d42dfe8cd429fcebdd5
+- name: parakeet-cpp-moondream-redux-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Moondream Redux, dequantized to F16 (about 1.4 GB). Same model as the packed file, but it runs on any backend, including GPU, and can stream.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    model has a voice-activity-detection head, and the vad:true option cuts long
+    audio at pauses before transcription. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-moondream-redux-f16
+    options:
+      - vad:true
+    parameters:
+      model: parakeet-cpp/redux-f16.gguf
+  files:
+    - filename: parakeet-cpp/redux-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/redux-f16.gguf
+      sha256: f2e2a9c412191a4ecbeb70f0c9b837749c0147489f7f2d36f3a0b4bc5d41cf79
+- name: parakeet-cpp-moondream-redux-q8_0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Moondream Redux, dequantized and quantized to Q8_0 (about 0.9 GB). Runs on any backend, including GPU.
+    GGUF for the parakeet-cpp backend (C++/ggml port of NVIDIA NeMo Parakeet). The
+    model has a voice-activity-detection head, and the vad:true option cuts long
+    audio at pauses before transcription. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-moondream-redux-q8_0
+    options:
+      - vad:true
+    parameters:
+      model: parakeet-cpp/redux-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/redux-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/redux-q8_0.gguf
+      sha256: 3429a4598946c406dbb4af5bb589d4dd307b069d550d98e24bef6779c4e6988f
 - name: parakeet-cpp-nemotron-3-diarization
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
