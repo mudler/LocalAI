@@ -1,12 +1,30 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/llama-cpp-windows
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
+
+# Native GNU make for Windows (e.g. ezwinports) only behaves like the Unix
+# make when it can find sh.exe: otherwise recipe lines run under cmd.exe and
+# $(shell ...) degrades to bare CreateProcess, which breaks every POSIX
+# recipe and the uname/tput expansion below. Seed the exported PATH with the
+# sh directories from the standard Git-for-Windows / MSYS2 installs (missing
+# entries are harmless in a Windows PATH) and force SHELL to sh, mirroring
+# what CI does. Detection uses the cmd environment OS variable (Windows_NT);
+# OS is re-derived from uname further down. Nothing matches on
+# Linux/macOS/WSL, so the block is inert there.
+ifeq ($(findstring Windows,$(OS)),Windows)
+  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(PATH)
+  export SHELL := sh
+endif
 
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=local-ai
+# Windows builds get the .exe suffix so the artifact is runnable from cmd /
+# PowerShell (an extensionless PE needs a POSIX shell to launch it). OS is
+# assigned below via uname; this is a recursive = so the suffix is expanded
+# at use time, after OS exists. Empty on Linux/macOS, so nothing else changes.
+BINARY_NAME=local-ai$(if $(findstring NT,$(OS)),.exe)
 LAUNCHER_BINARY_NAME=local-ai-launcher
 
 UBUNTU_VERSION?=2404
@@ -96,12 +114,12 @@ COVERAGE_ROOTS?=./pkg ./core
 COVERAGE_TAGS?=debug auth
 ## Coverage is attributed to these packages via --coverpkg, so the in-process
 ## integration suites (COVERAGE_E2E_ROOTS) credit the core/http handlers they
-## drive over HTTP — not just their own test package.
+## drive over HTTP â€” not just their own test package.
 COVERAGE_COVERPKG?=github.com/mudler/LocalAI/core/...,github.com/mudler/LocalAI/pkg/...
 ## In-process integration suites folded into coverage. Run non-recursively
 ## (excludes tests/e2e/distributed, which needs containers) with the mock
 ## backend built by prepare-test. real-models specs need a downloaded model,
-## so they're filtered out. NOTE: tests/integration is intentionally NOT here —
+## so they're filtered out. NOTE: tests/integration is intentionally NOT here â€”
 ## it needs the local-store backend built (`make backends/local-store`), which
 ## the coverage CI job doesn't do.
 COVERAGE_E2E_ROOTS?=./tests/e2e
@@ -287,7 +305,7 @@ test-coverage-check: test-coverage
 ## without C/C++ headers we don't install in the lint runner (cgo wrappers
 ## around llama.cpp, piper/spdlog, silero-vad/onnxruntime, and Fyne/OpenGL for
 ## the launcher). Their compile-time correctness is enforced by their own
-## build pipelines. Keep this as a deny list — `go list ./...` discovers
+## build pipelines. Keep this as a deny list â€” `go list ./...` discovers
 ## everything else automatically, so new packages are scanned by default.
 LINT_EXCLUDE_DIRS_RE=/(backend/go/(piper|silero-vad|llm)|cmd/launcher)(/|$$)
 
@@ -396,6 +414,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backe
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# Windows host smoke test: builds a real local-ai.exe and the mock-backend,
+# lays the mock backend into a --backends-path the way the gallery ships it
+# (run.sh for discovery + run.ps1 to launch), then boots local-ai.exe and
+# asserts a chat completion plus job-object process cleanup. The suite builds
+# both binaries itself into a temp dir (CGO_ENABLED=0) and skips entirely on
+# non-Windows hosts. To reuse pre-built binaries instead, pass LOCAL_AI_EXE
+# and MOCK_BACKEND_EXE to the ginkgo invocation.
+.PHONY: test-windows-smoke
+test-windows-smoke: protogen-go react-ui
+	go run github.com/onsi/ginkgo/v2/ginkgo -v ./tests/e2e/windows
+
 # `docker stop` returns as soon as the container exits, but Docker reaps a
 # `--rm` container asynchronously after that. The `docker rmi localai-tests` in
 # test-e2e then loses the race against the reaper and fails on a still
@@ -413,14 +442,14 @@ teardown-e2e:
 ########################################################
 
 ## Storage / vector-store integration. Requires the local-store backend to
-## be available — we build it on demand and pass its location via
+## be available â€” we build it on demand and pass its location via
 ## BACKENDS_PATH (the model loader looks there for the gRPC binary).
 test-stores: backends/local-store
 	BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r tests/integration
 
 ## Valkey-backed vector-store integration. Requires a running Valkey Search
-## server (valkey/valkey-bundle:9.1.0) reachable at $$VALKEY_ADDR — the suite
+## server (valkey/valkey-bundle:9.1.0) reachable at $$VALKEY_ADDR â€” the suite
 ## skips itself when VALKEY_ADDR is unset. Builds the backend on demand and
 ## points the model loader at it via BACKENDS_PATH. Label-filtered to the
 ## valkey specs so it does not also run the in-memory local-store suite.
@@ -548,10 +577,18 @@ help: ## Show this help.
 .PHONY: protogen
 protogen: protogen-go
 
+# The win64 protoc zip ships bin/protoc.exe while the unix zips ship
+# bin/protoc. protogen-go invokes a bare ./protoc, and the protoc target must
+# stay up-to-date once the binary is in place, so on Windows we extract the
+# .exe and rename it to ./protoc (MSYS sh runs extensionless PE binaries).
+PROTOC_MEMBER := bin/protoc$(if $(findstring NT,$(OS)),.exe)
+
 protoc:
 	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 	ARCH_NAME=$$(uname -m); \
-	if [ "$$OS_NAME" = "darwin" ]; then \
+	if echo "$$OS_NAME" | grep -qE 'mingw|msys|cygwin'; then \
+	  FILE=protoc-31.1-win64.zip; \
+	elif [ "$$OS_NAME" = "darwin" ]; then \
 	  if [ "$$ARCH_NAME" = "arm64" ]; then \
 	    FILE=protoc-31.1-osx-aarch_64.zip; \
 	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
@@ -578,18 +615,20 @@ protoc:
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
 	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 $$URL -o protoc.zip && \
-	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+	unzip -o -j -d $(CURDIR) protoc.zip $(PROTOC_MEMBER) && \
+	rm -f protoc.zip && \
+	[ ! -f ./protoc.exe ] || mv -f ./protoc.exe ./protoc
 
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
 	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
-	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
-	# resolves its code-gen plugins via PATH, so without this prefix the
-	# generate step fails with "protoc-gen-go: program not found". Prepend
-	# GOPATH/bin so the freshly-installed plugins win without requiring a
-	# shell-profile change.
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. Point
+	# protoc at the plugins explicitly (--plugin) so discovery doesn't depend
+	# on PATH separator conventions (POSIX ':' vs Windows ';').
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    --plugin=protoc-gen-go-grpc="$$(go env GOPATH)/bin/protoc-gen-go-grpc$(if $(findstring NT,$(OS)),.exe,)" \
     backend/backend.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
@@ -715,7 +754,7 @@ BACKEND_TEST_MODEL_URL?=https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main
 ## most of the default (multi-GB models on a slow HF CDN day) override this.
 BACKEND_TEST_TIMEOUT?=30m
 
-## Generic target — runs the suite against whatever BACKEND_IMAGE points at.
+## Generic target â€” runs the suite against whatever BACKEND_IMAGE points at.
 ## Depends on protogen-go so pkg/grpc/proto is generated before `go test`.
 test-extra-backend: protogen-go
 	@test -n "$$BACKEND_IMAGE" || { echo "BACKEND_IMAGE must be set" >&2; exit 1; }
@@ -764,7 +803,7 @@ test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
 
 ## turboquant: exercises the llama.cpp-fork backend with the fork's
 ## *TurboQuant-specific* KV-cache types (turbo3 for both K and V). turbo3
-## is what makes this backend distinct from stock llama-cpp — picking q8_0
+## is what makes this backend distinct from stock llama-cpp â€” picking q8_0
 ## here would only test the standard llama.cpp code path that the upstream
 ## llama-cpp backend already covers. The fork auto-enables flash_attention
 ## when turbo3/turbo4 are active, so we don't need to set it explicitly.
@@ -774,7 +813,7 @@ test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
 	$(MAKE) test-extra-backend
 
-## bonsai: exercises the llama.cpp-fork backend with a real Q1_0 (1-bit) model —
+## bonsai: exercises the llama.cpp-fork backend with a real Q1_0 (1-bit) model â€”
 ## the PrismML Bonsai-8B GGUF, whose weight quant is *only* decodable by the fork's
 ## Q1_0 kernels. Loading it is what makes this backend distinct from stock llama-cpp;
 ## a standard-quant model would only test the upstream code path the llama-cpp backend
@@ -812,7 +851,7 @@ test-extra-backend-privacy-filter: docker-build-privacy-filter
 ## exercises Predict + streaming + tool-call extraction via the hermes parser.
 ## Requires a host CPU with the SIMD instructions the prebuilt vllm CPU
 ## wheel was compiled against (AVX-512 VNNI/BF16); older CPUs will SIGILL
-## on import — on CI this means using the bigger-runner label.
+## on import â€” on CI this means using the bigger-runner label.
 test-extra-backend-vllm: docker-build-vllm
 	BACKEND_IMAGE=local-ai-backend:vllm \
 	BACKEND_TEST_MODEL_NAME=Qwen/Qwen2.5-0.5B-Instruct \
@@ -823,7 +862,7 @@ test-extra-backend-vllm: docker-build-vllm
 ## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
 ## `local-ai p2p-worker vllm` follower in docker compose against
 ## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
-## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
+## nvidia-container-runtime on the host â€” vLLM v1's DP coordinator is
 ## not viable on CPU so this cannot run in CI without GPU.
 test-extra-backend-vllm-multinode:
 	./tests/e2e/vllm-multinode/smoke.sh
@@ -831,7 +870,7 @@ test-extra-backend-vllm-multinode:
 ## tinygrad mirrors the vllm target (same model, same caps, same parser) so
 ## the two backends are directly comparable. The LLM path covers Predict,
 ## streaming and native tool-call extraction. Companion targets below cover
-## embeddings, Stable Diffusion and Whisper — run them individually or via
+## embeddings, Stable Diffusion and Whisper â€” run them individually or via
 ## the `test-extra-backend-tinygrad-all` aggregate.
 test-extra-backend-tinygrad: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
@@ -840,7 +879,7 @@ test-extra-backend-tinygrad: docker-build-tinygrad
 	BACKEND_TEST_OPTIONS=tool_parser:hermes \
 	$(MAKE) test-extra-backend
 
-## tinygrad — embeddings via LLM last-hidden-state pooling. Reuses the same
+## tinygrad â€” embeddings via LLM last-hidden-state pooling. Reuses the same
 ## Qwen3-0.6B as the chat target so we don't need a separate BERT vendor;
 ## the Embedding RPC mean-pools and L2-normalizes the last-layer hidden
 ## state.
@@ -851,7 +890,7 @@ test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
 	BACKEND_TEST_EMBEDDING_LAYOUT=final \
 	$(MAKE) test-extra-backend
 
-## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have
+## tinygrad â€” Stable Diffusion 1.5. The original CompVis/runwayml repos have
 ## been gated, so we use the community-maintained mirror at
 ## stable-diffusion-v1-5/stable-diffusion-v1-5 with the EMA-only pruned
 ## checkpoint (~4.3GB). Step count is kept low (4) so a CPU-only run finishes
@@ -862,7 +901,7 @@ test-extra-backend-tinygrad-sd: docker-build-tinygrad
 	BACKEND_TEST_CAPS=health,load,image \
 	$(MAKE) test-extra-backend
 
-## tinygrad — Whisper. Loads OpenAI's tiny.en checkpoint (smallest at ~75MB)
+## tinygrad â€” Whisper. Loads OpenAI's tiny.en checkpoint (smallest at ~75MB)
 ## from the original azure CDN through tinygrad's `fetch` helper, and
 ## transcribes the canonical jfk.wav fixture from whisper.cpp's CI samples.
 ## Exercises both AudioTranscription and AudioTranscriptionStream.
@@ -879,7 +918,7 @@ test-extra-backend-tinygrad-all: \
 	test-extra-backend-tinygrad-sd \
 	test-extra-backend-tinygrad-whisper
 
-## insightface — face recognition.
+## insightface â€” face recognition.
 ##
 ## Face fixtures default to the sample images shipped in the
 ## deepinsight/insightface repository (MIT-licensed). For offline/local
@@ -890,13 +929,13 @@ FACE_IMAGE_2_URL ?= https://github.com/deepinsight/insightface/raw/master/python
 FACE_IMAGE_3_URL ?= https://github.com/deepinsight/insightface/raw/master/python-package/insightface/data/images/mask_white.jpg
 ## Known spoof fixture used by the face_antispoof e2e cap. This is
 ## upstream's own `image_F2.jpg` (Silent-Face repo, via yakhyo mirror)
-## — verified to classify as is_real=false with score < 0.05 on the
+## â€” verified to classify as is_real=false with score < 0.05 on the
 ## MiniFASNetV2 + MiniFASNetV1SE ensemble.
 FACE_SPOOF_IMAGE_URL ?= https://github.com/yakhyo/face-anti-spoofing/raw/main/assets/image_F2.jpg
 
 ## Host-side cache for the OpenCV Zoo face ONNX files used by the
-## opencv e2e target. The backend image no longer bakes model weights —
-## gallery installs bring them via `files:` — but the e2e suite drives
+## opencv e2e target. The backend image no longer bakes model weights â€”
+## gallery installs bring them via `files:` â€” but the e2e suite drives
 ## LoadModel over gRPC directly without going through the gallery. We
 ## pre-download the ONNX files to a stable host path and pass absolute
 ## paths in BACKEND_TEST_OPTIONS; `make` skips the downloads when the
@@ -907,16 +946,16 @@ INSIGHTFACE_OPENCV_SFACE_URL := https://github.com/opencv/opencv_zoo/raw/main/mo
 INSIGHTFACE_OPENCV_YUNET_SHA := 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
 INSIGHTFACE_OPENCV_SFACE_SHA := 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
 
-## buffalo_sc (insightface) — pack zip + SHA-256 mirrors the gallery
+## buffalo_sc (insightface) â€” pack zip + SHA-256 mirrors the gallery
 ## entry so the e2e target matches exactly what `local-ai models install
 ## insightface-buffalo-sc` would have fetched. Smallest insightface pack
-## (~16MB) — keeps CI fast while still covering the insightface engine
+## (~16MB) â€” keeps CI fast while still covering the insightface engine
 ## code path end-to-end.
 INSIGHTFACE_BUFFALO_SC_DIR := /tmp/localai-insightface-buffalo-sc-cache
 INSIGHTFACE_BUFFALO_SC_URL := https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip
 INSIGHTFACE_BUFFALO_SC_SHA := 57d31b56b6ffa911c8a73cfc1707c73cab76efe7f13b675a05223bf42de47c72
 
-## Silent-Face antispoofing (MiniFASNetV2 + MiniFASNetV1SE) — shared
+## Silent-Face antispoofing (MiniFASNetV2 + MiniFASNetV1SE) â€” shared
 ## between the buffalo_sc and opencv e2e targets. Both ONNX files are
 ## ~1.7MB, Apache 2.0. URLs + SHAs mirror the gallery entries.
 INSIGHTFACE_ANTISPOOF_DIR := /tmp/localai-insightface-antispoof-cache
@@ -967,10 +1006,10 @@ insightface-buffalo-sc-models:
 		unzip -o -q $(INSIGHTFACE_BUFFALO_SC_DIR)/buffalo_sc.zip -d $(INSIGHTFACE_BUFFALO_SC_DIR); \
 	fi
 
-## buffalo_sc — smallest insightface pack (SCRFD-500MF detector + MBF
+## buffalo_sc â€” smallest insightface pack (SCRFD-500MF detector + MBF
 ## recognizer, ~16MB). Exercises the insightface engine code path
 ## (model_zoo-backed inference) without the ~326MB buffalo_l download.
-## No age/gender/landmark heads — face_analyze is dropped from caps.
+## No age/gender/landmark heads â€” face_analyze is dropped from caps.
 ## The pack is pre-fetched on the host and passed as `root:<dir>` since
 ## the e2e suite drives LoadModel directly without going through
 ## LocalAI's gallery flow (which is what would normally populate
@@ -987,7 +1026,7 @@ test-extra-backend-insightface-buffalo-sc: docker-build-insightface insightface-
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
 	$(MAKE) test-extra-backend
 
-## OpenCV Zoo YuNet + SFace — Apache 2.0, commercial-safe. face_analyze
+## OpenCV Zoo YuNet + SFace â€” Apache 2.0, commercial-safe. face_analyze
 ## cap is dropped (SFace has no demographic head). The ONNX files are
 ## pre-fetched on the host via the insightface-opencv-models target and
 ## passed as absolute paths, since the e2e suite drives LoadModel
@@ -1004,26 +1043,26 @@ test-extra-backend-insightface-opencv: docker-build-insightface insightface-open
 	BACKEND_TEST_VERIFY_DISTANCE_CEILING=0.55 \
 	$(MAKE) test-extra-backend
 
-## Aggregate — runs both face-recognition model configurations so CI
+## Aggregate â€” runs both face-recognition model configurations so CI
 ## catches regressions across engines together.
 test-extra-backend-insightface-all: \
 	test-extra-backend-insightface-buffalo-sc \
 	test-extra-backend-insightface-opencv
 
-## speaker-recognition — voice (speaker) biometrics.
+## speaker-recognition â€” voice (speaker) biometrics.
 ##
 ## Audio fixtures default to the speechbrain test samples served
-## straight from their GitHub repo — public, no auth needed, and they
+## straight from their GitHub repo â€” public, no auth needed, and they
 ## ship as 16kHz mono WAV/FLAC which is exactly what the engine wants.
 ## example{1,2,5} are three different speakers; the suite treats
 ## example1 as the "same-image twin" probe (verify(clip, clip) must
-## return distance≈0) and the other two as cross-speaker ceilings.
+## return distanceâ‰ˆ0) and the other two as cross-speaker ceilings.
 ## Override with BACKEND_TEST_VOICE_AUDIO_{1,2,3}_FILE for offline runs.
 VOICE_AUDIO_1_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example1.wav
 VOICE_AUDIO_2_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example2.flac
 VOICE_AUDIO_3_URL ?= https://github.com/speechbrain/speechbrain/raw/develop/tests/samples/single-mic/example5.wav
 
-## ECAPA-TDNN via SpeechBrain — default CI configuration. Auto-downloads
+## ECAPA-TDNN via SpeechBrain â€” default CI configuration. Auto-downloads
 ## the checkpoint from HuggingFace on first LoadModel (bundled in the
 ## backend image pip install). 192-d embeddings, cosine-distance based.
 ## The e2e suite drives LoadModel directly so we don't rely on LocalAI's
@@ -1039,7 +1078,7 @@ test-extra-backend-speaker-recognition-ecapa: docker-build-speaker-recognition
 	BACKEND_TEST_VOICE_VERIFY_DISTANCE_CEILING=0.4 \
 	$(MAKE) test-extra-backend
 
-## Aggregate — today there's only one voice config; the target exists
+## Aggregate â€” today there's only one voice config; the target exists
 ## so the CI workflow matches the insightface-all naming convention and
 ## can grow to include WeSpeaker / 3D-Speaker later.
 test-extra-backend-speaker-recognition-all: \
@@ -1168,7 +1207,7 @@ test-extra-backend-sglang: docker-build-sglang
 	$(MAKE) test-extra-backend
 
 
-## mlx is Apple-Silicon-first — the MLX backend auto-detects the right tool
+## mlx is Apple-Silicon-first â€” the MLX backend auto-detects the right tool
 ## parser from the chat template, so no tool_parser: option is needed (it
 ## would be ignored at runtime). Run this on macOS / arm64 with Metal; the
 ## Linux/CPU mlx variant is untested in CI.
@@ -1259,6 +1298,32 @@ backends/audio-cpp-darwin: build
 	bash ./scripts/build/audio-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/audio-cpp.tar)"
 
+# Windows-specific backends (keep as explicit targets since they have special build logic).
+# Built on windows-latest under MSYS2 â€” see .github/workflows/backend_build_windows.yml.
+# Unlike the darwin targets this does not depend on `build`: the windows runner
+# builds local-ai.exe with setup-go (go build ./cmd/local-ai), and the full
+# `make build` would additionally need node for the React UI, which this
+# packaging path does not use. The script still builds local-ai itself when it
+# is missing so the target works outside CI too.
+# `ocifile://` hands the path straight to tarball.ImageFromPath, which on
+# Windows needs a drive-letter path â€” $(abspath) yields the MSYS /d/... form,
+# so it is converted via cygpath -m.
+# On a native Windows host (OS=Windows_NT) the recipe shell is Git for
+# Windows' sh, which cannot reach the UCRT64 toolchain, so the work is handed
+# to scripts/build/llama-cpp-windows.ps1: it locates MSYS2 (installing it via
+# winget with user confirmation on first use, then pacman-installing the
+# mingw-w64-ucrt toolchain) and runs the sh script under the real MSYS2 bash.
+# Under the msys2 CI shell OS is Windows_NT too, and the same PowerShell
+# dispatcher finds the setup-msys2 install through PATH.
+backends/llama-cpp-windows:
+ifeq ($(findstring NT,$(OS)),NT)
+	powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/llama-cpp-windows.ps1
+else
+	bash ./scripts/build/llama-cpp-windows.sh
+endif
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -1317,7 +1382,7 @@ BACKEND_BONSAI = bonsai|bonsai|.|false|false
 # (BACKEND_BINARY mode); see docs/superpowers/plans/2026-05-11-ds4-backend.md.
 BACKEND_DS4 = ds4|ds4|.|false|false
 # privacy-filter wraps the standalone privacy-filter.cpp GGML engine (the
-# openai-privacy-filter PII/NER token classifier) — the TokenClassify RPC for
+# openai-privacy-filter PII/NER token classifier) â€” the TokenClassify RPC for
 # the PII redactor tier, on stock ggml with no llama.cpp carry-patches.
 BACKEND_PRIVACY_FILTER = privacy-filter|privacy-filter|.|false|false
 # audio-cpp wraps 0xShug0/audio.cpp, a multi-family ggml audio inference engine
@@ -1559,7 +1624,7 @@ PLAYWRIGHT_WORKERS_FLAG = $(if $(UI_TEST_WORKERS),--workers=$(UI_TEST_WORKERS),)
 
 ## Fast Playwright e2e run for local React UI validation.
 ## Force-rebuilds the (non-instrumented) dist so the suite tests the working
-## tree — not a stale dist the `react-ui` skip-guard would leave — re-embeds
+## tree â€” not a stale dist the `react-ui` skip-guard would leave â€” re-embeds
 ## it into ui-test-server, and runs the specs. Uses the nix-provided browser
 ## when PLAYWRIGHT_CHROMIUM_PATH is set (flake dev shell), else falls back to
 ## downloading it as `test-ui-e2e` does.
@@ -1579,7 +1644,7 @@ test-ui-stale-chunk: build-mock-backend protogen-go
 ## NON-instrumented bundle with source maps (COVERAGE_V8=true), re-embeds it
 ## into the ui-test-server (the dist is //go:embed'ed at compile time), runs the
 ## Playwright specs which collect native Chromium V8 coverage (PW_V8_COVERAGE=1)
-## — far cheaper than istanbul's build-time counters (~40% faster end-to-end) —
+## â€” far cheaper than istanbul's build-time counters (~40% faster end-to-end) â€”
 ## convert it to istanbul via v8-to-istanbul in the coverage fixture, and write
 ## an nyc report to core/http/react-ui/coverage/. Removes the dist afterwards so
 ## normal builds aren't served source-mapped assets. (The legacy istanbul path
@@ -1593,7 +1658,7 @@ test-ui-coverage: build-mock-backend protogen-go
 	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
 
 ## UI coverage baseline (committed) and the strict gate that compares against
-## it — the React mirror of test-coverage-baseline / test-coverage-check.
+## it â€” the React mirror of test-coverage-baseline / test-coverage-check.
 test-ui-coverage-baseline: test-ui-coverage
 	@node -e 'const fs=require("fs");process.stdout.write(String(JSON.parse(fs.readFileSync("core/http/react-ui/coverage/coverage-summary.json")).total.lines.pct))' > core/http/react-ui/coverage-baseline.txt
 	@echo "Saved UI coverage baseline: $$(cat core/http/react-ui/coverage-baseline.txt)% lines"

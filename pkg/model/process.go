@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -179,12 +181,16 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
+			ml.terminateWindowsJobObjectForProcess(process)
 			store.Delete(s)
 			ml.cleanupProcessRuntime(process)
 		} else {
 			localErr = err
 		}
 	} else {
+		// Stop kills the wrapper; the job object reaps any backend child it
+		// spawned so the tree cannot outlive a deliberate unload.
+		ml.terminateWindowsJobObjectForProcess(process)
 		store.Delete(s)
 		ml.cleanupProcessRuntime(process)
 	}
@@ -268,6 +274,31 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// A Windows host has no shell to execute the run.sh stub the gallery
+	// contract names, so the image also ships run.ps1 and os.StartProcess runs
+	// it through the bundled Windows PowerShell. run.sh stays in the image so
+	// discovery, validation and upgrades stay uniform with the other platforms.
+	processName := filepath.Base(grpcProcess)
+	processArgs := args
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(filepath.Join(workDir, "run.ps1")); err == nil {
+			grpcProcess = filepath.Join(workDir, "run.ps1")
+			// os.StartProcess resolves argv0 against ProcAttr.Dir on Windows, so
+			// a bare "powershell.exe" would be looked up inside the backend's
+			// workDir and every launch would fail with file-not-found. Resolve
+			// the absolute path first (PATH lookup finds System32).
+			processName, err = exec.LookPath("powershell.exe")
+			if err != nil {
+				return nil, fmt.Errorf("could not locate powershell.exe to launch %s: %w", grpcProcess, err)
+			}
+			processArgs = append([]string{
+				"-NoProfile",
+				"-ExecutionPolicy", "Bypass",
+				"-File", grpcProcess,
+			}, args...)
+		}
+	}
+
 	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
@@ -301,8 +332,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(append(processArgs, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)
@@ -319,6 +350,17 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 	ml.processRuntimes.Store(grpcControlProcess, runtime)
 
+	// On Windows run.ps1 launches the backend binary as a child of the
+	// PowerShell wrapper, but go-processmanager tracks only the wrapper's PID.
+	// Wrap the tree in a job object so stopping a backend cannot orphan the
+	// binary — and neither can losing local-ai.exe outright (kill-on-close).
+	// Best-effort: hosts that already place the backend in a non-breakaway job
+	// refuse the assignment, and we log and continue without the guarantee. A
+	// no-op on platforms without job objects.
+	if pid, err := strconv.Atoi(grpcControlProcess.CurrentPID()); err == nil {
+		runtime.assignWindowsJobObject(pid)
+	}
+
 	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
 	signals.RegisterGracefulTerminationHandler(func() {
@@ -334,6 +376,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		if err := grpcControlProcess.Stop(); err != nil {
 			xlog.Error("error while shutting down grpc process", "error", err)
 		}
+		// The wrapper's Stop only kills PowerShell; the job object reaps the
+		// backend binary it spawned. Idempotent for processes StopAllGRPC
+		// already stopped (their runtime is gone from the map).
+		ml.terminateWindowsJobObjectForProcess(grpcControlProcess)
 	})
 
 	go func() {
@@ -402,6 +448,19 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}()
 
 	return grpcControlProcess, nil
+}
+
+// terminateWindowsJobObjectForProcess kills the backend's full process tree by
+// terminating the job object created at launch (see createProcess). Idempotent:
+// the runtime's jobOnce makes a concurrent stop racing with this one safe, and
+// the map lookup is a no-op once the runtime has been cleaned up.
+func (ml *ModelLoader) terminateWindowsJobObjectForProcess(process *process.Process) {
+	if process == nil {
+		return
+	}
+	if value, ok := ml.processRuntimes.Load(process); ok {
+		value.(*backendProcessRuntime).terminateWindowsJobObject()
+	}
 }
 
 func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {

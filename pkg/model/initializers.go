@@ -274,6 +274,7 @@ func (ml *ModelLoader) stopLoadProcess(client *Model, modelID string) {
 	if err := process.Stop(); err != nil {
 		xlog.Warn("failed to stop backend process after failed load", "error", err, "modelID", modelID)
 	}
+	ml.terminateWindowsJobObjectForProcess(process)
 	ml.cleanupProcessRuntime(process)
 }
 

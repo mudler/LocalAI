@@ -75,3 +75,79 @@ jobs:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+
+  # Windows host smoke test for the native-windows backend support: boots a
+  # real local-ai.exe with the mock-backend laid out as the gallery ships it
+  # (run.sh + run.ps1) and asserts a chat completion plus job-object process
+  # cleanup on hard-kill. Only meaningful on a Windows host; the suite is a
+  # self-skipping Windows-only ginkgo package (tests/e2e/windows).
+  tests-windows-smoke:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        go-version: ['1.25.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $protocZip = "$env:RUNNER_TEMP\protoc.zip"
+          curl.exe -L --fail --retry 5 --retry-delay 5 -o $protocZip `
+            https://github.com/protocolbuffers/protobuf/releases/download/v31.1/protoc-31.1-win64.zip
+          $protocDir = "$env:RUNNER_TEMP\protoc"
+          Expand-Archive -Path $protocZip -DestinationPath $protocDir -Force
+          Copy-Item "$protocDir\bin\protoc.exe" .
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          $gobin = go env GOPATH
+          # pkg/grpc/proto is gitignored generated code, so it is absent from a
+          # fresh checkout; protoc does not create its output directory.
+          New-Item -ItemType Directory -Force pkg\grpc\proto | Out-Null
+          .\protoc.exe --experimental_allow_proto3_optional -Ibackend/ `
+            --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative `
+            --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative `
+            "--plugin=protoc-gen-go=$gobin\bin\protoc-gen-go.exe" `
+            "--plugin=protoc-gen-go-grpc=$gobin\bin\protoc-gen-go-grpc.exe" `
+            backend/backend.proto
+      # local-ai embeds core/http/react-ui/dist (//go:embed), which is
+      # gitignored build output absent from a fresh checkout; build it first,
+      # like the `react-ui` make target does (vite build writes to dist/).
+      - name: Build React UI
+        run: |
+          cd core/http/react-ui
+          npm ci
+          npm run build
+      - name: Build real binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:CGO_ENABLED = '0'
+          go build -o local-ai.exe ./cmd/local-ai
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          go build -o mock-backend.exe ./tests/e2e/mock-backend
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Windows smoke test
+        shell: pwsh
+        run: |
+          $env:LOCAL_AI_EXE = "$env:GITHUB_WORKSPACE\local-ai.exe"
+          $env:MOCK_BACKEND_EXE = "$env:GITHUB_WORKSPACE\mock-backend.exe"
+          go run github.com/onsi/ginkgo/v2/ginkgo -v ./tests/e2e/windows
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
