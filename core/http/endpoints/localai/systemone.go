@@ -505,20 +505,16 @@ func checkSystemOneNERModel(app *application.Application, modelName string) erro
 	return systemOneNERAllowed(cfg)
 }
 
-// systemOneMaxBody and systemOneMaxQuestions bound one request. They keep a
-// single call from pinning a decision model on an unbounded prompt, and match
-// the limits Ollama documents for the same wire contract, so a client written
-// for one server behaves the same on the other. The engine enforces any
-// per-model option cap (letter-answer models refuse more than 26 options).
+// Text wire requests retain their original cap independently of image requests.
 const (
-	systemOneMaxBody      = 64 << 10 // public raw-wire cap, independent of internal serialized cap
+	systemOneMaxBody      = systemone.MaxBodyBytes // public raw-wire cap, independent of internal serialized cap
 	systemOneMaxQuestions = systemone.MaxQuestions
 )
 
 // systemOneBind binds the JSON body with a size cap. Bind reads the whole body
 // first, so the cap has to be on the reader.
 func systemOneBind(c echo.Context, v any) error {
-	data, err := io.ReadAll(http.MaxBytesReader(c.Response(), c.Request().Body, systemOneMaxBody))
+	data, err := io.ReadAll(http.MaxBytesReader(c.Response(), c.Request().Body, systemone.MaxImageBodyBytes))
 	if err != nil {
 		return err
 	}
@@ -528,7 +524,33 @@ func systemOneBind(c echo.Context, v any) error {
 		return fmt.Errorf("invalid request body")
 	}
 	c.Request().Body = io.NopCloser(bytes.NewReader(data))
-	return c.Bind(v)
+	if err := c.Bind(v); err != nil {
+		return err
+	}
+	var req *schema.SystemOneRequest
+	switch value := v.(type) {
+	case *schema.SystemOneRequest:
+		req = value
+	case *schema.SystemOnePermuteRequest:
+		req = &value.Request
+	}
+	limit := systemOneMaxBody
+	if req != nil {
+		var err error
+		limit, err = systemone.RequestBodyLimit(req)
+		if err != nil {
+			// Invalid/missing state cannot opt a text request into the image
+			// budget. Preserve raw-wire overflow precedence, including spaces.
+			if len(data) > systemOneMaxBody {
+				return &http.MaxBytesError{Limit: int64(systemOneMaxBody)}
+			}
+			return err
+		}
+	}
+	if len(data) > limit {
+		return &http.MaxBytesError{Limit: int64(limit)}
+	}
+	return nil
 }
 
 // systemOneBindStatus maps a bind failure to its status: 413 when the body
@@ -543,7 +565,9 @@ func systemOneBindStatus(err error) int {
 
 func systemOneBindMessage(err error) string {
 	if systemOneBindStatus(err) == http.StatusRequestEntityTooLarge {
-		return fmt.Sprintf("request body exceeds %d KiB", systemOneMaxBody>>10)
+		var tooLarge *http.MaxBytesError
+		errors.As(err, &tooLarge)
+		return fmt.Sprintf("request body exceeds %d KiB", tooLarge.Limit>>10)
 	}
 	return "invalid request body"
 }
@@ -556,7 +580,7 @@ func validateSystemOneRequest(req *schema.SystemOneRequest) error {
 	if err := systemone.ValidateRequestStructure(req); err != nil {
 		return err
 	}
-	return validateSystemOneImages(req)
+	return nil
 }
 
 // backendSupportsScore reports whether the named backend implements the

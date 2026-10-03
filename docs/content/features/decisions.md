@@ -136,7 +136,7 @@ The same model also answers `/v1/chat/completions` requests.
 
 A request is refused with `400` (or `413` for the body size) when:
 
-- the body is larger than 64 KiB,
+- a text-only body is larger than 64 KiB (image-bearing bodies have the bounded budget below),
 - `state` is missing or blank,
 - there are no questions, or more than 64,
 - a question id is blank,
@@ -182,17 +182,38 @@ accept 2–10 levels; this backend-specific limit does not constrain vllm-cpp.
 Older forks without native decision support return 501. Missing decision metadata
 also returns 501, while backend invalid requests return 400.
 
-### Initial image policy
+### Bounded image input
 
-This release validates text-only llama.cpp decisions, not full OpenJev image or
-projector compatibility. The public routes retain a 64 KiB raw request limit
-(413 on overflow), independently of the internal router's serialized request
-budget. Image inputs are preserved, with at most eight images and 32 KiB aggregate
-encoded data-URL bytes. Only base64 `data:image/...` URLs are accepted. Oversized
-image payloads return 413; malformed payloads or excessive image count return 400.
-The NER path and native llama.cpp bridge reject image input explicitly with 501;
-they never silently discard images. Other native backends receive validated image
-fields unchanged and determine their own image support.
+The public routes and internal decision validator share an image contract. Supply
+PNG or JPEG base64 data URLs in `images`, OpenAI `image_url` message content, or
+Anthropic `image` content with a `base64` source and `media_type`. Remote URLs and
+file paths are never fetched. MIME must match the decoded image header; malformed
+base64, unsupported formats and invalid headers return 400.
+
+Limits per request are **8 images**, **12 MiB aggregate encoded data-URL bytes**,
+**8 MiB aggregate decoded bytes**, **4096 pixels per dimension**, and
+**16 million aggregate pixels**. Exceeding these limits returns 413. Headers are
+checked without allocating pixel buffers; native decoders must independently
+protect direct RPC inputs.
+
+Image-bearing request bodies may use up to **16 MiB**. Text-only requests retain
+the **64 KiB raw-wire limit**, including whitespace; JSON escaping during internal
+serialization does not impose a second HTTP limit. Absent, `null`, or empty
+`images` do not enable the larger budget. Native decision responses retain a
+separate **64 KiB** limit, independent of the request budget. These limits do not
+raise any global HTTP limit.
+
+For image-only input, provide explicit structured state such as `"state": {}`
+alongside `images`, or a message containing image content. Missing, null or blank
+string state remains invalid. Arbitrary domain JSON is preserved, not interpreted
+as image content outside message content parts. Images are never replaced by
+invented text.
+
+Admission is not a promise of model image capability: the NER path and currently
+installed text-only native decision bridges reject images with 501 rather than
+silently dropping them. Other native backends receive validated fields unchanged
+and determine their image support. Failed requests are not billed. Router image
+preservation and native OpenJev/projector validation are separate follow-up work.
 
 Native responses report backend input/output usage, including zero generated
 tokens. LocalAI records supplied usage once; explicit zero counts are distinct

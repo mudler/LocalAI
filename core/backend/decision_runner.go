@@ -98,7 +98,7 @@ func (r *decisionRunner) Decide(ctx context.Context, req *schema.SystemOneReques
 			done <- result{err: err}
 			return
 		}
-		if len(raw) > systemone.MaxBodyBytes {
+		if len(raw) > systemone.MaxResponseBytes {
 			done <- result{err: fmt.Errorf("decision response exceeds 64 KiB")}
 			return
 		}

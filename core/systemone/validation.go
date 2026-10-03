@@ -45,7 +45,11 @@ func ValidateRequestStructure(req *schema.SystemOneRequest) error {
 	if err := validateRequest(req); err != nil {
 		return &ValidationError{InvalidRequest, err}
 	}
-	return nil
+	images, err := CollectImages(req)
+	if err != nil {
+		return err
+	}
+	return ValidateImages(images)
 }
 
 // ValidateRequest additionally bounds the serialized internal transport body.
@@ -58,8 +62,12 @@ func ValidateRequest(req *schema.SystemOneRequest) error {
 	if err != nil {
 		return &ValidationError{InvalidRequest, err}
 	}
-	if len(body) > MaxBodyBytes {
-		return &ValidationError{InvalidRequest, fmt.Errorf("request body exceeds %d KiB", MaxBodyBytes>>10)}
+	limit, err := RequestBodyLimit(req)
+	if err != nil {
+		return err
+	}
+	if len(body) > limit {
+		return &ValidationError{InvalidRequest, fmt.Errorf("request body exceeds %d KiB", limit>>10)}
 	}
 	return nil
 }
