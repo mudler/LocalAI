@@ -284,7 +284,7 @@ impl Backend for KokorosService {
         };
         Ok(Response::new(backend::StatusResponse {
             state,
-            memory: None,
+            ..Default::default()
         }))
     }
 
