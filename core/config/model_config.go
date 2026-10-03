@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -775,6 +776,11 @@ func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCP
 	if err := yaml.Unmarshal([]byte(c.Stdio), &stdio); err != nil {
 		return remote, stdio, err
 	}
+	for name, server := range remote.Servers {
+		if err := server.Validate(); err != nil {
+			return remote, stdio, fmt.Errorf("remote MCP server %q: %w", name, err)
+		}
+	}
 	return remote, stdio, nil
 }
 
@@ -791,6 +797,70 @@ type (
 type MCPRemoteServer struct {
 	URL   string `json:"url,omitempty"`
 	Token string `json:"token,omitempty"`
+	// OAuth2 makes LocalAI obtain short-lived access tokens with the
+	// client_credentials grant instead of sending a static Token. The two are
+	// mutually exclusive.
+	OAuth2 *MCPOAuth2Config `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
+}
+
+// @Description OAuth2 client_credentials settings for a remote MCP server
+type MCPOAuth2Config struct {
+	TokenURL string `yaml:"token_url,omitempty" json:"token_url,omitempty"`
+	// ClientID / ClientSecret may be given literally, or by naming an
+	// environment variable (*_env) so the secret stays out of the model YAML.
+	// Exactly one of the two forms must be set for each.
+	ClientID        string   `yaml:"client_id,omitempty" json:"client_id,omitempty"`
+	ClientIDEnv     string   `yaml:"client_id_env,omitempty" json:"client_id_env,omitempty"`
+	ClientSecret    string   `yaml:"client_secret,omitempty" json:"client_secret,omitempty"`
+	ClientSecretEnv string   `yaml:"client_secret_env,omitempty" json:"client_secret_env,omitempty"`
+	Scopes          []string `yaml:"scopes,omitempty" json:"scopes,omitempty"`
+	// EndpointParams are extra form parameters for the token request, e.g.
+	// "audience" (Auth0/Keycloak) or "resource" (RFC 8707).
+	EndpointParams map[string]string `yaml:"endpoint_params,omitempty" json:"endpoint_params,omitempty"`
+}
+
+// Validate checks the static shape of a remote server entry. Environment
+// variables are deliberately not resolved here: in distributed mode the
+// connection is made on an agent worker, whose environment may differ from
+// the frontend that loads the YAML.
+func (s MCPRemoteServer) Validate() error {
+	if s.OAuth2 == nil {
+		return nil
+	}
+	if s.Token != "" {
+		return errors.New("token and oauth2 are mutually exclusive")
+	}
+	o := s.OAuth2
+	if o.TokenURL == "" {
+		return errors.New("oauth2.token_url is required")
+	}
+	if err := exactlyOne("client_id", o.ClientID, o.ClientIDEnv); err != nil {
+		return err
+	}
+	return exactlyOne("client_secret", o.ClientSecret, o.ClientSecretEnv)
+}
+
+func exactlyOne(field, literal, env string) error {
+	switch {
+	case literal != "" && env != "":
+		return fmt.Errorf("oauth2.%s and oauth2.%s_env are mutually exclusive", field, field)
+	case literal == "" && env == "":
+		return fmt.Errorf("oauth2 requires %s or %s_env", field, field)
+	}
+	return nil
+}
+
+// String keeps credentials out of logs: the MCP code logs whole server
+// entries at debug level, and both xlog and slog format structs via fmt.
+func (s MCPRemoteServer) String() string {
+	auth := "none"
+	switch {
+	case s.OAuth2 != nil:
+		auth = "oauth2(" + s.OAuth2.TokenURL + ")"
+	case s.Token != "":
+		auth = "token([redacted])"
+	}
+	return fmt.Sprintf("{url: %s, auth: %s}", s.URL, auth)
 }
 
 // @Description MCP STDIO server configuration
