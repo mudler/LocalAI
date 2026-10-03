@@ -198,3 +198,32 @@ Native responses report backend input/output usage, including zero generated
 tokens. LocalAI records supplied usage once; explicit zero counts are distinct
 from missing usage. Missing counts are not estimated, and invalid negative counts
 are rejected rather than billed.
+
+### Julia-1 CPU example
+
+Install the separate stock llama.cpp entry (existing vllm-cpp entries are unchanged):
+
+```sh
+local-ai models install julia-1-llama-cpp
+```
+
+Julia-1 is a 144.3M-parameter multilingual text decision model. The gallery pins
+`ggml-org/Julia-1-GGUF` revision `16fee17949206fbf58da9347daea44d792a81211`,
+file `Julia-1-Q8_0.gguf` (168,166,496 bytes, about 160.4 MiB), SHA-256
+`1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069`.
+The source model and GGUF publisher declare Apache-2.0. Source provenance:
+`SupersonicLabs/Julia-1` revision `a85b127321d580d65176c89ced8273f305745d85`,
+based on `jhu-clsp/mmBERT-small`. This is a real model, not the upstream tiny test
+fixture; assess its accuracy for your own tasks.
+
+```sh
+curl http://localhost:8080/v1/systemone \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"julia-1-llama-cpp","state":"I was charged twice and need a refund.","questions":{"route":{"type":"choice","instructions":"Which team should handle this?","criteria":{"billing":"payments and refunds","shipping":"delivery problems","technical":"software issues"}},"refund":{"type":"noul","instructions":"Does the customer request a refund?"}}}'
+```
+
+The pinned artifact was installed through the gallery installer, checksum-verified,
+and tested on CPU with the native Score RPC using choice, score, and noul in one
+request. That smoke returned 97 input tokens and zero output tokens; token counts
+vary with the request. This does not establish broad model accuracy or image
+support.

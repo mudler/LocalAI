@@ -64546,3 +64546,31 @@
     - filename: nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
+- name: julia-1-llama-cpp
+  urls:
+    - https://huggingface.co/SupersonicLabs/Julia-1/tree/a85b127321d580d65176c89ced8273f305745d85
+    - https://huggingface.co/ggml-org/Julia-1-GGUF/tree/16fee17949206fbf58da9347daea44d792a81211
+  description: |
+    Julia-1 is a 144.3M-parameter multilingual text decision model based on
+    mmBERT-small. Answers choice, score, and noul questions through
+    POST /v1/systemone without generating text. This Q8_0 GGUF uses native
+    llama.cpp decision support. Text-only; no image/projector support.
+    Evaluate accuracy on your own questions before consequential use.
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+  size: 160MB
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 2048
+    parameters:
+      model: Julia-1-Q8_0.gguf
+  files:
+    - filename: Julia-1-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Julia-1-GGUF/resolve/16fee17949206fbf58da9347daea44d792a81211/Julia-1-Q8_0.gguf
+      sha256: 1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069
