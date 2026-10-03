@@ -6093,6 +6093,82 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 52228402ce4823f10705d901813cd43ced71859524cf2d8bf83305ad6b7dcbc2
+- &qwen38-velocity
+  name: "qwen3.8-27b-velocity-v5"
+  variants:
+    - model: qwen3.8-27b-velocity-v6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/joycx/Qwen3.8-27B-Velocity
+    - https://huggingface.co/joycx/Qwen3.8-27B-Velocity-GGUF
+  license: "cc-by-nc-sa-4.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+  description: |
+    Velocity 1.0 by joycx is a 27B Qwen3.8 fine-tune for reasoning and coding.
+    The V5 GGUF uses importance-matrix mixed-precision quantization at Q5_K_M size.
+    This text-chat configuration uses the embedded template and a 32,768-token context.
+    The weights use CC BY-NC-SA 4.0 and are for noncommercial use only.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-velocity/Velocity-V5-Q5_K_M.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-velocity/Velocity-V5-Q5_K_M.gguf
+      uri: https://huggingface.co/joycx/Qwen3.8-27B-Velocity-GGUF/resolve/9b563aa6432134df5e2d01eae19f06b79def7d34/Velocity-V5-Q5_K_M.gguf
+      sha256: 33b8b4adcaa6a54f6df740e658bbf0cb1d58d87ea6ddc6b73247814c7c55159d
+- !!merge <<: *qwen38-velocity
+  name: "qwen3.8-27b-velocity-v6"
+  variants: []
+  description: |
+    Velocity 1.0 by joycx in the V6 GGUF build, with mixed-precision quantization
+    at Q6_K size. This text-chat variant uses the embedded template and a
+    32,768-token context. The weights use CC BY-NC-SA 4.0 for noncommercial use only.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-velocity/Velocity-V6-Q6_K.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-velocity/Velocity-V6-Q6_K.gguf
+      uri: https://huggingface.co/joycx/Qwen3.8-27B-Velocity-GGUF/resolve/9b563aa6432134df5e2d01eae19f06b79def7d34/Velocity-V6-Q6_K.gguf
+      sha256: 3bc5714c1a2e8d004dd3ca0bf349491684cc6b7dac74b7958f36a351d9a78574
 - name: "swift-1.5-qwen3.8-27b-gsq-rco"
   variants:
     - model: swift-1.5-qwen3.8-27b-gsq-rco-iq2-s
