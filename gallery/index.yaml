@@ -53929,6 +53929,154 @@
     - filename: parakeet-cpp/redux-q8_0.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/redux-q8_0.gguf
       sha256: 3429a4598946c406dbb4af5bb589d4dd307b069d550d98e24bef6779c4e6988f
+- name: parakeet-cpp-silero-vad-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/snakers4/silero-vad
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Silero VAD v6.2.3 as a GGUF (F16, about 1.3 MB) for the parakeet-cpp backend. It only detects speech: use it for the VAD endpoint, or as the vad_model: option of a parakeet-cpp ASR model that has no VAD head.
+    Converted from the official Silero VAD model, MIT licensed, copyright Silero Team: https://github.com/snakers4/silero-vad
+  license: mit
+  icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
+  tags:
+    - silero
+    - vad
+    - voice-activity-detection
+    - parakeet-cpp
+    - gguf
+    - ggml
+    - speech
+    - cpu
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    name: parakeet-cpp-silero-vad-f16
+    parameters:
+      model: parakeet-cpp/silero-vad-f16.gguf
+  files:
+    - filename: parakeet-cpp/silero-vad-f16.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/silero-vad-f16.gguf
+      sha256: 8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c
+- name: parakeet-cpp-vad-moondream-redux-packed
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Voice activity detection with the VAD head of Moondream Redux, packed ternary weights (about 213 MB). CPU only. The file is the same as the ASR entry parakeet-cpp-moondream-redux-packed, so the two share it on disk.
+    Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - vad
+    - voice-activity-detection
+    - gguf
+    - ggml
+    - speech
+    - cpu
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    name: parakeet-cpp-vad-moondream-redux-packed
+    parameters:
+      model: parakeet-cpp/redux-packed.gguf
+  files:
+    - filename: parakeet-cpp/redux-packed.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/redux-packed.gguf
+      sha256: 574614b9a4d9f72ab202877a7ad6a1f4bf819dd1d27b9d42dfe8cd429fcebdd5
+- name: parakeet-cpp-vad-moondream-ultra-q8_0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Voice activity detection with the VAD head of Moondream Ultra, Q8_0 (about 0.9 GB). Runs on CPU and GPU. The file is the same as the ASR entry parakeet-cpp-moondream-ultra-q8_0, so the two share it on disk.
+    Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - vad
+    - voice-activity-detection
+    - gguf
+    - ggml
+    - speech
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    name: parakeet-cpp-vad-moondream-ultra-q8_0
+    parameters:
+      model: parakeet-cpp/ultra-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/ultra-q8_0.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/ultra-q8_0.gguf
+      sha256: c2fb452a9df468a141012b01c8c168a25ce93f710897c7de6e353c6cc250986a
+- name: parakeet-cpp-vad
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Voice activity detection served by the parakeet-cpp backend, with Silero VAD (about 1.3 MB). To use the VAD head of Moondream Redux or Ultra instead, install parakeet-cpp-vad-moondream-redux-packed or parakeet-cpp-vad-moondream-ultra-q8_0. The detectors are different, not builds of the same weights, so this entry does not pick between them.
+  tags:
+    - vad
+    - voice-activity-detection
+    - parakeet-cpp
+    - cpu
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    parameters:
+      model: parakeet-cpp/silero-vad-f16.gguf
+  files:
+    - filename: parakeet-cpp/silero-vad-f16.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/silero-vad-f16.gguf
+      sha256: 8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c
+- name: parakeet-cpp-tdt-0.6b-v3-silero-vad
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+    - https://github.com/snakers4/silero-vad
+  description: |
+    TDT FastConformer, 0.6B (v3, multilingual) with Silero VAD. The vad_model option makes the backend cut long audio at pauses found by Silero before it transcribes, so recordings of any length work. The model has no VAD head of its own, so Silero does the cutting.
+    Both files are GGUF for the parakeet-cpp backend. The Silero model is MIT licensed, copyright Silero Team.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - silero
+    - vad
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-tdt-0.6b-v3-silero-vad
+    options:
+      - vad_model:parakeet-cpp/silero-vad-f16.gguf
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+    - filename: parakeet-cpp/silero-vad-f16.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/silero-vad-f16.gguf
+      sha256: 8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c
 - name: parakeet-cpp-nemotron-3-diarization
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
