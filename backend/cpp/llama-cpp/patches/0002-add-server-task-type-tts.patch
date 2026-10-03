@@ -759,10 +759,11 @@ index f9ab1132b..610512678 100644
      json json_ui_settings;
      int slot_n_ctx;
      enum llama_pooling_type pooling_type;
-@@ -151,6 +153,7 @@ struct server_routes {
+@@ -151,7 +153,8 @@ struct server_routes {
      server_http_context::handler_t post_embeddings;
      server_http_context::handler_t post_embeddings_oai;
      server_http_context::handler_t post_rerank;
+     server_http_context::handler_t post_systemone;
 +    server_http_context::handler_t post_tts;
      server_http_context::handler_t get_lora_adapters;
      server_http_context::handler_t post_lora_adapters;

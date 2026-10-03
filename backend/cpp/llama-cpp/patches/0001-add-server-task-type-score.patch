@@ -325,10 +325,11 @@ index 3b5f6a1..d0e18e6 100644
      //
      // Functions to process the task
      //
-@@ -2407,6 +2661,7 @@ private:
+@@ -2407,7 +2661,8 @@ private:
              case SERVER_TASK_TYPE_INFILL:
              case SERVER_TASK_TYPE_EMBEDDING:
              case SERVER_TASK_TYPE_RERANK:
+             case SERVER_TASK_TYPE_DECISION:
 +            case SERVER_TASK_TYPE_SCORE:
                  {
                      // special case: if input is provided via CLI, tokenize it first
@@ -510,9 +511,9 @@ diff --git a/tools/server/server-task.h b/tools/server/server-task.h
 index 6275ec7..5bedf19 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
-@@ -13,10 +13,25 @@
+@@ -13,11 +13,26 @@
 
- using json = nlohmann::ordered_json;
+ #include "server-common.h"
 
 +// SERVER_TASK_TYPE_SCORE emits one logits output per candidate token (plus
 +// the forced last-token output), and the context's output budget
@@ -532,6 +533,7 @@ index 6275ec7..5bedf19 100644
      SERVER_TASK_TYPE_COMPLETION,
      SERVER_TASK_TYPE_EMBEDDING,
      SERVER_TASK_TYPE_RERANK,
+     SERVER_TASK_TYPE_DECISION,
 +    SERVER_TASK_TYPE_SCORE,
      SERVER_TASK_TYPE_INFILL,
      SERVER_TASK_TYPE_CANCEL,
