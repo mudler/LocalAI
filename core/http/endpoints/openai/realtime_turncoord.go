@@ -125,8 +125,11 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 		audio := s.commitAudio
 		gated := s.commitGated
 		conv := s.conv
+		// Claim the commit order before the (parallel) transcription starts,
+		// so user items commit in speech order (issue #12445).
+		slot := s.session.nextCommitSlot()
 		s.session.respSink.issue(s.vadContext, respcoord.SourceVAD, func(ctx context.Context) {
-			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport)
+			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport, slot)
 		})
 	case turncoord.DiscardTurn:
 		// No-op if the stream was never open (server_vad / already idle).

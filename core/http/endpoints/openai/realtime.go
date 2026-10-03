@@ -203,6 +203,56 @@ type Session struct {
 	// decision is serialized through respcoord.Coordinator, guaranteeing at most
 	// one live response. See realtime_respcoord.go.
 	respSink *responseSink
+
+	// sessionCtx is the session-lifetime context: cancelled at teardown
+	// (conncoord Teardown, BEFORE respSink.shutdown joins the response
+	// goroutines) but NOT by barge-in / response supersede (those cancel
+	// respSink's per-response contexts only). Committed-turn work that must
+	// outlive a barge-in but must never outlive the session — the
+	// transcription of a VAD commit (issue #12445) — runs under it.
+	sessionCtx    context.Context
+	sessionCancel context.CancelFunc
+
+	// commitOrderMu guards commitTail.
+	commitOrderMu sync.Mutex
+	// commitTail is the newest commit slot. Slots form a chain that orders
+	// user-item appends in speech order, not transcription-completion order
+	// (see commitSlot).
+	commitTail *commitSlot
+}
+
+// commitSlot orders committed user turns in the conversation. The
+// transcriptions of consecutive turns run in parallel (each under the session
+// context, so a barge-in on a later turn does not cancel an earlier
+// transcription), but a turn may append its user item only after the previous
+// turn has appended its own: without the gate a fast second transcription
+// would commit ahead of a slow first one, and the assistant response — and
+// the conversation history — would see the user input out of order or missing
+// (issue #12445, review schedule 2).
+type commitSlot struct {
+	// prevDone is the previous slot's done channel (nil for the first commit);
+	// this commit's item append waits on it.
+	prevDone chan struct{}
+	// done is closed when this commit has appended its user item — or aborted
+	// (error, teardown) — so the next commit is never blocked.
+	done chan struct{}
+}
+
+// nextCommitSlot claims the next position in the commit order. It is called at
+// commit ISSUE time (VAD CommitTurn / client input_audio_buffer.commit) —
+// synchronously on the issuing goroutine, in the order the turns were
+// detected — before the (parallel) transcriptions start, so slot order ==
+// speech order even if the commit goroutines schedule out of order.
+func (session *Session) nextCommitSlot() *commitSlot {
+	session.commitOrderMu.Lock()
+	var prevDone chan struct{}
+	if session.commitTail != nil {
+		prevDone = session.commitTail.done
+	}
+	slot := &commitSlot{prevDone: prevDone, done: make(chan struct{})}
+	session.commitTail = slot
+	session.commitOrderMu.Unlock()
+	return slot
 }
 
 func (s *Session) installVoiceBinding(voice string, params map[string]string, release func()) {
@@ -614,6 +664,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// into two overlapping responses (see realtime_respcoord.go).
 	session.respSink = newResponseSink()
 
+	// Session-lifetime context for committed-turn work that must outlive a
+	// barge-in but not the session (transcription, commit ordering). Cancelled
+	// at teardown BEFORE respSink.shutdown joins the response goroutines.
+	session.sessionCtx, session.sessionCancel = context.WithCancel(context.Background())
+
 	// Create a default conversation
 	conversationID := generateConversationID()
 	conversation := &Conversation{
@@ -946,8 +1001,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          generateItemID(),
 			})
 
+			// Claim the commit order before the (parallel) transcription starts,
+			// so user items commit in speech order (issue #12445).
+			slot := session.nextCommitSlot()
 			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
-				commitUtterance(ctx, allAudio, session, conversation, t)
+				commitUtterance(ctx, allAudio, session, conversation, t, slot)
 			})
 
 		case types.InputAudioBufferClearEvent:
@@ -1824,8 +1882,8 @@ func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold flo
 	return window
 }
 
-func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport) {
-	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t)
+func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)
 }
 
 // commitUtteranceWithTranscript commits one user turn. live carries the
@@ -1837,9 +1895,22 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 // is written to a temp WAV and transcribed via the file path as before.
 // itemID is the turn's conversation item id ("" mints a fresh one); it must
 // match the id any live deltas were sent under.
-func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport) {
+func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	// Close the slot on EVERY exit — before the empty-utt early return too —
+	// so the next commit's ordering wait is never blocked, even when this
+	// turn errors out or the session is torn down (issue #12445).
+	defer close(slot.done)
 	if len(utt) == 0 {
 		return
+	}
+
+	// sctx is the session-lifetime context (see Session.sessionCtx): it
+	// survives a barge-in (which cancels only the per-response ctx) but is
+	// cancelled at teardown. Unit tests that build a bare Session leave it
+	// nil; fall back like responseSink.Perform does for a nil parent.
+	sctx := session.sessionCtx
+	if sctx == nil {
+		sctx = context.Background()
 	}
 
 	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
@@ -1895,7 +1966,10 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 			resolveCh = make(chan resolveOutcome, 1)
 			wavPath := f.Name()
 			go func() {
-				r, rerr := session.voiceGate.Resolve(ctx, wavPath)
+				// Turn work like the transcription: must outlive a barge-in (the
+				// decision belongs to THIS utterance), so run under the session
+				// context (issue #12445).
+				r, rerr := session.voiceGate.Resolve(sctx, wavPath)
 				resolveCh <- resolveOutcome{res: r, err: rerr}
 			}()
 		}
@@ -1932,7 +2006,19 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// emitTranscription streams transcript deltas when
 		// pipeline.streaming.transcription is set, otherwise emits a single
 		// completed event; either way it returns the final transcript text.
-		transcript, err = emitTranscription(ctx, t, session, itemID, f.Name())
+		//
+		// The transcription runs under the SESSION context, not the turn's
+		// response context: a barge-in (new speech onset) or a newer commit
+		// cancels that context while Whisper is still in flight, and
+		// cancelling the transcription would lose the user's input for this
+		// turn ("transcription_failed: context canceled", issue #12445). The
+		// session context is cancelled at teardown instead (conncoord
+		// Teardown, before respSink.shutdown joins this goroutine), so the
+		// transcription can never outlive the session. The response to this
+		// turn is still cancelled — see the ctx check below — only the
+		// transcript survives, so the next response is built on the full
+		// utterance.
+		transcript, err = emitTranscription(sctx, t, session, itemID, f.Name())
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
@@ -2017,6 +2103,29 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// sound-detection-only session (no transcription) has no LLM stage, so it
 	// stops here after emitting the sound-detection event.
 	if session.InputAudioTranscription != nil && !session.TranscriptionOnly && strings.TrimSpace(transcript) != "" {
+		// Commit ordering: wait until the previous committed turn has appended
+		// its user item, so the conversation history — and the response built
+		// on it — sees the turns in speech order, not transcription-completion
+		// order (issue #12445, review schedule 2). Aborts on teardown.
+		if slot.prevDone != nil {
+			select {
+			case <-slot.prevDone:
+			case <-sctx.Done():
+				return
+			}
+		}
+		// If the turn's response context was cancelled while the (detached)
+		// transcription ran — barge-in, superseded by a newer commit — the
+		// user item still commits, so the LLM context keeps the full user
+		// input, but no response is generated for this (superseded) turn:
+		// the newer speech triggers its own response on the complete history.
+		// (Teardown is not a barge-in: the slot wait above already returned
+		// when the session context was cancelled.)
+		if ctx.Err() != nil {
+			xlog.Debug("skipping response: turn context cancelled during transcription (barge-in); committing user item only")
+			appendUserItem(conv, t, utt, transcript, speaker)
+			return
+		}
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }
@@ -2189,10 +2298,12 @@ func speakerNote(s *types.Speaker, noteUnknown bool) string {
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
-	xlog.Debug("Generating realtime response...")
-
-	// Create user message item
+// appendUserItem adds the committed user turn to the conversation and
+// notifies the client, returning the item. Split out of generateResponse so a
+// turn whose response was superseded (barge-in during transcription) can still
+// commit its item — the LLM context must keep the full user input — without
+// generating a response for it (issue #12445).
+func appendUserItem(conv *Conversation, t Transport, utt []byte, transcript string, speaker *types.Speaker) types.MessageItemUnion {
 	item := types.MessageItemUnion{
 		User: &types.MessageItemUser{
 			ID:      generateItemID(),
@@ -2214,6 +2325,16 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	sendEvent(t, types.ConversationItemAddedEvent{
 		Item: item,
 	})
+	return item
+}
+
+// generateResponse creates the user message item for a committed turn and
+// triggers the assistant response (LLM + TTS) for it.
+func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
+	xlog.Debug("Generating realtime response...")
+
+	// Create user message item
+	item := appendUserItem(conv, t, utt, transcript, speaker)
 
 	// Surface the recognized speaker to the client. Skip the event for an
 	// unidentified speaker unless announce_unknown is set.
