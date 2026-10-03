@@ -38,6 +38,7 @@ availability may lag upstream releases.
 
 - [cogito](https://github.com/mudler/cogito) - Agentic library for Go
 - [LocalAGI](https://github.com/mudler/LocalAGI) - Local smart assistant with autonomous agents
+- [Nika](https://github.com/supernovae-st/nika) - Intent-as-code AI workflow engine in a single Rust binary, with LocalAI as a built-in local provider
 
 ### MCP Servers
 
