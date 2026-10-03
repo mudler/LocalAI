@@ -99,6 +99,28 @@ but leaves the text unchanged. The entity-group names are whatever the model
 emits (the privacy-filter family uses uppercase names like `EMAIL`,
 `PASSWORD`, `CREDITCARD`).
 
+#### Extending a detection to the next word
+
+Some identifying values come in pairs where the model reliably tags one half
+and misses the other. The typical case is an address line: the postal code is
+detected with high confidence, the town right after it is tagged with a low
+score or not at all, and masking the code alone leaves the town in the clear
+(`[REDACTED:ner:ZIPCODE] Ludwigshafen`). `extend_to_next_word` lists entity
+groups whose accepted detections also cover the word that directly follows
+them on the same line, with the same action and group:
+
+```yaml
+pii_detection:
+  min_score: 0.4
+  extend_to_next_word:
+    - ZIPCODE                 # "67059 Ludwigshafen" -> "[REDACTED:ner:ZIPCODE]"
+```
+
+A word is a run of letters, digits, combining marks, `-`, `'` and inner dots
+(a trailing dot is left out). The extension skips spaces and tabs but never a
+line break, and it does nothing when no word follows. Only one word is added,
+so a multi-word town ("Frankfurt am Main") keeps its tail.
+
 ### Pattern detector tier
 
 NER is the wrong tool for high-entropy, highly-regular **secrets** - API keys,
