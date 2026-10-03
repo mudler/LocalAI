@@ -879,6 +879,9 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 		return router.Probe{InputError: admissionErr}
 	}
 	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)
@@ -906,6 +909,9 @@ func AnthropicProbe(parsed any) (router.Probe, bool) {
 		return router.Probe{InputError: admissionErr}, true
 	}
 	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}, true
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)

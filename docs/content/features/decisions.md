@@ -328,3 +328,12 @@ normal media preparation runs without replacing the original content blocks.
 Invalid classifier configuration fails closed even with a configured fallback.
 Runtime classification and input errors follow the configured fallback policy.
 Cancellation never selects a fallback.
+
+Router probe extraction checks the shared 16 MiB state budget before copying
+text or serializing messages, including JSON escaping expansion. This applies
+to typed and untyped internal requests as well as parsed API requests; it does
+not add a limit to non-router inference. Direct internal probes containing
+custom JSON/text marshalers or excessively nested values fail extraction rather
+than executing unbounded serialization. The separate 64 KiB text-only Decisions
+request limit is unchanged. Anthropic conversion preserves typed content blocks
+through both native selection and fallback, including ordered text and images.
