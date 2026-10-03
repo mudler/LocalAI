@@ -1055,6 +1055,27 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "pii-pattern-list",
 			Order:       214,
 		},
+		"pii_detection.extend_to_next_word": {
+			Section:     "pii",
+			Label:       "Extend To Next Word",
+			Description: "Entity groups (e.g. ZIPCODE) whose detections also cover the word right after them on the same line, with the same action. Use it when the model tags one part of an identifying pair reliably but misses its neighbour, such as the town after a postal code.",
+			Component:   "string-list",
+			Order:       215,
+		},
+		"pii_detection.protected_terms": {
+			Section:     "pii",
+			Label:       "Protected Terms",
+			Description: "Values that must pass the filter unchanged even when the model tags them, e.g. known business names a name model reads as surnames. Hidden from the detector behind a placeholder and restored afterwards; matched whole-word and case-insensitively, minimum three characters.",
+			Component:   "string-list",
+			Order:       216,
+		},
+		"pii_detection.protected_terms_files": {
+			Section:     "pii",
+			Label:       "Protected Terms Files",
+			Description: "Files inside the models path with one protected term per line ('#' starts a comment). Re-read when they change, so an external process can keep the list current without a restart. A missing file is skipped with a warning.",
+			Component:   "string-list",
+			Order:       217,
+		},
 
 		// --- Cloud passthrough proxy ---
 		// These only have an effect when Backend is set to

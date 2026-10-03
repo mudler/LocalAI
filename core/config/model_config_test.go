@@ -790,6 +790,27 @@ var _ = Describe("PII config accessors", func() {
 		Expect(cfg.PIIDetectionDefaultAction()).To(Equal("mask"))
 		Expect(cfg.PIIDetectionEntityActions()).To(HaveKeyWithValue("PASSWORD", "block"))
 	})
+
+	It("unmarshals pii_detection.extend_to_next_word from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  extend_to_next_word: [ZIPCODE]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectionExtendToNextWord()).To(Equal([]string{"ZIPCODE"}))
+		got := cfg.PIIDetectionExtendToNextWord()
+		got[0] = "CITY"
+		Expect(cfg.PIIDetection.ExtendToNextWord[0]).To(Equal("ZIPCODE"), "accessor must return a fresh slice")
+	})
+
+	It("unmarshals pii_detection.protected_terms and protected_terms_files from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  protected_terms: [Hotel Seeblick]\n  protected_terms_files: [pf/terms.txt]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		Expect(terms).To(Equal([]string{"Hotel Seeblick"}))
+		Expect(files).To(Equal([]string{"pf/terms.txt"}))
+		terms[0] = "changed"
+		Expect(cfg.PIIDetection.ProtectedTerms[0]).To(Equal("Hotel Seeblick"), "accessor must return a fresh slice")
+	})
 })
 
 var _ = Describe("GGUF importer chat-default guard (reservedNonChatModel)", func() {
