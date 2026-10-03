@@ -60,3 +60,16 @@ python3 backend/cpp/llama-cpp/tests/verify-image-build-wiring.py
 ```
 
 This focused check does not replace a full backend or platform build.
+
+## CI gate
+
+`.github/workflows/decision-images.yml` runs both verification commands on
+relevant pull requests and master pushes, or by manual dispatch. It installs
+C++17, Python/Pillow, CMake, zlib and libjpeg development dependencies and fetches
+only the two vendor headers at `LLAMA_VERSION` from the backend Makefile (not a
+floating upstream branch). No model, projector, GPU or full backend build is
+needed. The path filters include this workflow, the backend helper/tests/build
+files and upstream pin, Go limits, Dockerfiles and Darwin dependency setup.
+
+This gate is separate from `backend/cpp/run-unit-tests.sh`: that stdlib-only
+runner discovers `*_test.cpp`, not the dependency-bearing `decision-images.cpp`.
