@@ -39,6 +39,39 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Index-Homura-9B
+
+[Index-Homura-9B](https://huggingface.co/IndexTeam/Index-Homura-9B) translates text with a requested syllable count and optional terminology constraints.
+Use it to prepare translated lines for dubbing or subtitles. The syllable count is an approximate target.
+
+The `index-homura-9b` entry offers Q4_K_M and Q8_0 GGUF variants for llama.cpp under Apache-2.0.
+It uses the embedded chat template, disables thinking, and sets a 32,768-token context with temperature `0.3`.
+These defaults follow the Homura client. The model generates text; it does not generate dubbed audio.
+
+Install a specific quantization:
+
+```bash
+local-ai models install index-homura-9b --variant index-homura-9b
+# Or select Q8_0:
+local-ai models install index-homura-9b --variant index-homura-9b-q8
+```
+
+Send the target language, syllable count, and source text in one user message:
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "index-homura-9b",
+    "temperature": 0.3,
+    "max_tokens": 512,
+    "messages": [{"role": "user", "content": "请将以下文本翻译为英语，译文严格控制在 14 个音节。直接输出翻译结果，不要进行任何解释。\n\n说到底聊天群的规则一句话就能总结"}]
+  }'
+```
+
+This example follows the publisher's prompt for English translation with a 14-syllable target.
+For longer inputs, the official client uses an output budget of at least `max(512, 3 * len(text))` tokens.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
