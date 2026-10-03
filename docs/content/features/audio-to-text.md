@@ -270,6 +270,33 @@ options:
 
 `vad:true` applies to offline transcription only and bypasses dynamic batching, because the batched entry point has no VAD variant. Streaming is not affected. A model without a VAD head fails each request with `model has no VAD head`, and a `libparakeet.so` that is too old to export the VAD entry point fails the load. Remove the option for models that have no VAD head.
 
+### Cutting long audio with Silero (`vad_model`)
+
+A model without a VAD head, such as `parakeet-cpp-tdt-0.6b-v3` or a Nemotron model, can cut long audio with [Silero VAD](https://github.com/snakers4/silero-vad) instead. Name a Silero GGUF in the `vad_model` option. The path is resolved against the models directory, like the other companion files. `vad_model` implies `vad`:
+
+```yaml
+name: parakeet-v3-silero
+backend: parakeet-cpp
+parameters:
+  model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+options:
+- vad_model:parakeet-cpp/silero-vad-f16.gguf   # Silero GGUF that cuts long audio at pauses
+- vad_min_pause:0.3                            # optional, seconds
+```
+
+The gallery entry `parakeet-cpp-tdt-0.6b-v3-silero-vad` installs both files with this configuration. Audio of 30 seconds or less is transcribed whole and the VAD does not run. `vad:true` alone keeps meaning "use the model's own head". With `vad_model` set, the Silero model is used even if the ASR model has a head.
+
+The segmenter options below apply to both `vad:true` and `vad_model`. Each is optional; an unset value keeps the default of the detector in use, and a bad value fails the load:
+
+| Option | Unit | Meaning |
+|---|---|---|
+| `vad_threshold` | 0 to 1 | A frame is speech when its probability is at least this |
+| `vad_min_pause` | seconds | A silence this long separates two pieces |
+| `vad_min_speech` | seconds | Shorter speech runs are dropped |
+| `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
+
+`vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
+
 ## See also
 
 - [Audio Transform]({{< relref "audio-transform.md" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.
