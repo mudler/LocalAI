@@ -458,6 +458,43 @@ property-test oracles, and FizzBee invariants:
     M5's by its existing `Closed`; the persistent coordinators (M3/M4) carry the
     explicit `Terminated` state.
 
+- **Committed-turn pipeline: transcription lifetime + commit order (issue #12445,
+  done).** Two cross-cutting defects in the VAD commit path, neither of which a
+  single machine owned:
+  - *Transcription lifetime.* `commitUtteranceWithTranscript` ran the
+    utterance transcription under the turn's **response** context (M3). A
+    barge-in (new speech onset) or a superseding commit cancels that context
+    while Whisper is still in flight, so the in-flight transcription died
+    ("transcription_failed: context canceled") and the user's input was lost
+    from the conversation — the next response answered the second half of a
+    two-part utterance. Detaching with `context.WithoutCancel` fixed the
+    barge-in but broke teardown: the transcription then outlived the session,
+    and `respSink.shutdown` (which joins the response goroutines) blocked until
+    the backend finished the job. Fix: the transcription (and the voice-gate
+    resolution) now run under a **session-lifetime context**
+    (`Session.sessionCtx`) — cancelled at teardown by `conncoord`'s `Teardown`
+    *before* `respSink.shutdown()` joins, untouched by barge-in. The
+    turn's response context still cancels the *response*: when it was
+    cancelled during the (now detached) transcription, the user item is
+    committed (`appendUserItem`, split out of `generateResponse`) but no
+    response is generated for the superseded turn — the newer speech triggers
+    its own response on the complete history.
+  - *Commit order.* Consecutive commits run in parallel goroutines (M3 spawns
+    one per `issue`), so a fast second transcription could append its user
+    item before a slow first one — the conversation became
+    `[second, first]` and the second response saw only `[second]`. Fix: a
+    per-session **commit slot chain** (`Session.nextCommitSlot`, claimed at
+    commit *issue* time so slot order == speech order). A commit's user-item
+    append waits on the previous slot's `done` (aborts on the session
+    context); every exit closes its own slot, so a failed or torn-down commit
+    never blocks the next. Transcriptions stay parallel; only the item appends
+    are ordered.
+  Regression tests: `realtime_commit_order_test.go` (both review schedules —
+  teardown during an in-flight transcription; held-first/finished-second
+  out-of-order completion — plus the barge-in-during-transcription item
+  survival), driving the real commit path with a transcription double that
+  honours context cancellation. Verified: builds, openai specs under `-race`.
+
 ## Part 5 — Library vs hand-rolled (Go ecosystem, verified 2026-06)
 
 Researched against live GitHub/pkg.go.dev data. **Verdict: hand-roll a typed transition
