@@ -213,7 +213,8 @@ type Session struct {
 	sessionCtx    context.Context
 	sessionCancel context.CancelFunc
 
-	// commitOrderMu guards commitTail.
+	// commitOrderMu guards commitTail AND is the shared ordering boundary
+	// between the two commit producers (see issueCommit).
 	commitOrderMu sync.Mutex
 	// commitTail is the newest commit slot. Slots form a chain that orders
 	// user-item appends in speech order, not transcription-completion order
@@ -225,34 +226,68 @@ type Session struct {
 // transcriptions of consecutive turns run in parallel (each under the session
 // context, so a barge-in on a later turn does not cancel an earlier
 // transcription), but a turn may append its user item only after the previous
-// turn has appended its own: without the gate a fast second transcription
-// would commit ahead of a slow first one, and the assistant response — and
-// the conversation history — would see the user input out of order or missing
-// (issue #12445, review schedule 2).
+// turn has appended its own — and the slot releases (done closes) only after
+// the previous commit has FINISHED, on every exit path (success, error, empty
+// transcript, teardown). Without the append gate a fast second transcription
+// would commit ahead of a slow first one; without the release gate a failed
+// middle commit would release the third turn before the first appended. In
+// both cases the assistant response — and the conversation history — would
+// see the user input out of order or missing (issue #12445 + review follow-up).
 type commitSlot struct {
 	// prevDone is the previous slot's done channel (nil for the first commit);
-	// this commit's item append waits on it.
+	// this commit's item append waits on it, and its slot release waits on it
+	// too (on every exit path).
 	prevDone chan struct{}
-	// done is closed when this commit has appended its user item — or aborted
-	// (error, teardown) — so the next commit is never blocked.
+	// done is closed when this commit has fully finished — appended its user
+	// item or aborted (error, empty transcript, teardown) — AND the
+	// predecessor has finished, so the next commit is released in order.
 	done chan struct{}
 }
 
-// nextCommitSlot claims the next position in the commit order. It is called at
-// commit ISSUE time (VAD CommitTurn / client input_audio_buffer.commit) —
+// nextCommitSlot claims the next position in the commit order. It is called
+// at commit ISSUE time (VAD CommitTurn / client input_audio_buffer.commit) —
 // synchronously on the issuing goroutine, in the order the turns were
 // detected — before the (parallel) transcriptions start, so slot order ==
-// speech order even if the commit goroutines schedule out of order.
+// speech order even if the commit goroutines schedule out of order. The
+// production commit paths go through issueCommit (slot claim + issue under
+// one lock); this primitive is also used by tests that drive a commit body
+// directly.
 func (session *Session) nextCommitSlot() *commitSlot {
 	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	return session.nextCommitSlotLocked()
+}
+
+// nextCommitSlotLocked claims the next slot; commitOrderMu must be held.
+func (session *Session) nextCommitSlotLocked() *commitSlot {
 	var prevDone chan struct{}
 	if session.commitTail != nil {
 		prevDone = session.commitTail.done
 	}
 	slot := &commitSlot{prevDone: prevDone, done: make(chan struct{})}
 	session.commitTail = slot
-	session.commitOrderMu.Unlock()
 	return slot
+}
+
+// issueCommit is the single ordering boundary both commit producers — the VAD
+// CommitTurn (realtime_turncoord.go) and the client input_audio_buffer.commit
+// (read loop) — must go through. Claiming the next commit slot and issuing
+// the commit body happen under ONE lock, so slot order == issue order: the
+// coordinator's supersession (a newer issue cancels the in-flight response)
+// can only cancel a response issued LATER in speech order, never an earlier
+// turn whose slot a later issue would overtake (issue #12445, review
+// follow-up: "slot reservation and response issuance need a shared ordering
+// boundary across both producers"). respSink.issue is non-blocking — it
+// registers the body and applies the coordinator start; the commit work runs
+// in the spawned goroutine — so holding the lock across it does not stall
+// VAD/barge-in handling.
+func (session *Session) issueCommit(parent context.Context, source respcoord.Source, run func(ctx context.Context, slot *commitSlot)) {
+	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	slot := session.nextCommitSlotLocked()
+	session.respSink.issue(parent, source, func(ctx context.Context) {
+		run(ctx, slot)
+	})
 }
 
 func (s *Session) installVoiceBinding(voice string, params map[string]string, release func()) {
@@ -1001,10 +1036,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          generateItemID(),
 			})
 
-			// Claim the commit order before the (parallel) transcription starts,
-			// so user items commit in speech order (issue #12445).
-			slot := session.nextCommitSlot()
-			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
+			// Issue through the shared commit-ordering boundary (slot claim +
+			// issue under one lock, shared with the VAD commit path) so slot
+			// order == issue order across both producers (issue #12445).
+			session.issueCommit(context.Background(), respcoord.SourceClient, func(ctx context.Context, slot *commitSlot) {
 				commitUtterance(ctx, allAudio, session, conversation, t, slot)
 			})
 
@@ -1896,14 +1931,6 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 // itemID is the turn's conversation item id ("" mints a fresh one); it must
 // match the id any live deltas were sent under.
 func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
-	// Close the slot on EVERY exit — before the empty-utt early return too —
-	// so the next commit's ordering wait is never blocked, even when this
-	// turn errors out or the session is torn down (issue #12445).
-	defer close(slot.done)
-	if len(utt) == 0 {
-		return
-	}
-
 	// sctx is the session-lifetime context (see Session.sessionCtx): it
 	// survives a barge-in (which cancels only the per-response ctx) but is
 	// cancelled at teardown. Unit tests that build a bare Session leave it
@@ -1911,6 +1938,27 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	sctx := session.sessionCtx
 	if sctx == nil {
 		sctx = context.Background()
+	}
+
+	// Release the slot on EVERY exit — including the empty-utt early return,
+	// transcription errors, gate rejections, empty transcripts and teardown —
+	// but ONLY after the predecessor has finished: a failed or skipped middle
+	// commit must not release the next commit before the earlier one appended
+	// its item, or the next response would be built on a history missing the
+	// earlier turn (issue #12445, review follow-up schedule 1). The session
+	// context can still stop the wait, so teardown never blocks on a
+	// never-finishing predecessor.
+	defer func() {
+		if slot.prevDone != nil {
+			select {
+			case <-slot.prevDone:
+			case <-sctx.Done():
+			}
+		}
+		close(slot.done)
+	}()
+	if len(utt) == 0 {
+		return
 	}
 
 	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
@@ -2103,10 +2151,12 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// sound-detection-only session (no transcription) has no LLM stage, so it
 	// stops here after emitting the sound-detection event.
 	if session.InputAudioTranscription != nil && !session.TranscriptionOnly && strings.TrimSpace(transcript) != "" {
-		// Commit ordering: wait until the previous committed turn has appended
-		// its user item, so the conversation history — and the response built
-		// on it — sees the turns in speech order, not transcription-completion
-		// order (issue #12445, review schedule 2). Aborts on teardown.
+		// Commit ordering (append gate): wait until the previous committed
+		// turn has appended its user item, so the conversation history — and
+		// the response built on it — sees the turns in speech order, not
+		// transcription-completion order (issue #12445, review schedule 2).
+		// The deferred slot release (release gate) enforces the same order on
+		// every other exit path. Aborts on teardown.
 		if slot.prevDone != nil {
 			select {
 			case <-slot.prevDone:

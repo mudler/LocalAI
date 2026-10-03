@@ -125,10 +125,10 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 		audio := s.commitAudio
 		gated := s.commitGated
 		conv := s.conv
-		// Claim the commit order before the (parallel) transcription starts,
-		// so user items commit in speech order (issue #12445).
-		slot := s.session.nextCommitSlot()
-		s.session.respSink.issue(s.vadContext, respcoord.SourceVAD, func(ctx context.Context) {
+		// Issue through the shared commit-ordering boundary (slot claim +
+		// issue under one lock, shared with the client commit path) so slot
+		// order == issue order across both producers (issue #12445).
+		s.session.issueCommit(s.vadContext, respcoord.SourceVAD, func(ctx context.Context, slot *commitSlot) {
 			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport, slot)
 		})
 	case turncoord.DiscardTurn:

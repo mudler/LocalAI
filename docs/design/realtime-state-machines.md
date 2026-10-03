@@ -482,18 +482,36 @@ property-test oracles, and FizzBee invariants:
   - *Commit order.* Consecutive commits run in parallel goroutines (M3 spawns
     one per `issue`), so a fast second transcription could append its user
     item before a slow first one — the conversation became
-    `[second, first]` and the second response saw only `[second]`. Fix: a
-    per-session **commit slot chain** (`Session.nextCommitSlot`, claimed at
-    commit *issue* time so slot order == speech order). A commit's user-item
-    append waits on the previous slot's `done` (aborts on the session
-    context); every exit closes its own slot, so a failed or torn-down commit
-    never blocks the next. Transcriptions stay parallel; only the item appends
-    are ordered.
-  Regression tests: `realtime_commit_order_test.go` (both review schedules —
-  teardown during an in-flight transcription; held-first/finished-second
-  out-of-order completion — plus the barge-in-during-transcription item
-  survival), driving the real commit path with a transcription double that
-  honours context cancellation. Verified: builds, openai specs under `-race`.
+    `[second, first]` and the second response saw only `[second]`. Two more
+    schedules broke the naive fix: a FAILED middle commit (error, empty
+    transcript, gate rejection) closed its slot without waiting for the
+    earlier one, releasing the third turn before the first appended
+    (`[third first]`); and the two producers (VAD `CommitTurn`, client
+    `input_audio_buffer.commit`) reserved the slot and called `respSink.issue`
+    separately, so a pause between the two let the other producer reserve AND
+    issue first — the later issue then superseded the EARLIER turn's response
+    (response history `[first]`, final history `[first second]` with the
+    second turn un-answered). Fix: a per-session **commit slot chain** with
+    two gates, and a **shared issue boundary**:
+    - `Session.issueCommit` claims the next slot and issues the commit body
+      under ONE lock (`commitOrderMu`), so slot order == issue order across
+      both producers; `respSink.issue` is non-blocking, so the lock never
+      stalls VAD/barge-in handling.
+    - *Append gate:* a commit's user-item append waits on the previous slot's
+      `done` (aborts on the session context).
+    - *Release gate:* the slot releases (`done` closes) only after the
+      predecessor has finished — on EVERY exit path, including errors, empty
+      transcripts and teardown (session context can still stop the wait), so
+      a failed or skipped middle commit never releases the next turn early.
+    Transcriptions stay parallel; only the item appends (and the slot
+    releases) are ordered.
+  Regression tests: `realtime_commit_order_test.go` (teardown during an
+  in-flight transcription; held-first/finished-second out-of-order completion;
+  barge-in-during-transcription item survival; a failed AND an empty middle
+  commit; interleaved VAD/client producers), driving the REAL issue path —
+  `issueCommit` + `responseSink`/`respcoord` supersession — with a
+  transcription double that honours context cancellation. Verified: builds,
+  openai specs under `-race`.
 
 ## Part 5 — Library vs hand-rolled (Go ecosystem, verified 2026-06)
 
