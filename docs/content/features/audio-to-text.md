@@ -243,6 +243,33 @@ options:
 
 By default each request runs on its own. Raise `batch_max_size` (for example 4 to 16) to enable batching; it pays off on GPU under concurrent load, where coalescing the per-step decode GEMMs across requests is a large throughput win. Leave it at 1 on CPU and for low-concurrency setups, where batching only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
 
+### Moondream Ultra and Redux
+
+[Moondream](https://huggingface.co/moondream) publishes two derivatives of NVIDIA parakeet-tdt-0.6b-v3, Ultra and Redux. Both have a voice-activity-detection (VAD) head. The gallery has five entries, built from the GGUFs in [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf):
+
+| Gallery entry | File | Runs on |
+|---|---|---|
+| `parakeet-cpp-moondream-ultra-f16` | `ultra-f16.gguf` | CPU and GPU |
+| `parakeet-cpp-moondream-ultra-q8_0` | `ultra-q8_0.gguf` | CPU and GPU |
+| `parakeet-cpp-moondream-redux-packed` | `redux-packed.gguf` | CPU only, offline only |
+| `parakeet-cpp-moondream-redux-f16` | `redux-f16.gguf` | any backend, can stream |
+| `parakeet-cpp-moondream-redux-q8_0` | `redux-q8_0.gguf` | any backend |
+
+The packed Redux file stores the encoder as ternary weights (213 MB). It cannot load on a GPU backend and cannot stream. If a GPU build fails to load it, check the backend log for the library message and use the `redux-f16` or `redux-q8_0` entry instead. The weights are CC-BY-4.0: credit Moondream and NVIDIA.
+
+With `vad:true`, long audio is cut at pauses found by the model's VAD head into pieces of at most 30 seconds, and each piece is transcribed in turn. Word timestamps stay relative to the whole file. Audio of 30 seconds or less gives the same result as without the option. The gallery entries set it. Add it to your own model YAML like this:
+
+```yaml
+name: moondream-ultra
+backend: parakeet-cpp
+parameters:
+  model: ultra-q8_0.gguf
+options:
+- vad:true   # cut long audio at pauses (default false); needs a model with a VAD head
+```
+
+`vad:true` applies to offline transcription only and bypasses dynamic batching, because the batched entry point has no VAD variant. Streaming is not affected. A model without a VAD head fails each request with `model has no VAD head`, and a `libparakeet.so` that is too old to export the VAD entry point fails the load. Remove the option for models that have no VAD head.
+
 ## See also
 
 - [Audio Transform]({{< relref "audio-transform.md" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.
