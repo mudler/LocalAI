@@ -1,4 +1,76 @@
 ---
+- name: "index-homura-2b"
+  variants:
+    - model: index-homura-2b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Homura-2B
+    - https://huggingface.co/mradermacher/Index-Homura-2B-GGUF
+  description: |
+    Index-Homura-2B is a Qwen3.5-based translation model that accepts a target
+    syllable count and optional terminology constraints for dubbing and subtitles.
+    This Q4_K_M GGUF provides text translation through llama.cpp with thinking disabled.
+    The requested syllable count is a target, not a guaranteed exact count.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q4_K_M.gguf
+      temperature: 0.3
+  files:
+    - filename: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q4_K_M.gguf
+      sha256: 091d3683ea3008fbe17535fec0ab728cec7cabe465dcde22b71c876ff820aaa1
+      uri: https://huggingface.co/mradermacher/Index-Homura-2B-GGUF/resolve/0b340d2d01d6787e23f09b67bfdde943bbb63e47/Index-Homura-2B.Q4_K_M.gguf
+- name: "index-homura-2b-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Homura-2B
+    - https://huggingface.co/mradermacher/Index-Homura-2B-GGUF
+  description: |
+    Index-Homura-2B is a Qwen3.5-based translation model that accepts a target
+    syllable count and optional terminology constraints for dubbing and subtitles.
+    This Q8_0 GGUF provides text translation through llama.cpp with thinking disabled.
+    The requested syllable count is a target, not a guaranteed exact count.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q8_0.gguf
+      temperature: 0.3
+  files:
+    - filename: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q8_0.gguf
+      sha256: 4bf595a8977539b1d5ff87a0284dd795a8b4f79dfb11172195e86d5cd6d84402
+      uri: https://huggingface.co/mradermacher/Index-Homura-2B-GGUF/resolve/0b340d2d01d6787e23f09b67bfdde943bbb63e47/Index-Homura-2B.Q8_0.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
