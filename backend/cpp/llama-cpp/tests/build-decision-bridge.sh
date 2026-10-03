@@ -30,6 +30,10 @@ cxx=${CXX:-g++}
 for file in backend.pb backend.grpc.pb; do
   "$cxx" -O0 -std=c++17 -pthread "${includes[@]}" -c "$out/$file.cc" -o "$out/$file.o"
 done
+image_libs=()
+if [[ -f "$source/tools/server/server-decision.cpp" ]]; then
+  image_libs=(-lz -ljpeg)
+fi
 libs=()
 for lib in common/llama-common common/llama-common-base tools/mtmd/mtmd src/llama ggml/src/ggml ggml/src/ggml-cpu ggml/src/ggml-base vendor/hash/vendor-hash vendor/cpp-httplib/cpp-httplib; do
   libs+=("$build/${lib%/*}/lib${lib##*/}.a")
@@ -42,5 +46,5 @@ done
   -labsl_flags_parse -labsl_flags_usage -labsl_flags_usage_internal \
   -labsl_flags_commandlineflag -labsl_flags_commandlineflag_internal \
   -labsl_flags_config -labsl_flags_internal -labsl_flags_reflection \
-  -labsl_flags_marshalling -lprotobuf -ldl -lm -lgomp -o "$out/grpc-server"
+  -labsl_flags_marshalling -lprotobuf "${image_libs[@]}" -ldl -lm -lgomp -o "$out/grpc-server"
 printf 'Built %s\n' "$out/grpc-server"

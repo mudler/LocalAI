@@ -369,3 +369,9 @@ dimension and aggregate pixel bounds as public callers. Validation precedes
 llama.cpp's permissive media parsing and full pixel decode; PNG decompression
 is independently bounded before stb decodes pixels. This validation applies
 only to native decision tasks, not ordinary chat or legacy scoring.
+
+Native decision image validation rejects PNG streams with invalid checksums and
+incomplete JPEG scans, including truncated scans with an appended end marker.
+Source builds with native decision support require zlib and libjpeg development
+packages (`zlib1g-dev libjpeg-dev` on Ubuntu; `zlib jpeg-turbo` on Homebrew).
+Packaged backends include the required runtime libraries.

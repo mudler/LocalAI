@@ -6,6 +6,11 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <csetjmp>
+#include <cstdio>
+#include <jpeglib.h>
+#include <zlib.h>
 #include "stb/stb_image.h"
 
 // Decision-only limits, mirrored from core/systemone/images.go. The verification
@@ -26,6 +31,50 @@ struct image_error : std::invalid_argument {
 inline bool supports_images(bool decision, bool vision) { return decision && vision; }
 inline void require(bool ok, const char * message, bool large=false) {
     if (!ok) throw image_error(message, large);
+}
+// libjpeg normally repairs premature EOF and incomplete entropy scans. Treat
+// warnings as failures as well as fatal errors; an appended EOI cannot hide a
+// short scan. Keep all mutable decoder state on the heap across longjmp.
+struct jpeg_validator {
+    jpeg_decompress_struct decoder{};
+    jpeg_error_mgr errors{};
+    std::jmp_buf jump;
+};
+inline void jpeg_failure(j_common_ptr decoder) {
+    auto * state = static_cast<jpeg_validator *>(decoder->client_data);
+    std::longjmp(state->jump, 1);
+}
+inline void jpeg_message(j_common_ptr decoder, int level) {
+    if (level < 0) jpeg_failure(decoder);
+}
+inline void validate_jpeg(const std::vector<unsigned char> & raw, int width, int height) {
+    auto state = std::make_unique<jpeg_validator>();
+    auto * decoder = &state->decoder;
+    decoder->err = jpeg_std_error(&state->errors);
+    state->errors.error_exit = jpeg_failure;
+    state->errors.emit_message = jpeg_message;
+    decoder->client_data = state.get();
+    if (setjmp(state->jump)) {
+        jpeg_destroy_decompress(decoder);
+        throw image_error("invalid or incomplete JPEG");
+    }
+    jpeg_create_decompress(decoder);
+    jpeg_mem_src(decoder, raw.data(), raw.size());
+    jpeg_read_header(decoder, TRUE);
+    // The dimension/aggregate checks in validate_url precede all pixel or
+    // coefficient allocations. Verify both decoders saw the same dimensions.
+    if (decoder->image_width != unsigned(width) || decoder->image_height != unsigned(height)) {
+        jpeg_destroy_decompress(decoder);
+        throw image_error("inconsistent JPEG dimensions");
+    }
+    jpeg_start_decompress(decoder);
+    auto row = (*decoder->mem->alloc_sarray)(reinterpret_cast<j_common_ptr>(decoder),
+        JPOOL_IMAGE, decoder->output_width * decoder->output_components, 1);
+    while (decoder->output_scanline < decoder->output_height) {
+        jpeg_read_scanlines(decoder, row, 1);
+    }
+    jpeg_finish_decompress(decoder);
+    jpeg_destroy_decompress(decoder);
 }
 inline int digit(unsigned char c) {
     if (c >= 'A' && c <= 'Z') return c-'A';
@@ -96,8 +145,18 @@ inline void validate_url(const std::string & url, size_t & decoded, size_t & pix
         }
         require(end && !idat.empty(), "incomplete PNG");
         std::vector<char> inflated(9*count+8*size_t(h)+1024);
-        require(stbi_zlib_decode_buffer(inflated.data(),inflated.size(),reinterpret_cast<const char *>(idat.data()),idat.size())>=0,
-                "invalid or oversized PNG decompression");
+        z_stream stream{};
+        stream.next_in = idat.data();
+        stream.avail_in = static_cast<uInt>(idat.size());
+        stream.next_out = reinterpret_cast<Bytef *>(inflated.data());
+        stream.avail_out = static_cast<uInt>(inflated.size());
+        require(inflateInit(&stream) == Z_OK, "PNG inflater initialization failed");
+        int result = inflate(&stream, Z_FINISH);
+        bool complete = result == Z_STREAM_END && stream.avail_in == 0;
+        inflateEnd(&stream);
+        require(complete, "invalid or oversized PNG decompression");
+    } else {
+        validate_jpeg(raw, w, h);
     }
     auto * image=stbi_load_from_memory(raw.data(),raw.size(),&w,&h,&c,3);
     require(image!=nullptr, "invalid image pixels");

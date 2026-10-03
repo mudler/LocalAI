@@ -83,6 +83,13 @@ target_link_libraries(${TARGET} PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd ${CMA
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
   protobuf::${_PROTOBUF_LIBPROTOBUF})
+# Match grpc-server.cpp's native-decision guard: older forks do not need
+# strict decision image decoders and must not acquire new dependencies.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../server/server-decision.cpp")
+    find_package(ZLIB REQUIRED)
+    find_package(JPEG REQUIRED)
+    target_link_libraries(${TARGET} PRIVATE ZLIB::ZLIB JPEG::JPEG)
+endif()
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)

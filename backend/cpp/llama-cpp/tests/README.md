@@ -86,7 +86,8 @@ evaluation. The tiny fixture finishes too quickly for a deterministic timing-onl
 assertion; a queue barrier or server-side instrumentation is needed for that gate.
 TTS is compiled and linked, not runtime-tested by this text-only fixture. Older
 pin compile validation does not establish every supported fork's full build.
-Image/projector runtime support is intentionally unavailable in this bridge.
+For bounded image/projector support and its separate runtime checks, see
+[README-decision-images.md](README-decision-images.md).
 
 The metadata-stripped encoder with embeddings disabled and `-np 1` aborts
 in warmup at `llama-context.cpp`'s output-budget assertion on **clean unpatched**

@@ -2,6 +2,8 @@
 """Generate small compressed fixtures, including hostile IHDR/IDAT combinations."""
 import base64
 import json
+import io
+from PIL import Image
 import struct
 import sys
 import zlib
@@ -26,4 +28,39 @@ fixtures = {
 bad = bytearray(png(1, 1, b'\0'*4))
 bad[29] ^= 1
 fixtures['bad_crc'] = url(bad)
+# CRC-valid IDAT with an invalid zlib Adler-32 checksum.
+bad = bytearray(base64.b64decode(fixtures['red'].split(',')[1]))
+pos = bad.index(b'IDAT')
+n = struct.unpack('>I', bad[pos-4:pos])[0]
+bad[pos+4+n-1] ^= 1
+bad[pos+4+n:pos+8+n] = struct.pack('>I', zlib.crc32(bad[pos:pos+4+n]))
+try:
+    zlib.decompress(bad[pos+4:pos+4+n])
+    raise AssertionError('invalid Adler-32 accepted')
+except zlib.error:
+    pass
+fixtures['bad_adler'] = url(bad)
+
+def jpeg(w, h, progressive=False):
+    out = io.BytesIO()
+    Image.new('RGB', (w, h), 'red').save(out, format='JPEG', progressive=progressive)
+    return out.getvalue()
+
+def jpg_url(raw):
+    return 'data:image/jpeg;base64,' + base64.b64encode(raw).decode()
+
+jpg = jpeg(64, 64)
+for key, raw in {
+    'jpeg': jpg,
+    'jpeg_progressive': jpeg(64, 64, True),
+    # EOI inside a comment is data, not an end marker.
+    'jpeg_embedded_marker': jpg[:2] + b'\xff\xfe\x00\x04\xff\xd9' + jpg[2:],
+    'jpeg_missing_eoi': jpg[:-2],
+    'jpeg_truncated_scan': jpg[:-30],
+    'jpeg_appended_eoi': jpg[:-30] + b'\xff\xd9',
+    'jpeg_embedded_missing_eoi': jpg[:2] + b'\xff\xfe\x00\x04\xff\xd9' + jpg[2:-2],
+    'jpeg_dimension': jpeg(4097, 1),
+    'jpeg_pixels': jpeg(4096, 4096),
+}.items():
+    fixtures[key] = jpg_url(raw)
 json.dump(fixtures, open(sys.argv[1], 'w'))

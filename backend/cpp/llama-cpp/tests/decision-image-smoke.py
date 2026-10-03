@@ -43,9 +43,10 @@ def reject(b, code):
 
 load('')
 reject(body(f['red']), grpc.StatusCode.UNIMPLEMENTED)
-for k in ['dimension', 'pixels']:
+for k in ['dimension', 'pixels', 'jpeg_dimension', 'jpeg_pixels']:
     reject(body(f[k]), grpc.StatusCode.RESOURCE_EXHAUSTED)
-for k in ['bomb', 'truncated', 'bad_crc']:
+for k in ['bomb', 'truncated', 'bad_crc', 'bad_adler', 'jpeg_missing_eoi',
+          'jpeg_truncated_scan', 'jpeg_appended_eoi', 'jpeg_embedded_missing_eoi']:
     reject(body(f[k]), grpc.StatusCode.INVALID_ARGUMENT)
 reject(body('data:image/png;base64,AB=='), grpc.StatusCode.INVALID_ARGUMENT)
 reject(body('https://example.invalid/a.png'), grpc.StatusCode.INVALID_ARGUMENT)

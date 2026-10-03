@@ -5,7 +5,7 @@ root=$(git rev-parse --show-toplevel)
 b="$root/backend/cpp/llama-cpp"
 out="$b/llama.cpp/build-image-tests"
 mkdir -p "$out"
-${CXX:-g++} -std=c++17 -Wall -Wextra -I"$b" -I"$b/llama.cpp/vendor" "$b/tests/decision-images.cpp" -o "$out/decision-images"
+${CXX:-g++} -std=c++17 -Wall -Wextra -I"$b" -I"$b/llama.cpp/vendor" "$b/tests/decision-images.cpp" -lz -ljpeg -o "$out/decision-images"
 python3 "$b/tests/image-fixtures.py" "$out/fixtures.json"
 "$out/decision-images" "$out/fixtures.json"
 # Keep the native boundary in lockstep with canonical Go limits.

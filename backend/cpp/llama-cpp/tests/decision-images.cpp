@@ -30,11 +30,11 @@ int main(int argc, char ** argv) {
     rejects([&]{check(json{{"images", std::vector<std::string>(9,"x")}});},true);
     rejects([&]{check(json{{"images", {std::string(encoded_bytes+1,'x')}}});},true);
     rejects([&]{check(json{{"images", {"data:image/png;base64,"+std::string(12*1024*1024-24,'A')}}});},true);
-    for (auto key : {"dimension", "pixels"}) rejects([&]{check(json{{"images",{fixtures[key]}}});},true);
-    for (auto key : {"bomb", "truncated", "bad_crc"}) rejects([&]{check(json{{"images",{fixtures[key]}}});});
+    for (auto key : {"dimension", "pixels", "jpeg_dimension", "jpeg_pixels"}) rejects([&]{check(json{{"images",{fixtures[key]}}});},true);
+    for (auto key : {"bomb", "truncated", "bad_crc", "bad_adler", "jpeg_missing_eoi", "jpeg_truncated_scan", "jpeg_appended_eoi", "jpeg_embedded_missing_eoi"}) rejects([&]{check(json{{"images",{fixtures[key]}}});});
     // Aggregate pixels reject even when each individual image fits.
     rejects([&]{check(json{{"images",{fixtures["aggregate"],fixtures["aggregate"]}}});},true);
-    for (auto key : {"red", "blue"}) assert(check(json{{"images",{fixtures[key]}}})==1);
+    for (auto key : {"red", "blue", "jpeg", "jpeg_progressive", "jpeg_embedded_marker"}) assert(check(json{{"images",{fixtures[key]}}})==1);
     // Valid one-pixel PNG, and MIME mismatch.
     std::string png="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     assert(check(json{{"images",{png}}})==1);
