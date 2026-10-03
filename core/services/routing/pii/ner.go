@@ -3,6 +3,7 @@ package pii
 import (
 	"context"
 	"fmt"
+	"slices"
 )
 
 // NERDetector is the contract the redactor's encoder/NER tier expects.
@@ -67,6 +68,16 @@ type NERConfig struct {
 	// (Source "pattern") are told apart in the events log and to the model.
 	// Empty defaults to "ner" for backward compatibility.
 	Source string
+
+	// ExtendToNextWord lists entity groups whose accepted detections are
+	// stretched over the word that directly follows them on the same line
+	// (horizontal whitespace in between, no line break). The extension
+	// carries the hit's action and group. It exists for entities whose
+	// neighbour is identifying but scored unreliably: an address model
+	// that tags the postal code with high confidence often misses or
+	// under-scores the town after it ("67059 Ludwigshafen"), and masking
+	// the code alone leaves the town in the clear. Empty disables it.
+	ExtendToNextWord []string
 }
 
 // Detector source labels (the PatternID prefix). Kept short and stable —
@@ -110,6 +121,12 @@ func NERConfigFromRaw(detector NERDetector, minScore float32, defaultAction stri
 		EntityActions: validActions(entityActions),
 		Source:        source,
 	}
+}
+
+// extendsToNextWord reports whether accepted hits of group are stretched
+// over the following word (see NERConfig.ExtendToNextWord).
+func (c NERConfig) extendsToNextWord(group string) bool {
+	return slices.Contains(c.ExtendToNextWord, group)
 }
 
 // patternID returns the synthetic pattern ID that audit rows and masks carry

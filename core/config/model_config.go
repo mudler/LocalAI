@@ -653,6 +653,11 @@ type PIIDetectionConfig struct {
 	// subset (validated at load). Each match is reported under its Name as the
 	// entity group, so EntityActions/DefaultAction apply by Name.
 	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// ExtendToNextWord lists entity groups (e.g. "ZIPCODE") whose accepted
+	// detections also cover the word right after them on the same line,
+	// with the same action - for a neighbour the model scores unreliably,
+	// such as the town after a postal code.
+	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -730,6 +735,15 @@ func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// PIIDetectionExtendToNextWord returns the entity groups whose detections
+// are stretched over the following word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
+	if len(c.PIIDetection.ExtendToNextWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
 }
 
 // IsPatternDetector reports whether this detector model matches secrets with
