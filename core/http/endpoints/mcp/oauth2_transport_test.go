@@ -19,6 +19,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type oauth2TestRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f oauth2TestRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
 // fakeIdP is a minimal OAuth2 token endpoint for the client_credentials grant.
 type fakeIdP struct {
 	server    *httptest.Server
@@ -243,6 +249,57 @@ var _ = Describe("OAuth2 client_credentials for remote MCP servers", func() {
 		Expect(doGet(client, rec.server.URL)).To(Succeed())
 		Expect(rec.headers()[len(rec.headers())-1]).To(MatchRegexp(`^Bearer tok-\d+$`))
 		Expect(rec.headers()[len(rec.headers())-1]).NotTo(Equal("Bearer tok-1"))
+	})
+
+	It("rechecks token expiry after a slow failed refresh", func() {
+		client := clientFor(baseCfg())
+		Expect(doGet(client, rec.server.URL)).To(Succeed())
+		rt := client.Transport.(*oauth2ClientCredentialsRoundTripper)
+		base := rt.tokenClient.Transport
+		rt.tokenClient.Transport = oauth2TestRoundTripper(func(r *http.Request) (*http.Response, error) {
+			clock.Advance(20 * time.Second)
+			return base.RoundTrip(r)
+		})
+		idp.failing.Store(true)
+		clock.Advance(51 * time.Second)
+
+		Expect(doGet(client, rec.server.URL)).NotTo(Succeed())
+		Expect(rec.headers()).To(Equal([]string{"Bearer tok-1"}), "the failed fetch crossed the expiry safety margin")
+	})
+
+	It("starts the retry interval when a slow failed refresh finishes", func() {
+		client := clientFor(baseCfg())
+		Expect(doGet(client, rec.server.URL)).To(Succeed())
+		rt := client.Transport.(*oauth2ClientCredentialsRoundTripper)
+		base := rt.tokenClient.Transport
+		rt.tokenClient.Transport = oauth2TestRoundTripper(func(r *http.Request) (*http.Response, error) {
+			clock.Advance(10 * time.Second)
+			return base.RoundTrip(r)
+		})
+		idp.failing.Store(true)
+		clock.Advance(51 * time.Second)
+
+		Expect(doGet(client, rec.server.URL)).To(Succeed())
+		attempts := idp.requests.Load()
+		Expect(doGet(client, rec.server.URL)).To(Succeed())
+		Expect(idp.requests.Load()).To(Equal(attempts))
+	})
+
+	It("throttles failed fetches before any token is cached", func() {
+		client := clientFor(baseCfg())
+		idp.failing.Store(true)
+		Expect(doGet(client, rec.server.URL)).NotTo(Succeed())
+		attempts := idp.requests.Load()
+		Expect(attempts).To(BeNumerically(">", 0))
+
+		Expect(doGet(client, rec.server.URL)).NotTo(Succeed())
+		Expect(idp.requests.Load()).To(Equal(attempts))
+		Expect(rec.headers()).To(BeEmpty())
+
+		idp.failing.Store(false)
+		clock.Advance(oauth2RetryInterval)
+		Expect(doGet(client, rec.server.URL)).To(Succeed())
+		Expect(rec.headers()).To(HaveLen(1))
 	})
 
 	It("errors instead of sending an unauthenticated request when the first fetch fails", func() {

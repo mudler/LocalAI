@@ -133,8 +133,9 @@ Behaviour:
 
 - The token is fetched on the first request to the server, cached, and sent as `Authorization: Bearer <token>` on every request, for both streamable HTTP and SSE transports.
 - It is refreshed proactively once **half** of its lifetime (`expires_in`) has elapsed. If the provider omits `expires_in`, a lifetime of 5 minutes is assumed.
-- If a refresh fails, the current token keeps being used until 30 seconds before it expires (refresh is retried at most every 5 seconds). After that, requests to the MCP server fail with an error; LocalAI never falls back to an unauthenticated request.
+- If a refresh fails, the current token keeps being used until 30 seconds before it expires (retries wait at least 5 seconds after a failed fetch, including the first fetch). After that, requests to the MCP server fail with an error; LocalAI never falls back to an unauthenticated request.
 - Configuring both `token` and `oauth2` for the same server is rejected when the model configuration is loaded, as are missing or duplicated `client_id`/`client_secret` sources. An environment variable named in `*_env` that is unset or empty makes the connection to that server fail, and the server is reported with an error in the server listing.
+- Token caches and retry timers are local to each connection-owning process. Workers obtain and refresh their own tokens; this cache is not shared across the cluster.
 - The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
 
 Servers configured with a static `token` behave exactly as before.
