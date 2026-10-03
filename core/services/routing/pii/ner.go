@@ -78,6 +78,15 @@ type NERConfig struct {
 	// under-scores the town after it ("67059 Ludwigshafen"), and masking
 	// the code alone leaves the town in the clear. Empty disables it.
 	ExtendToNextWord []string
+
+	// ProtectedTerms are values that must reach the model unchanged even
+	// though the detector would tag them, e.g. known business names that a
+	// name model reads as surnames ("Hotel Seeblick" -> LASTNAME). Each
+	// whole-word, case-insensitive occurrence is replaced by a neutral
+	// placeholder before detection and restored afterwards; no detection
+	// can mask or block it. Terms shorter than three characters are
+	// ignored. Empty disables it.
+	ProtectedTerms []string
 }
 
 // Detector source labels (the PatternID prefix). Kept short and stable —

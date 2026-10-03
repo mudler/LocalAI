@@ -152,11 +152,18 @@ func RedactNERSegments(ctx context.Context, texts []string, cfgs []NERConfig) ([
 // Entities below MinScore or with no resolved action are dropped — the
 // detector doesn't know which entity groups the admin cares about, so
 // the policy filters here.
+//
+// Protected terms (NERConfig.ProtectedTerms) are swapped for a neutral
+// placeholder before the detector runs and every detection is mapped
+// back onto the original text with the placeholder parts cut out, so a
+// protected term is never masked or blocked and the detector never sees
+// it as context.
 func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, error) {
 	if cfg.Detector == nil || text == "" {
 		return nil, nil
 	}
-	entities, err := cfg.Detector.Detect(ctx, text)
+	scan, shields := shieldProtected(text, protectedMatcher(cfg.ProtectedTerms))
+	entities, err := cfg.Detector.Detect(ctx, scan)
 	if err != nil {
 		return nil, err
 	}
@@ -181,28 +188,39 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 				"start", e.Start, "end", e.End, "text", e.Text)
 			continue
 		}
-		if e.Start < 0 || e.End <= e.Start || e.End > len(text) {
+		if e.Start < 0 || e.End <= e.Start || e.End > len(scan) {
 			// Defensive: the backend should return byte offsets into the
-			// original text, but a misconfigured model could produce
+			// scanned text, but a misconfigured model could produce
 			// garbage. Skip rather than panic on slice OOB.
 			xlog.Warn("pii/ner: detection has out-of-range offsets; skipping",
-				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(text))
+				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(scan))
 			continue
 		}
-		end := e.End
-		if cfg.extendsToNextWord(e.Group) {
-			end = nextWordEnd(text, e.End)
+		pieces := [][2]int{{e.Start, e.End}}
+		if shields != nil {
+			pieces = unshieldSpan(e.Start, e.End, shields)
+			if len(pieces) == 0 {
+				xlog.Debug("pii/ner: detection dropped (protected term)",
+					"group", e.Group, "score", e.Score, "start", e.Start, "end", e.End)
+				continue
+			}
 		}
-		xlog.Debug("pii/ner: detection accepted",
-			"group", e.Group, "score", e.Score, "action", action,
-			"start", e.Start, "end", e.End, "extended_end", end, "text", e.Text)
-		hits = append(hits, rawHit{
-			patternID: cfg.patternID(e.Group),
-			action:    action,
-			start:     e.Start,
-			end:       end,
-			score:     e.Score,
-		})
+		for i, pc := range pieces {
+			start, end := pc[0], pc[1]
+			if cfg.extendsToNextWord(e.Group) && i == len(pieces)-1 {
+				end = keepExtension(end, nextWordEnd(text, end), shields)
+			}
+			xlog.Debug("pii/ner: detection accepted",
+				"group", e.Group, "score", e.Score, "action", action,
+				"start", start, "end", end, "detected_end", pc[1], "text", e.Text)
+			hits = append(hits, rawHit{
+				patternID: cfg.patternID(e.Group),
+				action:    action,
+				start:     start,
+				end:       end,
+				score:     e.Score,
+			})
+		}
 	}
 	return hits, nil
 }
