@@ -107,6 +107,10 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if opts := snapshotLoadParams(); opts != nil && (strings.Contains(opts.Model, "mm-red") || strings.Contains(opts.Model, "mm-blue")) {
+		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images})
+		return &pb.Reply{Message: b, PromptTokens: 1, Tokens: 1}, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
 		return nil, errMockContextOverflow
@@ -719,6 +723,9 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
+	}
+	if in.QuestionType == "systemone" {
+		return mockDecision(ctx, in)
 	}
 	xlog.Debug("Score called", "candidates", len(in.Candidates))
 	hint := extractRouteHint(in.Prompt)

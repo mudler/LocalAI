@@ -701,6 +701,8 @@ var _ = BeforeSuite(func() {
 	systemState, err := system.GetSystemState(systemOpts...)
 	Expect(err).ToNot(HaveOccurred())
 
+	setupDecisionFixtures()
+
 	// Create application
 	appCtx, appCancel = context.WithCancel(context.Background())
 
@@ -723,6 +725,7 @@ var _ = BeforeSuite(func() {
 	// Register mock backend (always available for non-realtime tests).
 	localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("llama-cpp", mockBackendPath)
 	if cloudProxyPath != "" {
 		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
 	}
@@ -733,6 +736,8 @@ var _ = BeforeSuite(func() {
 	// Create HTTP app
 	app, err = httpapi.API(localAIApp)
 	Expect(err).ToNot(HaveOccurred())
+
+	app.Use(observeDecisionUsage)
 
 	// Get free port
 	port, err := freeport.GetFreePort()
