@@ -149,6 +149,7 @@ var _ = Describe("Backend Endpoints", func() {
 			}
 
 			expectPrefOnly("sglang", "text")
+			expectPrefOnly("gufo", "text")
 			expectPrefOnly("tinygrad", "text")
 			expectPrefOnly("trl", "text")
 			expectPrefOnly("mlx-vlm", "text")

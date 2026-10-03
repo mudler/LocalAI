@@ -241,6 +241,29 @@ test("audio-cpp source changes rebuild audio-cpp and nothing else", () => {
   assert.deepEqual([...changedBackends], ["audio-cpp"]);
 });
 
+// gufo has a single hipblas image and no Darwin build, so the Linux path is its
+// only route into CI. Its own includes list keeps the shared fixture's name
+// lists stable.
+test("gufo source changes rebuild the gufo image and nothing else", () => {
+  const gufo = {
+    backend: "gufo",
+    dockerfile: "./backend/Dockerfile.gufo",
+    "tag-suffix": "-gpu-rocm-hipblas-gufo",
+    "base-image": "rocm/dev-ubuntu-24.04:7.2.1",
+  };
+  assert.equal(inferBackendPath(gufo), "backend/cpp/gufo/");
+
+  const { filtered, filteredDarwin, changedBackends } = filterMatrix({
+    includes: [...includes, gufo],
+    includesDarwin,
+    changedFiles: ["backend/cpp/gufo/grpc-server.cpp"],
+  });
+
+  assert.deepEqual(names(filtered), ["gufo"]);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual([...changedBackends], ["gufo"]);
+});
+
 test("Dockerfile.audio-cpp rebuilds only audio-cpp", () => {
   const { filtered } = run(["backend/Dockerfile.audio-cpp"]);
 

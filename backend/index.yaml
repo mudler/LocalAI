@@ -131,6 +131,23 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4"
     metal: "metal-ds4"
     metal-darwin-arm64: "metal-ds4"
+- &gufo
+  name: "gufo"
+  alias: "gufo"
+  license: mit
+  description: |
+    gufo-org/gufo - LLM inference engine with hand-written HIP kernels for
+    AMD Strix Halo (gfx1151) only. It loads GGUF models and ships its own
+    chat templates, tool-call and reasoning parsers. The backend refuses to
+    load a model on any other GPU.
+  urls:
+    - https://github.com/gufo-org/gufo
+  tags:
+    - text-to-text
+    - LLM
+    - ROCm
+  capabilities:
+    amd: "rocm-gufo"
 - &audiocpp
   name: "audio-cpp"
   alias: "audio-cpp"
@@ -2191,6 +2208,10 @@
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-ds4-development"
     metal: "metal-ds4-development"
     metal-darwin-arm64: "metal-ds4-development"
+- !!merge <<: *gufo
+  name: "gufo-development"
+  capabilities:
+    amd: "rocm-gufo-development"
 - !!merge <<: *audiocpp
   name: "audio-cpp-development"
   capabilities:
@@ -7262,6 +7283,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-audio-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *gufo
+  name: "rocm-gufo"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-gufo"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-gufo
+- !!merge <<: *gufo
+  name: "rocm-gufo-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-gufo"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-gufo
 - !!merge <<: *audiocpp
   name: "rocm-audio-cpp"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-audio-cpp"

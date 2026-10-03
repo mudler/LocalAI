@@ -50,6 +50,7 @@ fi
 mapfile -t tests < <(find "$ROOT" -name '*_test.cpp' \
     -not -path '*/llama.cpp/*' \
     -not -path '*/audio.cpp/*' \
+    -not -path '*/gufo/gufo/*' \
     -not -path '*-build/*' \
     -not -path '*-dev/*' \
     -not -path '*fallback*' | sort)

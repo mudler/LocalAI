@@ -111,6 +111,55 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		}))
 	})
 
+	// gufo only runs on gfx1151, so any capability other than amd would offer
+	// an image that cannot load a model on that host.
+	It("keeps the gufo ROCm image connected to the AMD capability only", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("gufo"))
+		Expect(byName["gufo"].CapabilitiesMap).To(Equal(map[string]string{"amd": "rocm-gufo"}))
+		Expect(byName).To(HaveKey("gufo-development"))
+		Expect(byName["gufo-development"].CapabilitiesMap).To(Equal(map[string]string{"amd": "rocm-gufo-development"}))
+		Expect(byName).To(HaveKey("rocm-gufo"))
+		Expect(byName["rocm-gufo"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-gufo"))
+		Expect(byName).To(HaveKey("rocm-gufo-development"))
+		Expect(byName["rocm-gufo-development"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-gufo"))
+
+		type matrixEntry struct {
+			Backend   string `yaml:"backend"`
+			BuildType string `yaml:"build-type"`
+			Platforms string `yaml:"platforms"`
+			TagSuffix string `yaml:"tag-suffix"`
+			BaseImage string `yaml:"base-image"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var gufoEntries []matrixEntry
+		for _, entry := range matrix.Include {
+			if entry.Backend == "gufo" {
+				gufoEntries = append(gufoEntries, entry)
+			}
+		}
+		Expect(gufoEntries).To(ConsistOf(matrixEntry{
+			Backend:   "gufo",
+			BuildType: "hipblas",
+			Platforms: "linux/amd64",
+			TagSuffix: "-gpu-rocm-hipblas-gufo",
+			BaseImage: "rocm/dev-ubuntu-24.04:7.2.1",
+		}))
+	})
+
 	It("ListSystemBackends resolves aliases for system-path backends", func() {
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
 

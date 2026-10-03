@@ -92,6 +92,9 @@ export function inferBackendPath(item) {
   if (item.dockerfile.endsWith("audio-cpp")) {
     return `backend/cpp/audio-cpp/`;
   }
+  if (item.dockerfile.endsWith("gufo")) {
+    return `backend/cpp/gufo/`;
+  }
   if (item.dockerfile.endsWith("llama-cpp")) {
     return `backend/cpp/llama-cpp/`;
   }
