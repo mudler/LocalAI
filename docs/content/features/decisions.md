@@ -193,7 +193,7 @@ base64, unsupported formats and invalid headers return 400.
 Limits per request are **8 images**, **12 MiB aggregate encoded data-URL bytes**,
 **8 MiB aggregate decoded bytes**, **4096 pixels per dimension**, and
 **16 million aggregate pixels**. Exceeding these limits returns 413. Headers are
-checked without allocating pixel buffers; native decoders must independently
+checked before full pixel decoding, which rejects truncated or corrupt images; native decoders must independently
 protect direct RPC inputs.
 
 Image-bearing request bodies may use up to **16 MiB**. Text-only requests retain
@@ -202,6 +202,19 @@ serialization does not impose a second HTTP limit. Absent, `null`, or empty
 `images` do not enable the larger budget. Native decision responses retain a
 separate **64 KiB** limit, independent of the request budget. These limits do not
 raise any global HTTP limit.
+
+A shared **8-request admission ceiling** covers public decision handlers and
+internal decision runners before body buffering, image decoding or serialization.
+Saturation fails promptly (HTTP 503); cancellation before admission does not take
+a slot. A slot remains held through inference/response handling, and an internal
+cancelled call retains its slot until its underlying worker actually ends. This
+bounds concurrent decision-owned allocation and retained request bodies, not total
+process memory: caller-owned inputs, upstream middleware buffers and model/backend
+memory are outside this budget. Full decoding is sequential per admitted request,
+with each pixel buffer limited by the checked dimensions and aggregate pixel
+budget (up to 16 million pixels; decoded byte storage depends on pixel format).
+Garbage collection timing is not an RSS guarantee. The separate 8-operation backend ceiling still
+bounds abandoned native operations. Validation helpers do not acquire nested slots.
 
 For image-only input, provide explicit structured state such as `"state": {}`
 alongside `images`, or a message containing image content. Missing, null or blank

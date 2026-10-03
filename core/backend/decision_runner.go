@@ -44,6 +44,16 @@ func (r *decisionRunner) Decide(ctx context.Context, req *schema.SystemOneReques
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	release, err := systemone.AcquireAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
+	transferred := false
+	defer func() {
+		if !transferred {
+			release()
+		}
+	}()
 	if req == nil {
 		return nil, systemone.ValidateRequest(nil)
 	}
@@ -70,7 +80,9 @@ func (r *decisionRunner) Decide(ctx context.Context, req *schema.SystemOneReques
 		err      error
 	}
 	done := make(chan result, 1)
+	transferred = true
 	go func() {
+		defer release()
 		defer func() { <-decisionOperations }()
 		if err := ctx.Err(); err != nil {
 			done <- result{err: err}

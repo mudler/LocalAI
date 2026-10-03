@@ -141,6 +141,11 @@ func ValidateImages(images []string) error {
 		if pixels > MaxImagePixels {
 			return imageError(InputTooLarge, "decision images exceed aggregate pixel limit")
 		}
+		// Only allocate pixels after header bounds. DecodeConfig alone accepts
+		// truncated streams and corrupt pixel payloads.
+		if _, _, err := image.Decode(bytes.NewReader(raw)); err != nil {
+			return imageError(InvalidRequest, "invalid image pixel data")
+		}
 	}
 	return nil
 }

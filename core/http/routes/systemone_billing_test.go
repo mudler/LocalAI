@@ -67,6 +67,7 @@ var _ = Describe("registered SystemOne billing", func() {
 		Entry("negative", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":-1,"output_tokens":0}}`, 500, int64(0)),
 		Entry("incomplete", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":12}}`, 500, int64(0)),
 		Entry("null", "null", 500, int64(0)),
+		Entry("oversized valid JSON", `{"answers":{"q":{"type":"noul","noul":0.5}},"usage":{"input_tokens":12,"output_tokens":0},"padding":"`+strings.Repeat("x", 64<<10)+`"}`, 500, int64(0)),
 		Entry("empty", `{}`, 500, int64(0)),
 		Entry("missing answers", `{"usage":{"input_tokens":12,"output_tokens":0}}`, 500, int64(0)),
 	)

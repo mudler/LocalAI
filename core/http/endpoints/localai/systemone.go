@@ -73,6 +73,9 @@ func respondSystemOne(c echo.Context, model string, run func(context.Context) (s
 	if err != nil {
 		return systemOneError(c, systemOneBackendStatus(err), err.Error())
 	}
+	if len(response) > systemone.MaxResponseBytes {
+		return systemOneError(c, http.StatusInternalServerError, "decision response exceeds 64 KiB")
+	}
 	var envelope struct {
 		Answers map[string]json.RawMessage `json:"answers"`
 	}
@@ -521,10 +524,16 @@ func systemOneBind(c echo.Context, v any) error {
 	// Unmarshal consumes the whole payload: trailing JSON or garbage is invalid,
 	// and trailing whitespace is included in the raw wire-byte budget above.
 	if !json.Valid(data) {
+		if len(data) > systemOneMaxBody {
+			return &http.MaxBytesError{Limit: int64(systemOneMaxBody)}
+		}
 		return fmt.Errorf("invalid request body")
 	}
 	c.Request().Body = io.NopCloser(bytes.NewReader(data))
 	if err := c.Bind(v); err != nil {
+		if len(data) > systemOneMaxBody {
+			return &http.MaxBytesError{Limit: int64(systemOneMaxBody)}
+		}
 		return err
 	}
 	var req *schema.SystemOneRequest
@@ -609,6 +618,12 @@ func backendSupportsScore(backendName string) bool {
 // @Router /v1/systemone [post]
 func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		release, err := systemone.AcquireAdmission(c.Request().Context())
+		if err != nil {
+			return systemOneError(c, http.StatusServiceUnavailable, err.Error())
+		}
+		defer release()
+
 		var req schema.SystemOneRequest
 		if err := systemOneBind(c, &req); err != nil {
 			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
@@ -677,6 +692,12 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 // @Router /v1/systemone/permute [post]
 func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		release, err := systemone.AcquireAdmission(c.Request().Context())
+		if err != nil {
+			return systemOneError(c, http.StatusServiceUnavailable, err.Error())
+		}
+		defer release()
+
 		var req schema.SystemOnePermuteRequest
 		if err := systemOneBind(c, &req); err != nil {
 			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
@@ -822,6 +843,12 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 // @Router /v1/systemone/separate [post]
 func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		release, err := systemone.AcquireAdmission(c.Request().Context())
+		if err != nil {
+			return systemOneError(c, http.StatusServiceUnavailable, err.Error())
+		}
+		defer release()
+
 		var req schema.SystemOneRequest
 		if err := systemOneBind(c, &req); err != nil {
 			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))

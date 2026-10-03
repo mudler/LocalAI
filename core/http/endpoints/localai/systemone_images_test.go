@@ -1,9 +1,11 @@
 package localai
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/systemone"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"net/http"
@@ -46,7 +48,7 @@ var _ = Describe("SystemOne bounded wire and image parsing", func() {
 		for _, item := range []struct {
 			body string
 			code int
-		}{{`{} {}`, 400}, {`{}` + strings.Repeat(" ", systemOneMaxBody), 413}} {
+		}{{`{} {}`, 400}, {`{"state":` + strings.Repeat(" ", systemOneMaxBody), 413}, {`{"questions":5,"state":"` + strings.Repeat("x", systemOneMaxBody) + `"}`, 413}, {`{}` + strings.Repeat(" ", systemOneMaxBody), 413}} {
 			e := echo.New()
 			r := httptest.NewRequest(http.MethodPost, "/v1/systemone", strings.NewReader(item.body))
 			r.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -59,6 +61,58 @@ var _ = Describe("SystemOne bounded wire and image parsing", func() {
 			data, err := json.Marshal([]string{image})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(validateSystemOneImages(&schema.SystemOneRequest{State: json.RawMessage(`"x"`), Images: data})).NotTo(Succeed())
+		}
+	})
+})
+
+type unreadDecisionBody struct{}
+
+func (unreadDecisionBody) Read([]byte) (int, error) {
+	Fail("saturated admission read request body")
+	return 0, nil
+}
+
+var _ = Describe("HTTP decision admission", func() {
+	It("rejects saturation before buffering on all decision handlers", func() {
+		var releases []func()
+		defer func() {
+			for _, r := range releases {
+				r()
+			}
+		}()
+		for i := 0; i < systemone.MaxAdmissions; i++ {
+			r, err := systemone.AcquireAdmission(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			releases = append(releases, r)
+		}
+		for _, handler := range []echo.HandlerFunc{SystemOneEndpoint(nil), SystemOnePermuteEndpoint(nil), SystemOneSeparateEndpoint(nil)} {
+			e := echo.New()
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/v1/systemone", unreadDecisionBody{})
+			Expect(handler(e.NewContext(req, w))).To(Succeed())
+			Expect(w.Code).To(Equal(503))
+		}
+	})
+})
+
+var _ = Describe("Exact public decision wire budgets", func() {
+	It("accepts exact text/image wire limits but rejects one more byte", func() {
+		for _, item := range []struct {
+			body  string
+			limit int
+		}{{`{"state":"x"}`, systemone.MaxBodyBytes}, {`{"state":{},"images":["data:image/png;base64,AA=="]}`, systemone.MaxImageBodyBytes}} {
+			for _, extra := range []int{0, 1} {
+				body := item.body + strings.Repeat(" ", item.limit-len(item.body)+extra)
+				req := httptest.NewRequest(http.MethodPost, "/v1/systemone", strings.NewReader(body))
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+				var value schema.SystemOneRequest
+				err := systemOneBind(echo.New().NewContext(req, httptest.NewRecorder()), &value)
+				if extra == 0 {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(systemOneBindStatus(err)).To(Equal(413))
+				}
+			}
 		}
 	})
 })

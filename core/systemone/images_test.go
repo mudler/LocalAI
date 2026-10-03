@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"strings"
 
@@ -104,5 +105,42 @@ var _ = Describe("Decision image boundaries", func() {
 			r.Images, _ = json.Marshal([]string{pngURL(1, 1)})
 			Expect(ValidateRequestStructure(r)).NotTo(Succeed())
 		}
+	})
+})
+
+var _ = Describe("Complete image validation", func() {
+	It("rejects header-only PNG and JPEG while accepting valid JPEG", func() {
+		var b bytes.Buffer
+		Expect(jpeg.Encode(&b, image.NewGray(image.Rect(0, 0, 8, 8)), nil)).To(Succeed())
+		jpegBytes := b.Bytes()
+		Expect(ValidateImages([]string{"data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(jpegBytes)})).To(Succeed())
+		raw, err := base64.StdEncoding.DecodeString(strings.SplitN(pngURL(8, 8), ",", 2)[1])
+		Expect(err).NotTo(HaveOccurred())
+		for _, item := range []struct {
+			mime string
+			data []byte
+		}{{"png", raw[:33]}, {"jpeg", jpegBytes[:len(jpegBytes)-10]}} {
+			Expect(ValidateImages([]string{"data:image/" + item.mime + ";base64," + base64.StdEncoding.EncodeToString(item.data)})).NotTo(Succeed())
+		}
+	})
+})
+
+var _ = Describe("Exact decision byte boundaries", func() {
+	It("accepts exactly the decoded budget and rejects the next byte", func() {
+		raw, _ := base64.StdEncoding.DecodeString(strings.SplitN(pngURL(1, 1), ",", 2)[1])
+		raw = append(raw, make([]byte, MaxImageDecodedBytes-len(raw))...)
+		url := func(b []byte) string { return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b) }
+		Expect(ValidateImages([]string{url(raw)})).To(Succeed())
+		err := ValidateImages([]string{url(append(raw, 0))})
+		Expect(err.(*ValidationError).Kind).To(Equal(InputTooLarge))
+	})
+	It("preserves distinct image ordering and bytes", func() {
+		a, b, c := pngURL(1, 1), pngURL(2, 1), pngURL(3, 1)
+		r := validRequest()
+		r.Images, _ = json.Marshal([]string{a, b})
+		r.State, _ = json.Marshal([]any{map[string]any{"content": []any{map[string]any{"type": "image_url", "image_url": c}}}})
+		images, err := CollectImages(r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(images).To(Equal([]string{a, b, c}))
 	})
 })

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +57,10 @@ var _ = Describe("registered SystemOne multimodal admission", func() {
 	},
 		Entry("valid image-only", imageRequest("{}", []string{routePNG(1, 1)}), 200, int64(1)),
 		Entry("image-bearing above text limit", imageRequest(`{"text":"`+strings.Repeat("x", systemone.MaxBodyBytes)+`"}`, []string{routePNG(1, 1)}), 200, int64(1)),
+		Entry("valid JPEG", imageRequest("{}", []string{routeJPEG(false)}), 200, int64(1)),
+		Entry("truncated JPEG", imageRequest("{}", []string{routeJPEG(true)}), 400, int64(0)),
+		Entry("corrupt PNG pixels", imageRequest("{}", []string{corruptRoutePNG()}), 400, int64(0)),
+		Entry("truncated PNG", imageRequest("{}", []string{truncatedRoutePNG()}), 400, int64(0)),
 		Entry("invalid header", imageRequest("{}", []string{"data:image/png;base64,AA=="}), 400, int64(0)),
 		Entry("remote URL", imageRequest("{}", []string{"https://example.org/x.png"}), 400, int64(0)),
 		Entry("dimensions", imageRequest("{}", []string{routePNG(4097, 1)}), 413, int64(0)),
@@ -79,4 +84,27 @@ func routePNG(w, h int) string {
 func imageRequest(state string, images []string) string {
 	raw, _ := json.Marshal(images)
 	return `{"model":"decision","state":` + state + `,"images":` + string(raw) + `,"questions":{"q":{"type":"noul"}}}`
+}
+
+func truncatedRoutePNG() string {
+	raw, _ := base64.StdEncoding.DecodeString(strings.SplitN(routePNG(8, 8), ",", 2)[1])
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(raw[:33])
+}
+
+func routeJPEG(truncated bool) string {
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, image.NewGray(image.Rect(0, 0, 8, 8)), nil); err != nil {
+		panic(err)
+	}
+	raw := b.Bytes()
+	if truncated {
+		raw = raw[:len(raw)-10]
+	}
+	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(raw)
+}
+func corruptRoutePNG() string {
+	raw, _ := base64.StdEncoding.DecodeString(strings.SplitN(routePNG(8, 8), ",", 2)[1])
+	at := bytes.Index(raw, []byte("IDAT"))
+	raw[at+5] ^= 255
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(raw)
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/systemone"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -36,6 +37,24 @@ var _ = Describe("internal decision runner", func() {
 			Expect(sent.Model).To(Equal("native"))
 			return func(context.Context) (string, error) { return `{"answers":{"q":{"type":"noul","noul":0.75}}}`, nil }, nil
 		}}
+	})
+
+	It("rejects admission saturation before inspecting caller data", func() {
+		var releases []func()
+		defer func() {
+			for _, r := range releases {
+				r()
+			}
+		}()
+		for i := 0; i < systemone.MaxAdmissions; i++ {
+			r, err := systemone.AcquireAdmission(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			releases = append(releases, r)
+		}
+		req.State = json.RawMessage(`invalid`)
+		_, err := runner.Decide(context.Background(), req)
+		Expect(err).To(MatchError(systemone.ErrAdmissionCapacity))
+		Expect(calls.Load()).To(BeZero())
 	})
 	It("uses a named internal call and preserves numeric noul without probabilities", func() {
 		result, err := runner.Decide(context.Background(), req)
