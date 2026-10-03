@@ -302,3 +302,29 @@ performance guarantees. Floating-point probabilities can vary with hardware and
 build settings; tests do not require exact answer probabilities or token counts.
 Neither image support nor interruption during active evaluation is established
 by these tests. CC-BY-NC-4.0's noncommercial restriction still applies.
+
+### Multimodal router probes
+
+The `decisions` router classifier preserves ordered OpenAI message content and
+Anthropic base64 image sources as structured state, including image-only turns.
+It uses the internal decision runner, not a loopback HTTP request. The shared
+image limits above are validated before model loading; no URL is fetched by the
+classifier. Original message content is not rewritten when selecting a candidate
+or the configured fallback.
+
+Score, rerank and KNN classifiers are text-only: image input produces an explicit
+classifier error and follows the existing configured fallback policy, rather
+than classifying an image-stripped prompt. Without a fallback, routing fails.
+Parent cancellation remains terminal and does not select a fallback. Image probes
+bypass text embedding caches and are not trimmed to text-only turns. Native
+context overflow is reported by the backend rather than silently dropping images.
+These transport guarantees do not establish installed projector capability or
+real-model image accuracy; those require separate native and end-to-end validation.
+
+OpenAI chat routing classifies the original structured message before preparing
+media for the selected model. Remote image URLs are not downloaded as decision
+inputs. After selection (including a configured fallback), the served model's
+normal media preparation runs without replacing the original content blocks.
+Invalid classifier configuration fails closed even with a configured fallback.
+Runtime classification and input errors follow the configured fallback policy.
+Cancellation never selects a fallback.

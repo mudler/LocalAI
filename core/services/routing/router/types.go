@@ -19,6 +19,7 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -27,6 +28,12 @@ import (
 // middleware does the schema-shape extraction); the classifier never
 // inspects the original request struct.
 type Probe struct {
+	// State preserves ordered chat content, including image-only turns. Images
+	// holds optional top-level data URLs; embedded images are not duplicated here.
+	State      json.RawMessage
+	Images     json.RawMessage
+	InputError error
+
 	// Prompt is the merged user-visible text. For chat completions it
 	// is the concatenation of message contents (separated by newlines);
 	// for plain completions it is the raw prompt.

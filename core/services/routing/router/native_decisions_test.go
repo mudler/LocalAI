@@ -2,9 +2,13 @@
 package router_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"image"
+	"image/png"
 	"math"
 	"strings"
 
@@ -155,5 +159,36 @@ var _ = Describe("native decisions classifier", func() {
 		_, err = router.Resolve(ctx, cfg, nil, load, router.Probe{})
 		Expect(err).To(MatchError(context.Canceled))
 		Expect(loads).To(BeZero())
+	})
+})
+
+var _ = Describe("multimodal native routing", func() {
+	It("passes image-only structured state unchanged and rejects invalid input before runner", func() {
+		// Portable valid 1x1 PNG, generated with the standard encoder below.
+		var b bytes.Buffer
+		Expect(png.Encode(&b, image.NewGray(image.Rect(0, 0, 1, 1)))).To(Succeed())
+		u := "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
+		state, _ := json.Marshal([]any{map[string]any{"role": "user", "content": []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": u}}}}})
+		calls := 0
+		c, err := router.NewDecisionsClassifier([]router.ScorePolicy{{Label: "visual", Description: "visual content"}}, decisionFunc(func(_ context.Context, r *schema.SystemOneRequest) (*schema.SystemOneResponse, error) {
+			calls++
+			Expect(r.State).To(Equal(json.RawMessage(state)))
+			Expect(r.Images).To(BeEmpty())
+			return &schema.SystemOneResponse{Answers: map[string]schema.SystemOneAnswer{"p0": noul(.9)}}, nil
+		}), 0)
+		Expect(err).NotTo(HaveOccurred())
+		d, err := c.Classify(context.Background(), router.Probe{State: state})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(Equal([]string{"visual"}))
+		_, err = c.Classify(context.Background(), router.Probe{State: json.RawMessage(`{}`), Images: json.RawMessage(`["https://example.org/x.png"]`)})
+		Expect(err).To(HaveOccurred())
+		Expect(calls).To(Equal(1))
+	})
+	It("rejects images in every text classifier before cache trimming or model use", func() {
+		p := router.Probe{Prompt: "same text", State: json.RawMessage(`{}`), Images: json.RawMessage(`["data:image/png;base64,AA=="]`)}
+		for _, c := range []router.Classifier{&router.ScoreClassifier{}, &router.RerankClassifier{}, &router.KNNClassifier{}} {
+			_, err := c.Classify(context.Background(), p)
+			Expect(err).To(MatchError(ContainSubstring("does not support image")))
+		}
 	})
 })

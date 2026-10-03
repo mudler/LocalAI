@@ -60,9 +60,19 @@ func (c *DecisionsClassifier) Classify(ctx context.Context, p Probe) (Decision, 
 	if err := ctx.Err(); err != nil {
 		return Decision{}, err
 	}
-	state, _ := json.Marshal(p.Prompt)
-	req := &schema.SystemOneRequest{State: state, Questions: c.questions}
-	if err := systemone.ValidateRequest(req); err != nil {
+	release, err := systemone.AcquireAdmission(ctx)
+	if err != nil {
+		return Decision{}, err
+	}
+	req, err := p.decisionRequest()
+	if err != nil {
+		release()
+		return Decision{}, err
+	}
+	req.Questions = c.questions
+	err = systemone.ValidateRequest(req)
+	release()
+	if err != nil {
 		return Decision{}, err
 	}
 	// Native question framing is engine-owned. Raw JSON token counts are not a

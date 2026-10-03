@@ -390,3 +390,17 @@ var _ = Describe("EmbeddingCache latency", func() {
 		Expect(d.Latency).To(BeNumerically("<", time.Second), "Latency unreasonably high for an in-memory hit")
 	})
 })
+
+var _ = Describe("Multimodal embedding cache isolation", func() {
+	It("never embeds, trims, reads or writes cache for image probes", func() {
+		inner := &stubInner{name: "decisions", decision: router.Decision{Labels: []string{"visual"}, Score: .9}}
+		cache := router.NewEmbeddingCacheClassifier(inner, &fakeEmbedder{}, &memVectorStore{}, .9, .5)
+		for _, data := range []string{"AA==", "AQ=="} {
+			p := router.Probe{Prompt: "identical", Messages: []string{"old image turn", "new text"}, State: json.RawMessage(`{}`), Images: json.RawMessage(`["data:image/png;base64,` + data + `"]`)}
+			d, err := cache.Classify(context.Background(), p)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(d.Cached).To(BeFalse())
+		}
+		Expect(inner.calls).To(Equal(2))
+	})
+})
