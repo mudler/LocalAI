@@ -39,6 +39,66 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Humanizer 12B
+
+[Humanizer](https://huggingface.co/jialinyyzz/humanizer) rewrites English and Chinese text using a Gemma 4 fine-tune.
+The gallery offers Q4_K_M, Q6_K, and Q8_0 GGUF builds for llama.cpp.
+Install a specific build with:
+
+```bash
+local-ai models install --variant humanizer-12b-q4 humanizer-12b-q4
+```
+
+Use `humanizer-12b-q6` or `humanizer-12b-q8` as the variant to select another quantization.
+Omit `--variant` to let LocalAI select a build that fits the host.
+
+This is a completion model. Send the publisher's exact prompt to `/v1/completions`.
+The gallery passes the prompt through unchanged and sets temperature to 1.0, top-p to 0.95,
+top-k and min-p to 0, and repetition penalty to 1.0.
+It uses an 8,192-token context and stops at EOS, without stop strings.
+Do not use chat messages, a system prompt, or `###` as a stop string.
+
+With LocalAI running, this Python example rewrites `draft.txt`:
+
+```python
+import hashlib
+import json
+from pathlib import Path
+from urllib.request import Request, urlopen
+
+instruction = (
+    "Rewrite the text below so it reads like a person wrote it, not a language model.\n"
+    "\n"
+    "Reorganize it as you see fit. Vary sentence length on purpose. Cut hedging,\n"
+    "throat-clearing, and any sentence that only announces what comes next.\n"
+    "Prefer the concrete word over the abstract one. It is fine to sound uneven.\n"
+    "\n"
+    "Every fact, number, unit, date, name and quotation must survive unchanged."
+)
+separator = "\n\n### Rewritten:\n\n"
+
+def build_prompt(draft):
+    return instruction + "\n\n" + draft.strip() + separator
+
+assert hashlib.sha256(build_prompt("X").encode()).hexdigest()[:16] == "cc51d66b4c593fbe"
+body = {
+    "model": "humanizer-12b-q4",
+    "prompt": build_prompt(Path("draft.txt").read_text(encoding="utf-8")),
+    "max_tokens": 2048,
+}
+request = Request(
+    "http://localhost:8080/v1/completions",
+    data=json.dumps(body).encode(),
+    headers={"Content-Type": "application/json"},
+)
+with urlopen(request) as response:
+    print(json.load(response)["choices"][0]["text"])
+```
+
+Keep the prompt and output within the context limit. Use the same English instruction for Chinese drafts.
+Read the result to check that facts, names, and numbers remain correct.
+See the [publisher's usage guide](https://huggingface.co/jialinyyzz/humanizer/blob/4845f89d6750e5baac7baa644a7ffedc3a86b969/USAGE.md) for guidance on longer documents.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
