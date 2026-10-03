@@ -78,6 +78,17 @@ func main() {
 		purego.RegisterLibFunc(&CppTranscribePathJSONVad, lib, "parakeet_capi_transcribe_path_json_vad")
 	}
 
+	// Silero VAD, the standalone VAD RPC and transcription with an external Silero
+	// (vad_model: option). Additive in the C-API (no ABI bump). Each symbol is
+	// probed on its own: a library without one still loads, and the feature that
+	// needs it fails with a clear message only when it is used.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad_with"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVadWith, lib, "parakeet_capi_transcribe_path_json_vad_with")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_vad_pcm_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppVadPcmJSON, lib, "parakeet_capi_vad_pcm_json")
+	}
+
 	// Per-request language variants (multilingual nemotron). Same probe pattern:
 	// present only in libparakeet.so built with multilingual support, so the
 	// backend still loads against an older library and falls back to the

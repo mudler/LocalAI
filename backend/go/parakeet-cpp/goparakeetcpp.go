@@ -46,6 +46,21 @@ var (
 	// only in newer libparakeet.so (additive, no ABI bump); nil when absent.
 	CppTranscribePathJSONVad func(ctx uintptr, wavPath string, decoder int32) uintptr
 
+	// CppTranscribePathJSONVadWith is CppTranscribePathJSONVad with the speech
+	// probabilities taken from an external Silero VAD context (vadCtx), so an ASR
+	// model without a VAD head can cut long audio. vadCtx == 0 uses the model's
+	// own head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, max_segment). Additive; nil when absent.
+	CppTranscribePathJSONVadWith func(ctx, vadCtx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+
+	// CppVadPcmJSON is the standalone VAD: it returns the speech regions of mono
+	// float PCM as a JSON document, for a Silero context or an ASR context with a
+	// VAD head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, speech_pad, max_segment, mode,
+	// probabilities). Returns 0 on error with the message in last_error.
+	// Additive; nil when absent.
+	CppVadPcmJSON func(ctx uintptr, samples []float32, nSamples int32, sampleRate int32, optionsJSON string) uintptr
+
 	// Batched JSON transcription: takes a concatenated float buffer of clips
 	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
 	// and returns a malloc'd char* JSON ARRAY of per-clip {"text","words",
@@ -250,6 +265,14 @@ type ParakeetCpp struct {
 	// point (vad:true model option). It bypasses the dynamic batcher, which has
 	// no VAD variant, and is not used for streaming.
 	vad bool
+	// vadCtx is the Silero VAD context: the primary when the model file is a
+	// Silero GGUF, or the vad_model: companion. 0 when none is loaded; the VAD
+	// RPC then falls back to the ASR context's own VAD head.
+	vadCtx uintptr
+	// vadOptions is the JSON object built from the vad_threshold, vad_min_pause,
+	// vad_min_speech, vad_speech_pad and vad_max_segment model options ("" when
+	// none is set, so the library picks the defaults of the detector in use).
+	vadOptions string
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -266,6 +289,19 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		return err
 	}
 	p.vad = vad
+
+	vadOpts, err := parseVADTuning(opts)
+	if err != nil {
+		return err
+	}
+	p.vadOptions = vadOpts
+	if optString(opts, "vad_model") != "" {
+		if CppTranscribePathJSONVadWith == nil {
+			return errors.New("parakeet-cpp: vad_model needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+		}
+		// vad_model implies vad: a Silero model is only useful to cut audio.
+		p.vad = true
+	}
 
 	if err := p.loadRoles(opts); err != nil {
 		return err
@@ -522,12 +558,18 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 // It holds engineMu for the call: the engine is single-threaded and the batcher
 // is not involved on this path.
 func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
-	fn, name := CppTranscribePathJSON, "transcribe_path_json"
-	if p.vad {
-		fn, name = CppTranscribePathJSONVad, "transcribe_path_json_vad"
+	call, name := func() uintptr { return CppTranscribePathJSON(p.ctxPtr, path, 0) }, "transcribe_path_json"
+	switch {
+	case p.vad && (p.vadCtx != 0 || p.vadOptions != "") && CppTranscribePathJSONVadWith != nil:
+		// An external Silero, or tuned segmenter options on the model's own head.
+		call, name = func() uintptr {
+			return CppTranscribePathJSONVadWith(p.ctxPtr, p.vadCtx, path, 0, p.vadOptions)
+		}, "transcribe_path_json_vad_with"
+	case p.vad:
+		call, name = func() uintptr { return CppTranscribePathJSONVad(p.ctxPtr, path, 0) }, "transcribe_path_json_vad"
 	}
 	p.engineMu.Lock()
-	cstr := fn(p.ctxPtr, path, 0)
+	cstr := call()
 	var lastErr string
 	if cstr == 0 {
 		lastErr = CppLastError(p.ctxPtr)
@@ -1069,7 +1111,7 @@ func (p *ParakeetCpp) Free() error {
 	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx} {
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx, &p.vadCtx} {
 		if *ctxField != 0 {
 			CppFree(*ctxField)
 			*ctxField = 0
