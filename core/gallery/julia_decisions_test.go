@@ -32,7 +32,7 @@ var _ = Describe("Julia native decision gallery", func() {
 })
 
 var _ = Describe("native decision family defaults", func() {
-	It("pins all six defaults with distinct names, licenses, and no projectors", func() {
+	It("pins all six defaults and enables only OpenJev with its exact projector", func() {
 		data, err := os.ReadFile("../../gallery/index.yaml")
 		Expect(err).NotTo(HaveOccurred())
 		var entries []gallery.GalleryModel
@@ -48,10 +48,18 @@ var _ = Describe("native decision family defaults", func() {
 			Expect(entry.License).To(Equal(license))
 			Expect(entry.Overrides["backend"]).To(Equal("llama-cpp"))
 			Expect(entry.Overrides["known_usecases"]).To(ConsistOf("decisions"))
-			Expect(entry.AdditionalFiles).To(HaveLen(1))
+			if entry.Name == "openjev-llama-cpp" {
+				Expect(entry.AdditionalFiles).To(HaveLen(2))
+				Expect(entry.Overrides["mmproj"]).To(Equal("mmproj-OpenJev-Q8_0.gguf"))
+				Expect(entry.Overrides["context_size"]).To(Equal(8192))
+				Expect(entry.AdditionalFiles[1].URI).To(Equal("https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/mmproj-OpenJev-Q8_0.gguf"))
+				Expect(entry.AdditionalFiles[1].SHA256).To(Equal("e372cdbf59fdd6bd2504cb64c988b31c7a42ac406a8f711df4b7a7acd9216f1e"))
+			} else {
+				Expect(entry.AdditionalFiles).To(HaveLen(1))
+				Expect(entry.Overrides).NotTo(HaveKey("mmproj"))
+			}
 			Expect(entry.AdditionalFiles[0].URI).To(MatchRegexp(`^https://huggingface.co/ggml-org/[^/]+/resolve/[0-9a-f]{40}/[^/]+\.gguf$`))
 			Expect(entry.AdditionalFiles[0].SHA256).To(MatchRegexp(`^[0-9a-f]{64}$`))
-			Expect(entry.Overrides).NotTo(HaveKey("mmproj"))
 			Expect(entry.Tags).NotTo(ContainElement("vision"))
 		}
 		for name := range expected {

@@ -47,6 +47,7 @@
 #define LOCALAI_HAS_NATIVE_DECISIONS 1
 #include "server-decision.cpp"
 #include "decision_compat.h"
+#include "decision_images.h"
 #endif
 #include "server-context.cpp"
 
@@ -3314,16 +3315,20 @@ public:
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This model is not a decision model");
         }
         try {
-            const json body = json::parse(request->prompt());
+            if (request->prompt().size() > localai_decision::body_bytes) {
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "Decision request exceeds limit");
+            }
+            auto checked_body = localai_decision::json::parse(request->prompt());
+            const auto image_count = localai_decision::validate(checked_body, request->prompt().size());
+            const json body = json::parse(checked_body.dump());
+            if (image_count && !localai_decision::supports_images(decision.can_use_images(),
+                    ctx_server.impl->mctx && mtmd_support_vision(ctx_server.impl->mctx))) {
+                return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                    "This decision model requires an image-capable projector for image input");
+            }
             const auto questions = decision.parse_questions(body);
             std::vector<raw_buffer> files;
             const json state = decision.parse_state(body, files);
-            // This bridge currently validates text-only decisions. Do not discard
-            // images or implicitly enable an unvalidated projector path.
-            if (!files.empty()) {
-                return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
-                    "Image input for native decisions is not supported by this backend");
-            }
             if (context->IsCancelled()) {
                 return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
             }
@@ -3380,11 +3385,19 @@ public:
                 }
                 answers[question.id] = decision.format_answer(question, scores);
             }
-            response->set_response_json(json{
+            const auto output = json{
                 {"model", body.value("model", std::string())}, {"answers", answers},
                 {"usage", {{"input_tokens", n_tokens}, {"output_tokens", 0}}}
-            }.dump());
+            }.dump();
+            if (output.size() > localai_decision::text_bytes) {
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "Decision response exceeds limit");
+            }
+            response->set_response_json(output);
             return grpc::Status::OK;
+        } catch (const localai_decision::image_error & err) {
+            return grpc::Status(err.too_large ? grpc::StatusCode::RESOURCE_EXHAUSTED : grpc::StatusCode::INVALID_ARGUMENT, err.what());
+        } catch (const localai_decision::json::exception & err) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err.what());
         } catch (const common_json_error & err) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err.what());
         } catch (const std::invalid_argument & err) {

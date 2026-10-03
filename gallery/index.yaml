@@ -64653,9 +64653,9 @@
   urls:
     - https://huggingface.co/openjev/openjev
     - https://huggingface.co/ggml-org/OpenJev-GGUF/tree/10840f375658dea7afc5ff4711127bca8218b560
-  description: 'OpenJev typed decision model for text-only choice, score, and noul
+  description: 'OpenJev typed decision model for text and image choice, score, and noul
     requests through /v1/systemone. Uses native llama.cpp decisions, not text generation.
-    No image/projector support. Evaluate accuracy for your own tasks. Noncommercial
+    Includes the pinned Q8 vision projector. Evaluate accuracy for your own tasks. Noncommercial
     use only under CC-BY-NC-4.0. Large model: provision memory separately from download
     size.'
   license: cc-by-nc-4.0
@@ -64664,18 +64664,22 @@
     - systemone
     - gguf
     - cpu
-  size: 18.97GB
+  size: 19.61GB
   overrides:
     backend: llama-cpp
     known_usecases:
       - decisions
-    context_size: 2048
+    context_size: 8192
+    mmproj: mmproj-OpenJev-Q8_0.gguf
     parameters:
       model: OpenJev-Q4_K_M.gguf
   files:
     - filename: OpenJev-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/OpenJev-Q4_K_M.gguf
       sha256: 38b512277edaeec6cd251d146bff6d97bc328fa9db19755401d6e9ab1ccbcba5
+    - filename: mmproj-OpenJev-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/mmproj-OpenJev-Q8_0.gguf
+      sha256: e372cdbf59fdd6bd2504cb64c988b31c7a42ac406a8f711df4b7a7acd9216f1e
 - name: nimble-9b-v3-llama-cpp
   urls:
     - https://huggingface.co/bespokelabs/Bespoke-Nimble-9B-v3/tree/8e927b9b4afdbb14479fac10a7364d1a695be208

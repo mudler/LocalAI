@@ -46,6 +46,7 @@ done
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
 cp -r decision_compat.h llama.cpp/tools/grpc-server/
+cp -r decision_images.h llama.cpp/tools/grpc-server/
 # Model-load diagnostics (included by grpc-server.cpp) and their standalone
 # regression test.
 cp -r model_load_error.h llama.cpp/tools/grpc-server/

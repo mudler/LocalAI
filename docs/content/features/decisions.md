@@ -222,11 +222,11 @@ string state remains invalid. Arbitrary domain JSON is preserved, not interprete
 as image content outside message content parts. Images are never replaced by
 invented text.
 
-Admission is not a promise of model image capability: the NER path and currently
-installed text-only native decision bridges reject images with 501 rather than
-silently dropping them. Other native backends receive validated fields unchanged
-and determine their image support. Failed requests are not billed. Router image
-preservation and native OpenJev/projector validation are separate follow-up work.
+Admission is not a promise of model image capability: the NER path and text-only
+native decision models reject images with 501 rather than silently dropping them.
+OpenJev requires its vision projector (see below). Failed requests are not billed.
+Router image probes preserve the canonical request; full public API image
+validation across installed models is separate from native RPC validation.
 
 Native responses report backend input/output usage, including zero generated
 tokens. LocalAI records supplied usage once; explicit zero counts are distinct
@@ -265,7 +265,8 @@ support.
 ### Native family defaults
 
 Each family has a separately named default; these do not replace vllm-cpp entries.
-All entries are text-only and omit projectors. Download size is not a RAM estimate.
+All entries except OpenJev are text-only and omit projectors. OpenJev includes
+its Q8 projector. Download size is not a RAM estimate.
 
 | Gallery entry | Quantization | Artifact bytes | License | Validation status |
 |---|---|---:|---|---|
@@ -273,7 +274,7 @@ All entries are text-only and omit projectors. Download size is not a RAM estima
 | `laya-llama-cpp` | Q8_0 | 449,397,600 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
 | `kev-4b-llama-cpp` | Q4_K_M | 3,033,489,824 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
 | `lev-llama-cpp` | Q4_K_M | 3,011,777,440 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
-| `openjev-llama-cpp` | Q4_K_M | 18,973,872,288 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+| `openjev-llama-cpp` | Q4_K_M + Q8 projector | 19,603,119,520 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
 | `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
 
 OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
@@ -340,3 +341,31 @@ are the chat schema message/content/tool types and plain JSON values (including
 probes also check serialized escaping before allocation. The separate 64 KiB text-only Decisions
 request limit is unchanged. Anthropic conversion preserves typed content blocks
 through both native selection and fallback, including ordered text and images.
+
+### OpenJev image decisions
+
+The `openjev-llama-cpp` gallery entry installs OpenJev Q4_K_M and its pinned
+Q8 vision projector (`mmproj-OpenJev-Q8_0.gguf`). Both artifacts come from
+`ggml-org/OpenJev-GGUF` revision `10840f375658dea7afc5ff4711127bca8218b560`.
+The weights occupy 18,973,872,288 bytes and the projector 629,247,232 bytes:
+19,603,119,520 bytes total (about 19.61 GB decimal), excluding runtime memory,
+KV cache and backend files. The model is **CC-BY-NC-4.0, noncommercial only**;
+LocalAI's software license does not override the model license.
+
+For a manually installed model, set `mmproj: mmproj-OpenJev-Q8_0.gguf` alongside
+`parameters.model`, not inside `parameters`. LocalAI resolves that filename
+relative to the model directory and forwards it to llama.cpp's projector loader.
+The gallery uses an 8192-token context to leave room for image tokens and
+question framing. This is not a guarantee that all eight maximum-sized images
+fit; context overflow remains an error. Size the context for the actual workload.
+
+Native image decisions require both a decision format that accepts images and a
+loaded projector that supports **vision input**. A missing projector, an
+audio-only projector, or a text-only decision model does not silently fall back
+to a text decision. Other decision gallery entries remain text-only.
+
+Direct native RPC callers receive the same image count, encoded/decoded byte,
+dimension and aggregate pixel bounds as public callers. Validation precedes
+llama.cpp's permissive media parsing and full pixel decode; PNG decompression
+is independently bounded before stb decodes pixels. This validation applies
+only to native decision tasks, not ordinary chat or legacy scoring.
