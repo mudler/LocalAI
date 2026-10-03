@@ -67,6 +67,7 @@ var _ = Describe("MCP remote server OAuth2 configuration", func() {
 			OAuth2: &MCPOAuth2Config{TokenURL: "https://idp", ClientID: "id", ClientSecret: "oauth-secret"},
 		}
 		logger.Info("cfg", "a", withToken, "b", withOAuth2)
+		slog.New(slog.NewJSONHandler(&buf, nil)).Info("cfg", "a", withToken, "b", withOAuth2)
 		out := buf.String() + fmt.Sprintf("%v %+v", withToken, MCPRemoteServers{"s": withOAuth2})
 		Expect(out).To(ContainSubstring("https://x"))
 		Expect(out).To(ContainSubstring("https://idp"))

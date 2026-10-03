@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -850,8 +851,7 @@ func exactlyOne(field, literal, env string) error {
 	return nil
 }
 
-// String keeps credentials out of logs: the MCP code logs whole server
-// entries at debug level, and both xlog and slog format structs via fmt.
+// String redacts credentials when server entries are formatted as text.
 func (s MCPRemoteServer) String() string {
 	auth := "none"
 	switch {
@@ -861,6 +861,11 @@ func (s MCPRemoteServer) String() string {
 		auth = "token([redacted])"
 	}
 	return fmt.Sprintf("{url: %s, auth: %s}", s.URL, auth)
+}
+
+// LogValue also redacts credentials in structured JSON logs, which bypass String.
+func (s MCPRemoteServer) LogValue() slog.Value {
+	return slog.StringValue(s.String())
 }
 
 // @Description MCP STDIO server configuration
