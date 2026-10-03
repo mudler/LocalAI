@@ -244,8 +244,11 @@ All entries are text-only and omit projectors. Download size is not a RAM estima
 
 OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
 capability does **not** imply LocalAI decision-image support. Nimble requires the
-newer llama.cpp native Nimble integration; older backends cannot serve it. The
-published entries pin revisions and SHA-256 checksums, but metadata verification
+native Nimble integration included in this source tree's llama.cpp pin
+`bed0a856606ee4a24a164066f73d2379447033f5`; older installed backends must be
+updated before serving it. This source prerequisite is integrated, but the
+OpenJev and Nimble installation/runtime checks remain pending as listed above.
+The published entries pin revisions and SHA-256 checksums, but metadata verification
 alone is not a runtime test. No model-quality guarantee follows from these smoke
 tests. Laya, Kev-4B, and lev were also retested against the newer native backend
 with 1- and 11-level score requests correctly rejected.
