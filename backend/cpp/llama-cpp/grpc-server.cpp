@@ -46,6 +46,7 @@
 #if __has_include("server-decision.cpp")
 #define LOCALAI_HAS_NATIVE_DECISIONS 1
 #include "server-decision.cpp"
+#include "decision_compat.h"
 #endif
 #include "server-context.cpp"
 
@@ -3333,7 +3334,7 @@ public:
                 for (size_t variant = 0; variant < decision.n_variants(question); ++variant) {
                     server_task task(SERVER_TASK_TYPE_DECISION);
                     task.id = rd.get_new_id();
-                    decision.fill_task(state, question, variant, files,
+                    localai_fill_decision_task(decision, state, questions, question, variant, files,
                         ctx_server.impl->mctx, ctx_server.impl->init_opt, task);
                     tasks.push_back(std::move(task));
                     ++expected_results;

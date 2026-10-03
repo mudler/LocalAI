@@ -1,9 +1,26 @@
 # Native decision bridge validation
 
-The stock dependency is pinned to `a4cb4c61fd9d9c2066c7c1747821d3d65b8943bd`.
+The stock dependency is pinned to `bed0a856606ee4a24a164066f73d2379447033f5`.
 `Score(question_type="systemone")` uses upstream decision tasks internally, not
 HTTP. Plain Score keeps its existing admission checks. Older dependencies without
 `server-decision.cpp` return gRPC `UNIMPLEMENTED` for this request type.
+
+## Decision signature compatibility
+
+This pin includes upstream Nimble support, in addition to OpenJev, Lev, Kev,
+and Laya. The native bridge forwards the complete parsed question collection
+when upstream's `fill_task` accepts it, as required by Nimble's schema framing.
+`decision_compat.h` detects the callable C++ signature at compile time; older
+native-decision forks still use their original single-question signature.
+Forks without native decision support retain the existing `UNIMPLEMENTED` guard.
+The standalone `decision_compat_test.cpp` checks both signatures and that the
+full collection is passed by reference, not replaced with a singleton.
+It is automatically discovered by `backend/cpp/run-unit-tests.sh`.
+
+Signature and compile validation do not establish Nimble model accuracy or
+runtime support for every artifact. Nimble weights are not part of this test
+fixture. The official `ggml-org/Bespoke-Nimble-9B-v3-GGUF` model card declares
+CC-BY-NC-4.0; check its restrictions before deployment.
 
 ## CPU build
 
