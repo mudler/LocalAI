@@ -656,6 +656,15 @@ type PIIDetectionConfig struct {
 	// with the same action - for a neighbour the model scores unreliably,
 	// such as the town after a postal code.
 	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
+	// ProtectedTerms are values that must pass the filter unchanged even
+	// when the model tags them (e.g. known business names read as
+	// surnames). They are hidden from the detector behind a placeholder and
+	// restored afterwards. Matched whole-word and case-insensitively.
+	ProtectedTerms []string `yaml:"protected_terms,omitempty" json:"protected_terms,omitempty"`
+	// ProtectedTermsFiles adds terms from files (one per line, '#' comments),
+	// resolved inside the models path and re-read when they change, so an
+	// external process can keep the list current without a restart.
+	ProtectedTermsFiles []string `yaml:"protected_terms_files,omitempty" json:"protected_terms_files,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -742,6 +751,13 @@ func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
 		return nil
 	}
 	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
+}
+
+// PIIDetectionProtectedTerms returns the inline protected terms and the
+// configured term files (fresh copies). The files are read by the pii
+// package (pii.LoadProtectedTerms), relative to the models path.
+func (c *ModelConfig) PIIDetectionProtectedTerms() (terms, files []string) {
+	return slices.Clone(c.PIIDetection.ProtectedTerms), slices.Clone(c.PIIDetection.ProtectedTermsFiles)
 }
 
 // IsPatternDetector reports whether this detector model matches secrets with

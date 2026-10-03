@@ -1111,6 +1111,8 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
       EMAIL: mask
     extend_to_next_word:      # optional: also mask the word right after these
       - ZIPCODE               # groups on the same line (e.g. the town after a postal code)
+    protected_terms:          # optional: values that must pass unchanged even if tagged
+      - Hotel Seeblick        # (plus protected_terms_files: one term per line, in the models path)
   ```
 
 - **Consuming models** opt in and reference one or more detectors by name - no per-consumer policy:
