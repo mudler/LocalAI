@@ -228,10 +228,14 @@ func SessionsFromMCPConfig(
 	// Get the list of all the tools that the Agent will be esposed to
 	for _, server := range remote.Servers {
 		xlog.Debug("[MCP remote server] Configuration", "server", server)
-		// Create HTTP client with custom roundtripper for bearer token injection
+		authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+		if err != nil {
+			xlog.Error("Invalid MCP server authentication", "error", err, "url", server.URL)
+			continue
+		}
 		httpClient := httpclient.New(
 			httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+			httpclient.WithTransport(authTransport),
 		)
 
 		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
@@ -339,9 +343,19 @@ func NamedSessionsFromMCPConfig(
 
 		for serverName, server := range remote.Servers {
 			xlog.Debug("[MCP remote server] Configuration", "name", serverName, "server", server)
+			authTransport, err := newRemoteServerTransport(server, httpclient.HardenedTransport())
+			if err != nil {
+				xlog.Error("Invalid MCP server authentication", "error", err, "name", serverName, "url", server.URL)
+				allSessions = append(allSessions, NamedSession{
+					Name:  serverName,
+					Type:  "remote",
+					Error: fmt.Sprintf("authentication setup failed: %v", err),
+				})
+				continue
+			}
 			httpClient := httpclient.New(
 				httpclient.WithTimeout(config.DefaultMCPToolTimeout),
-				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
+				httpclient.WithTransport(authTransport),
 			)
 
 			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
