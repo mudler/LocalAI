@@ -170,3 +170,31 @@ common case. These behaviors differ:
 When authentication is on, the three routes need the `decisions` feature. It is
 on by default for every user, like the other API features, and an administrator
 can turn it off per user.
+
+## Native llama.cpp decisions
+
+The stock `llama-cpp` backend supports text-only decision GGUFs carrying upstream
+SystemOne metadata. Declare `known_usecases: [decisions]`; ordinary `score` need
+not be enabled. Requests use the existing internal Score RPC, not a backend HTTP
+server. Choice, score, and noul questions may be combined in one request. Structured
+state and questions are forwarded without NER rendering. llama.cpp score questions
+accept 2–10 levels; this backend-specific limit does not constrain vllm-cpp.
+Older forks without native decision support return 501. Missing decision metadata
+also returns 501, while backend invalid requests return 400.
+
+### Initial image policy
+
+This release validates text-only llama.cpp decisions, not full OpenJev image or
+projector compatibility. The public routes retain a 64 KiB raw request limit
+(413 on overflow), independently of the internal router's serialized request
+budget. Image inputs are preserved, with at most eight images and 32 KiB aggregate
+encoded data-URL bytes. Only base64 `data:image/...` URLs are accepted. Oversized
+image payloads return 413; malformed payloads or excessive image count return 400.
+The NER path and native llama.cpp bridge reject image input explicitly with 501;
+they never silently discard images. Other native backends receive validated image
+fields unchanged and determine their own image support.
+
+Native responses report backend input/output usage, including zero generated
+tokens. LocalAI records supplied usage once; explicit zero counts are distinct
+from missing usage. Missing counts are not estimated, and invalid negative counts
+are rejected rather than billed.

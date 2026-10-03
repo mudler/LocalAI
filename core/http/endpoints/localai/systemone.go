@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,9 +17,65 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/systemone"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// systemOneBackendStatus preserves the distinction between invalid input and
+// unsupported capabilities; unknown/load failures remain server errors.
+func systemOneBackendStatus(err error) int {
+	switch status.Code(err) {
+	case codes.InvalidArgument:
+		return http.StatusBadRequest
+	case codes.Unimplemented:
+		return http.StatusNotImplemented
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func stampSystemOneUsage(c echo.Context, model, response string) error {
+	var result struct {
+		Usage *struct {
+			Input  *int `json:"input_tokens"`
+			Output *int `json:"output_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return err
+	}
+	if result.Usage == nil {
+		return nil
+	}
+	if result.Usage.Input == nil && result.Usage.Output == nil {
+		return nil
+	}
+	if result.Usage.Input == nil || result.Usage.Output == nil {
+		return fmt.Errorf("incomplete decision usage")
+	}
+	input, output := *result.Usage.Input, *result.Usage.Output
+	if input < 0 || output < 0 || input > int(^uint(0)>>1)-output {
+		return fmt.Errorf("invalid decision usage counts")
+	}
+	middleware.StampUsage(c, model, input, output)
+	return nil
+}
+
+// respondSystemOne is the native route's response path. UsageMiddleware records
+// the stamp once and does not also parse the response body.
+func respondSystemOne(c echo.Context, model string, run func(context.Context) (string, error)) error {
+	response, err := run(c.Request().Context())
+	if err != nil {
+		return systemOneError(c, systemOneBackendStatus(err), err.Error())
+	}
+	if err := stampSystemOneUsage(c, model, response); err != nil {
+		return systemOneError(c, http.StatusInternalServerError, "invalid decision response")
+	}
+	return c.JSON(http.StatusOK, json.RawMessage(response))
+}
 
 // ---------------------------------------------------------------------------
 // Helpers — ported from kev/api.py (render, r2, choice_confidence,
@@ -198,6 +255,13 @@ type parsedSystemOne struct {
 }
 
 func parseSystemOneRequest(req *schema.SystemOneRequest) (*parsedSystemOne, error) {
+	images, err := systemOneImages(req)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) > 0 {
+		return nil, errSystemOneImagesUnsupported
+	}
 	p := &parsedSystemOne{
 		model:     req.Model,
 		threshold: 0.5,
@@ -433,7 +497,7 @@ func checkSystemOneNERModel(app *application.Application, modelName string) erro
 // for one server behaves the same on the other. The engine enforces any
 // per-model option cap (letter-answer models refuse more than 26 options).
 const (
-	systemOneMaxBody      = systemone.MaxBodyBytes
+	systemOneMaxBody      = 64 << 10 // public raw-wire cap, independent of internal serialized cap
 	systemOneMaxQuestions = systemone.MaxQuestions
 )
 
@@ -466,7 +530,10 @@ func systemOneBindMessage(err error) string {
 // forwarded path never sees parseSystemOneRequest, so without this a malformed
 // question would surface as a backend error instead of a 400.
 func validateSystemOneRequest(req *schema.SystemOneRequest) error {
-	return systemone.ValidateRequestStructure(req)
+	if err := systemone.ValidateRequestStructure(req); err != nil {
+		return err
+	}
+	return validateSystemOneImages(req)
 }
 
 // backendSupportsScore reports whether the named backend implements the
@@ -506,7 +573,7 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if err := validateSystemOneRequest(&req); err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		// vllm-cpp models (kev/laya) implement the decision pipeline natively
 		// via the vllm_decide C ABI. Forward the raw request JSON through the
@@ -522,17 +589,13 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 				if err != nil {
 					return systemOneError(c, http.StatusInternalServerError, err.Error())
 				}
-				respJSON, err := fn(c.Request().Context())
-				if err != nil {
-					return systemOneError(c, http.StatusInternalServerError, err.Error())
-				}
-				return c.JSON(http.StatusOK, json.RawMessage(respJSON))
+				return respondSystemOne(c, req.Model, fn)
 			}
 		}
 		// NER-based path (GLiNER2.5 zero-shot NER).
 		parsed, err := parseSystemOneRequest(&req)
 		if err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		classifier, err := resolveClassifier(app, req.Model, parsed.threshold)
 		if err != nil {
@@ -581,14 +644,14 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if err := validateSystemOneRequest(&req.Request); err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		if req.Question == "" {
 			return systemOneError(c, http.StatusBadRequest, "question is required")
 		}
 		parsed, err := parseSystemOneRequest(&req.Request)
 		if err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		var target *parsedQuestion
 		for i := range parsed.questions {
@@ -726,11 +789,11 @@ func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if err := validateSystemOneRequest(&req); err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		parsed, err := parseSystemOneRequest(&req)
 		if err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
+			return systemOneError(c, systemOneInputStatus(err), err.Error())
 		}
 		classifier, err := resolveClassifier(app, req.Model, parsed.threshold)
 		if err != nil {
