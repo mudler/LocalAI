@@ -20,6 +20,10 @@ func (p Probe) decisionRequest() (*schema.SystemOneRequest, error) {
 	}
 	state := p.State
 	if len(state) == 0 {
+		left := systemone.MaxImageBodyBytes
+		if !systemone.SpendJSONString(p.Prompt, &left) {
+			return nil, fmt.Errorf("router prompt exceeds serialized decision budget")
+		}
 		state, _ = json.Marshal(p.Prompt)
 	}
 	return &schema.SystemOneRequest{State: state, Images: p.Images}, nil
