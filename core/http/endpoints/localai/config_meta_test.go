@@ -65,6 +65,36 @@ var _ = Describe("Config Metadata Endpoints", func() {
 		os.RemoveAll(tempDir)
 	})
 
+	It("lists native decisions on both Score backends but not NER, routers or disabled models", func() {
+		for name, body := range map[string]string{
+			"llama-decision": "backend: llama-cpp\nknown_usecases: [decisions]\n",
+			"vllm-decision":  "backend: vllm-cpp\nknown_usecases: [decisions]\n",
+			"ner":            "backend: vllm-cpp\nknown_usecases: [token_classify]\n",
+			"chat":           "backend: llama-cpp\nknown_usecases: [chat]\n",
+			"unsupported":    "backend: piper\nknown_usecases: [decisions]\n",
+			"disabled":       "backend: llama-cpp\nknown_usecases: [decisions]\ndisabled: true\n",
+			"router":         "backend: llama-cpp\nknown_usecases: [decisions]\nrouter:\n  classifier: decisions\n  classifier_model: llama-decision\n",
+		} {
+			Expect(os.WriteFile(filepath.Join(tempDir, name+".yaml"), []byte("name: "+name+"\n"+body), 0600)).To(Succeed())
+		}
+		Expect(configLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/models/config-metadata/autocomplete/models:decisions", nil))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		var result struct {
+			Values []string `json:"values"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &result)).To(Succeed())
+		Expect(result.Values).To(ConsistOf("llama-decision", "vllm-decision"))
+		for _, cfg := range configLoader.GetAllModelsConfigs() {
+			if cfg.Name == "llama-decision" || cfg.Name == "vllm-decision" {
+				Expect(cfg.Capabilities()).To(ContainElement(config.UsecaseDecisions))
+			} else {
+				Expect(cfg.Capabilities()).NotTo(ContainElement(config.UsecaseDecisions))
+			}
+		}
+	})
+
 	Context("GET /api/models/config-metadata", func() {
 		It("should return section index when no section param", func() {
 			req := httptest.NewRequest(http.MethodGet, "/api/models/config-metadata", nil)

@@ -83,6 +83,7 @@ export async function streamChat(body, signal) {
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
+  listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best

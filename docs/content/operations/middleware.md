@@ -879,3 +879,18 @@ with `POST /models/reload` to pick up YAML edits without restarting.
   required for mutating endpoints and the `/app/middleware` page; in
   no-auth single-user mode the synthetic local user has admin role
   automatically.
+
+### Creating a Decisions router in the UI
+
+In **Middleware → Routing → Create routing model**, select **Decisions (native
+probabilities)** under Classifier. The Classifier Model picker lists installed,
+enabled native decision models explicitly declaring `known_usecases: [decisions]`
+on a backend supporting Score, including `llama-cpp` and `vllm-cpp`. NER-only
+models and routing dispatchers are not eligible. Selecting a model saves its exact
+configured name; it does not install weights.
+
+Decisions needs no ChatML template and returns independent label probabilities,
+not an exclusive choice. Start with an activation threshold of **0.5** (zero uses
+the Decisions default of 0.5). Changing classifiers clears the dependent model
+selection but preserves your threshold, including the template's initial 0.40;
+set it deliberately before saving. Existing saved selections reopen unchanged.
