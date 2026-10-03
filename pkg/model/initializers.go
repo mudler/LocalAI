@@ -29,11 +29,20 @@ var Aliases = map[string]string{
 	"ik-llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
 	"valkey":                 ValkeyStoreBackend,
+	"qdrant":                 QdrantStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
 	"mamba":                  TransformersBackend,
 	"stablediffusion":        StableDiffusionGGMLBackend,
+}
+
+func CanonicalBackend(name string) string {
+	b := strings.ToLower(name)
+	if real, ok := Aliases[b]; ok {
+		return real
+	}
+	return b
 }
 
 var TypeAlias = map[string]string{
@@ -51,6 +60,7 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
+	QdrantStoreBackend  = "qdrant-store"
 
 	// Proxy backends serve a model by forwarding to another server instead
 	// of loading weights. Core special-cases both (credentials, failover
@@ -326,17 +336,9 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 			"f16", opt.F16Memory)
 	}
 
-	backend := strings.ToLower(o.backendString)
-	if realBackend, exists := Aliases[backend]; exists {
-		typeAlias, exists := TypeAlias[backend]
-		if exists {
-			xlog.Debug("alias is a type alias", "alias", backend, "realBackend", realBackend, "type", typeAlias)
-			o.gRPCOptions.Type = typeAlias
-		} else {
-			xlog.Debug("alias", "alias", backend, "realBackend", realBackend)
-		}
-
-		backend = realBackend
+	backend := CanonicalBackend(o.backendString)
+	if typeAlias, ok := TypeAlias[strings.ToLower(o.backendString)]; ok {
+		o.gRPCOptions.Type = typeAlias
 	}
 
 	modelFileName := o.modelFile

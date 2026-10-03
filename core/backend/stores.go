@@ -32,8 +32,8 @@ type Neighbor struct {
 	Payload    []byte
 }
 
-// NewVectorStore returns a VectorStore backed by the local-store
-// gRPC backend, namespaced by storeName so two routers don't collide.
+// NewVectorStore returns a VectorStore backed by the store's gRPC backend,
+// namespaced by storeName so two routers don't collide.
 // cl resolves the per-store model config (backend + options); it may be nil,
 // in which case the store falls back to the default backend and its built-in
 // defaults.
@@ -51,8 +51,8 @@ type localVectorStore struct {
 	storeName string
 }
 
-func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, error) {
-	return StoreBackend(s.loader, s.appConfig, s.cl, s.storeName, "")
+func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, string, error) {
+	return storeBackend(s.loader, s.cl, s.storeName, "")
 }
 
 // Search is the top-1 special case of SearchK; delegating keeps the
@@ -69,11 +69,11 @@ func (s *localVectorStore) Search(ctx context.Context, vec []float32) (float64, 
 func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (neighbors []Neighbor, err error) {
 	outcome := "hit"
 	sim := 0.0
-	be, berr := s.backend(ctx)
+	be, backendName, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
 		err = fmt.Errorf("vector store load: %w", berr)
-		s.recordTrace("", time.Now(), "search", len(vec), 0, outcome, err)
+		s.recordTrace("", backendName, time.Now(), "search", len(vec), 0, outcome, err)
 		return nil, err
 	}
 	release, err := AcquireGlobalBackendSlot()
@@ -82,9 +82,9 @@ func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (n
 	}
 	defer release()
 	start := time.Now()
-	traceID := s.beginTrace(start, "search")
+	traceID := s.beginTrace(backendName, start, "search")
 	defer func() {
-		s.recordTrace(traceID, start, "search", len(vec), sim, outcome, err)
+		s.recordTrace(traceID, backendName, start, "search", len(vec), sim, outcome, err)
 	}()
 	_, values, similarities, ferr := store.Find(ctx, be, vec, k)
 	if ferr != nil {
@@ -105,11 +105,11 @@ func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (n
 
 func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []byte) (err error) {
 	outcome := "ok"
-	be, berr := s.backend(ctx)
+	be, backendName, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
 		err = fmt.Errorf("vector store load: %w", berr)
-		s.recordTrace("", time.Now(), "insert", len(vec), 0, outcome, err)
+		s.recordTrace("", backendName, time.Now(), "insert", len(vec), 0, outcome, err)
 		return err
 	}
 	release, err := AcquireGlobalBackendSlot()
@@ -118,9 +118,9 @@ func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []
 	}
 	defer release()
 	start := time.Now()
-	traceID := s.beginTrace(start, "insert")
+	traceID := s.beginTrace(backendName, start, "insert")
 	defer func() {
-		s.recordTrace(traceID, start, "insert", len(vec), 0, outcome, err)
+		s.recordTrace(traceID, backendName, start, "insert", len(vec), 0, outcome, err)
 	}()
 	if serr := store.SetSingle(ctx, be, vec, payload); serr != nil {
 		outcome = "insert_error"
@@ -138,11 +138,11 @@ func (s *localVectorStore) InsertBatch(ctx context.Context, vecs [][]float32, pa
 	if len(vecs) > 0 {
 		dim = len(vecs[0])
 	}
-	be, berr := s.backend(ctx)
+	be, backendName, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
 		err = fmt.Errorf("vector store load: %w", berr)
-		s.recordTrace("", time.Now(), "insert_batch", dim, 0, outcome, err)
+		s.recordTrace("", backendName, time.Now(), "insert_batch", dim, 0, outcome, err)
 		return err
 	}
 	release, err := AcquireGlobalBackendSlot()
@@ -151,9 +151,9 @@ func (s *localVectorStore) InsertBatch(ctx context.Context, vecs [][]float32, pa
 	}
 	defer release()
 	start := time.Now()
-	traceID := s.beginTrace(start, "insert_batch")
+	traceID := s.beginTrace(backendName, start, "insert_batch")
 	defer func() {
-		s.recordTrace(traceID, start, "insert_batch", dim, 0, outcome, err)
+		s.recordTrace(traceID, backendName, start, "insert_batch", dim, 0, outcome, err)
 	}()
 	if serr := store.SetCols(ctx, be, vecs, payloads); serr != nil {
 		outcome = "insert_error"
@@ -171,11 +171,11 @@ func (s *localVectorStore) Delete(ctx context.Context, vecs [][]float32) (err er
 	if len(vecs) > 0 {
 		dim = len(vecs[0])
 	}
-	be, berr := s.backend(ctx)
+	be, backendName, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
 		err = fmt.Errorf("vector store load: %w", berr)
-		s.recordTrace("", time.Now(), "delete", dim, 0, outcome, err)
+		s.recordTrace("", backendName, time.Now(), "delete", dim, 0, outcome, err)
 		return err
 	}
 	release, err := AcquireGlobalBackendSlot()
@@ -184,9 +184,9 @@ func (s *localVectorStore) Delete(ctx context.Context, vecs [][]float32) (err er
 	}
 	defer release()
 	start := time.Now()
-	traceID := s.beginTrace(start, "delete")
+	traceID := s.beginTrace(backendName, start, "delete")
 	defer func() {
-		s.recordTrace(traceID, start, "delete", dim, 0, outcome, err)
+		s.recordTrace(traceID, backendName, start, "delete", dim, 0, outcome, err)
 	}()
 	if serr := store.DeleteCols(ctx, be, vecs); serr != nil {
 		outcome = "delete_error"
@@ -198,17 +198,16 @@ func (s *localVectorStore) Delete(ctx context.Context, vecs [][]float32) (err er
 // recordTrace surfaces vector-store calls in /api/backend-traces, including
 // the backend-load-failure path that otherwise vanishes into an xlog.Warn.
 // modelName uses the store namespace (e.g. "router-cache-smart-router") so
-// admins can tell which router's cache misbehaved; the backend is always
-// "local-store" and can't disambiguate.
-func (s *localVectorStore) beginTrace(start time.Time, op string) string {
+// admins can tell which router's cache misbehaved.
+func (s *localVectorStore) beginTrace(backendName string, start time.Time, op string) string {
 	if s.appConfig == nil || !s.appConfig.EnableTracing {
 		return ""
 	}
 	trace.InitBackendTracingIfEnabled(s.appConfig.TracingMaxItems, s.appConfig.TracingMaxBodyBytes)
-	return trace.BeginBackendTrace(trace.BackendTrace{Timestamp: start, Type: trace.BackendTraceVectorStore, ModelName: s.storeName, Backend: model.LocalStoreBackend, Summary: op})
+	return trace.BeginBackendTrace(trace.BackendTrace{Timestamp: start, Type: trace.BackendTraceVectorStore, ModelName: s.storeName, Backend: backendName, Summary: op})
 }
 
-func (s *localVectorStore) recordTrace(traceID string, start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
+func (s *localVectorStore) recordTrace(traceID, backendName string, start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
 	if s.appConfig == nil || !s.appConfig.EnableTracing {
 		return
 	}
@@ -237,7 +236,7 @@ func (s *localVectorStore) recordTrace(traceID string, start time.Time, op strin
 		Duration:  time.Since(start),
 		Type:      trace.BackendTraceVectorStore,
 		ModelName: s.storeName,
-		Backend:   model.LocalStoreBackend,
+		Backend:   backendName,
 		Summary:   summary,
 		Error:     errStr,
 		Data:      data,
@@ -245,26 +244,43 @@ func (s *localVectorStore) recordTrace(traceID string, start time.Time, op strin
 }
 
 func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, cl *config.ModelConfigLoader, storeName string, backend string) (grpc.Backend, error) {
-	// Resolve the per-store model config (keyed by the store namespace, which
-	// is the model ID for a store). This is the LocalAI-native config surface:
-	// a store's backend selection and its backend-specific settings live in a
-	// model YAML's `backend:` and `options:` fields, so different stores can
-	// point at different servers/indexes. When no config exists for the store,
-	// we fall back to the default backend and let the backend apply its own
-	// built-in defaults — preserving the zero-config experience.
-	var loadOpts []string
+	be, _, err := storeBackend(sl, cl, storeName, backend)
+	return be, err
+}
+
+func storeBackend(sl *model.ModelLoader, cl *config.ModelConfigLoader, storeName string, backend string) (grpc.Backend, string, error) {
+	backend, loadOpts, modelID := resolveStoreBackend(cl, storeName, backend)
+	be, err := loadStoreBackend(sl, modelID, storeName, backend, loadOpts)
+	return be, model.CanonicalBackend(backend), err
+}
+
+// The loader caches processes by ID alone, so an explicit backend other than
+// the store's own needs its own ID.
+func resolveStoreBackend(cl *config.ModelConfigLoader, storeName string, backend string) (string, []string, string) {
+	home := model.LocalStoreBackend
+	var cfgBackend string
+	var opts []string
 	if cl != nil {
 		if cfg, ok := cl.GetModelConfig(storeName); ok {
-			if backend == "" {
-				backend = cfg.Backend
+			cfgBackend, opts = cfg.Backend, cfg.Options
+			if cfgBackend != "" {
+				home = cfgBackend
 			}
-			loadOpts = cfg.Options
 		}
 	}
-
 	if backend == "" {
-		backend = model.LocalStoreBackend
+		backend = home
 	}
+	if model.CanonicalBackend(backend) == model.CanonicalBackend(home) {
+		return backend, opts, storeName
+	}
+	if cfgBackend != "" {
+		opts = nil
+	}
+	return backend, opts, storeName + "@" + model.CanonicalBackend(backend)
+}
+
+func loadStoreBackend(sl *model.ModelLoader, modelID, storeName, backend string, loadOpts []string) (grpc.Backend, error) {
 	// ModelLoader caches backend processes by `modelID`, not by the `model`
 	// passed via WithModel. Without a distinct modelID, every StoreBackend
 	// call collapses to the same `modelID=""` cache slot — face (512-D) and
@@ -281,7 +297,7 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, cl
 	// convention upgrades in lockstep).
 	sc := []model.Option{
 		model.WithBackendString(backend),
-		model.WithModelID(storeName),
+		model.WithModelID(modelID),
 		model.WithModel(store.NamespacePrefix + storeName),
 	}
 

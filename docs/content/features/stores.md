@@ -51,12 +51,28 @@ but you can select a different store backend per request (see [Backends](#backen
 ## Backends
 
 Each `/stores/*` request accepts an optional `backend` field selecting the store implementation.
-Two backends ship with LocalAI:
+Three backends ship with LocalAI:
 
 | Backend | `backend` value | Persistence | Notes |
 |---------|-----------------|-------------|-------|
 | Local (default) | `local-store` (alias `embedded-store`) | In-memory, lost on restart | Exact cosine similarity, zero configuration. |
 | Valkey Search | `valkey-store` (alias `valkey`) | Durable (Valkey RDB/AOF) | Backed by a Valkey Search (`FT.*`) server; survives restarts and supports opt-in HNSW. |
+| Qdrant | `qdrant-store` (alias `qdrant`) | Durable (Qdrant storage) | Backed by a Qdrant server or cluster, or Qdrant Cloud; HNSW-indexed; on a single node a `find` right after a `set` sees the new vectors. |
+
+Internal features that use stores (face and voice recognition, the router's KNN classifier and
+embedding cache) don't send a `backend` field. To move the router's stores (`router-cache-<router>`
+and `router-corpus-<router>`) to a durable backend, create a model config named after the store with
+the `backend:` and `options:` shown below. Keep the default cosine `distance_metric` for them: they
+compare similarities against cosine thresholds. Keep face and voice recognition on `local-store`
+for now: their registries remember enrolled IDs only in memory, so after a restart entries in a
+durable store could no longer be forgotten. With tracing enabled, the router's vector-store calls
+appear in `/api/backend-traces` under the backend each store resolved to.
+
+A `backend` field that names a different backend than the store's own (its model config's
+`backend:`, or `local-store` when there is none) is served by a separate backend instance, so it
+never lands on the store's usual backend. It gets the model config's `options:` only if the config
+has no `backend:`; otherwise those options belong to the configured backend, and it gets its own
+defaults.
 
 ### Valkey store backend
 
@@ -144,6 +160,83 @@ the host portion of `addr`, so certificate verification works for both hostname 
 IP-addressed endpoints. For a self-signed / private CA, point `tls_ca_cert` at the PEM
 bundle; `tls_skip_verify:true` disables verification entirely and should only be used for
 local testing.
+{{% /notice %}}
+
+### Qdrant store backend
+
+The `qdrant-store` backend keeps vectors in a [Qdrant](https://qdrant.tech/) collection, so the
+data survives a LocalAI restart. It works with a single Qdrant node, a Qdrant cluster and Qdrant
+Cloud. It talks to Qdrant's **gRPC** port (`6334` by default), not the `6333` REST port.
+
+Select it by passing `"backend": "qdrant-store"` (or the `"qdrant"` alias) on any `/stores/*` request:
+
+```
+curl -X POST http://localhost:8080/stores/set \
+     -H "Content-Type: application/json" \
+     -d '{"backend": "qdrant-store", "store": "my-vectors", "keys": [[0.1, 0.2], [0.3, 0.4]], "values": ["foo", "bar"]}'
+```
+
+As with Valkey, the connection and collection are configured through a **model config** named
+after the store, with the settings in `options:` as `key:value` strings:
+
+```yaml
+name: my-vectors
+backend: qdrant-store
+options:
+  - addr:xyz-example.eu-central.aws.cloud.qdrant.io:6334
+  - tls:true
+  - api_key_env:QDRANT_API_KEY
+  - distance_metric:COSINE
+```
+
+When no config exists for a store, the backend connects to `localhost:6334` with the defaults
+below.
+
+Each store gets its own collection, named `localai_<store>-<hash>` (for example
+`localai_my-vectors-1a2b3c4d`) unless you set `collection`. It is created on the first `set` with
+the dimension of the first key, and Qdrant rejects keys and queries of any other dimension, even
+after every key is deleted. To change the dimension (for example after switching embedding
+models), delete the collection in Qdrant or set a new `collection`. The backend never deletes
+collections itself, since with several writers that could lose another writer's data.
+
+Keys are matched exactly, and a repeated key keeps the last value. A `set` is a single Qdrant
+request, so a rejected `set` writes nothing. `NaN` and `Inf` components are rejected.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `addr` | `localhost:6334` | Qdrant gRPC address (`host:port`; the port defaults to `6334`). Not a URL — use `tls:true` for HTTPS endpoints. |
+| `api_key` | *(empty)* | Qdrant API key (plaintext in config). |
+| `api_key_env` | *(empty)* | Name of an env var that holds the API key. Preferred over `api_key` — keeps the secret out of the model YAML. |
+| `tls` | `false` | Enable TLS (required by Qdrant Cloud). |
+| `tls_ca_cert` | *(empty)* | Path to a PEM CA bundle used to verify the server certificate (self-signed / private CA). Turns on `tls`. |
+| `tls_skip_verify` | `false` | Skip TLS certificate verification. Insecure — for testing only. Turns on `tls`. |
+| `collection` | *(derived)* | Use this exact collection name instead of the derived one. |
+| `distance_metric` | `COSINE` | `COSINE`, `EUCLID`, `DOT` or `MANHATTAN` (case-insensitive). |
+| `request_timeout_ms` | `5000` | Per-request timeout in milliseconds. |
+
+For `COSINE` the returned `similarities` follow the local store's convention (`1.0` = identical,
+`-1.0` = opposite). For `DOT` they are dot products (larger is closer). For `EUCLID` and `MANHATTAN`
+they are distances, so smaller is closer, which is the opposite ordering to `COSINE`. In every case
+results come back nearest-first. If a collection already exists with a different distance than
+`distance_metric`, loading the store (or, if the collection appeared later, the first `find`) fails
+rather than returning scores with the wrong meaning.
+
+{{% notice note %}}
+The backend creates collections with Qdrant's default settings. For custom settings (sharding and
+replication on a cluster, HNSW parameters, on-disk vectors, quantization), create the collection
+in Qdrant yourself and point `collection` at it: an existing collection is used as long as it has a
+single unnamed vector with the configured `distance_metric`.
+{{% /notice %}}
+
+{{% notice note %}}
+Small collections are searched exactly. Once Qdrant builds the HNSW index (when a segment passes
+its indexing threshold, 10 MB of vectors per segment by default, so typically tens of thousands of
+embeddings), `find` is approximate, with recall set by the collection's HNSW settings.
+{{% /notice %}}
+
+{{% notice warning %}}
+`tls` defaults to `false` (plaintext). Set `tls:true` whenever Qdrant is not on `localhost` or an
+API key is configured, otherwise the key and the stored vectors travel the network unencrypted.
 {{% /notice %}}
 
 ## Set
