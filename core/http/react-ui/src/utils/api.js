@@ -441,7 +441,7 @@ export const agentsApi = {
   status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
   observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
   clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message }),
+  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
   export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
   import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),

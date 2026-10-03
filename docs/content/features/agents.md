@@ -366,6 +366,22 @@ curl -X POST http://localhost:8080/api/agents/my-agent/chat \
   -d '{"message": "What is the weather today?"}'
 ```
 
+Each message runs as a new job. To continue a conversation, send its earlier turns as `history`; only `user` and `assistant` turns with text are used, and only the most recent 40 turns up to 64,000 characters:
+
+```bash
+curl -X POST http://localhost:8080/api/agents/my-agent/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Add two days to item 3",
+    "history": [
+      {"role": "user", "content": "Draft an offer for the rollout"},
+      {"role": "assistant", "content": "Offer AG-1: ... item 3: 15 days ..."}
+    ]
+  }'
+```
+
+The web UI does this for you: each conversation in the agent chat sends only its own visible turns. **New Chat** and switching conversations therefore continue from that conversation alone, and **Clear** starts the conversation over without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
+
 Listen to real-time events via SSE:
 
 ```bash

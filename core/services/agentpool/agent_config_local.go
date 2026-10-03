@@ -180,8 +180,8 @@ func (b *localAgentConfigBackend) ListAvailableActions() []string {
 	return agiServices.AvailableActions
 }
 
-func (b *localAgentConfigBackend) Chat(userID, name, message string) (string, error) {
-	return b.svc.Chat(agents.AgentKey(userID, name), message)
+func (b *localAgentConfigBackend) Chat(userID, name, message string, history []ChatHistoryMessage) (string, error) {
+	return b.svc.Chat(agents.AgentKey(userID, name), message, history)
 }
 
 func (b *localAgentConfigBackend) Stop() {
