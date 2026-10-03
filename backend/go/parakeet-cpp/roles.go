@@ -166,7 +166,12 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		// No ctx to ask for last_error (the C-API's last-error buffer lives on
 		// the ctx that was never returned). Surface the path so the operator
 		// at least knows which load failed.
-		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
+		//
+		// A packed ternary Redux GGUF (redux-packed) is the likeliest cause on a
+		// GPU build: the library refuses it with a message that goes to its own
+		// log, not through the C-API, so name the cause here.
+		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q (see the backend log for the library message; "+
+			"a packed ternary Redux model is CPU only and is refused on a GPU backend, use the redux-f16 or redux-q8_0 file there)", opts.ModelFile)
 	}
 	loaded := []uintptr{primary}
 	// freeLoaded undoes everything loadRoles opened this call: every context
