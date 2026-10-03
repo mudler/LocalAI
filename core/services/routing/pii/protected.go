@@ -35,10 +35,18 @@ type shield struct {
 	scanStart, scanEnd int
 }
 
-var protectedMatchers sync.Map // key: "\x00"-joined normalised terms -> *regexp.Regexp
+// File reloads can produce indefinitely many distinct lists. Retain only a
+// bounded set of compiled matchers; eviction changes no detection policy.
+var protectedMatchers = struct {
+	sync.Mutex
+	entries map[string]*regexp.Regexp
+	order   []string
+}{entries: make(map[string]*regexp.Regexp)}
 
-// protectedMatcher compiles (once per distinct term list) a
-// case-insensitive matcher for the terms, longest first so that "Hotel
+const maxProtectedMatchers = 32
+
+// protectedMatcher caches a case-insensitive matcher for the terms,
+// longest first so that "Hotel
 // Seeblick Spa" wins over "Hotel Seeblick". Whitespace inside a term
 // matches any whitespace run, so a term still matches across a line wrap.
 // Returns nil when no usable term remains.
@@ -62,8 +70,10 @@ func protectedMatcher(terms []string) *regexp.Regexp {
 	})
 	norm = slices.Compact(norm)
 	key := strings.Join(norm, "\x00")
-	if re, ok := protectedMatchers.Load(key); ok {
-		return re.(*regexp.Regexp)
+	protectedMatchers.Lock()
+	defer protectedMatchers.Unlock()
+	if re, ok := protectedMatchers.entries[key]; ok {
+		return re
 	}
 	alts := make([]string, len(norm))
 	for i, t := range norm {
@@ -74,7 +84,12 @@ func protectedMatcher(terms []string) *regexp.Regexp {
 		alts[i] = strings.Join(words, `\s+`)
 	}
 	re := regexp.MustCompile(`(?i)(?:` + strings.Join(alts, "|") + `)`)
-	protectedMatchers.Store(key, re)
+	if len(protectedMatchers.order) == maxProtectedMatchers {
+		delete(protectedMatchers.entries, protectedMatchers.order[0])
+		protectedMatchers.order = protectedMatchers.order[1:]
+	}
+	protectedMatchers.entries[key] = re
+	protectedMatchers.order = append(protectedMatchers.order, key)
 	return re
 }
 

@@ -155,3 +155,18 @@ var _ = Describe("LoadProtectedTerms", func() {
 			To(Equal([]string{"x-inline"}))
 	})
 })
+
+var _ = Describe("Protected matcher cache", func() {
+	It("releases obsolete term lists while preserving matching after eviction", func() {
+		terms := []string{"Evicted Supplier"}
+		first := protectedMatcher(terms)
+		for i := 0; i < 64; i++ {
+			protectedMatcher([]string{strings.Repeat("x", i+3)})
+		}
+		reloaded := protectedMatcher(terms)
+		Expect(reloaded).NotTo(BeIdenticalTo(first), "old file revisions must not remain cached indefinitely")
+		text, regions := shieldProtected("Evicted Supplier, customer Lena", reloaded)
+		Expect(text).To(Equal(protectedPlaceholder + ", customer Lena"))
+		Expect(regions).To(HaveLen(1))
+	})
+})
