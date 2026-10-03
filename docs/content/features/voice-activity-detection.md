@@ -117,6 +117,38 @@ Malformed values, negative durations, and NaN thresholds are ignored; the defaul
 
 Reload the model (or restart LocalAI) after changing these options.
 
+## parakeet-cpp backend
+
+The `parakeet-cpp` backend serves the same endpoint. It runs one of two detectors:
+
+- **Silero VAD** from a GGUF file (gallery entry `parakeet-cpp-silero-vad-f16`, 1.3 MB). One probability per 32 ms.
+- **The VAD head** of a Moondream Ultra or Redux model (gallery entries `parakeet-cpp-vad-moondream-ultra-q8_0` and `parakeet-cpp-vad-moondream-redux-packed`). One probability per 80 ms. The packed Redux file runs on CPU only.
+
+The entry `parakeet-cpp-vad` installs Silero. The detectors differ and are not variants of one model, so install the entry of the VAD head by name if you want it. The request is the same as above: `audio` is 16 kHz mono float32 PCM, and the response lists `segments` with `start` and `end` in seconds. An ASR model that has no VAD head fails the request with `model has no VAD head`.
+
+```yaml
+name: parakeet-vad
+backend: parakeet-cpp
+known_usecases:
+  - vad
+parameters:
+  model: parakeet-cpp/silero-vad-f16.gguf
+options:
+  - vad_threshold:0.5
+  - vad_min_pause:0.1
+```
+
+All options are optional. An unset value keeps the default of the detector in use (the library defaults differ between Silero and the head):
+
+| Option | Unit | Silero default | Head default | Description |
+|--------|------|---------------:|-------------:|-------------|
+| `vad_threshold` | 0 to 1 | `0.5` | `0.5` | Speech probability threshold |
+| `vad_min_pause` | seconds | `0.1` | `0.2` | A silence this long separates two segments; shorter gaps merge |
+| `vad_min_speech` | seconds | `0.25` | `0.1` | Shorter speech runs are dropped |
+| `vad_speech_pad` | seconds | `0.03` | `0` | Padding added around each segment |
+
+Option names differ from the Silero backend above (`min_silence_duration_ms` and `speech_pad_ms` are in milliseconds there). The same options tune transcription with `vad:true` or `vad_model`; see [audio to text]({{%relref "features/audio-to-text" %}}). Requests on one loaded model run one at a time.
+
 ## Detection Parameters
 
 The Silero VAD backend uses the following internal defaults (overridable via `options` above):
