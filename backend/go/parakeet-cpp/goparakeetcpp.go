@@ -39,6 +39,13 @@ var (
 	CppFreeString         func(s uintptr)
 	CppLastError          func(ctx uintptr) string
 
+	// CppTranscribePathJSONVad is CppTranscribePathJSON with long audio cut at
+	// pauses by the model's own VAD head (segments of at most 30 s; the document
+	// has the same shape, times are relative to the whole file). Returns 0 and
+	// sets last_error to "model has no VAD head" for models without one. Present
+	// only in newer libparakeet.so (additive, no ABI bump); nil when absent.
+	CppTranscribePathJSONVad func(ctx uintptr, wavPath string, decoder int32) uintptr
+
 	// Batched JSON transcription: takes a concatenated float buffer of clips
 	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
 	// and returns a malloc'd char* JSON ARRAY of per-clip {"text","words",
@@ -239,6 +246,10 @@ type ParakeetCpp struct {
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
 	segmentGapFrames int
+	// vad routes offline transcription through the VAD-segmented C-API entry
+	// point (vad:true model option). It bypasses the dynamic batcher, which has
+	// no VAD variant, and is not used for streaming.
+	vad bool
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -249,6 +260,12 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if opts.ModelFile == "" {
 		return errors.New("parakeet-cpp: ModelFile is required")
 	}
+
+	vad, err := parseVADOption(opts)
+	if err != nil {
+		return err
+	}
+	p.vad = vad
 
 	if err := p.loadRoles(opts); err != nil {
 		return err
@@ -307,6 +324,37 @@ func optInt(opts *pb.ModelOptions, key string, def int) int {
 		}
 	}
 	return def
+}
+
+// optBool reads a boolean model option (key:value form, strconv.ParseBool
+// values). It returns def when the key is absent and an error when the value
+// does not parse, so a typo like "vad:ture" fails the load instead of being
+// silently ignored.
+func optBool(opts *pb.ModelOptions, key string, def bool) (bool, error) {
+	v := optString(opts, key)
+	if v == "" {
+		return def, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("parakeet-cpp: option %s: %q is not a boolean", key, v)
+	}
+	return b, nil
+}
+
+// parseVADOption reads the vad: model option (default false). Enabling it
+// needs a libparakeet.so that exports parakeet_capi_transcribe_path_json_vad.
+// Whether the model itself has a VAD head is only known to the library; a
+// model without one fails each request with the library's message.
+func parseVADOption(opts *pb.ModelOptions) (bool, error) {
+	vad, err := optBool(opts, "vad", false)
+	if err != nil || !vad {
+		return false, err
+	}
+	if CppTranscribePathJSONVad == nil {
+		return false, errors.New("parakeet-cpp: vad:true needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad; rebuild the backend against a newer parakeet.cpp")
+	}
+	return true, nil
 }
 
 // runBatch is the dispatcher's batch handler and the ONLY caller of the C
@@ -402,21 +450,30 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
 	// mirrors what every other audio backend (whisper, crispasr) does via
 	// utils.AudioToWav before handing the file to the engine.
-	if p.bat == nil {
+	//
+	// With vad:true the same file-path route is taken through the
+	// VAD-segmented entry point, which cuts long audio at pauses. The batcher
+	// has no VAD variant, so this path replaces it for offline requests.
+	if p.bat == nil || p.vad {
 		converted, cleanup, err := convertToWavMono16k(opts.Dst)
 		if err != nil {
 			return pb.TranscriptResult{}, err
 		}
 		defer cleanup()
-		cstr := CppTranscribePathJSON(p.ctxPtr, converted, 0)
-		if cstr == 0 {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
+		doc, err := p.transcribePathDoc(converted)
+		if err != nil {
+			return pb.TranscriptResult{}, err
 		}
-		raw := goStringFromCPtr(cstr)
-		CppFreeString(cstr)
-		var doc transcriptJSON
-		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+		if p.vad && p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+			pcm, _, err := decodeWavMono16k(converted)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			segs, err := p.diarizeSegmentsPCM(pcm)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, assignSpeakers(doc.Words, segs)), nil
 		}
 		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 	}
@@ -458,6 +515,34 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		speakers = assignSpeakers(doc.Words, segs)
 	}
 	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// transcribePathDoc transcribes a 16 kHz mono WAV at path through the file-path
+// C-API (the VAD-segmented variant when vad:true) and decodes the JSON document.
+// It holds engineMu for the call: the engine is single-threaded and the batcher
+// is not involved on this path.
+func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
+	fn, name := CppTranscribePathJSON, "transcribe_path_json"
+	if p.vad {
+		fn, name = CppTranscribePathJSONVad, "transcribe_path_json_vad"
+	}
+	p.engineMu.Lock()
+	cstr := fn(p.ctxPtr, path, 0)
+	var lastErr string
+	if cstr == 0 {
+		lastErr = CppLastError(p.ctxPtr)
+	}
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, lastErr)
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+	return doc, nil
 }
 
 // segmentSeparators is NeMo's default segment_seperators (sentence-ending

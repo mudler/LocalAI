@@ -71,6 +71,13 @@ func main() {
 		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 	}
 
+	// VAD-segmented offline transcription (vad:true model option). Additive in
+	// the C-API (no ABI bump); same probe pattern, so an older libparakeet.so
+	// still loads and Load refuses vad:true with a clear message.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVad, lib, "parakeet_capi_transcribe_path_json_vad")
+	}
+
 	// Per-request language variants (multilingual nemotron). Same probe pattern:
 	// present only in libparakeet.so built with multilingual support, so the
 	// backend still loads against an older library and falls back to the
