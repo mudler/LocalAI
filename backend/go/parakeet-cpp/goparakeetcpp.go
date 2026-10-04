@@ -39,6 +39,18 @@ var (
 	CppFreeString         func(s uintptr)
 	CppLastError          func(ctx uintptr) string
 
+	// Bundle GGUF (additive in the C-API, no ABI bump; see bundle.go). All three
+	// are registered together and nil on an older libparakeet.so, where a
+	// bundle file is loaded like any other file (the library then refuses it)
+	// and the *_component options are rejected.
+	// CppLoadComponent opens one named component of a bundle.
+	// CppBundleComponentsJSON returns the component list as a malloc'd JSON
+	// array (uintptr, freed via CppFreeString), or 0 when the file is not a bundle.
+	// CppLoadError is the reason of the last failed load on the calling thread.
+	CppLoadComponent        func(ggufPath, component string) uintptr
+	CppBundleComponentsJSON func(ggufPath string) uintptr
+	CppLoadError            func() string
+
 	// CppTranscribePathJSONVad is CppTranscribePathJSON with long audio cut at
 	// pauses by the model's own VAD head (segments of at most 30 s; the document
 	// has the same shape, times are relative to the whole file). Returns 0 and
@@ -254,9 +266,12 @@ type ParakeetCpp struct {
 	// primary (asr_model:/diarization_model:/sound_model: options), so Free
 	// can release them after the primary.
 	companions []uintptr
-	engineMu   sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
-	bat        *batcher
-	batStop    chan struct{}
+	// bundle lists the components of the primary model file when it is a bundle
+	// GGUF (bundle.go); nil for a plain file.
+	bundle   []bundleComponent
+	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
+	bat      *batcher
+	batStop  chan struct{}
 	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
@@ -295,11 +310,11 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		return err
 	}
 	p.vadOptions = vadOpts
-	if optString(opts, "vad_model") != "" {
+	if optString(opts, "vad_model") != "" || optString(opts, "vad_component") != "" {
 		if CppTranscribePathJSONVadWith == nil {
-			return errors.New("parakeet-cpp: vad_model needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+			return errors.New("parakeet-cpp: vad_model and vad_component need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
 		}
-		// vad_model implies vad: a Silero model is only useful to cut audio.
+		// vad_model and vad_component imply vad: a Silero model is only useful to cut audio.
 		p.vad = true
 	}
 

@@ -103,6 +103,11 @@ type companionSpec struct {
 	wantKind int32
 	assign   func(*ParakeetCpp, uintptr)
 	current  func(*ParakeetCpp) uintptr
+	// component and compOpt are the bundle component name for this role and the
+	// option that sets it (bundle.go). With a component set and no value, the
+	// role is loaded from the primary model file, which must be a bundle.
+	component string
+	compOpt   string
 }
 
 // indefiniteArticle returns "an" for a word starting with a vowel sound and
@@ -137,17 +142,23 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	soundModelOpt := optString(opts, "sound_model")
 	speakerModelOpt := optString(opts, "speaker_model")
 	vadModelOpt := optString(opts, "vad_model")
-	hasCompanionOpts := diarModelOpt != "" || asrModelOpt != "" || soundModelOpt != "" || speakerModelOpt != "" || vadModelOpt != ""
+	bundleASR := optString(opts, "bundle_asr")
+	vadComp := optString(opts, "vad_component")
+	diarComp := optString(opts, "diar_component")
+	soundComp := optString(opts, "sound_component")
+	speakerComp := optString(opts, "speaker_component")
+	hasCompanionOpts := diarModelOpt != "" || asrModelOpt != "" || soundModelOpt != "" || speakerModelOpt != "" || vadModelOpt != "" ||
+		bundleASR != "" || vadComp != "" || diarComp != "" || soundComp != "" || speakerComp != ""
 
 	if hasCompanionOpts && CppModelKind == nil {
-		return errors.New("parakeet-cpp: asr_model/diarization_model/sound_model/speaker_model/vad_model options need " +
+		return errors.New("parakeet-cpp: asr_model/diarization_model/sound_model/speaker_model/vad_model and the bundle component options need " +
 			"parakeet_capi_model_kind (ABI v8) to verify what they load; the loaded libparakeet.so " +
 			"is too old to report companion model roles")
 	}
 
-	if speakerModelOpt != "" {
+	if speakerModelOpt != "" || speakerComp != "" {
 		if CppSpeakerRegistryAddEmbedding == nil || CppSpeakerDim == nil || CppSceneStreamBeginSpeaker == nil {
-			return errors.New("parakeet-cpp: speaker_model needs libparakeet.so ABI 10 " +
+			return errors.New("parakeet-cpp: speaker_model and speaker_component need libparakeet.so ABI 10 " +
 				"(parakeet_capi_speaker_registry_add_embedding); the loaded library is older")
 		}
 	}
@@ -165,18 +176,11 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		return err
 	}
 
-	primary := CppLoad(opts.ModelFile)
-	if primary == 0 {
-		// No ctx to ask for last_error (the C-API's last-error buffer lives on
-		// the ctx that was never returned). Surface the path so the operator
-		// at least knows which load failed.
-		//
-		// A packed ternary Redux GGUF (redux-packed) is the likeliest cause on a
-		// GPU build: the library refuses it with a message that goes to its own
-		// log, not through the C-API, so name the cause here.
-		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q (see the backend log for the library message; "+
-			"a packed ternary Redux model is CPU only and is refused on a GPU backend, use the redux-f16 or redux-q8_0 file there)", opts.ModelFile)
+	primary, comps, err := loadPrimary(opts.ModelFile, bundleASR)
+	if err != nil {
+		return err
 	}
+	p.bundle = comps
 	loaded := []uintptr{primary}
 	// freeLoaded undoes everything loadRoles opened this call: every context
 	// it freed AND every ParakeetCpp field it may have assigned (the primary
@@ -189,6 +193,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 			CppFree(c)
 		}
 		p.ctxPtr, p.diarCtx, p.tagCtx, p.spkCtx, p.vadCtx = 0, 0, 0, 0, 0
+		p.bundle = nil
 		p.companions = nil
 	}
 
@@ -218,23 +223,42 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	specs := []companionSpec{
 		{"diarization_model", diarModelOpt, modelKindDiarization,
 			func(pp *ParakeetCpp, c uintptr) { pp.diarCtx = c },
-			func(pp *ParakeetCpp) uintptr { return pp.diarCtx }},
+			func(pp *ParakeetCpp) uintptr { return pp.diarCtx },
+			diarComp, "diar_component"},
 		{"asr_model", asrModelOpt, modelKindASR,
 			func(pp *ParakeetCpp, c uintptr) { pp.ctxPtr = c },
-			func(pp *ParakeetCpp) uintptr { return pp.ctxPtr }},
+			func(pp *ParakeetCpp) uintptr { return pp.ctxPtr },
+			bundleASR, "bundle_asr"},
 		{"sound_model", soundModelOpt, modelKindSound,
 			func(pp *ParakeetCpp, c uintptr) { pp.tagCtx = c },
-			func(pp *ParakeetCpp) uintptr { return pp.tagCtx }},
+			func(pp *ParakeetCpp) uintptr { return pp.tagCtx },
+			soundComp, "sound_component"},
 		{"speaker_model", speakerModelOpt, modelKindSpeaker,
 			func(pp *ParakeetCpp, c uintptr) { pp.spkCtx = c },
-			func(pp *ParakeetCpp) uintptr { return pp.spkCtx }},
+			func(pp *ParakeetCpp) uintptr { return pp.spkCtx },
+			speakerComp, "speaker_component"},
 		{"vad_model", vadModelOpt, modelKindVAD,
 			func(pp *ParakeetCpp, c uintptr) { pp.vadCtx = c },
-			func(pp *ParakeetCpp) uintptr { return pp.vadCtx }},
+			func(pp *ParakeetCpp) uintptr { return pp.vadCtx },
+			vadComp, "vad_component"},
 	}
 	for _, spec := range specs {
+		path := resolveModelPath(opts.ModelPath, spec.value)
+		fromPrimary := false
 		if spec.value == "" {
-			continue
+			// bundle_asr names the ASR of the primary file, so on its own it is
+			// not a request for an asr_model companion.
+			if spec.component == "" || spec.optName == "asr_model" {
+				continue
+			}
+			// A component option with no companion file: the role comes from the
+			// primary file, which must be a bundle.
+			if comps == nil {
+				freeLoaded()
+				return fmt.Errorf("parakeet-cpp: %s needs the model file or a %s to be a bundle GGUF; %q is not one",
+					spec.compOpt, spec.optName, opts.ModelFile)
+			}
+			path, fromPrimary = opts.ModelFile, true
 		}
 		// A companion whose role the primary already occupies (e.g. asr_model:
 		// on an already-ASR primary) would overwrite that role field below,
@@ -245,30 +269,46 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 			return fmt.Errorf("parakeet-cpp: %s is not allowed on %s %s model",
 				spec.optName, indefiniteArticle(modelKindName(spec.wantKind)), modelKindName(spec.wantKind))
 		}
-		resolved := resolveModelPath(opts.ModelPath, spec.value)
-		cctx := CppLoad(resolved)
-		if cctx == 0 {
-			freeLoaded()
-			return fmt.Errorf("parakeet-cpp: failed to load %s %q", spec.optName, resolved)
+		cctx, err := loadCompanion(spec, path, fromPrimary, comps)
+		if cctx != 0 {
+			loaded = append(loaded, cctx)
 		}
-		loaded = append(loaded, cctx)
-		if gotKind := CppModelKind(cctx); gotKind != spec.wantKind {
+		if err != nil {
 			freeLoaded()
-			return fmt.Errorf("parakeet-cpp: %s %q is %s %s model, expected %s %s model",
-				spec.optName, resolved, indefiniteArticle(modelKindName(gotKind)), modelKindName(gotKind),
-				indefiniteArticle(modelKindName(spec.wantKind)), modelKindName(spec.wantKind))
+			return err
 		}
 		spec.assign(p, cctx)
 		p.companions = append(p.companions, cctx)
 	}
 
-	if vadModelOpt != "" && p.ctxPtr == 0 {
+	// A Silero VAD component of the primary bundle is the VAD source without any
+	// option, as in the parakeet-cli rules: it is small and serves the VAD
+	// endpoint and vad:true. Not finding one, or not being able to load it, is
+	// not an error here: the ASR head (if any) stays the fallback.
+	if vadModelOpt == "" && vadComp == "" && p.vadCtx == 0 && p.ctxPtr != 0 && comps != nil && CppLoadComponent != nil {
+		if names := componentsOfKind(comps, componentVAD); len(names) == 1 {
+			vctx, verr := loadComponent(opts.ModelFile, names[0])
+			switch {
+			case verr != nil:
+				xlog.Warn("parakeet-cpp: bundle VAD component not loaded", "error", verr)
+			case CppModelKind(vctx) != modelKindVAD:
+				CppFree(vctx)
+				xlog.Warn("parakeet-cpp: bundle VAD component is not a Silero model; using the ASR VAD head if any", "component", names[0])
+			default:
+				loaded = append(loaded, vctx)
+				p.vadCtx = vctx
+				p.companions = append(p.companions, vctx)
+			}
+		}
+	}
+
+	if (vadModelOpt != "" || vadComp != "") && p.ctxPtr == 0 {
 		freeLoaded()
-		return errors.New("parakeet-cpp: vad_model cuts audio for transcription and needs an ASR model (the primary or asr_model:)")
+		return errors.New("parakeet-cpp: vad_model and vad_component cut audio for transcription and needs an ASR model (the primary or asr_model:)")
 	}
 	if p.spkCtx != 0 && p.diarCtx == 0 {
 		freeLoaded()
-		return errors.New("parakeet-cpp: speaker_model needs a diarization model (the primary or diarization_model:)")
+		return errors.New("parakeet-cpp: speaker_model needs a diarization model (the primary, diarization_model: or diar_component:)")
 	}
 	p.speakerAccept, p.speakerMargin = accept, margin
 	p.diarLatency = latency
@@ -295,4 +335,107 @@ func (p *ParakeetCpp) notASRError() error {
 	default:
 		return nil
 	}
+}
+
+// loadPrimary opens the primary model file. A bundle is opened by component: the
+// bundle_asr one, else its only ASR component. A bundle with several ASR
+// components and no bundle_asr is refused with their names. A bundle with no ASR
+// component is left to the library, which opens its only loadable component.
+// Any other file is opened as before. comps lists the components of a bundle
+// (nil for a plain file); nothing is loaded when it returns an error.
+func loadPrimary(path, bundleASR string) (ctx uintptr, comps []bundleComponent, err error) {
+	comps, err = bundleComponents(path)
+	if err != nil {
+		return 0, nil, err
+	}
+	if comps == nil {
+		if bundleASR != "" {
+			return 0, nil, fmt.Errorf("parakeet-cpp: bundle_asr needs a bundle GGUF; %q is not one (or libparakeet.so has no bundle support)", path)
+		}
+		ctx = CppLoad(path)
+		if ctx == 0 {
+			// No ctx to ask for last_error (the C-API's last-error buffer lives on
+			// the ctx that was never returned). Surface the path so the operator
+			// at least knows which load failed.
+			//
+			// A packed ternary Redux GGUF (redux-packed) is the likeliest cause on a
+			// GPU build: the library refuses it with a message that goes to its own
+			// log, not through the C-API, so name the cause here.
+			return 0, nil, fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q (see the backend log for the library message; "+
+				"a packed ternary Redux model is CPU only and is refused on a GPU backend, use the redux-f16 or redux-q8_0 file there)", path)
+		}
+		return ctx, nil, nil
+	}
+	if bundleASR == "" && len(componentsOfKind(comps, componentASR)) == 0 {
+		ctx = CppLoad(path)
+		if ctx == 0 {
+			return 0, nil, fmt.Errorf("parakeet-cpp: failed to load the bundle %q: %s", path, loadErrorText())
+		}
+		return ctx, comps, nil
+	}
+	name, err := pickComponent(path, comps, bundleASR, componentASR, "the primary model", "bundle_asr")
+	if err != nil {
+		return 0, nil, err
+	}
+	ctx, err = loadComponent(path, name)
+	if err != nil {
+		return 0, nil, withRedux(err)
+	}
+	return ctx, comps, nil
+}
+
+// withRedux adds the CPU-only hint of a packed Redux component to a failed
+// component load: the library refuses it on a GPU backend.
+func withRedux(err error) error {
+	return fmt.Errorf("%w (a packed ternary Redux model is CPU only and is refused on a GPU backend)", err)
+}
+
+func loadErrorText() string {
+	if CppLoadError == nil {
+		return ""
+	}
+	return CppLoadError()
+}
+
+// loadCompanion loads the model of one companion role from path. A bundle gives
+// its component of the wanted kind (named by the role's component option, else
+// the only one); a plain file is loaded as before and refuses a component
+// option. It returns the context even with an error when the context was
+// opened but is not usable, so the caller can free it. fromPrimary tells that
+// path is the primary file, already known to be a bundle with components comps.
+func loadCompanion(spec companionSpec, path string, fromPrimary bool, comps []bundleComponent) (uintptr, error) {
+	if !fromPrimary {
+		var err error
+		comps, err = bundleComponents(path)
+		if err != nil {
+			return 0, err
+		}
+	}
+	var cctx uintptr
+	if comps == nil {
+		if spec.component != "" {
+			return 0, fmt.Errorf("parakeet-cpp: %s needs a bundle GGUF; %q is not one (or libparakeet.so has no bundle support)",
+				spec.compOpt, path)
+		}
+		cctx = CppLoad(path)
+		if cctx == 0 {
+			return 0, fmt.Errorf("parakeet-cpp: failed to load %s %q", spec.optName, path)
+		}
+	} else {
+		wantKind := kindForModel(spec.wantKind)
+		name, err := pickComponent(path, comps, spec.component, wantKind, spec.optName, spec.compOpt)
+		if err != nil {
+			return 0, err
+		}
+		cctx, err = loadComponent(path, name)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if gotKind := CppModelKind(cctx); gotKind != spec.wantKind {
+		return cctx, fmt.Errorf("parakeet-cpp: %s %q is %s %s model, expected %s %s model",
+			spec.optName, path, indefiniteArticle(modelKindName(gotKind)), modelKindName(gotKind),
+			indefiniteArticle(modelKindName(spec.wantKind)), modelKindName(spec.wantKind))
+	}
+	return cctx, nil
 }

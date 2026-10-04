@@ -116,7 +116,7 @@ func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error
 	}
 	if p.diarCtx == 0 {
 		return pb.DiarizeResponse{}, status.Error(codes.FailedPrecondition,
-			"parakeet-cpp: model is not a diarization model")
+			"parakeet-cpp: model is not a diarization model"+p.roleHint(componentDiar, "diar_component"))
 	}
 	if CppDiarizePCM == nil {
 		return pb.DiarizeResponse{}, status.Error(codes.Unimplemented,

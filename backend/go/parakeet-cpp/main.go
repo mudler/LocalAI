@@ -89,6 +89,19 @@ func main() {
 		purego.RegisterLibFunc(&CppVadPcmJSON, lib, "parakeet_capi_vad_pcm_json")
 	}
 
+	// Bundle GGUF (one file with several models; docs/bundle.md in parakeet.cpp).
+	// Additive in the C-API. The three entry points come together, so one probe
+	// decides; without them a bundle file is handled like any other file.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_load_component"); err == nil && sym != 0 {
+		if sym2, err2 := purego.Dlsym(lib, "parakeet_capi_bundle_components_json"); err2 == nil && sym2 != 0 {
+			if sym3, err3 := purego.Dlsym(lib, "parakeet_capi_load_error"); err3 == nil && sym3 != 0 {
+				purego.RegisterLibFunc(&CppLoadComponent, lib, "parakeet_capi_load_component")
+				purego.RegisterLibFunc(&CppBundleComponentsJSON, lib, "parakeet_capi_bundle_components_json")
+				purego.RegisterLibFunc(&CppLoadError, lib, "parakeet_capi_load_error")
+			}
+		}
+	}
+
 	// Per-request language variants (multilingual nemotron). Same probe pattern:
 	// present only in libparakeet.so built with multilingual support, so the
 	// backend still loads against an older library and falls back to the
