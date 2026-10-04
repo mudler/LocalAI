@@ -210,6 +210,9 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 			if cfg.extendsToNextWord(e.Group) && i == len(pieces)-1 {
 				end = keepExtension(end, nextWordEnd(text, end), shields)
 			}
+			if cfg.extendsToPreviousWord(e.Group) && i == 0 {
+				start = keepExtensionBefore(start, prevWordStart(text, start), shields)
+			}
 			xlog.Debug("pii/ner: detection accepted",
 				"group", e.Group, "score", e.Score, "action", action,
 				"start", start, "end", end, "detected_end", pc[1], "text", e.Text)
@@ -253,6 +256,47 @@ func nextWordEnd(text string, end int) int {
 	}
 	if i == wordStart {
 		return end
+	}
+	return i
+}
+
+// prevWordStart returns the start offset of the word that precedes
+// text[start:]: horizontal whitespace before start is skipped (a line break
+// ends the search), then letters, combining marks and the in-word joiners '-'
+// and the apostrophe are consumed backwards. The word must consist of letters:
+// when it touches a digit (an amount, a date, a code) or no word precedes,
+// start is returned unchanged, so a hit is never stretched over a number,
+// bare whitespace or onto the previous line.
+func prevWordStart(text string, start int) int {
+	i := start
+	for i > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:i])
+		if r == '\n' || r == '\r' || !unicode.IsSpace(r) {
+			break
+		}
+		i -= size
+	}
+	wordEnd := i
+	letters := 0
+	for i > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:i])
+		if unicode.IsLetter(r) {
+			letters++
+		} else if !unicode.IsMark(r) && r != '-' && r != '\'' {
+			break
+		}
+		i -= size
+	}
+	if i > 0 {
+		if r, _ := utf8.DecodeLastRuneInString(text[:i]); unicode.IsDigit(r) {
+			return start // the word is glued to a number: leave it alone
+		}
+	}
+	for i < wordEnd && (text[i] == '-' || text[i] == '\'') {
+		i++
+	}
+	if i == wordEnd || letters == 0 {
+		return start
 	}
 	return i
 }

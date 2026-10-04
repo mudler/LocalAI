@@ -181,6 +181,18 @@ func keepExtension(end, extended int, regions []shield) int {
 	return extended
 }
 
+// keepExtensionBefore is keepExtension for a hit stretched backwards to
+// extended (< start): the extension is dropped when a protected region lies
+// in the added range, so a protected term in front of a hit is never masked.
+func keepExtensionBefore(start, extended int, regions []shield) int {
+	for _, r := range regions {
+		if r.origEnd > extended && r.origEnd <= start {
+			return start
+		}
+	}
+	return extended
+}
+
 type protectedFileEntry struct {
 	modTime time.Time
 	size    int64

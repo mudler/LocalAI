@@ -801,6 +801,17 @@ var _ = Describe("PII config accessors", func() {
 		Expect(cfg.PIIDetection.ExtendToNextWord[0]).To(Equal("ZIPCODE"), "accessor must return a fresh slice")
 	})
 
+	It("unmarshals pii_detection.extend_to_previous_word from YAML", func() {
+		var cfg ModelConfig
+		raw := []byte("name: pf\npii_detection:\n  extend_to_previous_word: [LASTNAME]\n")
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.PIIDetectionExtendToPreviousWord()).To(Equal([]string{"LASTNAME"}))
+		Expect(cfg.PIIDetectionExtendToNextWord()).To(BeNil(), "the two directions are independent")
+		got := cfg.PIIDetectionExtendToPreviousWord()
+		got[0] = "FIRSTNAME"
+		Expect(cfg.PIIDetection.ExtendToPreviousWord[0]).To(Equal("LASTNAME"), "accessor must return a fresh slice")
+	})
+
 	It("unmarshals pii_detection.protected_terms and protected_terms_files from YAML", func() {
 		var cfg ModelConfig
 		raw := []byte("name: pf\npii_detection:\n  protected_terms: [Hotel Seeblick]\n  protected_terms_files: [pf/terms.txt]\n")

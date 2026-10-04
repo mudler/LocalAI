@@ -1062,6 +1062,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "string-list",
 			Order:       215,
 		},
+		"pii_detection.extend_to_previous_word": {
+			Section:     "pii",
+			Label:       "Extend To Previous Word",
+			Description: "Entity groups (e.g. LASTNAME) whose detections also cover the word right before them on the same line, with the same action, when that word consists of letters only. Use it when the model tags a surname reliably but scores the first name before it below the threshold.",
+			Component:   "string-list",
+			Order:       215,
+		},
 		"pii_detection.protected_terms": {
 			Section:     "pii",
 			Label:       "Protected Terms",

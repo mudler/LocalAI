@@ -372,6 +372,7 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 			pii.SourceNER,
 		)
 		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		nc.ExtendToPreviousWord = cfg.PIIDetectionExtendToPreviousWord()
 		terms, files := cfg.PIIDetectionProtectedTerms()
 		nc.ProtectedTerms = pii.LoadProtectedTerms(terms, files, a.ApplicationConfig().SystemState.Model.ModelsPath)
 		return nc, true
