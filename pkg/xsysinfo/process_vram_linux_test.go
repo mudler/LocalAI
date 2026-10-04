@@ -78,6 +78,19 @@ var _ = Describe("ProcessVRAM", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	It("sums resident memory when the kernel has no children file", func() {
+		Expect(os.Remove(filepath.Join(root, "100/task/100/children"))).To(Succeed())
+		write(filepath.Join(root, "100/stat"), "100 (backend) S 1 0 0\n")
+		Expect(os.MkdirAll(filepath.Join(root, "200/fd"), 0750)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(root, "200/task/200"), 0750)).To(Succeed())
+		write(filepath.Join(root, "200/stat"), "200 (gpu (worker)) S 100 0 0\n")
+		addFD(100, 3, "renderD128", "drm-client-id: 7\ndrm-resident-vram0: 128 MiB\n")
+		addFD(200, 3, "renderD129", "drm-client-id: 8\ndrm-resident-vram0: 256 MiB\n")
+		used, ok := processVRAM(root, 100)
+		Expect(ok).To(BeTrue())
+		Expect(used).To(Equal(uint64(384 * 1024 * 1024)))
+	})
+
 	It("omits a partial reading if another DRM client lacks accounting", func() {
 		addFD(100, 3, "renderD128", "drm-client-id: 7\ndrm-resident-vram0: 128 MiB\n")
 		addFD(100, 4, "renderD129", "drm-client-id: 8\n")
