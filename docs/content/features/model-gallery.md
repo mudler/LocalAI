@@ -86,6 +86,24 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## SC117 Qwen3.8 Flash Next GSQ-RCO
+
+Install SC117's abliterated Flash Next build for text chat and image input
+with llama.cpp:
+
+```bash
+local-ai models install sc117-qwen3.8-flash-next-gsq-rco-iq2-xs
+```
+
+The gallery groups IQ2_XS and IQ3_S mixed quantizations. To choose IQ3_S,
+add `--variant sc117-qwen3.8-flash-next-gsq-rco-iq3-s` to the command.
+Each build installs both weight shards and the BF16 vision projector.
+The configurations use the embedded chat template and a 32,768-token context.
+Allow approximately 69 GB for IQ2_XS or 85 GB for IQ3_S downloads, plus
+additional runtime memory. These entries do not enable MTP decoding.
+See the [publisher's model card](https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF)
+for the tensor-transplant method and Apache-2.0 license.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

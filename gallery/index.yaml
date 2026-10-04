@@ -1942,6 +1942,128 @@
     - filename: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
       uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
       sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- name: "sc117-qwen3.8-flash-next-gsq-rco-iq2-xs"
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    - https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF
+  description: |
+    SC117's abliterated Qwen3.8 Flash Next with GSQ-RCO IQ2_XS mixed quantization.
+    Includes both GGUF shards and the BF16 vision projector for text chat
+    and image input. Uses llama.cpp with the embedded chat template
+    and a 32K context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - vision
+    - multimodal
+    - abliterated
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-10-04"
+  variants:
+    - model: sc117-qwen3.8-flash-next-gsq-rco-iq3-s
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmap: true
+    mlock: false
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/sc117-qwen3.8-flash-next-gsq-rco/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    parameters:
+      model: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      sha256: 4acc3ebb5050d20117bdc77fc39200e709dfe2b2367f3522c95b9112a30aff81
+    - filename: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00002-of-00002.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/IQ2_XS/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00002-of-00002.gguf
+      sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+    - filename: llama-cpp/mmproj/sc117-qwen3.8-flash-next-gsq-rco/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- name: "sc117-qwen3.8-flash-next-gsq-rco-iq3-s"
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    - https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF
+  description: |
+    SC117's abliterated Qwen3.8 Flash Next with GSQ-RCO IQ3_S mixed quantization.
+    Includes both GGUF shards and the BF16 vision projector for text chat
+    and image input. Uses llama.cpp with the embedded chat template
+    and a 32K context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - vision
+    - multimodal
+    - abliterated
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-10-04"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmap: true
+    mlock: false
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/sc117-qwen3.8-flash-next-gsq-rco/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    parameters:
+      model: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00001-of-00002.gguf
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00001-of-00002.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00001-of-00002.gguf
+      sha256: 40f369eca301ec6ea318dbb671b3132c26a2f0b89aa5458a7051b33215ee296c
+    - filename: llama-cpp/models/sc117-qwen3.8-flash-next-gsq-rco/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00002-of-00002.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00002-of-00002.gguf
+      sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+    - filename: llama-cpp/mmproj/sc117-qwen3.8-flash-next-gsq-rco/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/eec4e10a2c29b440a2ae85591fa11569ce752963/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
 - !!merge <<: *qwen3-8-flash-next
   name: "qwen3.8-flash-next-gsq-rco-q2-0"
   variants: []
