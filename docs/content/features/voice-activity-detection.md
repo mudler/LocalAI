@@ -122,9 +122,10 @@ Reload the model (or restart LocalAI) after changing these options.
 The `parakeet-cpp` backend serves the same endpoint. It runs one of two detectors:
 
 - **Silero VAD** from a GGUF file (gallery entry `parakeet-cpp-silero-vad-f16`, 1.3 MB). One probability per 32 ms.
-- **The VAD head** of a Moondream Ultra or Redux model (gallery entries `parakeet-cpp-vad-moondream-ultra-q8_0` and `parakeet-cpp-vad-moondream-redux-packed`). One probability per 80 ms. The packed Redux file runs on CPU only.
+- **The VAD head** of a full Moondream Ultra or Redux model (gallery entries `parakeet-cpp-vad-moondream-ultra-q8_0` and `parakeet-cpp-vad-moondream-redux-packed`). One probability per 80 ms. The packed Redux file runs on CPU only.
+- **A VAD-only slice** of that head (gallery entries `parakeet-cpp-vad-moondream-redux`, 9.9 MB, and `parakeet-cpp-vad-moondream-ultra`, 6.0 MB). The slice is cut out of the full model without retraining, so the segments are byte-identical to the full model's head, and the speed is the same. Compared with loading the whole model (213 MB to 1.4 GB), the file is 6 to 10 MB, loads in a few milliseconds instead of 0.1 to 0.7 s, and needs about 245 MiB of peak memory for a 33 s clip instead of 0.6 to 1.6 GiB. A slice cannot transcribe, and it needs a parakeet.cpp build with VAD-only GGUF support (parakeet.cpp pull request 87).
 
-The entry `parakeet-cpp-vad` installs Silero. The detectors differ and are not variants of one model, so install the entry of the VAD head by name if you want it. The request is the same as above: `audio` is 16 kHz mono float32 PCM, and the response lists `segments` with `start` and `end` in seconds. An ASR model that has no VAD head fails the request with `model has no VAD head`.
+The entry `parakeet-cpp-vad` installs Silero. The detectors differ and are not variants of one model, so install the entry of the VAD head by name if you want it (`parakeet-cpp-vad-moondream-redux` or `parakeet-cpp-vad-moondream-ultra` for the small files). The request is the same as above: `audio` is 16 kHz mono float32 PCM, and the response lists `segments` with `start` and `end` in seconds. An ASR model that has no VAD head fails the request with `model has no VAD head`.
 
 ```yaml
 name: parakeet-vad
