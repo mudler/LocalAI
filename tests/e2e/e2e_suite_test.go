@@ -77,6 +77,7 @@ var _ = BeforeSuite(func() {
 
 	// Check if mock-backend binary exists in the mock-backend directory
 	possiblePaths := []string{
+		os.Getenv("E2E_MOCK_BACKEND"),
 		filepath.Join(mockBackendDir, "mock-backend"),
 		filepath.Join("tests", "e2e", "mock-backend", "mock-backend"),
 		filepath.Join("..", "..", "tests", "e2e", "mock-backend", "mock-backend"),

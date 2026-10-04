@@ -6,14 +6,19 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	localaiapp "github.com/mudler/LocalAI/core/application"
+	httpapi "github.com/mudler/LocalAI/core/http"
 	"io"
 	"math"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +27,7 @@ import (
 
 // Installation consumes the actual committed gallery, with cached artifacts
 // checked BEFORE invoking its downloader. Missing/mismatched files fail closed.
-func installRealDecisionGallery() {
+func installRealDecisionGallery(modelsPath string) {
 	cache := os.Getenv("DECISION_MODEL_CACHE")
 	Expect(cache).NotTo(BeEmpty())
 	data, err := os.ReadFile(filepath.Join("..", "..", "gallery", "index.yaml"))
@@ -69,17 +74,12 @@ func installRealDecisionGallery() {
 	cfg["batch"] = 512
 	cfg["options"] = []string{"parallel:1"}
 	cfg["name"] = "openjev-llama-cpp"
-	writeDecisionConfig(cfg)
-	writeDecisionConfig(decisionRouterConfig("mm-real-router", "decisions", "openjev-llama-cpp"))
-	Expect(localAIApp.ModelConfigLoader().LoadModelConfigsFromPath(modelsPath)).To(Succeed())
-	binary := os.Getenv("DECISION_BACKEND")
-	Expect(binary).NotTo(BeEmpty())
-	localAIApp.ModelLoader().SetExternalBackend("llama-cpp", binary)
+	writeDecisionConfigAt(modelsPath, cfg)
+	writeDecisionConfigAt(modelsPath, decisionRouterConfig("mm-real-router", "decisions", "openjev-llama-cpp"))
 	// Final generation remains explicitly mocked; only decisions load real weights.
 	for _, name := range []string{"mm-red", "mm-blue"} {
-		writeDecisionConfig(map[string]any{"name": name, "backend": "mock-backend", "known_usecases": []string{"chat", "vision"}, "parameters": map[string]any{"model": name + ".bin"}})
+		writeDecisionConfigAt(modelsPath, map[string]any{"name": name, "backend": "mock-backend", "known_usecases": []string{"chat", "vision"}, "parameters": map[string]any{"model": name + ".bin"}})
 	}
-	Expect(localAIApp.ModelConfigLoader().LoadModelConfigsFromPath(modelsPath)).To(Succeed())
 }
 
 var _ = Describe("Gallery multimodal public API", Label("MultimodalReal", "real-models"), func() {
@@ -87,13 +87,18 @@ var _ = Describe("Gallery multimodal public API", Label("MultimodalReal", "real-
 		if os.Getenv("DECISION_REAL_E2E") != "1" {
 			Skip("set DECISION_REAL_E2E=1 with cached artifacts and CPU backend")
 		}
-		installRealDecisionGallery()
+		modelsPath := decisionIsolatedPath()
+		installRealDecisionGallery(modelsPath)
+		binary := os.Getenv("DECISION_BACKEND")
+		Expect(binary).NotTo(BeEmpty())
+		realApp, realURL, cleanup := decisionIsolatedApp(modelsPath, binary)
+		defer cleanup()
 		for _, blue := range []bool{false, true} {
 			want := "red"
 			if blue {
 				want = "blue"
 			}
-			code, data := decisionPost("/systemone", map[string]any{"model": "openjev-llama-cpp", "state": map[string]any{}, "images": []string{decisionImage(blue)}, "questions": map[string]any{"color": map[string]any{"type": "choice", "instructions": "What is the dominant color of the image?", "criteria": map[string]any{"red": nil, "blue": nil}}}})
+			code, data := decisionPostAt(realURL, "/systemone", map[string]any{"model": "openjev-llama-cpp", "state": map[string]any{}, "images": []string{decisionImage(blue)}, "questions": map[string]any{"color": map[string]any{"type": "choice", "instructions": "What is the dominant color of the image?", "criteria": map[string]any{"red": nil, "blue": nil}}}})
 			Expect(code).To(Equal(200), string(data))
 			var response schema.SystemOneResponse
 			Expect(json.Unmarshal(data, &response)).To(Succeed())
@@ -115,9 +120,12 @@ var _ = Describe("Gallery multimodal public API", Label("MultimodalReal", "real-
 				if anthropic {
 					endpoint = "/messages"
 				}
-				code, data = decisionPost(endpoint, imageChat("mm-real-router", []string{decisionImage(blue)}, anthropic))
+				code, data = decisionPostAt(realURL, endpoint, imageChat("mm-real-router", []string{decisionImage(blue)}, anthropic))
 				Expect(code).To(Equal(200), string(data))
-				d := lastDecision("mm-real-router")
+				rows, err := realApp.RouterDecisions().List(context.Background(), router.DecisionListQuery{RouterModel: "mm-real-router", Limit: 1})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+				d := rows[0]
 				Expect(d.Classifier).To(Equal("decisions"))
 				Expect(d.ServedModel).To(Equal("mm-" + want))
 				Expect(d.Label).To(Equal(want))
@@ -126,5 +134,63 @@ var _ = Describe("Gallery multimodal public API", Label("MultimodalReal", "real-
 				_, _ = fmt.Fprintf(GinkgoWriter, "REAL ROUTER endpoint=%s image=%s decision=%+v\n", endpoint, want, d)
 			}
 		}
+	})
+})
+
+// Each fixture owns its loader, model namespace, HTTP server and processes.
+// In particular, no shared llama-cpp mapping or loaded candidate is reused.
+func decisionIsolatedPath() string {
+	dir, err := os.MkdirTemp(tmpDir, "decision-isolated-")
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
+	return dir
+}
+func decisionIsolatedApp(dir, binary string) (*localaiapp.Application, string, func()) {
+	state, err := system.GetSystemState(system.WithModelPath(dir), system.WithBackendPath(filepath.Join(dir, "backends")))
+	Expect(err).NotTo(HaveOccurred())
+	ctx, cancel := context.WithCancel(context.Background())
+	a, err := localaiapp.New(config.WithContext(ctx), config.WithSystemState(state), config.WithGeneratedContentDir(filepath.Join(dir, "generated")))
+	Expect(err).NotTo(HaveOccurred())
+	a.ModelLoader().SetExternalBackend("llama-cpp", binary)
+	a.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
+	app, err := httpapi.API(a)
+	Expect(err).NotTo(HaveOccurred())
+	server := httptest.NewServer(app)
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			server.Close()
+			defer cancel()
+			Expect(a.Shutdown()).To(Succeed())
+		})
+	}
+	DeferCleanup(cleanup)
+	return a, server.URL + "/v1", cleanup
+}
+
+var _ = Describe("Decision fixture isolation", Label("Multimodal"), func() {
+	It("keeps shared routing intact before, during and after an isolated app", func() {
+		checkShared := func() {
+			code, data := decisionPost("/chat/completions", imageChat("mm-router", []string{decisionImage(true)}, false))
+			Expect(code).To(Equal(200), string(data))
+			Expect(lastDecision("mm-router").ServedModel).To(Equal("mm-blue"))
+		}
+		checkShared()
+		original := localAIApp.ModelLoader().GetExternalBackend("llama-cpp")
+		red, err := os.ReadFile(filepath.Join(modelsPath, "mm-red.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+		dir := decisionIsolatedPath()
+		// Deliberately reuse model names with different settings across applications.
+		writeDecisionConfigAt(dir, map[string]any{"name": "mm-decision", "backend": "llama-cpp", "known_usecases": []string{"decisions"}, "parameters": map[string]any{"model": "mm-error.bin"}})
+		_, url, cleanup := decisionIsolatedApp(dir, mockBackendPath)
+		code, _ := decisionPostAt(url, "/systemone", map[string]any{"model": "mm-decision", "state": map[string]any{}, "questions": map[string]any{"q": map[string]any{"type": "noul"}}})
+		Expect(code).To(Equal(500))
+		checkShared()
+		cleanup()
+		checkShared()
+		Expect(localAIApp.ModelLoader().GetExternalBackend("llama-cpp")).To(Equal(original))
+		after, err := os.ReadFile(filepath.Join(modelsPath, "mm-red.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(red))
 	})
 })

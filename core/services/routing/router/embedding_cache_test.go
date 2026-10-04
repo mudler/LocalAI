@@ -394,7 +394,9 @@ var _ = Describe("EmbeddingCache latency", func() {
 var _ = Describe("Multimodal embedding cache isolation", func() {
 	It("never embeds, trims, reads or writes cache for image probes", func() {
 		inner := &stubInner{name: "decisions", decision: router.Decision{Labels: []string{"visual"}, Score: .9}}
-		cache := router.NewEmbeddingCacheClassifier(inner, &fakeEmbedder{}, &memVectorStore{}, .9, .5)
+		embedder := &countingImageEmbedder{}
+		store := &countingImageStore{}
+		cache := router.NewEmbeddingCacheClassifier(inner, embedder, store, .9, .5)
 		for _, data := range []string{"AA==", "AQ=="} {
 			p := router.Probe{Prompt: "identical", Messages: []string{"old image turn", "new text"}, State: json.RawMessage(`{}`), Images: json.RawMessage(`["data:image/png;base64,` + data + `"]`)}
 			d, err := cache.Classify(context.Background(), p)
@@ -402,5 +404,29 @@ var _ = Describe("Multimodal embedding cache isolation", func() {
 			Expect(d.Cached).To(BeFalse())
 		}
 		Expect(inner.calls).To(Equal(2))
+		Expect(embedder.calls).To(BeZero())
+		Expect(store.reads).To(BeZero())
+		Expect(store.writes).To(BeZero())
 	})
 })
+
+// Return a usable vector and applicable cached decision: disabling the image
+// guard must fail even when the cache infrastructure succeeds.
+type countingImageEmbedder struct{ calls int }
+
+func (e *countingImageEmbedder) Embed(context.Context, string) ([]float32, error) {
+	e.calls++
+	return []float32{1}, nil
+}
+
+type countingImageStore struct{ reads, writes int }
+
+func (s *countingImageStore) Search(context.Context, []float32) (float64, []byte, bool, error) {
+	s.reads++
+	return 1, []byte(`{"labels":["stale-text"],"score":1}`), true, nil
+}
+func (s *countingImageStore) SearchK(context.Context, []float32, int) ([]backend.Neighbor, error) {
+	s.reads++
+	return nil, nil
+}
+func (s *countingImageStore) Insert(context.Context, []float32, []byte) error { s.writes++; return nil }

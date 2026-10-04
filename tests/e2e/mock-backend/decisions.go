@@ -20,6 +20,9 @@ import (
 // Independent scores deliberately overlap, unlike a softmax classifier.
 func mockDecision(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
 	opts := snapshotLoadParams()
+	if err := auditDecision("score", []byte(in.Prompt)); err != nil {
+		return nil, err
+	}
 	if strings.Contains(opts.Model, "mm-cancel") {
 		audit := ""
 		for _, option := range opts.Options {
@@ -80,4 +83,32 @@ func mockDecision(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, 
 	}
 	out, err := json.Marshal(map[string]any{"answers": answers, "received": received, "usage": map[string]int{"input_tokens": 7, "output_tokens": 0}})
 	return &pb.ScoreResponse{ResponseJson: string(out)}, err
+}
+
+// Per-fixture files observe actual external RPC calls, including calls whose
+// errors the router deliberately hides behind fallback.
+func auditDecision(operation string, data []byte) error {
+	opts := snapshotLoadParams()
+	if opts == nil {
+		return nil
+	}
+	for _, option := range opts.Options {
+		if strings.HasPrefix(option, "decision_audit:") {
+			path := strings.TrimPrefix(option, "decision_audit:") + "." + operation
+			if operation == "score" {
+				return os.WriteFile(path, data, 0600)
+			}
+			f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+			if err != nil {
+				return err
+			}
+			_, err = f.Write(append(data, '\n'))
+			closeErr := f.Close()
+			if err != nil {
+				return err
+			}
+			return closeErr
+		}
+	}
+	return nil
 }

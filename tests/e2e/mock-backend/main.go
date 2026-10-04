@@ -108,7 +108,10 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		return nil, err
 	}
 	if opts := snapshotLoadParams(); opts != nil && (strings.Contains(opts.Model, "mm-red") || strings.Contains(opts.Model, "mm-blue")) {
-		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images})
+		if err := auditDecision("predict", []byte(opts.Model)); err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images, "prompt": in.Prompt})
 		return &pb.Reply{Message: b, PromptTokens: 1, Tokens: 1}, err
 	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
@@ -443,6 +446,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := auditDecision("embedding", []byte("Embedding")); err != nil {
+		return nil, err
+	}
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}

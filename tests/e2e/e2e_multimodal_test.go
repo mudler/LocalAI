@@ -42,6 +42,9 @@ func decisionImage(blue bool) string {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(b.Bytes())
 }
 func decisionPost(endpoint string, body any) (int, []byte) {
+	return decisionPostAt(apiURL, endpoint, body)
+}
+func decisionPostAt(apiURL, endpoint string, body any) (int, []byte) {
 	b, err := json.Marshal(body)
 	Expect(err).NotTo(HaveOccurred())
 	req, err := http.NewRequestWithContext(context.Background(), "POST", apiURL+endpoint, bytes.NewReader(b))
@@ -56,6 +59,9 @@ func decisionPost(endpoint string, body any) (int, []byte) {
 	return resp.StatusCode, data
 }
 func writeDecisionConfig(cfg map[string]any) {
+	writeDecisionConfigAt(modelsPath, cfg)
+}
+func writeDecisionConfigAt(modelsPath string, cfg map[string]any) {
 	b, err := yaml.Marshal(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), b, 0600)).To(Succeed())
@@ -66,7 +72,7 @@ func decisionRouterConfig(name, classifier, model string) map[string]any {
 func setupDecisionFixtures() {
 	// A real Score-capable backend identity, bound to the existing mock binary.
 	// No production capability table mutation is needed.
-	for _, name := range []string{"mm-decision", "mm-unsupported", "mm-error", "mm-cancel", "mm-red", "mm-blue"} {
+	for _, name := range []string{"mm-decision", "mm-unsupported", "mm-error", "mm-cancel", "mm-embed", "mm-red", "mm-blue"} {
 		uses := []string{"decisions"}
 		if name == "mm-red" || name == "mm-blue" {
 			uses = []string{"chat", "vision"}
@@ -78,7 +84,7 @@ func setupDecisionFixtures() {
 	writeDecisionConfig(decisionRouterConfig("mm-fallback", "decisions", "mm-error"))
 	writeDecisionConfig(decisionRouterConfig("mm-text", "score", "mock-classifier"))
 	cached := decisionRouterConfig("mm-cached-text", "score", "mock-classifier")
-	cached["router"].(map[string]any)["embedding_cache"] = map[string]any{"embedding_model": "mock-classifier"}
+	cached["router"].(map[string]any)["embedding_cache"] = map[string]any{"embedding_model": "mm-embed"}
 	writeDecisionConfig(cached)
 	overlap := decisionRouterConfig("mm-overlap", "decisions", "mm-decision")
 	overlap["router"].(map[string]any)["activation_threshold"] = 0.5
@@ -202,6 +208,8 @@ var _ = Describe("Shared multimodal public API", Label("Multimodal"), func() {
 		Expect(d.LabelScores).To(Equal([]router.LabelScore{{Label: "red", Score: .95}, {Label: "blue", Score: .6}}))
 	})
 	It("bypasses embedding cache for differing images instead of conflating image-only probes", func() {
+		audit := filepath.Join(tmpDir, "decision-audit.embedding")
+		Expect(os.Remove(audit)).To(SatisfyAny(Succeed(), WithTransform(os.IsNotExist, BeTrue())))
 		for _, blue := range []bool{false, true, false} {
 			code, data := decisionPost("/chat/completions", imageChat("mm-cached-text", []string{decisionImage(blue)}, false))
 			Expect(code).To(Equal(200), string(data))
@@ -209,11 +217,16 @@ var _ = Describe("Shared multimodal public API", Label("Multimodal"), func() {
 			Expect(d.Cached).To(BeFalse())
 			Expect(d.Label).To(Equal("fallback"))
 			Expect(d.Classifier).To(Equal("score"))
+			_, err := os.Stat(audit)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "image probes must not call Embedding")
+			stats := localAIApp.RouterClassifierRegistry().EmbeddingCacheStatsByRouter()
+			Expect(stats).To(HaveKeyWithValue("mm-cached-text", router.EmbeddingCacheStats{}))
 		}
 	})
 
 	It("does not dispatch fallback after parent cancellation", func() {
 		audit := filepath.Join(tmpDir, "decision-audit")
+		before := decisionPredictAudit()
 		body, err := json.Marshal(imageChat("mm-cancel-router", []string{decisionImage(true)}, false))
 		Expect(err).NotTo(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
@@ -238,29 +251,64 @@ var _ = Describe("Shared multimodal public API", Label("Multimodal"), func() {
 			Expect(err).NotTo(HaveOccurred())
 			return len(rows)
 		}, 500*time.Millisecond, 20*time.Millisecond).Should(BeZero())
+		Expect(decisionPredictAudit()).To(Equal(before), "cancelled request must not call fallback Predict")
 	})
 	It("does not trim image-bearing state to the classifier's text context budget", func() {
-		body := imageChat("mm-router", []string{decisionImage(true)}, false)
-		messages := body["messages"].([]any)
-		body["messages"] = append([]any{map[string]any{"role": "user", "content": strings.Repeat("old context ", 3000)}}, messages...)
+		images := []string{decisionImage(true), decisionImage(false)}
+		body := imageChat("mm-router", images, false)
+		messages := append([]any{map[string]any{"role": "user", "content": strings.Repeat("old context ", 3000)}, map[string]any{"role": "assistant", "content": "arbitrary prior answer"}}, body["messages"].([]any)...)
+		body["messages"] = messages
 		code, data := decisionPost("/chat/completions", body)
 		Expect(code).To(Equal(200), string(data))
+		captured, err := os.ReadFile(filepath.Join(tmpDir, "decision-audit.score"))
+		Expect(err).NotTo(HaveOccurred())
+		var received struct {
+			State []struct {
+				Role    string `json:"role"`
+				Content any    `json:"content"`
+			} `json:"state"`
+			Images []string `json:"images"`
+		}
+		Expect(json.Unmarshal(captured, &received)).To(Succeed())
+		actual, err := json.Marshal(received.State)
+		Expect(err).NotTo(HaveOccurred())
+		expected, err := json.Marshal(messages)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(actual).To(MatchJSON(expected))
+		Expect(received.Images).To(BeEmpty(), "embedded images must not be duplicated at top level")
 		Expect(lastDecision("mm-router").ServedModel).To(Equal("mm-blue"))
 	})
 
 	It("falls back on normal classifier errors and explicit text-only rejection without losing images", func() {
 		for _, name := range []string{"mm-fallback", "mm-text"} {
 			images := []string{decisionImage(true), decisionImage(false)}
-			code, data := decisionPost("/chat/completions", imageChat(name, images, false))
+			body := imageChat(name, images, false)
+			body["messages"] = append([]any{map[string]any{"role": "user", "content": "arbitrary old question 731"}, map[string]any{"role": "assistant", "content": "arbitrary old answer 942"}}, body["messages"].([]any)...)
+			code, data := decisionPost("/chat/completions", body)
 			Expect(code).To(Equal(200), string(data))
 			Expect(lastDecision(name).ServedModel).To(Equal("mm-red"))
 			var r struct {
 				Choices []struct{ Message struct{ Content string } }
 			}
 			Expect(json.Unmarshal(data, &r)).To(Succeed())
-			var echoed struct{ Images []string }
+			var echoed struct {
+				Images []string
+				Prompt string
+			}
 			Expect(json.Unmarshal([]byte(r.Choices[0].Message.Content), &echoed)).To(Succeed())
 			Expect(echoed.Images).To(Equal([]string{strings.SplitN(images[0], ",", 2)[1], strings.SplitN(images[1], ",", 2)[1]}))
+			Expect(echoed.Prompt).To(ContainSubstring("arbitrary old question 731"))
+			Expect(echoed.Prompt).To(ContainSubstring("arbitrary old answer 942"))
+			Expect(strings.Index(echoed.Prompt, "arbitrary old question 731")).To(BeNumerically("<", strings.Index(echoed.Prompt, "arbitrary old answer 942")))
 		}
 	})
 })
+
+func decisionPredictAudit() string {
+	data, err := os.ReadFile(filepath.Join(tmpDir, "decision-audit.predict"))
+	if os.IsNotExist(err) {
+		return ""
+	}
+	Expect(err).NotTo(HaveOccurred())
+	return string(data)
+}
