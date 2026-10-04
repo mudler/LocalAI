@@ -17174,6 +17174,86 @@
     - filename: NeoHorse-1-4B-BF16.gguf
       uri: https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF/resolve/3c5d58ca82e580b5b0b3ce6eeffd34ac7d0fd95a/NeoHorse-1-4B-BF16.gguf
       sha256: b27b4cb2770673ab948a8db166f52f9c74da3df3c88d43f5aa564377f1b4ae50
+- name: frognano-4b-2609
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: frognano-4b-2609-q8
+  urls:
+    - https://huggingface.co/microsoft/FrogNano-4B-2609
+    - https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF
+  description: |
+    FrogNano is Microsoft's Qwen3.5-4B derivative for repository-level coding
+    and tool use. This Q4_K_M GGUF build uses the embedded chat template
+    with a 32K-token default context. Configured for text input; upstream
+    does not evaluate or support its inherited image and video components.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-10-04"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: FrogNano-4B-2609-Q4_K_M.gguf
+      temperature: 0.6
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: FrogNano-4B-2609-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF/resolve/dfbb801e04ddf045ffd245b9f1a546ed0c7d960f/FrogNano-4B-2609-Q4_K_M.gguf
+      sha256: 01fba00c57e2976399ae4947f0b4fdde4623d3e410a435bf2ae39ddf164e9b0a
+- name: frognano-4b-2609-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/FrogNano-4B-2609
+    - https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF
+  description: |
+    FrogNano is Microsoft's Qwen3.5-4B derivative for repository-level coding
+    and tool use. This Q8_0 GGUF build uses the embedded chat template
+    with a 32K-token default context. Configured for text input; upstream
+    does not evaluate or support its inherited image and video components.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-10-04"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: FrogNano-4B-2609-Q8_0.gguf
+      temperature: 0.6
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: FrogNano-4B-2609-Q8_0.gguf
+      uri: https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF/resolve/dfbb801e04ddf045ffd245b9f1a546ed0c7d960f/FrogNano-4B-2609-Q8_0.gguf
+      sha256: ea42d264c21d88b9bf6ce583bb3fd4dfddb22eb5b30efba9e305c56f75974c86
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

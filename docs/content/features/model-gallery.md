@@ -23,6 +23,30 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## FrogNano coding model
+
+[FrogNano](https://huggingface.co/microsoft/FrogNano-4B-2609) is Microsoft's
+Qwen3.5-4B derivative for repository-level coding and tool use.
+The gallery provides llama.cpp builds in Q4_K_M (2.80 GB) and Q8_0 (4.62 GB).
+These sizes cover the weights; runtime memory is additional.
+
+Install the default entry:
+
+```bash
+local-ai models install frognano-4b-2609
+```
+
+To select a quantization explicitly, use
+`--variant frognano-4b-2609` for Q4_K_M or
+`--variant frognano-4b-2609-q8` for Q8_0.
+Both builds use the embedded chat template and a 32,768-token default context.
+They accept text input. Microsoft does not support the inherited image and video
+components for FrogNano, so these entries do not install a vision projector.
+The entries do not enable speculative decoding.
+
+Upstream evaluations use the Leaf agent harness. Installing these weights does
+not install that harness or reproduce its benchmark setup.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
