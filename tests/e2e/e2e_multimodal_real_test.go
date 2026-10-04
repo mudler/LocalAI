@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v3"
 )
 
@@ -149,22 +150,30 @@ func decisionIsolatedApp(dir, binary string) (*localaiapp.Application, string, f
 	state, err := system.GetSystemState(system.WithModelPath(dir), system.WithBackendPath(filepath.Join(dir, "backends")))
 	Expect(err).NotTo(HaveOccurred())
 	ctx, cancel := context.WithCancel(context.Background())
-	a, err := localaiapp.New(config.WithContext(ctx), config.WithSystemState(state), config.WithGeneratedContentDir(filepath.Join(dir, "generated")))
+	DeferCleanup(cancel)
+	// These optional services own process-global meters/exporters and signal
+	// handlers. An isolated HTTP fixture must not replace or retain them.
+	a, err := localaiapp.New(config.WithContext(ctx), config.WithSystemState(state), config.WithGeneratedContentDir(filepath.Join(dir, "generated")), config.DisableMetricsEndpoint, config.WithDisableLocalAIAssistant(true))
+	var server *httptest.Server
+	var once sync.Once
+	cleanup := func() {
+		once.Do(func() {
+			defer cancel()
+			if server != nil {
+				server.Close()
+			}
+			if a != nil {
+				Expect(a.Shutdown()).To(Succeed())
+			}
+		})
+	}
+	DeferCleanup(cleanup)
 	Expect(err).NotTo(HaveOccurred())
 	a.ModelLoader().SetExternalBackend("llama-cpp", binary)
 	a.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 	app, err := httpapi.API(a)
 	Expect(err).NotTo(HaveOccurred())
-	server := httptest.NewServer(app)
-	var once sync.Once
-	cleanup := func() {
-		once.Do(func() {
-			server.Close()
-			defer cancel()
-			Expect(a.Shutdown()).To(Succeed())
-		})
-	}
-	DeferCleanup(cleanup)
+	server = httptest.NewServer(app)
 	return a, server.URL + "/v1", cleanup
 }
 
@@ -182,11 +191,18 @@ var _ = Describe("Decision fixture isolation", Label("Multimodal"), func() {
 		dir := decisionIsolatedPath()
 		// Deliberately reuse model names with different settings across applications.
 		writeDecisionConfigAt(dir, map[string]any{"name": "mm-decision", "backend": "llama-cpp", "known_usecases": []string{"decisions"}, "parameters": map[string]any{"model": "mm-error.bin"}})
-		_, url, cleanup := decisionIsolatedApp(dir, mockBackendPath)
+		provider := otel.GetMeterProvider()
+		isolated, url, cleanup := decisionIsolatedApp(dir, mockBackendPath)
+		Expect(otel.GetMeterProvider()).To(BeIdenticalTo(provider))
+		Expect(isolated.ApplicationConfig().DisableMetrics).To(BeTrue())
+		Expect(isolated.MetricsService()).To(BeNil())
+		Expect(isolated.ApplicationConfig().DisableLocalAIAssistant).To(BeTrue())
+		Expect(isolated.LocalAIAssistant()).To(BeNil())
 		code, _ := decisionPostAt(url, "/systemone", map[string]any{"model": "mm-decision", "state": map[string]any{}, "questions": map[string]any{"q": map[string]any{"type": "noul"}}})
 		Expect(code).To(Equal(500))
 		checkShared()
 		cleanup()
+		Expect(otel.GetMeterProvider()).To(BeIdenticalTo(provider))
 		checkShared()
 		Expect(localAIApp.ModelLoader().GetExternalBackend("llama-cpp")).To(Equal(original))
 		after, err := os.ReadFile(filepath.Join(modelsPath, "mm-red.yaml"))

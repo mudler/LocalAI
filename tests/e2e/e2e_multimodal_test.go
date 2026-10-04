@@ -115,6 +115,13 @@ var decisionUsage struct {
 	tokens any
 }
 
+// Snapshot before asserting: a failed assertion must never retain the mutex.
+func decisionUsageSnapshot() any {
+	decisionUsage.Lock()
+	defer decisionUsage.Unlock()
+	return decisionUsage.tokens
+}
+
 func observeDecisionUsage(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := next(c)
@@ -144,6 +151,11 @@ var _ = Describe("Shared multimodal public API", Label("Multimodal"), func() {
 		Expect(r["answers"]).To(HaveKey("color"))
 	})
 	It("rejects malformed, oversized and unsupported images without usage", func() {
+		// Prove the observer sees a real successful usage stamp before checking
+		// its absence on errors. A disconnected observer must fail this control.
+		code, data := decisionPost("/systemone", map[string]any{"model": "mm-decision", "state": map[string]any{}, "images": []string{decisionImage(false)}, "questions": map[string]any{"q": map[string]any{"type": "noul"}}})
+		Expect(code).To(Equal(200), string(data))
+		Expect(decisionUsageSnapshot()).To(Equal(int64(7)))
 		for _, tc := range []struct {
 			model  string
 			images []string
@@ -152,9 +164,7 @@ var _ = Describe("Shared multimodal public API", Label("Multimodal"), func() {
 			code, data := decisionPost("/systemone", map[string]any{"model": tc.model, "state": map[string]any{}, "images": tc.images, "questions": map[string]any{"q": map[string]any{"type": "noul"}}})
 			Expect(code).To(Equal(tc.code), string(data))
 			Expect(string(data)).NotTo(ContainSubstring("input_tokens"))
-			decisionUsage.Lock()
-			Expect(decisionUsage.tokens).To(BeNil())
-			decisionUsage.Unlock()
+			Expect(decisionUsageSnapshot()).To(BeNil())
 		}
 	})
 	for _, anthropic := range []bool{false, true} {
