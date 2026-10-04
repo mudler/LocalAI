@@ -1,4 +1,74 @@
 ---
+- name: "index-translate-9b"
+  variants:
+    - model: index-translate-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-9B
+    - https://huggingface.co/mradermacher/Index-Translate-9B-GGUF
+  description: |
+    Index-Translate-9B is a Qwen3.5-based text translation model for 150 languages,
+    with support for terminology, formatting, style, and context instructions.
+    This Q4_K_M GGUF uses llama.cpp with thinking disabled and greedy decoding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-9b/Index-Translate-9B.Q4_K_M.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-9b/Index-Translate-9B.Q4_K_M.gguf
+      sha256: 5ff8911559a6736d926183fcb20e2548416b589033660dd530d059c7b74e2c32
+      uri: https://huggingface.co/mradermacher/Index-Translate-9B-GGUF/resolve/6537a9d04a02397200903eee74634eec8b78ebd6/Index-Translate-9B.Q4_K_M.gguf
+- name: "index-translate-9b-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-9B
+    - https://huggingface.co/mradermacher/Index-Translate-9B-GGUF
+  description: |
+    Index-Translate-9B is a Qwen3.5-based text translation model for 150 languages,
+    with support for terminology, formatting, style, and context instructions.
+    This Q8_0 GGUF uses llama.cpp with thinking disabled and greedy decoding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-9b/Index-Translate-9B.Q8_0.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-9b/Index-Translate-9B.Q8_0.gguf
+      sha256: 89efba722c7fab5439a98c8062c1365879470215453dd19d7406bd7fcf0b0dac
+      uri: https://huggingface.co/mradermacher/Index-Translate-9B-GGUF/resolve/6537a9d04a02397200903eee74634eec8b78ebd6/Index-Translate-9B.Q8_0.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
