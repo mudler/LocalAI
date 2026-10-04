@@ -128,6 +128,20 @@ date (`ZIPCODE` followed by `12 Mar 2026` takes `12`), so it trades some
 over-masking for fewer leaks. Use it only for groups whose neighbour is
 identifying.
 
+`extend_to_previous_word` is the mirror for the word *before* a detection. A
+name model often tags the surname with high confidence and scores the first
+name in front of it below `min_score` (`Gast Greta [REDACTED:ner:LASTNAME]`):
+
+```yaml
+pii_detection:
+  extend_to_previous_word:
+    - LASTNAME                # "Gast Greta Waldmeister" -> "Gast [REDACTED:ner:LASTNAME]"
+```
+
+Here the preceding word must consist of letters (plus `-` and `'`): a word
+with digits - an amount, a date, a room number - is never taken, nor a
+protected term. The search skips spaces and tabs but never a line break.
+
 #### Protected terms
 
 The opposite failure is a value the model tags although it must reach the

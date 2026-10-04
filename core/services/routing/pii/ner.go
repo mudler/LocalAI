@@ -79,6 +79,16 @@ type NERConfig struct {
 	// the code alone leaves the town in the clear. Empty disables it.
 	ExtendToNextWord []string
 
+	// ExtendToPreviousWord is the mirror of ExtendToNextWord: accepted
+	// detections of these groups also cover the word directly before them on
+	// the same line, but only when that word consists of letters (and the
+	// in-word joiners '-' and the apostrophe) - never digits, so amounts,
+	// dates and codes in front of a hit stay intact. It exists for a name
+	// model that tags the surname with high confidence and scores the first
+	// name in front of it below the threshold ("Gast Greta Waldmeister"
+	// -> "Gast Greta [REDACTED]"). Protected terms are never swallowed.
+	ExtendToPreviousWord []string
+
 	// ProtectedTerms are values that must reach the model unchanged even
 	// though the detector would tag them, e.g. known business names that a
 	// name model reads as surnames ("Hotel Seeblick" -> LASTNAME). Each
@@ -136,6 +146,12 @@ func NERConfigFromRaw(detector NERDetector, minScore float32, defaultAction stri
 // over the following word (see NERConfig.ExtendToNextWord).
 func (c NERConfig) extendsToNextWord(group string) bool {
 	return slices.Contains(c.ExtendToNextWord, group)
+}
+
+// extendsToPreviousWord reports whether accepted hits of group are stretched
+// over the preceding word (see NERConfig.ExtendToPreviousWord).
+func (c NERConfig) extendsToPreviousWord(group string) bool {
+	return slices.Contains(c.ExtendToPreviousWord, group)
 }
 
 // patternID returns the synthetic pattern ID that audit rows and masks carry
