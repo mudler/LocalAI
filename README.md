@@ -174,6 +174,17 @@ For more details, see the [Getting Started guide](https://localai.io/basics/gett
 
 ## Latest News
 
+- **October 2026**: **LocalAI 4.11.0** — Audio scenes with transcription, speaker labels, and sound detection. Also the Decisions API (`/v1/systemone`), model failover chains, signed OCI galleries, and Kimodo text-to-animation. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.11.0)
+- **September 2026**: **LocalAI 4.10.0** — A fleet operations dashboard, one credentials file for private model sources, and `local-ai benchmark` for measuring model latency and throughput. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.10.0)
+- **August 2026**: **LocalAI 4.9.0** — Deny-by-default authentication, opt-in chat context compression, unified model and backend management, and MiniMax-H3 video generation with audio. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.9.0)
+- **August 2026**: **LocalAI 4.8.0** — Introducing **vllm.cpp (alpha development builds)**, image-to-3D generation with a built-in viewer, and `audio.cpp` for speech, transcription, VAD, diarization, source separation and sound generation. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.8.0)
+- **July 2026**: **LocalAI 4.7.0** — Managed voice cloning profiles, local video and talking-avatar generation, and interleaved reasoning with tool calls. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.7.0)
+- **July 2026**: **LocalAI 4.6.0** — AMD ROCm fixes, predictable realtime pipeline warmup, conversation forking, and more reliable distributed model loading. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.6.0)
+- **June 2026**: **LocalAI 4.5.0** — Native depth estimation and sound-event detection, NER-based PII filtering, and speaker-aware realtime conversations with automatic history compaction. [Release notes](https://github.com/mudler/LocalAI/releases/tag/v4.5.0)
+
+<details>
+<summary>Older news</summary>
+
 - **June 2026**: New native biometric backends from the LocalAI team: [voice-detect.cpp](https://github.com/localai-org/voice-detect.cpp) for speaker recognition and voice analysis (ECAPA-TDNN, WeSpeaker, ERes2Net, CAM++, wav2vec2 age/gender/emotion) and [face-detect.cpp](https://github.com/mudler/face-detect.cpp) for face detection, recognition, demographics and anti-spoofing (SCRFD/ArcFace, YuNet/SFace). Both are from-scratch C++/ggml engines with no Python or onnxruntime at inference, self-contained GGUF weights, bit-exact parity with the reference, and GPU cuDNN parity, replacing the heavier Python `insightface` and `speaker-recognition` backends ([PR #10441](https://github.com/mudler/LocalAI/pull/10441)).
 - **June 2026**: New [realtime voice assistant demo](https://github.com/localai-org/localai-realtime-demo) (a tiny Go client for the Realtime API with a full talk-back voice loop and tool calling), plus [streaming of the realtime LLM / TTS / transcription pipeline stages](https://github.com/mudler/LocalAI/pull/10176) and [configurable WebRTC ICE candidates](https://github.com/mudler/LocalAI/pull/10231).
 - **June 2026**: Big speech push: the [parakeet.cpp](https://github.com/mudler/parakeet.cpp) ASR engine gains [NeMo-faithful segment timestamps](https://github.com/mudler/LocalAI/pull/10207), a [multilingual streaming Nemotron-3.5 model](https://github.com/mudler/LocalAI/pull/10199), [dynamic batching for concurrent transcription](https://github.com/mudler/LocalAI/pull/10112) and [CUDA graphs](https://github.com/mudler/LocalAI/pull/10273); the new [CrispASR backend](https://github.com/mudler/LocalAI/pull/10099) adds multi-architecture ASR + TTS, and [60 Piper TTS voices across 42 languages](https://github.com/mudler/LocalAI/pull/10296) land in the gallery (plus [per-request TTS instructions and params](https://github.com/mudler/LocalAI/pull/10172)).
@@ -191,6 +202,8 @@ For more details, see the [Getting Started guide](https://localai.io/basics/gett
 - **September 2025**: New Launcher for macOS and Linux, extended backend support for Mac and Nvidia L4T, MLX-Audio, WAN 2.2
 - **August 2025**: MLX, MLX-VLM, Diffusers, llama.cpp now supported on Apple Silicon
 - **July 2025**: All backends migrated outside the main binary — [lightweight, modular architecture](https://github.com/mudler/LocalAI/releases/tag/v3.2.0)
+
+</details>
 
 For older news and full release notes, see [GitHub Releases](https://github.com/mudler/LocalAI/releases) and the [blog](https://localai.io/blog/).
 
