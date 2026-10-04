@@ -458,6 +458,61 @@ property-test oracles, and FizzBee invariants:
     M5's by its existing `Closed`; the persistent coordinators (M3/M4) carry the
     explicit `Terminated` state.
 
+- **Committed-turn pipeline: transcription lifetime + commit order (issue #12445,
+  done).** Two cross-cutting defects in the VAD commit path, neither of which a
+  single machine owned:
+  - *Transcription lifetime.* `commitUtteranceWithTranscript` ran the
+    utterance transcription under the turn's **response** context (M3). A
+    barge-in (new speech onset) or a superseding commit cancels that context
+    while Whisper is still in flight, so the in-flight transcription died
+    ("transcription_failed: context canceled") and the user's input was lost
+    from the conversation — the next response answered the second half of a
+    two-part utterance. Detaching with `context.WithoutCancel` fixed the
+    barge-in but broke teardown: the transcription then outlived the session,
+    and `respSink.shutdown` (which joins the response goroutines) blocked until
+    the backend finished the job. Fix: the transcription (and the voice-gate
+    resolution) now run under a **session-lifetime context**
+    (`Session.sessionCtx`) — cancelled at teardown by `conncoord`'s `Teardown`
+    *before* `respSink.shutdown()` joins, untouched by barge-in. The
+    turn's response context still cancels the *response*: when it was
+    cancelled during the (now detached) transcription, the user item is
+    committed (`appendUserItem`, split out of `generateResponse`) but no
+    response is generated for the superseded turn — the newer speech triggers
+    its own response on the complete history.
+  - *Commit order.* Consecutive commits run in parallel goroutines (M3 spawns
+    one per `issue`), so a fast second transcription could append its user
+    item before a slow first one — the conversation became
+    `[second, first]` and the second response saw only `[second]`. Two more
+    schedules broke the naive fix: a FAILED middle commit (error, empty
+    transcript, gate rejection) closed its slot without waiting for the
+    earlier one, releasing the third turn before the first appended
+    (`[third first]`); and the two producers (VAD `CommitTurn`, client
+    `input_audio_buffer.commit`) reserved the slot and called `respSink.issue`
+    separately, so a pause between the two let the other producer reserve AND
+    issue first — the later issue then superseded the EARLIER turn's response
+    (response history `[first]`, final history `[first second]` with the
+    second turn un-answered). Fix: a per-session **commit slot chain** with
+    two gates, and a **shared issue boundary**:
+    - `Session.issueCommit` claims the next slot and issues the commit body
+      under ONE lock (`commitOrderMu`), so slot order == issue order across
+      both producers; `respSink.issue` is non-blocking, so the lock never
+      stalls VAD/barge-in handling.
+    - *Append gate:* a commit's user-item append waits on the previous slot's
+      `done` (aborts on the session context).
+    - *Release gate:* the slot releases (`done` closes) only after the
+      predecessor has finished — on EVERY exit path, including errors, empty
+      transcripts and teardown (session context can still stop the wait), so
+      a failed or skipped middle commit never releases the next turn early.
+    Transcriptions stay parallel; only the item appends (and the slot
+    releases) are ordered.
+  Regression tests: `realtime_commit_order_test.go` (teardown during an
+  in-flight transcription; held-first/finished-second out-of-order completion;
+  barge-in-during-transcription item survival; a failed AND an empty middle
+  commit; interleaved VAD/client producers), driving the REAL issue path —
+  `issueCommit` + `responseSink`/`respcoord` supersession — with a
+  transcription double that honours context cancellation. Verified: builds,
+  openai specs under `-race`.
+
 ## Part 5 — Library vs hand-rolled (Go ecosystem, verified 2026-06)
 
 Researched against live GitHub/pkg.go.dev data. **Verdict: hand-roll a typed transition

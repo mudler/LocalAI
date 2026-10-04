@@ -102,12 +102,21 @@ func (s *connSink) Perform(e conncoord.Effect) {
 		}
 		s.wg.Wait()
 
-		// 2. Terminate the response coordinator (M3): cancel the in-flight response
+		// 2. Cancel the session-lifetime context FIRST: committed turns'
+		//    transcriptions run under it (issue #12445), and respSink.shutdown
+		//    below joins the response goroutines — a transcription that
+		//    outlived the session would block the join (and the teardown)
+		//    until the backend finished the job.
+		if s.session.sessionCancel != nil {
+			s.session.sessionCancel()
+		}
+
+		// 3. Terminate the response coordinator (M3): cancel the in-flight response
 		//    and join all response goroutines (which also closes their TTS
 		//    pipelines, M5). After this no response can start.
 		s.session.respSink.shutdown()
 
-		// 3. Terminate every conversation's compaction coordinator (M4): cancel +
+		// 4. Terminate every conversation's compaction coordinator (M4): cancel +
 		//    join any in-flight summarize+evict so it cannot outlive the session.
 		for _, conv := range s.session.Conversations {
 			if conv.compaction != nil {
