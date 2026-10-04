@@ -308,6 +308,57 @@ The segmenter options below apply to both `vad:true` and `vad_model`. Each is op
 
 `vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
 
+### Bundle GGUF files (several models in one file)
+
+A bundle is one GGUF file that holds several models, called components. Each component keeps its own licence. The backend opens the components it needs from the one file, so a single model YAML can serve transcription, VAD, diarization, speaker naming and sound events. A bundle needs a `libparakeet.so` from parakeet.cpp with bundle support (pin `781a973` or newer); the format is described in the [parakeet.cpp bundle documentation](https://github.com/mudler/parakeet.cpp/blob/master/docs/bundle.md). Single-model files and every existing option work as before.
+
+The gallery has three bundles, built from [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf):
+
+| Gallery entry | Size | Components | Serves |
+|---|---|---|---|
+| `parakeet-cpp-bundle-small` | 338 MB | Parakeet TDT+CTC 110M (Q8_0), Nemotron-3-Diarization (Q8_0), CED-Small (Q8_0), WeSpeaker ResNet34-LM (F32), Silero VAD (F16) | transcription, VAD, diarization, speaker naming, sound events |
+| `parakeet-cpp-bundle-standard` | 1.1 GB | Parakeet TDT 0.6B v3 (Q8_0), plus the same four components | the same, with the multilingual 0.6B model |
+| `parakeet-cpp-bundle-moondream-redux` | 215 MB | Moondream Redux (packed ternary), Silero VAD (F16) | transcription and VAD; CPU only and offline only |
+
+The component that each role uses, and the option that picks another one:
+
+| Role | Component used | Option |
+|---|---|---|
+| Transcription | the only `asr` component | `bundle_asr:<name>` picks one when the bundle has several |
+| VAD (`/v1/vad`, and `vad:true` for long audio) | the `vad` (Silero) component, loaded with no option; without one the VAD head of the ASR model | `vad_component:<name>` picks one, and implies `vad:true` |
+| Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
+| Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
+| Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
+
+A `*_component` option without the matching companion option takes the component from the model file itself. The companion options (`diarization_model:`, `sound_model:`, `speaker_model:`, `vad_model:`, `asr_model:`) can also name a bundle file, even the same file as the model: the only component of the wanted kind is used, and the `*_component` option picks one when there are several. This YAML loads the same file for four roles:
+
+```yaml
+name: parakeet-bundle
+backend: parakeet-cpp
+parameters:
+  model: parakeet-cpp/parakeet-bundle-small.gguf
+options:
+- vad:true                  # cut long audio at pauses, with the Silero component
+- diar_component:diar       # same as diarization_model:parakeet-cpp/parakeet-bundle-small.gguf
+- sound_component:ced
+- speaker_component:voice
+```
+
+A role that the bundle cannot fill fails with a message that lists the components, for example `parakeet-cpp: diarization_model needs a "diar" component, but the bundle "<path>" has none (components: asr (asr), vad (vad))`. A request for a role the loaded model does not have (diarization from a bundle without a `diar` component) returns `parakeet-cpp: model is not a diarization model (the model file is a bundle without a "diar" component; ...)`. A `*_component` option on a file that is not a bundle, or on a library without bundle support, fails the load.
+
+Licences: a bundle has no single licence, so the gallery entries use `license: other`. The licence, source and credit of every component are in the file header, and the NOTICE file next to each bundle in the repository (`NOTICE-<bundle>.txt`) has the credits and the full licence texts. Keep it with any copy of the file you pass on.
+
+| Component | Licence | Credit |
+|---|---|---|
+| Parakeet TDT+CTC 110M, Parakeet TDT 0.6B v3 | CC-BY-4.0 | NVIDIA |
+| Moondream Redux | CC-BY-4.0 | Moondream, derived from Parakeet TDT 0.6B v3 by NVIDIA |
+| Nemotron-3-Diarization | OpenMDW-1.1 | NVIDIA |
+| CED-Small | Apache-2.0, as stated on the model card | Heinrich Dinkel et al., Xiaomi (mispeech) |
+| WeSpeaker ResNet34-LM | CC-BY-4.0 | the WeSpeaker project |
+| Silero VAD | MIT | Silero Team |
+
+The licence of the CED weights is not consistent upstream: the model card says Apache-2.0, the upstream code repository is GPL-3.0 and the original checkpoint records say CC-BY-4.0. The file here is converted, not trained, and follows the model card. The weights of all components were converted to GGUF, and quantised where the table shows it; nothing was retrained.
+
 ## See also
 
 - [Audio Transform]({{< relref "audio-transform.md" >}}) - clean up the audio (echo cancellation, noise suppression, dereverberation) before passing it to a transcription model.

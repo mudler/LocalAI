@@ -196,6 +196,8 @@ The complete `-asr-speakers` entry downloads Nemotron-3-Diarization, Parakeet TD
 It configures both `asr_model` and `speaker_model`; no custom gallery configuration is needed.
 See [Remember speakers in the Web UI](#remember-speakers-in-the-web-ui) for installation and enrollment.
 
+The entries `parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` hold Nemotron-3-Diarization, an ASR model and the WeSpeaker speaker encoder in one file (`diar_component:diar` and `speaker_component:voice`), so one install serves the transcript and the identification options above. See [Bundle GGUF files]({{% relref "audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
+
 For manual configuration, this example pairs Sortformer with ASR:
 
 ```yaml

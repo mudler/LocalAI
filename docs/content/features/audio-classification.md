@@ -80,6 +80,8 @@ curl http://localhost:8080/v1/audio/classification \
   -F top_k=10
 ```
 
+The bundle entries `parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` also serve this endpoint: they hold CED-Small next to the transcription, VAD and diarization models (`sound_component:ced`). See [Bundle GGUF files]({{% relref "audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
+
 ## See also
 
 - [Audio to Text]({{% relref "audio-to-text" %}}) - speech transcription
