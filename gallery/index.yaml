@@ -14662,6 +14662,82 @@
         - stripe_key
         - jwt
         - private_key_block
+- name: lfm2.5-8b-a1b-turbo-brilliance
+  variants:
+    - model: lfm2.5-8b-a1b-turbo-brilliance-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+    - https://huggingface.co/DavidAU/LFM2.5-8B-A1B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF
+  description: |
+    DavidAU's Turbo Brilliance edition of LFM2.5-8B-A1B, an 8B-parameter
+    mixture-of-experts text model with 1B active parameters. This IQ4_XS
+    NEO GGUF build uses the embedded chat template and a 32K-token context.
+    The publisher provides prompt controls for twelve reasoning modes.
+    The base model's LFM license applies; see the linked model cards.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-IQ4_XS.gguf
+      temperature: 0.2
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-IQ4_XS.gguf
+      uri: https://huggingface.co/DavidAU/LFM2.5-8B-A1B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/d055e78b101dd5359019e861980d136553494ca0/LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-IQ4_XS.gguf
+      sha256: 375b41bbe0e88f5483652ff8f625055562c7bdf67aad70960b4e894b2410be80
+- name: lfm2.5-8b-a1b-turbo-brilliance-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+    - https://huggingface.co/DavidAU/LFM2.5-8B-A1B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF
+  description: |
+    DavidAU's Turbo Brilliance edition of LFM2.5-8B-A1B, an 8B-parameter
+    mixture-of-experts text model with 1B active parameters. This Q8_0
+    NEO GGUF build uses the embedded chat template and a 32K-token context.
+    The publisher provides prompt controls for twelve reasoning modes.
+    The base model's LFM license applies; see the linked model cards.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-Q8_0.gguf
+      temperature: 0.2
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-Q8_0.gguf
+      uri: https://huggingface.co/DavidAU/LFM2.5-8B-A1B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/d055e78b101dd5359019e861980d136553494ca0/LFM2.5-8B-A1B-Q3.8-TBrilliance-NEO-Q8_0.gguf
+      sha256: 86b834711abf6e6e179c853bd772cefd067e5fca33272993347920a06da377cb
 - name: "lfm2.5-8b-a1b"
   variants:
     - model: lfm2.5-8b-a1b-apex-i-quality

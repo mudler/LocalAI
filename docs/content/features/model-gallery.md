@@ -39,6 +39,30 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## LFM2.5 8B-A1B Turbo Brilliance
+
+[DavidAU's Turbo Brilliance edition](https://huggingface.co/DavidAU/LFM2.5-8B-A1B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF)
+of LFM2.5-8B-A1B is available as IQ4_XS and Q8_0 NEO GGUF builds for
+llama.cpp. Both use the embedded chat template and a 32,768-token context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install lfm2.5-8b-a1b-turbo-brilliance
+```
+
+Select Q8_0 explicitly:
+
+```bash
+local-ai models install lfm2.5-8b-a1b-turbo-brilliance --variant lfm2.5-8b-a1b-turbo-brilliance-q8
+```
+
+The publisher documents twelve reasoning modes controlled through prompts.
+For example, send `{REASON:help} Menu` to request the model's mode menu.
+See the linked card for mode descriptions. The upstream
+[LFM license](https://huggingface.co/LiquidAI/LFM2.5-8B-A1B/blob/main/LICENSE)
+applies to the base model; the gallery retains `license: other`.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
