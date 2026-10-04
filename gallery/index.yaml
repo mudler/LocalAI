@@ -54024,10 +54024,10 @@
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
     - https://github.com/mudler/parakeet.cpp
-    - https://github.com/mudler/parakeet.cpp/pull/87
+    - https://github.com/mudler/parakeet.cpp/blob/master/docs/vad.md
   description: |
     Voice activity detection with the VAD head of Moondream Redux cut out of the full model, as a small file (about 10 MB). It detects speech only and cannot transcribe: a transcription request fails with an error. The head is not retrained, so the output is the same as the full model's head, with a much smaller download and a faster load.
-    Needs a parakeet.cpp build that can load VAD-only GGUF files (parakeet.cpp pull request 87). Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-redux-packed.
+    Needs a parakeet.cpp build that can load VAD-only GGUF files. Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-redux-packed.
     Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
   license: cc-by-4.0
   tags:
@@ -54056,10 +54056,10 @@
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
     - https://github.com/mudler/parakeet.cpp
-    - https://github.com/mudler/parakeet.cpp/pull/87
+    - https://github.com/mudler/parakeet.cpp/blob/master/docs/vad.md
   description: |
     Voice activity detection with the VAD head of Moondream Ultra, Q8_0 cut out of the full model, as a small file (about 6 MB). It detects speech only and cannot transcribe: a transcription request fails with an error. The head is not retrained, so the output is the same as the full model's head, with a much smaller download and a faster load.
-    Needs a parakeet.cpp build that can load VAD-only GGUF files (parakeet.cpp pull request 87). Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-ultra-q8_0.
+    Needs a parakeet.cpp build that can load VAD-only GGUF files. Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-ultra-q8_0.
     Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
   license: cc-by-4.0
   tags:
