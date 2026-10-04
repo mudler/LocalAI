@@ -506,6 +506,23 @@ func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDete
 	return f.Backend.SoundDetection(ctx, in, opts...)
 }
 
+func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.DiarizeRequest)
+
+	// Stage input audio file
+	if in.Dst != "" && isFilePath(in.Dst) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for diarization: %w", err)
+		}
+		in.Dst = backendPath
+	}
+
+	return f.Backend.Diarize(ctx, in, opts...)
+}
+
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()

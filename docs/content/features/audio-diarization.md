@@ -19,6 +19,10 @@ LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled afte
 
 Because diarization is exposed as a regular OpenAI-compatible endpoint, any HTTP client works. There is no Python dependency on pyannote or NeMo on the consumer side.
 
+In distributed mode, LocalAI stages uploaded audio on the remote worker before
+running dedicated diarization and releases the staged input after the request.
+The worker does not need access to the frontend’s temporary upload directory.
+
 ## Endpoint
 
 ```
