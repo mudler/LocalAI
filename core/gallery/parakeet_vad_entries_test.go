@@ -62,6 +62,27 @@ var _ = Describe("gallery/index.yaml parakeet-cpp VAD entries", func() {
 		}
 	})
 
+	It("serves the VAD-only slices from files with the published checksums", func() {
+		entries := byName()
+		slices := map[string][2]string{
+			"parakeet-cpp-vad-moondream-redux": {"parakeet-cpp/redux-vad.gguf", "588e1d6e2ee5b6cdfd9ec5ea98dc0993d5bea498d9cc4ec8d6077041eef8a34f"},
+			"parakeet-cpp-vad-moondream-ultra": {"parakeet-cpp/ultra-vad-q8_0.gguf", "8b891a4435e97438104ca07c72530d0c5fe62b986baee48b2dd4e1500c1d4758"},
+		}
+		for name, want := range slices {
+			e, ok := entries[name]
+			Expect(ok).To(BeTrue(), name)
+			Expect(e.Overrides["backend"]).To(Equal("parakeet-cpp"), name)
+			Expect(e.Overrides["known_usecases"]).To(ConsistOf("vad"), name)
+			Expect(e.License).To(Equal("cc-by-4.0"), name)
+			Expect(e.Overrides["parameters"]).To(HaveKeyWithValue("model", want[0]), name)
+			Expect(e.AdditionalFiles).To(HaveLen(1), name)
+			Expect(e.AdditionalFiles[0].Filename).To(Equal(want[0]), name)
+			Expect(e.AdditionalFiles[0].SHA256).To(Equal(want[1]), name)
+			Expect(e.AdditionalFiles[0].URI).To(HavePrefix("https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/"), name)
+			Expect(e.Variants).To(BeEmpty(), name)
+		}
+	})
+
 	It("installs Silero from the parakeet-cpp-vad entry and declares no variants", func() {
 		// Variant ranking prefers the larger build that fits, and these are
 		// different detectors, so the entry must not offer a choice.

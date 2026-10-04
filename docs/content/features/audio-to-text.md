@@ -257,6 +257,17 @@ By default each request runs on its own. Raise `batch_max_size` (for example 4 t
 
 The packed Redux file stores the encoder as ternary weights (213 MB). It cannot load on a GPU backend and cannot stream. If a GPU build fails to load it, check the backend log for the library message and use the `redux-f16` or `redux-q8_0` entry instead. The weights are CC-BY-4.0: credit Moondream and NVIDIA.
 
+#### VAD-only slices
+
+If you only need the VAD head, for the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}) or to cut audio before transcription, the same repository has two small files with the head cut out of the full model. The weights are not retrained, and the files cannot transcribe:
+
+| Gallery entry | File | Size | Cut from |
+|---|---|---|---|
+| `parakeet-cpp-vad-moondream-redux` | `redux-vad.gguf` | 9.9 MB | Redux (213 MB packed to 1.4 GB) |
+| `parakeet-cpp-vad-moondream-ultra` | `ultra-vad-q8_0.gguf` | 6.0 MB | Ultra Q8_0 |
+
+Measured by the parakeet.cpp author against loading a whole Redux or Ultra model: the files are 6 to 10 MB instead of 213 MB to 1.4 GB, load in a few milliseconds instead of 0.1 to 0.7 s, and use about 245 MiB peak memory for a 33 s clip instead of 0.6 to 1.6 GiB. The output is byte-identical to the full parent model, and the speed is the same as the parent's head. A transcription request on a slice fails with an error. The slices load only with a parakeet.cpp build that includes VAD-only GGUF support, so an older backend build fails to load them. The weights are CC-BY-4.0: credit Moondream and NVIDIA.
+
 With `vad:true`, long audio is cut at pauses found by the model's VAD head into pieces of at most 30 seconds, and each piece is transcribed in turn. Word timestamps stay relative to the whole file. Audio of 30 seconds or less gives the same result as without the option. The gallery entries set it. Add it to your own model YAML like this:
 
 ```yaml

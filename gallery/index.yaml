@@ -54019,6 +54019,70 @@
     - filename: parakeet-cpp/ultra-q8_0.gguf
       uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/ultra-q8_0.gguf
       sha256: c2fb452a9df468a141012b01c8c168a25ce93f710897c7de6e353c6cc250986a
+- name: parakeet-cpp-vad-moondream-redux
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+    - https://github.com/mudler/parakeet.cpp/blob/master/docs/vad.md
+  description: |
+    Voice activity detection with the VAD head of Moondream Redux cut out of the full model, as a small file (about 10 MB). It detects speech only and cannot transcribe: a transcription request fails with an error. The head is not retrained, so the output is the same as the full model's head, with a much smaller download and a faster load.
+    Needs a parakeet.cpp build that can load VAD-only GGUF files. Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-redux-packed.
+    Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - vad
+    - voice-activity-detection
+    - gguf
+    - ggml
+    - speech
+    - cpu
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    name: parakeet-cpp-vad-moondream-redux
+    parameters:
+      model: parakeet-cpp/redux-vad.gguf
+  files:
+    - filename: parakeet-cpp/redux-vad.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/redux-vad.gguf
+      sha256: 588e1d6e2ee5b6cdfd9ec5ea98dc0993d5bea498d9cc4ec8d6077041eef8a34f
+- name: parakeet-cpp-vad-moondream-ultra
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://github.com/mudler/parakeet.cpp
+    - https://github.com/mudler/parakeet.cpp/blob/master/docs/vad.md
+  description: |
+    Voice activity detection with the VAD head of Moondream Ultra, Q8_0 cut out of the full model, as a small file (about 6 MB). It detects speech only and cannot transcribe: a transcription request fails with an error. The head is not retrained, so the output is the same as the full model's head, with a much smaller download and a faster load.
+    Needs a parakeet.cpp build that can load VAD-only GGUF files. Older backend builds fail to load the file. For the full model, install parakeet-cpp-vad-moondream-ultra-q8_0.
+    Use it for the VAD endpoint. License CC-BY-4.0: credit Moondream and NVIDIA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - moondream
+    - vad
+    - voice-activity-detection
+    - gguf
+    - ggml
+    - speech
+    - cpu
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - vad
+    name: parakeet-cpp-vad-moondream-ultra
+    parameters:
+      model: parakeet-cpp/ultra-vad-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/ultra-vad-q8_0.gguf
+      uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/ultra-vad-q8_0.gguf
+      sha256: 8b891a4435e97438104ca07c72530d0c5fe62b986baee48b2dd4e1500c1d4758
 - name: parakeet-cpp-vad
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
