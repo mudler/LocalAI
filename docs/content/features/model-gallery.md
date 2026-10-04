@@ -39,6 +39,33 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## SC117 Swift 1.5 Flash Next
+
+The gallery includes SC117's abliterated Swift 1.5 Flash Next derivative for llama.cpp.
+IQ2_XS and IQ3_XXS builds support text and image input through the included BF16 vision projector.
+Both builds use the embedded chat template and a 32,768-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install sc117-swift-1.5-flash-next-abliterated-iq2-xs
+```
+
+To select IQ3_XXS explicitly:
+
+```bash
+local-ai models install sc117-swift-1.5-flash-next-abliterated-iq2-xs --variant sc117-swift-1.5-flash-next-abliterated-iq3-xxs
+```
+
+Downloads total approximately 69.1 GB for IQ2_XS or 76.7 GB for IQ3_XXS, including the projector.
+Runtime memory also includes the context cache and backend buffers.
+These entries do not enable speculative decoding.
+
+See the [model card](https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF)
+for the derivative's details.
+The weights use the [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF/blob/main/LICENSE),
+which restricts free commercial use to organizations below US$1 million in annual revenue.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

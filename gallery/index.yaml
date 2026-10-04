@@ -41,6 +41,114 @@
     - filename: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
       sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
       uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+- name: "sc117-swift-1.5-flash-next-abliterated-iq2-xs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: sc117-swift-1.5-flash-next-abliterated-iq3-xxs
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    - https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF
+  description: |
+    SC117's abliterated derivative of Swift 1.5 Qwen3.8 Flash Next GSQ-RCO
+    uses the 177B-class mixture-of-experts architecture for reasoning and vision.
+    This IQ2_XS GGUF build includes both weight shards and the BF16 vision
+    projector, with the embedded chat template and a 32K-token default context.
+    The weights use the Swift Open License v1.0.
+  license: "swift-open-license-1.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-04"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/sc117-swift-1.5-flash-next-abliterated/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+  files:
+    - filename: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/IQ2_XS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf
+      sha256: ea68dd601c4911415b4461f53accecd99d6d38aa06cb0b6722e8f7fb6556d9da
+    - filename: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00002-of-00002.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/IQ2_XS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00002-of-00002.gguf
+      sha256: bdec0a9242f2a266ff517280ea6a5934e4a246f0ed8eb7a462c07434ffea161b
+    - filename: llama-cpp/mmproj/sc117-swift-1.5-flash-next-abliterated/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- name: "sc117-swift-1.5-flash-next-abliterated-iq3-xxs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    - https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF
+  description: |
+    SC117's abliterated derivative of Swift 1.5 Qwen3.8 Flash Next GSQ-RCO
+    uses the 177B-class mixture-of-experts architecture for reasoning and vision.
+    This IQ3_XXS GGUF build includes both weight shards and the BF16 vision
+    projector, with the embedded chat template and a 32K-token default context.
+    The weights use the Swift Open License v1.0.
+  license: "swift-open-license-1.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-04"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/sc117-swift-1.5-flash-next-abliterated/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+  files:
+    - filename: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00001-of-00002.gguf
+      sha256: 83f75959e296a6380c98d5b6e906a0cde175077ffac2419fd56e7e15969d55dd
+    - filename: llama-cpp/models/sc117-swift-1.5-flash-next-abliterated/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00002-of-00002.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/IQ3_XXS/Swift-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_XXS-00002-of-00002.gguf
+      sha256: aa59f45eaa3c02069016903862a5f8d73adfdb7ca97f9cab25f7494e9ac4b1a3
+    - filename: llama-cpp/mmproj/sc117-swift-1.5-flash-next-abliterated/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/SC117/Swift-1.5-Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF/resolve/70238546d13a135459cf25d7647c3690cb7e1165/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
 - name: "swift-qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
