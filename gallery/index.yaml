@@ -373,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: 91e503ce52714f45e3d3447f23161c6ab6d4a9341a9fcabf0dc1acbbba4418ce
+      sha256: a1456fc5fc3257c53fa0317b40e9a49f3badb059b69ca6f7f22093325f4c584b
 - name: "qwopus3.8-27b-flash-v2"
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -65127,9 +65127,7 @@
   urls:
     - https://huggingface.co/convaiinnovations/laya
     - https://huggingface.co/ggml-org/Laya-GGUF/tree/da4b4753d62197659d8c90103cd4c43bef9afea6
-  description: Laya typed decision model for text-only choice, score, and noul requests
-    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
-    image/projector support. Evaluate accuracy for your own tasks.
+  description: Laya typed decision model for text-only choice, score, and noul requests through /v1/systemone. Uses native llama.cpp decisions, not text generation. No image/projector support. Evaluate accuracy for your own tasks.
   license: apache-2.0
   tags:
     - decisions
@@ -65152,9 +65150,7 @@
   urls:
     - https://huggingface.co/jaredpalmer/kev-4b
     - https://huggingface.co/ggml-org/Kev-4B-GGUF/tree/d924f2e2c3872da8b8aaf3eb4453b4126deceb79
-  description: Kev-4B typed decision model for text-only choice, score, and noul requests
-    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
-    image/projector support. Evaluate accuracy for your own tasks.
+  description: Kev-4B typed decision model for text-only choice, score, and noul requests through /v1/systemone. Uses native llama.cpp decisions, not text generation. No image/projector support. Evaluate accuracy for your own tasks.
   license: apache-2.0
   tags:
     - decisions
@@ -65177,9 +65173,7 @@
   urls:
     - https://huggingface.co/interfaze-ai/lev
     - https://huggingface.co/ggml-org/lev-GGUF/tree/3e9286a79ae857b4e1de051c92fab6dc574581ce
-  description: lev typed decision model for text-only choice, score, and noul requests
-    through /v1/systemone. Uses native llama.cpp decisions, not text generation. No
-    image/projector support. Evaluate accuracy for your own tasks.
+  description: lev typed decision model for text-only choice, score, and noul requests through /v1/systemone. Uses native llama.cpp decisions, not text generation. No image/projector support. Evaluate accuracy for your own tasks.
   license: apache-2.0
   tags:
     - decisions
@@ -65202,11 +65196,7 @@
   urls:
     - https://huggingface.co/openjev/openjev
     - https://huggingface.co/ggml-org/OpenJev-GGUF/tree/10840f375658dea7afc5ff4711127bca8218b560
-  description: 'OpenJev typed decision model for text and image choice, score, and noul
-    requests through /v1/systemone. Uses native llama.cpp decisions, not text generation.
-    Includes the pinned Q8 vision projector. Evaluate accuracy for your own tasks. Noncommercial
-    use only under CC-BY-NC-4.0. Large model: provision memory separately from download
-    size.'
+  description: 'OpenJev typed decision model for text and image choice, score, and noul requests through /v1/systemone. Uses native llama.cpp decisions, not text generation. Includes the pinned Q8 vision projector. Evaluate accuracy for your own tasks. Noncommercial use only under CC-BY-NC-4.0. Large model: provision memory separately from download size.'
   license: cc-by-nc-4.0
   tags:
     - decisions
