@@ -40,6 +40,10 @@ to the backend, without separating weights, KV cache, and other allocations.
 See the [kernel DRM accounting specification](https://docs.kernel.org/gpu/drm-usage-stats.html)
 for these counters.
 
+Kernels without `CONFIG_PROC_CHILDREN` are supported. When `/proc` does not
+provide per-thread `children` files, LocalAI finds child processes through
+the parent PIDs in `/proc/<pid>/stat`.
+
 The field is omitted when accounting is unavailable or incomplete. This
 includes external and distributed backends, macOS, proprietary NVIDIA
 drivers, primary DRM nodes (`/dev/dri/card*`), missing resident counters,

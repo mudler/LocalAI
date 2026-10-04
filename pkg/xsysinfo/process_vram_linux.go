@@ -26,6 +26,8 @@ func processVRAM(procRoot string, pid int) (uint64, bool) {
 	clients := map[string]uint64{}
 	seen := map[int]bool{}
 	pending := []int{pid}
+	// Filled once, when a kernel without CONFIG_PROC_CHILDREN is detected.
+	var childIndex map[int][]int
 	for len(pending) > 0 {
 		current := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
@@ -73,26 +75,11 @@ func processVRAM(procRoot string, pid int) (uint64, bool) {
 		}
 
 		// A worker may be spawned by any thread, not just the thread leader.
-		tasks, err := os.ReadDir(filepath.Join(base, "task"))
-		if err != nil || len(tasks) == 0 {
+		children, ok := directChildPIDs(procRoot, base, current, &childIndex)
+		if !ok {
 			return 0, false
 		}
-		for _, task := range tasks {
-			// #nosec G304 -- procRoot is /proc in production (a temp dir in tests);
-			// base adds an integer PID, and task.Name comes from os.ReadDir.
-			// The kernel supplies these path components, not request input.
-			data, err := os.ReadFile(filepath.Join(base, "task", task.Name(), "children"))
-			if err != nil {
-				return 0, false
-			}
-			for _, raw := range strings.Fields(string(data)) {
-				child, err := strconv.Atoi(raw)
-				if err != nil || child <= 0 {
-					return 0, false
-				}
-				pending = append(pending, child)
-			}
-		}
+		pending = append(pending, children...)
 	}
 	var total uint64
 	for _, used := range clients {
@@ -102,6 +89,100 @@ func processVRAM(procRoot string, pid int) (uint64, bool) {
 		total += used
 	}
 	return total, len(clients) > 0
+}
+
+// directChildPIDs lists processes forked by pid. Kernels without
+// CONFIG_PROC_CHILDREN have no task/<tid>/children file. That absence is not
+// an incomplete tree, so the walk continues from /proc/<pid>/stat ppid links.
+// A task that disappears mid-read, or any other error, still fails the reading.
+func directChildPIDs(procRoot, base string, pid int, childIndex *map[int][]int) ([]int, bool) {
+	tasks, err := os.ReadDir(filepath.Join(base, "task"))
+	if err != nil || len(tasks) == 0 {
+		return nil, false
+	}
+	if *childIndex != nil {
+		return (*childIndex)[pid], true
+	}
+	var children []int
+	for _, task := range tasks {
+		taskDir := filepath.Join(base, "task", task.Name())
+		// #nosec G304 -- procRoot is /proc in production (a temp dir in tests);
+		// base adds an integer PID, and task.Name comes from os.ReadDir.
+		// The kernel supplies these path components, not request input.
+		data, err := os.ReadFile(filepath.Join(taskDir, "children"))
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return nil, false
+			}
+			if _, statErr := os.Stat(taskDir); statErr != nil {
+				return nil, false
+			}
+			mapped, ok := childPIDsByPPID(procRoot)
+			if !ok {
+				return nil, false
+			}
+			*childIndex = mapped
+			return mapped[pid], true
+		}
+		for _, raw := range strings.Fields(string(data)) {
+			child, err := strconv.Atoi(raw)
+			if err != nil || child <= 0 {
+				return nil, false
+			}
+			children = append(children, child)
+		}
+	}
+	return children, true
+}
+
+func childPIDsByPPID(procRoot string) (map[int][]int, bool) {
+	entries, err := os.ReadDir(procRoot)
+	if err != nil {
+		return nil, false
+	}
+	children := map[int][]int{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil || pid <= 0 {
+			continue
+		}
+		// #nosec G304 -- procRoot is /proc in production (a temp dir in tests);
+		// entry.Name is a numeric directory from os.ReadDir.
+		data, err := os.ReadFile(filepath.Join(procRoot, entry.Name(), "stat"))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, false
+		}
+		ppid, ok := ppidFromStat(string(data))
+		if !ok {
+			return nil, false
+		}
+		children[ppid] = append(children[ppid], pid)
+	}
+	return children, true
+}
+
+// ppidFromStat reads field 4 of /proc/<pid>/stat. The comm field is wrapped in
+// parentheses and may contain spaces or ')'.
+func ppidFromStat(data string) (int, bool) {
+	end := strings.LastIndex(data, ")")
+	if end < 0 || end+1 >= len(data) {
+		return 0, false
+	}
+	fields := strings.Fields(data[end+1:])
+	if len(fields) < 2 {
+		return 0, false
+	}
+	ppid, err := strconv.Atoi(fields[1])
+	if err != nil || ppid < 0 {
+		return 0, false
+	}
+	return ppid, true
 }
 
 func drmResidentClient(data []byte) (string, uint64, bool) {
