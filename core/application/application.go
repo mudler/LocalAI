@@ -474,8 +474,8 @@ func (a *Application) MITMHostOwners() map[string]string {
 }
 
 // RouterDecisions returns the routing decision store. nil when stats
-// are disabled (--disable-stats); the RouteModel middleware skips the
-// log write in that case but still rewrites requests.
+// are disabled (--disable-stats), unless WithRouterDecisionLog explicitly
+// retains the log. A nil store skips logging but still rewrites requests.
 func (a *Application) RouterDecisions() router.DecisionStore {
 	return a.routerDecisions
 }

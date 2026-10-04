@@ -37,8 +37,7 @@ func recordSwitch(ev Event) {
 
 // RegisterMetrics exports target health as a gauge. The application calls it
 // once for its manager; tests create many managers and skip it.
-func RegisterMetrics(m *Manager) {
-	meter := otel.Meter("github.com/mudler/LocalAI")
+func RegisterMetrics(m *Manager, meter metric.Meter) {
 	_, _ = meter.Int64ObservableGauge("localai_failover_target_up",
 		metric.WithDescription("1 when a failover target is healthy, 0 otherwise"),
 		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {

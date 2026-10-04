@@ -88,6 +88,10 @@ type ApplicationConfig struct {
 	// touch disk or memory.
 	DisableStats bool
 
+	// RouterDecisionLog retains the bounded in-memory routing log even when
+	// billing stats are disabled. It does not enable token usage recording.
+	RouterDecisionLog bool
+
 	// MITMListen is the address (host:port) the cloudproxy MITM
 	// listener binds on. Empty disables the MITM proxy entirely.
 	// Use case: redacting PII from Claude Code / Codex CLI traffic
@@ -1224,3 +1228,8 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// WithRouterDecisionLog retains routing decisions independently of billing stats.
+func WithRouterDecisionLog(enabled bool) AppOption {
+	return func(o *ApplicationConfig) { o.RouterDecisionLog = enabled }
+}

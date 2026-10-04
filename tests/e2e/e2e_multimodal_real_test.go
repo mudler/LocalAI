@@ -153,7 +153,7 @@ func decisionIsolatedApp(dir, binary string) (*localaiapp.Application, string, f
 	DeferCleanup(cancel)
 	// These optional services own process-global meters/exporters and signal
 	// handlers. An isolated HTTP fixture must not replace or retain them.
-	a, err := localaiapp.New(config.WithContext(ctx), config.WithSystemState(state), config.WithGeneratedContentDir(filepath.Join(dir, "generated")), config.DisableMetricsEndpoint, config.WithDisableLocalAIAssistant(true))
+	a, err := localaiapp.New(config.WithContext(ctx), config.WithSystemState(state), config.WithGeneratedContentDir(filepath.Join(dir, "generated")), config.DisableMetricsEndpoint, config.WithDisableLocalAIAssistant(true), config.WithDisableStats(true), config.WithRouterDecisionLog(true))
 	var server *httptest.Server
 	var once sync.Once
 	cleanup := func() {
@@ -196,6 +196,9 @@ var _ = Describe("Decision fixture isolation", Label("Multimodal"), func() {
 		Expect(otel.GetMeterProvider()).To(BeIdenticalTo(provider))
 		Expect(isolated.ApplicationConfig().DisableMetrics).To(BeTrue())
 		Expect(isolated.MetricsService()).To(BeNil())
+		Expect(isolated.ApplicationConfig().DisableStats).To(BeTrue())
+		Expect(isolated.StatsRecorder()).To(BeNil())
+		Expect(isolated.RouterDecisions()).NotTo(BeNil())
 		Expect(isolated.ApplicationConfig().DisableLocalAIAssistant).To(BeTrue())
 		Expect(isolated.LocalAIAssistant()).To(BeNil())
 		code, _ := decisionPostAt(url, "/systemone", map[string]any{"model": "mm-decision", "state": map[string]any{}, "questions": map[string]any{"q": map[string]any{"type": "noul"}}})
