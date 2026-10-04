@@ -41,7 +41,7 @@ type AgentConfigBackend interface {
 	ListAvailableActions() []string
 
 	// Chat dispatch
-	Chat(userID, name, message string) (string, error)
+	Chat(userID, name, message string, history []ChatHistoryMessage) (string, error)
 
 	// Stop / cleanup
 	Stop()

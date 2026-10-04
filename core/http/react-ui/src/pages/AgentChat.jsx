@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
 import { relativeTime, normalizeTimestampMs } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
+import { chatHistoryFor } from '../utils/agentChatHistory'
 
 function getLastMessagePreview(conv) {
   if (!conv.messages || conv.messages.length === 0) return ''
@@ -381,12 +382,15 @@ export default function AgentChat() {
     if (!msg || processing) return
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    // The conversation's earlier turns, taken before this message is added: the
+    // agent sees only the conversation the user is looking at.
+    const history = chatHistoryFor(messages)
     // Add user message locally immediately (like standard chat)
     addMessage({ id: nextId(), sender: 'user', content: msg, timestamp: Date.now() })
     setProcessingChatId(activeId)
     processingChatIdRef.current = activeId
     try {
-      const resp = await agentsApi.chat(name, msg, userId)
+      const resp = await agentsApi.chat(name, msg, userId, history)
       // Map backend messageID → conversation so SSE events route correctly
       if (resp && resp.message_id) {
         pendingRequestsRef.current.set(resp.message_id, activeId)
@@ -396,7 +400,7 @@ export default function AgentChat() {
       processingChatIdRef.current = null
       setProcessingChatId(null)
     }
-  }, [input, processing, name, activeId, addToast, userId, addMessage, nextId])
+  }, [input, processing, name, activeId, addToast, userId, addMessage, nextId, messages])
 
   const handleKeyDown = (e) => {
     if (

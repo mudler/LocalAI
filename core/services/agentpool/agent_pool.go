@@ -414,7 +414,7 @@ func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
 }
 
 // Chat sends a message to an agent and returns immediately. Responses come via SSE.
-func (s *AgentPoolService) Chat(name, message string) (string, error) {
+func (s *AgentPoolService) Chat(name, message string, history []ChatHistoryMessage) (string, error) {
 	ag := s.localAGI.pool.GetAgent(name)
 	if ag == nil {
 		return "", fmt.Errorf("%w: %s", ErrAgentNotFound, name)
@@ -442,10 +442,16 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	})
 	manager.Send(sse.NewMessage(string(statusMsg)).WithEvent("json_message_status"))
 
+	// Carry the conversation's earlier turns, as sent by the client for the
+	// conversation it is showing. Without them every chat message is a fresh
+	// job, so a follow-up such as "now add two days to item 3" cannot see the
+	// answer it refers to.
+	opts := chatJobOptions(history, message)
+
 	// Process asynchronously
 	go func() {
 		started := time.Now()
-		response := ag.Ask(coreTypes.WithText(message))
+		response := ag.Ask(opts...)
 		outcome := "completed"
 		if response == nil {
 			outcome = "cancelled"
@@ -984,8 +990,8 @@ func (s *AgentPoolService) ClearAgentObservablesForUser(userID, name string) err
 }
 
 // ChatForUser sends a message to a user's agent.
-func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, error) {
-	return s.configBackend.Chat(userID, name, message)
+func (s *AgentPoolService) ChatForUser(userID, name, message string, history ...ChatHistoryMessage) (string, error) {
+	return s.configBackend.Chat(userID, name, message, history)
 }
 
 // dispatchChat enqueues a chat event as agent-run work.
