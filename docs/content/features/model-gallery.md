@@ -39,6 +39,29 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## AREX-2 27B
+
+[AREX-2](https://huggingface.co/BAAI/AREX-2) is BAAI's Qwen3.8-based model for coding, machine-learning tasks, and deep research.
+The gallery offers Q4_K_M and Q8_0 GGUF variants through llama.cpp.
+Both include the F16 vision projector and use the embedded chat template with a 32,768-token default context.
+Tools and feedback for multi-round research must be supplied by your application.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install arex-2
+```
+
+Select Q8_0 explicitly:
+
+```bash
+local-ai models install arex-2 --variant arex-2-q8
+```
+
+The weights require about 16.55 GB for Q4_K_M or 28.60 GB for Q8_0.
+Each build also downloads a 0.93 GB projector. Runtime memory requirements are higher than download sizes.
+See the [GGUF repository](https://huggingface.co/mradermacher/AREX-2-GGUF) for the artifacts.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

@@ -16217,6 +16217,88 @@
     - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
       sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
       uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
+- &arex-2
+  name: arex-2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: arex-2-q8
+  urls:
+    - https://huggingface.co/BAAI/AREX-2
+    - https://huggingface.co/mradermacher/AREX-2-GGUF
+  description: |
+    AREX-2 is BAAI's 27B Qwen3.8-based model for coding, machine-learning
+    tasks, and deep research. It learns to revise solutions using feedback
+    over multiple rounds. This Q4_K_M GGUF includes the F16 vision projector
+    for text and image input, with a 32,768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - arex
+    - reasoning
+    - tool-use
+    - deep-research
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/AREX-2/AREX-2.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/AREX-2/AREX-2.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/AREX-2/AREX-2.Q4_K_M.gguf
+      sha256: 28c9fbe02d409e0806b7dcf392944287f6a71b436fe2dad13c04db73831121f4
+      uri: https://huggingface.co/mradermacher/AREX-2-GGUF/resolve/95ef764876404f591b2bedb786a003a86dbdb072/AREX-2.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/AREX-2/AREX-2.mmproj-f16.gguf
+      sha256: b6d52c25b4d63aa5f49def87b17447620d7f23f8337b372b6e6d9547426f9098
+      uri: https://huggingface.co/mradermacher/AREX-2-GGUF/resolve/95ef764876404f591b2bedb786a003a86dbdb072/AREX-2.mmproj-f16.gguf
+- !!merge <<: *arex-2
+  name: arex-2-q8
+  variants: []
+  description: |
+    AREX-2 is BAAI's 27B Qwen3.8-based model for coding, machine-learning
+    tasks, and deep research. This higher-precision Q8_0 GGUF includes the
+    F16 vision projector for text and image input, with a 32,768-token
+    default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/AREX-2/AREX-2.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/AREX-2/AREX-2.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/AREX-2/AREX-2.Q8_0.gguf
+      sha256: 3704e2873a13e7d25231d7a2e3e14710c3bcebbfe7f825329fa2bb393775fb0d
+      uri: https://huggingface.co/mradermacher/AREX-2-GGUF/resolve/95ef764876404f591b2bedb786a003a86dbdb072/AREX-2.Q8_0.gguf
+    - filename: llama-cpp/mmproj/AREX-2/AREX-2.mmproj-f16.gguf
+      sha256: b6d52c25b4d63aa5f49def87b17447620d7f23f8337b372b6e6d9547426f9098
+      uri: https://huggingface.co/mradermacher/AREX-2-GGUF/resolve/95ef764876404f591b2bedb786a003a86dbdb072/AREX-2.mmproj-f16.gguf
 - &arex-turbo
   name: arex-turbo
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
