@@ -17,6 +17,12 @@ if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
   rm -rf /LocalAI/backend/cpp/llama-cpp-*-build
 fi
 
+# Install here, not only in the base builder: existing prebuilt bases must
+# acquire the strict decision decoders too. Runtime libraries are collected by
+# the existing backend dependency packaging.
+sh /LocalAI/.docker/apt-mirror.sh || true
+apt-get update -qq && apt-get install -y --no-install-recommends libjpeg-dev zlib1g-dev
+
 cd /LocalAI/backend/cpp/llama-cpp
 BUILD_TARGET=$(/LocalAI/.docker/llama-cpp-build-target.sh "${TARGETARCH}" "${BUILD_TYPE:-}")
 if [ "$BUILD_TARGET" = "llama-cpp-cpu-all" ]; then

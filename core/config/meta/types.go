@@ -19,10 +19,11 @@ type FieldMeta struct {
 	Step        *float64      `json:"step,omitempty"`
 	Options     []FieldOption `json:"options,omitempty"`
 
-	AutocompleteProvider string `json:"autocomplete_provider,omitempty"` // "backends", "models:chat", etc.
-	VRAMImpact           bool   `json:"vram_impact,omitempty"`
-	Advanced             bool   `json:"advanced,omitempty"`
-	Order                int    `json:"order"`
+	AutocompleteBy       *ConditionalProvider `json:"autocomplete_by,omitempty"`
+	AutocompleteProvider string               `json:"autocomplete_provider,omitempty"` // "backends", "models:chat", etc.
+	VRAMImpact           bool                 `json:"vram_impact,omitempty"`
+	Advanced             bool                 `json:"advanced,omitempty"`
+	Order                int                  `json:"order"`
 }
 
 // FieldOption represents a choice in a select/enum field.
@@ -59,6 +60,7 @@ type FieldMetaOverride struct {
 	Max                  *float64
 	Step                 *float64
 	Options              []FieldOption
+	AutocompleteBy       *ConditionalProvider
 	AutocompleteProvider string
 	VRAMImpact           bool
 	Advanced             bool
@@ -88,4 +90,10 @@ func DefaultSections() []Section {
 		{ID: "pii", Label: "PII", Icon: "shield", Order: 84},
 		{ID: "other", Label: "Other", Icon: "more-horizontal", Order: 100},
 	}
+}
+
+// ConditionalProvider selects a provider from a sibling field without changing saved values.
+type ConditionalProvider struct {
+	Field     string            `json:"field"`
+	Providers map[string]string `json:"providers"`
 }

@@ -68,3 +68,20 @@ var _ = Describe("MCP field metadata", func() {
 		Entry("stdio servers", "mcp.stdio", "MCP STDIO Servers", "local commands"),
 	)
 })
+
+var _ = Describe("Decisions router metadata", func() {
+	It("offers decisions alongside existing classifiers", func() {
+		f := meta.DefaultRegistry()["router.classifier"]
+		Expect(f.Options).To(ContainElement(meta.FieldOption{Value: "decisions", Label: "Decisions (native probabilities)"}))
+		md := meta.BuildForTest(reflect.TypeOf(config.ModelConfig{}), meta.DefaultRegistry())
+		for _, field := range md.Fields {
+			if field.Path == "router.classifier_model" {
+				Expect(field.AutocompleteBy).NotTo(BeNil())
+				Expect(field.AutocompleteBy.Field).To(Equal("router.classifier"))
+				Expect(field.AutocompleteBy.Providers).To(HaveKeyWithValue("decisions", "models:decisions"))
+				Expect(field.AutocompleteBy.Providers).To(HaveKeyWithValue("colbert", "models:rerank"))
+				Expect(field.AutocompleteProvider).To(Equal(meta.ProviderModelsScore))
+			}
+		}
+	})
+})

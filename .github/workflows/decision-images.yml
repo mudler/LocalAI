@@ -1,0 +1,63 @@
+---
+name: 'Native decision image tests'
+
+on:
+  pull_request:
+    paths:
+      - 'backend/cpp/llama-cpp/**'
+      - 'core/systemone/**'
+      - 'Dockerfile'
+      - 'Dockerfile.*'
+      - '.github/workflows/backend_build_darwin.yml'
+      - '.github/workflows/decision-images.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'backend/cpp/llama-cpp/**'
+      - 'core/systemone/**'
+      - 'Dockerfile'
+      - 'Dockerfile.*'
+      - '.github/workflows/backend_build_darwin.yml'
+      - '.github/workflows/decision-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: decision-images-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  decision-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y g++ python3 python3-pil cmake make curl ca-certificates zlib1g-dev libjpeg-dev
+      # Only two vendor headers are needed: no backend build or model download.
+      - name: Fetch pinned upstream headers
+        run: |
+          backend=backend/cpp/llama-cpp
+          pin=$(sed -n 's/^LLAMA_VERSION?=//p' "$backend/Makefile")
+          [[ "$pin" =~ ^[0-9a-f]{40}$ ]]
+          for header in nlohmann/json.hpp stb/stb_image.h; do
+            dest="$backend/llama.cpp/vendor/$header"
+            mkdir -p "$(dirname "$dest")"
+            curl --fail --location --retry 3 \
+              "https://raw.githubusercontent.com/ggerganov/llama.cpp/$pin/vendor/$header" \
+              --output "$dest"
+          done
+      - name: Verify native image validation and Go limit parity
+        run: bash backend/cpp/llama-cpp/tests/verify-decision-images.sh
+      - name: Verify production decoder build wiring
+        run: python3 backend/cpp/llama-cpp/tests/verify-image-build-wiring.py

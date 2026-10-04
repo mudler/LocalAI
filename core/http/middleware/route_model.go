@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/systemone"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -102,8 +104,9 @@ func (s *reseedingVectorStore) Search(ctx context.Context, vec []float32) (float
 // score classifier runs unwrapped and the embedding-cache YAML is
 // ignored with a warning.
 type ClassifierDeps struct {
-	Scorer   ScorerFactory
-	Embedder EmbedderFactory
+	Decisions func(string) backend.DecisionRunner
+	Scorer    ScorerFactory
+	Embedder  EmbedderFactory
 	// EmbedderFingerprint identifies the weights/config behind Embedder so
 	// KNN corpus vectors cannot be queried across embedding spaces.
 	EmbedderFingerprint EmbedderFingerprintFactory
@@ -152,6 +155,7 @@ type ClassifierDeps struct {
 func NewClassifierDeps(app *application.Application) ClassifierDeps {
 	return ClassifierDeps{
 		Scorer:              app.Scorer,
+		Decisions:           app.DecisionRunner,
 		Corpus:              app.RouterCorpus(),
 		TokenCounter:        app.TokenCounter,
 		Embedder:            app.Embedder,
@@ -185,9 +189,9 @@ type ProbeExtractor func(parsed any) (router.Probe, bool)
 //  3. Invokes the classifier matching cfg.Router.Classifier
 //     ("score" or "colbert"). If the classifier can't be built —
 //     missing classifier_model, misconfigured policies, etc. — the
-//     request fails with 503. cfg.Router.Fallback only catches
-//     Classify-time errors and label-coverage misses, not config
-//     bugs that would otherwise be silent.
+//     request fails with 503. Invalid configuration fails closed; only
+//     Classify-time errors and label-coverage misses use the
+//     configured fallback.
 //  4. Resolves the chosen candidate to its model name. Reloads the
 //     ModelConfig for that model and asserts depth-1 (the candidate
 //     must NOT itself have a Router). Violation returns 500 — config
@@ -257,6 +261,12 @@ func RouteModel(loader *config.ModelConfigLoader, appConfig *config.ApplicationC
 				req.ModelName(&chosen)
 			}
 
+			// Materialize the original payload only after choosing the served model.
+			if req, ok := parsed.(*schema.OpenAIRequest); ok {
+				if err := mergeOpenAIRequestAndModelConfig(result.ChosenConfig, req); err != nil {
+					return err
+				}
+			}
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, result.ChosenConfig)
 			// Preserve an upstream requested model (e.g. an alias that points
 			// at this router model) so accounting keeps the name the client
@@ -346,6 +356,19 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 	h := fnv.New64a()
 	h.Write(bytes)
 	if classifierCfg != nil {
+		if rc.Classifier == router.ClassifierDecisions {
+			native, err := yaml.Marshal(classifierCfg)
+			if err != nil {
+				return uint64(time.Now().UnixNano())
+			}
+			h.Write(native)
+			h.Write([]byte(classifierCfg.PersistedConfigRevision()))
+			if classifierCfg.KnownUsecases != nil {
+				h.Write([]byte(fmt.Sprintf("usecases:%d", *classifierCfg.KnownUsecases)))
+			} else {
+				h.Write([]byte("usecases:nil"))
+			}
+		}
 		// Narrow projection: only the fields buildClassifier reads (renderer,
 		// stop tokens, context_size → MaxContextTokens). Hashing the whole
 		// ModelConfig would invalidate the cache on irrelevant changes;
@@ -406,6 +429,21 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 
 	var inner router.Classifier
 	switch name {
+	case router.ClassifierDecisions:
+		if rc.ClassifierModel == "" || deps.Decisions == nil || deps.ModelLookup == nil {
+			return nil, fmt.Errorf("decisions requires classifier_model, native factory and model lookup")
+		}
+		if rc.KNN != nil || rc.EmbeddingCache != nil {
+			return nil, fmt.Errorf("decisions does not support knn or embedding_cache composition")
+		}
+		modelCfg := deps.ModelLookup(rc.ClassifierModel)
+		if modelCfg == nil {
+			return nil, fmt.Errorf("decision model not available")
+		}
+		if err := systemone.ValidateDecisionModel(*modelCfg); err != nil {
+			return nil, err
+		}
+		return router.NewDecisionsClassifier(policies, deps.Decisions(rc.ClassifierModel), rc.ActivationThreshold)
 	case router.ClassifierScore:
 		if rc.ClassifierModel == "" {
 			return nil, fmt.Errorf("router classifier score requires classifier_model")
@@ -764,8 +802,7 @@ func newDecisionID() string {
 // OpenAIProbe extracts a router.Probe from a parsed *schema.OpenAIRequest.
 // Concatenates message contents (string-form or text blocks of the
 // structured `[]any` content) so the classifier sees a single corpus
-// for length and content-shape rules. Image blocks are skipped — a
-// future multimodal classifier can take a different route.
+// for text classifiers, retaining complete chat state for native decisions.
 func OpenAIProbe(parsed any) (router.Probe, bool) {
 	req, ok := parsed.(*schema.OpenAIRequest)
 	if !ok || req == nil {
@@ -777,6 +814,26 @@ func OpenAIProbe(parsed any) (router.Probe, bool) {
 // messageText flattens a chat message's Content to plain text: string content
 // verbatim; []any structured content contributes only its "text" blocks.
 func messageText(content any) string {
+	// Typed API content is handled directly, avoiding a lossy JSON round trip.
+	switch blocks := content.(type) {
+	case []schema.Content:
+		var texts []string
+		for _, block := range blocks {
+			if block.Type == "text" && block.Text != "" {
+				texts = append(texts, block.Text)
+			}
+		}
+		return strings.Join(texts, "\n")
+	case []schema.AnthropicContentBlock:
+		var texts []string
+		for _, block := range blocks {
+			if block.Type == "text" && block.Text != "" {
+				texts = append(texts, block.Text)
+			}
+		}
+		return strings.Join(texts, "\n")
+	}
+
 	switch ct := content.(type) {
 	case string:
 		return ct
@@ -817,6 +874,14 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 	if req == nil {
 		return router.Probe{}
 	}
+	release, admissionErr := systemone.AcquireAdmission(context.Background())
+	if admissionErr != nil {
+		return router.Probe{InputError: admissionErr}
+	}
+	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)
@@ -825,7 +890,12 @@ func OpenAIProbeFromRequest(req *schema.OpenAIRequest) router.Probe {
 	// Prompt carries the full conversation; each classifier trims it to its own
 	// model's context (see modelTokenTrim). Messages preserves the per-turn
 	// split the trimmer drops oldest-first.
-	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}
+	state, err := json.Marshal(req.Messages)
+	if len(state) > systemone.MaxImageBodyBytes {
+		state = nil
+		err = fmt.Errorf("router state exceeds decision image request budget")
+	}
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts, State: state, InputError: err}
 }
 
 // AnthropicProbe is the AnthropicRequest analogue of OpenAIProbe.
@@ -834,10 +904,23 @@ func AnthropicProbe(parsed any) (router.Probe, bool) {
 	if !ok || req == nil {
 		return router.Probe{}, false
 	}
+	release, admissionErr := systemone.AcquireAdmission(context.Background())
+	if admissionErr != nil {
+		return router.Probe{InputError: admissionErr}, true
+	}
+	defer release()
+	if err := probeBudget(req.Messages); err != nil {
+		return router.Probe{InputError: err}, true
+	}
 	texts := make([]string, len(req.Messages))
 	for i := range req.Messages {
 		texts[i] = messageText(req.Messages[i].Content)
 	}
 	parts := messageProbeParts(texts)
-	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts}, true
+	state, err := json.Marshal(req.Messages)
+	if len(state) > systemone.MaxImageBodyBytes {
+		state = nil
+		err = fmt.Errorf("router state exceeds decision image request budget")
+	}
+	return router.Probe{Prompt: router.JoinTurns(parts), Messages: parts, State: state, InputError: err}, true
 }

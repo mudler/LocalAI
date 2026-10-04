@@ -1,3 +1,4 @@
+import { useFormContext } from '../contexts/FormContext'
 import { useState } from 'react'
 import SettingRow from './SettingRow'
 import Toggle from './Toggle'
@@ -20,6 +21,8 @@ const PROVIDER_TO_CAPABILITY = {
   'models:transcript': 'FLAG_TRANSCRIPT',
   'models:vad': 'FLAG_VAD',
   'models:score': 'FLAG_SCORE',
+  'models:decisions': 'decisions',
+  'models:rerank': 'FLAG_RERANK',
   'models:token_classify': 'FLAG_TOKEN_CLASSIFY',
 }
 
@@ -160,6 +163,9 @@ function FieldLabel({ field }) {
 }
 
 export default function ConfigFieldRenderer({ field, value, onChange, onRemove, annotation }) {
+  const context = useFormContext()
+  const conditional = field.autocomplete_by
+  const provider = conditional?.providers[context?.formData?.[conditional.field]] ?? field.autocomplete_provider
   const handleChange = (raw) => {
     onChange(coerceValue(raw, field.ui_type))
   }
@@ -191,11 +197,13 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   }
 
   // Model-select
+  if (component === 'model-select' && provider === '') return null
   if (component === 'model-select') {
-    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
+    const cap = PROVIDER_TO_CAPABILITY[provider] || undefined
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
         <SearchableModelSelect
+          key={provider}
           value={value || ''}
           onChange={handleChange}
           capability={cap}
@@ -402,7 +410,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // PII detectors — a capability-filtered multi-select of token_classify
   // models (the consuming model's pii.detectors list).
   if (component === 'model-multi-select') {
-    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
+    const cap = PROVIDER_TO_CAPABILITY[provider] || undefined
     return (
       <div className="list-row">
         <div className="hstack hstack--between mb-xs">

@@ -77,6 +77,7 @@ var _ = BeforeSuite(func() {
 
 	// Check if mock-backend binary exists in the mock-backend directory
 	possiblePaths := []string{
+		os.Getenv("E2E_MOCK_BACKEND"),
 		filepath.Join(mockBackendDir, "mock-backend"),
 		filepath.Join("tests", "e2e", "mock-backend", "mock-backend"),
 		filepath.Join("..", "..", "tests", "e2e", "mock-backend", "mock-backend"),
@@ -701,6 +702,8 @@ var _ = BeforeSuite(func() {
 	systemState, err := system.GetSystemState(systemOpts...)
 	Expect(err).ToNot(HaveOccurred())
 
+	setupDecisionFixtures()
+
 	// Create application
 	appCtx, appCancel = context.WithCancel(context.Background())
 
@@ -723,6 +726,7 @@ var _ = BeforeSuite(func() {
 	// Register mock backend (always available for non-realtime tests).
 	localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
+	localAIApp.ModelLoader().SetExternalBackend("llama-cpp", mockBackendPath)
 	if cloudProxyPath != "" {
 		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
 	}
@@ -733,6 +737,8 @@ var _ = BeforeSuite(func() {
 	// Create HTTP app
 	app, err = httpapi.API(localAIApp)
 	Expect(err).ToNot(HaveOccurred())
+
+	app.Use(observeDecisionUsage)
 
 	// Get free port
 	port, err := freeport.GetFreePort()

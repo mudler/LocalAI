@@ -243,8 +243,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Wire the routing decision log. Always-on when stats are enabled —
 	// the per-router admin page reads this as the live activity feed
-	// and as input to drift checks for subsystem 5.
-	if !options.DisableStats {
+	// and as input to drift checks for subsystem 5. Embedders may retain this
+	// bounded log independently without enabling billing stats.
+	if !options.DisableStats || options.RouterDecisionLog {
 		application.routerDecisions = router.NewMemoryDecisionStore(0)
 	}
 	// Process-wide classifier cache shared across all route middlewares so
@@ -569,7 +570,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only
 	// caller of Sync in production so onWarm callbacks stay ordered.
-	failover.RegisterMetrics(application.failoverManager)
+	application.registerFailoverMetrics()
 	go application.failoverManager.Run(options.Context)
 
 	// Watch the configuration directory
@@ -745,4 +746,13 @@ func migrateDataFiles(srcDir, dstDir string) {
 	if migrated {
 		xlog.Info("Data migration complete", "from", srcDir, "to", dstDir)
 	}
+}
+
+// registerFailoverMetrics must not retain a manager on the global provider
+// when this application has metrics disabled.
+func (a *Application) registerFailoverMetrics() {
+	if a.applicationConfig.DisableMetrics || a.metricsService == nil {
+		return
+	}
+	failover.RegisterMetrics(a.failoverManager, a.metricsService.Meter)
 }
