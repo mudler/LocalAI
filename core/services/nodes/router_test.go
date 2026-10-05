@@ -186,8 +186,12 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 		s.jobs = map[string]*ModelLoadJob{}
 	}
 	if existing, ok := s.jobs[trackingKey]; ok {
-		cp := *existing
-		return &cp, false, nil
+		// Match durable reclaim: neither lease expiry nor grace expiry alone
+		// establishes that the old generation's remote work stopped.
+		if existing.Generation == "" || existing.WorkUncertain || existing.TerminalUntil == nil || time.Now().Before(*existing.TerminalUntil) {
+			cp := *existing
+			return &cp, false, nil
+		}
 	}
 	now := time.Now()
 	job := &ModelLoadJob{Generation: uuid.NewString(), WorkUncertain: true, TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
@@ -251,7 +255,8 @@ func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	job, ok := s.jobs[ref.TrackingKey]
-	if !ok || job.Generation != ref.Generation || ref.Generation == "" || job.TerminalUntil != nil {
+	if !ok || job.Generation != ref.Generation || ref.Generation == "" ||
+		(job.TerminalUntil != nil && (job.WorkUncertain || time.Now().Before(*job.TerminalUntil))) {
 		return ErrStaleLoadJob
 	}
 	delete(s.jobs, ref.TrackingKey)

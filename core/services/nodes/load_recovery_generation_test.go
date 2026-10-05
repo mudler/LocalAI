@@ -127,3 +127,122 @@ var _ = Describe("Load recovery generation", func() {
 		Eventually(waiter).Should(BeClosed())
 	})
 })
+
+// Run the same contract against SQLite and every embedding of the router fake.
+// Direct fixture insertion represents durable reconciliation evidence; elapsed
+// lease time alone must never supply that evidence.
+var _ = Describe("Load job store parity", func() {
+	for _, implementation := range []string{"registry", "fake", "model router", "smart router"} {
+		Context(implementation, func() {
+			var store LoadJobStore
+			var seed func(ModelLoadJob)
+			BeforeEach(func() {
+				if implementation == "registry" {
+					db := testutil.SetupTestDB()
+					registry, err := NewNodeRegistry(db)
+					Expect(err).NotTo(HaveOccurred())
+					store = registry
+					seed = func(job ModelLoadJob) { Expect(db.Create(&job).Error).To(Succeed()) }
+					return
+				}
+				var fake *fakeLoadJobStore
+				switch implementation {
+				case "fake":
+					fake = &fakeLoadJobStore{}
+					store = fake
+				case "model router":
+					router := &fakeModelRouter{}
+					store, fake = router, &router.fakeLoadJobStore
+				case "smart router":
+					router := newFakeModelRouterForSmartRouter()
+					store, fake = router, &router.fakeLoadJobStore
+				}
+				seed = func(job ModelLoadJob) {
+					fake.mu.Lock()
+					defer fake.mu.Unlock()
+					fake.jobs = map[string]*ModelLoadJob{job.TrackingKey: &job}
+				}
+			})
+
+			for _, scenario := range []struct {
+				name                                                    string
+				legacy, terminal, uncertain, future, reclaim, deletable bool
+			}{
+				{name: "active", uncertain: true, deletable: true},
+				{name: "active confirmed", deletable: true},
+				{name: "legacy active", legacy: true},
+				{name: "legacy confirmed terminal", legacy: true, terminal: true},
+				{name: "expired uncertain", terminal: true, uncertain: true},
+				{name: "within grace confirmed", terminal: true, future: true},
+				{name: "within grace uncertain", terminal: true, future: true, uncertain: true},
+				{name: "expired confirmed", terminal: true, reclaim: true, deletable: true},
+			} {
+				Context(scenario.name, func() {
+					var original ModelLoadJob
+					BeforeEach(func() {
+						past := time.Now().Add(-time.Hour)
+						original = ModelLoadJob{TrackingKey: "parity-model", Generation: "generation-a", OwnerReplica: "frontend-a", State: LoadJobStateLoading, LastProgress: past, WorkUncertain: scenario.uncertain}
+						if scenario.legacy {
+							original.Generation = ""
+						}
+						if scenario.terminal {
+							until := past
+							if scenario.future {
+								until = time.Now().Add(time.Hour)
+							}
+							original.TerminalUntil, original.State = &until, LoadJobStateFailed
+						}
+						seed(original)
+					})
+					It("claims only after grace and confirmed termination", func() {
+						ctx := context.Background()
+						job, claimed, err := store.ClaimLoadJob(ctx, original.TrackingKey, "frontend-b")
+						Expect(err).NotTo(HaveOccurred())
+						Expect(claimed).To(Equal(scenario.reclaim))
+						if !claimed {
+							Expect(job.Ref()).To(Equal(original.Ref()))
+							Expect(job.OwnerReplica).To(Equal(original.OwnerReplica))
+							return
+						}
+						Expect(job.Generation).NotTo(BeEmpty())
+						Expect(job.Generation).NotTo(Equal(original.Generation))
+						Expect(job.OwnerReplica).To(Equal("frontend-b"))
+						Expect(job.State).To(Equal(LoadJobStatePending))
+						Expect(job.TerminalUntil).To(BeNil())
+						Expect(job.WorkUncertain).To(BeTrue())
+						Expect(store.UpdateLoadJob(ctx, original.Ref(), LoadJobUpdate{})).To(MatchError(ErrStaleLoadJob))
+						Expect(store.FailLoadJob(ctx, original.Ref(), "late failure")).To(MatchError(ErrStaleLoadJob))
+						Expect(store.DeleteLoadJob(ctx, original.Ref())).To(MatchError(ErrStaleLoadJob))
+						current, err := store.GetLoadJob(ctx, original.TrackingKey)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(current.Ref()).To(Equal(job.Ref()))
+						Expect(current.State).To(Equal(job.State))
+						Expect(current.OwnerReplica).To(Equal(job.OwnerReplica))
+						Expect(current.TerminalUntil).To(BeNil())
+						Expect(current.WorkUncertain).To(BeTrue())
+					})
+					It("conditionally deletes only the eligible generation", func() {
+						ctx := context.Background()
+						for _, ref := range []LoadJobRef{{TrackingKey: original.TrackingKey, Generation: "stale"}, {TrackingKey: original.TrackingKey}} {
+							Expect(store.DeleteLoadJob(ctx, ref)).To(MatchError(ErrStaleLoadJob))
+						}
+						err := store.DeleteLoadJob(ctx, original.Ref())
+						if scenario.deletable {
+							Expect(err).NotTo(HaveOccurred())
+						} else {
+							Expect(err).To(MatchError(ErrStaleLoadJob))
+						}
+						current, err := store.GetLoadJob(ctx, original.TrackingKey)
+						Expect(err).NotTo(HaveOccurred())
+						if scenario.deletable {
+							Expect(current).To(BeNil())
+							Expect(store.DeleteLoadJob(ctx, original.Ref())).To(MatchError(ErrStaleLoadJob))
+						} else {
+							Expect(current.Ref()).To(Equal(original.Ref()))
+						}
+					})
+				})
+			}
+		})
+	}
+})
