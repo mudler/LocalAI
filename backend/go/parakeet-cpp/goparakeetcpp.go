@@ -147,6 +147,11 @@ var (
 	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
 	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
 	// Load refuses speaker_model: unless the v10 ones are present.
+	// CppSpeakerEmbedPCM embeds 16 kHz mono PCM with the speaker context. It returns 0 on
+	// success; *out is a malloc'd float vector of *dim values that the caller releases with
+	// CppFreeFloats. Additive, nil on a library from before it (VoiceEmbed then refuses).
+	CppSpeakerEmbedPCM             func(speaker uintptr, pcm *float32, n, sampleRate int32, out, dim unsafe.Pointer) int32
+	CppFreeFloats                  func(p uintptr)
 	CppSpeakerIdentity             func(ctx uintptr) uintptr
 	CppDiarizeProfilesPCMJSON      func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
 	CppSpeakerDim                  func(ctx uintptr) int32

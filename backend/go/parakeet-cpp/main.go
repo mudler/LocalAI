@@ -169,6 +169,13 @@ func main() {
 		purego.RegisterLibFunc(&CppSpeakerRegistrySetStrict, lib, "parakeet_capi_speaker_registry_set_strict")
 		purego.RegisterLibFunc(&CppSpeakerEncoderFamily, lib, "parakeet_capi_speaker_encoder_family")
 	}
+	// Speaker embedding from PCM (additive, no ABI bump). Both symbols come together.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_embed_pcm"); err == nil && sym != 0 {
+		if sym2, err2 := purego.Dlsym(lib, "parakeet_capi_free_floats"); err2 == nil && sym2 != 0 {
+			purego.RegisterLibFunc(&CppSpeakerEmbedPCM, lib, "parakeet_capi_speaker_embed_pcm")
+			purego.RegisterLibFunc(&CppFreeFloats, lib, "parakeet_capi_free_floats")
+		}
+	}
 	// Word filter on transcription (additive, no ABI bump).
 	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_with"); err == nil && sym != 0 {
 		purego.RegisterLibFunc(&CppTranscribePathJSONWith, lib, "parakeet_capi_transcribe_path_json_with")
