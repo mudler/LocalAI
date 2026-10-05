@@ -58,6 +58,11 @@ type Metadata struct {
 	// backend's model name, by default the GGUF file name). Empty for voices
 	// registered before this field existed.
 	Model string `json:"model,omitempty"`
+	// EncoderFamily is the embedding space of the encoder ("voicedetect:<arch>:<name>:<dim>"),
+	// recorded when the encoder reports it (portable enrollment from speaker
+	// profiles). Empty when unknown, and for voices registered before it existed.
+	// Model then holds the weights identity ("sha256:<hex>") for the same voices.
+	EncoderFamily string `json:"encoder_family,omitempty"`
 }
 
 // Match is a single result from Identify, ranked by similarity.

@@ -44,7 +44,7 @@ type DiarizationRequest struct {
 func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *proto.DiarizeRequest {
 	known := make([]*proto.KnownVoice, 0, len(r.KnownVoices))
 	for _, v := range r.KnownVoices {
-		known = append(known, &proto.KnownVoice{Id: v.ID, Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+		known = append(known, &proto.KnownVoice{Id: v.ID, Name: v.Name, Embedding: v.Embedding, Model: v.Model, EncoderFamily: v.Family, EncoderWeights: v.Weights})
 	}
 	return &proto.DiarizeRequest{
 		ModelIdentity:          modelIdentity,
@@ -210,7 +210,7 @@ func speakerEncoderFromBackend(ctx context.Context, m grpcPkg.Backend) (schema.S
 		return schema.SpeakerEncoder{}, err
 	}
 	e := r.GetSpeakerEncoder()
-	trusted := schema.SpeakerEncoder{Identity: e.GetIdentity(), Dimension: int(e.GetDimension())}
+	trusted := schema.SpeakerEncoder{Identity: e.GetIdentity(), Dimension: int(e.GetDimension()), Family: e.GetFamily()}
 	if err := (schema.SpeakerProfiles{Version: 1, Encoder: trusted}).Validate(trusted); err != nil {
 		return schema.SpeakerEncoder{}, status.Error(codes.Unimplemented, "backend does not expose trusted speaker encoder metadata")
 	}
@@ -232,7 +232,10 @@ func decodeSpeakerProfiles(raw string, trusted schema.SpeakerEncoder) (*schema.S
 
 // Portable registrations require exact loaded identity and dimension. Legacy
 // candidates use the trusted dimension when available; older backends without
-// metadata retain their native dimension check. No registry entry sets it.
+// metadata retain their native dimension check. A portable voice with other
+// weights is dropped here unless it carries an encoder family: the backend
+// compares families, accepts another quantization of the same encoder with a
+// warning, and refuses another encoder by name.
 func compatiblePortableVoices(ctx context.Context, m grpcPkg.Backend, voices []voicerecognition.KnownVoice) []voicerecognition.KnownVoice {
 	if len(voices) == 0 {
 		return voices
@@ -243,7 +246,8 @@ func compatiblePortableVoices(ctx context.Context, m grpcPkg.Backend, voices []v
 		if err == nil && len(v.Embedding) != trusted.Dimension {
 			continue
 		}
-		if strings.HasPrefix(v.Model, "sha256:") && (err != nil || v.Model != trusted.Identity || len(v.Embedding) != trusted.Dimension) {
+		if strings.HasPrefix(v.Model, "sha256:") && (err != nil || len(v.Embedding) != trusted.Dimension ||
+			(v.Model != trusted.Identity && v.Family == "")) {
 			continue
 		}
 		out = append(out, v)

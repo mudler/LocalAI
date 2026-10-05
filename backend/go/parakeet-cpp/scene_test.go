@@ -123,6 +123,9 @@ var _ = Describe("scene stream with speaker names", func() {
 
 	It("frees the registry when the speaker begin fails, and degrades to no scene stream", func() {
 		CppSceneStreamBeginSpeaker = func(asr, diar, tag, spk, reg uintptr, o *cSceneOpts) uintptr { return 0 }
+		lastErr := CppLastError
+		defer func() { CppLastError = lastErr }()
+		CppLastError = func(uintptr) string { return "registry encoder family differs" }
 		p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
 		h := p.sceneBegin([]*pb.KnownVoice{{Name: "Ada", Embedding: []float32{1, 0}}})
 		Expect(h.s).To(Equal(uintptr(0)))

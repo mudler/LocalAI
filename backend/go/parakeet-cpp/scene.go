@@ -120,6 +120,9 @@ func (p *ParakeetCpp) sceneBegin(voices []*pb.KnownVoice) sceneStreamHandle {
 		opts.SpeakerMargin = p.speakerMargin
 		s := CppSceneStreamBeginSpeaker(0, diar, tag, p.spkCtx, reg, &opts)
 		if s == 0 {
+			// The library also refuses a registry from another encoder (or without a
+			// fingerprint under speaker_strict) here and says why on the speaker context.
+			xlog.Warn("parakeet-cpp: could not start a live session with speaker names", "error", CppLastError(p.spkCtx))
 			p.freeSpeakerRegistry(reg)
 			return sceneStreamHandle{}
 		}

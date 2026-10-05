@@ -34,7 +34,7 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		}
 
 		var embedding []float32
-		var encoder string
+		var encoder, family string
 		if input.SpeakerProfiles != nil {
 			if input.Audio != "" || input.SpeakerSlot == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "speaker_profiles requires speaker_slot and excludes audio")
@@ -47,7 +47,7 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			if err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			}
-			embedding, encoder = selected.Embedding, trusted.Identity
+			embedding, encoder, family = selected.Embedding, trusted.Identity, trusted.Family
 		} else {
 			if input.SpeakerSlot != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "speaker_slot requires speaker_profiles")
@@ -63,7 +63,11 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			}
 			embedding, encoder = res.GetEmbedding(), res.GetModel()
 		}
-		stored, err := registry.Register(c.Request().Context(), embedding, voiceMetadata(input.Name, input.Labels, encoder))
+		meta := voiceMetadata(input.Name, input.Labels, encoder)
+		// Only the portable route knows the family: it comes from the loaded
+		// encoder. A voice-detect embedding has none, so it stays unfingerprinted.
+		meta.EncoderFamily = family
+		stored, err := registry.Register(c.Request().Context(), embedding, meta)
 		if err != nil {
 			return err
 		}

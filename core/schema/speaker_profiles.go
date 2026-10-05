@@ -13,6 +13,9 @@ import (
 type SpeakerEncoder struct {
 	Identity  string `json:"identity"`
 	Dimension int    `json:"dimension"`
+	// Family is the embedding space of the encoder. The server fills it from the
+	// loaded encoder; exported profiles do not carry it and it is not matched.
+	Family string `json:"family,omitempty"`
 }
 
 // SpeakerProfileInterval locates retained clean audio in the original recording,
@@ -51,7 +54,7 @@ func (p SpeakerProfiles) Validate(trusted SpeakerEncoder) error {
 	if !speakerEncoderIdentity.MatchString(trusted.Identity) || trusted.Dimension <= 0 {
 		return fmt.Errorf("invalid trusted speaker encoder metadata")
 	}
-	if p.Encoder != trusted {
+	if p.Encoder.Identity != trusted.Identity || p.Encoder.Dimension != trusted.Dimension {
 		return fmt.Errorf("speaker profile encoder does not match loaded encoder")
 	}
 	seen := make(map[int]bool, len(p.Speakers))

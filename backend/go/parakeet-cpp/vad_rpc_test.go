@@ -169,6 +169,15 @@ var _ = Describe("VAD tuning options", func() {
 		Expect(s).To(MatchJSON(`{"threshold":0.6,"min_pause":0.3,"min_speech":0.2,"speech_pad":0.05,"max_segment":20}`))
 	})
 
+	It("maps vad_trim to the trim key and allows 0, which keeps the whole cuts", func() {
+		s, err := parseVADTuning(opts("vad_trim:0.5"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s).To(MatchJSON(`{"trim":0.5}`))
+		s, err = parseVADTuning(opts("vad_trim:0"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s).To(MatchJSON(`{"trim":0}`))
+	})
+
 	It("allows a zero speech pad", func() {
 		s, err := parseVADTuning(opts("vad_speech_pad:0"))
 		Expect(err).ToNot(HaveOccurred())
@@ -184,6 +193,8 @@ var _ = Describe("VAD tuning options", func() {
 		Entry("threshold zero", "vad_threshold:0", "out of range"),
 		Entry("threshold above one", "vad_threshold:1.5", "out of range"),
 		Entry("negative pad", "vad_speech_pad:-1", "out of range"),
+		Entry("negative trim", "vad_trim:-0.1", "out of range"),
+		Entry("trim not a number", "vad_trim:long", "is not a number"),
 		Entry("NaN", "vad_min_pause:NaN", "is not a number"),
 	)
 })
@@ -264,6 +275,14 @@ var _ = Describe("vad_model", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(calledHead).To(BeTrue())
 		Expect(calledWith).To(BeFalse())
+	})
+
+	It("passes vad_trim:0 to the segmenter, so the old whole cuts stay available", func() {
+		p := &ParakeetCpp{ctxPtr: 7, vad: true, vadOptions: `{"trim":0}`}
+		_, err := p.transcribePathDoc("/x/long.wav")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(calledWith).To(BeTrue())
+		Expect(gotOpts).To(Equal(`{"trim":0}`))
 	})
 
 	It("passes tuning to the head through _with (null Silero context)", func() {

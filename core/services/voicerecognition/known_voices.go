@@ -15,6 +15,11 @@ type KnownVoice struct {
 	Name      string
 	Embedding []float32
 	Model     string
+	// Family and Weights fingerprint the encoder that made the embedding, as
+	// far as it is known: the embedding space and the "sha256:" identity of the
+	// exact weights. Empty for a voice registered without them.
+	Family  string
+	Weights string
 }
 
 // SpeakerModelFromOptions returns the value of a speaker_model:<file> entry in
@@ -62,7 +67,7 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 			// Hash-tagged portable registrations are checked against the loaded
 		// encoder by the backend, never against a filename or dimension alone.
 		case strings.HasPrefix(e.Metadata.Model, "sha256:"), EncoderTag(e.Metadata.Model) == tag:
-			sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model})
+			sel.Voices = append(sel.Voices, knownVoice(e))
 		default:
 			sel.OtherEncoder++
 		}
@@ -74,6 +79,14 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 		sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding})
 	}
 	return sel
+}
+
+func knownVoice(e Entry) KnownVoice {
+	v := KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model, Family: e.Metadata.EncoderFamily}
+	if strings.HasPrefix(e.Metadata.Model, "sha256:") {
+		v.Weights = e.Metadata.Model
+	}
+	return v
 }
 
 // KnownVoicesFor lists the registry and selects the voices for a speaker model.

@@ -171,6 +171,14 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		return err
 	}
 
+	strict, err := optBool(opts, "speaker_strict", false)
+	if err != nil {
+		return err
+	}
+	if strict && CppSpeakerRegistrySetStrict == nil {
+		return errors.New("parakeet-cpp: speaker_strict needs a libparakeet.so with parakeet_capi_speaker_registry_set_strict; rebuild the backend against a newer parakeet.cpp")
+	}
+
 	latency, err := parseDiarLatency(optString(opts, "diarization_latency"))
 	if err != nil {
 		return err
@@ -311,6 +319,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		return errors.New("parakeet-cpp: speaker_model needs a diarization model (the primary, diarization_model: or diar_component:)")
 	}
 	p.speakerAccept, p.speakerMargin = accept, margin
+	p.speakerStrict = strict
 	p.diarLatency = latency
 	return nil
 }

@@ -223,6 +223,42 @@ backend skips a voice whose embedding size does not match the speaker model's,
 with a warning in the LocalAI log. Naming then falls back to the remaining
 voices, or to no names.
 
+### Encoder fingerprint
+
+Two encoders can give embeddings of the same size (ECAPA and CAM++ both give
+192 values), so a size match does not prove the voices and the `speaker_model:`
+file share an embedding space. A voice enrolled from `speaker_profiles` (see
+[Speaker Diarization]({{% relref "audio-diarization" %}})) is stored with the
+encoder that made it: its **weights** (`sha256:` of the encoder file, kept in
+the voice's `model` field as before) and its **family**
+(`voicedetect:<arch>:<name>:<dim>`, read from the encoder GGUF metadata and
+stored as `encoder_family`). The parakeet-cpp backend builds the registry with
+that fingerprint, and libparakeet checks it against the loaded `speaker_model:`
+before it names anyone:
+
+| Registered voices | Result |
+|---|---|
+| Same family, same weights | names are assigned |
+| Same family, other weights (for example another quantization) | names are assigned, the library logs a warning |
+| Another family, and no other usable voice | the request fails, and the error names both families |
+| Another family, with usable voices of the right family | the other voices are left out, with a warning |
+| No fingerprint | used as before, with a warning that the encoder is unverified |
+
+A voice with only a weights identity takes the family of the loaded encoder
+when the weights are the same file. A voice with a different weights hash and
+no family is dropped, as before.
+
+A voice registered from audio through the voice-detect backend has no
+fingerprint: libvoicedetect reports no architecture or model name, so the
+backend cannot tell the family, and only the file-name tag described above
+applies. Such voices and fingerprinted voices cannot share one registry in the
+library. When a request has any unfingerprinted voice, all of its voices are
+used without the fingerprint check (the old behaviour). To get the check, enroll
+every voice from `speaker_profiles`. With `speaker_strict:true` the backend
+ignores unfingerprinted voices, and a request that has only those fails with
+the library's message. The family is also reported in the internal backend
+status next to the identity.
+
 {{% notice warning %}}
 Do not set a `model_name:` option on the voice-detect model config. It
 replaces the default name, the voices are then tagged with it, and they no
@@ -240,6 +276,7 @@ options).
 | `speaker_model:<path>` | none | speaker encoder GGUF; needs a diarization model (the primary one, or `diarization_model:`) |
 | `speaker_threshold:<float>` | `0.5` | largest distance (1 minus cosine similarity, the unit `/v1/voice/identify` reports) at which a speaker is named; must be in (0, 2) |
 | `speaker_margin:<float>` | `0.05` | the best match must beat the runner-up by this much, otherwise the speaker stays unnamed; must be in [0, 1) |
+| `speaker_strict:<bool>` | `false` | ignore registered voices that carry no [encoder fingerprint](#encoder-fingerprint); needs a libparakeet that exports `parakeet_capi_speaker_registry_set_strict` |
 
 parakeet.cpp's measured starting values for `speaker_threshold` are 0.5 for
 WeSpeaker ResNet34 and CAM++, and 0.3 for ECAPA. A lower value names fewer

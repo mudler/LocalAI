@@ -149,6 +149,7 @@ All options are optional. An unset value keeps the default of the detector in us
 | `vad_min_pause` | seconds | `0.1` | `0.2` | A silence this long separates two segments; shorter gaps merge |
 | `vad_min_speech` | seconds | `0.25` | `0.1` | Shorter speech runs are dropped |
 | `vad_speech_pad` | seconds | `0.03` | `0` | Padding added around each segment |
+| `vad_trim` | seconds | `0.3` | `0.3` | Only for transcription with `vad:true` or `vad_model`: each piece shrinks to its speech plus this much. `0` keeps the whole cuts. The endpoint ignores it |
 
 Option names differ from the Silero backend above (`min_silence_duration_ms` and `speech_pad_ms` are in milliseconds there). The same options tune transcription with `vad:true` or `vad_model`; see [audio to text]({{%relref "features/audio-to-text" %}}). Requests on one loaded model run one at a time.
 

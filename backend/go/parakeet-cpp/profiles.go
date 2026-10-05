@@ -17,6 +17,11 @@ func (p *ParakeetCpp) Status() (pb.StatusResponse, error) {
 		dim := CppSpeakerDim(p.spkCtx)
 		if identity != 0 && dim > 0 {
 			result.SpeakerEncoder = &pb.SpeakerEncoder{Identity: goStringFromCPtr(identity), Dimension: dim}
+			if CppSpeakerEncoderFamily != nil {
+				if family := CppSpeakerEncoderFamily(p.spkCtx); family != 0 {
+					result.SpeakerEncoder.Family = goStringFromCPtr(family)
+				}
+			}
 		}
 	}
 	return pb.StatusResponse{
