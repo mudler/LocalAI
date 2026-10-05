@@ -92,7 +92,9 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 			s.lts.feedNewAudio(s.onsetAudio)
 		}
 	case turncoord.BargeIn:
-		s.session.respSink.cancel(respcoord.SourceVAD)
+		if s.session.interruptResponseEnabled() {
+			s.session.respSink.cancel(respcoord.SourceVAD)
+		}
 	case turncoord.EmitSpeechStarted:
 		sendEvent(s.transport, types.InputAudioBufferSpeechStartedEvent{
 			ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},

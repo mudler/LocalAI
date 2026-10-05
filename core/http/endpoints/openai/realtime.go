@@ -285,7 +285,9 @@ func (session *Session) issueCommit(parent context.Context, source respcoord.Sou
 	session.commitOrderMu.Lock()
 	defer session.commitOrderMu.Unlock()
 	slot := session.nextCommitSlotLocked()
-	session.respSink.issue(parent, source, func(ctx context.Context) {
+	// A non-interrupting VAD commit must not supersede a response at speech end.
+	ifIdle := source == respcoord.SourceVAD && !session.interruptResponseEnabled()
+	session.respSink.issueWithPolicy(parent, source, ifIdle, func(ctx context.Context) {
 		run(ctx, slot)
 	})
 }
