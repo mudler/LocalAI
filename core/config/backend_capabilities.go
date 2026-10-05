@@ -486,10 +486,14 @@ var BackendCapabilities = map[string]BackendCapability{
 	// parakeet-cpp loads three model kinds, picked from the GGUF: an ASR model
 	// transcribes (and labels speakers when a diarization_model companion is
 	// attached), a Nemotron-3-Diarization model answers Diarize, and a CED model
-	// answers SoundDetection. PossibleUsecases is their union.
+	// answers SoundDetection. A model with a speaker encoder (a bundle's voice
+	// component or a speaker_model companion) also answers VoiceEmbed and
+	// VoiceVerify. PossibleUsecases is the union. speaker_recognition is never
+	// guessed, since most parakeet models have no speaker encoder: a bundle
+	// declares it in known_usecases.
 	"parakeet-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodDiarize, MethodSoundDetection},
-		PossibleUsecases: []string{UsecaseTranscript, UsecaseDiarization, UsecaseSoundClassification},
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodDiarize, MethodSoundDetection, MethodVoiceEmbed, MethodVoiceVerify},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseDiarization, UsecaseSoundClassification, UsecaseSpeakerRecognition},
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo Parakeet ASR, Nemotron-3-Diarization speaker diarization and CED sound-event detection (parakeet.cpp)",
 	},

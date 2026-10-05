@@ -145,6 +145,21 @@ var _ = Describe("Model capabilities derivation", func() {
 			Expect(cfg.OutputModalities()).To(Equal([]string{"text"}))
 		})
 
+		It("serves speaker recognition on parakeet-cpp only when the model declares it", func() {
+			declared := &ModelConfig{KnownUsecases: usecaseBits(FLAG_TRANSCRIPT | FLAG_SPEAKER_RECOGNITION), Backend: "parakeet-cpp"}
+			Expect(declared.HasUsecases(FLAG_SPEAKER_RECOGNITION)).To(BeTrue())
+			Expect(declared.Capabilities()).To(ContainElements(UsecaseTranscript, UsecaseSpeakerRecognition))
+
+			// Most parakeet models have no speaker encoder, so nothing is guessed.
+			plain := &ModelConfig{Backend: "parakeet-cpp"}
+			Expect(plain.HasUsecases(FLAG_SPEAKER_RECOGNITION)).To(BeFalse())
+
+			info := BackendCapabilities["parakeet-cpp"]
+			Expect(info.GRPCMethods).To(ContainElements(MethodVoiceEmbed, MethodVoiceVerify))
+			Expect(info.PossibleUsecases).To(ContainElement(UsecaseSpeakerRecognition))
+			Expect(info.DefaultUsecases).ToNot(ContainElement(UsecaseSpeakerRecognition))
+		})
+
 		It("an image-generation model reads text and writes an image", func() {
 			// stablediffusion-ggml is image-only; plain "stablediffusion" is also
 			// in GuessUsecases' video-backend list, so it would report video too.
