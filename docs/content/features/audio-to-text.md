@@ -350,6 +350,7 @@ The component that each role uses, and the option that picks another one:
 | Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
 | Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
 | Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
+| Voice embedding and verification (`/v1/voice/*`, the realtime `voice_recognition` stage) | the `voice` component, only when asked for | `speaker_component:<name>`; declare `speaker_recognition` in `known_usecases`. Needs a libparakeet.so with `parakeet_capi_speaker_embed_pcm`. See [Voice Recognition]({{% relref "voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}) |
 
 `speaker_component:` also names registered speakers: LocalAI sends the voices from `/v1/voice/register` to the bundle's speaker component, as it does for `speaker_model:`. This works in `/v1/audio/diarization` and in realtime live transcription, and it needs no `speaker_model:`. `speaker_threshold`, `speaker_margin` and `speaker_strict` apply too. Only voices that carry an encoder fingerprint (voices enrolled from `speaker_profiles`) and voices with no tag at all are used by default. A voice registered with a tag only matches through `speaker_tag:`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle).
 

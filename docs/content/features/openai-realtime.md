@@ -547,6 +547,33 @@ pipeline:
         audio: /models/voices/bob.wav
 ```
 
+### One bundle for every stage
+
+A parakeet-cpp bundle can fill the speaker stage as well as the others, so one model serves
+`vad`, `transcription`, `sound_detection` and `voice_recognition`. The bundle config must
+list `speaker_recognition` in `known_usecases` (the gallery entries do), and the libparakeet.so
+must export `parakeet_capi_speaker_embed_pcm`:
+
+```yaml
+name: my-realtime
+pipeline:
+  vad: parakeet-cpp-bundle-small
+  transcription: parakeet-cpp-bundle-small
+  sound_detection: parakeet-cpp-bundle-small
+  llm: qwen
+  tts: kokoro
+  voice_recognition:
+    model: parakeet-cpp-bundle-small
+    mode: identify
+    threshold: 0.5               # WeSpeaker distance; see Voice Recognition
+```
+
+The bundle's encoder has the same weights as `voice-detect-wespeaker-resnet34`, so voices
+registered with that model are matched. Embedding an utterance uses the same engine lock as
+transcription, so it adds to the turn latency. Voices from a 192-dimension model (ECAPA-TDNN,
+for example) cannot be matched by a bundle; see
+[Voice Recognition]({{% relref "voice-recognition#a-parakeet-cpp-bundle-as-the-embedding-model" %}}).
+
 ### Identifying speakers without gating
 
 To recognize who is speaking and surface it to the client and the LLM without ever rejecting a turn, set `enforce: false` and add an `identity` block. The `identity` block works with or without the gate; when it is set, the speaker is resolved on every turn even if `when: first`.

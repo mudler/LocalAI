@@ -206,6 +206,40 @@ embedding size, so registering a voice of a new size no longer fails.
 - Naming in diarization and live transcription reads the registry as a whole
   and uses the voices that match the loaded encoder.
 
+## A parakeet-cpp bundle as the embedding model
+
+A parakeet-cpp model that has a speaker encoder can serve `/v1/voice/embed`,
+`/v1/voice/verify`, `/v1/voice/register` and `/v1/voice/identify`, and the
+`voice_recognition` stage of a realtime pipeline. That is every
+[bundle]({{% relref "audio-to-text#bundle-gguf-files-several-models-in-one-file" %}}) with a `voice` component
+(`parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard`), and any
+parakeet-cpp config with a `speaker_model:` or `speaker_component:` option, such as
+`parakeet-cpp-realtime-scene-speakers`. Declare `speaker_recognition` in the
+`known_usecases` of the config; the gallery entries above already do. Then use the model
+name as `model`:
+
+```bash
+local-ai models install parakeet-cpp-bundle-small
+curl http://localhost:8080/v1/voice/embed -H "Content-Type: application/json" \
+  -d '{"model": "parakeet-cpp-bundle-small", "audio": "https://example.com/clip.wav"}'
+```
+
+The `voice` component holds the same weights as `voice-detect-wespeaker-resnet34`
+(256 dimensions), so a voice registered with one model also matches embeddings from the
+other. Use a distance threshold near 0.5 for this encoder, as for `speaker_model:`
+naming below. The response `model` field is the `sha256:` identity of the encoder
+weights.
+
+Only embedding, identification and plain verification are available. There is no
+anti-spoofing head, so a verify request with `anti_spoofing: true` is refused, and
+`/v1/voice/analyze` is not served by parakeet-cpp. The backend needs a libparakeet.so
+that exports `parakeet_capi_speaker_embed_pcm`. With an older library these calls fail
+with an `Unimplemented` error that names the missing symbol, and a model without a
+speaker encoder fails with a `FailedPrecondition` error.
+
+Voices of other embedding sizes stay in their own store, see
+[Voices from different encoders](#voices-from-different-encoders).
+
 ## Naming speakers in diarization and live transcription
 
 The parakeet-cpp backend can put the names of registered voices on
