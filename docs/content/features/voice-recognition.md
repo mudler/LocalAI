@@ -230,6 +230,9 @@ other. Use a distance threshold near 0.5 for this encoder, as for `speaker_model
 naming below. The response `model` field is the `sha256:` identity of the encoder
 weights.
 
+`/v1/voice/verify` uses a distance threshold of 0.5 when the request has none. Set the
+model option `voice_verify_threshold:<distance>` (a distance in (0, 2)) to change it.
+
 Only embedding, identification and plain verification are available. There is no
 anti-spoofing head, so a verify request with `anti_spoofing: true` is refused, and
 `/v1/voice/analyze` is not served by parakeet-cpp. The backend needs a libparakeet.so

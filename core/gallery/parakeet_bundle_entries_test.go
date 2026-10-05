@@ -65,18 +65,15 @@ var _ = Describe("gallery/index.yaml parakeet-cpp bundle entries", func() {
 		}
 	})
 
-	// speaker_recognition is deliberately absent: that usecase means the model
-	// answers the /v1/voice/* RPCs (VoiceEmbed, VoiceVerify), which the
-	// parakeet-cpp backend does not implement, and it picks the default model
-	// for those routes. Naming registered speakers works from the
-	// speaker_component option alone, with no usecase.
+	// speaker_recognition means the model answers the /v1/voice/* RPCs
+	// (VoiceEmbed, VoiceVerify). The parakeet-cpp backend does since it binds
+	// parakeet_capi_speaker_embed_pcm, so entries with a speaker encoder declare it.
 	It("declares the usecases and options of the roles each bundle covers", func() {
 		all := entries()
 		for name, w := range want {
 			e := all[name]
 			Expect(e.Overrides["known_usecases"]).To(ConsistOf(toAny(w.usecases)...), name)
 			Expect(e.Overrides["options"]).To(ConsistOf(toAny(w.options)...), name)
-			Expect(e.Overrides["known_usecases"]).ToNot(ContainElement("speaker_recognition"), name)
 		}
 	})
 
