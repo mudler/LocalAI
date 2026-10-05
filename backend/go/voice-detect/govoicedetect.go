@@ -140,7 +140,7 @@ func readEncoderFamily(ctx uintptr) string {
 // when the path is not a readable regular file; the backend then reports no
 // weights identity and only the family fingerprints the voice.
 func fileIdentity(path string) string {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- the model file LocalAI itself passes to the load
 	if err != nil {
 		return ""
 	}
