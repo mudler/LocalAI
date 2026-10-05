@@ -201,6 +201,8 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// Voice (speaker) recognition registry — same plumbing, separate
 	// namespace so embedding spaces stay isolated (a face vector and a
 	// speaker vector are not comparable and differ in dimensionality).
+	// The registry also splits its store per embedding dimension, so speaker
+	// encoders of different sizes can coexist.
 	voiceStoreResolver := func(_ context.Context, storeName string) (pkggrpc.Backend, error) {
 		return corebackend.StoreBackend(ml, appConfig, app.backendLoader, storeName, "")
 	}

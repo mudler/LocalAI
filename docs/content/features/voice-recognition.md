@@ -185,6 +185,27 @@ recognition - the voice-recognition HTTP API is designed to swap the
 backing store without changing the wire format.
 {{% /notice %}}
 
+### Voices from different encoders
+
+Voices from encoders with different embedding sizes can be registered on the
+same instance, for example 192-value ECAPA-TDNN voices next to 256-value
+WeSpeaker ResNet34 voices. LocalAI keeps one in-memory vector store per
+embedding size, so registering a voice of a new size no longer fails.
+
+- Identification compares the probe only with voices of the same size. Voices
+  from an encoder of another size are never candidates.
+- If no voice of the probe size is registered, `/v1/voice/identify` returns an
+  empty `matches` list and the realtime voice gate reports an unknown speaker.
+  Neither returns an error.
+- Two encoders can still give the same size (ECAPA and CAM++ both give 192
+  values). Those voices share a store and the encoder tag or identity checks
+  described below apply.
+- A name is not unique. One name can hold one voice per encoder, and each
+  registration has its own ID. `/v1/voice/forget` removes the voice with that
+  ID only, so forget each ID to remove a person from every encoder.
+- Naming in diarization and live transcription reads the registry as a whole
+  and uses the voices that match the loaded encoder.
+
 ## Naming speakers in diarization and live transcription
 
 The parakeet-cpp backend can put the names of registered voices on
