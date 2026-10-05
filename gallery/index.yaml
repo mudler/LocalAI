@@ -54528,6 +54528,7 @@
     backend: parakeet-cpp
     known_usecases:
       - transcript
+      - speaker_recognition
     name: parakeet-cpp-realtime-scene-speakers
     options:
       - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
@@ -54902,6 +54903,7 @@
       - vad
       - diarization
       - sound_classification
+      - speaker_recognition
     name: parakeet-cpp-bundle-small
     options:
       - vad:true
@@ -54965,6 +54967,7 @@
       - vad
       - diarization
       - sound_classification
+      - speaker_recognition
     name: parakeet-cpp-bundle-standard
     options:
       - vad:true

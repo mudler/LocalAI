@@ -25,12 +25,12 @@ var _ = Describe("gallery/index.yaml parakeet-cpp bundle entries", func() {
 		"parakeet-cpp-bundle-small": {
 			"parakeet-cpp/parakeet-bundle-small.gguf",
 			"5f2c6697eb08d4d67e858692d4223a9d911aacc51ae16cf2aee9e760f8a2269a",
-			[]string{"transcript", "vad", "diarization", "sound_classification"}, full,
+			[]string{"transcript", "vad", "diarization", "sound_classification", "speaker_recognition"}, full,
 		},
 		"parakeet-cpp-bundle-standard": {
 			"parakeet-cpp/parakeet-bundle-standard.gguf",
 			"85304e3bb49de04b84a7d0c76baaa7dedd1a0c02c0920078a99f92c00cffbdf6",
-			[]string{"transcript", "vad", "diarization", "sound_classification"}, full,
+			[]string{"transcript", "vad", "diarization", "sound_classification", "speaker_recognition"}, full,
 		},
 		"parakeet-cpp-bundle-moondream-redux": {
 			"parakeet-cpp/parakeet-bundle-moondream-redux.gguf",
@@ -77,6 +77,16 @@ var _ = Describe("gallery/index.yaml parakeet-cpp bundle entries", func() {
 			Expect(e.Overrides["known_usecases"]).To(ConsistOf(toAny(w.usecases)...), name)
 			Expect(e.Overrides["options"]).To(ConsistOf(toAny(w.options)...), name)
 			Expect(e.Overrides["known_usecases"]).ToNot(ContainElement("speaker_recognition"), name)
+		}
+	})
+
+	It("declares speaker recognition only where the model has a speaker encoder", func() {
+		all := entries()
+		for _, name := range []string{"parakeet-cpp-bundle-small", "parakeet-cpp-bundle-standard", "parakeet-cpp-realtime-scene-speakers"} {
+			Expect(all[name].Overrides["known_usecases"]).To(ContainElement("speaker_recognition"), name)
+		}
+		for _, name := range []string{"parakeet-cpp-bundle-moondream-redux", "parakeet-cpp-tdt_ctc-110m"} {
+			Expect(all[name].Overrides["known_usecases"]).ToNot(ContainElement("speaker_recognition"), name)
 		}
 	})
 
