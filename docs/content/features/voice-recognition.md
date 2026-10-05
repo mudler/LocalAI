@@ -355,9 +355,14 @@ not a plain file the backend cannot hash it and the weights stay empty, so the
 family alone fingerprints the voice. When the family is known, LocalAI sends
 the voice to the backend whatever its file name, so the family decides.
 
+A voice-detect backend built against an older libvoicedetect cannot report
+the family, but it still records the weights. Such a voice is treated as made
+by the loaded `speaker_model:` when the weights are the same file, and stays
+unfingerprinted when they differ.
+
 Voices registered before this change have no fingerprint, and so do voices
-from a backend that cannot report one (an older libvoicedetect, or the Python
-speaker-recognition backend). They are used as described above, by file-name
+from a backend that reports neither (the Python speaker-recognition backend).
+They are used as described above, by file-name
 tag. Such voices and fingerprinted voices cannot share one registry in the
 library. When a request has any unfingerprinted voice, all of its voices are
 used without the fingerprint check. **Register those voices again** to get
