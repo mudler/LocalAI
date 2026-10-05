@@ -93,6 +93,11 @@ func ensureLibLoaded() {
 			purego.RegisterLibFunc(&CppSceneStreamBeginSpeaker, lib, "parakeet_capi_scene_stream_begin_speaker")
 			purego.RegisterLibFunc(&CppTranscribeAndDiarizeNamedJSON, lib, "parakeet_capi_transcribe_and_diarize_named_json")
 		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_load_component"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppLoadComponent, lib, "parakeet_capi_load_component")
+			purego.RegisterLibFunc(&CppBundleComponentsJSON, lib, "parakeet_capi_bundle_components_json")
+			purego.RegisterLibFunc(&CppLoadError, lib, "parakeet_capi_load_error")
+		}
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_embed_pcm"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppSpeakerEmbedPCM, lib, "parakeet_capi_speaker_embed_pcm")
 			purego.RegisterLibFunc(&CppFreeFloats, lib, "parakeet_capi_free_floats")

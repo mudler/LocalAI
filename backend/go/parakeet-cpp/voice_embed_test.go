@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"unsafe"
 
@@ -126,6 +127,20 @@ var _ = Describe("ParakeetCpp.VoiceEmbed", func() {
 			Expect(res.Threshold).To(BeNumerically("~", 0.3, 1e-6))
 		})
 
+		It("uses voice_verify_threshold when the request has none and rejects a bad value", func() {
+			p := &ParakeetCpp{spkCtx: 9, verifyDistance: 0.2}
+			res, err := p.VoiceVerify(&pb.VoiceVerifyRequest{Audio1: diarizeWav(1), Audio2: diarizeWav(1)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Threshold).To(BeNumerically("~", 0.2, 1e-6))
+			for _, bad := range []string{"x", "0", "2", "-1"} {
+				_, err := parseVerifyThreshold(bad)
+				Expect(err).To(HaveOccurred(), bad)
+			}
+			v, err := parseVerifyThreshold("")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(v).To(BeZero())
+		})
+
 		It("refuses anti-spoofing and missing clips", func() {
 			p := &ParakeetCpp{spkCtx: 9}
 			_, err := p.VoiceVerify(&pb.VoiceVerifyRequest{Audio1: "a", Audio2: "b", AntiSpoofing: true})
@@ -136,30 +151,56 @@ var _ = Describe("ParakeetCpp.VoiceEmbed", func() {
 	})
 })
 
-// PARAKEET_BACKEND_TEST_BUNDLE (or ..._SPEAKER_MODEL) points at a GGUF with a speaker
-// encoder and PARAKEET_BACKEND_TEST_WAV at any speech WAV; the spec needs a libparakeet.so
-// that exports parakeet_capi_speaker_embed_pcm (PARAKEET_LIBRARY).
+// The real-library spec needs a libparakeet.so that exports parakeet_capi_speaker_embed_pcm
+// (PARAKEET_LIBRARY), a bundle GGUF with a diar and a voice component
+// (PARAKEET_BACKEND_TEST_SPEAKER_BUNDLE) and parakeet.cpp's tests/fixtures/two_speakers.wav
+// (PARAKEET_BACKEND_TEST_WAV): voice A speaks 0.5-5.5 s and voice B 6.9-13.5 s. ffmpeg cuts the clips.
 var _ = Describe("ParakeetCpp.VoiceEmbed (real libparakeet.so)", func() {
-	It("embeds a clip, repeats exactly and reports the encoder identity", func() {
-		model := os.Getenv("PARAKEET_BACKEND_TEST_SPEAKER_BUNDLE")
+	It("embeds deterministically, scores the same voice above another and verifies", func() {
+		bundle := os.Getenv("PARAKEET_BACKEND_TEST_SPEAKER_BUNDLE")
 		wav := os.Getenv("PARAKEET_BACKEND_TEST_WAV")
-		if model == "" || wav == "" {
-			Skip("set PARAKEET_BACKEND_TEST_SPEAKER_BUNDLE (a bundle GGUF with a voice component) and PARAKEET_BACKEND_TEST_WAV")
+		if bundle == "" || wav == "" {
+			Skip("set PARAKEET_BACKEND_TEST_SPEAKER_BUNDLE (a bundle GGUF with diar and voice components) and PARAKEET_BACKEND_TEST_WAV (two_speakers.wav)")
 		}
 		ensureLibLoaded()
 		if CppSpeakerEmbedPCM == nil {
 			Skip("libparakeet.so has no parakeet_capi_speaker_embed_pcm")
 		}
+		dir := GinkgoT().TempDir()
+		clip := func(name string, start, dur string) string {
+			out := filepath.Join(dir, name+".wav")
+			cmd := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-ss", start, "-t", dur, "-i", wav, "-ar", "16000", "-ac", "1", out)
+			Expect(cmd.Run()).To(Succeed())
+			return out
+		}
+		a1, a2, b1 := clip("a1", "0.5", "4"), clip("a2", "14.8", "3.5"), clip("b1", "7", "4")
+
 		p := &ParakeetCpp{}
-		Expect(p.Load(&pb.ModelOptions{ModelFile: model, Options: []string{"speaker_component:voice"}})).To(Succeed())
+		Expect(p.Load(&pb.ModelOptions{ModelFile: bundle, Options: []string{"diar_component:diar", "speaker_component:voice"}})).To(Succeed())
 		defer func() { _ = p.Free() }()
 
-		first, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: wav})
+		first, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: a1})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(first.Embedding).ToNot(BeEmpty())
+		Expect(first.Embedding).To(HaveLen(256))
 		Expect(first.Model).To(HavePrefix("sha256:"))
-		again, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: wav})
+		again, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: a1})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(cosineDistance(first.Embedding, again.Embedding)).To(BeNumerically("<", 1e-4))
+		Expect(cosineDistance(first.Embedding, again.Embedding)).To(BeNumerically("<", 1e-5))
+
+		other, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: a2})
+		Expect(err).ToNot(HaveOccurred())
+		diff, err := p.VoiceEmbed(&pb.VoiceEmbedRequest{Audio: b1})
+		Expect(err).ToNot(HaveOccurred())
+		same, different := cosineDistance(first.Embedding, other.Embedding), cosineDistance(first.Embedding, diff.Embedding)
+		GinkgoWriter.Printf("model %s dim %d same-voice distance %.4f different-voice distance %.4f\n", first.Model, len(first.Embedding), same, different)
+		Expect(same).To(BeNumerically("<", different))
+
+		ok, err := p.VoiceVerify(&pb.VoiceVerifyRequest{Audio1: a1, Audio2: a2})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok.Verified).To(BeTrue(), "distance %.4f", ok.Distance)
+		no, err := p.VoiceVerify(&pb.VoiceVerifyRequest{Audio1: a1, Audio2: b1})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(no.Verified).To(BeFalse(), "distance %.4f", no.Distance)
+		GinkgoWriter.Printf("verify same %.4f (%v) different %.4f (%v)\n", ok.Distance, ok.Verified, no.Distance, no.Verified)
 	})
 })

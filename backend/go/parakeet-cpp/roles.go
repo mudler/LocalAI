@@ -170,6 +170,10 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	if err != nil {
 		return err
 	}
+	verifyDistance, err := parseVerifyThreshold(optString(opts, "voice_verify_threshold"))
+	if err != nil {
+		return err
+	}
 
 	strict, err := optBool(opts, "speaker_strict", false)
 	if err != nil {
@@ -320,6 +324,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	}
 	p.speakerAccept, p.speakerMargin = accept, margin
 	p.speakerStrict = strict
+	p.verifyDistance = verifyDistance
 	p.diarLatency = latency
 	return nil
 }

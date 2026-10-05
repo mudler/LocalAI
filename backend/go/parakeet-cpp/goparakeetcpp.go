@@ -280,6 +280,9 @@ type ParakeetCpp struct {
 	// speakerStrict (speaker_strict:true) refuses registered voices that carry no
 	// encoder fingerprint instead of using them unverified.
 	speakerStrict bool
+	// verifyDistance is the VoiceVerify distance threshold when the request has none
+	// (voice_verify_threshold:, default 0.5).
+	verifyDistance float32
 	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
 	// streaming (diarization_latency: option, default "low"). Unused until
 	// the diarization/scene streaming paths land.

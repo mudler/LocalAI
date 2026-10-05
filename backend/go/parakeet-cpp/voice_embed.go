@@ -2,7 +2,10 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"unsafe"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -115,6 +118,9 @@ func (p *ParakeetCpp) VoiceVerify(req *pb.VoiceVerifyRequest) (pb.VoiceVerifyRes
 	}
 	threshold := req.GetThreshold()
 	if threshold <= 0 {
+		threshold = p.verifyDistance
+	}
+	if threshold <= 0 {
 		threshold = defaultSpeakerDistance
 	}
 	distance := cosineDistance(a, b)
@@ -129,6 +135,19 @@ func (p *ParakeetCpp) VoiceVerify(req *pb.VoiceVerifyRequest) (pb.VoiceVerifyRes
 		Confidence: confidence,
 		Model:      model,
 	}, nil
+}
+
+// parseVerifyThreshold reads voice_verify_threshold, a distance in (0, 2). Empty means 0,
+// which VoiceVerify turns into the default.
+func parseVerifyThreshold(s string) (float32, error) {
+	if strings.TrimSpace(s) == "" {
+		return 0, nil
+	}
+	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || math.IsNaN(v) || v <= 0 || v >= 2 {
+		return 0, fmt.Errorf("parakeet-cpp: voice_verify_threshold %q must be a distance in (0, 2) (1 minus cosine similarity)", s)
+	}
+	return float32(v), nil
 }
 
 // cosineDistance is 1 minus the cosine similarity; a zero vector counts as maximally far.
