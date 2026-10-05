@@ -13911,6 +13911,70 @@
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B-it-mmproj.gguf
       sha256: 021059cce659fe7f9170d5599761d7bbaf644b798dab9503aca30dc43e6beb14
+- name: diarizationlm-gemma-4-e4b-v1-q4-k-m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1
+    - https://huggingface.co/google/gemma-4-E4B
+  license: apache-2.0
+  description: |
+    DiarizationLM-Gemma-4-E4B-v1 corrects speaker labels in existing
+    transcripts. This Q4_K_M GGUF uses llama.cpp for text
+    completion with the upstream speaker-tagged prompt format.
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - diarization
+    - cpu
+    - gpu
+  variants:
+    - model: diarizationlm-gemma-4-e4b-v1-q4-0
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - completion
+    parameters:
+      model: llama-cpp/models/diarizationlm-gemma-4-e4b-v1/DiarizationLM-Gemma-4-E4B-v1-q4_k_m.gguf
+      temperature: 0
+    stopwords:
+      - " [eod]"
+  files:
+    - filename: llama-cpp/models/diarizationlm-gemma-4-e4b-v1/DiarizationLM-Gemma-4-E4B-v1-q4_k_m.gguf
+      uri: https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1/resolve/91b7c06adae025090dc7fcec3afcc1cb145c7302/DiarizationLM-Gemma-4-E4B-v1-q4_k_m.gguf
+      sha256: 935b122a66c70b1e54fcaba2511910e5ff0a1b4713806d0448bab6e6fb9bb3d0
+- name: diarizationlm-gemma-4-e4b-v1-q4-0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1
+    - https://huggingface.co/google/gemma-4-E4B
+  license: apache-2.0
+  description: |
+    DiarizationLM-Gemma-4-E4B-v1 corrects speaker labels in existing
+    transcripts. This Q4_0 GGUF uses llama.cpp for text
+    completion with the upstream speaker-tagged prompt format.
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - diarization
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - completion
+    parameters:
+      model: llama-cpp/models/diarizationlm-gemma-4-e4b-v1/DiarizationLM-Gemma-4-E4B-v1-q4_0.gguf
+      temperature: 0
+    stopwords:
+      - " [eod]"
+  files:
+    - filename: llama-cpp/models/diarizationlm-gemma-4-e4b-v1/DiarizationLM-Gemma-4-E4B-v1-q4_0.gguf
+      uri: https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1/resolve/91b7c06adae025090dc7fcec3afcc1cb145c7302/DiarizationLM-Gemma-4-E4B-v1-q4_0.gguf
+      sha256: 297238b1dbfe8bb061f5e4cc79be0e2d607a4539d7bc6dc00d75cc0428f6a264
 - name: "gemma-4-e4b-it-qat-q4_0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

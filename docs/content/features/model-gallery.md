@@ -39,6 +39,40 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## DiarizationLM Gemma 4 E4B
+
+[DiarizationLM-Gemma-4-E4B-v1](https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1)
+corrects speaker labels in text from an existing transcription and diarization pipeline.
+The gallery provides Q4_K_M and Q4_0 variants for llama.cpp with an 8,192-token context.
+These entries accept text through the completion endpoint; they do not transcribe audio.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install diarizationlm-gemma-4-e4b-v1-q4-k-m
+```
+
+Add `--variant diarizationlm-gemma-4-e4b-v1-q4-0` to select the smaller Q4_0 build explicitly.
+Use the installed model's name in requests, which can change with variant selection.
+
+Supply the complete upstream prompt, including speaker tags and the `-->` separator:
+
+```bash
+curl http://localhost:8080/v1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "diarizationlm-gemma-4-e4b-v1-q4-k-m",
+    "prompt": "<|turn>user\n<speaker:1> Hello, how are you <speaker:2> today? I am well. --> <turn|>\n<|turn>model\n",
+    "temperature": 0,
+    "max_tokens": 128
+  }'
+```
+
+The model can also alter transcript words. To preserve the original words, apply
+`diarizationlm.utils.transfer_llm_completion` from the upstream Python library
+to the generated completion and the original speaker-tagged transcript.
+LocalAI returns the completion without this post-processing step.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
