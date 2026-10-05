@@ -106,6 +106,14 @@ The embedded vector store sets per-connection timeouts so a single stuck or corr
 
 These are read directly from the LocalAI process environment by the embedded store (the same as `DATABASE_URL` and `HYBRID_SEARCH_*`).
 
+#### Connection pool size (PostgreSQL only)
+
+Every collection opens its own connection pool, so the total number of connections can reach the pool size times the number of collections. Keep this total below the `max_connections` setting of the PostgreSQL server.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_POOL_MAX_CONNS` | `4` | Maximum number of connections in the pool of each collection. A `pool_max_conns` parameter in the database URL has priority. |
+
 ### Docker Compose Example
 
 Basic setup with in-memory vector store:
