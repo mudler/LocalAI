@@ -80,7 +80,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/backends/upgrades/check", backendGalleryEndpointService.CheckUpgradesEndpoint(), adminMiddleware)
 		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware)
 		// Custom model import endpoint
-		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig), adminMiddleware)
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
 
 		// URI model import endpoint
 		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache), adminMiddleware)
