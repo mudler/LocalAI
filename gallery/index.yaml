@@ -13392,6 +13392,86 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &artemis-31b-v1-2
+  name: artemis-31b-v1.2-q4
+  variants:
+    - model: artemis-31b-v1.2-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/TheDrummer/Artemis-31B-v1.2
+    - https://huggingface.co/bartowski/TheDrummer_Artemis-31B-v1.2-GGUF
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - multimodal
+    - reasoning
+    - creative-writing
+  description: |
+    Artemis 31B v1.2 is TheDrummer's Gemma 4 31B fine-tune for creative
+    writing and roleplay. This entry uses the Q4_K_M GGUF with the BF16
+    vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/artemis-31b-v1.2/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/artemis-31b-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/artemis-31b-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/TheDrummer_Artemis-31B-v1.2-GGUF/resolve/72c9a54c1b6080093616d4d510a46b20c76b8a24/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf
+      sha256: fb47af4c9b7262e99378b9e1808bdcc15dd124790019b9bd36c0ce1774d36a1f
+    - filename: llama-cpp/mmproj/artemis-31b-v1.2/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+      uri: https://huggingface.co/bartowski/TheDrummer_Artemis-31B-v1.2-GGUF/resolve/72c9a54c1b6080093616d4d510a46b20c76b8a24/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+      sha256: 6c3107b88581f3c2a27f4ae12e263ef27101d792ebec3c6eab56fa4dd69ed736
+- !!merge <<: *artemis-31b-v1-2
+  name: artemis-31b-v1.2-q8
+  variants: []
+  description: |
+    Artemis 31B v1.2 is TheDrummer's Gemma 4 31B fine-tune for creative
+    writing and roleplay. This entry uses the Q8_0 GGUF with the BF16
+    vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/artemis-31b-v1.2/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/artemis-31b-v1.2/TheDrummer_Artemis-31B-v1.2-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/artemis-31b-v1.2/TheDrummer_Artemis-31B-v1.2-Q8_0.gguf
+      uri: https://huggingface.co/bartowski/TheDrummer_Artemis-31B-v1.2-GGUF/resolve/72c9a54c1b6080093616d4d510a46b20c76b8a24/TheDrummer_Artemis-31B-v1.2-Q8_0.gguf
+      sha256: c83716501352f30601aea420ba2e251d51f23adc6205fcd86ca8f63d17dca388
+    - filename: llama-cpp/mmproj/artemis-31b-v1.2/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+      uri: https://huggingface.co/bartowski/TheDrummer_Artemis-31B-v1.2-GGUF/resolve/72c9a54c1b6080093616d4d510a46b20c76b8a24/mmproj-TheDrummer_Artemis-31B-v1.2-bf16.gguf
+      sha256: 6c3107b88581f3c2a27f4ae12e263ef27101d792ebec3c6eab56fa4dd69ed736
 - &gemma-4-31b-ortenzya
   name: gemma-4-31b-ortenzya-q4
   variants:

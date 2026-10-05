@@ -39,6 +39,20 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Artemis 31B v1.2
+
+[Artemis 31B v1.2](https://huggingface.co/TheDrummer/Artemis-31B-v1.2) is a Gemma 4 fine-tune for creative writing and roleplay.
+The gallery offers Q4_K_M and Q8_0 builds for llama.cpp, each with the matching BF16 vision projector.
+Both use the embedded chat template and a 32,768-token context.
+
+Install the model with automatic variant selection:
+
+```bash
+local-ai models install artemis-31b-v1.2-q4
+```
+
+To select Q8_0 explicitly, add `--variant artemis-31b-v1.2-q8` to the command.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
