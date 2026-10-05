@@ -1220,7 +1220,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 }
 
 // liveVoiceOptions selects the registered voices a live session may name speakers
-// with. It stays empty without a speaker_model or a voice registry.
+// with. It stays empty without a speaker_model or speaker_component, or a voice registry.
 func liveVoiceOptions(ctx context.Context, registry voicerecognition.Registry, cfg *config.ModelConfig) []backend.LiveOption {
 	voices := selectKnownVoices(ctx, "live transcription", cfg.Options, registry)
 	if len(voices) == 0 {

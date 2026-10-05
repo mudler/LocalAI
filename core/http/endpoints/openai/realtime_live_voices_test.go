@@ -29,6 +29,16 @@ var _ = Describe("liveVoiceOptions", func() {
 		Expect(liveVoiceOptions(context.Background(), nil, cfgWith("speaker_model:enc.gguf"))).To(BeEmpty())
 		Expect(liveVoiceOptions(context.Background(), fakeVoiceRegistry{err: errors.New("boom")}, cfgWith("speaker_model:enc.gguf"))).To(BeEmpty())
 	})
+	It("opens a bundle session through its speaker_component", func() {
+		hashed := voicerecognition.Entry{Metadata: voicerecognition.Metadata{Name: "Ada", Model: "sha256:72040372aa"}, Embedding: []float32{1, 0}}
+		legacy := voicerecognition.Entry{Metadata: voicerecognition.Metadata{Name: "Bob", Model: "voice-detect-wespeaker-resnet34.gguf"}, Embedding: []float32{1, 0}}
+		reg := fakeVoiceRegistry{entries: []voicerecognition.Entry{legacy, hashed}}
+		Expect(liveVoiceOptions(context.Background(), reg, cfgWith("vad:true", "speaker_component:voice"))).To(HaveLen(1))
+		// A tag-only voice alone is refused without the alias, accepted with it.
+		tagOnly := fakeVoiceRegistry{entries: []voicerecognition.Entry{legacy}}
+		Expect(liveVoiceOptions(context.Background(), tagOnly, cfgWith("speaker_component:voice"))).To(BeEmpty())
+		Expect(liveVoiceOptions(context.Background(), tagOnly, cfgWith("speaker_component:voice", "speaker_tag:voice-detect-wespeaker-resnet34.gguf"))).To(HaveLen(1))
+	})
 })
 
 var _ = Describe("transcription segment event", func() {
