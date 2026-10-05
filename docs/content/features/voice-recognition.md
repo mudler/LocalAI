@@ -229,6 +229,42 @@ this, speakers only carry labels such as `SPEAKER_00`.
    [Speaker Diarization]({{% relref "audio-diarization" %}}) for the
    response.
 
+### Naming speakers from a bundle
+
+A parakeet-cpp bundle file holds the speaker encoder as a component, so its
+config has `speaker_component:voice` and no `speaker_model:` (the
+`parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` gallery
+entries are set up like this). LocalAI treats `speaker_component:` as the
+speaker encoder of the model when `speaker_model:` is not set. A
+`speaker_model:` entry always wins, including one that points at the bundle
+file itself.
+
+A bundle has no encoder file name, so LocalAI cannot compare file-name tags,
+and it never guesses a tag from the bundle file name. For a bundle component
+LocalAI sends the backend:
+
+- voices with an [encoder fingerprint](#encoder-fingerprint), whatever their
+  tag: the backend checks the fingerprint against the loaded component.
+  Voices enrolled from `speaker_profiles` are in this group. The WeSpeaker
+  component of the published bundles has the same weights as
+  `voice-detect-wespeaker-resnet34`, so a voice enrolled with one works with
+  the other;
+- voices with no tag (registered before tags existed);
+- voices whose tag equals the `speaker_tag:` option, if set.
+
+Other voices are ignored. To use a voice that carries only a file-name tag,
+set the same tag on the model config. For voices registered through the
+`voice-detect-wespeaker-resnet34` gallery model:
+
+```yaml
+options:
+- speaker_component:voice
+- speaker_tag:voice-detect-wespeaker-resnet34.gguf
+```
+
+Use `speaker_tag:` only for voices made by the same weights as the bundle
+component. The check by size alone cannot tell two encoders apart.
+
 ### Which voices are used
 
 LocalAI sends the backend only the registered voices made by the same
@@ -295,6 +331,8 @@ options).
 | Option | Default | Meaning |
 |---|---|---|
 | `speaker_model:<path>` | none | speaker encoder GGUF; needs a diarization model (the primary one, or `diarization_model:`) |
+| `speaker_component:<name>` | none | speaker encoder component of a bundle file; used as the speaker encoder for naming when `speaker_model:` is not set (see [Naming speakers from a bundle](#naming-speakers-from-a-bundle)) |
+| `speaker_tag:<tag>` | none | encoder tag that also counts as the loaded encoder, for voices that carry only a file-name tag; mainly for a bundle component |
 | `speaker_threshold:<float>` | `0.5` | largest distance (1 minus cosine similarity, the unit `/v1/voice/identify` reports) at which a speaker is named; must be in (0, 2) |
 | `speaker_margin:<float>` | `0.05` | the best match must beat the runner-up by this much, otherwise the speaker stays unnamed; must be in [0, 1) |
 | `speaker_strict:<bool>` | `false` | ignore registered voices that carry no [encoder fingerprint](#encoder-fingerprint); needs a libparakeet that exports `parakeet_capi_speaker_registry_set_strict` |
@@ -307,7 +345,7 @@ speakers and makes fewer mistakes.
 
 - The voice registry is in memory and global. Registered names disappear when
   LocalAI restarts, and every user of the instance shares them.
-- Anyone who is allowed to call a model with `speaker_model:` can learn which
+- Anyone who is allowed to call a model with `speaker_model:` or `speaker_component:` can learn which
   registered names match their audio, and their audio is matched against voices
   registered by any user, because the voice registry is global. Restrict such
   models with the per-user model allowlist.
@@ -320,7 +358,10 @@ speakers and makes fewer mistakes.
 - Accuracy was measured on one fixture (two read-speech voices). Check the
   threshold on your own audio.
 - The backend needs a libparakeet with C-API v10. With an older library a
-  model config that sets `speaker_model:` fails to load.
+  model config that sets `speaker_model:` or `speaker_component:` fails to load.
+- A bundle does not serve `/v1/voice/register`, `/v1/voice/identify` or
+  `/v1/voice/verify` itself. Register voices with a voice-detect model (or
+  from `speaker_profiles`), then name them through the bundle.
 
 ## API reference
 

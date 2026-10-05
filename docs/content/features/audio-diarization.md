@@ -85,7 +85,7 @@ Adds per-speaker totals and (when the backend supports it and `include_text=true
 
 ### Speaker names
 
-With a parakeet-cpp model that has a `speaker_model:` and voices registered through `/v1/voice/register`, segments whose speaker matches a registered voice gain `name` and `name_score` (the cosine similarity of the match), and the matching `speakers` entry gains `name`. Both fields are omitted for a speaker that was not identified, so an unnamed response looks exactly as before. `speaker` stays `SPEAKER_NN`, and RTTM output still uses `SPEAKER_NN`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription) for the setup and the limits.
+With a parakeet-cpp model that has a `speaker_model:` (or a `speaker_component:`, for a bundle file such as `parakeet-cpp-bundle-standard`) and voices registered through `/v1/voice/register`, segments whose speaker matches a registered voice gain `name` and `name_score` (the cosine similarity of the match), and the matching `speakers` entry gains `name`. Both fields are omitted for a speaker that was not identified, so an unnamed response looks exactly as before. `speaker` stays `SPEAKER_NN`, and RTTM output still uses `SPEAKER_NN`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription) for the setup and the limits.
 
 ```json
 {

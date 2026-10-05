@@ -202,7 +202,8 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 | `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
 | `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
-| `speaker_model:<path>` | a model with a diarization model | names registered speakers (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_model:<path>` | a model with a diarization model | names registered speakers; a bundle can use `speaker_component:<name>` instead (see [Bundle GGUF files](#bundle-gguf-files-several-models-in-one-file)) (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_tag:<tag>` | a model with `speaker_component` | extra encoder tag for registered voices that carry only a file-name tag (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle)) |
 | `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
 | `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
 | `speaker_strict:<bool>` | a model with `speaker_model` | do not use registered voices that have no encoder fingerprint (see [Voice Recognition]({{% relref "voice-recognition" %}}#encoder-fingerprint)); default `false` |
@@ -349,6 +350,8 @@ The component that each role uses, and the option that picks another one:
 | Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
 | Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
 | Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
+
+`speaker_component:` also names registered speakers: LocalAI sends the voices from `/v1/voice/register` to the bundle's speaker component, as it does for `speaker_model:`. This works in `/v1/audio/diarization` and in realtime live transcription, and it needs no `speaker_model:`. `speaker_threshold`, `speaker_margin` and `speaker_strict` apply too. Only voices that carry an encoder fingerprint (voices enrolled from `speaker_profiles`) and voices with no tag at all are used by default. A voice registered with a tag only matches through `speaker_tag:`. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle).
 
 A `*_component` option without the matching companion option takes the component from the model file itself. The companion options (`diarization_model:`, `sound_model:`, `speaker_model:`, `vad_model:`, `asr_model:`) can also name a bundle file, even the same file as the model: the only component of the wanted kind is used, and the `*_component` option picks one when there are several. This YAML loads the same file for four roles:
 
