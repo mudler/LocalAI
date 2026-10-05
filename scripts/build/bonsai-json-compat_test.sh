@@ -2,24 +2,17 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-PATCHER="$ROOT/backend/cpp/bonsai/patch-grpc-server.sh"
-WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+MAKEFILE="$ROOT/backend/cpp/bonsai/Makefile"
+GRPC_SERVER="$ROOT/backend/cpp/llama-cpp/grpc-server.cpp"
 
-cat > "$WORK/grpc-server.cpp" <<'EOF'
-try {
-    json::parse("{");
-} catch (const common_json_error& e) {
-}
-EOF
+grep -q 'catch (const common_json_error& e)' "$GRPC_SERVER"
 
-bash "$PATCHER" "$WORK/grpc-server.cpp"
-grep -q 'catch (const json::parse_error& e)' "$WORK/grpc-server.cpp"
-! grep -q 'common_json_error' "$WORK/grpc-server.cpp"
+if grep -q 'patch-grpc-server.sh' "$MAKEFILE"; then
+    echo "Bonsai must preserve the common_json_error API provided by its pinned fork" >&2
+    exit 1
+fi
 
-# A repeated preparation pass must not change the generated source.
-cp "$WORK/grpc-server.cpp" "$WORK/once.cpp"
-bash "$PATCHER" "$WORK/grpc-server.cpp"
-cmp "$WORK/once.cpp" "$WORK/grpc-server.cpp"
+grep -q -- '--target grpc-server --target ggml-rpc-server' "$MAKEFILE"
+grep -q '/llama.cpp/build/bin/ggml-rpc-server bonsai-rpc-server' "$MAKEFILE"
 
-echo "PASS: Bonsai uses its fork-compatible JSON exception"
+echo "PASS: Bonsai uses its pinned fork's JSON and RPC APIs"

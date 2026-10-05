@@ -19,6 +19,7 @@ const (
 	UsecaseImage               = "image"
 	UsecaseVideo               = "video"
 	Usecase3D                  = "3d"
+	Usecase3DAnimation         = "3d_animation"
 	UsecaseTranscript          = "transcript"
 	UsecaseTTS                 = "tts"
 	UsecaseSoundGeneration     = "sound_generation"
@@ -34,6 +35,7 @@ const (
 	UsecaseSpeakerRecognition  = "speaker_recognition"
 	UsecaseTokenClassify       = "token_classify"
 	UsecaseScore               = "score"
+	UsecaseDecisions           = "decisions"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -47,6 +49,7 @@ const (
 	MethodUpscaleImage       GRPCMethod = "UpscaleImage"
 	MethodGenerateVideo      GRPCMethod = "GenerateVideo"
 	MethodGenerate3D         GRPCMethod = "Generate3D"
+	MethodAnimate3D          GRPCMethod = "Animate3D"
 	MethodAudioTranscription GRPCMethod = "AudioTranscription"
 	MethodTTS                GRPCMethod = "TTS"
 	MethodTTSStream          GRPCMethod = "TTSStream"
@@ -134,6 +137,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodGenerate3D,
 		Description: "Image-conditioned 3D asset generation via the Generate3D RPC — a binary glTF (GLB) mesh with optional PBR material (TRELLIS.2).",
 	},
+	Usecase3DAnimation: {
+		Flag:        FLAG_3D_ANIMATION,
+		GRPCMethod:  MethodAnimate3D,
+		Description: "3D animation with model-specific conditioning inputs, exported as binary glTF (GLB).",
+	},
 	UsecaseTranscript: {
 		Flag:        FLAG_TRANSCRIPT,
 		GRPCMethod:  MethodAudioTranscription,
@@ -209,6 +217,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodScore,
 		Description: "Joint log-probability scoring of candidate continuations via the Score RPC. Declared explicitly via known_usecases and usable alongside generation usecases.",
 	},
+	UsecaseDecisions: {
+		Flag:        FLAG_DECISIONS,
+		GRPCMethod:  MethodScore,
+		Description: "Decision models (served by POST /v1/systemone): typed choice, noul and score questions over a state text, answered by a non-generative decision model through the Score RPC (question_type systemone). Declared explicitly via known_usecases.",
+	},
 }
 
 // BackendCapability describes which gRPC methods and usecases a backend supports.
@@ -244,6 +257,8 @@ type BackendCapability struct {
 	// contract. Model variants that share a backend may narrow this further;
 	// use VoiceCloningForModel for UI/API decisions.
 	VoiceCloning *VoiceCloningCapability
+	// TTSVoices lists named voices built into the backend.
+	TTSVoices []TTSVoice
 	// Description is a human-readable summary of the backend.
 	Description string
 }
@@ -263,6 +278,22 @@ func referenceVoiceCloning() *VoiceCloningCapability {
 	}
 }
 
+// TTSVoicesForModel returns model-specific metadata or the backend's built-in
+// catalog. The returned slice is safe for callers to modify.
+func TTSVoicesForModel(cfg *ModelConfig) []TTSVoice {
+	if cfg == nil {
+		return nil
+	}
+	if len(cfg.TTSConfig.Voices) > 0 {
+		return slices.Clone(cfg.TTSConfig.Voices)
+	}
+	capability := GetBackendCapability(cfg.Backend)
+	if capability == nil {
+		return nil
+	}
+	return slices.Clone(capability.TTSVoices)
+}
+
 // BackendCapabilities maps each backend name (as used in model configs and gallery
 // entries) to its verified capabilities. This is the single source of truth for
 // what each backend supports.
@@ -278,7 +309,7 @@ var BackendCapabilities = map[string]BackendCapability{
 	// llama-cpp models in the gallery are text LLMs that clone nothing.
 	"llama-cpp": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore, MethodTTS, MethodTTSStream},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseTTS},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseDecisions, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
 		VoiceCloning:     referenceVoiceCloning(),
@@ -317,12 +348,17 @@ var BackendCapabilities = map[string]BackendCapability{
 	//
 	// AcceptsImages is the fl2va keyframe (start_image/end_image), the same
 	// reason longcat-video declares it; the text path takes no image input.
+	//
+	// TokenClassify is possible (GLiNER2.5 zero-shot NER via vllm_gliner_ner,
+	// ABI v27), declared explicitly via known_usecases: [token_classify]. The
+	// engine refuses non-BoundaryExtractor architectures, so a chat or embedding
+	// model returns an error rather than silent garbage.
 	"vllm-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo, MethodTokenClassify, MethodScore},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVision, UsecaseVideo, UsecaseTokenClassify, UsecaseScore, UsecaseDecisions},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true,
-		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation plus MiniMax-H3 video+audio generation",
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, GLiNER2.5 zero-shot NER, cua-s1-forms scoring, and decision models (kev, laya, CLM, GLiNER2.5-Decide, xor, nimble)",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},
@@ -369,10 +405,10 @@ var BackendCapabilities = map[string]BackendCapability{
 
 	// --- Image/video generation backends ---
 	"diffusers": {
-		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo},
-		PossibleUsecases: []string{UsecaseImage, UsecaseVideo},
+		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo, MethodSoundGeneration},
+		PossibleUsecases: []string{UsecaseImage, UsecaseVideo, UsecaseSoundGeneration},
 		DefaultUsecases:  []string{UsecaseImage},
-		Description:      "HuggingFace diffusers — Stable Diffusion, Flux, video generation",
+		Description:      "HuggingFace diffusers — image, video, and sound generation",
 	},
 	"longcat-video": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},
@@ -381,6 +417,13 @@ var BackendCapabilities = map[string]BackendCapability{
 		AcceptsImages:    true,
 		AcceptsAudios:    true,
 		Description:      "LongCat-Video — text, image, and audio-conditioned avatar video generation on NVIDIA CUDA",
+	},
+	"mlx-video": {
+		GRPCMethods:      []GRPCMethod{MethodGenerateVideo},
+		PossibleUsecases: []string{UsecaseVideo},
+		DefaultUsecases:  []string{UsecaseVideo},
+		AcceptsImages:    true,
+		Description:      "MLX-Video — LTX-2 and Wan video generation on Apple Silicon",
 	},
 	"stablediffusion": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateImage},
@@ -396,6 +439,12 @@ var BackendCapabilities = map[string]BackendCapability{
 	},
 
 	// --- 3D generation backends ---
+	"kimodocpp": {
+		GRPCMethods:      []GRPCMethod{MethodAnimate3D},
+		PossibleUsecases: []string{Usecase3DAnimation},
+		DefaultUsecases:  []string{Usecase3DAnimation},
+		Description:      "kimodo.cpp — text-to-motion on CPU/Vulkan, exported as animated skeleton GLB",
+	},
 	"trellis2cpp": {
 		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
 		PossibleUsecases: []string{Usecase3D},
@@ -434,11 +483,15 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo speech recognition",
 	},
+	// parakeet-cpp loads three model kinds, picked from the GGUF: an ASR model
+	// transcribes (and labels speakers when a diarization_model companion is
+	// attached), a Nemotron-3-Diarization model answers Diarize, and a CED model
+	// answers SoundDetection. PossibleUsecases is their union.
 	"parakeet-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
-		PossibleUsecases: []string{UsecaseTranscript},
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodDiarize, MethodSoundDetection},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseDiarization, UsecaseSoundClassification},
 		DefaultUsecases:  []string{UsecaseTranscript},
-		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+		Description:      "NVIDIA NeMo Parakeet ASR, Nemotron-3-Diarization speaker diarization and CED sound-event detection (parakeet.cpp)",
 	},
 	// nemo-speech-cpp is one gRPC server in front of four NeMo-Speech.cpp model
 	// families, picked at load time from the GGUF general.architecture key, so
@@ -580,7 +633,35 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
 		VoiceCloning:     referenceVoiceCloning(),
-		Description:      "Pocket TTS — lightweight text-to-speech",
+		TTSVoices: []TTSVoice{
+			{Name: "juergen", Language: "de_DE", Gender: "male"},
+			{Name: "alba", Language: "en_US", Gender: "female"},
+			{Name: "bill_boerst", Language: "en_US", Gender: "male"},
+			{Name: "charles", Language: "en_US", Gender: "male"},
+			{Name: "george", Language: "en_US", Gender: "male"},
+			{Name: "javert", Language: "en_US", Gender: "male"},
+			{Name: "jean", Language: "en_US", Gender: "male"},
+			{Name: "marius", Language: "en_US", Gender: "male"},
+			{Name: "michael", Language: "en_US", Gender: "male"},
+			{Name: "paul", Language: "en_US", Gender: "male"},
+			{Name: "peter_yearsley", Language: "en_US", Gender: "male"},
+			{Name: "stuart_bell", Language: "en_US", Gender: "male"},
+			{Name: "anna", Language: "en_US", Gender: "female"},
+			{Name: "azelma", Language: "en_US", Gender: "female"},
+			{Name: "caro_davy", Language: "en_US", Gender: "female"},
+			{Name: "cosette", Language: "en_US", Gender: "female"},
+			{Name: "eponine", Language: "en_US", Gender: "female"},
+			{Name: "eve", Language: "en_US", Gender: "female"},
+			{Name: "fantine", Language: "en_US", Gender: "female"},
+			{Name: "jane", Language: "en_US", Gender: "female"},
+			{Name: "mary", Language: "en_US", Gender: "female"},
+			{Name: "vera", Language: "en_US", Gender: "female"},
+			{Name: "lola", Language: "es_ES", Gender: "female"},
+			{Name: "estelle", Language: "fr_FR", Gender: "female"},
+			{Name: "giovanni", Language: "it_IT", Gender: "male"},
+			{Name: "rafael", Language: "pt_PT", Gender: "male"},
+		},
+		Description: "Pocket TTS — lightweight text-to-speech",
 	},
 	"qwen-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},

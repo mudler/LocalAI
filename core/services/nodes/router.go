@@ -53,6 +53,18 @@ type SmartRouterOptions struct {
 	// anti-affinity is disabled at the scheduler layer; the per-node
 	// watchdog still enforces the rule on arrival.
 	ConflictResolver ConcurrencyConflictResolver
+	// PinnedResolver, when set, excludes `pinned: true` models from the
+	// automatic eviction paths (EvictLRU, evictLRUAndFreeNode) so the pin
+	// contract holds cluster-wide, mirroring the per-node watchdog (#11101).
+	// nil disables the exclusion. Deliberate teardown (UnloadModel, admin
+	// endpoints, node drain) is unaffected.
+	PinnedResolver PinnedModelResolver
+	// ModelFiles, when set, returns the absolute local paths of every file a
+	// model's install declared (gallery `files:`, config `download_files`).
+	// The path fields of a load request name only what the backend opens
+	// first; this is how staging learns about the rest, such as the other
+	// shards of a split GGUF. nil stages the path fields alone.
+	ModelFiles func(modelName string) []string
 	// PrefixProvider, when set, enables prefix-cache-aware routing: requests
 	// carrying a prompt prefix chain (distributedhdr.PrefixChain) are biased
 	// toward the node that already holds the longest matching prefix, subject
@@ -161,6 +173,12 @@ type SmartRouter struct {
 	db               *gorm.DB             // for advisory locks during routing
 	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
 	conflictResolver ConcurrencyConflictResolver
+	// pinnedResolver feeds the eviction paths the set of pinned model names
+	// (see SmartRouterOptions.PinnedResolver). nil disables the exclusion.
+	pinnedResolver PinnedModelResolver
+	// modelFiles resolves a model's declared files (see
+	// SmartRouterOptions.ModelFiles). nil stages the path fields alone.
+	modelFiles func(modelName string) []string
 	// prefixProvider is the prefix-cache routing seam (nil disables it; see
 	// SmartRouterOptions.PrefixProvider). prefixConfig holds the global policy
 	// and thresholds.
@@ -244,6 +262,8 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		db:                  opts.DB,
 		stagingTracker:      NewStagingTracker(),
 		conflictResolver:    opts.ConflictResolver,
+		pinnedResolver:      opts.PinnedResolver,
+		modelFiles:          opts.ModelFiles,
 		probeCache:          newProbeCache(probeCacheTTL),
 		prefixProvider:      opts.PrefixProvider,
 		prefixConfig:        opts.PrefixConfig,
@@ -372,7 +392,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
 	// path fields to their remote equivalents on a clone, and only the local
 	// paths can be stat'ed here.
-	payloadBytes := modelPayloadBytes(modelOpts)
+	payloadBytes := r.stagingPayloadBytes(trackingKey, modelOpts)
 	loadTimeout := r.loadTimeoutFor(payloadBytes)
 
 	// Pre-stage model files via FileStager before loading
@@ -852,6 +872,9 @@ func (r *SmartRouter) buildPreference(ctx context.Context, modelID string, candi
 		if sched.MinPrefixMatch > 0 {
 			cfg.MinPrefixMatch = sched.MinPrefixMatch
 		}
+		if sched.ScorerWeights != nil {
+			cfg.ScorerWeights = sched.ScorerWeights
+		}
 	}
 	if policy != prefixcache.RoutePolicyPrefixCache {
 		return nil, nil
@@ -942,7 +965,7 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 		return nil, fmt.Errorf("looking up nodes for selector %s: %w", sched.NodeSelector, err)
 	}
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s", modelID, sched.NodeSelector)
+		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s: %w", modelID, sched.NodeSelector, ErrNoAvailableNodes)
 	}
 	return extractNodeIDs(candidates), nil
 }
@@ -1098,9 +1121,16 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// carries the install. A worker that has died stops answering on the bus at
 	// once but stays healthy in the database until its heartbeat ages out, so
 	// without this the scheduler could commit to a node it cannot reach.
+	//
+	// The last selection error is kept because eviction below fires on a nil
+	// node, and a lookup that failed is not the same answer as a cluster with
+	// no room: a control-plane database slow enough to time out these queries
+	// read as "everybody is full" and cost a healthy model its place.
+	var selectErr error
 	selectNode := func() *BackendNode {
 		var candidate *BackendNode
 		var selErr error
+		selectErr = nil
 		if estimatedVRAM > 0 {
 			if candidateNodeIDs != nil {
 				candidate, selErr = r.registry.FindNodeWithVRAMFromSet(ctx, estimatedVRAM, candidateNodeIDs)
@@ -1117,13 +1147,16 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 			if candidateNodeIDs != nil {
 				candidate, selErr = r.registry.FindIdleNodeFromSet(ctx, candidateNodeIDs)
 				if selErr != nil {
-					candidate, _ = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
+					candidate, selErr = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
 				}
 			} else {
 				candidate, selErr = r.registry.FindIdleNode(ctx)
 				if selErr != nil {
-					candidate, _ = r.registry.FindLeastLoadedNode(ctx)
+					candidate, selErr = r.registry.FindLeastLoadedNode(ctx)
 				}
+			}
+			if candidate == nil {
+				selectErr = selErr
 			}
 		}
 		return candidate
@@ -1131,14 +1164,22 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 
 	node := r.pickReachableNode(ctx, selectNode)
 
+	// Same reasoning as the replica-slot guard further down: only
+	// gorm.ErrRecordNotFound is a verdict that the cluster has no node to give.
+	// Any other error left the question unanswered, and evicting on it costs a
+	// healthy model its place for no evidence.
+	if node == nil && selectErr != nil && !errors.Is(selectErr, gorm.ErrRecordNotFound) {
+		return nil, "", 0, fmt.Errorf("selecting a node for %s: %w", modelID, selectErr)
+	}
+
 	// 4. Preemptive eviction: if no suitable node found, evict the LRU model with zero in-flight
 	if node == nil {
 		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
-				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", evictErr)
+				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 			}
-			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
+			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 		}
 		node = evictedNode
 	}
@@ -1152,6 +1193,15 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	}
 	replicaIdx, slotErr := r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, maxSlots)
 	if slotErr != nil {
+		// Only ErrNoFreeSlot means "this node is full". Any other error means
+		// we could not find out, and evicting on a guess costs a healthy model
+		// its place: a control-plane database slow enough to time out this
+		// lookup made the scheduler evict loaded models it had no evidence to
+		// evict, and they thrashed.
+		if !errors.Is(slotErr, ErrNoFreeSlot) {
+			return nil, "", 0, fmt.Errorf("determining free replica slot on %s: %w", node.Name, slotErr)
+		}
+
 		// All slots on this node are taken — fall back to eviction. This is
 		// rare in practice because FindNodesWithFreeSlot already filtered;
 		// it can race with another concurrent scheduler.
@@ -1221,7 +1271,7 @@ func (r *SmartRouter) narrowByDiskHeadroom(ctx context.Context, modelID string, 
 		return candidateNodeIDs, nil
 	}
 
-	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
+	requiredDisk := DiskRequirementFor(r.stagingPayloadBytes(modelID, modelOpts))
 	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
 
 	// The check runs even when disabled. "Disabled" means do not BLOCK, not do
@@ -1344,7 +1394,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
-	client := r.clientFactory.NewClient(addr, parallel)
+	client := r.clientFactory.NewClient(node.ID, addr, parallel)
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {
@@ -1395,6 +1445,10 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		localModelDir = filepath.Dir(opts.ModelFile)
 	}
 
+	// Resolved before the path fields are rewritten to remote paths below,
+	// since that is what tells which declared files the fields already cover.
+	declared := existingFiles(r.declaredExtraFiles(trackingKey, opts), node.Name, trackingKey)
+
 	// keyMapper generates storage keys namespaced under trackingKey, preserving
 	// subdirectory structure relative to frontendModelsDir. This ensures:
 	// 1. All files for a model land in one directory on the worker for clean deletion
@@ -1440,6 +1494,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			totalFiles++
 		}
 	}
+	totalFiles += len(declared)
 
 	// Start tracking staging progress
 	r.stagingTracker.Start(trackingKey, node.Name, totalFiles)
@@ -1570,10 +1625,32 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		}
 	}
 
+	for _, localPath := range declared {
+		fileIdx++
+		fileName := filepath.Base(localPath)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
+		xlog.Info("Staging declared model file", "model", trackingKey, "node", node.Name, "file", fileName, "fileIndex", fileIdx, "totalFiles", totalFiles)
+		if _, err := r.fileStager.EnsureRemote(stageCtx, node.ID, localPath, keyMapper.Key(localPath)); err != nil {
+			// The install declared it, so the backend may read it: loading
+			// without it fails later with a less useful error.
+			xlog.Error("Failed to stage declared model file for remote node", "node", node.Name, "path", localPath, "error", err)
+			return nil, fmt.Errorf("staging declared model file %s: %w", localPath, err)
+		}
+		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
+	}
+
 	// Stage file paths referenced in generic Options (key:value pairs where values
 	// are file paths). Options stay as relative paths — backends resolve them via ModelPath.
-	r.stageGenericOptions(ctx, node, opts.Options, frontendModelsDir, localModelDir, keyMapper.Key)
-	r.stageGenericOptions(ctx, node, opts.Overrides, frontendModelsDir, localModelDir, keyMapper.Key)
+	for _, options := range [][]string{opts.Options, opts.Overrides} {
+		remoteRoot := r.stageGenericOptions(ctx, node, options, frontendModelsDir, localModelDir, keyMapper.Key)
+		if opts.ModelFile == "" && remoteRoot != "" {
+			// Virtual models have no primary file from which to derive the
+			// worker root. Their relative options must resolve against the
+			// companion assets we actually staged, not the frontend's root.
+			opts.ModelPath = remoteRoot
+		}
+	}
 
 	return opts, nil
 }
@@ -1804,7 +1881,9 @@ func (r *SmartRouter) stageCompanionFiles(ctx context.Context, node *BackendNode
 // that resolve to existing files relative to the frontend models directory or
 // the model's own directory. Option values are NOT rewritten — backends resolve
 // them via ModelPath. keyFn generates the namespaced storage key for each file.
-func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir, modelDir string, keyFn func(string) string) {
+// Returns the staged models root, or empty when no asset was staged.
+func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode, options []string, frontendModelsDir, modelDir string, keyFn func(string) string) string {
+	remoteRoot := ""
 	for _, opt := range options {
 		optKey, val, ok := strings.Cut(opt, ":")
 		if !ok || val == "" {
@@ -1829,18 +1908,23 @@ func (r *SmartRouter) stageGenericOptions(ctx context.Context, node *BackendNode
 		// worker; a single file is staged directly. Values are never rewritten —
 		// backends resolve relative paths via ModelPath.
 		if err == nil && info.IsDir() {
-			r.stageOptionDir(ctx, node, absPath, keyFn)
+			if remoteDir := r.stageOptionDir(ctx, node, absPath, keyFn); remoteDir != "" {
+				remoteRoot = DeriveRemoteModelPath(remoteDir, relativeToModelsDir(frontendModelsDir, absPath, filepath.Base(absPath)))
+			}
 			xlog.Debug("Staged option directory", "option", optKey, "localPath", absPath)
 			continue
 		}
 
 		key := keyFn(absPath)
-		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, absPath, key); err != nil {
+		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, absPath, key)
+		if err != nil {
 			xlog.Warn("Failed to stage option file, skipping", "option", opt, "path", absPath, "error", err)
 			continue
 		}
+		remoteRoot = DeriveRemoteModelPath(remotePath, relativeToModelsDir(frontendModelsDir, absPath, filepath.Base(absPath)))
 		xlog.Debug("Staged option file", "option", optKey, "localPath", absPath)
 	}
+	return remoteRoot
 }
 
 // resolveOptionPath finds an existing local path for an option value: an
@@ -1868,17 +1952,35 @@ func resolveOptionPath(val, frontendModelsDir, modelDir string) (string, bool) {
 // stageOptionDir stages every regular file under an option-declared directory
 // (e.g. sherpa-onnx's espeak-ng-data) using the structure-preserving key, so the
 // tree is recreated beside the model on the worker. Per-file errors are logged
-// and skipped; the option value itself is not rewritten.
-func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir string, keyFn func(string) string) {
+// and skipped; the option value itself is not rewritten. Returns the remote
+// directory derived from a successfully staged file, or empty when none succeeds.
+func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir string, keyFn func(string) string) string {
+	remoteDir := ""
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil || d.IsDir() {
 			return nil
 		}
-		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, path, keyFn(path)); err != nil {
+		// Same reason as stageDirectory: the receiver writes "<file>.sha256" for
+		// every file it accepts, so staging the sidecars makes it write sidecars
+		// for those in turn. Option dirs are walked on every load, so each pass
+		// added a level - an espeak-ng-data tree observed in the wild had grown
+		// to "<file>.sha256" repeated eleven times and 5077 junk files, which is
+		// enough to keep a sherpa-onnx voice permanently "staging" and fail
+		// every realtime warmup that needs it.
+		if isHashSidecar(path) {
+			return nil
+		}
+		remotePath, err := r.fileStager.EnsureRemote(ctx, node.ID, path, keyFn(path))
+		if err != nil {
 			xlog.Warn("Failed to stage option directory file, skipping", "path", path, "error", err)
+			return nil
+		}
+		if rel, err := filepath.Rel(dir, path); err == nil {
+			remoteDir = DeriveRemoteModelPath(remotePath, rel)
 		}
 		return nil
 	})
+	return remoteDir
 }
 
 // probeHealth checks whether a backend process on the given node/addr is alive
@@ -1959,10 +2061,20 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 	return nil
 }
 
+// pinnedModelNames returns the pinned set for eviction exclusion, or nil when
+// no resolver is wired (embedders, tests, deployments without a config loader).
+func (r *SmartRouter) pinnedModelNames() []string {
+	if r.pinnedResolver == nil {
+		return nil
+	}
+	return r.pinnedResolver.GetPinnedModelNames()
+}
+
 // EvictLRU evicts the least-recently-used model from a node to make room.
-// Returns the name of the evicted model, or empty string if nothing could be evicted.
+// Returns the name of the evicted model, or empty string if nothing could be
+// evicted. Pinned models are never candidates (#11101).
 func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, error) {
-	lru, err := r.registry.FindLRUModel(ctx, nodeID)
+	lru, err := r.registry.FindLRUModel(ctx, nodeID, r.pinnedModelNames())
 	if err != nil {
 		return "", fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
 	}
@@ -1976,6 +2088,13 @@ func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, erro
 // ErrEvictionBusy is returned when all loaded models have in-flight requests
 // and none can be evicted to make room.
 var ErrEvictionBusy = errors.New("all models busy, cannot evict")
+
+// ErrNoAvailableNodes is returned when the scheduler cannot find any healthy
+// node to serve a model — all nodes are full and eviction cannot free a slot,
+// or a node selector excludes every candidate. The HTTP layer maps this to
+// 503 so clients treat it as a transient condition rather than a server bug
+// (which is what 500 would imply).
+var ErrNoAvailableNodes = errors.New("no available nodes")
 
 // evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
 // unloads it, and returns its node for reuse. If all models are busy, retries briefly.
@@ -2035,6 +2154,12 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			if len(candidateNodeIDs) > 0 {
 				q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
 			}
+			// Pinned models are protected from automatic eviction (#11101).
+			// Filtered in the query, not after selection, so the next-oldest
+			// unpinned model is chosen instead of the attempt being wasted.
+			if pinned := r.pinnedModelNames(); len(pinned) > 0 {
+				q = q.Where("node_models.model_name NOT IN ?", pinned)
+			}
 			if err := q.
 				Order("node_models.last_used ASC").
 				First(&lru).Error; err != nil {
@@ -2064,9 +2189,10 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			return node, nil
 		}
 
-		// gorm.ErrRecordNotFound means all models have in-flight requests
+		// gorm.ErrRecordNotFound means every candidate is either mid-request
+		// or excluded as pinned
 		if attempt == 0 {
-			xlog.Info("All models have in-flight requests, waiting for capacity")
+			xlog.Info("No evictable model (all busy or pinned), waiting for capacity")
 		}
 		select {
 		case <-ctx.Done():

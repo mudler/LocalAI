@@ -38,10 +38,10 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application), traceMiddleware)
 	app.POST("/v1/realtime/calls", openai.RealtimeCalls(application), traceMiddleware)
 
-	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
-	var natsClient mcpTools.MCPNATSClient
+	// Agent control for distributed MCP tool routing (nil when not in distributed mode)
+	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
+		agentControl = d.AgentControl
 	}
 
 	// chat
@@ -49,7 +49,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		compressionservice.CounterFunc(tokens.CountMessages),
 		compressionservice.NewInferenceSummarizer(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()),
 	)
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), chatCompressor)
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), agentControl, application.LocalAIAssistant(), chatCompressor)
 	chatMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -194,7 +194,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/audio/transcriptions", audioHandler, audioMiddleware...)
 	app.POST("/audio/transcriptions", audioHandler, audioMiddleware...)
 
-	diarizationHandler := openai.DiarizationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	diarizationHandler := openai.DiarizationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.VoiceRegistry(), application.AuthDB())
 	diarizationMiddleware := []echo.MiddlewareFunc{
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DIARIZATION)),
@@ -238,6 +238,8 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 
 	app.POST("/v1/audio/speech", audioSpeechHandler, audioSpeechMiddleware...)
 	app.POST("/audio/speech", audioSpeechHandler, audioSpeechMiddleware...)
+	app.GET("/v1/audio/voices", localai.TTSVoicesEndpoint(application.ModelConfigLoader(), application.AuthDB()))
+	app.GET("/audio/voices", localai.TTSVoicesEndpoint(application.ModelConfigLoader(), application.AuthDB()))
 
 	// images
 	imageHandler := openai.ImageEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

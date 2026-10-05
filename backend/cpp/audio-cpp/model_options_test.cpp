@@ -42,6 +42,10 @@ static void test_defaults() {
     check(r.options.family.empty(), "family defaults to empty");
     check(r.options.task.empty(), "task defaults to empty");
     check(r.options.backend == "cpu", "backend defaults to cpu");
+    // backend_set separates the "cpu" default from an explicit backend:cpu —
+    // grpc-server merges the AUDIOCPP_DEFAULT_BACKEND fallback only when the
+    // model's options chose nothing.
+    check(!r.options.backend_set, "backend_set defaults to false");
     check(r.options.device == 0, "device defaults to 0");
     check(r.options.threads == 0, "threads defaults to 0");
     check(r.options.busy_timeout_ms == 0, "busy_timeout_ms defaults to 0");
@@ -68,6 +72,7 @@ static void test_scalar_options() {
     check(r.options.family == "qwen3_tts", "family parsed");
     check(r.options.task == "tts", "task parsed");
     check(r.options.backend == "cuda", "backend parsed");
+    check(r.options.backend_set, "backend_set records the explicit option");
     check(r.options.device == 1, "device parsed");
     check(r.options.threads == 8, "threads parsed");
     check(r.options.busy_timeout_ms == 30000, "busy_timeout_ms parsed");
@@ -75,6 +80,11 @@ static void test_scalar_options() {
     check(parse_model_options({"live_idle_timeout_ms:0"}).options.live_idle_timeout_ms == 0,
           "an explicit 0 turns the live idle limit off rather than reverting to "
           "the default");
+
+    check(parse_model_options({"backend:hip"}).error.empty(),
+          "HIP backend option is accepted");
+    check(parse_model_options({"backend:rocm"}).error.empty(),
+          "ROCm backend alias is accepted");
 }
 
 // Values containing colons must survive: split on the FIRST colon only.
@@ -124,6 +134,8 @@ static void test_errors() {
           "negative device is rejected");
     check(!parse_model_options({"threads:x"}).error.empty(),
           "non-numeric threads is rejected");
+    check(!parse_model_options({"backend:unknown"}).error.empty(),
+          "unknown compute backend is rejected before model loading");
 
     // Values too large for int must be rejected, not silently wrapped into a
     // negative device index that then reaches the ggml backend selector.

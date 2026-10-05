@@ -80,7 +80,7 @@ type responseCancelEvent struct {
 // through deltas alone. A replica that joins later does not learn about
 // responses created before it started; that is the same visibility a client had
 // before this change and strictly better than the 404 it got from every peer.
-func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.MessagingClient, replicaID string) error {
+func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Broadcaster, replicaID string) error {
 	if nats == nil {
 		return nil
 	}
@@ -162,7 +162,7 @@ func (s *ResponseStore) syncMap() *syncstate.SyncedMap[string, *syncedResponse] 
 // distributed returns the replication handles as a consistent snapshot. Every
 // path that broadcasts reads them through here so a concurrent Close cannot be
 // observed half-applied. A nil map means standalone mode.
-func (s *ResponseStore) distributed() (*syncstate.SyncedMap[string, *syncedResponse], context.Context, messaging.MessagingClient, string) {
+func (s *ResponseStore) distributed() (*syncstate.SyncedMap[string, *syncedResponse], context.Context, messaging.Broadcaster, string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	ctx := s.lifeCtx

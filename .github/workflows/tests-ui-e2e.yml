@@ -75,8 +75,13 @@ jobs:
           path: core/http/react-ui/coverage/
           if-no-files-found: ignore
           retention-days: 7
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() }}
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true

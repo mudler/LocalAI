@@ -60,7 +60,9 @@
     "settings": "Settings",
     "api": "API",
     "activity": "Activity",
-    "overview": "Overview"
+    "overview": "Overview",
+    "thisMachine": "This machine",
+    "failover": "Failover"
   },
   "footer": {
     "github": "GitHub",

@@ -163,6 +163,10 @@ func (c *fakeBackendClient) GenerateVideo(_ context.Context, _ *pb.GenerateVideo
 func (c *fakeBackendClient) Generate3D(_ context.Context, _ *pb.Generate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
+
+func (c *fakeBackendClient) Animate3D(_ context.Context, _ *pb.Animate3DRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	return nil, nil
+}
 func (c *fakeBackendClient) TTS(_ context.Context, _ *pb.TTSRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	return nil, nil
 }
@@ -315,7 +319,7 @@ func (f *fakeBackendClientFactory) setClient(address string, c *fakeBackendClien
 	f.clients[address] = c
 }
 
-func (f *fakeBackendClientFactory) NewClient(address string, _ bool) grpc.Backend {
+func (f *fakeBackendClientFactory) NewClient(_, address string, _ bool) grpc.Backend {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if c, ok := f.clients[address]; ok {

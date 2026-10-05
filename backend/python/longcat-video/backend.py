@@ -6,6 +6,7 @@ import datetime
 import gc
 import math
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -888,6 +889,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def _release_model(self):
         self.pipeline = None
         self.model_kind = None
+        try:
+            if hasattr(self, "dist") and self.dist.is_initialized():
+                self.dist.destroy_process_group()
+        finally:
+            if self._dist_store_dir is not None:
+                shutil.rmtree(self._dist_store_dir, ignore_errors=True)
+                self._dist_store_dir = None
         gc.collect()
         if hasattr(self, "torch") and self.torch.cuda.is_available():
             self.torch.cuda.empty_cache()

@@ -18,6 +18,15 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 - [Helm chart](https://github.com/go-skynet/helm-charts) - Deploy LocalAI on Kubernetes
 - [GitHub Actions](https://github.com/marketplace/actions/start-localai) - Use LocalAI in CI/CD workflows
 
+### Distribution Packages
+
+Community-maintained packages of LocalAI. Package versions and
+availability may lag upstream releases.
+
+- [Homebrew](https://formulae.brew.sh/formula/localai) - `brew install localai`
+- [ALT Sisyphus](https://packages.altlinux.org/en/sisyphus/srpms/localai/) - `localai` package
+- [Gentoo overlay](https://git.ipnmod.org/packages/local-ai-overlay) - `sci-ml/local-ai` and per-backend packages, overlay `local-ai` in Gentoo's repository index
+
 ### Web UIs
 
 - [localai-admin](https://github.com/Jirubizu/localai-admin)
@@ -65,9 +74,9 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 
 ### Chat Bots
 
-- [Discord bot](https://github.com/mudler/LocalAGI/tree/main/examples/discord)
-- [Slack bot](https://github.com/mudler/LocalAGI/tree/main/examples/slack)
-- [Telegram bot](https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot)
+- [Discord bot](https://github.com/mudler/LocalAI-examples/tree/main/discord-bot)
+- [Slack bot](https://github.com/mudler/LocalAI-examples/tree/main/slack-bot)
+- [Telegram bot](https://github.com/mudler/LocalAI-examples/tree/main/telegram-bot)
 - [Hellper (Telegram)](https://github.com/JackBekket/Hellper)
 
 ### Home Automation
@@ -89,7 +98,7 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 - [Logseq GPT3 OpenAI plugin](https://github.com/briansunter/logseq-plugin-gpt3-openai)
 - [CodeGPT (JetBrains)](https://plugins.jetbrains.com/plugin/21056-codegpt) - Custom OpenAI-compatible endpoints
-- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) - Native LocalAI support
+- [Wave Terminal](https://docs.waveterm.dev/ai-presets) - Native LocalAI support
 - [Obsidian BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
 - [spark](https://github.com/cedriking/spark)
 - [openops (Mattermost)](https://github.com/mattermost/openops)

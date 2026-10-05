@@ -34,7 +34,13 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/api/auth/github/callback"},
 	{Method: http.MethodGet, Path: "/api/auth/oidc/login"},
 	{Method: http.MethodGet, Path: "/api/auth/oidc/callback"},
-	{Method: http.MethodOptions, Path: "/api/auth/", Prefix: true},
+
+	// CORS preflight. An OPTIONS request cannot carry credentials by HTTP
+	// spec, so preflights targeting any endpoint must not be gated on auth;
+	// the CORS middleware (registered after auth in app.go) answers them.
+	// This rule also covers the auth-bootstrap preflights the previous
+	// OPTIONS-under-/api/auth/ rule existed for. See #4576.
+	{Method: http.MethodOptions, Path: "/", Prefix: true},
 
 	// SPA.
 	{Method: http.MethodGet, Path: "/"},

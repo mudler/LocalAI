@@ -3,6 +3,7 @@ package prefixcache_test
 import (
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,5 +95,55 @@ var _ = Describe("Pressure counter", func() {
 		}
 		Expect(p.LenForTest("m")).To(Equal(1))
 		Expect(p.Count("m", t0.Add(198*time.Minute))).To(Equal(1))
+	})
+
+	It("broadcasts locally recorded pressure", func() {
+		pub := &fakePub{}
+		p := prefixcache.NewSyncedPressure(time.Minute, pub)
+
+		p.Record("m", t0)
+
+		Expect(p.Count("m", t0)).To(Equal(1))
+		Expect(pub.published).To(HaveLen(1))
+		ev := pub.published[0].(messaging.PrefixCachePressureEvent)
+		Expect(ev.ID).ToNot(BeEmpty())
+		Expect(ev.Model).To(Equal("m"))
+	})
+
+	It("aggregates a peer pressure event and ignores redelivery", func() {
+		p := prefixcache.NewSyncedPressure(time.Minute, &fakePub{})
+		ev := messaging.PrefixCachePressureEvent{ID: "frontend-a:1", Model: "m"}
+
+		p.ApplyPressure(ev, t0)
+		p.ApplyPressure(ev, t0.Add(time.Second))
+
+		Expect(p.Count("m", t0.Add(time.Second))).To(Equal(1))
+	})
+
+	It("does not double-count its own broadcast echo", func() {
+		pub := &fakePub{}
+		p := prefixcache.NewSyncedPressure(time.Minute, pub)
+		p.Record("m", t0)
+		ev := pub.published[0].(messaging.PrefixCachePressureEvent)
+
+		p.ApplyPressure(ev, t0.Add(time.Second))
+
+		Expect(p.Count("m", t0.Add(time.Second))).To(Equal(1))
+	})
+
+	It("broadcasts and applies a pressure reset after scaling", func() {
+		pub := &fakePub{}
+		origin := prefixcache.NewSyncedPressure(time.Minute, pub)
+		peer := prefixcache.NewSyncedPressure(time.Minute, &fakePub{})
+		origin.Record("m", t0)
+		record := pub.published[0].(messaging.PrefixCachePressureEvent)
+		peer.ApplyPressure(record, t0)
+
+		origin.Reset("m")
+		reset := pub.published[1].(messaging.PrefixCachePressureEvent)
+		peer.ApplyPressure(reset, t0.Add(time.Second))
+
+		Expect(reset.Reset).To(BeTrue())
+		Expect(peer.Count("m", t0.Add(time.Second))).To(Equal(0))
 	})
 })

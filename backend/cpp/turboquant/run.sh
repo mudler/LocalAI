@@ -28,6 +28,23 @@ if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
 	fi
 fi
 
+# Newer ROCm releases split the TensileLibrary data per GPU architecture
+# (library/gfx1151/...). rocBLAS and hipBLASLt look for their kernels directly in
+# the directory the *_TENSILE_LIBPATH variable names, so pointing at the parent
+# makes them miss every kernel ("Cannot read TensileLibrary_lazy_gfx1151.dat")
+# and fall back to slower paths. Point at the architecture folder when the bundle
+# carries exactly one and nothing at the top level; otherwise keep the directory.
+rocm_tensile_dir() {
+	local dir="$1"
+	if [ -z "$(find "$dir" -maxdepth 1 -type f -print -quit)" ]; then
+		set -- "$dir"/gfx*/
+		if [ "$#" -eq 1 ] && [ -d "$1" ]; then
+			dir="${1%/}"
+		fi
+	fi
+	echo "$dir"
+}
+
 # Extend ld library path with the dir where this script is located/lib
 if [ "$(uname)" == "Darwin" ]; then
 	export DYLD_LIBRARY_PATH="$CURDIR"/lib:$DYLD_LIBRARY_PATH
@@ -35,13 +52,13 @@ else
 	export LD_LIBRARY_PATH="$CURDIR"/lib:$LD_LIBRARY_PATH
 	# Tell rocBLAS where to find TensileLibrary data (GPU kernel tuning files)
 	if [ -d "$CURDIR/lib/rocblas/library" ]; then
-		export ROCBLAS_TENSILE_LIBPATH="$CURDIR"/lib/rocblas/library
+		export ROCBLAS_TENSILE_LIBPATH="$(rocm_tensile_dir "$CURDIR"/lib/rocblas/library)"
 	fi
 	# Same for hipBLASLt (rocblaslt): the bundled libhipblaslt.so resolves its
 	# TensileLibrary_lazy_gfx*.dat kernel data relative to itself, so point it at
 	# the bundled data or it falls back to slow generic kernels (issue #10660).
 	if [ -d "$CURDIR/lib/hipblaslt/library" ]; then
-		export HIPBLASLT_TENSILE_LIBPATH="$CURDIR"/lib/hipblaslt/library
+		export HIPBLASLT_TENSILE_LIBPATH="$(rocm_tensile_dir "$CURDIR"/lib/hipblaslt/library)"
 	fi
 	# Backends built for Intel GPUs carry a copy of the Intel graphics driver,
 	# and libze_loader is only there in those builds. Level Zero looks for a

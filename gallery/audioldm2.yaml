@@ -1,0 +1,15 @@
+---
+name: "audioldm2"
+
+config_file: |
+  backend: diffusers
+  known_usecases:
+    - sound_generation
+  parameters:
+    model: cvssp/audioldm2
+  diffusers:
+    pipeline_type: AudioLDM2Pipeline
+    cuda: true
+  options:
+    - num_inference_steps:200
+    - torch_dtype:fp16

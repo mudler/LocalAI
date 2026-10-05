@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -82,6 +83,12 @@ type Client struct {
 	RouterEmbedder            func(modelName string) backend.Embedder
 	RouterEmbedderFingerprint func(modelName string) (string, error)
 	RouterVectorStore         func(storeName string) backend.VectorStore
+
+	// Failover backs list_failover_chains / pin_failover_target /
+	// unpin_failover_target. nil makes the tools report "failover is not
+	// running" — the same as a deployment with no failover chains
+	// configured.
+	Failover *failover.Manager
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -751,23 +758,30 @@ func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoicePro
 }
 
 func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
-	if req.AudioBase64 == "" {
-		return nil, errors.New("audio_base64 is required")
+	referenceRequests := req.References
+	if len(referenceRequests) == 0 {
+		referenceRequests = []localaitools.CreateVoiceProfileReferenceRequest{{Transcript: req.Transcript, AudioBase64: req.AudioBase64}}
 	}
-	if base64.StdEncoding.DecodedLen(len(req.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
-		return nil, voiceprofile.ErrAudioTooLarge
+	references := make([]voiceprofile.ReferenceInput, 0, len(referenceRequests))
+	for _, reference := range referenceRequests {
+		if reference.AudioBase64 == "" {
+			return nil, errors.New("audio_base64 is required")
+		}
+		if base64.StdEncoding.DecodedLen(len(reference.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
+			return nil, voiceprofile.ErrAudioTooLarge
+		}
+		references = append(references, voiceprofile.ReferenceInput{Transcript: reference.Transcript, Audio: base64.NewDecoder(base64.StdEncoding, strings.NewReader(reference.AudioBase64))})
 	}
 	store, err := c.voiceProfileStore()
 	if err != nil {
 		return nil, err
 	}
-	profile, err := store.Create(ctx, voiceprofile.CreateInput{
+	profile, err := store.CreateWithReferences(ctx, voiceprofile.CreateInput{
 		Name:             req.Name,
 		Description:      req.Description,
 		Language:         req.Language,
-		Transcript:       req.Transcript,
 		ConsentConfirmed: req.ConsentConfirmed,
-	}, base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AudioBase64)))
+	}, references)
 	if err != nil {
 		return nil, err
 	}
@@ -994,7 +1008,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 		EnabledGlobally: c.PIIEvents != nil,
 		Models:          []localaitools.MiddlewarePIIModel{},
 	}
-	piiSection.DefaultEnabledForBackends = []string{"cloud-proxy"}
+	piiSection.DefaultEnabledForBackends = []string{model.CloudProxyBackend}
 	if c.ConfigLoader != nil {
 		for _, cfg := range c.ConfigLoader.GetAllModelsConfigs() {
 			cfg := cfg
@@ -1003,7 +1017,7 @@ func (c *Client) GetMiddlewareStatus(ctx context.Context) (*localaitools.Middlew
 				Backend:           cfg.Backend,
 				Enabled:           cfg.PIIIsEnabled(),
 				Explicit:          cfg.PII.Enabled != nil,
-				DefaultForBackend: cfg.Backend == "cloud-proxy",
+				DefaultForBackend: cfg.Backend == model.CloudProxyBackend,
 				Detectors:         cfg.PIIDetectors(),
 			})
 		}
@@ -1095,4 +1109,40 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 		return nil, err
 	}
 	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
+}
+
+// ---- Failover chains ----
+
+func (c *Client) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
+	out := []localaitools.FailoverChainInfo{}
+	if c.Failover == nil {
+		return out, nil
+	}
+	for _, ch := range c.Failover.Status() {
+		info := localaitools.FailoverChainInfo{Name: ch.Name, State: string(ch.State), Active: ch.Active}
+		if ch.Pinned != nil {
+			info.Pinned = *ch.Pinned
+		}
+		for _, t := range ch.Targets {
+			info.Targets = append(info.Targets, localaitools.FailoverTargetInfo{
+				Model: t.Model, Kind: string(t.Kind), Warm: t.Warm, State: string(t.State), LastError: t.LastError,
+			})
+		}
+		out = append(out, info)
+	}
+	return out, nil
+}
+
+func (c *Client) PinFailoverTarget(_ context.Context, chain, target string) error {
+	if c.Failover == nil {
+		return errors.New("failover is not running")
+	}
+	return c.Failover.Pin(chain, target)
+}
+
+func (c *Client) UnpinFailoverTarget(_ context.Context, chain string) error {
+	if c.Failover == nil {
+		return errors.New("failover is not running")
+	}
+	return c.Failover.Unpin(chain)
 }

@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -67,7 +68,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 				if profiles == nil {
 					return echo.NewHTTPError(http.StatusInternalServerError, "voice profile store is unavailable")
 				}
-				profile, referencePath, release, err := profiles.LeaseAudio(c.Request().Context(), profileID)
+				profile, referencePaths, release, err := profiles.LeaseAudios(c.Request().Context(), profileID)
 				if err != nil {
 					if errors.Is(err, voiceprofile.ErrNotFound) {
 						return echo.NewHTTPError(http.StatusNotFound, "voice profile not found")
@@ -75,7 +76,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 					return fmt.Errorf("resolve voice profile: %w", err)
 				}
 				defer release()
-				cfg.Voice = referencePath
+				cfg.Voice = referencePaths[0]
 				if cfg.Language == "" && profile.Language != "" {
 					cfg.Language = profile.Language
 				}
@@ -83,6 +84,20 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 					input.Params = make(map[string]string)
 				}
 				input.Params["ref_text"] = profile.Transcript
+				if supportsMultipleVoiceReferences(cfg.Backend) && len(referencePaths) > 1 {
+					references := make([]map[string]string, 0, len(referencePaths))
+					for index, path := range referencePaths {
+						references = append(references, map[string]string{"audio": path, "text": profile.References[index].Transcript})
+					}
+					encoded, err := json.Marshal(references)
+					if err != nil {
+						return fmt.Errorf("encode voice profile references: %w", err)
+					}
+					input.Params["multi_reference_cond"] = string(encoded)
+					if cfg.Backend == "audio-cpp" {
+						cfg.Voice = ""
+					}
+				}
 				xlog.Debug("Resolved saved voice profile", "id", profile.ID, "model", input.Model)
 			}
 		}
@@ -137,4 +152,8 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 		}
 		return c.Attachment(filePath, filepath.Base(filePath))
 	}
+}
+
+func supportsMultipleVoiceReferences(backendName string) bool {
+	return backendName == "fish-speech" || backendName == "audio-cpp"
 }

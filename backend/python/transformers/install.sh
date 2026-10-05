@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+PYTHON_VERSION="3.12"
+PYTHON_PATCH="11"
+
 backend_dir=$(dirname $0)
 if [ -d $backend_dir/common ]; then
     source $backend_dir/common/libbackend.sh

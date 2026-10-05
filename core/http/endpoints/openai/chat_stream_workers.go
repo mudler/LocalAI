@@ -150,6 +150,9 @@ func processStream(
 		template = s
 	}
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
+	}
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
 	// preferAutoparser is sticky: once the C++ autoparser has ever classified
@@ -248,6 +251,9 @@ func processStreamWithTools(
 		template = prompt
 	}
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
+	}
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
 	result := ""

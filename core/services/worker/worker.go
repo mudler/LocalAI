@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -42,6 +43,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		system.WithModelPath(cfg.ModelsPath),
 		system.WithBackendPath(cfg.BackendsPath),
 		system.WithBackendSystemPath(cfg.BackendsSystemPath),
+		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return fmt.Errorf("getting system state: %w", err)
@@ -148,20 +150,36 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
+	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
-	// The readiness gate is created here but only armed once NATS is up, below.
+	ephemeralRoots := []string{
+		filepath.Join(stagingDir, "ephemeral"),
+		filepath.Join(cacheDir, "ephemeral"),
+	}
+	byteLimit, minFreeBytes, err := effectiveEphemeralCapacity(
+		ephemeralRoots,
+		cfg.EphemeralStagingByteLimit,
+		cfg.EphemeralStagingMinFreeBytes,
+	)
+	if err != nil {
+		return fmt.Errorf("resolving ephemeral staging capacity: %w", err)
+	}
+	ephemeralCapacity, err := NewEphemeralCapacityGuard(ephemeralRoots, byteLimit, minFreeBytes)
+	if err != nil {
+		return fmt.Errorf("initializing ephemeral staging capacity: %w", err)
+	}
+	xlog.Info("Ephemeral staging capacity configured", "roots", ephemeralRoots, "byteLimit", byteLimit, "minFreeBytes", minFreeBytes)
+	StartEphemeralRootsCleanup(shutdownCtx, ephemeralRoots, ephemeralCapacity, 0, 0)
+	// The readiness gate is created here but only armed once NATS is up and the
+	// backend supervisor exists, below, because the gate probes both.
 	// Until then /readyz reports ready, which is correct: reaching this line
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
-	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ml.BackendLogs())
+	httpServer, err := nodes.StartFileTransferServerWithCapacity(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
-
-	// Per-request input files land in stagingDir over that server and nothing
-	// used to remove them, so a long-lived worker filled its own disk.
-	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
@@ -171,11 +189,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
 	defer natsClient.Close()
-
-	// Arm the readiness gate now that the worker can actually receive work.
-	// From here /readyz tracks the live NATS link, so a worker that is up but
-	// cut off from the bus reports 503 instead of a meaningless 200 (#10987).
-	readiness.Set(nodes.NATSReadiness(natsClient))
 
 	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
 	go func() {
@@ -218,7 +231,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		systemState:  systemState,
 		galleries:    galleries,
 		nodeID:       nodeID,
-		nats:         natsClient,
 		sigCh:        sigCh,
 		processes:    make(map[string]*backendProcess),
 		portAffinity: make(map[string]portOwnership),
@@ -226,14 +238,34 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		minPort:      basePort,
 		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
-	if err := supervisor.subscribeLifecycleEvents(); err != nil {
+
+	// Arm the readiness gate now that the worker can actually receive work.
+	// NATS is already connected at this point, so a worker that is up but cut
+	// off from the bus reports 503 instead of a meaningless 200 (#10987).
+	//
+	// Readiness also covers the data path: a worker whose NATS link is fine
+	// but whose backend processes have died is up and useless, and the
+	// scheduler cannot tell the difference from the bus alone.
+	readiness.Set(nodes.CompositeReadiness(
+		nodes.NATSReadiness(natsClient),
+		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
+			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err != nil {
+				return err
+			}
+			return conn.Close()
+		}),
+	))
+
+	control := newNATSControlServer(natsClient, nodeID)
+	if err := supervisor.registerLifecycleVerbs(control); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
 	}
 
-	// Subscribe to file staging NATS subjects if S3 is configured
+	// Serve the file staging verbs only when S3 is configured
 	if cfg.StorageURL != "" {
-		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
+		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}

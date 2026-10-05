@@ -61,6 +61,10 @@ func (e *embedBackend) Generate3D(ctx context.Context, in *pb.Generate3DRequest,
 	return e.s.Generate3D(ctx, in)
 }
 
+func (e *embedBackend) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...grpc.CallOption) (*pb.Result, error) {
+	return e.s.Animate3D(ctx, in)
+}
+
 func (e *embedBackend) TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error) {
 	return e.s.TTS(ctx, in)
 }

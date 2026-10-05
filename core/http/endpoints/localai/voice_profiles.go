@@ -14,7 +14,7 @@ import (
 	"github.com/mudler/xlog"
 )
 
-const maxVoiceProfileJSONBytes = voiceprofile.MaxAudioBytes*4/3 + 2*1024*1024
+const maxVoiceProfileJSONBytes = voiceprofile.MaxAudioBytes*voiceprofile.MaxReferences*4/3 + 2*1024*1024
 
 // VoiceProfileListResponse is returned by the profile library endpoint.
 type VoiceProfileListResponse struct {
@@ -25,12 +25,18 @@ type VoiceProfileListResponse struct {
 // It is primarily used by the LocalAI admin MCP client; the browser sends a
 // multipart audio field to avoid base64 overhead.
 type CreateVoiceProfileRequest struct {
-	Name             string `json:"name"`
-	Description      string `json:"description,omitempty"`
-	Language         string `json:"language,omitempty"`
-	Transcript       string `json:"transcript"`
-	AudioBase64      string `json:"audio_base64"`
-	ConsentConfirmed bool   `json:"consent_confirmed"`
+	Name             string                               `json:"name"`
+	Description      string                               `json:"description,omitempty"`
+	Language         string                               `json:"language,omitempty"`
+	Transcript       string                               `json:"transcript"`
+	AudioBase64      string                               `json:"audio_base64"`
+	ConsentConfirmed bool                                 `json:"consent_confirmed"`
+	References       []CreateVoiceProfileReferenceRequest `json:"references,omitempty"`
+}
+
+type CreateVoiceProfileReferenceRequest struct {
+	Transcript  string `json:"transcript"`
+	AudioBase64 string `json:"audio_base64"`
 }
 
 func voiceProfileError(code int, message string) schema.ErrorResponse {
@@ -118,31 +124,39 @@ func CreateVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 
 		contentType := c.Request().Header.Get(echo.HeaderContentType)
 		if strings.HasPrefix(contentType, echo.MIMEMultipartForm) {
-			c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, voiceprofile.MaxAudioBytes+2*1024*1024)
-			fileHeader, err := c.FormFile("audio")
+			c.Request().Body = http.MaxBytesReader(c.Response().Writer, c.Request().Body, voiceprofile.MaxAudioBytes*voiceprofile.MaxReferences+2*1024*1024)
+			form, err := c.MultipartForm()
 			if err != nil {
 				if isRequestBodyTooLarge(err) {
 					return writeVoiceProfileError(c, voiceprofile.ErrAudioTooLarge)
 				}
 				return writeVoiceProfileError(c, fmt.Errorf("%w: audio is required", voiceprofile.ErrInvalidInput))
 			}
-			if fileHeader.Size > voiceprofile.MaxAudioBytes {
-				return writeVoiceProfileError(c, voiceprofile.ErrAudioTooLarge)
+			files := form.File["audio"]
+			transcripts := form.Value["transcript"]
+			if len(files) == 0 || len(files) != len(transcripts) || len(files) > voiceprofile.MaxReferences {
+				return writeVoiceProfileError(c, fmt.Errorf("%w: each audio needs one transcript", voiceprofile.ErrInvalidInput))
 			}
-			audio, err := fileHeader.Open()
-			if err != nil {
-				return writeVoiceProfileError(c, fmt.Errorf("open uploaded audio: %w", err))
+			references := make([]voiceprofile.ReferenceInput, 0, len(files))
+			for index, fileHeader := range files {
+				if fileHeader.Size > voiceprofile.MaxAudioBytes {
+					return writeVoiceProfileError(c, voiceprofile.ErrAudioTooLarge)
+				}
+				audio, err := fileHeader.Open()
+				if err != nil {
+					return writeVoiceProfileError(c, fmt.Errorf("open uploaded audio: %w", err))
+				}
+				defer func() { _ = audio.Close() }()
+				references = append(references, voiceprofile.ReferenceInput{Transcript: transcripts[index], Audio: audio})
 			}
-			defer func() { _ = audio.Close() }()
 
 			consent, _ := strconv.ParseBool(c.FormValue("consent_confirmed"))
-			profile, err := store.Create(c.Request().Context(), voiceprofile.CreateInput{
+			profile, err := store.CreateWithReferences(c.Request().Context(), voiceprofile.CreateInput{
 				Name:             c.FormValue("name"),
 				Description:      c.FormValue("description"),
 				Language:         c.FormValue("language"),
-				Transcript:       c.FormValue("transcript"),
 				ConsentConfirmed: consent,
-			}, audio)
+			}, references)
 			if err != nil {
 				return writeVoiceProfileError(c, err)
 			}
@@ -157,17 +171,26 @@ func CreateVoiceProfileEndpoint(store *voiceprofile.Store) echo.HandlerFunc {
 			}
 			return writeVoiceProfileError(c, fmt.Errorf("%w: invalid JSON body", voiceprofile.ErrInvalidInput))
 		}
-		if base64.StdEncoding.DecodedLen(len(request.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
-			return writeVoiceProfileError(c, voiceprofile.ErrAudioTooLarge)
+		referenceRequests := request.References
+		if len(referenceRequests) == 0 {
+			referenceRequests = []CreateVoiceProfileReferenceRequest{{Transcript: request.Transcript, AudioBase64: request.AudioBase64}}
 		}
-		audio := base64.NewDecoder(base64.StdEncoding, strings.NewReader(request.AudioBase64))
-		profile, err := store.Create(c.Request().Context(), voiceprofile.CreateInput{
+		if len(referenceRequests) > voiceprofile.MaxReferences {
+			return writeVoiceProfileError(c, voiceprofile.ErrInvalidInput)
+		}
+		references := make([]voiceprofile.ReferenceInput, 0, len(referenceRequests))
+		for _, reference := range referenceRequests {
+			if base64.StdEncoding.DecodedLen(len(reference.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
+				return writeVoiceProfileError(c, voiceprofile.ErrAudioTooLarge)
+			}
+			references = append(references, voiceprofile.ReferenceInput{Transcript: reference.Transcript, Audio: base64.NewDecoder(base64.StdEncoding, strings.NewReader(reference.AudioBase64))})
+		}
+		profile, err := store.CreateWithReferences(c.Request().Context(), voiceprofile.CreateInput{
 			Name:             request.Name,
 			Description:      request.Description,
 			Language:         request.Language,
-			Transcript:       request.Transcript,
 			ConsentConfirmed: request.ConsentConfirmed,
-		}, audio)
+		}, references)
 		if err != nil {
 			return writeVoiceProfileError(c, err)
 		}

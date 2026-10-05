@@ -73,9 +73,9 @@ Detect faces and analyze demographics (buffalo entries populate
 age / gender; YuNet + SFace returns regions only):
 
 ```bash
-curl -sX POST http://localhost:8080/v1/face/detect \
+curl -sX POST http://localhost:8080/v1/detection \
   -H "Content-Type: application/json" \
-  -d '{"model": "face-detect-buffalo-l", "img": "https://example.com/group.jpg"}'
+  -d '{"model": "face-detect-buffalo-l", "image": "https://example.com/group.jpg"}'
 
 curl -sX POST http://localhost:8080/v1/face/analyze \
   -H "Content-Type: application/json" \
@@ -140,6 +140,39 @@ Response:
   "processing_time_ms": 412.0
 }
 ```
+
+## Restore enrollments after a restart
+
+The default identity store is in memory. Clients can keep an enrollment record
+and replay it with `POST /v1/face/register` after a restart. Extract the embedding
+once with `/v1/face/embed`, then save the exact returned vector, model, name,
+labels, and enrollment timestamp. Submit `embedding` instead of `img`:
+
+```json
+{
+  "model": "insightface-opencv",
+  "name": "Alice",
+  "embedding": [0.12, -0.04, 0.31],
+  "registered_at": "2026-09-07T12:00:00Z",
+  "labels": {"client_id": "alice"}
+}
+```
+
+The vector above is abbreviated; send the complete embedding from the same
+recognizer model. Provide exactly one of `img` or `embedding`. Vectors must be
+finite and nonzero. `registered_at` is optional and defaults to the current time;
+replay the original timestamp to preserve it.
+
+The store upserts by exact vector. Registration now derives a stable ID from
+that vector and the store namespace, so retries and replay after a restart
+return the same ID without adding duplicate entries. Replaying updates the name
+and labels. Images can produce slightly different embeddings across runs; keep
+the original vector instead of embedding the photo again on each retry.
+
+This does not make the server store persistent. Clients must retain and restore
+the records themselves. With independent stores behind a load balancer, replay
+into each store or use a shared store. Do not mix different recognizer models in
+one store. IDs from older versions change on their first registration replay.
 
 ## 1:N identification workflow (register → identify → forget)
 

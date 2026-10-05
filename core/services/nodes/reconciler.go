@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
-	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -40,7 +39,7 @@ const (
 // Defaulted to a gRPC health probe but overridable for tests so we don't
 // need to stand up a real server.
 type ModelProber interface {
-	Probe(ctx context.Context, address string) ProbeOutcome
+	Probe(ctx context.Context, nodeID, address string) ProbeOutcome
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
@@ -51,7 +50,7 @@ type ModelProber interface {
 // against the backend's own serving port cannot make that distinction, which
 // is why it is only the fallback for workers that do not answer.
 type NodeProcessLister interface {
-	ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error)
+	ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error)
 }
 
 // probeTimeout bounds a single liveness probe. Kept short because a healthy
@@ -61,10 +60,10 @@ type NodeProcessLister interface {
 const probeTimeout = 1 * time.Second
 
 // grpcModelProber does a short HealthCheck on the model's stored gRPC address.
-type grpcModelProber struct{ token string }
+type grpcModelProber struct{ clients BackendClientFactory }
 
-func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
-	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
+func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) ProbeOutcome {
+	client := g.clients.NewClient(nodeID, address, false)
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
@@ -155,6 +154,9 @@ type ReplicaReconciler struct {
 	// what a backend inside a request cannot do.
 	inFlightIdleMu sync.Mutex
 	inFlightIdle   map[string]int
+	// pinnedResolver exempts pinned models from idle scale-down (see
+	// ReplicaReconcilerOptions.PinnedResolver). nil disables the exemption.
+	pinnedResolver PinnedModelResolver
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -192,6 +194,12 @@ type ReplicaReconcilerOptions struct {
 	// PressureThreshold is the forced-disturb count within PressureWindow that
 	// triggers a scale-up. Default prefixcache.DefaultConfig().PressureScaleThreshold (1).
 	PressureThreshold int
+	// PinnedResolver, when set, exempts `pinned: true` models from idle
+	// scale-down so the pin contract holds cluster-wide (#11101). nil
+	// disables the exemption. Dead-row reaping is unaffected: it removes
+	// registry rows for processes that are already gone, which is state
+	// correction, not eviction.
+	PinnedResolver PinnedModelResolver
 }
 
 // NewReplicaReconciler creates a new ReplicaReconciler.
@@ -210,7 +218,7 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	}
 	prober := opts.Prober
 	if prober == nil {
-		prober = grpcModelProber{token: opts.RegistrationToken}
+		prober = grpcModelProber{clients: &tokenClientFactory{token: opts.RegistrationToken}}
 	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
@@ -235,6 +243,7 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 		probeStaleAfter:   probeStaleAfter,
 		pressure:          opts.Pressure,
 		pressureThreshold: pressureThreshold,
+		pinnedResolver:    opts.PinnedResolver,
 	}
 }
 
@@ -341,14 +350,14 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// Pending-op drain for admin upgrade — fires backend.upgrade so
 			// the slow re-pull doesn't head-of-line-block install traffic on
 			// the same worker. Falls back to the legacy backend.install
-			// Force=true path on nats.ErrNoResponders for old workers that
+			// Force=true path on ErrNoRoute for old workers that
 			// don't subscribe to backend.upgrade yet (rolling-update window).
 			// Reconciler retries are background reconciliation with no live
 			// admin watching a progress bar, so opID/onProgress are empty —
 			// the adapter skips the progress subscription entirely.
 			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
-				if errors.Is(err, nats.ErrNoResponders) {
+				if errors.Is(err, ErrNoRoute) {
 					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 					if instErr != nil {
 						applyErr = instErr
@@ -376,14 +385,14 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			continue
 		}
 
-		// ErrNoResponders means the node has no active NATS subscription for
-		// this subject. Either its connection dropped, or it's the wrong
-		// node type entirely. Mark unhealthy so the health monitor's
+		// ErrNoRoute means nothing is listening for this subject on the node.
+		// Either its connection dropped, or it's the wrong node type
+		// entirely. Mark unhealthy so the health monitor's
 		// heartbeat-only pass doesn't immediately flip it back — and so
 		// ListDuePendingBackendOps (which filters by status=healthy) stops
 		// picking the row until the node genuinely recovers.
-		if errors.Is(applyErr, nats.ErrNoResponders) {
-			xlog.Warn("Reconciler: no NATS responders — marking node unhealthy",
+		if errors.Is(applyErr, ErrNoRoute) {
+			xlog.Warn("Reconciler: no route to node, marking it unhealthy",
 				"op", op.Op, "backend", op.Backend, "node", op.NodeID)
 			_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
 		}
@@ -469,7 +478,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		switch rc.prober.Probe(ctx, m.Address) {
+		switch rc.prober.Probe(ctx, m.NodeID, m.Address) {
 		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
@@ -552,7 +561,7 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
+		if rc.prober.Probe(ctx, m.NodeID, m.Address) != ProbeAlive {
 			// Busy or unreachable. Busy means the counter may well be real;
 			// unreachable is the reaper's business, not the sweeper's.
 			rc.clearInFlightIdle(m.ID)
@@ -714,7 +723,7 @@ type replicaKey struct {
 }
 
 // replyError safely extracts the error text from a possibly-nil reply.
-func replyError(reply *messaging.ModelsRunningReply) string {
+func replyError(reply *workerctl.ModelsRunningReply) string {
 	if reply == nil {
 		return "nil reply"
 	}
@@ -1083,9 +1092,16 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	return scheduled > 0
 }
 
-// scaleDownIdle removes idle replicas above the floor.
+// scaleDownIdle removes idle replicas above the floor. Pinned models are
+// exempt entirely: `pinned: true` promises the operator the model stays
+// resident, and trimming to a floor of one still means every request beyond
+// the survivor's capacity pays a cold reload (#11101).
 func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedulingConfig, current, floor int) {
 	if rc.unloader == nil {
+		return
+	}
+	if rc.pinnedResolver != nil && slices.Contains(rc.pinnedResolver.GetPinnedModelNames(), cfg.ModelName) {
+		xlog.Debug("Reconciler: skipping idle scale-down for pinned model", "model", cfg.ModelName)
 		return
 	}
 

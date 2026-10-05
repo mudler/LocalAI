@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -12,11 +14,50 @@ var _ = Describe("Worker registration body", func() {
 		originalTotalAvailableVRAM := totalAvailableVRAM
 		originalGetGPUAggregateInfo := getGPUAggregateInfo
 		originalGetSystemRAMInfo := getSystemRAMInfo
+		originalGetCPUInfo := getCPUInfo
 		DeferCleanup(func() {
 			totalAvailableVRAM = originalTotalAvailableVRAM
 			getGPUAggregateInfo = originalGetGPUAggregateInfo
 			getSystemRAMInfo = originalGetSystemRAMInfo
+			getCPUInfo = originalGetCPUInfo
 		})
+	})
+
+	It("reports CPU telemetry on registration and clamps utilization", func() {
+		getCPUInfo = func() (*xsysinfo.CPUInfo, error) {
+			return &xsysinfo.CPUInfo{LogicalCores: 24, UsagePercent: 120, Load1: 3.5}, nil
+		}
+
+		body := (&Config{}).registrationBody()
+
+		Expect(body["cpu_logical_cores"]).To(Equal(uint64(24)))
+		Expect(body["cpu_usage_percent"]).To(Equal(float64(100)))
+		Expect(body["cpu_load_1"]).To(Equal(3.5))
+	})
+
+	It("reports dynamic CPU telemetry on heartbeats", func() {
+		getCPUInfo = func() (*xsysinfo.CPUInfo, error) {
+			return &xsysinfo.CPUInfo{LogicalCores: 24, UsagePercent: -4, Load1: 1.25}, nil
+		}
+
+		body := (&Config{}).heartbeatBody()
+
+		Expect(body["cpu_usage_percent"]).To(Equal(float64(0)))
+		Expect(body["cpu_load_1"]).To(Equal(1.25))
+		Expect(body).ToNot(HaveKey("cpu_logical_cores"))
+	})
+
+	It("omits all CPU fields when sampling fails", func() {
+		getCPUInfo = func() (*xsysinfo.CPUInfo, error) { return nil, errors.New("sampling failed") }
+
+		registration := (&Config{}).registrationBody()
+		heartbeat := (&Config{}).heartbeatBody()
+
+		for _, body := range []map[string]any{registration, heartbeat} {
+			Expect(body).ToNot(HaveKey("cpu_logical_cores"))
+			Expect(body).ToNot(HaveKey("cpu_usage_percent"))
+			Expect(body).ToNot(HaveKey("cpu_load_1"))
+		}
 	})
 
 	It("includes the VRAM budget in the registration body when set", func() {

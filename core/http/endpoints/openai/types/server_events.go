@@ -27,7 +27,11 @@ const (
 	// ServerEventTypeClassifierResult is a LocalAI extension: it carries the
 	// classifier-mode score distribution and decision for a response. OpenAI
 	// clients ignore it.
-	ServerEventTypeClassifierResult                   ServerEventType = "localai.classifier.result"
+	ServerEventTypeClassifierResult ServerEventType = "localai.classifier.result"
+	// ServerEventTypeModelFailover is a LocalAI extension: it names the target
+	// that serves a pipeline stage backed by a failover chain, at session start
+	// and on every chain switch. OpenAI clients ignore it.
+	ServerEventTypeModelFailover                      ServerEventType = "localai.model.failover"
 	ServerEventTypeInputAudioBufferCommitted          ServerEventType = "input_audio_buffer.committed"
 	ServerEventTypeInputAudioBufferCleared            ServerEventType = "input_audio_buffer.cleared"
 	ServerEventTypeInputAudioBufferSpeechStarted      ServerEventType = "input_audio_buffer.speech_started"
@@ -508,6 +512,15 @@ type ConversationItemSoundDetectionEvent struct {
 
 	// The scored sound-event tags, in score-descending order.
 	Detections []SoundDetectionTag `json:"detections"`
+
+	// The start time of the detection window in seconds, when known. Set by
+	// the live scene-event path (a companion sound stream alongside live
+	// transcription); omitted by the unary/windowed sound-detection paths,
+	// which have no per-event timing.
+	Start *float64 `json:"start,omitempty"`
+
+	// The end time of the detection window in seconds, when known.
+	End *float64 `json:"end,omitempty"`
 }
 
 func (m ConversationItemSoundDetectionEvent) ServerEventType() ServerEventType {
@@ -582,11 +595,17 @@ type ConversationItemInputAudioTranscriptionSegmentEvent struct {
 	// The speaker label for the segment, if available.
 	Speaker string `json:"speaker,omitempty"`
 
-	// The start time of the segment in seconds.
-	Start float64 `json:"start,omitempty"`
+	// The registered name of the speaker, when the backend recognised a
+	// voice registered through /v1/voice/register.
+	SpeakerName string `json:"speaker_name,omitempty"`
 
-	// The end time of the segment in seconds.
-	End float64 `json:"end,omitempty"`
+	// The start time of the segment in seconds. Always present (not
+	// omitempty: a segment starting at 0.0s must still carry "start").
+	Start float64 `json:"start"`
+
+	// The end time of the segment in seconds. Always present (not
+	// omitempty: see Start).
+	End float64 `json:"end"`
 
 	// The text content of the segment.
 	Text string `json:"text,omitempty"`

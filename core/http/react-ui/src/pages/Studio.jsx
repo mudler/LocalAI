@@ -7,6 +7,7 @@ import ThreeDGen from './ThreeDGen'
 import TTS from './TTS'
 import Sound from './Sound'
 import AudioTransform from './AudioTransform'
+import Diarization from './Diarization'
 import StudioOverview from './StudioOverview'
 import { useAuth } from '../context/AuthContext'
 import { useModels } from '../hooks/useModels'
@@ -14,7 +15,7 @@ import { useOperations } from '../hooks/useOperations'
 import { readAllMediaHistory } from '../hooks/useMediaHistory'
 import { use3DHistory } from '../hooks/use3DHistory'
 import {
-  CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
+  CAP_DIARIZATION, CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
 
 // One table for the six generators: the capability that makes a modality
@@ -22,6 +23,7 @@ import {
 // under. Studio owns this so the tab strip and the overview cannot disagree
 // about what exists.
 const MODALITIES = [
+  { key: 'diarization', capability: CAP_DIARIZATION, icon: 'fas fa-users', group: 'voice', feature: 'audio_diarization' },
   { key: 'images', capability: CAP_IMAGE, icon: 'fas fa-image', group: 'create', history: 'image' },
   { key: 'video', capability: CAP_VIDEO, icon: 'fas fa-video', group: 'create', history: 'video' },
   { key: 'threed', capability: CAP_3D, icon: 'fas fa-cube', group: 'create', feature: '3d' },
@@ -33,6 +35,7 @@ const MODALITIES = [
 const OVERVIEW_TAB = { key: 'overview', icon: 'fas fa-compass' }
 
 const TAB_COMPONENTS = {
+  diarization: Diarization,
   images: ImageGen,
   video: VideoGen,
   threed: ThreeDGen,
@@ -70,7 +73,8 @@ export default function Studio() {
   const modalities = useMemo(() => available.map(m => ({
     ...m,
     installed: models
-      .filter(model => model.capabilities?.includes(m.capability))
+      .filter(model => model.capabilities?.includes(m.capability) ||
+        (m.key === 'threed' && model.capabilities?.includes(CAP_3D_ANIMATION)))
       .map(model => model.id),
     typical: typicalCost(m.key === 'threed' ? threeDEntries : history[m.history]),
   })), [available, models, history, threeDEntries])

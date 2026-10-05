@@ -119,4 +119,27 @@ var _ = Describe("Store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(audioInfo.Mode().Perm()).To(Equal(os.FileMode(0o600)))
 	})
+
+	It("stores and leases ordered reference pairs", func(ctx SpecContext) {
+		created, err := store.CreateWithReferences(ctx, voiceprofile.CreateInput{
+			Name: "Bilingual narrator", ConsentConfirmed: true,
+		}, []voiceprofile.ReferenceInput{
+			{Transcript: "First reference.", Audio: bytes.NewReader(pcmWAV(time.Second))},
+			{Transcript: "Second reference.", Audio: bytes.NewReader(pcmWAV(2 * time.Second))},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(created.Transcript).To(Equal("First reference."))
+		Expect(created.References).To(HaveLen(2))
+		Expect(created.References[1].Transcript).To(Equal("Second reference."))
+
+		profile, paths, release, err := store.LeaseAudios(ctx, created.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(profile.References).To(HaveLen(2))
+		Expect(paths).To(HaveLen(2))
+		Expect(paths[0]).To(BeAnExistingFile())
+		Expect(paths[1]).To(BeAnExistingFile())
+		release()
+		Expect(paths[0]).NotTo(BeAnExistingFile())
+		Expect(paths[1]).NotTo(BeAnExistingFile())
+	})
 })

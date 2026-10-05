@@ -60,7 +60,7 @@ async function mockVoiceAPIs(page) {
   return state
 }
 
-test.describe('Voice Library', () => {
+test.describe('Personality Library', () => {
   let apiState
 
   test.beforeEach(async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Voice Library', () => {
 
   test('renders the library-first master/detail view', async ({ page }) => {
     await page.goto('/app/voice-library')
-    await expect(page.getByRole('heading', { name: /Voice Library/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Personality Library/i })).toBeVisible()
     await expect(page.locator('.voice-row', { hasText: 'Documentary narrator' })).toBeVisible()
     await expect(page.locator('.voice-library-detail')).toContainText('The exact words spoken in this reference.')
     await expect(page.locator('.voice-library-detail')).toContainText('Consent confirmed')
@@ -150,6 +150,36 @@ test.describe('Voice Library', () => {
     await page.getByRole('button', { name: /Generate$/ }).click()
     await expect.poll(() => ttsBody?.voice).toBe(`localai://voice-profiles/${VOICE_ID}`)
     expect(ttsBody.model).toBe('qwen-base')
+  })
+
+  test('sends trimmed speech instructions and omits blank instructions', async ({ page }) => {
+    const ttsBodies = []
+    await page.route('**/tts', async route => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+      ttsBodies.push(route.request().postDataJSON())
+      await route.fulfill({
+        status: 200,
+        contentType: 'audio/wav',
+        headers: { 'Content-Disposition': 'attachment; filename="speech.wav"' },
+        body: pcmWav(1),
+      })
+    })
+
+    await page.goto('/app/tts')
+    await page.getByPlaceholder('Enter text to synthesize...').fill('Read this sentence.')
+    await page.getByLabel('Instructions').fill('  Speak slowly and warmly.  ')
+    await page.getByRole('button', { name: /Generate$/ }).click()
+    await expect.poll(() => ttsBodies.length).toBe(1)
+    expect(ttsBodies[0].instructions).toBe('Speak slowly and warmly.')
+
+    await expect(page.getByRole('button', { name: /Generate$/ })).toBeEnabled()
+    await page.getByLabel('Instructions').fill('   \n  ')
+    await page.getByRole('button', { name: /Generate$/ }).click()
+    await expect.poll(() => ttsBodies.length).toBe(2)
+    expect(ttsBodies[1]).not.toHaveProperty('instructions')
   })
 
   test('normalizes an upload and creates a consented profile', async ({ page }) => {

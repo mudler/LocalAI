@@ -71,6 +71,37 @@ func main() {
 		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 	}
 
+	// VAD-segmented offline transcription (vad:true model option). Additive in
+	// the C-API (no ABI bump); same probe pattern, so an older libparakeet.so
+	// still loads and Load refuses vad:true with a clear message.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVad, lib, "parakeet_capi_transcribe_path_json_vad")
+	}
+
+	// Silero VAD, the standalone VAD RPC and transcription with an external Silero
+	// (vad_model: option). Additive in the C-API (no ABI bump). Each symbol is
+	// probed on its own: a library without one still loads, and the feature that
+	// needs it fails with a clear message only when it is used.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad_with"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVadWith, lib, "parakeet_capi_transcribe_path_json_vad_with")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_vad_pcm_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppVadPcmJSON, lib, "parakeet_capi_vad_pcm_json")
+	}
+
+	// Bundle GGUF (one file with several models; docs/bundle.md in parakeet.cpp).
+	// Additive in the C-API. The three entry points come together, so one probe
+	// decides; without them a bundle file is handled like any other file.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_load_component"); err == nil && sym != 0 {
+		if sym2, err2 := purego.Dlsym(lib, "parakeet_capi_bundle_components_json"); err2 == nil && sym2 != 0 {
+			if sym3, err3 := purego.Dlsym(lib, "parakeet_capi_load_error"); err3 == nil && sym3 != 0 {
+				purego.RegisterLibFunc(&CppLoadComponent, lib, "parakeet_capi_load_component")
+				purego.RegisterLibFunc(&CppBundleComponentsJSON, lib, "parakeet_capi_bundle_components_json")
+				purego.RegisterLibFunc(&CppLoadError, lib, "parakeet_capi_load_error")
+			}
+		}
+	}
+
 	// Per-request language variants (multilingual nemotron). Same probe pattern:
 	// present only in libparakeet.so built with multilingual support, so the
 	// backend still loads against an older library and falls back to the
@@ -90,6 +121,57 @@ func main() {
 		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 	}
 
+	// Model roles + diarization/sound (ABI v7-v8): parakeet_capi_model_kind is
+	// what lets Load tell an ASR/diarization/sound context apart, so it gates
+	// every other new symbol below (an older libparakeet.so gets none of
+	// them, and companion model options are rejected in roles.go). Diarization
+	// itself (diarize_pcm, transcribe_and_diarize_json) predates model_kind
+	// (ABI v7), so it is probed on its own.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppDiarizePCM, lib, "parakeet_capi_diarize_pcm")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_and_diarize_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribeAndDiarizeJSON, lib, "parakeet_capi_transcribe_and_diarize_json")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_model_kind"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppModelKind, lib, "parakeet_capi_model_kind")
+		purego.RegisterLibFunc(&CppNumClasses, lib, "parakeet_capi_num_classes")
+		purego.RegisterLibFunc(&CppSoundOptsDefault, lib, "parakeet_capi_sound_opts_default")
+		purego.RegisterLibFunc(&CppSoundStreamBegin, lib, "parakeet_capi_sound_stream_begin")
+		purego.RegisterLibFunc(&CppSoundStreamFeed, lib, "parakeet_capi_sound_stream_feed")
+		purego.RegisterLibFunc(&CppSoundStreamDrainScoresJSON, lib, "parakeet_capi_sound_stream_drain_scores_json")
+		purego.RegisterLibFunc(&CppFreeSoundSegments, lib, "parakeet_capi_free_sound_segments")
+		purego.RegisterLibFunc(&CppSoundStreamFree, lib, "parakeet_capi_sound_stream_free")
+		purego.RegisterLibFunc(&CppSceneOptsDefault, lib, "parakeet_capi_scene_opts_default")
+		purego.RegisterLibFunc(&CppSceneStreamBegin, lib, "parakeet_capi_scene_stream_begin")
+		purego.RegisterLibFunc(&CppSceneStreamFeedJSON, lib, "parakeet_capi_scene_stream_feed_json")
+		purego.RegisterLibFunc(&CppSceneStreamLastError, lib, "parakeet_capi_scene_stream_last_error")
+		purego.RegisterLibFunc(&CppSceneStreamFree, lib, "parakeet_capi_scene_stream_free")
+	}
+	// Speaker identification (ABI v9 and v10). Probed separately from model_kind so an older
+	// libparakeet.so still loads; speaker_model: is refused in roles.go unless the v10 symbols exist.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_scene_stream_begin_speaker"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerDim, lib, "parakeet_capi_speaker_dim")
+		purego.RegisterLibFunc(&CppSpeakerRegistryNew, lib, "parakeet_capi_speaker_registry_new")
+		purego.RegisterLibFunc(&CppSpeakerRegistryFree, lib, "parakeet_capi_speaker_registry_free")
+		purego.RegisterLibFunc(&CppSpeakerRegistryLastError, lib, "parakeet_capi_speaker_registry_last_error")
+		purego.RegisterLibFunc(&CppSceneStreamBeginSpeaker, lib, "parakeet_capi_scene_stream_begin_speaker")
+		purego.RegisterLibFunc(&CppTranscribeAndDiarizeNamedJSON, lib, "parakeet_capi_transcribe_and_diarize_named_json")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_named_pcm_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbedding, lib, "parakeet_capi_speaker_registry_add_embedding")
+		purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
+	}
+
+	for _, lf := range []LibFuncs{
+		{&CppSpeakerIdentity, "parakeet_capi_speaker_identity"},
+		{&CppSpeakerDim, "parakeet_capi_speaker_dim"},
+		{&CppDiarizeProfilesPCMJSON, "parakeet_capi_diarize_profiles_pcm_json"},
+	} {
+		if sym, err := purego.Dlsym(lib, lf.Name); err == nil && sym != 0 {
+			purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
+		}
+	}
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

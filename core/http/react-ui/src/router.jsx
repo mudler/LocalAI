@@ -85,6 +85,7 @@ const VideoGen = page('video', () => import('./pages/VideoGen'))
 const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
 const TTS = page('tts', () => import('./pages/TTS'))
 const Sound = page('sound', () => import('./pages/Sound'))
+const Diarization = page('diarization', () => import('./pages/Diarization'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -131,6 +132,7 @@ const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
+const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
 
 import ConsoleLayout from './components/console/ConsoleLayout'
@@ -164,6 +166,8 @@ const appChildren = [
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
+  { path: 'diarization', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
+  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
   { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },
@@ -223,6 +227,7 @@ const appChildren = [
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
+      { path: 'failover', element: <Admin><Failover /></Admin> },
     ],
   },
 

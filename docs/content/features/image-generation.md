@@ -24,9 +24,9 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
 }'
 ```
 
-Available additional parameters: `mode`, `step`.
+Available additional parameters: `mode`, `step`, `negative_prompt`.
 
-Note: To set a negative prompt, you can split the prompt with `|`, for instance: `a cute baby sea otter|malformed`.
+To set a negative prompt you can either pass a separate `negative_prompt` field or split the prompt with `|`, e.g. `a cute baby sea otter|malformed`. When both are present they are joined with a comma (`negative_prompt` first, then the `|`-suffixed tags), so a global negative prompt can live in `negative_prompt` while per-image negatives are appended after `|`.
 
 ```bash
 curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
@@ -79,8 +79,8 @@ When a model does not fit entirely in VRAM, the following `options:` control whe
 |--------|---------|-------------|
 | `backend` | `backend:clip=cpu,vae=cuda0,diffusion=vulkan0` | Runtime (compute) backend assignment per component. Use `cpu` to place a component's compute on the CPU. Component keys include `te` (text encoder / CLIP), `vae`, `diffusion`, `controlnet`. |
 | `params_backend` | `params_backend:diffusion=disk,clip=cpu` | Where parameters (weights) are stored. Supports `cpu`, `disk` (mmap weights from disk to save RAM/VRAM), or per-component specs. |
-| `max_vram` | `max_vram:8` or `max_vram:-1` | VRAM budget (in GiB) for graph-cut segmented parameter offload. `0` disables it, `-1` auto-selects (free VRAM minus ~1 GiB). Also accepts per-backend budgets. |
-| `stream_layers` | `stream_layers:true` | Enable residency + prefetch streaming on top of `max_vram` (no effect unless `max_vram` is set). |
+| `max_vram` | `max_vram:8` or `max_vram:-1` | Optional per-device VRAM budget (in GiB) for managed weights and automatic graph-cut execution. `0` uses live free VRAM without an explicit cap; a negative value reserves that many GiB of free VRAM. Also accepts per-backend budgets. |
+| `stream_layers` | `stream_layers:true` | Deprecated compatibility option. Segmented weight streaming is now selected automatically, so this value is ignored. |
 | `rpc_servers` | `rpc_servers:localhost:50052,192.168.1.3:50052` | Comma-separated list of `host:port` RPC servers to offload compute to. |
 | `pulid_weights_path` | `pulid_weights_path:pulid.safetensors` | Path to PuLID-Flux weights for identity injection. |
 
@@ -246,6 +246,18 @@ diffusers:
   clip_skip: 11
 
 cfg_scale: 8
+```
+
+For an offline single-file checkpoint that needs its original Diffusers configuration, keep both files in the mounted models directory:
+
+```yaml
+name: offline-stable-diffusion
+parameters:
+  model: model.safetensors
+backend: diffusers
+diffusers:
+  pipeline_type: StableDiffusionPipeline
+  original_config_file: /models/v1-inference.yaml
 ```
 
 #### Configuration parameters

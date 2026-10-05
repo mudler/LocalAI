@@ -11,6 +11,16 @@ var _ = Describe("PrefixCache subjects", func() {
 	It("exposes stable subject constants", func() {
 		Expect(messaging.SubjectPrefixCacheObserve).To(Equal("prefixcache.observe"))
 		Expect(messaging.SubjectPrefixCacheInvalidate).To(Equal("prefixcache.invalidate"))
+		Expect(messaging.SubjectPrefixCachePressure).To(Equal("prefixcache.pressure"))
+		Expect(messaging.SubjectPrefixCacheResidency).To(Equal("prefixcache.residency"))
+	})
+
+	It("defines the reported residency event operations", func() {
+		Expect([]messaging.PrefixCacheOperation{
+			messaging.PrefixCacheStore,
+			messaging.PrefixCacheRemove,
+			messaging.PrefixCacheClear,
+		}).To(Equal([]messaging.PrefixCacheOperation{"store", "remove", "clear"}))
 	})
 
 	It("carries a replica index on the observe event", func() {
@@ -23,5 +33,11 @@ var _ = Describe("PrefixCache subjects", func() {
 		Expect(all.Replica).To(BeNumerically("<", 0))
 		one := messaging.PrefixCacheInvalidateEvent{Model: "m", NodeID: "A", Replica: 0}
 		Expect(one.Replica).To(Equal(0))
+	})
+
+	It("carries a unique pressure event identity", func() {
+		ev := messaging.PrefixCachePressureEvent{ID: "frontend-a:1", Model: "m"}
+		Expect(ev.ID).To(Equal("frontend-a:1"))
+		Expect(ev.Model).To(Equal("m"))
 	})
 })

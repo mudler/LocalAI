@@ -260,10 +260,9 @@ function ResourcesSection({ skillName, addToast }) {
 }
 
 export default function SkillEdit() {
-  const { name: nameParam } = useParams()
+  const { name } = useParams()
   const location = useLocation()
   const isNew = location.pathname.endsWith('/new')
-  const name = nameParam ? decodeURIComponent(nameParam) : undefined
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const [searchParams] = useSearchParams()

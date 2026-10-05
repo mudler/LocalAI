@@ -92,7 +92,8 @@ std::string json_escape(const std::string &in) {
 
 } // namespace
 
-DsmlParser::DsmlParser() = default;
+DsmlParser::DsmlParser(bool starts_in_thinking)
+    : state_(starts_in_thinking ? State::THINK : State::TEXT) {}
 
 bool DsmlParser::IsInDsmlStructural() const {
     switch (state_) {

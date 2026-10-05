@@ -59,7 +59,9 @@
     "settings": "설정",
     "api": "API",
     "activity": "활동",
-    "overview": "개요"
+    "overview": "개요",
+    "thisMachine": "이 머신",
+    "failover": "페일오버"
   },
   "footer": {
     "github": "GitHub",

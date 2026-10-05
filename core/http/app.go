@@ -85,7 +85,20 @@ func applyBackendAdmission(err error, code int, c echo.Context) int {
 		return code
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(int(capacityErr.RetryAfter.Seconds())))
-	return http.StatusServiceUnavailable
+	return http.StatusTooManyRequests
+}
+
+// applyNoAvailableNodes maps scheduler "no available nodes" errors to 503.
+// When the cluster has no healthy node to serve a model — all are full, a
+// node selector excludes every candidate, or eviction could not free a slot —
+// the request is retryable, not a server bug. Without this the error fell
+// through to 500, which tells clients something is broken when they just
+// need to wait for a node.
+func applyNoAvailableNodes(err error, code int) int {
+	if errors.Is(err, nodes.ErrNoAvailableNodes) {
+		return http.StatusServiceUnavailable
+	}
+	return code
 }
 
 // respondModelLoading answers a request whose model is still cold-loading with
@@ -208,6 +221,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 			code = applyModelLoadCooldown(err, code, c)
 			code = applyBackendAdmission(err, code, c)
+			code = applyNoAvailableNodes(err, code)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -224,8 +238,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 
 			// Send custom error page
+			errType := ""
+			var capErr *corebackend.BackendAdmissionError
+			if errors.As(err, &capErr) {
+				errType = "rate_limit_error"
+			}
 			c.JSON(code, schema.ErrorResponse{
-				Error: &schema.APIError{Message: err.Error(), Code: code},
+				Error: &schema.APIError{Message: err.Error(), Code: code, Type: errType},
 			})
 		}
 	} else {
@@ -240,6 +259,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.
 			code = applyModelLoading(err, code, c)
+			code = applyNoAvailableNodes(err, code)
 			c.NoContent(code)
 		}
 	}
@@ -437,34 +457,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// could never read a token to send back.
 	if !application.ApplicationConfig().DisableCSRF {
 		xlog.Debug("Enabling CSRF middleware (Sec-Fetch-Site mode)")
-		e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-			Skipper: func(c echo.Context) bool {
-				// Skip CSRF for API clients using auth headers (may be cross-origin)
-				if c.Request().Header.Get("Authorization") != "" {
-					return true
-				}
-				if c.Request().Header.Get("x-api-key") != "" || c.Request().Header.Get("xi-api-key") != "" {
-					return true
-				}
-				// Skip when Sec-Fetch-Site header is absent (older browsers, reverse
-				// proxies that strip the header). The SameSite=Lax cookie attribute
-				// provides baseline CSRF protection for these clients.
-				if c.Request().Header.Get("Sec-Fetch-Site") == "" {
-					return true
-				}
-				return false
-			},
-			// Allow same-site requests (subdomains / different ports) in addition
-			// to same-origin which Echo already permits by default.
-			AllowSecFetchSiteFunc: func(c echo.Context) (bool, error) {
-				secFetchSite := c.Request().Header.Get("Sec-Fetch-Site")
-				if secFetchSite == "same-site" {
-					return true, nil
-				}
-				// cross-site: block
-				return false, nil
-			},
-		}))
+		e.Use(auth.CSRFMiddleware())
 	}
 
 	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise
@@ -482,6 +475,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpJobsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCPJobs)
 
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	requestExtractor.SetFailoverManager(application.FailoverManager())
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
@@ -491,6 +485,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// mode by attributing requests to the synthetic "local" user.
 	routes.RegisterUsageRoutes(e, application)
 	routes.RegisterPIIRoutes(e, application)
+	routes.RegisterSystemOneRoutes(e, application)
 	routes.RegisterMiddlewareRoutes(e, application)
 
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
@@ -566,15 +561,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
+	var workerHTTPDial nodes.WorkerNetDialerFor
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
+		workerHTTPDial = d.WorkerHTTPDial
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

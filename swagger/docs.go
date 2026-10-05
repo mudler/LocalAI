@@ -22,6 +22,33 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/3d/animate": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D animation (binary glTF / GLB).",
+                "parameters": [
+                    {
+                        "description": "Named conditioning inputs and model-specific parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DAnimationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/3d/generations": {
             "post": {
                 "tags": [
@@ -849,6 +876,160 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/localai.BrandingResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "List failover chains and the health of their targets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverChainsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/events": {
+            "get": {
+                "description": "The first event is \"snapshot\" with the full state, then \"chain.switched\" and \"target.state\" events.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Stream failover events (server-sent events)",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Get one failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}/pin": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Pin a failover chain to one target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Target to pin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverPinRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Remove the pin from a failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -2728,8 +2909,10 @@ const docTemplate = `{
         },
         "/v1/audio/diarization": {
             "post": {
+                "description": "JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.",
                 "consumes": [
-                    "multipart/form-data"
+                    "multipart/form-data",
+                    "application/json"
                 ],
                 "tags": [
                     "audio"
@@ -2790,6 +2973,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "audio language hint (only meaningful for backends that bundle ASR)",
                         "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "export portable biometric profiles (voice-recognition permission; JSON formats only)",
+                        "name": "include_speaker_profiles",
                         "in": "formData"
                     },
                     {
@@ -2903,6 +3092,40 @@ const docTemplate = `{
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/audio/voices": {
+            "get": {
+                "description": "List named voices and their language and gender metadata. Use the optional model query parameter to filter the response.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "List text-to-speech voices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Installed model name",
+                        "name": "model",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.TTSVoicesResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -3709,6 +3932,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/systemone": {
+            "post": {
+                "description": "Runs zero-shot NER over the supplied state and answers each question. Question types: noul (binary entity presence), choice (pick one option), score (pick one level).",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer structured-extraction questions over state text.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/permute": {
+            "post": {
+                "description": "Re-runs one choice question under n_perm option orders. Reports per-order probabilities, argmax stability, and spread.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Re-run a choice question under multiple option orders.",
+                "parameters": [
+                    {
+                        "description": "request + question + n_perm + seed",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/separate": {
+            "post": {
+                "description": "Runs N independent NER passes, one per question, against the same state. Response shape matches /v1/systemone.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer each question in a separate NER pass.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "tags": [
@@ -3899,6 +4206,7 @@ const docTemplate = `{
         },
         "/v1/voice/register": {
             "post": {
+                "description": "Supply either audio or speaker_profiles plus an explicit numeric speaker_slot. The selected model must expose matching trusted encoder metadata for portable enrollment. Registrations are global and ephemeral, with a fresh ID for each request.",
                 "tags": [
                     "voice-recognition"
                 ],
@@ -4032,8 +4340,16 @@ const docTemplate = `{
         "config.Gallery": {
             "type": "object",
             "properties": {
+                "artifact_verification": {
+                    "description": "ArtifactVerification overrides Verification only for the gallery OCI artifact.\nBackend images keep their separate Verification policy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.GalleryVerification"
+                        }
+                    ]
+                },
                 "mirrors": {
-                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://).",
+                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://, oci://).",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -4068,6 +4384,115 @@ const docTemplate = `{
                 "not_before": {
                     "description": "NotBefore is an RFC3339 timestamp. Empty disables the time check.",
                     "type": "string"
+                },
+                "source_repository": {
+                    "description": "SourceRepository is an https URL compared exactly against the\ncertificate's source-repository extension. Empty skips the check.",
+                    "type": "string"
+                }
+            }
+        },
+        "config.TTSVoice": {
+            "type": "object",
+            "properties": {
+                "gender": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "failover.ChainState": {
+            "type": "string",
+            "enum": [
+                "primary",
+                "fallback",
+                "degraded"
+            ],
+            "x-enum-varnames": [
+                "ChainPrimary",
+                "ChainFallback",
+                "ChainDegraded"
+            ]
+        },
+        "failover.ChainStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "active_since": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.ChainState"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.TargetStatus"
+                    }
+                }
+            }
+        },
+        "failover.Kind": {
+            "type": "string",
+            "enum": [
+                "local",
+                "remote"
+            ],
+            "x-enum-varnames": [
+                "KindLocal",
+                "KindRemote"
+            ]
+        },
+        "failover.TargetState": {
+            "type": "string",
+            "enum": [
+                "healthy",
+                "down",
+                "recovering",
+                "missing"
+            ],
+            "x-enum-varnames": [
+                "StateHealthy",
+                "StateDown",
+                "StateRecovering",
+                "StateMissing"
+            ]
+        },
+        "failover.TargetStatus": {
+            "type": "object",
+            "properties": {
+                "consecutive_ok": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/failover.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_probe": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.TargetState"
+                },
+                "warm": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4481,6 +4906,25 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.FailoverChainsResponse": {
+            "type": "object",
+            "properties": {
+                "chains": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.ChainStatus"
+                    }
+                }
+            }
+        },
+        "localai.FailoverPinRequest": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.GalleryBackend": {
             "type": "object",
             "properties": {
@@ -4603,6 +5047,31 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.TTSModelVoices": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "voices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/config.TTSVoice"
+                    }
+                }
+            }
+        },
+        "localai.TTSVoicesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.TTSModelVoices"
+                    }
                 }
             }
         },
@@ -4806,11 +5275,31 @@ const docTemplate = `{
                 }
             }
         },
+        "proto.SpeakerEncoder": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "integer"
+                },
+                "identity": {
+                    "description": "sha256 of loaded GGUF bytes",
+                    "type": "string"
+                }
+            }
+        },
         "proto.StatusResponse": {
             "type": "object",
             "properties": {
                 "memory": {
                     "$ref": "#/definitions/proto.MemoryUsageData"
+                },
+                "speaker_encoder": {
+                    "description": "trusted metadata from the loaded server encoder, never request data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/proto.SpeakerEncoder"
+                        }
+                    ]
                 },
                 "state": {
                     "$ref": "#/definitions/proto.StatusResponse_State"
@@ -4863,6 +5352,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "param": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnimationInput": {
+            "type": "object",
+            "properties": {
+                "data": {
                     "type": "string"
                 },
                 "type": {
@@ -5357,6 +5857,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.DiarizationSegment"
                     }
                 },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
+                },
                 "speakers": {
                     "type": "array",
                     "items": {
@@ -5380,6 +5883,13 @@ const docTemplate = `{
                 "label": {
                     "type": "string"
                 },
+                "name": {
+                    "description": "Name is the registered speaker this segment was matched to, and NameScore\nthe cosine similarity of the match. Both are omitted when the backend did\nnot identify the speaker. Speaker stays the normalized SPEAKER_NN label.",
+                    "type": "string"
+                },
+                "name_score": {
+                    "type": "number"
+                },
                 "speaker": {
                     "type": "string"
                 },
@@ -5398,6 +5908,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "segment_count": {
@@ -5652,6 +6165,12 @@ const docTemplate = `{
         "schema.FaceRegisterRequest": {
             "type": "object",
             "properties": {
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "img": {
                     "type": "string"
                 },
@@ -5665,6 +6184,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "description": "original enrollment time when replaying a saved embedding",
                     "type": "string"
                 },
                 "store": {
@@ -6200,6 +6723,29 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Model3DAnimationRequest": {
+            "type": "object",
+            "properties": {
+                "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.AnimationInput"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "response_format": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Model3DRequest": {
             "description": "3D asset generation request body. Generation is image-conditioned",
             "type": "object",
@@ -6258,6 +6804,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "context_size": {
+                    "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -6276,6 +6826,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "three_d_operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDOperation"
                     }
                 }
             }
@@ -6569,7 +7125,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "always \"function\"",
                     "type": "string"
                 }
             }
@@ -6969,6 +7524,12 @@ const docTemplate = `{
                 "ignore_eos": {
                     "type": "boolean"
                 },
+                "include_speaker_profiles": {
+                    "type": "boolean"
+                },
+                "include_text": {
+                    "type": "boolean"
+                },
                 "input": {},
                 "instruction": {
                     "description": "Edit endpoint",
@@ -7031,6 +7592,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "negative_prompt": {
+                    "description": "NegativePrompt for image generation (matches Stable Diffusion WebUI /\nvLLM-Omni conventions). Combined, comma-separated, with any \"|\"-suffixed\nnegative tags in Prompt.",
                     "type": "string"
                 },
                 "negative_prompt_scale": {
@@ -7158,6 +7720,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "metadata": {
+                    "type": "object"
                 },
                 "model": {
                     "type": "string"
@@ -7636,6 +8201,71 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SpeakerEncoder": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "integer"
+                },
+                "identity": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SpeakerProfile": {
+            "type": "object",
+            "properties": {
+                "clean_duration": {
+                    "type": "number"
+                },
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "intervals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfileInterval"
+                    }
+                },
+                "speaker": {
+                    "type": "integer"
+                },
+                "unavailable_reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SpeakerProfileInterval": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "number"
+                },
+                "start": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.SpeakerProfiles": {
+            "type": "object",
+            "properties": {
+                "encoder": {
+                    "$ref": "#/definitions/schema.SpeakerEncoder"
+                },
+                "speakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SpeakerProfile"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.StreamOptions": {
             "type": "object",
             "properties": {
@@ -7652,6 +8282,40 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "process": {
+                    "description": "Process is the backend process serving the model on this host. Absent\nwhen the model has no local process (a distributed worker holds it) or\nthe process could not be read.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.SysInfoProcess"
+                        }
+                    ]
+                },
+                "size_vram": {
+                    "description": "SizeVRAM is DRM-accounted resident device memory in bytes. Nil means\nthe backend process tree has no complete supported reading.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SysInfoProcess": {
+            "type": "object",
+            "properties": {
+                "cpu_percent": {
+                    "description": "CPUPercent is the share of the whole host's CPU used since the previous\nreading, 0-100. Absent on the first reading of a process.",
+                    "type": "number"
+                },
+                "memory_percent": {
+                    "type": "number"
+                },
+                "pid": {
+                    "type": "integer"
+                },
+                "rss_bytes": {
+                    "description": "RSSBytes is resident host memory. Weights offloaded to a GPU are not\nin it.",
+                    "type": "integer"
+                },
+                "started_at": {
                     "type": "string"
                 }
             }
@@ -7672,6 +8336,158 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.SysInfoModel"
                     }
+                }
+            }
+        },
+        "schema.SystemOneAnswer": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOneEntity"
+                    }
+                },
+                "legend": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "noul": {
+                    "type": "number"
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOneEntity": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOnePermuteRequest": {
+            "type": "object",
+            "properties": {
+                "n_perm": {
+                    "type": "integer"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "request": {
+                    "$ref": "#/definitions/schema.SystemOneRequest"
+                },
+                "seed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SystemOnePermuteResponse": {
+            "type": "object",
+            "properties": {
+                "argmax_stable": {
+                    "type": "boolean"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOnePermuteRun"
+                    }
+                },
+                "spread": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOnePermuteRun": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "order": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOneRequest": {
+            "type": "object"
+        },
+        "schema.SystemOneResponse": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.SystemOneAnswer"
+                    }
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.SystemOneUsage"
+                }
+            }
+        },
+        "schema.SystemOneUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
                 }
             }
         },
@@ -7784,6 +8600,87 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.WebhookConfig"
                     }
+                }
+            }
+        },
+        "schema.ThreeDInput": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "max_bytes": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ThreeDOperation": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDInput"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDParameter"
+                    }
+                }
+            }
+        },
+        "schema.ThreeDParameter": {
+            "type": "object",
+            "properties": {
+                "advanced": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -8103,6 +9000,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "speaker_profiles": {
+                    "$ref": "#/definitions/schema.SpeakerProfiles"
+                },
+                "speaker_slot": {
+                    "type": "integer"
+                },
                 "store": {
                     "type": "string"
                 }
@@ -8236,6 +9139,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/voiceprofile.ReferenceMetadata"
+                    }
+                },
                 "transcript": {
                     "type": "string"
                 },
@@ -8243,6 +9152,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "voice": {
+                    "type": "string"
+                }
+            }
+        },
+        "voiceprofile.ReferenceMetadata": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "transcript": {
                     "type": "string"
                 }
             }

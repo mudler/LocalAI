@@ -164,26 +164,42 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		// at a known-unreachable worker, while the distributed registry remains
 		// the source of truth for anything that is still running remotely.
 		store.Delete(s)
+		if wd != nil {
+			wd.Untrack(model.address)
+		}
 		return unloadErr
 	}
 
 	// Mark the stop as intentional so the exit-watcher logs it as an
 	// expected stop, not a crash (signal-terminated children report -1).
 	ml.stoppingProcs.Store(process, struct{}{})
-	err := process.Stop()
-	if err != nil {
+	var localErr error
+	if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			store.Delete(s)
-			return nil
+			ml.cleanupProcessRuntime(process)
+		} else {
+			localErr = err
 		}
-		return err
+	} else {
+		store.Delete(s)
+		ml.cleanupProcessRuntime(process)
 	}
 
-	store.Delete(s)
-	return nil
+	// A model can be resident on this frontend and on workers at the same
+	// time. Always attempt the remote half after the local half so a failure in
+	// either location does not leave the other placements running.
+	var remoteErr error
+	if remoteUnloader != nil {
+		remoteErr = unloadRemote(ctx, remoteUnloader, s, force)
+		if remoteErr != nil {
+			remoteErr = fmt.Errorf("unloading remote placements for model %q: %w", s, remoteErr)
+		}
+	}
+	return errors.Join(localErr, remoteErr)
 }
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
@@ -227,21 +243,11 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 // StartProcess starts a gRPC backend process and returns its process handle.
 // This is the public wrapper for the internal startProcess method, used by
 // the serve-backend CLI subcommand to start a backend on a specified address.
-func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
-	return ml.startProcess(grpcProcess, id, serverAddress, args...)
+func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string, envVars map[string]string, args ...string) (*process.Process, error) {
+	return ml.startProcess(grpcProcess, id, serverAddress, envVars, args...)
 }
 
-// newProcessStateDir creates the directory a backend process uses for its pid,
-// state and log files, and reports why when it cannot.
-func newProcessStateDir() (string, error) {
-	dir, err := os.MkdirTemp(os.TempDir(), "go-processmanager")
-	if err != nil {
-		return "", fmt.Errorf("creating backend process state directory under %s: %w", os.TempDir(), err)
-	}
-	return dir, nil
-}
-
-func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
+func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, envVars map[string]string, args ...string) (*process.Process, error) {
 	// Make sure the process is executable
 	// Check first if it has executable permissions
 	if fi, err := os.Stat(grpcProcess); err == nil {
@@ -262,25 +268,36 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
-	env := os.Environ()
-	// Vulkan backends are self-contained: they bundle their own loader and
-	// Mesa driver .so files in lib/ plus the matching ICD manifests in
-	// vulkan/icd.d/. Point the loader at those manifests so it doesn't rely on
-	// the runtime base image shipping a Vulkan driver (it carries the
-	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
-	// and the GPU would silently fall back to CPU). No-op for other backends.
-	env = append(env, vulkanICDEnv(workDir)...)
-
-	// Resolve the state directory here rather than through
-	// process.WithTemporaryStateDir(). process.New applies its options but
-	// discards the error they return, so a temp directory that cannot be
-	// created leaves StateDir empty and every later option unapplied. Run()
-	// then reported "mkdir : no such file or directory" with no path, hiding
-	// the real cause (a full volume, or a TMPDIR that no longer resolves).
-	stateDir, err := newProcessStateDir()
+	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
 	}
+
+	env := backendTempEnvironment(os.Environ(), runtime.tempDir)
+	// Vulkan backends are self-contained: they bundle their own loader and
+	// Mesa driver .so files in lib/ plus the matching ICD manifests in
+	// vulkan/icd.d/. Add those manifests to the loader's search so it doesn't rely on
+	// the runtime base image shipping a Vulkan driver (it carries the
+	// SYCL/Level-Zero stack instead, so the default ICD search path is empty
+	// and the GPU would silently fall back to CPU). No-op for other backends.
+
+	// Resolve and own the state directory here rather than through
+	// process.WithTemporaryStateDir(). process.New applies its options but
+	// discards the error they return, so a temp directory that cannot be
+	// created leaves StateDir empty and every later option unapplied. Run()
+	// then reports "mkdir : no such file or directory" with no useful path.
+	// The same owned directory also contains backend scratch so an unexpected
+	// exit cannot strand request files directly in the host's shared /tmp.
+	stateDir := runtime.dir
+
+	// Add model-specific environment variables
+	if envVars != nil {
+		for key, value := range envVars {
+			env = append(env, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	env = vulkanICDEnv(workDir, env)
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
@@ -296,8 +313,11 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	if err := grpcControlProcess.Run(); err != nil {
+		ml.untrackProcess(grpcControlProcess)
+		runtime.cleanup()
 		return grpcControlProcess, err
 	}
+	ml.processRuntimes.Store(grpcControlProcess, runtime)
 
 	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
@@ -350,6 +370,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// whether the child is alive.
 	go func() {
 		<-grpcControlProcess.Done()
+		ml.untrackProcess(grpcControlProcess)
 		// LoadAndDelete both reads the intentional-stop marker and frees the
 		// map entry so it doesn't accumulate across the process's lifetime.
 		_, intentional := ml.stoppingProcs.LoadAndDelete(grpcControlProcess)
@@ -376,24 +397,57 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			}
 			xlog.Warn("Backend process exited unexpectedly", fields...)
 		}
+		runtime.cleanupScratch()
+		close(runtime.diagnosticsDone)
 	}()
 
 	return grpcControlProcess, nil
 }
 
-// vulkanICDEnv returns environment overrides that point the Vulkan loader at
-// the ICD manifests a backend bundles in <workDir>/vulkan/icd.d. Vulkan
-// backends ship a self-contained stack — their own loader and Mesa driver .so
-// files in lib/ (resolved via the LD_LIBRARY_PATH that run.sh sets) plus the
-// matching ICD manifests — so the loader must be told where those manifests
-// live; its default search path (/usr/share/vulkan/icd.d, /etc/vulkan/icd.d)
-// is empty on the runtime base image. Returns nil when the directory holds no
-// manifests (CPU/CUDA/SYCL builds), leaving the host's Vulkan setup untouched.
-func vulkanICDEnv(workDir string) []string {
+func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
+	if process == nil {
+		return
+	}
+	ml.untrackProcess(process)
+	value, ok := ml.processRuntimes.LoadAndDelete(process)
+	if !ok {
+		return
+	}
+	runtime := value.(*backendProcessRuntime)
+	go func() {
+		<-runtime.diagnosticsDone
+		runtime.cleanup()
+	}()
+}
+
+// Use the current watchdog because settings updates can replace it while a
+// backend is running. Match the process identity so a late exit notification
+// cannot remove a replacement that happens to reuse the same address.
+func (ml *ModelLoader) untrackProcess(p *process.Process) {
+	ml.mu.Lock()
+	wd := ml.wd
+	ml.mu.Unlock()
+	if wd != nil {
+		wd.untrackProcess(p)
+	}
+}
+
+// CleanupProcessRuntime releases state and scratch owned by a process started
+// through StartProcess. Callers that supervise processes outside ModelLoader's
+// model store must invoke it after they have consumed exit diagnostics.
+func (ml *ModelLoader) CleanupProcessRuntime(process *process.Process) {
+	ml.cleanupProcessRuntime(process)
+}
+
+// vulkanICDEnv adds the backend's manifests to the Vulkan loader's search path.
+// Do not replace the system manifests: NVIDIA's host-matched ICD is provided
+// by the container runtime, not bundled with our Mesa drivers.
+// CPU/CUDA/SYCL builds have no bundled manifests and leave the host untouched.
+func vulkanICDEnv(workDir string, env []string) []string {
 	icdDir := filepath.Join(workDir, "vulkan", "icd.d")
 	entries, err := os.ReadDir(icdDir)
 	if err != nil {
-		return nil
+		return env
 	}
 
 	manifests := make([]string, 0, len(entries))
@@ -404,14 +458,22 @@ func vulkanICDEnv(workDir string) []string {
 		manifests = append(manifests, filepath.Join(icdDir, e.Name()))
 	}
 	if len(manifests) == 0 {
-		return nil
+		return env
 	}
 
-	list := strings.Join(manifests, string(os.PathListSeparator))
-	// VK_DRIVER_FILES is the current loader variable; VK_ICD_FILENAMES is its
-	// deprecated alias, set too so older bundled loaders still pick it up.
-	return []string{
-		"VK_DRIVER_FILES=" + list,
-		"VK_ICD_FILENAMES=" + list,
+	const key = "VK_ADD_DRIVER_FILES="
+	merged := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if value, ok := strings.CutPrefix(entry, key); ok {
+			if value != "" {
+				manifests = append(manifests, value)
+			}
+		} else {
+			merged = append(merged, entry)
+		}
 	}
+	list := strings.Join(manifests, string(os.PathListSeparator))
+	// Explicit VK_DRIVER_FILES/VK_ICD_FILENAMES supplied by the operator take
+	// precedence over this additive path, as defined by the bundled loader.
+	return append(merged, key+list)
 }

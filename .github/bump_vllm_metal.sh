@@ -3,9 +3,9 @@
 # darwin (Apple Silicon) install path. The macOS/Metal build
 # (backend/python/vllm/install.sh, Darwin branch) installs vllm-metal, which is
 # version-locked to a specific vLLM source release. install.sh derives that vLLM
-# version at build time from vllm-metal's own installer at the pinned
-# tag, so there is only ONE value to bump here -- mirroring bump_vllm_wheel.sh,
-# which bumps the Linux cu130 wheel pin.
+# version, and the wheel asset name, at build time from the pinned tag, so there
+# is only ONE value to bump here -- mirroring bump_vllm_wheel.sh, which bumps the
+# Linux cu130 wheel pin.
 #
 # This deliberately tracks vllm-project/vllm-metal, NOT vllm-project/vllm: the
 # darwin build can only use the exact vLLM version vllm-metal supports, so it may
@@ -23,15 +23,20 @@ if [ -z "$FILE" ] || [ -z "$REPO" ] || [ -z "$VAR" ]; then
     exit 1
 fi
 
-# vllm-metal ships frequent dev releases, all flagged as non-prerelease, so
-# /releases/latest returns the newest one (with its cp312 wheel asset).
+# vllm-metal ships frequent .dev releases, flagged as prereleases, alongside the
+# stable ones. /releases/latest skips the prereleases and returns the newest
+# stable tag, which is what darwin should pin: upstream deletes and re-cuts .dev
+# tags, and a pin to a deleted tag 404s the whole build.
 LATEST_TAG=$(gh_curl -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/$REPO/releases/latest" \
     | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
 
-# The coupled vLLM source version lives in vllm-metal's installer at that tag.
-NEW_VLLM_VERSION=$(gh_curl \
-    "https://raw.githubusercontent.com/$REPO/$LATEST_TAG/install.sh" \
+# The coupled vLLM release lives in .github/vllm-release-tag.commit at that tag
+# (since vllm-metal 0.28); releases predating that file pinned it inline in their
+# own install.sh. The extractor reads both forms.
+NEW_VLLM_VERSION=$( { gh_curl \
+    "https://raw.githubusercontent.com/$REPO/$LATEST_TAG/.github/vllm-release-tag.commit" \
+    || gh_curl "https://raw.githubusercontent.com/$REPO/$LATEST_TAG/install.sh"; } \
     | "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib/extract-vllm-metal-version.sh")
 
 if [ -z "$LATEST_TAG" ] || [ -z "$NEW_VLLM_VERSION" ]; then

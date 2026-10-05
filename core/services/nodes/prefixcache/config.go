@@ -25,6 +25,9 @@ type Config struct {
 	// saturated and scale up (subject to MaxReplicas and capacity). Default 1,
 	// i.e. any sustained forced-disturb.
 	PressureScaleThreshold int
+	// ScorerWeights enables and weights named routing signals. Missing names
+	// use their default weight; zero disables that scorer.
+	ScorerWeights map[string]float64
 }
 
 func DefaultConfig() Config {
@@ -39,6 +42,7 @@ func DefaultConfig() Config {
 		MaxDepth:               64,
 		PressureWindow:         time.Minute,
 		PressureScaleThreshold: 1,
+		ScorerWeights:          map[string]float64{ScorerPrefixCache: 1},
 	}
 }
 

@@ -47,6 +47,27 @@ var _ = Describe("DistributedConfig backend NATS timeouts", func() {
 	})
 })
 
+// Heartbeat checkpointing makes last_heartbeat up to one checkpoint interval
+// stale by design, which is why the threshold defaults to 5 minutes. An
+// operator who widens the checkpoint has to widen this to match, so it has to
+// be reachable from the CLI rather than being a compile-time constant.
+var _ = Describe("DistributedConfig stale node threshold", func() {
+	It("defaults to 5 minutes, wide enough to cover a suppressed beat", func() {
+		Expect(config.DistributedConfig{}.StaleNodeThresholdOrDefault()).
+			To(Equal(5 * time.Minute))
+		Expect(config.DefaultStaleNodeThreshold).
+			To(BeNumerically(">", config.DefaultNodeHeartbeatCheckpoint),
+				"a threshold at or below the checkpoint interval marks healthy, "+
+					"beating nodes offline every cycle")
+	})
+
+	It("is configurable, so a widened checkpoint can be matched", func() {
+		o := config.NewApplicationConfig(config.WithStaleNodeThreshold(20 * time.Minute))
+		Expect(o.Distributed.StaleNodeThreshold).To(Equal(20 * time.Minute))
+		Expect(o.Distributed.StaleNodeThresholdOrDefault()).To(Equal(20 * time.Minute))
+	})
+})
+
 var _ = Describe("DistributedConfig flag-name constants", func() {
 	// Pin the kebab-case strings so a rename of the Go field name (or a
 	// CLI flag naming convention change) forces the constant to update,
@@ -62,6 +83,7 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("drain timeout", config.FlagDrainTimeout, "drain-timeout"),
 		Entry("health check interval", config.FlagHealthCheckInterval, "health-check-interval"),
 		Entry("stale node threshold", config.FlagStaleNodeThreshold, "stale-node-threshold"),
+		Entry("node heartbeat checkpoint", config.FlagNodeHeartbeatCheckpoint, "node-heartbeat-checkpoint"),
 		Entry("MCP CI job timeout", config.FlagMCPCIJobTimeout, "mcp-ci-job-timeout"),
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),

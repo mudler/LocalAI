@@ -30,16 +30,64 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+## List available voices
+
+Use `GET /v1/audio/voices` to list named voices for installed TTS models:
+
+```bash
+curl http://localhost:8080/v1/audio/voices
+```
+
+Add the `model` query parameter to return one installed model:
+
+```bash
+curl 'http://localhost:8080/v1/audio/voices?model=pocket-tts'
+```
+
+Each voice can include `language` and `gender` metadata. LocalAI supplies the
+built-in Pocket TTS catalog. Other models can declare their catalog in YAML:
+
+```yaml
+name: custom-tts
+backend: custom
+known_usecases: [tts]
+tts:
+  voices:
+    - name: narrator
+      language: en_GB
+      gender: female
+```
+
+LocalAI returns `404` when the requested model is not installed. Models without
+voice metadata do not appear in the unfiltered response.
+
+The **Instructions** field in the Text to Speech studio maps to the optional
+`instructions` property on `/v1/audio/speech`. Use it to describe delivery,
+such as tone or pace:
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "tts",
+    "input": "Welcome to LocalAI.",
+    "instructions": "Speak slowly and warmly."
+  }' --output speech.wav
+```
+
+Backend support for speech instructions varies. Backends that do not support
+this control may ignore it.
+
 ## Voice Library
 
 Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:
 
 1. Select **Create voice** and upload or record a clear reference clip.
-2. Enter the exact words spoken in the clip. The transcript is sent to backends that require reference text.
+2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
 
 ### Voice profile API
 
@@ -61,6 +109,18 @@ curl http://localhost:8080/api/voice-profiles \
   -F 'transcript=The exact words spoken in this reference.' \
   -F 'consent_confirmed=true' \
   -F 'audio=@reference.wav;type=audio/wav'
+```
+
+Repeat `transcript` and `audio` in matching order to create a multi-reference personality:
+
+```bash
+curl http://localhost:8080/api/voice-profiles \
+  -F 'name=Documentary personality' \
+  -F 'transcript=The first exact transcript.' \
+  -F 'audio=@reference-1.wav;type=audio/wav' \
+  -F 'transcript=The second exact transcript.' \
+  -F 'audio=@reference-2.wav;type=audio/wav' \
+  -F 'consent_confirmed=true'
 ```
 
 The response includes an opaque voice reference such as `localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000`. Pass that value as `voice` to either TTS-compatible endpoint:
@@ -122,7 +182,41 @@ Reference selection follows this order:
 3. The model's `tts.audio_path` reference-audio fallback.
 4. A backend-specific default voice or option.
 
-When a saved profile is selected, LocalAI supplies both its private WAV and exact transcript for that request. It does not rewrite the model YAML or copy the recording into the model directory.
+When a saved profile is selected, LocalAI supplies its ordered private WAV and transcript pairs to Fish Speech and audio.cpp. Other cloning backends receive the first pair, which preserves their existing single-reference behavior. LocalAI does not rewrite the model YAML or copy recordings into the model directory.
+
+### Realtime pipeline default
+
+Set `tts.voice` on a realtime pipeline model to use a saved Voice Library profile as the session default:
+
+```yaml
+name: gpt-realtime
+tts:
+  voice: localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: qwen3-tts-base
+```
+
+LocalAI resolves this profile when the realtime session starts. The selected TTS model must support Voice Library cloning.
+
+You can also change the profile during a realtime session. Set `audio.output.voice` to a Voice Library URI in a `session.update` event:
+
+```json
+{
+  "type": "session.update",
+  "session": {
+    "audio": {
+      "output": {
+        "voice": "localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }
+}
+```
+
+If the same update changes `model`, the explicit `audio.output.voice` value takes precedence over the new model's `tts.voice` default. The selected model must support Voice Library cloning.
 
 #### Supported backend and model variants
 
@@ -192,6 +286,24 @@ Coqui works without any configuration, to test it, you can run the following cur
 You can use the env variable COQUI_LANGUAGE to set the language used by the coqui backend.
 
 You can also use config files to configure tts models (see section below on how to use config files).
+
+### Fish Speech
+
+Fish Speech models accept the `compile` backend option. Enabling it can improve
+inference performance on CUDA hardware, but the first request after loading the
+model includes the `torch.compile` warmup cost:
+
+```yaml
+backend: fish-speech
+options:
+  - compile:true
+```
+
+When compilation is enabled, the backend uses the CUDA toolkit's executable
+`ptxas` from `$CUDA_HOME/bin` (defaulting to `/usr/local/cuda/bin`) instead of
+the copy bundled with Triton. This allows newer GPU architectures supported by
+the installed CUDA toolkit to compile kernels. Set `TRITON_PTXAS_PATH` on the
+backend explicitly to select a different assembler.
 
 ### Piper
 
@@ -301,6 +413,31 @@ The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound gen
 | `instrumental`      | `bool`   | No       | Generate instrumental audio (no vocals)         |
 
 Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
+
+### AudioLDM 2
+
+[AudioLDM 2](https://github.com/haoheliu/AudioLDM2) generates sound effects,
+music, and speech from a text description. Install the gallery model:
+
+```bash
+local-ai models install audioldm2
+```
+
+Generate a WAV file through the sound-generation endpoint:
+
+```bash
+curl http://localhost:8080/v1/sound-generation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "audioldm2",
+    "text": "Waves breaking on a rocky beach during a distant thunderstorm",
+    "duration_seconds": 10
+  }' --output storm.wav
+```
+
+AudioLDM 2 uses the `AudioLDM2Pipeline` from the diffusers backend. The
+`duration_seconds` field maps to the pipeline's `audio_length_in_s` option, and
+`prompt_influence` maps to `guidance_scale`.
 
 #### Configuration
 

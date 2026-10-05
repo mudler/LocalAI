@@ -103,7 +103,10 @@
       "voice": "声音",
       "voicePlaceholder": "可选的声音 ID",
       "input": "文本",
-      "inputPlaceholder": "输入要合成的文本..."
+      "inputPlaceholder": "输入要合成的文本...",
+      "instructions": "朗读指令",
+      "instructionsPlaceholder": "例如：缓慢、温暖地朗读",
+      "instructionsHint": "可选的表达方式指导。是否支持取决于后端。"
     },
     "actions": {
       "generate": "生成音频",

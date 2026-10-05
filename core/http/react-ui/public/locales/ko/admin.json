@@ -275,7 +275,18 @@
         "p95": "p95 latency",
         "quiet": "No requests served in this window yet.",
         "host": "Host memory"
+      },
+      "running": {
+        "heading": "실행 중",
+        "cluster": "실행 중인 모델",
+        "clusterSummary": "클러스터 전체에 로드된 복제본, 노드 페이지에서 확인"
       }
     }
+  },
+  "localMachine": {
+    "title": "이 머신",
+    "subtitle": "이 LocalAI 인스턴스에 로드된 모델과 모델이 사용하는 호스트 용량입니다.",
+    "scaleOut": "머신 추가",
+    "hideScaleOut": "설정 숨기기"
   }
 }

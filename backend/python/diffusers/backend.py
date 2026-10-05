@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from audio_utils import write_pcm_wav
 
 
 # Import dynamic loader for pipeline discovery
@@ -35,6 +36,7 @@ from diffusers_dynamic_loader import (
     get_available_pipelines,
     load_diffusers_pipeline,
 )
+from load_options import single_file_load_kwargs
 
 # Import specific items still needed for special cases and safety checker
 from diffusers import DiffusionPipeline, ControlNetModel
@@ -121,6 +123,21 @@ from diffusers.schedulers import (
     PNDMScheduler,
     UniPCMultistepScheduler,
 )
+
+def select_device(request_cuda, device_option, cuda_available, xpu, mps_available):
+    """Pick the pipeline device. An explicit `device:` model option wins;
+    otherwise CUDA is used whenever torch reports it available (ROCm
+    builds included) or the model config forces it with `cuda: true`,
+    keeping the pre-existing XPU/MPS overrides. CPU is the fallback, not
+    the default."""
+    if device_option:
+        return device_option
+    device = "cuda" if (request_cuda or cuda_available) else "cpu"
+    if xpu:
+        device = "xpu"
+    if mps_available:
+        device = "mps"
+    return device
 
 def is_float(s):
     """Check if a string can be converted to float."""
@@ -464,6 +481,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Build kwargs for dynamic loading
         load_kwargs = {"torch_dtype": torchType}
+        load_kwargs.update(
+            single_file_load_kwargs(request.OriginalConfigFile, from_single_file)
+        )
 
         # Add variant if not loading from single file
         if not from_single_file and variant:
@@ -627,12 +647,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 # modify LoraAdapter to be relative to modelFileBase
                 request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
 
-            device = "cpu" if not request.CUDA else "cuda"
-            if XPU:
-                device = "xpu"
-            mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            if mps_available:
-                device = "mps"
+            device = select_device(
+                request.CUDA,
+                self.options.pop("device", None),
+                torch.cuda.is_available(),
+                XPU,
+                hasattr(torch.backends, "mps") and torch.backends.mps.is_available(),
+            )
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
@@ -800,12 +821,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             image = image.resize((1024, 576))
 
             generator = torch.manual_seed(request.seed)
-            frames = self.pipe(image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            frames = self.pipe(image=image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
             export_to_video(frames, request.dst, fps=FPS)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
         if self.txt2vid:
-            video_frames = self.pipe(prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
+            video_frames = self.pipe(prompt=prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
@@ -868,7 +889,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         else:
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
-                prompt,
+                prompt=prompt,
                 guidance_scale=self.cfg_scale,
                 **kwargs
             ).images[0]
@@ -882,6 +903,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         image.save(request.dst, format="PNG")
 
         return backend_pb2.Result(message="Media generated", success=True)
+
+    def SoundGeneration(self, request, context):
+        if not request.dst:
+            return backend_pb2.Result(success=False, message="request.dst is required")
+
+        prompt = request.text or request.caption
+        if not prompt:
+            return backend_pb2.Result(success=False, message="request.text is required")
+
+        try:
+            generation_options = dict(self.options)
+            if "num_inference_steps" in generation_options:
+                generation_options["num_inference_steps"] = int(
+                    generation_options["num_inference_steps"]
+                )
+            generation_options["prompt"] = prompt
+            if request.HasField("duration"):
+                generation_options["audio_length_in_s"] = request.duration
+            if request.HasField("temperature"):
+                generation_options["guidance_scale"] = request.temperature
+
+            generated = self.pipe(**generation_options)
+            if not hasattr(generated, "audios") or len(generated.audios) == 0:
+                return backend_pb2.Result(
+                    success=False,
+                    message="The diffusers pipeline returned no audio",
+                )
+
+            samples = generated.audios[0]
+            if hasattr(samples, "reshape"):
+                samples = samples.reshape(-1)
+            if hasattr(samples, "tolist"):
+                samples = samples.tolist()
+
+            sampling_rate = getattr(
+                getattr(getattr(self.pipe, "vae", None), "config", None),
+                "sampling_rate",
+                16000,
+            )
+            write_pcm_wav(request.dst, samples, sampling_rate)
+            return backend_pb2.Result(success=True, message="Sound generated successfully")
+        except Exception as err:
+            return backend_pb2.Result(success=False, message=f"SoundGeneration error: {err}")
 
     def UpscaleImage(self, request, context):
         try:

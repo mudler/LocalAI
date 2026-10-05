@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,7 +32,10 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -135,6 +140,8 @@ type Session struct {
 	Instructions           string
 	DefaultConversationID  string
 	ModelInterface         Model
+	ttsParams              map[string]string
+	voiceRelease           func()
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
@@ -196,6 +203,107 @@ type Session struct {
 	// decision is serialized through respcoord.Coordinator, guaranteeing at most
 	// one live response. See realtime_respcoord.go.
 	respSink *responseSink
+
+	// sessionCtx is the session-lifetime context: cancelled at teardown
+	// (conncoord Teardown, BEFORE respSink.shutdown joins the response
+	// goroutines) but NOT by barge-in / response supersede (those cancel
+	// respSink's per-response contexts only). Committed-turn work that must
+	// outlive a barge-in but must never outlive the session — the
+	// transcription of a VAD commit (issue #12445) — runs under it.
+	sessionCtx    context.Context
+	sessionCancel context.CancelFunc
+
+	// commitOrderMu guards commitTail AND is the shared ordering boundary
+	// between the two commit producers (see issueCommit).
+	commitOrderMu sync.Mutex
+	// commitTail is the newest commit slot. Slots form a chain that orders
+	// user-item appends in speech order, not transcription-completion order
+	// (see commitSlot).
+	commitTail *commitSlot
+}
+
+// commitSlot orders committed user turns in the conversation. The
+// transcriptions of consecutive turns run in parallel (each under the session
+// context, so a barge-in on a later turn does not cancel an earlier
+// transcription), but a turn may append its user item only after the previous
+// turn has appended its own — and the slot releases (done closes) only after
+// the previous commit has FINISHED, on every exit path (success, error, empty
+// transcript, teardown). Without the append gate a fast second transcription
+// would commit ahead of a slow first one; without the release gate a failed
+// middle commit would release the third turn before the first appended. In
+// both cases the assistant response — and the conversation history — would
+// see the user input out of order or missing (issue #12445 + review follow-up).
+type commitSlot struct {
+	// prevDone is the previous slot's done channel (nil for the first commit);
+	// this commit's item append waits on it, and its slot release waits on it
+	// too (on every exit path).
+	prevDone chan struct{}
+	// done is closed when this commit has fully finished — appended its user
+	// item or aborted (error, empty transcript, teardown) — AND the
+	// predecessor has finished, so the next commit is released in order.
+	done chan struct{}
+}
+
+// nextCommitSlot claims the next position in the commit order. It is called
+// at commit ISSUE time (VAD CommitTurn / client input_audio_buffer.commit) —
+// synchronously on the issuing goroutine, in the order the turns were
+// detected — before the (parallel) transcriptions start, so slot order ==
+// speech order even if the commit goroutines schedule out of order. The
+// production commit paths go through issueCommit (slot claim + issue under
+// one lock); this primitive is also used by tests that drive a commit body
+// directly.
+func (session *Session) nextCommitSlot() *commitSlot {
+	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	return session.nextCommitSlotLocked()
+}
+
+// nextCommitSlotLocked claims the next slot; commitOrderMu must be held.
+func (session *Session) nextCommitSlotLocked() *commitSlot {
+	var prevDone chan struct{}
+	if session.commitTail != nil {
+		prevDone = session.commitTail.done
+	}
+	slot := &commitSlot{prevDone: prevDone, done: make(chan struct{})}
+	session.commitTail = slot
+	return slot
+}
+
+// issueCommit is the single ordering boundary both commit producers — the VAD
+// CommitTurn (realtime_turncoord.go) and the client input_audio_buffer.commit
+// (read loop) — must go through. Claiming the next commit slot and issuing
+// the commit body happen under ONE lock, so slot order == issue order: the
+// coordinator's supersession (a newer issue cancels the in-flight response)
+// can only cancel a response issued LATER in speech order, never an earlier
+// turn whose slot a later issue would overtake (issue #12445, review
+// follow-up: "slot reservation and response issuance need a shared ordering
+// boundary across both producers"). respSink.issue is non-blocking — it
+// registers the body and applies the coordinator start; the commit work runs
+// in the spawned goroutine — so holding the lock across it does not stall
+// VAD/barge-in handling.
+func (session *Session) issueCommit(parent context.Context, source respcoord.Source, run func(ctx context.Context, slot *commitSlot)) {
+	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	slot := session.nextCommitSlotLocked()
+	session.respSink.issue(parent, source, func(ctx context.Context) {
+		run(ctx, slot)
+	})
+}
+
+func (s *Session) installVoiceBinding(voice string, params map[string]string, release func()) {
+	if release == nil {
+		release = func() {}
+	}
+	var once sync.Once
+	s.Voice = voice
+	s.ttsParams = maps.Clone(params)
+	s.voiceRelease = func() { once.Do(release) }
+}
+
+func (s *Session) releaseVoiceBinding() {
+	if s.voiceRelease != nil {
+		s.voiceRelease()
+	}
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -591,6 +699,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// into two overlapping responses (see realtime_respcoord.go).
 	session.respSink = newResponseSink()
 
+	// Session-lifetime context for committed-turn work that must outlive a
+	// barge-in but not the session (transcription, commit ordering). Cancelled
+	// at teardown BEFORE respSink.shutdown joins the response goroutines.
+	session.sessionCtx, session.sessionCancel = context.WithCancel(context.Background())
+
 	// Create a default conversation
 	conversationID := generateConversationID()
 	conversation := &Conversation{
@@ -617,6 +730,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			application.ModelConfigLoader(),
 			application.ModelLoader(),
 			application.ApplicationConfig(),
+			application.FailoverManager(),
 		)
 	} else {
 		m, err = newModel(
@@ -632,6 +746,17 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		xlog.Error("failed to load model", "error", err)
 		sendError(t, "model_load_error", "Failed to load model", "", "")
 		return
+	}
+	if wrapped, ok := m.(*wrappedModel); ok {
+		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), wrapped.TTSConfig.TTSConfig.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
+		if resolveErr != nil {
+			xlog.Error("failed to resolve realtime voice", "error", resolveErr)
+			sendError(t, "voice_profile_error", resolveErr.Error(), "", "")
+			return
+		}
+		session.installVoiceBinding(resolvedVoice, params, release)
+		defer session.releaseVoiceBinding()
+		wrapped.setTTSParams(params)
 	}
 	session.ModelInterface = m
 	// A pipeline-seeded option list gets its scoring prompt prewarmed
@@ -677,7 +802,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		var gateErr error
 		if session.voiceGate != nil {
 			_, gateErr = backend.PreloadStages(context.Background(), application.ModelLoader(), application.ApplicationConfig(), []backend.PreloadStage{
-				{Role: "voice_recognition", Cfg: session.voiceGate.recCfg},
+				{Role: config.PipelineStageVoiceRecognition, Cfg: session.voiceGate.recCfg},
 			})
 		}
 		if err := errors.Join(<-warmErr, gateErr); err != nil {
@@ -721,6 +846,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		},
 		Session: session.ToServer(),
 	})
+
+	// Sent after session.created, which clients expect as the first event.
+	// This function runs until the connection closes, so the defer stops the
+	// events at session end. A transcription session.update that swaps the
+	// model restarts them for the new model's chains.
+	stopFailoverEvents := startModelFailoverEvents(t, m)
+	defer func() { stopFailoverEvents() }()
 
 	var (
 		msg []byte
@@ -792,12 +924,15 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 			// Handle transcription session update
 			if e.Session.Transcription != nil {
+				prevModel := session.ModelInterface
 				if err := updateTransSession(
 					session,
 					&e.Session,
 					application.ModelConfigLoader(),
 					application.ModelLoader(),
 					application.ApplicationConfig(),
+					application.FailoverManager(),
+					application.VoiceRegistry(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					// The cause is validation feedback on the client's own
@@ -814,6 +949,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					},
 					Session: session.ToServer(),
 				})
+				if session.ModelInterface != prevModel {
+					stopFailoverEvents()
+					stopFailoverEvents = startModelFailoverEvents(t, session.ModelInterface)
+				}
 			}
 
 			// Handle realtime session update
@@ -826,6 +965,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ApplicationConfig(),
 					evaluator,
 					buildRealtimeRoutingContext(application, session.ID),
+					application.VoiceProfileStore(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
@@ -896,8 +1036,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				ItemID:          generateItemID(),
 			})
 
-			session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
-				commitUtterance(ctx, allAudio, session, conversation, t)
+			// Issue through the shared commit-ordering boundary (slot claim +
+			// issue under one lock, shared with the VAD commit path) so slot
+			// order == issue order across both producers (issue #12445).
+			session.issueCommit(context.Background(), respcoord.SourceClient, func(ctx context.Context, slot *commitSlot) {
+				commitUtterance(ctx, allAudio, session, conversation, t, slot)
 			})
 
 		case types.InputAudioBufferClearEvent:
@@ -1110,7 +1253,7 @@ func sendTestTone(t Transport) {
 	}
 }
 
-func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
+func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager, voices voicerecognition.Registry) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -1133,11 +1276,14 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 			return fmt.Errorf("model is not a valid pipeline model: %s", trUpd.Model)
 		}
 
-		m, cfg, err := newTranscriptionOnlyModel(&cfg.Pipeline, cl, ml, appConfig)
+		m, cfg, err := newTranscriptionOnlyModel(&cfg.Pipeline, cl, ml, appConfig, fm)
 		if err != nil {
 			return err
 		}
 
+		if tm, ok := m.(*transcriptOnlyModel); ok {
+			tm.voiceRegistry = voices
+		}
 		session.ModelInterface = m
 		session.ModelConfig = cfg
 		session.SoundDetectionEnabled = cfg.Pipeline.SoundDetection != ""
@@ -1164,7 +1310,7 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 	return nil
 }
 
-func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) error {
+func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext, profiles *voiceprofile.Store) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -1172,8 +1318,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		return nil
 	}
 
-	session.TranscriptionOnly = false
 	rt := update.Realtime
+	explicitVoice := rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != ""
+	rebuild := rt.Model != "" || explicitVoice || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil)
+
+	candidateModelName := session.Model
+	candidateConfig := session.ModelConfig
+	candidateTranscription := session.InputAudioTranscription
 
 	if rt.Model != "" {
 		cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(rt.Model, appConfig)
@@ -1184,40 +1335,78 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			return fmt.Errorf("model is not a valid pipeline model: %s", rt.Model)
 		}
 
-		if session.InputAudioTranscription == nil {
-			session.InputAudioTranscription = &types.AudioTranscription{}
-		}
-		session.InputAudioTranscription.Model = cfg.Pipeline.Transcription
-		session.Voice = cfg.TTSConfig.Voice
-		session.Model = rt.Model
-		session.ModelConfig = cfg
-	}
-
-	if rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "" {
-		session.Voice = string(rt.Audio.Output.Voice)
+		candidateModelName = rt.Model
+		candidateConfig = cfg
+		candidateTranscription = &types.AudioTranscription{Model: cfg.Pipeline.Transcription}
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
-		trUpd := rt.Audio.Input.Transcription
+		trUpd := *rt.Audio.Input.Transcription
 		// A language-only update (e.g. a client forcing the STT language) carries
 		// an empty Model. Preserve the pipeline's configured transcription backend
 		// instead of blanking it — otherwise the next utterance transcribes against
 		// an empty model and the backend RPC fails with "unimplemented".
-		if trUpd.Model == "" && session.InputAudioTranscription != nil {
-			trUpd.Model = session.InputAudioTranscription.Model
+		if trUpd.Model == "" && candidateTranscription != nil {
+			trUpd.Model = candidateTranscription.Model
 		}
-		session.InputAudioTranscription = trUpd
+		candidateTranscription = &trUpd
 		if trUpd.Model != "" {
-			session.ModelConfig.Pipeline.Transcription = trUpd.Model
+			cfgCopy := *candidateConfig
+			candidateConfig = &cfgCopy
+			candidateConfig.Pipeline.Transcription = trUpd.Model
 		}
 	}
 
-	if rt.Model != "" || (rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "") || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil) {
-		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
+	candidateModel := session.ModelInterface
+	candidateVoice := session.Voice
+	candidateParams := maps.Clone(session.ttsParams)
+	var candidateRelease func()
+	selectVoice := rt.Model != "" || explicitVoice
+	if rebuild {
+		m, err := newModel(&candidateConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
 		if err != nil {
 			return err
 		}
-		session.ModelInterface = m
+		candidateModel = m
+		wrapped := m.(*wrappedModel)
+		if selectVoice {
+			configuredVoice := wrapped.TTSConfig.TTSConfig.Voice
+			if explicitVoice {
+				configuredVoice = string(rt.Audio.Output.Voice)
+			}
+			candidateVoice, candidateParams, candidateRelease, err = resolveRealtimeVoice(
+				context.Background(), configuredVoice, wrapped.TTSConfig, profiles,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		wrapped.setTTSParams(candidateParams)
+	}
+
+	if rt.LocalAIClassifier != nil {
+		if err := validateClassifierActivation(candidateModel, rt.LocalAIClassifier); err != nil {
+			if candidateRelease != nil {
+				candidateRelease()
+			}
+			return err
+		}
+	}
+
+	oldRelease := session.voiceRelease
+	session.TranscriptionOnly = false
+	session.Model = candidateModelName
+	session.ModelConfig = candidateConfig
+	session.ModelInterface = candidateModel
+	session.InputAudioTranscription = candidateTranscription
+	if selectVoice {
+		session.installVoiceBinding(candidateVoice, candidateParams, candidateRelease)
+		if oldRelease != nil {
+			oldRelease()
+		}
+	}
+
+	if rebuild {
 		// A session.update that swaps the model/voice rebuilds the pipeline, so
 		// warm the new backends too (unless opted out) — otherwise the next turn
 		// pays the cold-start load the original session warm-up already avoided.
@@ -1226,9 +1415,9 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		// stall every other session. Load errors are logged (and still surface on
 		// first use); per-stage failures are already warned inside
 		// backend.PreloadStages.
-		if !session.ModelConfig.Pipeline.DisableWarmup {
+		if !candidateConfig.Pipeline.DisableWarmup {
 			go func() {
-				if err := m.Warmup(context.Background()); err != nil {
+				if err := candidateModel.Warmup(context.Background()); err != nil {
 					xlog.Error("realtime warmup failed after session.update", "error", err)
 				}
 			}()
@@ -1287,9 +1476,6 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		// Replace-not-merge, like tools: the client owns the whole option
 		// list. Invalid configs reject the update without touching the
 		// session's current classifier.
-		if err := validateClassifierActivation(session.ModelInterface, rt.LocalAIClassifier); err != nil {
-			return err
-		}
 		session.Classifier = rt.LocalAIClassifier
 		prewarmClassifier(session)
 	}
@@ -1731,8 +1917,8 @@ func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold flo
 	return window
 }
 
-func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport) {
-	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t)
+func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)
 }
 
 // commitUtteranceWithTranscript commits one user turn. live carries the
@@ -1744,7 +1930,33 @@ func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Co
 // is written to a temp WAV and transcribed via the file path as before.
 // itemID is the turn's conversation item id ("" mints a fresh one); it must
 // match the id any live deltas were sent under.
-func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport) {
+func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUtterance, gated *schema.TranscriptionResult, itemID string, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	// sctx is the session-lifetime context (see Session.sessionCtx): it
+	// survives a barge-in (which cancels only the per-response ctx) but is
+	// cancelled at teardown. Unit tests that build a bare Session leave it
+	// nil; fall back like responseSink.Perform does for a nil parent.
+	sctx := session.sessionCtx
+	if sctx == nil {
+		sctx = context.Background()
+	}
+
+	// Release the slot on EVERY exit — including the empty-utt early return,
+	// transcription errors, gate rejections, empty transcripts and teardown —
+	// but ONLY after the predecessor has finished: a failed or skipped middle
+	// commit must not release the next commit before the earlier one appended
+	// its item, or the next response would be built on a history missing the
+	// earlier turn (issue #12445, review follow-up schedule 1). The session
+	// context can still stop the wait, so teardown never blocks on a
+	// never-finishing predecessor.
+	defer func() {
+		if slot.prevDone != nil {
+			select {
+			case <-slot.prevDone:
+			case <-sctx.Done():
+			}
+		}
+		close(slot.done)
+	}()
 	if len(utt) == 0 {
 		return
 	}
@@ -1802,7 +2014,10 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 			resolveCh = make(chan resolveOutcome, 1)
 			wavPath := f.Name()
 			go func() {
-				r, rerr := session.voiceGate.Resolve(ctx, wavPath)
+				// Turn work like the transcription: must outlive a barge-in (the
+				// decision belongs to THIS utterance), so run under the session
+				// context (issue #12445).
+				r, rerr := session.voiceGate.Resolve(sctx, wavPath)
 				resolveCh <- resolveOutcome{res: r, err: rerr}
 			}()
 		}
@@ -1839,7 +2054,19 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// emitTranscription streams transcript deltas when
 		// pipeline.streaming.transcription is set, otherwise emits a single
 		// completed event; either way it returns the final transcript text.
-		transcript, err = emitTranscription(ctx, t, session, itemID, f.Name())
+		//
+		// The transcription runs under the SESSION context, not the turn's
+		// response context: a barge-in (new speech onset) or a newer commit
+		// cancels that context while Whisper is still in flight, and
+		// cancelling the transcription would lose the user's input for this
+		// turn ("transcription_failed: context canceled", issue #12445). The
+		// session context is cancelled at teardown instead (conncoord
+		// Teardown, before respSink.shutdown joins this goroutine), so the
+		// transcription can never outlive the session. The response to this
+		// turn is still cancelled — see the ctx check below — only the
+		// transcript survives, so the next response is built on the full
+		// utterance.
+		transcript, err = emitTranscription(sctx, t, session, itemID, f.Name())
 		if err != nil {
 			// Drain the gate goroutine before returning so its in-flight read of
 			// the temp WAV finishes before the deferred os.Remove fires.
@@ -1923,7 +2150,32 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// Generate an LLM response only when there is a transcript to feed it. A
 	// sound-detection-only session (no transcription) has no LLM stage, so it
 	// stops here after emitting the sound-detection event.
-	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
+	if session.InputAudioTranscription != nil && !session.TranscriptionOnly && strings.TrimSpace(transcript) != "" {
+		// Commit ordering (append gate): wait until the previous committed
+		// turn has appended its user item, so the conversation history — and
+		// the response built on it — sees the turns in speech order, not
+		// transcription-completion order (issue #12445, review schedule 2).
+		// The deferred slot release (release gate) enforces the same order on
+		// every other exit path. Aborts on teardown.
+		if slot.prevDone != nil {
+			select {
+			case <-slot.prevDone:
+			case <-sctx.Done():
+				return
+			}
+		}
+		// If the turn's response context was cancelled while the (detached)
+		// transcription ran — barge-in, superseded by a newer commit — the
+		// user item still commits, so the LLM context keeps the full user
+		// input, but no response is generated for this (superseded) turn:
+		// the newer speech triggers its own response on the complete history.
+		// (Teardown is not a barge-in: the slot wait above already returned
+		// when the session context was cancelled.)
+		if ctx.Err() != nil {
+			xlog.Debug("skipping response: turn context cancelled during transcription (barge-in); committing user item only")
+			appendUserItem(conv, t, utt, transcript, speaker)
+			return
+		}
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }
@@ -2096,10 +2348,12 @@ func speakerNote(s *types.Speaker, noteUnknown bool) string {
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
-	xlog.Debug("Generating realtime response...")
-
-	// Create user message item
+// appendUserItem adds the committed user turn to the conversation and
+// notifies the client, returning the item. Split out of generateResponse so a
+// turn whose response was superseded (barge-in during transcription) can still
+// commit its item — the LLM context must keep the full user input — without
+// generating a response for it (issue #12445).
+func appendUserItem(conv *Conversation, t Transport, utt []byte, transcript string, speaker *types.Speaker) types.MessageItemUnion {
 	item := types.MessageItemUnion{
 		User: &types.MessageItemUser{
 			ID:      generateItemID(),
@@ -2121,6 +2375,16 @@ func generateResponse(ctx context.Context, session *Session, utt []byte, transcr
 	sendEvent(t, types.ConversationItemAddedEvent{
 		Item: item,
 	})
+	return item
+}
+
+// generateResponse creates the user message item for a committed turn and
+// triggers the assistant response (LLM + TTS) for it.
+func generateResponse(ctx context.Context, session *Session, utt []byte, transcript string, speaker *types.Speaker, conv *Conversation, t Transport) {
+	xlog.Debug("Generating realtime response...")
+
+	// Create user message item
+	item := appendUserItem(conv, t, utt, transcript, speaker)
 
 	// Surface the recognized speaker to the client. Skip the event for an
 	// unidentified speaker unless announce_unknown is set.
@@ -2491,6 +2755,9 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 		template = config.TemplateConfig.Chat
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &config.ReasoningConfig)
+	if config.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reasoning.DetectThinkingStartTokenInTemplate(template, &config.ReasoningConfig)
+	}
 
 	// When the C++ autoparser emitted ChatDeltas with actionable data,
 	// prefer them — the backend clears Reply.Message in that path and

@@ -47,7 +47,7 @@ The backend system provides language-specific Dockerfiles that handle the build 
 - **mlx**: Apple Silicon optimization
 - **diffusers**: Stable Diffusion models
 - **longcat-video**: CUDA text/image-to-video and speech-driven avatar generation
-- **Audio**: coqui, faster-whisper, kitten-tts
+- **Audio**: coqui, faster-whisper, funasr, kitten-tts
 - **Vision**: mlx-vlm, rfdetr
 - **Specialized**: rerankers, chatterbox, kokoro
 

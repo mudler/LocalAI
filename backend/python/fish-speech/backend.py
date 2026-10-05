@@ -326,11 +326,29 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             max_new_tokens = self.options.get("max_new_tokens", 1024)
             chunk_length = self.options.get("chunk_length", 200)
 
-            # Build references list for voice cloning
+            # Build references list for voice cloning. Saved LocalAI
+            # personalities use the same ordered JSON shape as audio.cpp.
             references = []
             voice_name = request.voice if request.voice else None
 
-            if voice_name and os.path.isfile(voice_name):
+            multi_reference_cond = request.params.get("multi_reference_cond", "") if hasattr(request, "params") else ""
+            if multi_reference_cond:
+                reference_entries = json.loads(multi_reference_cond)
+                if not isinstance(reference_entries, list) or not reference_entries:
+                    raise ValueError("multi_reference_cond must be a non-empty JSON array")
+                for entry in reference_entries:
+                    if not isinstance(entry, dict) or not entry.get("audio") or not entry.get("text"):
+                        raise ValueError("multi_reference_cond entries require audio and text")
+                    ref_audio_path = self._get_ref_audio_path(entry["audio"])
+                    with open(ref_audio_path, "rb") as f:
+                        audio_bytes = f.read()
+                    references.append(ServeReferenceAudio(audio=audio_bytes, text=entry["text"]))
+                print(
+                    f"[INFO] Using {len(references)} per-request reference audios",
+                    file=sys.stderr,
+                )
+
+            elif voice_name and os.path.isfile(voice_name):
                 ref_audio_path = self._get_ref_audio_path(voice_name)
                 with open(ref_audio_path, "rb") as f:
                     audio_bytes = f.read()

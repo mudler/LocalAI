@@ -49,6 +49,40 @@ AI agents MUST NOT add `Co-Authored-By` trailers for themselves either.
 A human reviewer owns the contribution; the AI's involvement is recorded
 via `Assisted-by` (see below).
 
+### Exception: automation operated by a maintainer
+
+The rule above addresses the common case, an AI assistant helping a human
+contributor who then signs off. It does not fit automation that a
+maintainer runs themselves, which opens pull requests with no human
+submitter to sign. Applied literally there, nothing ever signs and the
+DCO check blocks the pull request permanently.
+
+A maintainer-operated bot MUST therefore add a `Signed-off-by` trailer
+naming **the maintainer who operates it**, not the bot and not the model:
+
+```
+Assisted-by: Codex:gpt-5
+Signed-off-by: Ettore Di Giacinto <mudler@localai.io>
+```
+
+This is not the AI certifying the DCO. The maintainer is, exactly as they
+do for a commit they typed by hand: they configured the automation, they
+own its output, and they take responsibility for it when they merge it.
+The `Assisted-by` trailer still records that a model produced the code, so
+the provenance trail is unchanged.
+
+The exception is narrow and does not widen the rule for anyone else:
+
+- It applies only to automation a LocalAI maintainer operates and whose
+  output that maintainer reviews before merge.
+- The sign-off names a real person who accepts DCO responsibility.
+- An AI assistant helping an outside contributor still MUST NOT sign off.
+  That contributor adds their own trailer.
+- A bot MUST NOT sign off on behalf of anyone other than its operator, and
+  MUST NOT add a trailer for a contributor whose branch it pushes to. If
+  automation contributes to someone else's branch, it leaves the sign-off
+  to that contributor.
+
 ## Attribution
 
 When AI tools contribute to LocalAI development, proper attribution helps

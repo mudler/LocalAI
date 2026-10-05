@@ -149,14 +149,14 @@ var _ = Describe("ReplicaReconciler — leaked in_flight sweeper", func() {
 		seed("pinned", 1, 2*inFlightLeakIdleAfter)
 		rc := newReconciler(&fakeProber{outcomes: map[string]ProbeOutcome{addr: ProbeAlive}})
 
-		_, err := registry.FindLRUModel(context.Background(), node.ID)
+		_, err := registry.FindLRUModel(context.Background(), node.ID, nil)
 		Expect(err).To(HaveOccurred(), "precondition: the leak hides the row from LRU")
 
 		for range inFlightLeakConfirmations {
 			rc.sweepLeakedInFlight(context.Background())
 		}
 
-		lru, err := registry.FindLRUModel(context.Background(), node.ID)
+		lru, err := registry.FindLRUModel(context.Background(), node.ID, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(lru.ModelName).To(Equal("pinned"))
 	})

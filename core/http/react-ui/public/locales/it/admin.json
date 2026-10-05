@@ -252,7 +252,18 @@
         "p95": "p95 latency",
         "quiet": "No requests served in this window yet.",
         "host": "Host memory"
+      },
+      "running": {
+        "heading": "In esecuzione",
+        "cluster": "Modelli in esecuzione",
+        "clusterSummary": "Repliche caricate nel cluster, nella pagina Nodi"
       }
     }
+  },
+  "localMachine": {
+    "title": "Questa macchina",
+    "subtitle": "Modelli caricati su questa istanza di LocalAI e la capacità dell'host che utilizzano.",
+    "scaleOut": "Aggiungi macchine",
+    "hideScaleOut": "Nascondi configurazione"
   }
 }

@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("vulkanICDEnv", func() {
 	It("returns nil when the backend ships no vulkan/icd.d (CPU/CUDA/SYCL builds)", func() {
-		Expect(vulkanICDEnv(GinkgoT().TempDir())).To(BeNil())
+		Expect(vulkanICDEnv(GinkgoT().TempDir(), nil)).To(BeNil())
 	})
 
 	It("returns nil when icd.d exists but holds no .json manifests", func() {
@@ -22,10 +22,10 @@ var _ = Describe("vulkanICDEnv", func() {
 		// A directory whose name ends in .json must be ignored.
 		Expect(os.MkdirAll(filepath.Join(icdDir, "nested.json"), 0o755)).To(Succeed())
 
-		Expect(vulkanICDEnv(work)).To(BeNil())
+		Expect(vulkanICDEnv(work, nil)).To(BeNil())
 	})
 
-	It("points VK_DRIVER_FILES/VK_ICD_FILENAMES at the bundled manifests", func() {
+	It("adds bundled manifests without hiding host NVIDIA ICDs or replacing operator overrides", func() {
 		work := GinkgoT().TempDir()
 		icdDir := filepath.Join(work, "vulkan", "icd.d")
 		Expect(os.MkdirAll(icdDir, 0o755)).To(Succeed())
@@ -33,8 +33,8 @@ var _ = Describe("vulkanICDEnv", func() {
 			Expect(os.WriteFile(filepath.Join(icdDir, name), []byte("{}"), 0o644)).To(Succeed())
 		}
 
-		env := vulkanICDEnv(work)
-		Expect(env).To(HaveLen(2))
+		env := vulkanICDEnv(work, nil)
+		Expect(env).To(HaveLen(1))
 
 		got := map[string]string{}
 		for _, kv := range env {
@@ -43,16 +43,28 @@ var _ = Describe("vulkanICDEnv", func() {
 			got[k] = v
 		}
 
-		for _, key := range []string{"VK_DRIVER_FILES", "VK_ICD_FILENAMES"} {
-			Expect(got).To(HaveKey(key))
-			// Both manifests must be listed as absolute paths, joined by the
-			// OS path-list separator the Vulkan loader expects.
-			parts := strings.Split(got[key], string(os.PathListSeparator))
-			Expect(parts).To(HaveLen(2))
-			for _, p := range parts {
-				Expect(filepath.IsAbs(p)).To(BeTrue(), "%s entry %q must be absolute", key, p)
-				Expect(p).To(HaveSuffix(".json"))
-			}
+		Expect(got).NotTo(HaveKey("VK_DRIVER_FILES"))
+		Expect(got).NotTo(HaveKey("VK_ICD_FILENAMES"))
+		Expect(got).To(HaveKey("VK_ADD_DRIVER_FILES"))
+		parts := strings.Split(got["VK_ADD_DRIVER_FILES"], string(os.PathListSeparator))
+		Expect(parts).To(HaveLen(2))
+		for _, p := range parts {
+			Expect(filepath.IsAbs(p)).To(BeTrue(), "manifest path %q must be absolute", p)
+			Expect(p).To(HaveSuffix(".json"))
 		}
+	})
+
+	It("merges inherited and model-specific additive paths while preserving explicit overrides", func() {
+		work := GinkgoT().TempDir()
+		icdDir := filepath.Join(work, "vulkan", "icd.d")
+		Expect(os.MkdirAll(icdDir, 0o755)).To(Succeed())
+		manifest := filepath.Join(icdDir, "intel.json")
+		Expect(os.WriteFile(manifest, []byte("{}"), 0o644)).To(Succeed())
+		env := []string{"OTHER=value", "VK_DRIVER_FILES=/explicit.json", "VK_ICD_FILENAMES=/legacy.json", "VK_ADD_DRIVER_FILES=/host.json", "VK_ADD_DRIVER_FILES=/model.json"}
+		Expect(vulkanICDEnv(work, env)).To(Equal([]string{
+			"OTHER=value", "VK_DRIVER_FILES=/explicit.json", "VK_ICD_FILENAMES=/legacy.json",
+			"VK_ADD_DRIVER_FILES=" + strings.Join([]string{manifest, "/host.json", "/model.json"}, string(os.PathListSeparator)),
+		}))
+		Expect(vulkanICDEnv(GinkgoT().TempDir(), env)).To(Equal(env))
 	})
 })

@@ -7,6 +7,20 @@ url = '/advanced/model-configuration'
 
 LocalAI uses YAML configuration files to define model parameters, templates, and behavior. This page provides a complete reference for all available configuration options.
 
+## Configuration scopes and precedence
+
+[CLI flags and environment variables]({{% relref "reference/cli-reference" %}})
+configure the LocalAI server process. Model YAML files configure one model,
+while supported fields in an API request can override that model's defaults
+for that request. For example, a request containing `temperature` overrides
+the model YAML `parameters.temperature` only for that request.
+
+Precedence is setting-specific rather than one universal ordering. For the
+overlapping `threads` setting, an explicit nonzero server `--threads` value is
+applied after model YAML and therefore wins over the YAML `threads` value.
+Most server flags have no model YAML equivalent, so consult the relevant
+reference for the scope of each setting.
+
 ## Overview
 
 Model configuration files allow you to:
@@ -59,6 +73,8 @@ When using `--models-config-file`, you can define multiple models as a list:
   context_size: 1024
   backend: llama-cpp
 ```
+
+LocalAI changes only config files that are inside the models directory. If the file from `--models-config-file` is outside the models directory, you cannot view, edit, pin, enable or disable its models from the web UI or the model admin API. Edit the file directly, then restart LocalAI.
 
 ## Core Configuration Fields
 
@@ -173,6 +189,14 @@ These settings will be used as defaults for all the API calls to the model.
 | `tfz` | float | `1.0` | Tail free z parameter |
 | `keep` | int | `0` | Number of tokens to keep from the prompt |
 
+{{% notice note %}}
+The DS4 backend preserves its legacy behavior for omitted or non-positive
+`max_tokens` values by generating at most 256 tokens. Set `max_tokens` to a
+positive value when you need a specific DS4 output limit. After processing the
+prompt, DS4 clamps that limit to the available context space and reserves one
+context slot for safe generation.
+{{% /notice %}}
+
 ### Language and Translation
 
 | Field | Type | Description |
@@ -203,7 +227,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
 | `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
-| `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
+| `gpu_layers` | int | `99999999` | Number of layers to offload to GPU. The default requests all layers; `0` keeps model layers on CPU. See [mixed CPU/GPU inference](#mixed-cpugpu-inference). |
 
 ### Memory Management
 
@@ -221,6 +245,53 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%) |
 | `main_gpu` | string | Main GPU identifier for multi-GPU setups |
 | `cuda` | bool | Explicitly enable/disable CUDA |
+
+### Mixed CPU/GPU inference
+
+The `llama-cpp` backend can run one GGUF model across CPU and GPU, using both system RAM and GPU VRAM.
+Use a GPU-capable build of the backend for your hardware.
+A CPU-only build cannot offload layers to the GPU.
+
+#### Offload some model layers
+
+Set `gpu_layers` to a positive number smaller than the model's layer count.
+The remaining layers run on CPU.
+Merge these settings into your existing model YAML, keeping its model path, template, and other options:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 12
+context_size: 4096
+```
+
+The value `12` is an example, not a memory estimate.
+Reload the model after changing its configuration.
+Check the backend startup log for the number of layers offloaded and the CPU/GPU buffer sizes.
+Increase `gpu_layers` if VRAM has room; reduce it if loading runs out of GPU memory.
+Set `gpu_layers: 0` to keep all model layers on CPU.
+
+#### Keep MoE experts on CPU
+
+For a mixture-of-experts (MoE) model, you can keep expert weights in system RAM while offloading other tensors to the GPU:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+```
+
+Append `cpu_moe:true` to any existing `options` list instead of replacing that list.
+This option applies to the main model's expert weights.
+To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
+Use one of these options at a time.
+
+CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
+RAM and VRAM do not form one interchangeable allocation pool.
+Leave memory for the KV cache, compute buffers, the operating system, and other processes.
+Reduce `context_size` if the KV cache consumes too much memory.
+The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
 
 ### Sampling and Generation
 
@@ -389,7 +460,9 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
 {{% notice note %}}
-Speculative decoding is automatically disabled when multimodal models (with `mmproj`) are active. The `n_draft` parameter can also be overridden per-request.
+The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present. Upstream llama.cpp removed the former general multimodal/speculative restriction in [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493); [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673) later added MTP support and explicitly documented its compatibility with vision input.
+
+Compatibility still depends on the installed backend version and the target/draft model architecture. Check the backend logs for successful projector loading and speculative-context initialization, then look for the `draft acceptance` statistics line and its `accepted / generated` counts. A representative run with zero accepted draft tokens receives no speculative speedup and can indicate that the model or settings need tuning.
 {{% /notice %}}
 
 ##### Multi-Token Prediction (MTP)
@@ -419,7 +492,7 @@ Detection runs both at **import time** (the `/import-model` UI / `POST /models/i
 | `spec_type` | `draft-mtp` | Activates MTP. Can be chained with other types (see below). |
 | `spec_n_max` / `draft_max` | `2`-`6` | Number of draft tokens per step. Upstream's PR suggests 2-3 for the tightest acceptance window; LocalAI's auto-default is 6 to favour throughput on models with high acceptance. |
 | `spec_p_min` | `0.75` | Pinned because upstream marks the current default with a "change to 0.0f" TODO; locking it here keeps acceptance thresholds stable across future llama.cpp bumps. |
-| `mmproj_use_gpu` | `false` (or unset `mmproj`) | MTP has a prompt-processing overhead; if the model is non-vision, drop the mmproj entirely to save VRAM. |
+| `mmproj_use_gpu` | `true` for vision | MTP does not require disabling the projector. Keep `mmproj` configured for image input; set this option to `false` to keep the projector on CPU when VRAM is tight. Remove `mmproj` only for text-only use when vision is not needed. |
 
 **Minimal config** (override-only, since auto-detection already covers this for MTP-capable GGUFs):
 
@@ -431,6 +504,23 @@ parameters:
 options:
   - spec_type:draft-mtp
   - spec_n_max:3
+```
+
+**With vision enabled:**
+
+```yaml
+name: qwen3-vision-mtp
+backend: llama-cpp
+known_usecases:
+  - chat
+  - vision
+parameters:
+  model: qwen3-with-mtp.gguf
+mmproj: mmproj-qwen3.gguf
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:3
+  - spec_p_min:0.75
 ```
 
 **With a separate MTP head file:**
@@ -647,6 +737,7 @@ Templates use Go templates with [Sprig functions](http://masterminds.github.io/s
 | `template.multimodal` | string | Template for multimodal interactions |
 | `template.reply_prefix` | string | Prefix to add to model replies |
 | `template.use_tokenizer_template` | bool | Use tokenizer's built-in template (vLLM/transformers) |
+| `template.system_messages_after_first` | string | What to do with `system`-role messages that appear after the leading system block: `merge` folds them into the first system message, `user` forwards them as user-role turns at their position. Unset keeps them as-is. Needed for tokenizer templates that reject late system turns (e.g. Qwen3.8) while agent frameworks append instructions mid-conversation. |
 | `template.join_chat_messages_by_character` | string | Character to join chat messages (default: `\n`) |
 
 ### Template Variables
@@ -712,9 +803,10 @@ For image generation models using the `diffusers` backend:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `diffusers.cuda` | bool | Enable CUDA for diffusers |
+| `diffusers.cuda` | bool | Force CUDA. By default the backend auto-detects and uses CUDA when a compatible GPU is present (ROCm builds included). Pin the CPU with `options: ["device:cpu"]` |
 | `diffusers.pipeline_type` | string | Pipeline type (e.g., `stable-diffusion`, `stable-diffusion-xl`) |
 | `diffusers.scheduler_type` | string | Scheduler type (e.g., `euler`, `ddpm`) |
+| `diffusers.original_config_file` | string | Local path or URL to the original configuration for loading a single-file checkpoint |
 | `diffusers.enable_parameters` | string | Comma-separated parameters to enable |
 | `diffusers.cfg_scale` | float32 | Classifier-free guidance scale |
 | `diffusers.img2img` | bool | Enable image-to-image transformation |
@@ -974,7 +1066,9 @@ known_usecases:
   - embeddings
 ```
 
-Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
+Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `score`, `token_classify`, `decisions`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`decisions` marks a model as a decision model for the [Decisions API]({{% relref "features/decisions" %}}) (`POST /v1/systemone`). It is never guessed, and a model that declares it is not listed as a chat, completion or embeddings model.
 
 `token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family - separate from `llama-cpp`, which no longer carries the token-classification path.
 
@@ -1030,6 +1124,24 @@ PII redaction is NER-based and runs on the **request** (input) side. It has two 
 Multiple detectors union their detections; overlapping spans resolve to the strongest action (`block` > `mask` > `allow`). A configured detector that can't be loaded fails the request closed (HTTP 503) rather than silently skipping the check. Detections are audited at `/api/pii/events` (hash-prefix only, never the raw value).
 
 > The earlier regex pattern tier (`pii.patterns`, the global pattern catalogue, `--pii-config`, and the `/api/pii/patterns` admin endpoints) has been removed, along with response/streaming-side redaction. Those keys now no-op with a startup warning; migrate to `pii.detectors` + a detector's `pii_detection` block.
+
+## Environment Variables Configuration
+
+Model configurations can specify environment variables passed to the backend process:
+
+```yaml
+name: vllm-model
+backend: vllm
+parameters:
+  model: my-vllm-model
+
+env:
+  VLLM_WORKER_MULTIPROC_METHOD: "spawn"
+  VLLM_CACHE_DIR: "/tmp/vllm_cache"
+  CUDA_VISIBLE_DEVICES: "0,1"
+```
+
+Environment variables are appended to the system environment variables and will override any conflicting system variables with the same name.
 
 ## Complete Example
 
@@ -1094,7 +1206,7 @@ feature_flags:
 
 ### GPU Auto-Fit Mode
 
-**Note**: By default, LocalAI sets `gpu_layers` to a very large value (9999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
+**Note**: By default, LocalAI sets `gpu_layers` to a very large value (99999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
 
 To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configuration. However, be aware of the following:
 

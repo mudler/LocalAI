@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -75,6 +76,28 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		return nil
 	}
 
+	It("does not inherit native decisions eligibility through aliases", func() {
+		writeConfig("native", "name: native\nbackend: llama-cpp\nknown_usecases: [decisions]\n")
+		writeConfig("native-vllm", "name: native-vllm\nbackend: vllm-cpp\nknown_usecases: [decisions]\n")
+		writeConfig("decision-alias", "name: decision-alias\nalias: native\n")
+		writeConfig("disabled-native", "name: disabled-native\nbackend: llama-cpp\nknown_usecases: [decisions]\ndisabled: true\n")
+		writeConfig("disabled-alias", "name: disabled-alias\nalias: disabled-native\n")
+		resp := call()
+		for _, name := range []string{"native", "native-vllm"} {
+			entry := entryFor(resp, name)
+			Expect(entry).NotTo(BeNil())
+			Expect(entry.Capabilities).To(ContainElement(config.UsecaseDecisions))
+		}
+		alias := entryFor(resp, "decision-alias")
+		Expect(alias).NotTo(BeNil())
+		Expect(alias.Capabilities).NotTo(ContainElement(config.UsecaseDecisions))
+		for _, name := range []string{"disabled-native", "disabled-alias"} {
+			if entry := entryFor(resp, name); entry != nil {
+				Expect(entry.Capabilities).NotTo(ContainElement(config.UsecaseDecisions))
+			}
+		}
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))
@@ -115,5 +138,115 @@ parameters:
 		Expect(entry.InputModalities).To(Equal([]string{"audio"}))
 		Expect(entry.OutputModalities).To(Equal([]string{"text"}))
 		Expect(entry.Capabilities).NotTo(ContainElement("chat"))
+	})
+
+	It("surfaces the configured context_size", func() {
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+context_size: 32768
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(32768))
+	})
+
+	It("reports the per-slot context_size when parallel slots do not share the KV cache", func() {
+		// llama.cpp gives each slot n_ctx/n_parallel here, so a client that
+		// budgets against the full 32768 overflows at 8192.
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+context_size: 32768
+options:
+  - parallel:4
+  - kv_unified:false
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(8192))
+	})
+
+	It("falls back to the default context size when context_size is unset", func() {
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
+	})
+
+	It("uses application config context size when model context_size is unset", func() {
+		writeConfig("llm-app-default", `
+name: llm-app-default
+backend: llama-cpp
+parameters:
+  model: model.gguf
+`)
+		appConf.ContextSize = 8192
+		entry := entryFor(call(), "llm-app-default")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(8192))
+	})
+
+	It("keeps the backend fallback when the model sets a non-positive context_size", func() {
+		writeConfig("llm-explicit-zero", `
+name: llm-explicit-zero
+backend: llama-cpp
+context_size: 0
+parameters:
+  model: model.gguf
+`)
+		appConf.ContextSize = 8192
+		entry := entryFor(call(), "llm-explicit-zero")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
+	})
+	It("reports an alias with its target's capabilities and context_size", func() {
+		writeConfig("real-llm", `
+name: real-llm
+backend: llama-cpp
+context_size: 100000
+known_usecases:
+  - FLAG_CHAT
+  - FLAG_VISION
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: model.gguf
+`)
+		writeConfig("friendly", `
+name: friendly
+alias: real-llm
+`)
+		resp := call()
+		target := entryFor(resp, "real-llm")
+		Expect(target).NotTo(BeNil())
+
+		entry := entryFor(resp, "friendly")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ID).To(Equal("friendly"))
+		Expect(entry.ContextSize).To(Equal(100000))
+		Expect(entry.Capabilities).To(Equal(target.Capabilities))
+		Expect(entry.InputModalities).To(Equal(target.InputModalities))
+		Expect(entry.OutputModalities).To(Equal(target.OutputModalities))
+	})
+
+	It("reports no context_size for an alias whose target does not exist", func() {
+		writeConfig("dangling", `
+name: dangling
+alias: missing-model
+`)
+		entry := entryFor(call(), "dangling")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(BeZero())
+		Expect(entry.Capabilities).To(BeEmpty())
 	})
 })

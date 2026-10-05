@@ -1,0 +1,602 @@
+[
+  {
+    "name": "kimodo-soma-rp",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf",
+        "sha256": "b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c"
+      }
+    ],
+    "text_quantization": "q8_0",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"
+  },
+  {
+    "name": "kimodo-soma-rp-q6_k",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf",
+        "sha256": "656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2"
+      }
+    ],
+    "text_quantization": "q6_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-rp-q5_k",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf",
+        "sha256": "7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211"
+      }
+    ],
+    "text_quantization": "q5_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-rp-q4_k_m",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf",
+        "sha256": "c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005"
+      }
+    ],
+    "text_quantization": "q4_k_m",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"
+  },
+  {
+    "name": "kimodo-soma-rp-q4_k",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf",
+        "sha256": "b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012"
+      }
+    ],
+    "text_quantization": "q4_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-rp-bf16",
+    "label": "SOMA RP v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-rp-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf",
+        "sha256": "3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-BF16.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf",
+        "sha256": "d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f"
+      }
+    ],
+    "text_quantization": "bf16",
+    "text_model": "kimodo/text/Llama-3-Kimodo-BF16.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf",
+        "sha256": "b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c"
+      }
+    ],
+    "text_quantization": "q8_0",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed-q6_k",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf",
+        "sha256": "656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2"
+      }
+    ],
+    "text_quantization": "q6_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed-q5_k",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf",
+        "sha256": "7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211"
+      }
+    ],
+    "text_quantization": "q5_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed-q4_k_m",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf",
+        "sha256": "c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005"
+      }
+    ],
+    "text_quantization": "q4_k_m",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed-q4_k",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf",
+        "sha256": "b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012"
+      }
+    ],
+    "text_quantization": "q4_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf"
+  },
+  {
+    "name": "kimodo-soma-seed-bf16",
+    "label": "SOMA SEED v1.1",
+    "repository": "LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML",
+    "model": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-soma-seed-v1.1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf",
+        "sha256": "14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-BF16.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf",
+        "sha256": "d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f"
+      }
+    ],
+    "text_quantization": "bf16",
+    "text_model": "kimodo/text/Llama-3-Kimodo-BF16.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf",
+        "sha256": "b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c"
+      }
+    ],
+    "text_quantization": "q8_0",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp-q6_k",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf",
+        "sha256": "656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2"
+      }
+    ],
+    "text_quantization": "q6_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp-q5_k",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf",
+        "sha256": "7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211"
+      }
+    ],
+    "text_quantization": "q5_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp-q4_k_m",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf",
+        "sha256": "c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005"
+      }
+    ],
+    "text_quantization": "q4_k_m",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp-q4_k",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf",
+        "sha256": "b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012"
+      }
+    ],
+    "text_quantization": "q4_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-rp-bf16",
+    "label": "G1 RP v1",
+    "repository": "LocalAI-io/Kimodo-G1-RP-v1-GGML",
+    "model": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-rp-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf",
+        "sha256": "720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-BF16.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf",
+        "sha256": "d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f"
+      }
+    ],
+    "text_quantization": "bf16",
+    "text_model": "kimodo/text/Llama-3-Kimodo-BF16.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf",
+        "sha256": "b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c"
+      }
+    ],
+    "text_quantization": "q8_0",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed-q6_k",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf",
+        "sha256": "656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2"
+      }
+    ],
+    "text_quantization": "q6_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q6_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed-q5_k",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf",
+        "sha256": "7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211"
+      }
+    ],
+    "text_quantization": "q5_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q5_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed-q4_k_m",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf",
+        "sha256": "c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005"
+      }
+    ],
+    "text_quantization": "q4_k_m",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed-q4_k",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf",
+        "sha256": "b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012"
+      }
+    ],
+    "text_quantization": "q4_k",
+    "text_model": "kimodo/text/Llama-3-Kimodo-Q4_K.gguf"
+  },
+  {
+    "name": "kimodo-g1-seed-bf16",
+    "label": "G1 SEED v1",
+    "repository": "LocalAI-io/Kimodo-G1-SEED-v1-GGML",
+    "model": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+    "files": [
+      {
+        "filename": "kimodo/kimodo-g1-seed-v1-f32.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf",
+        "sha256": "6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf"
+      },
+      {
+        "filename": "kimodo/text/tokenizer.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf",
+        "sha256": "81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e"
+      },
+      {
+        "filename": "kimodo/text/Llama-3-Kimodo-BF16.gguf",
+        "uri": "https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf",
+        "sha256": "d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f"
+      }
+    ],
+    "text_quantization": "bf16",
+    "text_model": "kimodo/text/Llama-3-Kimodo-BF16.gguf"
+  }
+]

@@ -44,6 +44,73 @@ var _ = Describe("grpcModelOpts EngineArgs", func() {
 	})
 })
 
+var _ = Describe("grpcModelOpts Proxy options", func() {
+	It("builds Proxy options for localai-proxy, the same as cloud-proxy", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy: config.ProxyConfig{
+				UpstreamURL: "http://127.0.0.1:8081",
+				Mode:        config.ProxyModePassthrough,
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.Proxy).NotTo(BeNil())
+		Expect(opts.Proxy.UpstreamUrl).To(Equal("http://127.0.0.1:8081"))
+		Expect(opts.Proxy.Mode).To(Equal(config.ProxyModePassthrough))
+	})
+
+	It("sends the config name as the localai-proxy upstream model when none is set", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "argus-whisper",
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "http://127.0.0.1:8081"},
+		}
+		cfg.Model = "some-file"
+
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("argus-whisper"))
+
+		cfg.Proxy.UpstreamModel = "whisper-large"
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("whisper-large"))
+	})
+
+	It("leaves the cloud-proxy upstream model unset so translate mode keeps its fallback", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "claude-strict",
+			Threads: &threads,
+			Backend: "cloud-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "https://api.example.com", Mode: config.ProxyModeTranslate},
+		}
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(BeEmpty())
+	})
+
+	It("leaves Proxy nil for a backend that is not a proxy", func() {
+		threads := 1
+		opts := grpcModelOpts(config.ModelConfig{Threads: &threads, Backend: "llama-cpp"}, "/tmp/models")
+		Expect(opts.Proxy).To(BeNil())
+	})
+})
+
+var _ = Describe("grpcModelOpts Diffusers options", func() {
+	It("forwards original_config_file without rewriting it", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Diffusers: config.Diffusers{
+				OriginalConfigFile: "configs/v1-inference.yaml",
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.OriginalConfigFile).To(Equal("configs/v1-inference.yaml"))
+	})
+})
+
 // Guards the DisableReasoning -> enable_thinking metadata conversion that the
 // per-request reasoning_effort feature (issue #10072) relies on: the request
 // merge sets ReasoningConfig.DisableReasoning, and gRPCPredictOpts is where it

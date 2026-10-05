@@ -16,7 +16,7 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v23)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v30)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
@@ -24,7 +24,7 @@ var _ = Describe("C ABI struct mirrors", func() {
 		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
 		// Moving the pin past this without growing the mirrors below ships a
 		// backend that refuses every load at startup (issue #11379).
-		Expect(abiVersion).To(Equal(23))
+		Expect(abiVersion).To(Equal(30))
 	})
 
 	It("cModelParams matches vllm_model_params", func() {
@@ -44,15 +44,17 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.KVTransferConfig)).To(Equal(uintptr(72)))
 		Expect(unsafe.Offsetof(p.OffloadConfig)).To(Equal(uintptr(80)))
 		Expect(unsafe.Offsetof(p.EnableJumpForward)).To(Equal(uintptr(88)))
-		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(92)))
-		// 96: gpu_memory_utilization is a double, so it takes the next
+		Expect(unsafe.Offsetof(p.DisableSlidingWindow)).To(Equal(uintptr(92)))
+		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(96)))
+		// 104: gpu_memory_utilization is a double, so it takes the next
 		// 8-aligned slot after the int32 pair. Go pads identically.
-		Expect(unsafe.Offsetof(p.GPUMemoryUtil)).To(Equal(uintptr(96)))
-		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(104)))
-		Expect(unsafe.Offsetof(p.LanguageModelOnly)).To(Equal(uintptr(112)))
-		Expect(unsafe.Offsetof(p.LimitMMPerPrompt)).To(Equal(uintptr(120)))
-		Expect(unsafe.Offsetof(p.MMProjPath)).To(Equal(uintptr(128)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(136)))
+		Expect(unsafe.Offsetof(p.GPUMemoryUtil)).To(Equal(uintptr(104)))
+		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(112)))
+		Expect(unsafe.Offsetof(p.LanguageModelOnly)).To(Equal(uintptr(120)))
+		Expect(unsafe.Offsetof(p.LimitMMPerPrompt)).To(Equal(uintptr(128)))
+		Expect(unsafe.Offsetof(p.MMProjPath)).To(Equal(uintptr(136)))
+		Expect(unsafe.Offsetof(p.KVCacheDType)).To(Equal(uintptr(144)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(152)))
 	})
 
 	It("cSamplingParams matches vllm_sampling_params (ABI v8)", func() {
@@ -89,6 +91,25 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(c.PromptTokens)).To(Equal(uintptr(16)))
 		Expect(unsafe.Offsetof(c.CompletionTokens)).To(Equal(uintptr(20)))
 		Expect(unsafe.Sizeof(c)).To(Equal(uintptr(24)))
+	})
+
+	It("cNerEntity matches vllm_ner_entity (ABI v27)", func() {
+		var e cNerEntity
+		Expect(unsafe.Offsetof(e.label)).To(Equal(uintptr(0)))
+		Expect(unsafe.Offsetof(e.text)).To(Equal(uintptr(8)))
+		Expect(unsafe.Offsetof(e.charStart)).To(Equal(uintptr(16)))
+		Expect(unsafe.Offsetof(e.charEnd)).To(Equal(uintptr(20)))
+		Expect(unsafe.Offsetof(e.tokenStart)).To(Equal(uintptr(24)))
+		Expect(unsafe.Offsetof(e.tokenEnd)).To(Equal(uintptr(28)))
+		Expect(unsafe.Offsetof(e.confidence)).To(Equal(uintptr(32)))
+		Expect(unsafe.Sizeof(e)).To(Equal(uintptr(40)))
+	})
+
+	It("cNerResult matches vllm_ner_result (ABI v27)", func() {
+		var r cNerResult
+		Expect(unsafe.Offsetof(r.entities)).To(Equal(uintptr(0)))
+		Expect(unsafe.Offsetof(r.nEntities)).To(Equal(uintptr(8)))
+		Expect(unsafe.Sizeof(r)).To(Equal(uintptr(16)))
 	})
 })
 

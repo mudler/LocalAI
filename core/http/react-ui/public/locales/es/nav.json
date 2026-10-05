@@ -59,7 +59,9 @@
     "api": "API",
     "middleware": "Middleware",
     "activity": "Actividad",
-    "overview": "Resumen"
+    "overview": "Resumen",
+    "thisMachine": "Esta máquina",
+    "failover": "Failover"
   },
   "footer": {
     "github": "GitHub",

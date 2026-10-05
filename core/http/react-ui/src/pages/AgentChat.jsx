@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAgentChat } from '../hooks/useAgentChat'
 import { relativeTime, normalizeTimestampMs } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
+import { chatHistoryFor } from '../utils/agentChatHistory'
 
 function getLastMessagePreview(conv) {
   if (!conv.messages || conv.messages.length === 0) return ''
@@ -72,7 +73,6 @@ function AgentActivityGroup({ items }) {
 
 export default function AgentChat() {
   const { name } = useParams()
-  const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const [searchParams] = useSearchParams()
   const userId = searchParams.get('user_id') || undefined
@@ -382,12 +382,15 @@ export default function AgentChat() {
     if (!msg || processing) return
     setInput('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    // The conversation's earlier turns, taken before this message is added: the
+    // agent sees only the conversation the user is looking at.
+    const history = chatHistoryFor(messages)
     // Add user message locally immediately (like standard chat)
     addMessage({ id: nextId(), sender: 'user', content: msg, timestamp: Date.now() })
     setProcessingChatId(activeId)
     processingChatIdRef.current = activeId
     try {
-      const resp = await agentsApi.chat(name, msg, userId)
+      const resp = await agentsApi.chat(name, msg, userId, history)
       // Map backend messageID → conversation so SSE events route correctly
       if (resp && resp.message_id) {
         pendingRequestsRef.current.set(resp.message_id, activeId)
@@ -397,7 +400,7 @@ export default function AgentChat() {
       processingChatIdRef.current = null
       setProcessingChatId(null)
     }
-  }, [input, processing, name, activeId, addToast, userId, addMessage, nextId])
+  }, [input, processing, name, activeId, addToast, userId, addMessage, nextId, messages])
 
   const handleKeyDown = (e) => {
     if (
@@ -600,9 +603,15 @@ export default function AgentChat() {
               <i className="fas fa-layer-group" /> {artifacts.length}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)} title="View status & observables">
+          <a
+            className="btn btn-secondary btn-sm"
+            href={`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View status & observables in a new tab"
+          >
             <i className="fas fa-chart-bar" /> Status
-          </button>
+          </a>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">
             <i className="fas fa-eraser" /> Clear
           </button>

@@ -112,6 +112,17 @@ var _ = Describe("ModelLoader", func() {
 			Expect(files).ToNot(ContainElement("model.gguf"))
 			Expect(files).ToNot(ContainElement("README.md"))
 		})
+
+		It("should skip archives and checksum files", func() {
+			os.Create(filepath.Join(modelPath, "test.model"))
+			os.Create(filepath.Join(modelPath, "voice.tar.bz2"))
+			os.Create(filepath.Join(modelPath, "voice.tar.bz2.sha256"))
+			os.Create(filepath.Join(modelPath, "VOICE.SHA256"))
+
+			files, err := modelLoader.ListFilesInModelPath()
+			Expect(err).To(BeNil())
+			Expect(files).To(ConsistOf("test.model"))
+		})
 	})
 
 	Context("LoadModel", func() {

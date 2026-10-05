@@ -1,8 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
 import { ResourceMonitorView } from '../components/ResourceMonitor'
 import Sparkline from '../components/Sparkline'
+import LocalRunningModels from '../components/nodes/LocalRunningModels'
+import { useLocalMachine } from '../hooks/useLocalMachine'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
 import { staggerStyle } from '../hooks/useStagger'
 
@@ -33,6 +35,7 @@ export default function OperateOverview() {
   const upgradeCount = Object.keys(summary?.upgrades || {}).length
   const traces = summary?.traces
   const installed = summary?.installed || { backends: null, models: null }
+  const distributed = summary?.distributed
 
   return (
     <div className="page-pad" data-testid="operate-overview">
@@ -99,6 +102,16 @@ export default function OperateOverview() {
           }}
           testId="operate-capacity"
         />
+      </section>
+
+      <section>
+        <div className="lane-head"><h2>{t('operate.overview.running.heading')}</h2></div>
+        {distributed === false && <RunningHere />}
+        {distributed === true && (
+          <ul className="lanes">
+            <OperateSection to="/app/nodes" label={t('operate.overview.running.cluster')} summary={t('operate.overview.running.clusterSummary')} />
+          </ul>
+        )}
       </section>
 
       <section>
@@ -176,6 +189,14 @@ export default function OperateOverview() {
       </section>
     </div>
   )
+}
+
+// Its own component so the 5s poll of /system only runs once the page knows it
+// is on a single node, and stops when the overview is left.
+function RunningHere() {
+  const { addToast } = useOutletContext() || {}
+  const machine = useLocalMachine({ withResources: false })
+  return <LocalRunningModels machine={machine} addToast={addToast} limit={5} moreHref="/app/nodes" />
 }
 
 function HeadlineStat({ label, value, series, tone, index = 0 }) {

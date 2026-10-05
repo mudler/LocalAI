@@ -58,6 +58,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/v1/audio/speech", FeatureAudioSpeech},
 	{"POST", "/audio/speech", FeatureAudioSpeech},
 	{"POST", "/tts", FeatureAudioSpeech},
+	{"GET", "/v1/audio/voices", FeatureAudioSpeech},
+	{"GET", "/audio/voices", FeatureAudioSpeech},
 	{"POST", "/v1/text-to-speech/:voice-id", FeatureAudioSpeech},
 	{"GET", "/api/voice-profiles", FeatureAudioSpeech},
 	{"GET", "/api/voice-profiles/:id/audio", FeatureAudioSpeech},
@@ -68,6 +70,11 @@ var RouteFeatureRegistry = []RouteFeature{
 
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
+
+	// Decisions API (SystemOne wire contract)
+	{"POST", "/v1/systemone", FeatureDecisions},
+	{"POST", "/v1/systemone/permute", FeatureDecisions},
+	{"POST", "/v1/systemone/separate", FeatureDecisions},
 
 	// Face recognition
 	{"POST", "/v1/face/verify", FeatureFaceRecognition},
@@ -96,6 +103,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	// 3D generation
 	{"POST", "/3d/generations", Feature3D},
 	{"POST", "/3d/remesh", Feature3D},
+	{"POST", "/3d/animate", Feature3D},
 
 	// Sound generation
 	{"POST", "/v1/sound-generation", FeatureSound},
@@ -206,5 +214,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
+		{FeatureDecisions, "Decisions", true},
 	}
 }

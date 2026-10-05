@@ -103,7 +103,10 @@
       "voice": "Voz",
       "voicePlaceholder": "ID de voz opcional",
       "input": "Texto",
-      "inputPlaceholder": "Introduce el texto a sintetizar..."
+      "inputPlaceholder": "Introduce el texto a sintetizar...",
+      "instructions": "Instrucciones",
+      "instructionsPlaceholder": "Por ejemplo: Habla despacio y con calidez",
+      "instructionsHint": "Indicaciones opcionales sobre la locución. La compatibilidad depende del backend."
     },
     "actions": {
       "generate": "Generar audio",

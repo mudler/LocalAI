@@ -19,6 +19,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from temp_utils import cleanup_paths
 
 import tempfile
 
@@ -115,11 +116,6 @@ def merge_audio_files(audio_files, output_path, sample_rate):
     # Save the merged audio
     ta.save(output_path, merged_waveform, sample_rate)
     
-    # Clean up temporary files
-    for audio_file in audio_files:
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
@@ -226,19 +222,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 text_chunks = split_text_at_word_boundary(request.text, max_length=250)
                 print(f"Splitting text into chunks of 250 characters: {len(text_chunks)}", file=sys.stderr)
                 # Generate audio for each chunk
-                temp_audio_files = []
-                for i, chunk in enumerate(text_chunks):
-                    # Generate audio for this chunk
-                    wav = self.model.generate(chunk, **kwargs)
-                    
-                    # Create temporary file for this chunk
-                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-                    temp_file.close()
-                    ta.save(temp_file.name, wav, self.model.sr)
-                    temp_audio_files.append(temp_file.name)
-                
-                # Merge all audio files
-                merge_audio_files(temp_audio_files, request.dst, self.model.sr)
+                with cleanup_paths() as temp_audio_files:
+                    for i, chunk in enumerate(text_chunks):
+                        # Generate audio for this chunk
+                        wav = self.model.generate(chunk, **kwargs)
+
+                        # Register ownership before saving so a partial write is
+                        # removed too when generation or encoding fails.
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+                        temp_file.close()
+                        temp_audio_files.append(temp_file.name)
+                        ta.save(temp_file.name, wav, self.model.sr)
+
+                    # Merge all audio files
+                    merge_audio_files(temp_audio_files, request.dst, self.model.sr)
             else:
                 # Generate audio using ChatterboxTTS for short text
                 wav = self.model.generate(request.text, **kwargs)

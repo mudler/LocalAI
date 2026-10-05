@@ -39,6 +39,40 @@ var (
 	CppFreeString         func(s uintptr)
 	CppLastError          func(ctx uintptr) string
 
+	// Bundle GGUF (additive in the C-API, no ABI bump; see bundle.go). All three
+	// are registered together and nil on an older libparakeet.so, where a
+	// bundle file is loaded like any other file (the library then refuses it)
+	// and the *_component options are rejected.
+	// CppLoadComponent opens one named component of a bundle.
+	// CppBundleComponentsJSON returns the component list as a malloc'd JSON
+	// array (uintptr, freed via CppFreeString), or 0 when the file is not a bundle.
+	// CppLoadError is the reason of the last failed load on the calling thread.
+	CppLoadComponent        func(ggufPath, component string) uintptr
+	CppBundleComponentsJSON func(ggufPath string) uintptr
+	CppLoadError            func() string
+
+	// CppTranscribePathJSONVad is CppTranscribePathJSON with long audio cut at
+	// pauses by the model's own VAD head (segments of at most 30 s; the document
+	// has the same shape, times are relative to the whole file). Returns 0 and
+	// sets last_error to "model has no VAD head" for models without one. Present
+	// only in newer libparakeet.so (additive, no ABI bump); nil when absent.
+	CppTranscribePathJSONVad func(ctx uintptr, wavPath string, decoder int32) uintptr
+
+	// CppTranscribePathJSONVadWith is CppTranscribePathJSONVad with the speech
+	// probabilities taken from an external Silero VAD context (vadCtx), so an ASR
+	// model without a VAD head can cut long audio. vadCtx == 0 uses the model's
+	// own head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, max_segment). Additive; nil when absent.
+	CppTranscribePathJSONVadWith func(ctx, vadCtx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+
+	// CppVadPcmJSON is the standalone VAD: it returns the speech regions of mono
+	// float PCM as a JSON document, for a Silero context or an ASR context with a
+	// VAD head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, speech_pad, max_segment, mode,
+	// probabilities). Returns 0 on error with the message in last_error.
+	// Additive; nil when absent.
+	CppVadPcmJSON func(ctx uintptr, samples []float32, nSamples int32, sampleRate int32, optionsJSON string) uintptr
+
 	// Batched JSON transcription: takes a concatenated float buffer of clips
 	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
 	// and returns a malloc'd char* JSON ARRAY of per-clip {"text","words",
@@ -74,7 +108,79 @@ var (
 	// libparakeet.so; nil falls back to the text-only CppStreamFeed/Finalize path.
 	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
 	CppStreamFinalizeJSON func(s uintptr) uintptr
+
+	// CppModelKind reports which kind of model a loaded context holds
+	// (parakeet_capi_model_kind, ABI v8): see the modelKind* constants in
+	// roles.go. nil on an older libparakeet.so; Load then treats the primary
+	// as ASR (pre-v8 behavior) and rejects companion model options.
+	CppModelKind func(ctx uintptr) int32
+
+	// Speaker diarization (ABI v7). CppDiarizePCM runs offline diarization
+	// over in-memory mono float PCM; CppTranscribeAndDiarizeJSON pairs it with
+	// an ASR context for speaker-attributed text. Both return a malloc'd char*
+	// JSON document (uintptr, freed via CppFreeString).
+	CppDiarizePCM               func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr
+	CppTranscribeAndDiarizeJSON func(asr, diar uintptr, samples *float32, n int32, sampleRate int32) uintptr
+
+	// Sound-event detection (CED) and the combined scene stream (ABI v8).
+	// CppNumClasses/CppSoundOptsDefault/CppSoundStreamBegin.../
+	// CppSceneOptsDefault/CppSceneStreamBegin... are only registered when
+	// CppModelKind is present (see main.go); nil otherwise.
+	CppNumClasses                 func(ctx uintptr) int32
+	CppSoundOptsDefault           func(o *cSoundOpts)
+	CppSoundStreamBegin           func(tagger uintptr, o *cSoundOpts) uintptr
+	CppSoundStreamFeed            func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32
+	CppSoundStreamDrainScoresJSON func(s uintptr) uintptr
+	CppFreeSoundSegments          func(segs uintptr)
+	CppSoundStreamFree            func(s uintptr)
+	CppSceneOptsDefault           func(o *cSceneOpts)
+	CppSceneStreamBegin           func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr
+	CppSceneStreamFeedJSON        func(s uintptr, pcm *float32, n int32, isLast int32) uintptr
+	CppSceneStreamLastError       func(s uintptr) string
+	CppSceneStreamFree            func(s uintptr)
+
+	// Speaker identification. CppSpeakerDim, the registry, CppSceneStreamBeginSpeaker and
+	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
+	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
+	// Load refuses speaker_model: unless the v10 ones are present.
+	CppSpeakerIdentity             func(ctx uintptr) uintptr
+	CppDiarizeProfilesPCMJSON      func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
+	CppSpeakerDim                  func(ctx uintptr) int32
+	CppSpeakerRegistryNew          func() uintptr
+	CppSpeakerRegistryFree         func(reg uintptr)
+	CppSpeakerRegistryAddEmbedding func(reg uintptr, name string, emb *float32, dim int32) int32
+	CppSpeakerRegistryLastError    func(reg uintptr) string
+	CppSceneStreamBeginSpeaker     func(asr, diar, tagger, speaker, reg uintptr, o *cSceneOpts) uintptr
+	// CppDiarizeNamedPCMJSON takes two float32 arguments (acceptThreshold, margin), which
+	// purego passes in floating-point registers. Not exercised without the real library.
+	CppDiarizeNamedPCMJSON           func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
+	CppTranscribeAndDiarizeNamedJSON func(asr, diar, speaker, reg uintptr, samples *float32, n, sampleRate int32) uintptr
 )
+
+// cSoundOpts and cSceneOpts mirror parakeet_sound_opts / parakeet_scene_opts
+// in parakeet_capi.h field-for-field (int -> int32, float -> float32); the
+// C side sizes/versions them via the leading `size` field, set by the
+// matching *_opts_default call.
+type cSoundOpts struct {
+	Size                                                         int32
+	WindowSec, HopSec, OnThreshold, OffThreshold, MinDurationSec float32
+	TopK                                                         int32
+}
+
+type cSceneOpts struct {
+	Size        int32
+	DiarLatency int32
+	Sound       cSoundOpts
+	Flags       int32
+	// Speaker identification (parakeet_scene_opts, ABI v9). The C side reads
+	// these only when Size covers them, so a Go struct built against a v9
+	// library and run against a v8 one is still valid.
+	SpeakerAcceptThreshold float32
+	SpeakerMargin          float32
+	SpeakerMinVoiceSec     float32
+	SpeakerRefreshSec      float32
+	SpeakerMaxVoiceSec     float32
+}
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
 // call (1 s). The session buffers internally and decodes once a full
@@ -140,7 +246,29 @@ type transcriptToken struct {
 // touch it concurrently.
 type ParakeetCpp struct {
 	base.Base
-	ctxPtr   uintptr
+	ctxPtr uintptr // ASR context: the primary when it is an ASR model, or the asr_model companion
+	// diarCtx / tagCtx are the diarization and sound (CED) model contexts:
+	// the primary when it is that kind, or the diarization_model/sound_model
+	// companion. See roles.go.
+	diarCtx uintptr
+	tagCtx  uintptr
+	// spkCtx is the speaker encoder context (speaker_model: companion); 0 when speaker
+	// naming is off. speakerAccept is the cosine acceptance threshold and speakerMargin
+	// the runner-up margin, both from the model options.
+	spkCtx        uintptr
+	speakerAccept float32
+	speakerMargin float32
+	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
+	// streaming (diarization_latency: option, default "low"). Unused until
+	// the diarization/scene streaming paths land.
+	diarLatency int32
+	// companions holds every context this backend loaded itself beyond the
+	// primary (asr_model:/diarization_model:/sound_model: options), so Free
+	// can release them after the primary.
+	companions []uintptr
+	// bundle lists the components of the primary model file when it is a bundle
+	// GGUF (bundle.go); nil for a plain file.
+	bundle   []bundleComponent
 	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
 	bat      *batcher
 	batStop  chan struct{}
@@ -148,24 +276,51 @@ type ParakeetCpp struct {
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
 	segmentGapFrames int
+	// vad routes offline transcription through the VAD-segmented C-API entry
+	// point (vad:true model option). It bypasses the dynamic batcher, which has
+	// no VAD variant, and is not used for streaming.
+	vad bool
+	// vadCtx is the Silero VAD context: the primary when the model file is a
+	// Silero GGUF, or the vad_model: companion. 0 when none is loaded; the VAD
+	// RPC then falls back to the ASR context's own VAD head.
+	vadCtx uintptr
+	// vadOptions is the JSON object built from the vad_threshold, vad_min_pause,
+	// vad_min_speech, vad_speech_pad and vad_max_segment model options ("" when
+	// none is set, so the library picks the defaults of the detector in use).
+	vadOptions string
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
-// parakeet_capi_load with the GGUF path and stashes the resulting
-// opaque context pointer for AudioTranscription.
+// parakeet_capi_load with the GGUF path, classifies it and any companion
+// models named in Options[] by role (see roles.go), and starts the dynamic
+// batcher when an ASR context (primary or companion) ends up loaded.
 func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if opts.ModelFile == "" {
 		return errors.New("parakeet-cpp: ModelFile is required")
 	}
 
-	ctx := CppLoad(opts.ModelFile)
-	if ctx == 0 {
-		// No ctx to ask for last_error (the C-API's last-error buffer
-		// lives on the ctx that was never returned). Surface the path
-		// so the operator at least knows which load failed.
-		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
+	vad, err := parseVADOption(opts)
+	if err != nil {
+		return err
 	}
-	p.ctxPtr = ctx
+	p.vad = vad
+
+	vadOpts, err := parseVADTuning(opts)
+	if err != nil {
+		return err
+	}
+	p.vadOptions = vadOpts
+	if optString(opts, "vad_model") != "" || optString(opts, "vad_component") != "" {
+		if CppTranscribePathJSONVadWith == nil {
+			return errors.New("parakeet-cpp: vad_model and vad_component need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+		}
+		// vad_model and vad_component imply vad: a Silero model is only useful to cut audio.
+		p.vad = true
+	}
+
+	if err := p.loadRoles(opts); err != nil {
+		return err
+	}
 
 	// Dynamic batching knobs (model YAML options:, key:value form). Batching is
 	// OFF by default (batch_max_size:1): each request runs on its own. On GPU,
@@ -182,6 +337,12 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	// default matches NeMo's default (punctuation-only segments); when set it
 	// additionally splits segments on inter-word silence (see transcriptResultFromDoc).
 	p.segmentGapFrames = optInt(opts, "segment_gap_threshold", 0)
+
+	// The batcher only ever drives the ASR context; a diarization/sound
+	// primary with no asr_model companion has no ctxPtr and needs none.
+	if p.ctxPtr == 0 {
+		return nil
+	}
 	if CppTranscribePcmBatchJSON != nil {
 		p.batStop = make(chan struct{})
 		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
@@ -214,6 +375,37 @@ func optInt(opts *pb.ModelOptions, key string, def int) int {
 		}
 	}
 	return def
+}
+
+// optBool reads a boolean model option (key:value form, strconv.ParseBool
+// values). It returns def when the key is absent and an error when the value
+// does not parse, so a typo like "vad:ture" fails the load instead of being
+// silently ignored.
+func optBool(opts *pb.ModelOptions, key string, def bool) (bool, error) {
+	v := optString(opts, key)
+	if v == "" {
+		return def, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("parakeet-cpp: option %s: %q is not a boolean", key, v)
+	}
+	return b, nil
+}
+
+// parseVADOption reads the vad: model option (default false). Enabling it
+// needs a libparakeet.so that exports parakeet_capi_transcribe_path_json_vad.
+// Whether the model itself has a VAD head is only known to the library; a
+// model without one fails each request with the library's message.
+func parseVADOption(opts *pb.ModelOptions) (bool, error) {
+	vad, err := optBool(opts, "vad", false)
+	if err != nil || !vad {
+		return false, err
+	}
+	if CppTranscribePathJSONVad == nil {
+		return false, errors.New("parakeet-cpp: vad:true needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad; rebuild the backend against a newer parakeet.cpp")
+	}
+	return true, nil
 }
 
 // runBatch is the dispatcher's batch handler and the ONLY caller of the C
@@ -287,12 +479,16 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // OpenAI API, whose default is segment-level); token ids always populate
 // Segment.Tokens.
 //
-// translate/diarize/prompt/temperature/threads are not applicable to parakeet
-// and are ignored; language is honored on the batched + streaming paths (see
-// opts.GetLanguage() below); streaming is handled by AudioTranscriptionStream
-// (L2).
+// With a diarization_model companion, diarize=true labels segments with their
+// speaker (speakers.go). translate/prompt/temperature/threads are not
+// applicable to parakeet and are ignored; language is honored on the batched +
+// streaming paths (see opts.GetLanguage() below); streaming is handled by
+// AudioTranscriptionStream (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return pb.TranscriptResult{}, err
+		}
 		return pb.TranscriptResult{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
@@ -305,21 +501,30 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
 	// mirrors what every other audio backend (whisper, crispasr) does via
 	// utils.AudioToWav before handing the file to the engine.
-	if p.bat == nil {
+	//
+	// With vad:true the same file-path route is taken through the
+	// VAD-segmented entry point, which cuts long audio at pauses. The batcher
+	// has no VAD variant, so this path replaces it for offline requests.
+	if p.bat == nil || p.vad {
 		converted, cleanup, err := convertToWavMono16k(opts.Dst)
 		if err != nil {
 			return pb.TranscriptResult{}, err
 		}
 		defer cleanup()
-		cstr := CppTranscribePathJSON(p.ctxPtr, converted, 0)
-		if cstr == 0 {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
+		doc, err := p.transcribePathDoc(converted)
+		if err != nil {
+			return pb.TranscriptResult{}, err
 		}
-		raw := goStringFromCPtr(cstr)
-		CppFreeString(cstr)
-		var doc transcriptJSON
-		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+		if p.vad && p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+			pcm, _, err := decodeWavMono16k(converted)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			segs, err := p.diarizeSegmentsPCM(pcm)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, assignSpeakers(doc.Words, segs)), nil
 		}
 		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 	}
@@ -350,7 +555,51 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
-	return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
+
+	// With a diarization_model companion, label each segment with its speaker.
+	var speakers []int
+	if p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+		segs, err := p.diarizeSegmentsPCM(pcm)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		speakers = assignSpeakers(doc.Words, segs)
+	}
+	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// transcribePathDoc transcribes a 16 kHz mono WAV at path through the file-path
+// C-API (the VAD-segmented variant when vad:true) and decodes the JSON document.
+// It holds engineMu for the call: the engine is single-threaded and the batcher
+// is not involved on this path.
+func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
+	call, name := func() uintptr { return CppTranscribePathJSON(p.ctxPtr, path, 0) }, "transcribe_path_json"
+	switch {
+	case p.vad && (p.vadCtx != 0 || p.vadOptions != "") && CppTranscribePathJSONVadWith != nil:
+		// An external Silero, or tuned segmenter options on the model's own head.
+		call, name = func() uintptr {
+			return CppTranscribePathJSONVadWith(p.ctxPtr, p.vadCtx, path, 0, p.vadOptions)
+		}, "transcribe_path_json_vad_with"
+	case p.vad:
+		call, name = func() uintptr { return CppTranscribePathJSONVad(p.ctxPtr, path, 0) }, "transcribe_path_json_vad"
+	}
+	p.engineMu.Lock()
+	cstr := call()
+	var lastErr string
+	if cstr == 0 {
+		lastErr = CppLastError(p.ctxPtr)
+	}
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, lastErr)
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+	return doc, nil
 }
 
 // segmentSeparators is NeMo's default segment_seperators (sentence-ending
@@ -365,6 +614,14 @@ var segmentSeparators = []rune{'.', '?', '!'}
 // the caller requested word granularity; token ids populate each segment's
 // Tokens by time-window membership. Shared by the batched and direct paths.
 func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
+	return transcriptResultWithSpeakers(doc, opts, gapFrames, nil)
+}
+
+// transcriptResultWithSpeakers is transcriptResultFromDoc plus optional
+// per-word speakers (indexed like doc.Words, -1 = none; see speakers.go):
+// segments additionally split wherever the speaker changes, and segments and
+// words carry the speaker's label.
+func transcriptResultWithSpeakers(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int, speakers []int) pb.TranscriptResult {
 	text, eou := stripEouMarker(strings.TrimSpace(doc.Text))
 
 	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
@@ -388,6 +645,11 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 		}
 	}
 
+	var groupSpeakers []int
+	if speakers != nil && len(speakers) == len(doc.Words) {
+		groups, groupSpeakers = splitAtSpeakerChanges(groups, speakers)
+	}
+
 	wantWords := wordsRequested(opts.TimestampGranularities)
 	segments := make([]*pb.TranscriptSegment, 0, len(groups))
 	for id, group := range groups {
@@ -402,10 +664,14 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 			Text:   strings.TrimSpace(strings.Join(parts, " ")),
 			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
 		}
+		if groupSpeakers != nil {
+			seg.Speaker = transcriptSpeaker(groupSpeakers[id])
+		}
 		if wantWords {
 			ws := make([]*pb.TranscriptWord, len(group))
 			for i, gw := range group {
-				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W}
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W,
+					Speaker: seg.Speaker}
 			}
 			seg.Words = ws
 		}
@@ -503,10 +769,11 @@ func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
 // text-only library (no words) it falls back to segmenting the delta text, so
 // the same assembler serves both paths.
 type streamSegmenter struct {
-	segs    []*pb.TranscriptSegment
-	cur     []transcriptWord // words for the open segment (ABI v4 JSON path)
-	curText []string         // delta text for the open segment (text-only path)
-	nextID  int32
+	segs     []*pb.TranscriptSegment
+	segWords [][]transcriptWord // words of each segment (nil for text-only ones)
+	cur      []transcriptWord   // words for the open segment (ABI v4 JSON path)
+	curText  []string           // delta text for the open segment (text-only path)
+	nextID   int32
 }
 
 func (s *streamSegmenter) add(r streamFeedResult) {
@@ -534,12 +801,14 @@ func (s *streamSegmenter) flush() {
 			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
 			Text:  strings.TrimSpace(strings.Join(parts, " ")),
 		})
+		s.segWords = append(s.segWords, s.cur)
 		s.nextID++
 	case len(s.curText) > 0:
 		// No words this segment: emit a text-only segment (no timestamps),
 		// skipping a purely-whitespace one as the legacy text path did.
 		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
 			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.segWords = append(s.segWords, nil)
 			s.nextID++
 		}
 	}
@@ -686,6 +955,9 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	defer close(results)
 
 	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return err
+		}
 		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
@@ -753,6 +1025,28 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	// The single-segment fallback stays trimmed.
 	fullText := full.String()
 	segments := seg.segments()
+
+	// With a diarization_model companion, label each utterance with the
+	// speaker who said most of it. The whole file is available, so this runs
+	// the same diarization as the unary path.
+	if p.wantSpeakers(opts.GetDiarize()) && len(seg.segWords) == len(segments) {
+		var all []transcriptWord
+		for _, ws := range seg.segWords {
+			all = append(all, ws...)
+		}
+		if len(all) > 0 {
+			segs, err := p.diarizeSegmentsPCM(data)
+			if err != nil {
+				return err
+			}
+			speakers := assignSpeakers(all, segs)
+			k := 0
+			for i, ws := range seg.segWords {
+				segments[i].Speaker = transcriptSpeaker(majoritySpeaker(ws, speakers[k:k+len(ws)]))
+				k += len(ws)
+			}
+		}
+	}
 	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
 		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}
@@ -817,8 +1111,10 @@ func decodeWavMono16k(path string) ([]float32, float32, error) {
 	return data, duration, nil
 }
 
-// Free releases the underlying parakeet_ctx. Called by LocalAI when the
-// model is unloaded.
+// Free releases every parakeet_ctx this backend holds (the primary and any
+// asr_model:/diarization_model:/sound_model: companions loaded in Load) and
+// is idempotent: fields are zeroed as they are freed, so a second call frees
+// nothing. Called by LocalAI when the model is unloaded.
 func (p *ParakeetCpp) Free() error {
 	// Stop the dispatcher before releasing the engine so no in-flight runBatch
 	// can touch a freed ctx (close leak / use-after-free on reload).
@@ -830,10 +1126,13 @@ func (p *ParakeetCpp) Free() error {
 	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	if p.ctxPtr != 0 {
-		CppFree(p.ctxPtr)
-		p.ctxPtr = 0
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx, &p.vadCtx} {
+		if *ctxField != 0 {
+			CppFree(*ctxField)
+			*ctxField = 0
+		}
 	}
+	p.companions = nil
 	return nil
 }
 

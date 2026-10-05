@@ -38,6 +38,25 @@ var _ = Describe("Policy", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v).NotTo(BeNil())
 	})
+
+	It("rejects a source repository that is not an https URL", func() {
+		for _, bad := range []string{"github.com/acme/gallery", "http://github.com/acme/gallery", "https://", " https://github.com/acme/gallery"} {
+			_, err := cosignverify.NewVerifier(cosignverify.Policy{
+				Issuer:           "https://token.actions.githubusercontent.com",
+				IdentityRegex:    `^https://github.com/example/.*`,
+				SourceRepository: bad,
+			}, nil, nil)
+			Expect(err).To(HaveOccurred(), bad)
+		}
+	})
+
+	It("still requires the identity when a source repository is set", func() {
+		_, err := cosignverify.NewVerifier(cosignverify.Policy{
+			Issuer:           "https://token.actions.githubusercontent.com",
+			SourceRepository: "https://github.com/acme/gallery",
+		}, nil, nil)
+		Expect(err).To(HaveOccurred())
+	})
 })
 
 // Live tests hit the public Sigstore TUF mirror, the source registry, and

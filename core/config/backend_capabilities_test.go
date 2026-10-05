@@ -57,6 +57,12 @@ var _ = Describe("BackendCapabilities", func() {
 })
 
 var _ = Describe("GetBackendCapability", func() {
+	It("advertises diffusers sound generation", func() {
+		capability := GetBackendCapability("diffusers")
+		Expect(capability.GRPCMethods).To(ContainElement(MethodSoundGeneration))
+		Expect(capability.PossibleUsecases).To(ContainElement(UsecaseSoundGeneration))
+	})
+
 	It("returns the capability for a known backend", func() {
 		cap := GetBackendCapability("llama-cpp")
 		Expect(cap).NotTo(BeNil())
@@ -289,6 +295,28 @@ var _ = Describe("VoiceCloningForModel", func() {
 		Entry("release channel suffix too", ModelConfig{Name: "vibevoice-cpp-0.5b", Backend: "vibevoice-cpp-development"}, false),
 		Entry("pinned audio-cpp keeps its unconditional cloning", ModelConfig{Name: "audio-cpp-chatterbox", Backend: "cuda12-audio-cpp"}, true),
 	)
+})
+
+var _ = Describe("TTSVoicesForModel", func() {
+	It("returns the built-in Pocket TTS voice catalog", func() {
+		voices := TTSVoicesForModel(&ModelConfig{Name: "pocket", Backend: "pocket-tts"})
+		Expect(voices).To(ContainElement(TTSVoice{Name: "alba", Language: "en_US", Gender: "female"}))
+		Expect(voices).To(ContainElement(TTSVoice{Name: "giovanni", Language: "it_IT", Gender: "male"}))
+	})
+
+	It("resolves the catalog for pinned backend variants", func() {
+		voices := TTSVoicesForModel(&ModelConfig{Name: "pocket", Backend: "cuda12-pocket-tts"})
+		Expect(voices).To(ContainElement(TTSVoice{Name: "alba", Language: "en_US", Gender: "female"}))
+	})
+
+	It("prefers model-specific voice metadata", func() {
+		configured := []TTSVoice{{Name: "custom", Language: "en_GB"}}
+		voices := TTSVoicesForModel(&ModelConfig{
+			Backend:   "pocket-tts",
+			TTSConfig: TTSConfig{Voices: configured},
+		})
+		Expect(voices).To(Equal(configured))
+	})
 })
 
 // llama.cpp serves Qwen3-TTS as well as the text LLMs it is known for, so the

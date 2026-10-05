@@ -34,6 +34,7 @@ type LauncherUI struct {
 	backendsPathEntry *widget.Entry
 	addressEntry      *widget.Entry
 	logLevelSelect    *widget.Select
+	autoStartCheck    *widget.Check
 	startOnBootCheck  *widget.Check
 
 	// Environment Variables
@@ -75,6 +76,7 @@ func NewLauncherUI() *LauncherUI {
 		backendsPathEntry: widget.NewEntry(),
 		addressEntry:      widget.NewEntry(),
 		logLevelSelect:    widget.NewSelect([]string{"error", "warn", "info", "debug", "trace"}, nil),
+		autoStartCheck:    widget.NewCheck("Start LocalAI when the launcher opens", nil),
 		startOnBootCheck:  widget.NewCheck("Start LocalAI on system boot", nil),
 		logText:           widget.NewMultiLineEntry(),
 		progressBar:       widget.NewProgressBar(),
@@ -117,6 +119,7 @@ func (ui *LauncherUI) createConfigTab() *fyne.Container {
 			widget.NewLabel("Log Level:"),
 			ui.logLevelSelect,
 		),
+		ui.autoStartCheck,
 		ui.startOnBootCheck,
 	))
 
@@ -401,6 +404,8 @@ func (ui *LauncherUI) saveConfiguration() {
 	config.BackendsPath = ui.backendsPathEntry.Text
 	config.Address = ui.addressEntry.Text
 	config.LogLevel = ui.logLevelSelect.Selected
+	autoStart := ui.autoStartCheck.Checked
+	config.AutoStart = &autoStart
 	config.StartOnBoot = ui.startOnBootCheck.Checked
 
 	// Ensure environment variables are included in the configuration
@@ -583,6 +588,7 @@ func (ui *LauncherUI) LoadConfiguration() {
 	ui.backendsPathEntry.SetText(config.BackendsPath)
 	ui.addressEntry.SetText(config.Address)
 	ui.logLevelSelect.SetSelected(config.LogLevel)
+	ui.autoStartCheck.SetChecked(config.AutoStart == nil || *config.AutoStart)
 	ui.startOnBootCheck.SetChecked(config.StartOnBoot)
 
 	// Load environment variables
@@ -614,6 +620,14 @@ func (ui *LauncherUI) UpdateRunningState(isRunning bool) {
 			ui.webUIButton.Disable()
 		}
 	})
+}
+
+// WelcomeDontShowAgainChecked reports the initial state of the welcome
+// window's "don't show this welcome window again" checkbox for the given
+// config: checked only when the user has already opted out of the welcome
+// window.
+func WelcomeDontShowAgainChecked(config *Config) bool {
+	return config != nil && config.ShowWelcome != nil && !*config.ShowWelcome
 }
 
 // ShowWelcomeWindow displays the welcome window with helpful information
@@ -677,19 +691,20 @@ Getting Started:
 			ui.openURL("https://discord.gg/XgwjKptP7Z")
 		})
 
-		// Checkbox to disable welcome window
-		dontShowAgainCheck := widget.NewCheck("Don't show this welcome window again", func(checked bool) {
+		// Checkbox to disable welcome window. The initial state is applied
+		// BEFORE the change callback is attached: SetChecked fires OnChanged,
+		// and letting the initialization itself persist a ShowWelcome flip is
+		// exactly the bug that suppressed this window forever after its first
+		// showing (#11673).
+		dontShowAgainCheck := widget.NewCheck("Don't show this welcome window again", nil)
+		dontShowAgainCheck.SetChecked(WelcomeDontShowAgainChecked(ui.launcher.GetConfig()))
+		dontShowAgainCheck.OnChanged = func(checked bool) {
 			if ui.launcher != nil {
 				config := ui.launcher.GetConfig()
 				v := !checked
 				config.ShowWelcome = &v
 				ui.launcher.SetConfig(config)
 			}
-		})
-
-		config := ui.launcher.GetConfig()
-		if config.ShowWelcome != nil {
-			dontShowAgainCheck.SetChecked(*config.ShowWelcome)
 		}
 
 		// Close button

@@ -6,8 +6,8 @@ extern "C" {
 #endif
 
 void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled);
-void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_x, int tile_size_y);
-void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_x, float rel_size_y);
+void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_w, int tile_size_h);
+void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_w, float rel_size_h);
 void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap);
 sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t *params);
 

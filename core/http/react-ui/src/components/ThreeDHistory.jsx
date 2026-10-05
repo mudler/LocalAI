@@ -51,7 +51,7 @@ export default memo(function ThreeDHistory({ entries, selectedId, onSelect, onDe
                 </div>
                 <div className="media-history-item-info">
                   <div className="media-history-item-top">
-                    <span className="media-history-item-prompt">{entry.name || entry.model}</span>
+                    <span className="media-history-item-prompt">{entry.inputs?.prompt?.data || entry.name || entry.model}</span>
                     <span className="media-history-item-time">{relativeTime(entry.createdAt)}</span>
                   </div>
                   <div className="media-history-item-model">

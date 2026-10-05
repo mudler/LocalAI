@@ -3,6 +3,7 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"mime"
 	"net"
@@ -242,6 +243,15 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			// Biometric routes can carry vectors in either direction and JSON
+			// diarization carries base64 audio even without profile export.
+			// Exclude the whole exchange before reading or wrapping bodies,
+			// including registration if tracing is installed globally later.
+			switch c.Path() {
+			case "/v1/audio/diarization", "/audio/diarization", "/v1/voice/register":
+				return next(c)
+			}
+
 			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
 			if ct != "application/json" {
 				return next(c)
@@ -310,10 +320,15 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			// Restore original writer unconditionally
 			c.Response().Writer = mw.ResponseWriter
 
-			// Determine response status (use 500 if handler errored and no status was set)
+			// Echo renders returned errors after middleware unwinds. Its default
+			// response status is already 200, so use the error while uncommitted.
 			status := c.Response().Status
-			if status == 0 && handlerErr != nil {
+			if handlerErr != nil && !c.Response().Committed {
 				status = http.StatusInternalServerError
+				var httpErr *echo.HTTPError
+				if errors.As(handlerErr, &httpErr) {
+					status = httpErr.Code
+				}
 			}
 
 			// Create exchange log (always, even on error). Sensitive headers

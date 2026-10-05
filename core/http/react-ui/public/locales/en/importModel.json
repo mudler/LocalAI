@@ -78,6 +78,8 @@
     "tts": "Text-to-speech",
     "image": "Image / Video",
     "video": "Video generation",
+    "3d": "3D mesh generation",
+    "3d_animation": "3D animation",
     "embeddings": "Embeddings",
     "reranker": "Rerankers",
     "detection": "Object detection",

@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -107,7 +107,7 @@ var _ = Describe("revision eligibility consumers", func() {
 		}),
 		Entry("FindLRUModel", func() []string {
 			Expect(db.Model(&NodeModel{}).Where("id IN ?", []string{"empty", "mismatch", "unloading"}).Update("node_id", nodes["current"].ID).Error).To(Succeed())
-			row, err := registry.FindLRUModel(ctx, nodes["current"].ID)
+			row, err := registry.FindLRUModel(ctx, nodes["current"].ID, nil)
 			Expect(err).NotTo(HaveOccurred())
 			return []string{row.ID}
 		}),
@@ -183,15 +183,17 @@ var _ = Describe("revision eligibility consumers", func() {
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, Prober: prober, ProbeStaleAfter: time.Minute})
 			rc.probeLoadedModels(ctx)
 			Expect(prober.addresses).To(ConsistOf("current"))
+			Expect(prober.nodeIDs).To(ConsistOf(nodes["current"].ID))
 		}),
 		Entry("sweepLeakedInFlight", func(prober *recordingEligibilityProber, _ *recordingEligibilityLister) {
 			Expect(db.Model(&NodeModel{}).Where("model_name = ?", modelName).Updates(map[string]any{"in_flight": 1, "last_used": time.Now().Add(-2 * inFlightLeakIdleAfter)}).Error).To(Succeed())
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, Prober: prober})
 			rc.sweepLeakedInFlight(ctx)
 			Expect(prober.addresses).To(ConsistOf("current"))
+			Expect(prober.nodeIDs).To(ConsistOf(nodes["current"].ID))
 		}),
 		Entry("reconcileNodeProcesses", func(_ *recordingEligibilityProber, lister *recordingEligibilityLister) {
-			lister.running = map[string][]messaging.RunningModelInfo{nodes["current"].ID: {{ModelID: modelName, ReplicaIndex: 0}}}
+			lister.running = map[string][]workerctl.RunningModelInfo{nodes["current"].ID: {{ModelID: modelName, ReplicaIndex: 0}}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, ProcessLister: lister, ProbeStaleAfter: time.Minute})
 			rc.reconcileNodeProcesses(ctx)
 			Expect(lister.nodeIDs).To(ConsistOf(nodes["current"].ID))
@@ -262,19 +264,20 @@ var _ = Describe("revision eligibility consumers", func() {
 	})
 })
 
-type recordingEligibilityProber struct{ addresses []string }
+type recordingEligibilityProber struct{ addresses, nodeIDs []string }
 
-func (p *recordingEligibilityProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (p *recordingEligibilityProber) Probe(_ context.Context, nodeID, address string) ProbeOutcome {
 	p.addresses = append(p.addresses, address)
+	p.nodeIDs = append(p.nodeIDs, nodeID)
 	return ProbeAlive
 }
 
 type recordingEligibilityLister struct {
 	nodeIDs []string
-	running map[string][]messaging.RunningModelInfo
+	running map[string][]workerctl.RunningModelInfo
 }
 
-func (l *recordingEligibilityLister) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
+func (l *recordingEligibilityLister) ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error) {
 	l.nodeIDs = append(l.nodeIDs, nodeID)
-	return &messaging.ModelsRunningReply{Models: l.running[nodeID]}, nil
+	return &workerctl.ModelsRunningReply{Models: l.running[nodeID]}, nil
 }

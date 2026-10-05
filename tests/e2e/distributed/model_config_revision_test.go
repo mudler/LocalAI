@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,14 +22,14 @@ type revisionCleanupStopper struct {
 	stopped     []nodes.NodeModel
 }
 
-func (s *revisionCleanupStopper) StopModelReplica(_ context.Context, nodeID string, replica nodes.NodeModel, _ bool) (messaging.ModelStopReply, error) {
+func (s *revisionCleanupStopper) StopModelReplica(_ context.Context, nodeID string, replica nodes.NodeModel, _ bool) (workerctl.ModelStopReply, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stopped = append(s.stopped, replica)
 	if nodeID == s.unreachable {
-		return messaging.ModelStopReply{}, errors.New("worker unreachable")
+		return workerctl.ModelStopReply{}, errors.New("worker unreachable")
 	}
-	return messaging.ModelStopReply{
+	return workerctl.ModelStopReply{
 		Matched:    true,
 		Terminated: true,
 		ProcessKey: replica.ModelName,

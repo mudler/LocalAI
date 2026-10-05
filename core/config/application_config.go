@@ -14,6 +14,9 @@ import (
 )
 
 type ApplicationConfig struct {
+	// ProxyAPIKeyEnvLookup resolves upstream credentials at the CLI boundary.
+	ProxyAPIKeyEnvLookup func(string) string `json:"-" yaml:"-"`
+
 	Context          context.Context
 	ConfigFile       string
 	SystemState      *system.SystemState
@@ -84,6 +87,10 @@ type ApplicationConfig struct {
 	// or privacy-strict deployments where no token-count history should
 	// touch disk or memory.
 	DisableStats bool
+
+	// RouterDecisionLog retains the bounded in-memory routing log even when
+	// billing stats are disabled. It does not enable token usage recording.
+	RouterDecisionLog bool
 
 	// MITMListen is the address (host:port) the cloudproxy MITM
 	// listener binds on. Empty disables the MITM proxy entirely.
@@ -270,6 +277,10 @@ type AgentPoolConfig struct {
 }
 
 type AppOption func(*ApplicationConfig)
+
+func WithProxyAPIKeyEnvLookup(lookup func(string) string) AppOption {
+	return func(o *ApplicationConfig) { o.ProxyAPIKeyEnvLookup = lookup }
+}
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
@@ -1217,3 +1228,8 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // 		o.Metrics = meter
 // 	}
 // }
+
+// WithRouterDecisionLog retains routing decisions independently of billing stats.
+func WithRouterDecisionLog(enabled bool) AppOption {
+	return func(o *ApplicationConfig) { o.RouterDecisionLog = enabled }
+}

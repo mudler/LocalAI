@@ -18,6 +18,7 @@ service Backend {
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
+  rpc Animate3D(Animate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
@@ -143,6 +144,12 @@ message TokenClassifyRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 3;
+  // Labels overrides the backend's configured entity labels for this
+  // request. Empty means "use the model's configured labels" (the
+  // default for PII detection, where labels are fixed at load time).
+  // Non-empty enables zero-shot per-request label selection (kev /
+  // SystemOne: each question type supplies its own labels).
+  repeated string labels = 4;
 }
 
 // TokenClassifyEntity is one detected entity span. Byte offsets are
@@ -191,6 +198,12 @@ message ScoreRequest {
   // use it to place a reuse point exactly at the boundary, so the next
   // call re-processes only the tokens after it. 0 means unknown.
   int32 stable_prefix_len = 6;
+  // question_type signals a decision-pipeline request (kev/laya)
+  // rather than plain candidate scoring. When set to "systemone", the
+  // backend treats prompt as the raw /v1/systemone request JSON and
+  // returns the full response in ScoreResponse.response_json. Empty
+  // means plain candidate scoring.
+  string question_type = 7;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -216,6 +229,9 @@ message TokenLogProb {
 
 message ScoreResponse {
   repeated CandidateScore candidates = 1;
+  // response_json carries the full decision-pipeline JSON response when
+  // question_type is set on the request. Empty for plain scoring.
+  string response_json = 2;
 }
 
 message RerankRequest {
@@ -499,6 +515,10 @@ message ModelOptions {
   // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
   // Unknown keys produce an error at LoadModel time.
   string EngineArgs = 73;
+  string OriginalConfigFile = 77;
+
+  // EnvVars carries environment variables to be passed to the backend process.
+  map<string, string> EnvVars = 76;
 
   // Proxy carries the cloud-proxy backend's per-model configuration.
   // Empty for non-proxy backends.
@@ -534,6 +554,9 @@ message ProxyOptions {
 message Result {
   string message = 1;
   bool success = 2;
+  // JSON object containing arbitrary backend response metadata. Application
+  // conventions (such as metadata.usage) are independent of this schema.
+  bytes metadata = 4;
 }
 
 // EmbeddingLayout describes whether embeddings contains one final vector or
@@ -605,6 +628,7 @@ message TranscriptLiveConfig {
   string language = 1;             // "" => model default
   int32 sample_rate = 2;           // 0 => 16000; backends may reject others
   map<string, string> params = 3;  // backend-specific tuning
+  repeated KnownVoice known_voices = 4;   // see DiarizeRequest.known_voices
 }
 
 message TranscriptLiveAudio {
@@ -618,12 +642,30 @@ message TranscriptLiveResponse {
   repeated TranscriptWord words = 4;    // words finalized by this feed (stream-relative ns)
   TranscriptResult final_result = 5;    // terminal message only, after the send side closes
   bool eob = 6;                         // <EOB> fired: a backchannel ("uh-huh") ended — NOT a turn boundary
+  repeated LiveSpeakerSegment speakers = 7; // closed speaker segments from a companion diarization/scene stream
+  repeated LiveSoundEvent sounds = 8;       // closed sound events from a companion sound/scene stream
+}
+
+message LiveSpeakerSegment {
+  string speaker = 1;   // decimal speaker index
+  int64 start = 2;      // stream-relative nanoseconds
+  int64 end = 3;
+  string name = 4;      // registered speaker name when the backend identified the speaker, else empty
+}
+
+message LiveSoundEvent {
+  string label = 1;
+  int32 index = 2;
+  float peak = 3;
+  int64 start = 4;      // stream-relative nanoseconds
+  int64 end = 5;
 }
 
 message TranscriptWord {
   int64 start = 1;
   int64 end = 2;
   string text = 3;
+  string speaker = 4;   // backend speaker label when diarizing; empty otherwise
 }
 
 message TranscriptSegment {
@@ -685,6 +727,20 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+}
+
+// A named conditioning input. Media references are staged local paths by the
+// time they reach the backend; text is passed verbatim.
+message AnimationInput {
+  string type = 1; // text, image, video, or mesh
+  string data = 2;
+}
+
+message Animate3DRequest {
+  map<string, AnimationInput> inputs = 1;
+  string dst = 2;
+  map<string, string> params = 3;
+  string model_identity = 4;
 }
 
 message Generate3DRequest {
@@ -771,6 +827,10 @@ message DiarizeRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 11;
+  // Registered voices the backend may use to name speakers. Only backends that
+  // identify speakers themselves read this; others ignore it.
+  repeated KnownVoice known_voices = 12;
+  bool include_speaker_profiles = 13; // opt-in sensitive embeddings; unsupported backends must reject
 }
 
 message DiarizeSegment {
@@ -779,9 +839,22 @@ message DiarizeSegment {
   float  end = 3;                      // seconds
   string speaker = 4;                  // backend-emitted speaker label (e.g. "0", "SPEAKER_00")
   string text = 5;                     // optional per-segment transcript (empty unless include_text and supported)
+  string name = 6;                     // registered speaker name, empty when unknown or not identified
+  float  name_score = 7;               // match score of that name (cosine similarity), 0 when unnamed
+}
+
+// KnownVoice is one registered voice: a name and its speaker embedding. `model`
+// names the encoder that produced it, so a backend with a different encoder can
+// refuse vectors that are not comparable.
+message KnownVoice {
+  string id = 4; // registration ID; native keys must not aggregate duplicate display names
+  string name = 1;
+  repeated float embedding = 2;
+  string model = 3;
 }
 
 message DiarizeResponse {
+  string speaker_profiles_json = 5; // versioned speaker_profiles object only; absent by default
   repeated DiarizeSegment segments = 1;
   int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
   float  duration = 3;                 // total audio duration in seconds (0 if unknown)
@@ -837,6 +910,11 @@ message MemoryUsageData {
   map<string, uint64> breakdown = 2;
 }
 
+message SpeakerEncoder {
+  string identity = 1; // sha256 of loaded GGUF bytes
+  int32 dimension = 2;
+}
+
 message StatusResponse {
   enum State {
     UNINITIALIZED = 0;
@@ -846,6 +924,7 @@ message StatusResponse {
   }
   State state = 1;
   MemoryUsageData memory = 2;
+  SpeakerEncoder speaker_encoder = 3; // trusted metadata from the loaded server encoder, never request data
 }
 
 message Message {

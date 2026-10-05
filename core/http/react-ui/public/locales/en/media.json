@@ -7,7 +7,8 @@
       "sound": "Sound",
       "transform": "Transform",
       "threed": "3D",
-      "overview": "Overview"
+      "overview": "Overview",
+      "diarization": "Diarization"
     },
     "overview": {
       "eyebrow": "{{ready}} of {{total}} modalities ready",
@@ -23,10 +24,11 @@
       "describe": {
         "images": "Text to image, image to image, reference images",
         "video": "Text to video and image to video",
-        "threed": "Image to mesh reconstruction",
+        "threed": "Mesh generation and animation",
         "tts": "Text to speech using your voice library",
         "sound": "Music and sound effects from a prompt",
-        "transform": "Separation, enhancement and voice conversion"
+        "transform": "Separation, enhancement and voice conversion",
+        "diarization": "Find speaker turns and remember voices from a recording."
       }
     },
     "groups": {
@@ -99,6 +101,18 @@
   },
   "threed": {
     "title": "3D Generation",
+    "animation": {
+      "skeletonHint": "Generates an animated skeleton, without a mesh or skin.",
+      "preview": "Animated skeleton preview",
+      "pause": "Pause",
+      "play": "Play",
+      "reset": "Reset view",
+      "timeline": "Timeline",
+      "zoom": "Zoom",
+      "inputTooLong": "Input exceeds the {{limit}} byte limit.",
+      "fileTooLarge": "The selected file is too large.",
+      "readFailed": "Could not read the selected file."
+    },
     "labels": {
       "model": "Model",
       "image": "Input image",
@@ -157,7 +171,10 @@
       "voice": "Voice",
       "voicePlaceholder": "Optional speaker or voice ID",
       "input": "Text",
-      "inputPlaceholder": "Enter text to synthesize..."
+      "inputPlaceholder": "Enter text to synthesize...",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "For example: Speak slowly and warmly",
+      "instructionsHint": "Optional delivery guidance. Support depends on the backend."
     },
     "actions": {
       "generate": "Generate",
@@ -172,25 +189,25 @@
     },
     "voiceLibrary": {
       "cloningReady": "Voice cloning",
-      "loading": "Loading saved voices…",
+      "loading": "Loading saved personalities…",
       "modelDefault": "Use model default",
-      "empty": "No saved voices yet.",
+      "empty": "No saved personalities yet.",
       "create": "Create one",
-      "manage": "Manage Voice Library",
+      "manage": "Manage Personality Library",
       "namedVoiceHint": "This model does not accept reference-audio profiles. You can still enter a named speaker supported by its backend."
     }
   },
   "voiceLibrary": {
-    "title": "Voice Library",
-    "subtitle": "Create and manage reusable reference voices for every installed model that supports voice cloning.",
-    "loading": "Loading saved voices…",
-    "listLabel": "Saved voice profiles",
+    "title": "Personality Library",
+    "subtitle": "Create and manage reusable voice personalities with one or more reference recordings.",
+    "loading": "Loading saved personalities…",
+    "listLabel": "Saved voice personalities",
     "status": {
       "ready": "Ready"
     },
     "summary": {
       "label": "Voice library status",
-      "profiles": "saved voices",
+      "profiles": "saved personalities",
       "modelsReady_one": "{{count}} compatible model ready",
       "modelsReady_other": "{{count}} compatible models ready",
       "noModels": "No compatible model installed"
@@ -204,8 +221,8 @@
       "allLanguages": "All languages"
     },
     "empty": {
-      "title": "Your voice library is empty",
-      "body": "Record or upload one consented reference clip, add its exact transcript, and reuse it across compatible TTS models."
+      "title": "Your personality library is empty",
+      "body": "Record or upload consented reference clips, add their exact transcripts, and reuse the personality across compatible TTS models."
     },
     "noResults": {
       "title": "No voices match these filters",
@@ -251,12 +268,12 @@
       "endpointNote": "The same model, input, and voice fields also work with POST /tts."
     },
     "actions": {
-      "create": "Create voice",
-      "createFirst": "Create your first voice",
+      "create": "Create personality",
+      "createFirst": "Create your first personality",
       "retry": "Try again",
       "clearFilters": "Clear filters",
       "useInTTS": "Use in Text to Speech",
-      "delete": "Delete voice",
+      "delete": "Delete personality",
       "installModel": "Install a compatible model",
       "browseModels": "Browse all models"
     },
@@ -274,9 +291,14 @@
     }
   },
   "voiceCreate": {
-    "eyebrow": "Voice Library",
-    "title": "Create a reusable voice",
-    "subtitle": "Add one clean reference clip and its exact transcript. LocalAI handles the backend-specific cloning parameters at generation time.",
+    "eyebrow": "Personality Library",
+    "title": "Create a reusable personality",
+    "subtitle": "Create a reusable personality from one or more clean reference clips and their exact transcripts.",
+    "references": {
+      "add": "Add another reference",
+      "additional": "Reference {{number}}",
+      "remove": "Remove"
+    },
     "sections": {
       "reference": {
         "title": "Reference audio",
@@ -457,5 +479,30 @@
     "heading": "Request",
     "copyCurl": "Copy as curl",
     "copied": "Copied"
+  },
+  "diarization": {
+    "title": "Speaker diarization",
+    "subtitle": "Upload a recording to see who spoke when. Preview clean speech before remembering a voice.",
+    "model": "Model",
+    "recording": "Recording",
+    "optIn": "Prepare speakers to remember",
+    "warning": "Remembered voices are shared globally on this server and are lost when it restarts. Nothing is remembered automatically.",
+    "manage": "Manage remembered voices",
+    "running": "Diarizing…",
+    "run": "Diarize",
+    "unsupported": "Choose a profile-capable model with a speaker encoder, or turn off “Prepare speakers to remember” to run normal diarization.",
+    "previewError": "Could not play this recording. Check that your browser supports its audio format.",
+    "speakers": "Speakers",
+    "segments": "Segments",
+    "duration": "Clean speech: {{seconds}} seconds",
+    "preview": "Preview {{number}}",
+    "insufficient": "Not enough clean speech or no usable profile. Try a recording with longer, non-overlapping speech.",
+    "nameAndRemember": "Name and remember",
+    "name": "Name",
+    "saving": "Saving…",
+    "remember": "Remember",
+    "cancel": "Cancel",
+    "stop": "Stop preview",
+    "missingProfiles": "The backend did not return the requested speaker profiles."
   }
 }

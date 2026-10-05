@@ -59,7 +59,9 @@
     "api": "API",
     "middleware": "Middleware",
     "activity": "活动",
-    "overview": "概览"
+    "overview": "概览",
+    "thisMachine": "本机",
+    "failover": "故障转移"
   },
   "footer": {
     "github": "GitHub",

@@ -65,6 +65,19 @@ type loadOptions struct {
 	// MiniMax-H3 video+audio generation (ABI v12). Present only when the config
 	// carries at least one of its keys; see videoOptions.engaged.
 	video videoOptions
+	// Zero-shot NER labels (ABI v27, GLiNER2.5). GLiNER2.5 is truly zero-shot:
+	// the model ships no default labels, so the entity types to extract are
+	// supplied here from engine_args.ner_labels. When empty, a general-purpose
+	// default set is used.
+	nerLabels []string
+	// nerThreshold is the default sigmoid floor (0 = model default 0.5).
+	nerThreshold float32
+	// nerMaxWidth is the maximum span width in tokens (0 = engine default 12).
+	nerMaxWidth int32
+	// hf_overrides (vLLM parity): a JSON object of config.json keys merged
+	// over the model directory's config.json through a private overlay dir,
+	// see newConfigOverlay. Empty = load the directory as is.
+	hfOverrides string
 }
 
 // videoOptions is the MiniMax-H3 checkpoint SET plus its generation defaults.
@@ -103,6 +116,12 @@ type videoOptions struct {
 	height    int32
 	numFrames int32
 	steps     int32
+	// Directory for runtime prompt-activated LoRA. The engine resolves
+	// <lora:name:strength> prompt tags against safetensors files in this
+	// directory at request time (row ROAD-V1-LORA-RUNTIME). Distinct from the
+	// load-time lora_path/lora_strength fusion, which bakes deltas into the
+	// weights at load.
+	loraDir string
 	// Where frames + WAV are written. Empty = a temporary directory beside the
 	// requested output, removed once the mux succeeds. Set it to keep the
 	// frame_%06d.ppm runs around (they are what ref2va's ref_video consumes).
@@ -128,7 +147,38 @@ func parseOptions(opts *pb.ModelOptions) loadOptions {
 	lo := loadOptions{}
 	applyOptionsList(&lo, opts.GetOptions())
 	applyEngineArgs(&lo, opts.GetEngineArgs())
+	applyDraftModelOption(&lo, opts.GetOptions())
 	return lo
+}
+
+// applyDraftModelOption binds a managed companion snapshot after engine_args
+// has supplied the speculative document. Companion paths do not exist until
+// LocalAI materializes the artifact, so they must replace the gallery's static
+// repository reference without disturbing the method or token budget.
+func applyDraftModelOption(lo *loadOptions, options []string) {
+	if strings.TrimSpace(lo.speculativeConfig) == "" {
+		return
+	}
+	var draftModel string
+	for _, option := range options {
+		key, value, found := strings.Cut(option, ":")
+		if found && strings.TrimSpace(key) == "draft_model" {
+			draftModel = strings.TrimSpace(value)
+		}
+	}
+	if draftModel == "" {
+		return
+	}
+
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(lo.speculativeConfig), &spec); err != nil {
+		return
+	}
+	spec["model"] = draftModel
+	encoded, err := json.Marshal(spec)
+	if err == nil {
+		lo.speculativeConfig = string(encoded)
+	}
 }
 
 // applyOptionsList reads the legacy free-form "key:value" list. strings.Cut
@@ -162,6 +212,8 @@ func applyOptionsList(lo *loadOptions, options []string) {
 			lo.kvTransferConfig = strings.TrimSpace(v)
 		case "tokenizer_config", "tokenizer_config_path":
 			lo.tokenizerConfigPath = strings.TrimSpace(v)
+		case "hf_overrides":
+			lo.hfOverrides = strings.TrimSpace(v)
 		case "enable_prefix_caching", "enable_radix_attention":
 			if b, err := strconv.ParseBool(strings.TrimSpace(v)); err == nil {
 				lo.enablePrefixCaching = boolTriState(b)
@@ -227,6 +279,8 @@ func applyVideoOption(vo *videoOptions, key, value string) bool {
 		vo.workdir = v
 	case "video_crf":
 		vo.crf = parseInt32(v, vo.crf)
+	case "video_lora_dir":
+		vo.loraDir = v
 	case "ffmpeg", "ffmpeg_path":
 		vo.ffmpeg = v
 	default:
@@ -295,6 +349,10 @@ func applyEngineArgs(lo *loadOptions, engineArgs string) {
 			lo.speculativeConfig = jsonDocument(v, lo.speculativeConfig, k)
 		case "kv_transfer_config":
 			lo.kvTransferConfig = jsonDocument(v, lo.kvTransferConfig, k)
+		case "hf_overrides":
+			// Kept verbatim even when it is not an object: Load refuses a
+			// malformed value instead of loading the unmodified config.
+			lo.hfOverrides = jsonDocument(v, lo.hfOverrides, k)
 		case "enable_prefix_caching", "enable_radix_attention":
 			if b, ok := v.(bool); ok {
 				lo.enablePrefixCaching = boolTriState(b)
@@ -302,6 +360,22 @@ func applyEngineArgs(lo *loadOptions, engineArgs string) {
 		case "enable_jump_forward":
 			if b, ok := v.(bool); ok {
 				lo.enableJumpForward = boolTriState(b)
+			}
+		case "ner_labels":
+			if arr, ok := v.([]any); ok {
+				for _, e := range arr {
+					if s, ok := e.(string); ok && s != "" {
+						lo.nerLabels = append(lo.nerLabels, s)
+					}
+				}
+			}
+		case "ner_threshold":
+			if f, ok := v.(float64); ok {
+				lo.nerThreshold = float32(f)
+			}
+		case "ner_max_width":
+			if f, ok := v.(float64); ok {
+				lo.nerMaxWidth = int32(f)
 			}
 		default:
 			if s, ok := videoScalarString(v); ok && applyVideoOption(&lo.video, k, s) {

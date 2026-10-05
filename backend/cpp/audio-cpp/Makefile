@@ -9,7 +9,7 @@
 # recipe is a make target (not a prepare.sh) so 'make purge && make' is a clean
 # rebuild and so the bump bot can see the pin.
 
-AUDIO_CPP_VERSION?=89a0e9803380880305e9e1b83c93614f9df2c893
+AUDIO_CPP_VERSION?=9a02e61326aaaf9d462b584ca5e0daba22c0abfc
 AUDIO_CPP_REPO?=https://github.com/0xShug0/audio.cpp
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -77,6 +77,16 @@ endif
 
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DENGINE_ENABLE_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCHITECTURES)"
+else ifeq ($(BUILD_TYPE),hipblas)
+    ROCM_HOME ?= /opt/rocm
+    ROCM_PATH ?= /opt/rocm
+    export CXX=$(ROCM_HOME)/llvm/bin/clang++
+    export CC=$(ROCM_HOME)/llvm/bin/clang
+    AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+    # audio.cpp forwards GPU_TARGETS to CMake's semicolon-delimited HIP list.
+    comma := ,
+    HIP_TARGETS := $(subst $(comma),;,$(AMDGPU_TARGETS))
+    CMAKE_ARGS += -DENGINE_ENABLE_HIP=ON "-DGPU_TARGETS=$(HIP_TARGETS)"
 else ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DENGINE_ENABLE_VULKAN=ON
 else ifeq ($(UNAME_S),Darwin)

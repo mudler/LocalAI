@@ -28,8 +28,8 @@ type ModelUnloadHook func(modelName string)
 
 // RemoteModelUnloader handles unloading models from remote backend nodes.
 // In distributed mode, this is implemented by the SmartRouter.
-// When ShutdownModel is called for a model with no local process,
-// RemoteModelUnloader.UnloadRemoteModel is called to tell the remote node to free it.
+// ShutdownModel calls the remote unloader even when a local process exists so
+// one request stops every placement in a mixed local and distributed fleet.
 type RemoteModelUnloader interface {
 	UnloadRemoteModel(modelName string) error
 }
@@ -106,6 +106,10 @@ type ModelLoader struct {
 	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
 	// reports -1, indistinguishable from a signal-induced crash.
 	stoppingProcs sync.Map
+	// processRuntimes keeps the owned state/scratch directory alive until the
+	// loader has consumed any exit diagnostics. The exit watcher removes the
+	// potentially large scratch contents immediately.
+	processRuntimes sync.Map
 	// loadFailures records, per modelID, the cooldown window applied after a
 	// failed load so that a client repeatedly polling a broken model does not
 	// spawn (and leak) a fresh backend process on every request. Guarded by mu.
@@ -386,6 +390,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".bak",
 	".partial",
 	".tar.gz",
+	".tar.bz2",
+	".sha256",
 }
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
@@ -606,6 +612,32 @@ func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
 	defer cancel()
 	return ml.shutdownModel(ctx, modelName, true)
+}
+
+// ShutdownModelAtAddress ignores stale watchdog evictions after a reload.
+// Address validation and teardown share the same lifecycle lock as loading.
+func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+	defer cancel()
+	release, err := ml.operations.acquireContext(ctx, modelName, true)
+	if err != nil {
+		return fmt.Errorf("waiting to shut down model %q: %w", modelName, err)
+	}
+	defer release()
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+	m, ok := store.Get(modelName)
+	if !ok || m.address != address {
+		return nil
+	}
+	err = ml.deleteProcess(ctx, modelName, force)
+	if errors.Is(err, ErrModelBusy) && !force && forceBackendShutdown {
+		forceCtx, forceCancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
+		defer forceCancel()
+		return ml.deleteProcess(forceCtx, modelName, true)
+	}
+	return err
 }
 
 // ShutdownModelContext is the cancellation-aware lifecycle primitive used by

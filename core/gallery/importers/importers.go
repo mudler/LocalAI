@@ -115,6 +115,7 @@ var defaultImporters = []Importer{
 	&NemoImporter{},
 	&FasterWhisperImporter{},
 	&QwenASRImporter{},
+	&FunASRImporter{},
 	// ParakeetCppImporter matches only parakeet GGUFs (<arch>-<size>-<quant>.gguf);
 	// kept ahead of LlamaCPPImporter so its .gguf bundles aren't claimed by the
 	// generic GGUF importer.
@@ -148,6 +149,7 @@ var defaultImporters = []Importer{
 	// generic .gguf importer; matches only trellis-named URIs/repos or the
 	// distinctive component filenames, so arbitrary GGUFs are never claimed.
 	&Trellis2CppImporter{},
+	&KimodoCppImporter{},
 	&ACEStepImporter{},
 	// LongCat repositories carry generic Diffusers metadata, so this exact
 	// owner/repo matcher must run before DiffuserImporter.

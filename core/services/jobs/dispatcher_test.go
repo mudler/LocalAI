@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -12,49 +13,22 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// publishCall records a single Publish invocation.
-type publishCall struct {
-	subject string
-	data    any
+// enqueueCall records a single Enqueue invocation with the typed payload, so
+// a spec can tell a JobEvent from pre-encoded bytes.
+type enqueueCall struct {
+	kind    messaging.WorkKind
+	payload any
 }
 
-// fakeMessagingClient implements messaging.MessagingClient and records published messages.
-type fakeMessagingClient struct {
-	calls []publishCall
+// fakeWorkQueue implements messaging.WorkQueue and records every Enqueue.
+type fakeWorkQueue struct {
+	calls []enqueueCall
 }
 
-func (f *fakeMessagingClient) Publish(subject string, data any) error {
-	f.calls = append(f.calls, publishCall{subject: subject, data: data})
+func (f *fakeWorkQueue) Enqueue(_ context.Context, kind messaging.WorkKind, payload any) error {
+	f.calls = append(f.calls, enqueueCall{kind: kind, payload: payload})
 	return nil
 }
-
-func (f *fakeMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (f *fakeMessagingClient) IsConnected() bool { return true }
-func (f *fakeMessagingClient) Close()            {}
-
-// fakeSub implements messaging.Subscription.
-type fakeSub struct{}
-
-func (s *fakeSub) Unsubscribe() error { return nil }
 
 // mockConfigLoader implements ModelConfigLoader for testing Enqueue routing.
 type mockConfigLoader struct {
@@ -83,7 +57,7 @@ var _ = Describe("Dispatcher", func() {
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			disp = NewDispatcher(store, nil, db, "test-instance", 0)
+			disp = NewDispatcher(store, nil, nil, db, "test-instance")
 		})
 
 		It("returns true when no previous job exists", func() {
@@ -209,12 +183,13 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue — test NATS subject routing via real Dispatcher.Enqueue()
+	// Enqueue: the work kind chosen by the real Dispatcher.Enqueue()
 	// -----------------------------------------------------------------------
-	Describe("Enqueue subject routing", func() {
+	Describe("Enqueue work kind routing", func() {
 		var (
 			store *JobStore
-			fake  *fakeMessagingClient
+			queue *fakeWorkQueue
+			bus   *testutil.FakeBus
 			disp  *Dispatcher
 		)
 
@@ -223,11 +198,12 @@ var _ = Describe("Dispatcher", func() {
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
-			fake = &fakeMessagingClient{}
-			disp = NewDispatcher(store, fake, db, "test-instance", 0)
+			queue = &fakeWorkQueue{}
+			bus = testutil.NewFakeBus()
+			disp = NewDispatcher(store, queue, bus, db, "test-instance")
 		})
 
-		It("routes MCP jobs to SubjectMCPCIJobsNew", func() {
+		It("enqueues MCP jobs as WorkMCPCI", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "mcp-task",
@@ -256,11 +232,15 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectMCPCIJobsNew))
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(queue.calls[0].kind).To(Equal(messaging.WorkMCPCI))
+			evt, ok := queue.calls[0].payload.(JobEvent)
+			Expect(ok).To(BeTrue(), "the queue must be handed the typed JobEvent")
+			Expect(evt.JobID).To(Equal(job.ID))
+			Expect(evt.TaskID).To(Equal(task.ID))
 		})
 
-		It("routes non-MCP jobs to SubjectJobsNew", func() {
+		It("enqueues non-MCP jobs as WorkTask", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "plain-task",
@@ -285,11 +265,14 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(queue.calls[0].kind).To(Equal(messaging.WorkTask))
+			evt, ok := queue.calls[0].payload.(JobEvent)
+			Expect(ok).To(BeTrue(), "the queue must be handed the typed JobEvent")
+			Expect(evt.JobID).To(Equal(job.ID))
 		})
 
-		It("routes to SubjectJobsNew when model config is not found", func() {
+		It("enqueues as WorkTask when model config is not found", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "unknown-model-task",
@@ -312,18 +295,31 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(queue.calls[0].kind).To(Equal(messaging.WorkTask))
+		})
+
+		It("keeps queued work off the fan-out bus", func() {
+			task := &TaskRecord{UserID: "user-1", Name: "bus-task", Model: "m", Enabled: true}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &JobRecord{TaskID: task.ID, UserID: "user-1", Status: "pending", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
+
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(bus.PublishCount(messaging.SubjectJobsNew)).To(BeZero())
+			Expect(bus.PublishCount(messaging.SubjectMCPCIJobsNew)).To(BeZero())
 		})
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue event enrichment — verify the payload published by Enqueue()
+	// Enqueue event enrichment: verify the payload enqueued by Enqueue()
 	// -----------------------------------------------------------------------
 	Describe("Enqueue event enrichment", func() {
 		var (
 			store *JobStore
-			fake  *fakeMessagingClient
+			queue *fakeWorkQueue
 			disp  *Dispatcher
 		)
 
@@ -332,8 +328,8 @@ var _ = Describe("Dispatcher", func() {
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
-			fake = &fakeMessagingClient{}
-			disp = NewDispatcher(store, fake, db, "test-instance", 0)
+			queue = &fakeWorkQueue{}
+			disp = NewDispatcher(store, queue, nil, db, "test-instance")
 		})
 
 		It("includes full job and task records in the event", func() {
@@ -368,9 +364,9 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			evt, ok := fake.calls[0].data.(JobEvent)
-			Expect(ok).To(BeTrue(), "published data should be a JobEvent")
+			Expect(queue.calls).To(HaveLen(1))
+			evt, ok := queue.calls[0].payload.(JobEvent)
+			Expect(ok).To(BeTrue(), "enqueued payload should be a JobEvent")
 			Expect(evt.Job).ToNot(BeNil())
 			Expect(evt.Job.ID).To(Equal(job.ID))
 			Expect(evt.Task).ToNot(BeNil())
@@ -399,8 +395,8 @@ var _ = Describe("Dispatcher", func() {
 			// No config loader — Enqueue still works, just no model config enrichment.
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			evt, ok := fake.calls[0].data.(JobEvent)
+			Expect(queue.calls).To(HaveLen(1))
+			evt, ok := queue.calls[0].payload.(JobEvent)
 			Expect(ok).To(BeTrue())
 
 			data, err := json.Marshal(evt)
@@ -412,4 +408,67 @@ var _ = Describe("Dispatcher", func() {
 			Expect(decoded.TaskID).To(Equal(task.ID))
 		})
 	})
+
+	// -----------------------------------------------------------------------
+	// The frontend dispatcher only fans out: jobs leave through the WorkQueue
+	// and nothing here consumes them, so a Broadcaster is all it may ask for.
+	// -----------------------------------------------------------------------
+	Describe("on a fan-out-only bus", func() {
+		var (
+			store *JobStore
+			queue *fakeWorkQueue
+			bus   *testutil.FakeBus
+			disp  *Dispatcher
+		)
+
+		BeforeEach(func() {
+			db := testutil.SetupTestDB()
+			var err error
+			store, err = NewJobStore(db)
+			Expect(err).ToNot(HaveOccurred())
+			queue = &fakeWorkQueue{}
+			bus = testutil.NewFakeBus()
+			// broadcastOnly hides the queue and request methods, so this
+			// compiles only while NewDispatcher asks for no more than it uses.
+			disp = NewDispatcher(store, queue, broadcastOnly{bus}, db, "test-instance")
+			ctx, cancel := context.WithCancel(context.Background())
+			Expect(disp.Start(ctx)).To(Succeed())
+			DeferCleanup(func() {
+				disp.Stop()
+				cancel()
+			})
+		})
+
+		It("still enqueues jobs and joins no queue group", func() {
+			task := &TaskRecord{UserID: "user-1", Name: "fanout-task", Model: "m", Enabled: true}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &JobRecord{TaskID: task.ID, UserID: "user-1", Status: "pending", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
+
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(queue.calls[0].kind).To(Equal(messaging.WorkTask))
+			Expect(bus.QueueGroups()).To(BeEmpty())
+		})
+
+		It("persists the result a worker publishes", func() {
+			task := &TaskRecord{UserID: "user-1", Name: "result-task", Model: "m", Enabled: true}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &JobRecord{TaskID: task.ID, UserID: "user-1", Status: "running", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+
+			PublishJobResult(bus, job.ID, "completed", "the answer", "")
+
+			stored, err := store.GetJob(job.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Status).To(Equal("completed"))
+			Expect(stored.Result).To(Equal("the answer"))
+		})
+	})
 })
+
+// broadcastOnly narrows a FakeBus to the Broadcaster surface.
+type broadcastOnly struct {
+	messaging.Broadcaster
+}

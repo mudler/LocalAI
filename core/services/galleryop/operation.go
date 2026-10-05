@@ -237,7 +237,7 @@ type OpCache struct {
 
 	// Distributed sync (nil when standalone).
 	mu    sync.RWMutex
-	nats  messaging.MessagingClient
+	nats  messaging.Broadcaster
 	store *distributed.GalleryStore
 	subs  []messaging.Subscription
 }
@@ -255,7 +255,7 @@ func NewOpCache(galleryService *GalleryService) *OpCache {
 // SetMessagingClient enables cross-replica OpCache sync. Once set, Set/
 // SetBackend/DeleteUUID publish OpCacheEvent messages that peer OpCaches
 // merge into their local maps. Call Start after this to subscribe.
-func (m *OpCache) SetMessagingClient(nc messaging.MessagingClient) {
+func (m *OpCache) SetMessagingClient(nc messaging.Broadcaster) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nats = nc

@@ -11,6 +11,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/fsnotify/fsnotify"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/xlog"
 )
 
@@ -201,7 +202,9 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		// field previously changed via the API looks env-set to the
 		// baseline comparison, so a manual file edit of that field lands
 		// on the next restart instead of hot-applying.
+		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
 		appConfig.ApplyRuntimeSettingsAtStartup(&settings)
+		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
 		if settings.ApiKeys != nil {
 			appConfig.ApiKeys = config.MergeAPIKeys(startupAppConfig.ApiKeys, *settings.ApiKeys)
 		}

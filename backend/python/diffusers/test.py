@@ -4,9 +4,13 @@ A test script to test the gRPC service and dynamic loader
 import unittest
 import subprocess
 import time
+import os
+import tempfile
+import wave
 from unittest.mock import patch, MagicMock
 
 # Import dynamic loader for testing (these don't need gRPC)
+import backend
 import diffusers_dynamic_loader as loader
 from diffusers import DiffusionPipeline, StableDiffusionPipeline
 
@@ -373,3 +377,135 @@ class TestGenerateImageOptionsKwargsMerge(unittest.TestCase):
         finally:
             os.unlink(src_file.name)
             os.unlink(dst_file.name)
+
+    def test_text_to_image_prompt_is_passed_by_keyword(self):
+        """Test compatibility with pipelines that take image before prompt."""
+        import os
+        import tempfile
+
+        from PIL import Image
+
+        from backend import BackendServicer
+
+        class Flux2CompatiblePipeline:
+            """Model the FLUX.2 call signature: image is before prompt."""
+
+            def __call__(self, image=None, prompt=None, **kwargs):
+                if prompt is None:
+                    raise ValueError("prompt was not passed by keyword")
+                self.prompt = prompt
+                self.kwargs = kwargs
+                return MagicMock(images=[Image.new("RGB", (4, 4))])
+
+        pipeline = Flux2CompatiblePipeline()
+        svc = BackendServicer.__new__(BackendServicer)
+        svc.pipe = pipeline
+        svc.cfg_scale = 7.5
+        svc.controlnet = None
+        svc.img2vid = False
+        svc.txt2vid = False
+        svc.clip_skip = 0
+        svc.PipelineType = "Flux2KleinPipeline"
+        svc.options = {}
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as dst_file:
+            dst_path = dst_file.name
+
+        try:
+            request = MagicMock()
+            request.positive_prompt = "a red apple on a wooden table"
+            request.negative_prompt = ""
+            request.step = 4
+            request.seed = 0
+            request.width = 0
+            request.height = 0
+            request.src = ""
+            request.ref_images = []
+            request.dst = dst_path
+
+            svc.GenerateImage(request, context=None)
+
+            self.assertEqual(pipeline.prompt, request.positive_prompt)
+            self.assertEqual(pipeline.kwargs["num_inference_steps"], 4)
+        finally:
+            os.unlink(dst_path)
+
+
+class TestDeviceSelection(unittest.TestCase):
+    """Unit tests for backend.select_device (no GPU required)."""
+
+    def test_autodetect_cuda(self):
+        self.assertEqual(backend.select_device(False, None, True, False, False), "cuda")
+
+    def test_cpu_fallback(self):
+        self.assertEqual(backend.select_device(False, None, False, False, False), "cpu")
+
+    def test_forced_cuda(self):
+        self.assertEqual(backend.select_device(True, None, False, False, False), "cuda")
+
+    def test_device_option_wins(self):
+        self.assertEqual(backend.select_device(True, "cpu", True, True, True), "cpu")
+
+    def test_mps_overrides(self):
+        self.assertEqual(backend.select_device(False, None, True, False, True), "mps")
+
+
+class TestWritePcmWav(unittest.TestCase):
+    def test_writes_clipped_float_samples_as_mono_pcm(self):
+        from audio_utils import write_pcm_wav
+
+        destination = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        destination.close()
+
+        try:
+            write_pcm_wav(destination.name, [0.0, 0.5, -0.5, 2.0], 16000)
+
+            with wave.open(destination.name, "rb") as generated:
+                self.assertEqual(generated.getframerate(), 16000)
+                self.assertEqual(generated.getnchannels(), 1)
+                self.assertEqual(generated.getsampwidth(), 2)
+                self.assertEqual(generated.getnframes(), 4)
+                self.assertEqual(
+                    generated.readframes(4),
+                    b"\x00\x00\x00@\x00\xc0\xff\x7f",
+                )
+        finally:
+            os.unlink(destination.name)
+
+
+@unittest.skipUnless(GRPC_AVAILABLE, "gRPC modules not available")
+class TestSoundGeneration(unittest.TestCase):
+    def test_maps_request_options_and_writes_pipeline_audio(self):
+        from backend import BackendServicer
+
+        service = BackendServicer.__new__(BackendServicer)
+        service.options = {"num_inference_steps": 200.0}
+        service.pipe = MagicMock()
+        service.pipe.return_value.audios = [[0.0, 0.5, -0.5]]
+        service.pipe.vae.config.sampling_rate = 16000
+
+        destination = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        destination.close()
+
+        try:
+            request = backend_pb2.SoundGenerationRequest(
+                text="ocean waves",
+                dst=destination.name,
+                duration=2.5,
+                temperature=0,
+            )
+
+            result = service.SoundGeneration(request, context=None)
+
+            self.assertTrue(result.success, result.message)
+            service.pipe.assert_called_once_with(
+                num_inference_steps=200,
+                prompt="ocean waves",
+                audio_length_in_s=2.5,
+                guidance_scale=0,
+            )
+            with wave.open(destination.name, "rb") as generated:
+                self.assertEqual(generated.getframerate(), 16000)
+                self.assertEqual(generated.getnframes(), 3)
+        finally:
+            os.unlink(destination.name)

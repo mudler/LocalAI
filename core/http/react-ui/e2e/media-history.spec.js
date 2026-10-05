@@ -204,7 +204,7 @@ test.describe('Media History - TTS', () => {
     await page.goto('/app/tts')
     await expect(page.getByRole('button', { name: 'test-tts-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.textarea').fill('hello world')
+    await page.getByPlaceholder('Enter text to synthesize...').fill('hello world')
     await page.locator('button[type="submit"]').click()
 
     // History entry should appear

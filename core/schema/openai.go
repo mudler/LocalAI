@@ -98,7 +98,8 @@ type OpenAIResponse struct {
 	// `"usage":{"prompt_tokens":0,...}` on every chunk and break
 	// OpenAI-SDK consumers that filter on a truthy `result.usage`
 	// (continuedev/continue, Kilo Code, Roo Code, etc.).
-	Usage *OpenAIUsage `json:"usage,omitempty"`
+	Usage    *OpenAIUsage    `json:"usage,omitempty"`
+	Metadata json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
 }
 
 // StreamOptions mirrors OpenAI's `stream_options` request field. The only
@@ -186,6 +187,8 @@ type JsonSchema struct {
 }
 
 type OpenAIRequest struct {
+	IncludeSpeakerProfiles bool `json:"include_speaker_profiles,omitempty"`
+	IncludeText            bool `json:"include_text,omitempty"`
 	PredictionOptions
 
 	Context context.Context    `json:"-"`
@@ -210,6 +213,10 @@ type OpenAIRequest struct {
 	Size string `json:"size,omitempty"`
 	// Prompt is read only by completion/image API calls
 	Prompt any `json:"prompt,omitempty" yaml:"prompt"`
+	// NegativePrompt for image generation (matches Stable Diffusion WebUI /
+	// vLLM-Omni conventions). Combined, comma-separated, with any "|"-suffixed
+	// negative tags in Prompt.
+	NegativePrompt string `json:"negative_prompt,omitempty" yaml:"negative_prompt"`
 
 	// Edit endpoint
 	Instruction string `json:"instruction,omitempty" yaml:"instruction"`
@@ -267,8 +274,9 @@ type ModelsDataResponse struct {
 // served by the LocalAI-specific /v1/models/capabilities endpoint so clients can
 // route attachments (image/audio/video) to a model only when it can handle them.
 type ModelCapabilities struct {
-	ID     string `json:"id"`
-	Object string `json:"object"`
+	ThreeDOperations []ThreeDOperation `json:"three_d_operations,omitempty"`
+	ID               string            `json:"id"`
+	Object           string            `json:"object"`
 	// Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
 	// tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
 	Capabilities []string `json:"capabilities"`
@@ -276,6 +284,11 @@ type ModelCapabilities struct {
 	InputModalities []string `json:"input_modalities"`
 	// OutputModalities is the subset of {text,image,audio,video} the model produces.
 	OutputModalities []string `json:"output_modalities"`
+	// ContextSize is the effective context window in tokens the backend will
+	// run with: the configured context_size, or the default when unset. 0 means
+	// the value is unknown (e.g. a loose file with no config). Clients can use
+	// this to size their context budget for auto-compaction and pruning.
+	ContextSize int `json:"context_size,omitempty"`
 }
 
 // ModelCapabilitiesResponse is the envelope returned by /v1/models/capabilities.

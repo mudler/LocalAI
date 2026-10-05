@@ -17,8 +17,7 @@ const STREAM_BADGE = {
 }
 
 export default function NodeBackendLogs() {
-  const { nodeId, modelId: rawModelId } = useParams()
-  const modelId = decodeURIComponent(rawModelId || '')
+  const { nodeId, modelId = '' } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
 

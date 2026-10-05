@@ -99,3 +99,12 @@ var DiffusersSchedulerOptions = []FieldOption{
 	{Value: "heun", Label: "Heun"},
 	{Value: "unipc", Label: "UniPC"},
 }
+
+// SystemMessagesAfterFirstOptions are the values of template.system_messages_after_first:
+// how system messages that appear after the first turn are handled before the chat
+// template runs (empty = pass through unchanged, which strict Jinja templates reject).
+var SystemMessagesAfterFirstOptions = []FieldOption{
+	{Value: "", Label: "Pass through (default)"},
+	{Value: "merge", Label: "Merge into the first system message"},
+	{Value: "user", Label: "Forward as user messages"},
+}

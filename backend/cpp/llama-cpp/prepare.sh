@@ -15,12 +15,42 @@ if [ -d "patches" ]; then
     done
 fi
 
+## Apple RDMA link fixup.
+
+## ggml-rpc hands Apple's librdma to the linker with
+## target_link_options(ggml-rpc PRIVATE "LINKER:-weak_library,..."). Link options are not
+## a usage requirement of a static library, so in our BUILD_SHARED_LIBS=OFF build the flag
+## dies with libggml-rpc.a and every ibv_* symbol transport-apple.cpp reaches for comes out
+## undefined when grpc-server and ggml-rpc-server link. Re-declare the same weak link as
+## INTERFACE so it travels to whoever links the static library.
+##
+## Guarded on the marker so a second prepare.sh over the same checkout is a no-op, and on
+## GGML_RPC_RDMA_APPLE so forks that branched before the Apple RDMA transport (turboquant,
+## bonsai) are left alone.
+RPC_CMAKE=llama.cpp/ggml/src/ggml-rpc/CMakeLists.txt
+if [ -f "$RPC_CMAKE" ] && grep -q "GGML_RPC_RDMA_APPLE" "$RPC_CMAKE" && ! grep -q "LOCALAI_RDMA_IFACE" "$RPC_CMAKE"; then
+    echo "==> ggml-rpc carries the Apple RDMA transport, re-declaring its weak librdma link as INTERFACE"
+    cat >> "$RPC_CMAKE" <<'EOF'
+
+# LOCALAI_RDMA_IFACE: added by backend/cpp/llama-cpp/prepare.sh
+if (GGML_RPC_RDMA AND APPLE AND NOT BUILD_SHARED_LIBS)
+    target_link_options(ggml-rpc INTERFACE "LINKER:-weak_library,${RDMA_LIB}")
+endif()
+EOF
+fi
+
 for file in $(ls llama.cpp/tools/server/); do
     cp -rfv llama.cpp/tools/server/$file llama.cpp/tools/grpc-server/
 done
 
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
+cp -r decision_compat.h llama.cpp/tools/grpc-server/
+cp -r decision_images.h llama.cpp/tools/grpc-server/
+# Model-load diagnostics (included by grpc-server.cpp) and their standalone
+# regression test.
+cp -r model_load_error.h llama.cpp/tools/grpc-server/
+cp -r model_load_error_test.cpp llama.cpp/tools/grpc-server/
 # Shared message-reconstruction helpers (included by grpc-server.cpp) and their
 # unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
 cp -r message_content.h llama.cpp/tools/grpc-server/
@@ -35,10 +65,18 @@ cp -r tts_request_options_test.cpp llama.cpp/tools/grpc-server/
 # Thread-count default normalization and its standalone regression test.
 cp -r thread_params.h llama.cpp/tools/grpc-server/
 cp -r thread_params_test.cpp llama.cpp/tools/grpc-server/
+# Slot-count resolution (option over LLAMACPP_PARALLEL) and its standalone
+# regression test.
+cp -r parallel_params.h llama.cpp/tools/grpc-server/
+cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
 cp -r parent_watch_test.cpp llama.cpp/tools/grpc-server/
+# Dead-stream tracker (included by grpc-server.cpp) and its standalone unit
+# test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
+cp -r stream_peer.h llama.cpp/tools/grpc-server/
+cp -r stream_peer_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 

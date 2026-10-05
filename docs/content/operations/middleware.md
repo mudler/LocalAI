@@ -45,7 +45,7 @@ routing, `/api/pii/events` for redaction and block actions.
 PII redaction is **NER-based and runs request-side (input)**. It is
 **off by default**, flipping to **on for any `cloud-proxy` backend**
 because that traffic crosses the network to a third-party provider. Pick a
-[default detector](#instance-wide-defaults) so those models are actually
+[default detector](#instance-wide-default-detector) so those models are actually
 scanned. Explicit `pii.enabled` in a model's YAML always wins over the
 backend default.
 
@@ -353,20 +353,84 @@ silent-bypass.
 
 ### Available classifiers
 
-LocalAI ships three classifier implementations. Pick one with `classifier:`
+LocalAI ships four classifier implementations. Pick one with `classifier:`
 in the router YAML:
 
 | Classifier | When to use | Underlying primitive |
 |---|---|---|
 | `score` (default) | Small classifier-tuned LM (Arch-Router-style). Best when label vocabulary is well-covered by next-token continuation. | `Score` gRPC primitive (llama-cpp, vLLM). |
 | `colbert` | When label descriptions are abstract or short and a next-token classifier produces flat distributions. Robust on long-form policy descriptions. | rerankers backend in ColBERT mode (e.g. `bge-m3-colbert` from the gallery). |
+| `decisions` | Independent, overlapping policy decisions from a native decision model. | Internal SystemOne pipeline via Score; numeric noul P(true). |
 | `knn` | When you have (or can generate) labelled example prompts — including outcome-labelled production traffic. Deterministic, auditable, cheapest per request, and the only classifier with an explicit out-of-distribution fallback. | embeddings backend + local-store KNN over a persisted, curated corpus. |
 
-All three share `policies`, `candidates`, `fallback`, and
-`classifier_cache_size`. `score` and `colbert` take a
+All four share `policies`, `candidates`, and `fallback`. The existing
+`score`, `colbert`, and `knn` classifiers also use `classifier_cache_size`. `score` and `colbert` take a
 `classifier_model` (+ `activation_threshold`, optional
 `embedding_cache`); `knn` instead takes a `knn:` block and a corpus
 seeded through the API.
+
+### Native decision models (`decisions`)
+
+Use `classifier: decisions` with an installed native decision model explicitly
+configured with `known_usecases: [decisions]` and a backend supporting the Score
+RPC. A chat model with ordinary continuation scoring is not a substitute.
+The router calls the internal `ModelSystemOne` adapter, never a loopback HTTP
+endpoint, NER extractor, or text-generation fallback.
+
+```yaml
+name: policy-router
+router:
+  classifier: decisions
+  classifier_model: my-decision-model
+  activation_threshold: 0.5
+  policies:
+    - label: code
+      description: Writing or debugging code
+    - label: private
+      description: Handling private information
+  candidates:
+    - model: coding-model
+      labels: [code]
+    - model: private-coding-model
+      labels: [code, private]
+  fallback: general-model
+```
+
+Each policy becomes a separate `noul` question with explicit `false` and `true`
+criteria. Stable question IDs map answers back to policy declaration order.
+The native numeric `noul` value is **P(true)**; a probabilities map is not
+required. `label_scores` are independent values in [0,1], not a distribution
+normalized across policies. Every label with probability **>= threshold** is
+active, and `score` is the maximum probability. The default threshold is 0.5
+(omitted or zero); positive configured thresholds must be finite and <=1.
+There is no exclusive-choice mode or top-one rescue. All-below-threshold means
+abstention. The first candidate covering all active labels wins; abstention,
+malformed answers, native context rejection, and backend errors use the normal
+configured fallback. Parent request cancellation returns without selecting a
+fallback.
+
+Limits: 1–64 unique nonblank policies, nonblank descriptions, and 64 KiB each
+for serialized internal request and raw response. Missing/null/non-numeric,
+wrong-type, unknown-ID and out-of-range answers fail classification; numeric
+zero is valid. The native engine owns question framing and context enforcement.
+The router does not estimate native context from raw JSON token counts or trim
+text on that assumption. A request within the byte limit can still exceed the
+model's context and fall back.
+
+The native adapter has a separate **process-wide eight-operation ceiling**,
+covering healthy calls as well as abandoned work, independently of the general
+backend admission limit (default 1024). Saturation fails classification and uses
+the configured fallback; it does not queue. Model loading has no cancellable
+API: cancellation releases the waiting caller, **not underlying resources**.
+Eight stuck loads therefore prevent further native decisions until underlying
+work finishes. This bound is a resource-safety measure, not a throughput claim.
+
+The classifier registry invalidates on router configuration, resolved native
+model configuration/usecase, or persisted model revision changes. Decisions do
+not memoize prompt results or support `embedding_cache`/composite `knn` blocks;
+these combinations are rejected. `classifier_cache_size` has no effect on this
+classifier. The same central factory serves chat, Anthropic, realtime and the
+existing `/router/decide` oracle. Decision traces contain no prompt text.
 
 ### The Score classifier
 
@@ -558,7 +622,12 @@ The corpus is persisted as one JSONL file per router under
 `<data path>/router-corpus/` (text, labels, vector, embedding-model name,
 and embedding fingerprint) — **the file is the source of truth** and
 survives restarts; the local-store index is rebuilt from it at classifier
-build time without re-embedding. The fingerprint follows the effective
+build time without re-embedding. Before each KNN lookup, LocalAI checks a stored
+vector against the live index. If the store restarts empty after eviction or
+an idle timeout, LocalAI restores the index from the file without re-embedding.
+A synchronization error fails the lookup.
+
+The fingerprint follows the effective
 embedding-model config and local artifact identity, so changing the model or
 replacing its local weights re-embeds the corpus on the next process load.
 For remote embedding services whose weights can change invisibly, bump
@@ -810,3 +879,18 @@ with `POST /models/reload` to pick up YAML edits without restarting.
   required for mutating endpoints and the `/app/middleware` page; in
   no-auth single-user mode the synthetic local user has admin role
   automatically.
+
+### Creating a Decisions router in the UI
+
+In **Middleware → Routing → Create routing model**, select **Decisions (native
+probabilities)** under Classifier. The Classifier Model picker lists installed,
+enabled native decision models explicitly declaring `known_usecases: [decisions]`
+on a backend supporting Score, including `llama-cpp` and `vllm-cpp`. NER-only
+models and routing dispatchers are not eligible. Selecting a model saves its exact
+configured name; it does not install weights.
+
+Decisions needs no ChatML template and returns independent label probabilities,
+not an exclusive choice. Start with an activation threshold of **0.5** (zero uses
+the Decisions default of 0.5). Changing classifiers clears the dependent model
+selection but preserves your threshold, including the template's initial 0.40;
+set it deliberately before saving. Existing saved selections reopen unchanged.

@@ -11,7 +11,8 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: A C++ library for audio transcription (default)
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
-- **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
+- **WhisperX**: Whisper transcription with word alignment and optional speaker diarization. Set `HF_TOKEN` and pass `diarize=true` to load WhisperX's gated pyannote diarization pipeline.
+- **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events). The same backend also loads Nemotron-3-Diarization (`/v1/audio/diarization`) and CED sound models (`/v1/audio/classification`), and can attach either as a companion to a transcription model.
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
 - **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}) page for the model options.
@@ -109,7 +110,9 @@ In addition to `file` and `model`, the endpoint accepts the following multipart 
 | `timestamp_granularities[]` | Multi-value form field: `word` and/or `segment`. Honored when the backend produces the requested granularity. |
 | `response_format` | One of `json` (default for backwards-compat), `verbose_json`, `text`, `srt`, `vtt`, `lrc`. |
 | `stream` | When `true`, the endpoint emits an SSE stream of `transcript.text.delta` events followed by a final `transcript.text.done` event. |
-| `diarize` | LocalAI extension - speaker diarization (whisper.cpp only). |
+| `diarize` | LocalAI extension - speaker diarization. WhisperX requires `HF_TOKEN`; requests fail with `FailedPrecondition` when it is missing. |
+
+If speaker diarization fails after transcription succeeded, the WhisperX backend logs the error and returns the transcript without speaker labels. Other transcription failures return an error instead of an empty transcript. Diarization still requires `HF_TOKEN`.
 
 The response body for `verbose_json` includes `text`, `language`, `duration`, and `segments[]` (with `speaker` populated when diarization is enabled).
 
@@ -189,6 +192,26 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
 
+### Diarization and sound classification
+
+The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classification` endpoints, and can attach a diarization or sound model to a live transcription session. `options:` accepts paths relative to the models directory, or absolute:
+
+| Option | Allowed on | Used for |
+|---|---|---|
+| `asr_model:<path>` | a diarization model | `include_text` on `/v1/audio/diarization` |
+| `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
+| `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
+| `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
+| `speaker_model:<path>` | a model with a diarization model | names registered speakers (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
+| `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
+| `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
+
+With a `diarization_model` companion, `/v1/audio/transcriptions` labels each segment with its `speaker` (`"0"`, `"1"`, ... in order of first appearance) and splits segments where the speaker changes; with `timestamp_granularities[]=word` each word carries its speaker too. With `stream=true` the closing `transcript.text.done` event lists the segments with their speakers. Pass `-F diarize=false` to skip diarization for one request. The diarization GGUF can also be imported directly: `local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-f16.gguf`.
+
+`speaker_model:` needs libparakeet with C-API v10. A wrong setup fails at load time with one of these errors: `parakeet-cpp: speaker_model needs libparakeet.so ABI 10 (parakeet_capi_speaker_registry_add_embedding); the loaded library is older`, `parakeet-cpp: speaker_model needs a diarization model (the primary or diarization_model:)`, `parakeet-cpp: a speaker model cannot be the primary model; use it as speaker_model: next to a diarization model`, `parakeet-cpp: speaker_model "<path>" is a <kind> model, expected a speaker model` (the file is not a speaker encoder GGUF), or `parakeet-cpp: speaker_threshold "<value>" must be a distance in (0, 2) (1 minus cosine similarity)` / `parakeet-cpp: speaker_margin "<value>" must be a number in [0, 1)` for a bad number.
+
+The loader rejects a companion whose role duplicates the primary's own (for example `asr_model:` on an already-ASR primary, or `sound_model:` on a CED primary), and rejects a companion GGUF that does not match the role its option names (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
+
 ### Segment timestamps
 
 Transcriptions are split into segments the same way NVIDIA NeMo does: a new segment starts after sentence-ending punctuation (`.`, `?`, `!`), and each segment carries `start`/`end` times. This is the default (NeMo's punctuation-only segmentation) and needs no configuration. While streaming, each end-of-utterance closes a segment, now with timestamps.
@@ -219,6 +242,122 @@ options:
 ```
 
 By default each request runs on its own. Raise `batch_max_size` (for example 4 to 16) to enable batching; it pays off on GPU under concurrent load, where coalescing the per-step decode GEMMs across requests is a large throughput win. Leave it at 1 on CPU and for low-concurrency setups, where batching only adds latency. Batching only affects concurrent unary requests; streaming sessions always run on their own.
+
+### Moondream Ultra and Redux
+
+[Moondream](https://huggingface.co/moondream) publishes two derivatives of NVIDIA parakeet-tdt-0.6b-v3, Ultra and Redux. Both have a voice-activity-detection (VAD) head. The gallery has five entries, built from the GGUFs in [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf):
+
+| Gallery entry | File | Runs on |
+|---|---|---|
+| `parakeet-cpp-moondream-ultra-f16` | `ultra-f16.gguf` | CPU and GPU |
+| `parakeet-cpp-moondream-ultra-q8_0` | `ultra-q8_0.gguf` | CPU and GPU |
+| `parakeet-cpp-moondream-redux-packed` | `redux-packed.gguf` | CPU only, offline only |
+| `parakeet-cpp-moondream-redux-f16` | `redux-f16.gguf` | any backend, can stream |
+| `parakeet-cpp-moondream-redux-q8_0` | `redux-q8_0.gguf` | any backend |
+
+The packed Redux file stores the encoder as ternary weights (213 MB). It cannot load on a GPU backend and cannot stream. If a GPU build fails to load it, check the backend log for the library message and use the `redux-f16` or `redux-q8_0` entry instead. The weights are CC-BY-4.0: credit Moondream and NVIDIA.
+
+#### VAD-only slices
+
+If you only need the VAD head, for the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}) or to cut audio before transcription, the same repository has two small files with the head cut out of the full model. The weights are not retrained, and the files cannot transcribe:
+
+| Gallery entry | File | Size | Cut from |
+|---|---|---|---|
+| `parakeet-cpp-vad-moondream-redux` | `redux-vad.gguf` | 9.9 MB | Redux (213 MB packed to 1.4 GB) |
+| `parakeet-cpp-vad-moondream-ultra` | `ultra-vad-q8_0.gguf` | 6.0 MB | Ultra Q8_0 |
+
+Measured by the parakeet.cpp author against loading a whole Redux or Ultra model: the files are 6 to 10 MB instead of 213 MB to 1.4 GB, load in a few milliseconds instead of 0.1 to 0.7 s, and use about 245 MiB peak memory for a 33 s clip instead of 0.6 to 1.6 GiB. The output is byte-identical to the full parent model, and the speed is the same as the parent's head. A transcription request on a slice fails with an error. The slices load only with a parakeet.cpp build that includes VAD-only GGUF support, so an older backend build fails to load them. The weights are CC-BY-4.0: credit Moondream and NVIDIA.
+
+With `vad:true`, long audio is cut at pauses found by the model's VAD head into pieces of at most 30 seconds, and each piece is transcribed in turn. Word timestamps stay relative to the whole file. Audio of 30 seconds or less gives the same result as without the option. The gallery entries set it. Add it to your own model YAML like this:
+
+```yaml
+name: moondream-ultra
+backend: parakeet-cpp
+parameters:
+  model: ultra-q8_0.gguf
+options:
+- vad:true   # cut long audio at pauses (default false); needs a model with a VAD head
+```
+
+`vad:true` applies to offline transcription only and bypasses dynamic batching, because the batched entry point has no VAD variant. Streaming is not affected. A model without a VAD head fails each request with `model has no VAD head`, and a `libparakeet.so` that is too old to export the VAD entry point fails the load. Remove the option for models that have no VAD head.
+
+### Cutting long audio with Silero (`vad_model`)
+
+A model without a VAD head, such as `parakeet-cpp-tdt-0.6b-v3` or a Nemotron model, can cut long audio with [Silero VAD](https://github.com/snakers4/silero-vad) instead. Name a Silero GGUF in the `vad_model` option. The path is resolved against the models directory, like the other companion files. `vad_model` implies `vad`:
+
+```yaml
+name: parakeet-v3-silero
+backend: parakeet-cpp
+parameters:
+  model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+options:
+- vad_model:parakeet-cpp/silero-vad-f16.gguf   # Silero GGUF that cuts long audio at pauses
+- vad_min_pause:0.3                            # optional, seconds
+```
+
+The gallery entry `parakeet-cpp-tdt-0.6b-v3-silero-vad` installs both files with this configuration. Audio of 30 seconds or less is transcribed whole and the VAD does not run. `vad:true` alone keeps meaning "use the model's own head". With `vad_model` set, the Silero model is used even if the ASR model has a head.
+
+The segmenter options below apply to both `vad:true` and `vad_model`. Each is optional; an unset value keeps the default of the detector in use, and a bad value fails the load:
+
+| Option | Unit | Meaning |
+|---|---|---|
+| `vad_threshold` | 0 to 1 | A frame is speech when its probability is at least this |
+| `vad_min_pause` | seconds | A silence this long separates two pieces |
+| `vad_min_speech` | seconds | Shorter speech runs are dropped |
+| `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
+
+`vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
+
+### Bundle GGUF files (several models in one file)
+
+A bundle is one GGUF file that holds several models, called components. Each component keeps its own licence. The backend opens the components it needs from the one file, so a single model YAML can serve transcription, VAD, diarization, speaker naming and sound events. A bundle needs a `libparakeet.so` from parakeet.cpp with bundle support (pin `781a973` or newer); the format is described in the [parakeet.cpp bundle documentation](https://github.com/mudler/parakeet.cpp/blob/master/docs/bundle.md). Single-model files and every existing option work as before.
+
+The gallery has three bundles, built from [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf):
+
+| Gallery entry | Size | Components | Serves |
+|---|---|---|---|
+| `parakeet-cpp-bundle-small` | 338 MB | Parakeet TDT+CTC 110M (Q8_0), Nemotron-3-Diarization (Q8_0), CED-Small (Q8_0), WeSpeaker ResNet34-LM (F32), Silero VAD (F16) | transcription, VAD, diarization, speaker naming, sound events |
+| `parakeet-cpp-bundle-standard` | 1.1 GB | Parakeet TDT 0.6B v3 (Q8_0), plus the same four components | the same, with the multilingual 0.6B model |
+| `parakeet-cpp-bundle-moondream-redux` | 215 MB | Moondream Redux (packed ternary), Silero VAD (F16) | transcription and VAD; CPU only and offline only |
+
+The component that each role uses, and the option that picks another one:
+
+| Role | Component used | Option |
+|---|---|---|
+| Transcription | the only `asr` component | `bundle_asr:<name>` picks one when the bundle has several |
+| VAD (`/v1/vad`, and `vad:true` for long audio) | the `vad` (Silero) component, loaded with no option; without one the VAD head of the ASR model | `vad_component:<name>` picks one, and implies `vad:true` |
+| Diarization | the `diar` component, only when asked for | `diar_component:<name>` |
+| Sound events | the `ced` component, only when asked for | `sound_component:<name>` |
+| Speaker naming | the `voice` component, only when asked for | `speaker_component:<name>` (needs a diarization component) |
+
+A `*_component` option without the matching companion option takes the component from the model file itself. The companion options (`diarization_model:`, `sound_model:`, `speaker_model:`, `vad_model:`, `asr_model:`) can also name a bundle file, even the same file as the model: the only component of the wanted kind is used, and the `*_component` option picks one when there are several. This YAML loads the same file for four roles:
+
+```yaml
+name: parakeet-bundle
+backend: parakeet-cpp
+parameters:
+  model: parakeet-cpp/parakeet-bundle-small.gguf
+options:
+- vad:true                  # cut long audio at pauses, with the Silero component
+- diar_component:diar       # same as diarization_model:parakeet-cpp/parakeet-bundle-small.gguf
+- sound_component:ced
+- speaker_component:voice
+```
+
+A role that the bundle cannot fill fails with a message that lists the components, for example `parakeet-cpp: diarization_model needs a "diar" component, but the bundle "<path>" has none (components: asr (asr), vad (vad))`. A request for a role the loaded model does not have (diarization from a bundle without a `diar` component) returns `parakeet-cpp: model is not a diarization model (the model file is a bundle without a "diar" component; ...)`. A `*_component` option on a file that is not a bundle, or on a library without bundle support, fails the load.
+
+Licences: a bundle has no single licence, so the gallery entries use `license: other`. The licence, source and credit of every component are in the file header, and the NOTICE file next to each bundle in the repository (`NOTICE-<bundle>.txt`) has the credits and the full licence texts. Keep it with any copy of the file you pass on.
+
+| Component | Licence | Credit |
+|---|---|---|
+| Parakeet TDT+CTC 110M, Parakeet TDT 0.6B v3 | CC-BY-4.0 | NVIDIA |
+| Moondream Redux | CC-BY-4.0 | Moondream, derived from Parakeet TDT 0.6B v3 by NVIDIA |
+| Nemotron-3-Diarization | OpenMDW-1.1 | NVIDIA |
+| CED-Small | Apache-2.0, as stated on the model card | Heinrich Dinkel et al., Xiaomi (mispeech) |
+| WeSpeaker ResNet34-LM | CC-BY-4.0 | the WeSpeaker project |
+| Silero VAD | MIT | Silero Team |
+
+The licence of the CED weights is not consistent upstream: the model card says Apache-2.0, the upstream code repository is GPL-3.0 and the original checkpoint records say CC-BY-4.0. The file here is converted, not trained, and follows the model card. The weights of all components were converted to GGUF, and quantised where the table shows it; nothing was retrained.
 
 ## See also
 

@@ -5,7 +5,7 @@ This PR fixes #
 **Notes for Reviewers**
 
 
-**[Signed commits](../CONTRIBUTING.md#signing-off-on-commits-developer-certificate-of-origin)**
+**[Signed commits](../CONTRIBUTING.md#commit-messages)**
 - [ ] Yes, I signed my commits.
 - [ ] Documentation updated (docs/content/) for user-facing changes, or not applicable
  

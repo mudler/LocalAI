@@ -38,6 +38,9 @@ That is the whole config: a `name` (the alias clients call) and an `alias` key
 - Usage accounting records both sides: requested `gpt-4`, served `my-llama-3`.
 - Aliases work for every modality (chat, embeddings, audio, images, and so on).
 
+To serve a name from several models with automatic fallback, use a [failover
+chain]({{%relref "features/model-failover" %}}).
+
 ## Managing aliases
 
 You can create, swap, and remove aliases from any of the management surfaces.

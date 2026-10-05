@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -51,7 +51,7 @@ var _ = Describe("Route cold-load staging context", func() {
 		}
 		backend := &stubBackend{loadResult: &pb.Result{Success: true}}
 		factory := &stubClientFactory{client: backend}
-		unloader := &fakeUnloader{installReply: &messaging.BackendInstallReply{
+		unloader := &fakeUnloader{installReply: &workerctl.BackendInstallReply{
 			Success: true,
 			Address: "10.0.0.1:9001",
 		}}

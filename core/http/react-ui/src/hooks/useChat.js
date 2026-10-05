@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
+import { effectiveSystemPrompt } from '../utils/systemPrompt'
 import { useDebouncedEffect } from './useDebounce'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
@@ -348,8 +349,12 @@ export function useChat(initialModel = '') {
     // Build messages array for API
     const chat = chats.find(c => c.id === chatId)
     const messages = []
-    if (chat?.systemPrompt) {
-      messages.push({ role: 'system', content: chat.systemPrompt })
+    // Omit empty/whitespace system prompts so the model YAML system_prompt
+    // (and tokenizer chat-template defaults) are not suppressed by a blank
+    // system turn from Chat Settings.
+    const systemPrompt = effectiveSystemPrompt(chat?.systemPrompt)
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt })
     }
     // Filter out thinking/reasoning/tool_call/tool_result messages.
     // options.baseHistory lets callers (e.g. mid-conversation retry) pass the
@@ -358,6 +363,7 @@ export function useChat(initialModel = '') {
     const baseHistory = options.baseHistory || chat?.history || []
     const historyForApi = baseHistory.filter(m =>
       m.role !== 'thinking' && m.role !== 'reasoning' && m.role !== 'tool_call' && m.role !== 'tool_result'
+      && !(m.role === 'system' && !effectiveSystemPrompt(typeof m.content === 'string' ? m.content : ''))
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })
 

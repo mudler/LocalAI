@@ -110,3 +110,15 @@ func indexOf(items []string, target string) int {
 	}
 	return -1
 }
+
+var _ = Describe("Typed inbound conversion", func() {
+	It("preserves ordered typed text images and tool errors without mutation", func() {
+		yes := true
+		blocks := []schema.AnthropicContentBlock{{Type: "text", Text: "first"}, {Type: "image", Source: &schema.AnthropicImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="}}, {Type: "text", Text: "second"}, {Type: "image", Source: &schema.AnthropicImageSource{Type: "base64", MediaType: "image/jpeg", Data: "AQ=="}}, {Type: "tool_result", ToolUseID: "id", Content: "failed", IsError: &yes}}
+		req := &schema.AnthropicRequest{Messages: []schema.AnthropicMessage{{Role: "user", Content: blocks}}}
+		msgs := convertAnthropicToOpenAIMessages(req)
+		Expect(msgs[0].StringContent).To(Equal("firstsecond\n[Tool Result for id]: Error: failed"))
+		Expect(msgs[0].StringImages).To(Equal([]string{"data:image/png;base64,AA==", "data:image/jpeg;base64,AQ=="}))
+		Expect(req.Messages[0].Content).To(Equal(blocks))
+	})
+})

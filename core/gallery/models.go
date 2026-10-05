@@ -622,35 +622,51 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
 
 		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
-		if modelConfig.Temperature != nil {
-			if _, exists := configMap["temperature"]; !exists {
-				configMap["temperature"] = *modelConfig.Temperature
+		// They belong under "parameters": ModelConfig embeds PredictionOptions with
+		// that yaml key, so a top level "temperature" parses without error and is
+		// then ignored for the life of the model.
+		params, mergeable := configMap["parameters"].(map[string]any)
+		if configMap["parameters"] == nil {
+			params, mergeable = map[string]any{}, true
+		}
+		if mergeable {
+			// An entry that sets one of these keeps its own value. ApplyInferenceDefaults
+			// already skipped those fields; this keeps the write side symmetric.
+			setDefault := func(key string, value any) {
+				if _, exists := params[key]; !exists {
+					params[key] = value
+				}
+			}
+			if modelConfig.Temperature != nil {
+				setDefault("temperature", *modelConfig.Temperature)
+			}
+			if modelConfig.TopP != nil {
+				setDefault("top_p", *modelConfig.TopP)
+			}
+			if modelConfig.TopK != nil {
+				setDefault("top_k", *modelConfig.TopK)
+			}
+			if modelConfig.MinP != nil {
+				setDefault("min_p", *modelConfig.MinP)
+			}
+			if modelConfig.RepeatPenalty != 0 {
+				setDefault("repeat_penalty", modelConfig.RepeatPenalty)
+			}
+			if modelConfig.PresencePenalty != 0 {
+				setDefault("presence_penalty", modelConfig.PresencePenalty)
+			}
+			if len(params) > 0 {
+				configMap["parameters"] = params
 			}
 		}
-		if modelConfig.TopP != nil {
-			if _, exists := configMap["top_p"]; !exists {
-				configMap["top_p"] = *modelConfig.TopP
-			}
-		}
-		if modelConfig.TopK != nil {
-			if _, exists := configMap["top_k"]; !exists {
-				configMap["top_k"] = *modelConfig.TopK
-			}
-		}
-		if modelConfig.MinP != nil {
-			if _, exists := configMap["min_p"]; !exists {
-				configMap["min_p"] = *modelConfig.MinP
-			}
-		}
-		if modelConfig.RepeatPenalty != 0 {
-			if _, exists := configMap["repeat_penalty"]; !exists {
-				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
-			}
-		}
-		if modelConfig.PresencePenalty != 0 {
-			if _, exists := configMap["presence_penalty"]; !exists {
-				configMap["presence_penalty"] = modelConfig.PresencePenalty
-			}
+
+		// The marshal above predates this merge, and the only other re-marshal is
+		// behind the artifact binding below, which an entry carrying files: never
+		// reaches. Without this the defaults are computed and then dropped on the
+		// way to disk.
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
 		}
 
 		if valid, err := modelConfig.Validate(); !valid {
@@ -792,8 +808,11 @@ func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, err
 
 func listModelFiles(systemState *system.SystemState, name string) ([]string, error) {
 
+	// VerifyPath joins its argument onto the models path itself, so every
+	// check below passes the relative name: an already-joined absolute path
+	// always lands inside the base and the check would pass anything.
 	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
-	if err := utils.VerifyPath(configFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(fmt.Sprintf("%s.yaml", name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", configFile, err)
 	}
 
@@ -801,7 +820,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 	galleryFile := filepath.Join(systemState.Model.ModelsPath, galleryFileName(name))
-	if err := utils.VerifyPath(galleryFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(galleryFileName(name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
 	}
 
@@ -831,7 +850,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	if err == nil && galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
-			if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+			if err := utils.VerifyPath(f.Filename, systemState.Model.ModelsPath); err != nil {
 				return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 			}
 			allFiles = append(allFiles, fullPath)
@@ -842,7 +861,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(systemState.Model.ModelsPath, f))
-		if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyPath(f, systemState.Model.ModelsPath); err != nil {
 			return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 		}
 		allFiles = append(allFiles, fullPath)

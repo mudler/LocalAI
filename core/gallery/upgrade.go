@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
@@ -169,8 +168,8 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 		}
 
 		// Fall back to OCI digest comparison when versions are unavailable.
-		if downloader.URI(galleryEntry.URI).LooksLikeOCI() {
-			remoteDigest, err := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
+		if galleryURI := downloader.URI(galleryEntry.URI); galleryURI.LooksLikeRegistryOCI() {
+			remoteDigest, err := lookupImageDigest(galleryURI.OCIReference())
 			if err != nil {
 				xlog.Warn("Failed to get remote OCI digest for upgrade check", "backend", installed.Metadata.Name, "error", err)
 				continue
@@ -284,6 +283,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if err != nil {
 		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
 	tmpPath := backendPath + ".upgrade-tmp"
@@ -353,8 +353,8 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	}
 
 	// Record OCI digest if applicable (non-fatal on failure)
-	if uri.LooksLikeOCI() {
-		digest, digestErr := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
+	if uri.LooksLikeRegistryOCI() {
+		digest, digestErr := lookupImageDigest(uri.OCIReference())
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest after upgrade", "uri", galleryEntry.URI, "error", digestErr)
 		} else {

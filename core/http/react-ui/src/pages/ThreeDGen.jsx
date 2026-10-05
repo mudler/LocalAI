@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
-import { CAP_3D } from '../utils/capabilities'
+import { CAP_3D, CAP_3D_ANIMATION } from '../utils/capabilities'
+import { useModels } from '../hooks/useModels'
+import AnimationOptions from '../components/AnimationOptions'
+import AnimationViewer from '../components/AnimationViewer'
 import LoadingSpinner from '../components/LoadingSpinner'
 import GenerationProgress from '../components/GenerationProgress'
 import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
@@ -57,6 +60,13 @@ export default function ThreeDGen() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('media')
   const [model, setModel] = useState(urlModel || '')
+  const { models, loading: modelsLoading } = useModels()
+  const modelNames = useMemo(() => models.filter(item => item.capabilities?.some(cap => cap === CAP_3D || cap === CAP_3D_ANIMATION)).map(item => item.id), [models])
+  const selectedModel = models.find(item => item.id === model)
+  const animation = selectedModel?.three_d_operations?.find(operation => operation.id === 'animate')
+  const [animationInputs, setAnimationInputs] = useState({})
+  const [animationParams, setAnimationParams] = useState({})
+  const [requestEndpoint, setRequestEndpoint] = useState('/3d/generations')
   const [image, setImage] = useState(null)
   const [quality, setQuality] = useState('auto')
   const [background, setBackground] = useState('auto')
@@ -76,17 +86,43 @@ export default function ThreeDGen() {
   const { entries, addEntry, deleteEntry, clearAll, selectEntry, selectedId, selectedEntry } = use3DHistory()
 
   const source = selectedEntry
-    ? { blob: selectedEntry.glb, name: selectedEntry.name, model: selectedEntry.model }
+    ? { ...selectedEntry, blob: selectedEntry.glb }
     : result
   const showingRemesh = !!source && remeshState?.sourceBlob === source.blob && !!remeshState.blob
   const active = showingRemesh ? { blob: remeshState.blob, name: remeshState.name } : source
   const remeshError = source && remeshState?.sourceBlob === source.blob ? remeshState.error : null
   const detail = remeshDetail(remeshSlider)
   const downloadUrl = useObjectUrl(active?.blob)
+  const sourceModel = models.find(item => item.id === source?.model)
+  const canRemesh = source?.outputType !== 'skeleton_animation' && (sourceModel?.three_d_operations?.some(operation => operation.id === 'remesh') ||
+    (!sourceModel?.three_d_operations && sourceModel?.capabilities?.includes(CAP_3D)))
+
+  const changeModel = (next) => {
+    setModel(next)
+    setAnimationInputs({})
+    setAnimationParams({})
+    setImage(null)
+    setQuality('auto')
+    setBackground('auto')
+    setSteps('')
+    setTextureSteps('')
+    setGuidance('')
+    setSeed('')
+  }
+
+  const restoreHistory = (id) => {
+    selectEntry(id)
+    const entry = entries.find(item => item.id === id)
+    if (entry?.operation === 'animate') {
+      setModel(entry.model)
+      setAnimationInputs(entry.inputs || {})
+      setAnimationParams(entry.params || {})
+    }
+  }
 
   const handleGenerate = async (e) => {
     e.preventDefault()
-    if (!image?.base64) { addToast(t('threed.toasts.noImage'), 'warning'); return }
+    if (!animation && !image?.base64) { addToast(t('threed.toasts.noImage'), 'warning'); return }
     if (!model) { addToast(t('threed.toasts.noModel'), 'warning'); return }
 
     setLoading(true)
@@ -94,18 +130,24 @@ export default function ThreeDGen() {
     setRemeshState(null)
     setError(null)
 
-    const body = { model, image: image.base64, quality, background, response_format: 'url' }
-    if (steps) body.step = parseInt(steps)
-    if (textureSteps) body.texture_steps = parseInt(textureSteps)
-    if (guidance) body.cfg_scale = parseFloat(guidance)
-    if (seed) body.seed = parseInt(seed)
+    const params = Object.fromEntries(Object.entries(animationParams).filter(([key, value]) => value !== '' && animation?.parameters.some(parameter => parameter.name === key)))
+    const body = animation
+      ? { model, inputs: animationInputs, params, response_format: 'url' }
+      : { model, image: image.base64, quality, background, response_format: 'url' }
+    if (!animation) {
+      if (steps) body.step = parseInt(steps)
+      if (textureSteps) body.texture_steps = parseInt(textureSteps)
+      if (guidance) body.cfg_scale = parseFloat(guidance)
+      if (seed) body.seed = parseInt(seed)
+    }
 
     // RequestPanel renders and copies its body. Keeping a multi-megabyte image
     // there duplicates the upload in React and can starve the result render.
-    setLastRequest({ ...body, image: `<base64 ${image.mime || 'image'} omitted>` })
+    setLastRequest(animation ? body : { ...body, image: `<base64 ${image.mime || 'image'} omitted>` })
+    setRequestEndpoint(animation ? '/3d/animate' : '/3d/generations')
 
     try {
-      const data = await threeDApi.generate(body)
+      const data = await (animation ? threeDApi.animate(body) : threeDApi.generate(body))
       const url = data?.data?.[0]?.url
       if (!url) {
         addToast(t('threed.toasts.noResults'), 'warning')
@@ -115,12 +157,16 @@ export default function ThreeDGen() {
       if (!glbResp.ok) throw new Error(`fetching the generated GLB failed: HTTP ${glbResp.status}`)
       const glb = await glbResp.blob()
       const name = url.split('/').pop()
-      setResult({ blob: glb, name, model })
+      const outputType = animation?.output || 'mesh'
+      setResult({ blob: glb, name, model, outputType })
       selectEntry(null)
-      const inputThumb = image.dataUrl ? await makeThumb(image.dataUrl) : null
+      const inputThumb = !animation && image?.dataUrl ? await makeThumb(image.dataUrl) : null
       await addEntry({
         model,
-        params: { quality, background, steps, textureSteps, guidance, seed },
+        params: animation ? params : { quality, background, steps, textureSteps, guidance, seed },
+        inputs: animation ? animationInputs : undefined,
+        operation: animation ? 'animate' : 'generate',
+        outputType,
         inputThumb,
         glb,
         name,
@@ -165,9 +211,12 @@ export default function ThreeDGen() {
         <form onSubmit={handleGenerate}>
           <div className="form-group">
             <label className="form-label">{t('threed.labels.model')}</label>
-            <ModelSelector value={model} onChange={setModel} capability={CAP_3D} />
+            <ModelSelector value={model} onChange={changeModel} options={modelNames} loading={modelsLoading} disabled={loading} capability={CAP_3D} />
           </div>
 
+          {animation ? (
+            <AnimationOptions key={model} operation={animation} inputs={animationInputs} onInputsChange={setAnimationInputs} params={animationParams} onParamsChange={setAnimationParams} />
+          ) : <>
           <MediaInput
             mode="image"
             label={t('threed.labels.image')}
@@ -211,21 +260,22 @@ export default function ThreeDGen() {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          </>}
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading || !model}>
             {loading ? <><LoadingSpinner size="sm" /> {t('threed.actions.generating')}</> : <><i className="fas fa-cube" /> {t('threed.actions.generate')}</>}
           </button>
         </form>
         <ThreeDHistory
           entries={entries}
           selectedId={selectedId}
-          onSelect={selectEntry}
+          onSelect={restoreHistory}
           onDelete={deleteEntry}
           onClearAll={clearAll}
         />
       </div>
 
       <div className="media-preview">
-        <RequestPanel endpoint="/3d/generations" body={lastRequest} />
+        <RequestPanel endpoint={requestEndpoint} body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress label={t('threed.actions.generating')} />
@@ -233,8 +283,8 @@ export default function ThreeDGen() {
             <ErrorWithTraceLink message={error} />
           ) : active?.blob ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%' }}>
-              <GlbViewer blob={active.blob} />
-              <div className="threed-remesh-controls">
+              {active.outputType === 'skeleton_animation' ? <AnimationViewer blob={active.blob} /> : <GlbViewer blob={active.blob} />}
+              {canRemesh && <div className="threed-remesh-controls">
                 <div className="threed-remesh-heading">
                   <span>{t('threed.remesh.title')}</span>
                   <output htmlFor="threed-remesh-detail">{detail.toFixed(2)}%</output>
@@ -270,7 +320,7 @@ export default function ThreeDGen() {
                 </button>
                 {remeshError && <p className="form-error" role="alert">{remeshError}</p>}
                 {showingRemesh && <p className="threed-remesh-ready">{t('threed.remesh.ready')}</p>}
-              </div>
+              </div>}
               <a
                 className="btn btn-secondary"
                 href={downloadUrl}

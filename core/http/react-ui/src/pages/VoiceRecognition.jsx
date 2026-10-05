@@ -1,3 +1,4 @@
+import { loadEnrollments, saveEnrollments } from '../utils/voiceEnrollments'
 import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
@@ -19,21 +20,6 @@ const TABS = [
   { id: 'enroll',  icon: 'fas fa-id-badge',         label: 'Enrollment' },
   { id: 'embed',   icon: 'fas fa-code',             label: 'Embedding' },
 ]
-
-const ENROLL_KEY = 'localai_voice_enrollments'
-
-function loadEnrollments() {
-  try {
-    const raw = localStorage.getItem(ENROLL_KEY)
-    if (!raw) return []
-    const p = JSON.parse(raw)
-    return Array.isArray(p) ? p : []
-  } catch (_) { return [] }
-}
-
-function saveEnrollments(list) {
-  try { localStorage.setItem(ENROLL_KEY, JSON.stringify(list.slice(0, 50))) } catch (_) { /* quota */ }
-}
 
 function parseLabels(text) {
   const out = {}

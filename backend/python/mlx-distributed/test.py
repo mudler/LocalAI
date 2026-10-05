@@ -135,3 +135,37 @@ class TestSharedHelpers(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]["name"], "get_weather")
         self.assertEqual(calls[0]["arguments"], '{"location": "Paris"}')
+
+
+class TestPreparePrompt(unittest.TestCase):
+    """Server-less tests for BackendServicer._prepare_prompt."""
+
+    def test_forwards_enable_thinking(self):
+        from backend import BackendServicer
+
+        class Tok:
+            def __init__(self):
+                self.kwargs = None
+
+            def apply_chat_template(self, messages, **kwargs):
+                self.kwargs = kwargs
+                return "PROMPT"
+
+        def kwargs_for(metadata):
+            servicer = BackendServicer()
+            servicer.tokenizer = Tok()
+            req = types.SimpleNamespace(
+                Prompt="",
+                UseTokenizerTemplate=True,
+                Messages=[backend_pb2.Message(role="user", content="hi")],
+                Tools="",
+                Metadata=metadata,
+            )
+            self.assertEqual(servicer._prepare_prompt(req), "PROMPT")
+            return servicer.tokenizer.kwargs
+
+        self.assertIs(kwargs_for({"enable_thinking": "true"})["enable_thinking"], True)
+        # "false" used to be dropped, so thinking models kept reasoning
+        self.assertIs(kwargs_for({"enable_thinking": "false"})["enable_thinking"], False)
+        self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
+        self.assertNotIn("enable_thinking", kwargs_for({}))

@@ -21,6 +21,17 @@ import (
 // - [THINK]                 (Magistral models)
 // Custom tokens from config are checked first, then default tokens.
 func DetectThinkingStartToken(prompt string, config *Config) string {
+	return detectThinkingStartToken(prompt, config, true)
+}
+
+// DetectThinkingStartTokenInTemplate detects a possible prefill in an
+// unrendered tokenizer template. Marker ordering cannot reveal which Jinja
+// branch will render, so matching closing markers are intentionally ignored.
+func DetectThinkingStartTokenInTemplate(template string, config *Config) string {
+	return detectThinkingStartToken(template, config, false)
+}
+
+func detectThinkingStartToken(prompt string, config *Config, honorClosingToken bool) string {
 	// Common thinking start tokens (in order of specificity - longer first)
 	// Based on llama.cpp's chat-parser.cpp implementations
 	defaultTokens := []string{
@@ -44,7 +55,8 @@ func DetectThinkingStartToken(prompt string, config *Config) string {
 	// Check if prompt ends with any of these tokens (allowing for trailing whitespace/newlines)
 	trimmedPrompt := strings.TrimRight(prompt, " \t\n\r")
 	for _, token := range thinkingStartTokens {
-		if strings.Contains(trimmedPrompt, token) {
+		if strings.Contains(trimmedPrompt, token) &&
+			(!honorClosingToken || !thinkingTokenClosedAfterLastStart(trimmedPrompt, token, config)) {
 			return token
 		}
 	}
@@ -65,6 +77,15 @@ func DetectThinkingStartToken(prompt string, config *Config) string {
 	}
 
 	return ""
+}
+
+func thinkingTokenClosedAfterLastStart(prompt, startToken string, config *Config) bool {
+	endToken := ClosingTokenForStart(startToken, config)
+	if endToken == "" {
+		return false
+	}
+
+	return strings.LastIndex(prompt, endToken) > strings.LastIndex(prompt, startToken)
 }
 
 // ExtractReasoningWithConfig extracts reasoning from content with the given config.

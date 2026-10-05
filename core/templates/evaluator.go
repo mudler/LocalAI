@@ -192,8 +192,10 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 					marshalAny(i.ToolCalls)
 				}
 			}
-			// Special Handling: System. We care if it was printed at all, not the r branch, so check separately
-			if contentExists && role == "system" {
+			// Special Handling: System. We care if it was printed at all, not the r branch, so check separately.
+			// Whitespace-only system content must not suppress the model config system_prompt
+			// (web Chat UI historically sent a blank system turn).
+			if contentExists && role == "system" && strings.TrimSpace(i.StringContent) != "" {
 				suppressConfigSystemPrompt = true
 			}
 		}

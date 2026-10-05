@@ -16,14 +16,14 @@ import (
 
 // reservedNonChatModel reports whether the operator reserved this model for an
 // internal primitive — the router score classifier or the PII NER
-// token_classify tier. Such a model has no chat template and must not be
+// token_classify tier, or a decision head. Such a model has no chat template and must not be
 // given the generative-chat defaults the GGUF importer otherwise applies
 // (FLAG_CHAT, jinja templating): surfacing it in chat pickers defeats the
 // reservation. Operators who do want a combined model declare both usecases
 // explicitly — the combination is valid.
 func reservedNonChatModel(cfg *ModelConfig) bool {
 	return cfg.KnownUsecases != nil &&
-		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY)) != 0
+		(*cfg.KnownUsecases&(FLAG_SCORE|FLAG_TOKEN_CLASSIFY|FLAG_DECISIONS)) != 0
 }
 
 // genAudioEncoderKey is the mmproj metadata flag llama.cpp's mtmd writes for a

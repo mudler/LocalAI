@@ -275,7 +275,18 @@
         "p95": "latência p95",
         "quiet": "Nenhuma requisição atendida nesta janela ainda.",
         "host": "Memória do host"
+      },
+      "running": {
+        "heading": "Em execução",
+        "cluster": "Modelos em execução",
+        "clusterSummary": "Réplicas carregadas no cluster, na página Nós"
       }
     }
+  },
+  "localMachine": {
+    "title": "Esta máquina",
+    "subtitle": "Modelos carregados nesta instância do LocalAI e a capacidade do host que utilizam.",
+    "scaleOut": "Adicionar máquinas",
+    "hideScaleOut": "Ocultar configuração"
   }
 }

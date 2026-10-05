@@ -22,7 +22,8 @@ bool voice_is_reference_file(const std::string &voice) {
 
 RequestShape build_tts_shape(const backend::TTSRequest &request) {
     RequestShape shape;
-    shape.has_voice_reference = voice_is_reference_file(request.voice());
+    shape.has_voice_reference = voice_is_reference_file(request.voice()) ||
+                                request.params().find("multi_reference_cond") != request.params().end();
     // !empty() as well as has_instructions(), and it must match the guard in
     // build_tts_request: a request whose instructions are an empty string
     // carries no style condition, so telling routing to prefer VoiceDesign for

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -244,6 +245,10 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		defOpts = append(defOpts, model.WithModelSizeBytes(sizeBytes))
 	}
 
+	if c.Environment != nil && len(c.Environment) > 0 {
+		defOpts = append(defOpts, model.WithEnvVars(c.Environment))
+	}
+
 	return append(defOpts, opts...)
 }
 
@@ -281,6 +286,42 @@ func EffectiveContextSize(c config.ModelConfig) int {
 		return *c.ContextSize
 	}
 	return DefaultContextSize
+}
+
+// EffectiveRequestContextSize is the most tokens one request can use. It
+// differs from EffectiveContextSize only for llama.cpp with parallel slots and
+// the KV cache not unified ("kv_unified:false"): llama.cpp then gives each slot
+// n_ctx/n_parallel, padded up to a multiple of 256 (llama-context.cpp). With the
+// unified cache (the grpc-server default) every slot may use all of n_ctx.
+//
+// Clients read this through /v1/models/capabilities to budget a request, so it
+// must be the per-request limit, not the size of the whole KV cache.
+func EffectiveRequestContextSize(c config.ModelConfig) int {
+	ctx := EffectiveContextSize(c)
+	parallel, unified := 1, true
+	for _, o := range c.Options {
+		k, v, ok := strings.Cut(o, ":")
+		if !ok {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		switch k {
+		case "parallel", "n_parallel":
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				parallel = n
+			}
+		case "kv_unified", "unified_kv":
+			switch v {
+			case "false", "0", "no", "off", "disabled":
+				unified = false
+			}
+		}
+	}
+	if unified || parallel <= 1 {
+		return ctx
+	}
+	const pad = 256
+	return (ctx/parallel + pad - 1) / pad * pad
 }
 
 // localGPU resolves the device that will run the model, for single-pass batch
@@ -452,6 +493,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		EnableScore:          c.HasUsecases(config.FLAG_SCORE),
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
+		OriginalConfigFile:   c.Diffusers.OriginalConfigFile,
 		ContextSize:          int32(ctxSize),
 		Seed:                 getSeed(c),
 		NBatch:               int32(b),
@@ -500,7 +542,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Tokenizer: c.Tokenizer,
 	}
 
-	if c.Backend == "cloud-proxy" {
+	if c.IsRemoteProxy() {
 		opts.Proxy = &pb.ProxyOptions{
 			UpstreamUrl:           c.Proxy.UpstreamURL,
 			Mode:                  c.Proxy.Mode,
@@ -510,6 +552,14 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			UpstreamModel:         c.Proxy.UpstreamModel,
 			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
 			CachePrompt:           c.Proxy.CachePrompt,
+		}
+		// localai-proxy calls a LocalAI that knows the model by name, so an
+		// unset upstream_model means this config's name, the same derivation
+		// failover.UpstreamModel uses. Not for cloud-proxy: its translate mode
+		// falls back to parameters.model and passthrough keeps the client's
+		// model when upstream_model is empty.
+		if c.Backend == model.LocalAIProxyBackend && opts.Proxy.UpstreamModel == "" {
+			opts.Proxy.UpstreamModel = c.Name
 		}
 	}
 
@@ -523,6 +573,14 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	// backend at arbitrary host files via an absolute path.
 	if c.DraftModel != "" {
 		opts.DraftModel = filepath.Join(modelPath, c.DraftModel)
+	}
+
+	// Add environment variables from model configuration
+	if c.Environment != nil && len(c.Environment) > 0 {
+		opts.EnvVars = make(map[string]string)
+		for k, v := range c.Environment {
+			opts.EnvVars[k] = v
+		}
 	}
 
 	return opts

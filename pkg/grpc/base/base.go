@@ -63,6 +63,10 @@ func (llm *Base) Generate3D(*pb.Generate3DRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Animate3D(*pb.Animate3DRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) UpscaleImage(*pb.UpscaleImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }

@@ -68,7 +68,7 @@ class TestBackendServicer(unittest.TestCase):
                     width=512,
                     height=512,
                     step=20,
-                    seed=42additional_information
+                    seed=42
                 )
                 resp = stub.GenerateImage(req)
                 self.assertTrue(resp.success)
@@ -77,6 +77,5 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("GenerateImage service failed")
         finally:
             self.tearDown()
-additional_information
 if __name__ == "__main__":
     unittest.main()

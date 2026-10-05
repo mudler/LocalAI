@@ -38,4 +38,13 @@ test.describe('Agents page', () => {
     // when the render won, swinging total UI coverage ~1pp run-to-run.
     await expect(page.getByRole('heading', { name: 'Create Agent' })).toBeVisible()
   })
+
+  test('opens agent status without leaving an active chat', async ({ page }) => {
+    await page.goto('/app/agents/demo/chat?user_id=test-user')
+
+    const status = page.getByRole('link', { name: 'Status' })
+    await expect(status).toHaveAttribute('href', '/app/agents/demo/status?user_id=test-user')
+    await expect(status).toHaveAttribute('target', '_blank')
+    await expect(page).toHaveURL(/\/app\/agents\/demo\/chat\?user_id=test-user$/)
+  })
 })

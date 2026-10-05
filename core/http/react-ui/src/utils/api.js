@@ -83,6 +83,7 @@ export async function streamChat(body, signal) {
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
+  listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best
@@ -278,6 +279,7 @@ export const videoApi = {
 }
 
 export const threeDApi = {
+  animate: (body) => postJSON(API_CONFIG.endpoints.threeDAnimate, body),
   generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
   remesh: async (mesh, model, detail) => {
     const form = new FormData()
@@ -440,7 +442,7 @@ export const agentsApi = {
   status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
   observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
   clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message }),
+  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
   export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
   import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),
@@ -457,7 +459,10 @@ export const agentCollectionsApi = {
   reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
   deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
   sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
-  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { url, update_interval: interval }),
+  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, {
+    url,
+    update_interval: interval === undefined ? undefined : Number(interval),
+  }),
   removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 
@@ -596,6 +601,16 @@ export const quantizationApi = {
   downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
 }
 
+// Failover chains API. Health is pushed over /api/failover/events (SSE);
+// list() seeds the view and backs the periodic resync.
+export const failoverApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.failoverChains),
+  get: (name) => fetchJSON(API_CONFIG.endpoints.failoverChain(name)),
+  pin: (name, target) => postJSON(API_CONFIG.endpoints.failoverPin(name), { target }),
+  unpin: (name) => fetchJSON(API_CONFIG.endpoints.failoverPin(name), { method: 'DELETE' }),
+  eventsUrl: () => API_CONFIG.endpoints.failoverEvents,
+}
+
 // Nodes API (distributed)
 export const nodesApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.nodes),
@@ -668,4 +683,19 @@ export function fileToBase64(file) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+// Multipart requests must let the browser set the boundary.
+export const diarizationApi = {
+  run: async ({ file, model, profiles = false }) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('model', model)
+    if (profiles) {
+      body.append('include_speaker_profiles', 'true')
+      body.append('include_text', 'true')
+      body.append('response_format', 'verbose_json')
+    }
+    return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
+  },
 }

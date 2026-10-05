@@ -252,7 +252,7 @@ var _ = Describe("DiscoverModelConfig", func() {
 			for _, imp := range registry {
 				names = append(names, imp.Name())
 			}
-			Expect(names).To(ContainElements("llama-cpp", "mlx", "vllm", "transformers", "diffusers", "longcat-video"))
+			Expect(names).To(ContainElements("funasr", "llama-cpp", "mlx", "vllm", "transformers", "diffusers", "longcat-video"))
 		})
 
 		It("LlamaCPPImporter exposes name/modality/autodetect", func() {

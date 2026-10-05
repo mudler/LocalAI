@@ -15,10 +15,12 @@ const (
 )
 
 // ORWebSocketMessage is the envelope for WebSocket mode messages.
-// The client sends {"type":"response.create", ...} where the remaining fields
-// map to OpenResponsesRequest. "type" is the only additional field.
+// The client sends {"type":"response.create", ...} where most remaining fields
+// map to OpenResponsesRequest. generate is a WebSocket-only control used by
+// clients such as Codex to prewarm a request without running inference.
 type ORWebSocketMessage struct {
-	Type string `json:"type"`
+	Type     string `json:"type"`
+	Generate *bool  `json:"generate,omitempty"`
 	OpenResponsesRequest
 }
 
@@ -68,9 +70,11 @@ func (r *OpenResponsesRequest) ModelName(s *string) string {
 	return r.Model
 }
 
-// ORFunctionTool represents a function tool definition
+// ORFunctionTool stores the function-shaped fields LocalAI consumes from a
+// Responses tool entry. Type can be a native Responses tool kind; unsupported
+// native fields are ignored and must not be reinterpreted as function fields.
 type ORFunctionTool struct {
-	Type        string         `json:"type"` // always "function"
+	Type        string         `json:"type"`
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	Parameters  map[string]any `json:"parameters,omitempty"`

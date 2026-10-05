@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from device_utils import device_map_for, select_device
 
 
 
@@ -95,13 +96,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
     def LoadModel(self, request, context):
-        if torch.cuda.is_available():
-            device = "cuda"
-        else:
-            device = "cpu"
-        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-        if mps_available:
-            device = "mps"
+        device = select_device(torch)
         if not torch.cuda.is_available() and request.CUDA:
             return backend_pb2.Result(success=False, message="CUDA is not available")
 
@@ -123,7 +118,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         model_path, local_only = resolve_model_reference(
             request, "Qwen/Qwen3-ASR-1.7B"
         )
-        default_dtype = torch.bfloat16 if self.device == "cuda" else torch.float32
+        default_dtype = torch.bfloat16 if self.device in ("cuda", "xpu") else torch.float32
         load_dtype = default_dtype
         if "torch_dtype" in self.options:
             d = str(self.options["torch_dtype"]).lower()
@@ -145,12 +140,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if attn_implementation is not None and isinstance(attn_implementation, str):
             attn_implementation = attn_implementation.strip() or None
 
-        if self.device == "mps":
-            device_map = None
-        elif self.device == "cuda":
-            device_map = "cuda:0"
-        else:
-            device_map = "cpu"
+        device_map = device_map_for(self.device)
 
         load_kwargs = dict(
             dtype=load_dtype,

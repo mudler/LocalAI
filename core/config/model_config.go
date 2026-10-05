@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
@@ -39,6 +40,17 @@ type TTSConfig struct {
 	// A pointer preserves the distinction between an explicit false and the
 	// default automatic behavior.
 	VoiceCloning *bool `yaml:"voice_cloning,omitempty" json:"voice_cloning,omitempty"`
+
+	// Voices describes named voices accepted by this model. Backends with a
+	// built-in catalog supply defaults when this list is empty.
+	Voices []TTSVoice `yaml:"voices,omitempty" json:"voices,omitempty"`
+}
+
+// TTSVoice describes one named voice accepted by a text-to-speech model.
+type TTSVoice struct {
+	Name     string `yaml:"name" json:"name"`
+	Language string `yaml:"language,omitempty" json:"language,omitempty"`
+	Gender   string `yaml:"gender,omitempty" json:"gender,omitempty"`
 }
 
 // @Description ModelConfig represents a model configuration
@@ -63,6 +75,10 @@ type ModelConfig struct {
 	// The target must be an existing, non-alias model (enforced at load and
 	// at create/swap time). See docs/content for Model Aliases.
 	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
+	// Failover makes this config a failover chain over other models. Like an
+	// alias it has no backend of its own.
+	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
 
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
@@ -160,6 +176,9 @@ type ModelConfig struct {
 	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
 	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
 	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
+
+	// Environment variables to set when starting the backend process
+	Environment map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
 }
 
 // CompressionConfig controls opt-in compression of chat history before inference.
@@ -284,12 +303,37 @@ const (
 	ProxyProviderAnthropic = "anthropic"
 )
 
+// ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
+// "" when neither is set. Mirrored (not imported, to keep backends independent
+// of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
+// — keep the two in sync, empty-value handling included.
+func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error) {
+	switch {
+	case p.APIKeyEnv != "":
+		var v string
+		if envLookup != nil {
+			v = envLookup(p.APIKeyEnv)
+		}
+		if v == "" {
+			return "", fmt.Errorf("proxy api_key_env %q is unset", p.APIKeyEnv)
+		}
+		return v, nil
+	case p.APIKeyFile != "":
+		b, err := os.ReadFile(p.APIKeyFile)
+		if err != nil {
+			return "", fmt.Errorf("proxy api_key_file %q: %w", p.APIKeyFile, err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return "", nil
+}
+
 // IsCloudProxyBackendPassthrough reports whether this model uses the
 // cloud-proxy gRPC backend in passthrough mode. Empty Mode counts as
 // passthrough (SetDefaults normalises it, but Validate accepts empty
 // too — handlers should not rely on a particular call order).
 func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
-	if c.Backend != "cloud-proxy" {
+	if c.Backend != model.CloudProxyBackend {
 		return false
 	}
 	return c.Proxy.Mode == "" || c.Proxy.Mode == ProxyModePassthrough
@@ -308,7 +352,7 @@ func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
 // config load to keep the dispatch graph acyclic and predictable. The
 // middleware also asserts depth ≤ 1 at runtime as a defensive check.
 type RouterConfig struct {
-	// Classifier picks the implementation. Only "score" ships today:
+	// Classifier selects score, colbert, knn, or native decisions. For score:
 	// it asks the classifier model to score every Policy label as a
 	// continuation of the routing prompt and reads off the
 	// distribution. Empty defaults to "score".
@@ -346,6 +390,8 @@ type RouterConfig struct {
 	// 0 disables the cache. Default 1024.
 	ClassifierCacheSize int `yaml:"classifier_cache_size,omitempty" json:"classifier_cache_size,omitempty"`
 
+	// For decisions, ActivationThreshold is an independent P(true) floor;
+	// zero selects the default 0.5.
 	// ActivationThreshold is the softmax-probability floor a policy
 	// must clear to be considered "active" for the request. 0
 	// defaults to a sensible value (~0.15) inside the classifier.
@@ -627,7 +673,7 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == "cloud-proxy"
+	return c.Backend == model.CloudProxyBackend
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -658,7 +704,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == "cloud-proxy" {
+	if c.Backend == model.CloudProxyBackend {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
@@ -756,6 +802,18 @@ type MCPSTDIOServer struct {
 	Command string            `json:"command,omitempty"`
 }
 
+// Pipeline stage names. They match the Pipeline yaml keys and are the stage
+// identifiers the realtime endpoint routes by (failover chains per stage,
+// model_failover events, preload roles), so every user shares one spelling.
+const (
+	PipelineStageVAD              = "vad"
+	PipelineStageTranscription    = "transcription"
+	PipelineStageLLM              = "llm"
+	PipelineStageTTS              = "tts"
+	PipelineStageSoundDetection   = "sound_detection"
+	PipelineStageVoiceRecognition = "voice_recognition"
+)
+
 // @Description Pipeline defines other models to use for audio-to-audio
 type Pipeline struct {
 	TTS           string `yaml:"tts,omitempty" json:"tts,omitempty"`
@@ -776,6 +834,14 @@ type Pipeline struct {
 	// client commits windows via input_audio_buffer.commit).
 	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
 	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
+
+	// Diarization asks the transcription model for speaker labels on each
+	// VAD-committed utterance and emits every labelled segment as a
+	// conversation.item.input_audio_transcription.segment event. It needs a
+	// transcription model that diarizes (e.g. parakeet-cpp with a
+	// diarization_model companion); off by default because some backends fail
+	// a diarize request they cannot serve. Speaker labels are per turn.
+	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -1241,15 +1307,16 @@ type GRPC struct {
 
 // @Description Diffusers configuration
 type Diffusers struct {
-	CUDA             bool   `yaml:"cuda,omitempty" json:"cuda,omitempty"`
-	PipelineType     string `yaml:"pipeline_type,omitempty" json:"pipeline_type,omitempty"`
-	SchedulerType    string `yaml:"scheduler_type,omitempty" json:"scheduler_type,omitempty"`
-	EnableParameters string `yaml:"enable_parameters,omitempty" json:"enable_parameters,omitempty"` // A list of comma separated parameters to specify
-	IMG2IMG          bool   `yaml:"img2img,omitempty" json:"img2img,omitempty"`                     // Image to Image Diffuser
-	ClipSkip         int    `yaml:"clip_skip,omitempty" json:"clip_skip,omitempty"`                 // Skip every N frames
-	ClipModel        string `yaml:"clip_model,omitempty" json:"clip_model,omitempty"`               // Clip model to use
-	ClipSubFolder    string `yaml:"clip_subfolder,omitempty" json:"clip_subfolder,omitempty"`       // Subfolder to use for clip model
-	ControlNet       string `yaml:"control_net,omitempty" json:"control_net,omitempty"`
+	CUDA               bool   `yaml:"cuda,omitempty" json:"cuda,omitempty"`
+	PipelineType       string `yaml:"pipeline_type,omitempty" json:"pipeline_type,omitempty"`
+	SchedulerType      string `yaml:"scheduler_type,omitempty" json:"scheduler_type,omitempty"`
+	OriginalConfigFile string `yaml:"original_config_file,omitempty" json:"original_config_file,omitempty"`
+	EnableParameters   string `yaml:"enable_parameters,omitempty" json:"enable_parameters,omitempty"` // A list of comma separated parameters to specify
+	IMG2IMG            bool   `yaml:"img2img,omitempty" json:"img2img,omitempty"`                     // Image to Image Diffuser
+	ClipSkip           int    `yaml:"clip_skip,omitempty" json:"clip_skip,omitempty"`                 // Skip every N frames
+	ClipModel          string `yaml:"clip_model,omitempty" json:"clip_model,omitempty"`               // Clip model to use
+	ClipSubFolder      string `yaml:"clip_subfolder,omitempty" json:"clip_subfolder,omitempty"`       // Subfolder to use for clip model
+	ControlNet         string `yaml:"control_net,omitempty" json:"control_net,omitempty"`
 }
 
 // @Description LLMConfig is a struct that holds the configuration that are generic for most of the LLM backends.
@@ -1350,6 +1417,16 @@ type TemplateConfig struct {
 	// Note: this is mostly consumed for backends such as vllm and transformers
 	// that can use the tokenizers specified in the JSON config files of the models
 	UseTokenizerTemplate bool `yaml:"use_tokenizer_template,omitempty" json:"use_tokenizer_template,omitempty"`
+
+	// SystemMessagesAfterFirst controls what happens to system-role messages that
+	// appear after the leading system block. Some tokenizer chat templates (e.g.
+	// Qwen3.8 / Flash-Next) raise "System message must be at the beginning" for
+	// them, while agent frameworks (cogito tool selection, adjustment prompts)
+	// legitimately append system instructions mid-conversation.
+	//   ""/"error": pass through unchanged (template decides)
+	//   "merge":    fold them into the leading system message
+	//   "user":     forward them as user-role instructions (keeps their position)
+	SystemMessagesAfterFirst string `yaml:"system_messages_after_first,omitempty" json:"system_messages_after_first,omitempty"`
 
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
@@ -1566,6 +1643,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	for _, operation := range c.ThreeDOperations() {
+		for _, parameter := range operation.Parameters {
+			if parameter.Default != "" {
+				if err := parameter.Validate(parameter.Default); err != nil {
+					return false, fmt.Errorf("%s default: %w", operation.ID, err)
+				}
+			}
+		}
+	}
 	if c.Compression.Enabled {
 		if c.IsCloudProxyBackendPassthrough() {
 			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
@@ -1608,6 +1694,13 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 	if len(c.Artifacts) > 0 && primaries != 1 {
 		return false, fmt.Errorf("a config with artifacts must declare exactly one %q target, found %d", modelartifacts.TargetModel, primaries)
+	}
+
+	if c.IsFailover() {
+		if err := c.validateFailover(); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	// An alias is a pure redirect: validate only its own shape here. Target
@@ -1722,6 +1815,29 @@ func (c *ModelConfig) Validate() (bool, error) {
 	default:
 		return false, fmt.Errorf("router: unknown score_normalization %q (expected %q or %q)",
 			c.Router.ScoreNormalization, ScoreNormalizationRaw, ScoreNormalizationMean)
+	}
+
+	if c.Router.Classifier == "decisions" {
+		t := c.Router.ActivationThreshold
+		if math.IsNaN(t) || math.IsInf(t, 0) || t < 0 || t > 1 {
+			return false, fmt.Errorf("router.decisions activation_threshold must be finite and in [0,1]")
+		}
+		if c.Router.ClassifierModel == "" {
+			return false, fmt.Errorf("router.decisions requires classifier_model")
+		}
+		if len(c.Router.Policies) == 0 || len(c.Router.Policies) > 64 {
+			return false, fmt.Errorf("router.decisions requires 1 to 64 policies")
+		}
+		seen := map[string]bool{}
+		for _, p := range c.Router.Policies {
+			if strings.TrimSpace(p.Label) == "" || strings.TrimSpace(p.Description) == "" || seen[p.Label] {
+				return false, fmt.Errorf("router.decisions requires unique nonblank labels and descriptions")
+			}
+			seen[p.Label] = true
+		}
+		if c.Router.KNN != nil || c.Router.EmbeddingCache != nil {
+			return false, fmt.Errorf("router.decisions does not support knn or embedding_cache composition")
+		}
 	}
 	if c.Router.KNN != nil {
 		if err := c.Router.KNN.Validate(); err != nil {
@@ -1962,7 +2078,15 @@ const (
 	// Marks a model as wired for the Generate3D gRPC primitive
 	// (image-conditioned 3D asset generation — a binary glTF mesh with
 	// optional PBR material, e.g. trellis2cpp).
-	FLAG_3D ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
+
+	// Marks a model as a decision model: it answers typed choice / noul /
+	// score questions over a state (served by POST /v1/systemone).
+	// Explicit only, like FLAG_SCORE: a decision model never generates
+	// text, so guessing chat or embeddings for it would surface it in
+	// pickers it cannot serve.
+	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -1977,7 +2101,7 @@ var ModalityGroups = []ModelConfigUsecase{
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D,                                 // visual generation
+	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D | FLAG_3D_ANIMATION,             // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -2025,6 +2149,8 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DEPTH":                FLAG_DEPTH,
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
+		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
+		"FLAG_DECISIONS":            FLAG_DECISIONS,
 	}
 }
 
@@ -2053,9 +2179,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
-// either, they reserved the model for an internal direct-decode primitive
-// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
+// declared any of them, they reserved the model for a direct-decode primitive
+// (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
 // was deliberately kept out of. So a declared score or token_classify
 // list is authoritative; declare the generation usecases explicitly
@@ -2065,7 +2191,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
 			return false
 		}
 	}
@@ -2196,6 +2322,9 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 			return false
 		}
 	}
+	if (u&FLAG_3D_ANIMATION) == FLAG_3D_ANIMATION && c.Backend != "kimodocpp" {
+		return false
+	}
 
 	if (u & FLAG_FACE_RECOGNITION) == FLAG_FACE_RECOGNITION {
 		faceBackends := []string{"insightface"}
@@ -2282,6 +2411,14 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
 		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
 		// only when KnownUsecases declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_DECISIONS) == FLAG_DECISIONS {
+		// No heuristic: decisions intent is a deliberate operator choice
+		// (the model is a non-generative decision head), so
+		// HasUsecases(FLAG_DECISIONS) is true only when KnownUsecases
+		// declares it explicitly.
 		return false
 	}
 

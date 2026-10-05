@@ -271,8 +271,6 @@ you want NeMo ASR on an AMD or Intel GPU, use
   **silently cut**: generation simply stops at the limit and the truncated translation is
   returned as if it were complete. Translate a sentence or a paragraph at a time rather
   than a whole document.
-- **There are no gallery entries yet.** Models have to be converted with upstream's
-  converter and configured by hand, as below. This is a follow-up, not an oversight.
 
 ## Converting models
 

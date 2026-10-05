@@ -32,6 +32,7 @@ export default function TTS() {
   const [manualVoice, setManualVoice] = useState('')
   const [voiceProfileID, setVoiceProfileID] = useState(requestedVoiceID)
   const [text, setText] = useState('')
+  const [instructions, setInstructions] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   // What was actually sent, so the request panel records rather than predicts.
@@ -75,6 +76,7 @@ export default function TTS() {
       const selectedVoice = supportsVoiceProfiles ? selectedProfile?.voice : manualVoice.trim()
       const request = { model, input: text.trim() }
       if (selectedVoice) request.voice = selectedVoice
+      if (instructions.trim()) request.instructions = instructions.trim()
       setLastRequest(request)
       const { blob, serverUrl } = await ttsApi.generate(request)
       const url = URL.createObjectURL(blob)
@@ -84,9 +86,12 @@ export default function TTS() {
         addEntry({
           prompt: text.trim(),
           model,
-          params: selectedProfile
-            ? { voice: selectedProfile.name }
-            : (!supportsVoiceProfiles && manualVoice.trim() ? { voice: manualVoice.trim() } : {}),
+          params: {
+            ...(selectedProfile
+              ? { voice: selectedProfile.name }
+              : (!supportsVoiceProfiles && manualVoice.trim() ? { voice: manualVoice.trim() } : {})),
+            ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+          },
           results: [{ url: serverUrl }],
         })
       }
@@ -167,6 +172,18 @@ export default function TTS() {
               placeholder={t('tts.labels.inputPlaceholder')}
               rows={5}
             />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="tts-instructions">{t('tts.labels.instructions')}</label>
+            <textarea
+              id="tts-instructions"
+              className="textarea"
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              placeholder={t('tts.labels.instructionsPlaceholder')}
+              rows={3}
+            />
+            <p className="form-hint">{t('tts.labels.instructionsHint')}</p>
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? <><LoadingSpinner size="sm" /> {t('tts.actions.generating')}</> : <><i className="fas fa-headphones" /> {t('tts.actions.generate')}</>}

@@ -563,6 +563,18 @@ function startBackend() {
         echo "Added ${EDIR}/lib to LD_LIBRARY_PATH for GPU libraries"
     fi
 
+    # XPU wheels carry a matching SYCL/Unified Runtime set. Prefer it over
+    # packaged oneAPI or host libraries, which may expose an older loader ABI.
+    if [ "$(uname -s)" = "Linux" ]; then
+        local sycl_runtime
+        for sycl_runtime in "${EDIR}/venv/lib"/libsycl.so*; do
+            if [ -f "${sycl_runtime}" ]; then
+                export LD_LIBRARY_PATH="${EDIR}/venv/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+                break
+            fi
+        done
+    fi
+
     if [ ! -z "${BACKEND_FILE:-}" ]; then
         exec "${EDIR}/venv/bin/python" "${BACKEND_FILE}" "$@"
     elif [ -e "${MY_DIR}/server.py" ]; then

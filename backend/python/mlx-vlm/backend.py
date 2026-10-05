@@ -376,8 +376,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 kwargs["tools"] = json.loads(request.Tools)
             except json.JSONDecodeError:
                 pass
-        if request.Metadata.get("enable_thinking", "").lower() == "true":
-            kwargs["enable_thinking"] = True
+        enable_thinking = request.Metadata.get("enable_thinking", "").lower()
+        if enable_thinking in ("true", "false"):
+            kwargs["enable_thinking"] = enable_thinking == "true"
         return kwargs
 
     def _apply_template(self, request, messages, num_images, num_audios):

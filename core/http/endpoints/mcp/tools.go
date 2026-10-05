@@ -16,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -100,9 +99,14 @@ var (
 	client = mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
 )
 
-// MCPNATSClient is the interface for NATS request-reply operations needed by MCP routing.
-type MCPNATSClient interface {
-	Request(subject string, data []byte, timeout time.Duration) ([]byte, error)
+// AgentControl carries the frontend's MCP verbs to one agent worker. A decoded
+// reply is returned with a nil error even when its Error field is set: that is
+// the worker's own answer. nodes.ErrNoRoute (wrapped) means no agent worker
+// could be offered the request. A timeout, a transport fault or an unreadable
+// reply is an ordinary error and never ErrNoRoute.
+type AgentControl interface {
+	ExecuteMCPTool(ctx context.Context, req mcpRemote.MCPToolRequest) (*mcpRemote.MCPToolResponse, error)
+	DiscoverMCPTools(ctx context.Context, req mcpRemote.MCPDiscoveryRequest) (*mcpRemote.MCPDiscoveryResponse, error)
 }
 
 // MetadataKeyLocalAIAssistant is the request-metadata key the chat handler
@@ -510,18 +514,18 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 	return string(combined), nil
 }
 
-// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker via NATS.
+// ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker.
 // Used in distributed mode when the frontend doesn't hold MCP sessions locally.
 func ExecuteMCPToolCallRemote(
 	ctx context.Context,
-	natsClient MCPNATSClient,
+	agentControl AgentControl,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	toolName, arguments string,
 ) (string, error) {
-	if natsClient == nil {
-		return "", fmt.Errorf("NATS client not configured for distributed MCP")
+	if agentControl == nil {
+		return "", fmt.Errorf("agent control not configured for distributed MCP")
 	}
 
 	var args map[string]any
@@ -538,16 +542,12 @@ func ExecuteMCPToolCallRemote(
 		RemoteServers: remote,
 		StdioServers:  stdio,
 	}
-	reqData, _ := json.Marshal(req)
 
-	replyData, err := natsClient.Request(messaging.SubjectMCPToolExecute, reqData, config.DefaultMCPToolTimeout)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPToolTimeout)
+	defer cancel()
+	resp, err := agentControl.ExecuteMCPTool(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("NATS MCP tool request failed: %w", err)
-	}
-
-	var resp mcpRemote.MCPToolResponse
-	if err := json.Unmarshal(replyData, &resp); err != nil {
-		return "", fmt.Errorf("unmarshal MCP reply: %w", err)
+		return "", fmt.Errorf("remote MCP tool request failed: %w", err)
 	}
 	if resp.Error != "" {
 		return "", fmt.Errorf("remote MCP tool error: %s", resp.Error)
@@ -555,17 +555,17 @@ func ExecuteMCPToolCallRemote(
 	return resp.Result, nil
 }
 
-// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker via NATS.
+// DiscoverMCPToolsRemote routes an MCP discovery request to an agent worker.
 // Returns server info and tool function schemas from the remote worker.
 func DiscoverMCPToolsRemote(
 	ctx context.Context,
-	natsClient MCPNATSClient,
+	agentControl AgentControl,
 	modelName string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 ) (*mcpRemote.MCPDiscoveryResponse, error) {
-	if natsClient == nil {
-		return nil, fmt.Errorf("NATS client not configured for distributed MCP")
+	if agentControl == nil {
+		return nil, fmt.Errorf("agent control not configured for distributed MCP")
 	}
 
 	req := mcpRemote.MCPDiscoveryRequest{
@@ -573,21 +573,17 @@ func DiscoverMCPToolsRemote(
 		RemoteServers: remote,
 		StdioServers:  stdio,
 	}
-	reqData, _ := json.Marshal(req)
 
-	replyData, err := natsClient.Request(messaging.SubjectMCPDiscovery, reqData, config.DefaultMCPDiscoveryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPDiscoveryTimeout)
+	defer cancel()
+	resp, err := agentControl.DiscoverMCPTools(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("NATS MCP discovery request failed: %w", err)
-	}
-
-	var resp mcpRemote.MCPDiscoveryResponse
-	if err := json.Unmarshal(replyData, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshal MCP discovery reply: %w", err)
+		return nil, fmt.Errorf("remote MCP discovery request failed: %w", err)
 	}
 	if resp.Error != "" {
 		return nil, fmt.Errorf("remote MCP discovery error: %s", resp.Error)
 	}
-	return &resp, nil
+	return resp, nil
 }
 
 // ListMCPServers returns server info with tool, prompt, and resource names for each session.

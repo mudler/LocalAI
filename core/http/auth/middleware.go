@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	contextKeyUser   = "auth_user"
-	contextKeyRole   = "auth_role"
-	contextKeyAPIKey = "auth_apikey"
-	contextKeySource = "auth_source"
+	contextKeyUser                = "auth_user"
+	contextKeyRole                = "auth_role"
+	contextKeyAPIKey              = "auth_apikey"
+	contextKeySource              = "auth_source"
+	contextKeyHeaderAuthenticated = "auth_header_authenticated"
 )
 
 // Middleware returns an Echo middleware that handles authentication.
@@ -78,6 +79,7 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 					c.Set(contextKeyUser, syntheticUser)
 					c.Set(contextKeyRole, RoleAdmin)
 					c.Set(contextKeySource, UsageSourceLegacy)
+					c.Set(contextKeyHeaderAuthenticated, extractHeaderKey(c) != "")
 					authenticated = true
 				}
 			}
@@ -469,12 +471,14 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 
 		// b1. Session token via Bearer -> still web UI
 		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
+			c.Set(contextKeyHeaderAuthenticated, true)
 			c.Set(contextKeySource, UsageSourceWeb)
 			return user
 		}
 
 		// b2. Named API key
 		if key, err := ValidateAPIKey(db, token, hmacSecret); err == nil {
+			c.Set(contextKeyHeaderAuthenticated, true)
 			c.Set(contextKeySource, UsageSourceAPIKey)
 			c.Set(contextKeyAPIKey, key)
 			return &key.User
@@ -485,6 +489,7 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 	for _, header := range []string{"x-api-key", "xi-api-key"} {
 		if k := c.Request().Header.Get(header); k != "" {
 			if apiKey, err := ValidateAPIKey(db, k, hmacSecret); err == nil {
+				c.Set(contextKeyHeaderAuthenticated, true)
 				c.Set(contextKeySource, UsageSourceAPIKey)
 				c.Set(contextKeyAPIKey, apiKey)
 				return &apiKey.User
@@ -504,9 +509,18 @@ func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationC
 	return nil
 }
 
-// extractKey extracts an API key from the request (all sources).
+// extractKey extracts an API key from headers, falling back to the token cookie.
 func extractKey(c echo.Context) string {
-	// Authorization header
+	if key := extractHeaderKey(c); key != "" || c.Request().Header.Get("Authorization") != "" {
+		return key
+	}
+	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	return ""
+}
+
+func extractHeaderKey(c echo.Context) string {
 	auth := c.Request().Header.Get("Authorization")
 	if strings.HasPrefix(auth, "Bearer ") {
 		return strings.TrimPrefix(auth, "Bearer ")
@@ -514,23 +528,10 @@ func extractKey(c echo.Context) string {
 	if auth != "" {
 		return auth
 	}
-
-	// x-api-key
 	if key := c.Request().Header.Get("x-api-key"); key != "" {
 		return key
 	}
-
-	// xi-api-key
-	if key := c.Request().Header.Get("xi-api-key"); key != "" {
-		return key
-	}
-
-	// token cookie
-	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
-		return cookie.Value
-	}
-
-	return ""
+	return c.Request().Header.Get("xi-api-key")
 }
 
 // isValidLegacyKey checks if the key matches any configured API key

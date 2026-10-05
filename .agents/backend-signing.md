@@ -20,6 +20,12 @@ side (`pkg/oci/cosignverify` plus the gallery YAML).
 - **Consumer:** `pkg/oci/cosignverify` discovers the bundle via the
   referrers API, hands it to `sigstore-go`, and verifies it against the
   policy declared in the gallery YAML (`Gallery.Verification`).
+  A registry without the referrers API (CNCF distribution 3.0.0 has no such
+  route) sends the client to the referrers-tag index instead, and cosign
+  writes that index's `artifactType` from the manifest's *config* media
+  type. The verifier therefore falls back to asking each referrer manifest
+  what it is, rather than trusting the index entry: without that, correctly
+  signed images on such a registry read as unsigned.
 - **Revocation:** Keyless cosign certs are ephemeral (10-minute Fulcio
   validity), so revocation is policy-side, not CA-side. The gallery's
   `verification.not_before` (RFC3339) is the kill-switch — advance it to
@@ -49,11 +55,17 @@ cosign sign --yes --recursive \
 Sign by digest, never by tag — signing by tag binds the signature to
 whatever the tag points at *now*, and a subsequent tag push orphans it.
 
-`--registry-referrers-mode=oci-1-1` is still gated behind
-`COSIGN_EXPERIMENTAL=1` in cosign v2.4.x (set at the job env level in
-`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release
-— newer versions are expected to graduate this flag and the env var can
+`--registry-referrers-mode=oci-1-1` is gated behind
+`COSIGN_EXPERIMENTAL=1` (set at the job env level in
+`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release:
+newer versions are expected to graduate this flag and the env var can
 then be dropped.
+
+`--new-bundle-format` needs cosign v2.5.0 or newer, which is why
+`backend_merge.yml` pins v2.6.5. Without the flag cosign writes the legacy
+simplesigning format instead, and `pkg/oci/cosignverify` refuses it on
+purpose, so an older cosign silently publishes signatures this project
+cannot verify. Check both the flag and the pinned version together.
 
 `backend_build_darwin.yml` builds and pushes single-arch darwin images
 that bypass the manifest-list merge. If/when those entries get a gallery
@@ -75,11 +87,23 @@ entry (`backend/index.yaml`):
     identity_regex: "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"
     # Optional revocation cutoff; advance during incident response.
     # not_before: "2026-06-01T00:00:00Z"
+    # Optional exact source-repository pin (https URL); see below.
+    # source_repository: "https://github.com/acme/backends"
 ```
 
 Identity matching pins the OIDC subject Fulcio issued the signing cert
 to. Without this, any image signed by *anyone* with a Fulcio cert would
 pass — the regex is what makes a signature mean "produced by our CI".
+
+Policy keys: `issuer` or `issuer_regex`, `identity` or `identity_regex`
+(one of each is required), and the optional `not_before` and
+`source_repository`. `source_repository` is compared exactly against the
+certificate's source-repository extension, and a value that is not an
+`https://` URL is refused when LocalAI uses the policy, when it installs a
+backend or fetches an `oci://` gallery. Set it when a reusable
+workflow shared by several repositories does the signing: the identity
+then names the shared workflow, and only the source repository says which
+repository the signature was made for.
 
 ## Strict mode
 

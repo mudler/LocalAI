@@ -207,12 +207,18 @@ type VoiceProfile = voiceprofile.Profile
 // portability); the service enforces the same 50 MiB and duration limits as
 // the browser upload route.
 type CreateVoiceProfileRequest struct {
-	Name             string `json:"name"              jsonschema:"Display name for the reusable voice profile."`
-	Description      string `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
-	Language         string `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
-	Transcript       string `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
-	AudioBase64      string `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
-	ConsentConfirmed bool   `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
+	Name             string                               `json:"name"              jsonschema:"Display name for the reusable voice profile."`
+	Description      string                               `json:"description,omitempty" jsonschema:"Optional note describing tone, source, or intended use."`
+	Language         string                               `json:"language,omitempty" jsonschema:"Optional BCP-47-style language tag such as en-US."`
+	Transcript       string                               `json:"transcript"        jsonschema:"Exact transcript of the words spoken in the reference clip."`
+	AudioBase64      string                               `json:"audio_base64"      jsonschema:"Base64-encoded 16-bit PCM WAV reference, preferably mono 24 kHz, 1-120 seconds and at most 50 MiB decoded."`
+	ConsentConfirmed bool                                 `json:"consent_confirmed" jsonschema:"Must be true to confirm authorization to clone this voice."`
+	References       []CreateVoiceProfileReferenceRequest `json:"references,omitempty" jsonschema:"Optional ordered audio/transcript pairs. When set, these replace the legacy audio_base64 and transcript fields."`
+}
+
+type CreateVoiceProfileReferenceRequest struct {
+	Transcript  string `json:"transcript" jsonschema:"Exact transcript of this reference clip."`
+	AudioBase64 string `json:"audio_base64" jsonschema:"Base64-encoded 16-bit PCM WAV reference."`
 }
 
 // DeleteVoiceProfileRequest identifies the profile to remove.
@@ -406,4 +412,27 @@ type VRAMEstimateRequest struct {
 	ContextSize int    `json:"context_size,omitempty"  jsonschema:"Context size in tokens."`
 	GPULayers   int    `json:"gpu_layers,omitempty"    jsonschema:"Number of layers to offload to GPU. -1 for all."`
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
+}
+
+// FailoverTargetInfo is the LLM-facing view of one failover chain target's
+// health. It mirrors failover.TargetStatus but drops ConsecutiveOK and
+// LastProbe — internal probing detail the LLM doesn't need to decide
+// whether to pin or unpin a target.
+type FailoverTargetInfo struct {
+	Model     string `json:"model"`
+	Kind      string `json:"kind"`
+	Warm      bool   `json:"warm"`
+	State     string `json:"state"`
+	LastError string `json:"last_error,omitempty"`
+}
+
+// FailoverChainInfo is the LLM-facing view of one failover chain: its
+// current state, the target serving it now, an optional pin, and every
+// target's health.
+type FailoverChainInfo struct {
+	Name    string               `json:"name"`
+	State   string               `json:"state"`
+	Active  string               `json:"active"`
+	Pinned  string               `json:"pinned,omitempty"`
+	Targets []FailoverTargetInfo `json:"targets"`
 }

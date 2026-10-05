@@ -199,6 +199,12 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
+			// Test environment variables configuration parsing from YAML
+			envYAML := "name: env-test-model\nbackend: test-backend\nenv:\n  TEST_ENV_VAR: test_value\n  ANOTHER_VAR: another_value\n"
+			var envConfig ModelConfig
+			Expect(yaml.Unmarshal([]byte(envYAML), &envConfig)).To(Succeed())
+			Expect(envConfig.Environment).To(HaveKeyWithValue("TEST_ENV_VAR", "test_value"))
+			Expect(envConfig.Environment).To(HaveKeyWithValue("ANOTHER_VAR", "another_value"))
 			tcAndChat := FLAG_TOKEN_CLASSIFY | FLAG_CHAT
 			tcCombined := ModelConfig{
 				Name:          "ner-and-chat",
@@ -947,5 +953,38 @@ var _ = Describe("ModelConfig alias", func() {
 		valid, err := cfg.Validate()
 		Expect(valid).To(BeFalse())
 		Expect(err).To(MatchError(ContainSubstring("alias")))
+	})
+})
+
+var _ = Describe("decisions usecase", func() {
+	// A decision model never generates text, so a declared decisions list
+	// must stay authoritative and the heuristic must never guess the flag.
+	It("is authoritative when declared and never guessed", func() {
+		declared := GetUsecasesFromYAML([]string{"decisions"})
+		Expect(declared).NotTo(BeNil())
+		Expect(*declared).NotTo(Equal(FLAG_ANY))
+
+		cfg := ModelConfig{
+			Name:          "laya",
+			Backend:       "vllm-cpp",
+			KnownUsecases: declared,
+			TemplateConfig: TemplateConfig{
+				Chat:        "inherited from chatml",
+				ChatMessage: "inherited from chatml",
+				Completion:  "inherited from chatml",
+			},
+		}
+		Expect(cfg.HasUsecases(*declared)).To(BeTrue())
+		Expect(cfg.HasUsecases(FLAG_CHAT)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
+		Expect(cfg.HasUsecases(FLAG_EMBEDDINGS)).To(BeFalse())
+
+		undeclared := ModelConfig{Name: "laya", Backend: "vllm-cpp"}
+		Expect(undeclared.HasUsecases(*declared)).To(BeFalse())
+	})
+
+	It("is a reserved usecase for the GGUF importer chat-default guard", func() {
+		declared := GetUsecasesFromYAML([]string{"decisions"})
+		Expect(reservedNonChatModel(&ModelConfig{Backend: "vllm-cpp", KnownUsecases: declared})).To(BeTrue())
 	})
 })

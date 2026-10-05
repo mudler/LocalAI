@@ -11,7 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 )
 
-// ToggleModelEndpoint handles enabling or disabling a model from being loaded on demand.
+// ToggleStateModelEndpoint handles enabling or disabling a model from being loaded on demand.
 // When disabled, the model remains in the collection but will not be loaded when requested.
 //
 // @Summary      Toggle model enabled/disabled status

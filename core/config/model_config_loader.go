@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -412,6 +413,26 @@ func (bcl *ModelConfigLoader) GetModelsConflictingWith(name string) []string {
 	return conflicts
 }
 
+// GetPinnedModelNames returns the names of every configured, not-disabled
+// model with `pinned: true`. The distributed router and replica reconciler
+// consult this so cluster-wide eviction honours the same pin contract the
+// local watchdog enforces (#11101) — without it, a pinned model becomes
+// eviction-eligible the moment its in-flight count drops to zero.
+func (bcl *ModelConfigLoader) GetPinnedModelNames() []string {
+	bcl.Lock()
+	defer bcl.Unlock()
+	var pinned []string
+	for n, cfg := range bcl.configs {
+		if cfg.IsDisabled() {
+			continue
+		}
+		if cfg.IsPinned() {
+			pinned = append(pinned, n)
+		}
+	}
+	return pinned
+}
+
 // UpdateModelConfig updates an existing model config in the loader.
 // This is useful for updating runtime-detected properties like thinking support.
 func (bcl *ModelConfigLoader) UpdateModelConfig(m string, updater func(*ModelConfig)) {
@@ -479,6 +500,102 @@ func (bcl *ModelConfigLoader) ValidateAliasTarget(cfg *ModelConfig) error {
 		return fmt.Errorf("alias target %q is disabled", cfg.Alias)
 	}
 	return nil
+}
+
+// failoverUsecases are the single usecases a chain can share. Checking one
+// flag at a time avoids treating "chat+tts" and "tts" as unrelated.
+var failoverUsecases = []ModelConfigUsecase{
+	FLAG_CHAT, FLAG_COMPLETION, FLAG_EMBEDDINGS, FLAG_RERANK, FLAG_IMAGE,
+	FLAG_TRANSCRIPT, FLAG_TTS, FLAG_SOUND_GENERATION, FLAG_VAD, FLAG_VIDEO,
+	FLAG_SOUND_CLASSIFICATION,
+}
+
+// ValidateFailoverTargets checks that every target of a chain exists and is
+// not itself a chain. Alias targets are allowed and resolve one hop.
+func (bcl *ModelConfigLoader) ValidateFailoverTargets(cfg *ModelConfig) error {
+	return validateFailoverTargets(cfg, bcl.GetModelConfig)
+}
+
+// FailoverTargetsShareUsecase reports whether all targets of a chain have at
+// least one usecase in common. A false result is only a warning: usecases are
+// often inferred.
+func (bcl *ModelConfigLoader) FailoverTargetsShareUsecase(cfg *ModelConfig) bool {
+	return failoverTargetsShareUsecase(cfg, bcl.GetModelConfig)
+}
+
+func validateFailoverTargets(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) error {
+	if cfg == nil || !cfg.IsFailover() {
+		return nil
+	}
+	for _, t := range cfg.Failover.Targets {
+		target, ok := lookup(t.Model)
+		if !ok {
+			return fmt.Errorf("failover chain %q: target %q does not exist", cfg.Name, t.Model)
+		}
+		if target.IsAlias() {
+			if resolved, ok := lookup(target.Alias); ok {
+				target = resolved
+			}
+		}
+		if target.IsFailover() {
+			return fmt.Errorf("failover chain %q: target %q is a chain (chains do not nest)", cfg.Name, t.Model)
+		}
+	}
+	return nil
+}
+
+// failoverWarmRemoteTargets lists the chain's targets marked warm that are
+// remote. Warm only keeps a local model loaded, so the flag does nothing there.
+func failoverWarmRemoteTargets(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) []string {
+	if cfg == nil || !cfg.IsFailover() {
+		return nil
+	}
+	var out []string
+	for _, t := range cfg.Failover.Targets {
+		if !t.Warm {
+			continue
+		}
+		target, ok := lookup(t.Model)
+		if ok && target.IsAlias() {
+			target, ok = lookup(target.Alias)
+		}
+		if ok && target.IsRemoteProxy() {
+			out = append(out, t.Model)
+		}
+	}
+	return out
+}
+
+func failoverTargetsShareUsecase(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) bool {
+	if cfg == nil || !cfg.IsFailover() {
+		return true
+	}
+	var targets []ModelConfig
+	for _, t := range cfg.Failover.Targets {
+		target, ok := lookup(t.Model)
+		if !ok {
+			return true // missing targets are reported by validateFailoverTargets
+		}
+		if target.IsAlias() {
+			if resolved, ok := lookup(target.Alias); ok {
+				target = resolved
+			}
+		}
+		targets = append(targets, target)
+	}
+	for _, u := range failoverUsecases {
+		all := true
+		for i := range targets {
+			if !targets[i].HasUsecases(u) {
+				all = false
+				break
+			}
+		}
+		if all {
+			return true
+		}
+	}
+	return false
 }
 
 type preloadWork struct {
@@ -814,6 +931,47 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 			xlog.Warn("alias points to unknown model", "alias", name, "target", c.Alias)
 		case target.IsAlias():
 			xlog.Warn("alias points to another alias (chains are not allowed)", "alias", name, "target", c.Alias)
+		}
+	}
+
+	// Reject failover chains whose targets are missing or are themselves
+	// chains. bcl.Lock() is held here, so look up configs directly rather
+	// than through GetModelConfig, which would deadlock on the same mutex.
+	lookup := func(n string) (ModelConfig, bool) { c, ok := bcl.configs[n]; return c, ok }
+	for name, cfg := range bcl.configs {
+		if !cfg.IsFailover() {
+			continue
+		}
+		c := cfg
+		if err := validateFailoverTargets(&c, lookup); err != nil {
+			if strict {
+				return fmt.Errorf("invalid model config %q: %w", name, err)
+			}
+			xlog.Error("skipping invalid failover chain", "model", name, "error", err)
+			delete(bcl.configs, name)
+			continue
+		}
+		if !failoverTargetsShareUsecase(&c, lookup) {
+			xlog.Warn("failover chain targets share no known usecase", "model", name)
+		}
+		if remote := failoverWarmRemoteTargets(&c, lookup); len(remote) > 0 {
+			xlog.Warn("failover chain: warm has no effect on remote targets", "model", name, "targets", remote)
+		}
+	}
+
+	// localai-proxy proxies straight through to another LocalAI instance, so
+	// it never translates the wire protocol the way cloud-proxy does; warn
+	// when a config carries settings that only make sense there, or lacks
+	// the usecases failover's own usecase-sharing check depends on.
+	for name, cfg := range bcl.configs {
+		if cfg.Backend != model.LocalAIProxyBackend {
+			continue
+		}
+		if cfg.Proxy.Mode == ProxyModeTranslate || cfg.Proxy.Provider != "" {
+			xlog.Warn("localai-proxy backend proxies to another LocalAI instance and ignores proxy.mode/proxy.provider", "model", name)
+		}
+		if len(cfg.KnownUsecaseStrings) == 0 {
+			xlog.Warn("localai-proxy config has no known_usecases; failover usecase matching will skip it", "model", name)
 		}
 	}
 

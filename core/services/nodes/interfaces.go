@@ -2,14 +2,15 @@ package nodes
 
 import (
 	"context"
+	"net"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
 type ExactModelStopper interface {
-	StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error)
+	StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (workerctl.ModelStopReply, error)
 }
 
 type ModelCleanupRegistry interface {
@@ -46,7 +47,7 @@ type ModelRouter interface {
 	FindIdleNode(ctx context.Context) (*BackendNode, error)
 	FindLeastLoadedNode(ctx context.Context) (*BackendNode, error)
 	FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error)
-	FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error)
+	FindLRUModel(ctx context.Context, nodeID string, excludeModels []string) (*NodeModel, error)
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	GetGoverningScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
@@ -82,6 +83,15 @@ type LoadJobStore interface {
 // placement decisions without importing the config package's full surface.
 type ConcurrencyConflictResolver interface {
 	GetModelsConflictingWith(modelName string) []string
+}
+
+// PinnedModelResolver reports which configured models are pinned. Satisfied
+// by *config.ModelConfigLoader. The router's eviction paths and the
+// reconciler's idle scale-down exclude these models so `pinned: true` holds
+// cluster-wide, not just against the per-node watchdog (#11101). Deliberate
+// teardown (admin unload, model delete, node drain) intentionally bypasses it.
+type PinnedModelResolver interface {
+	GetPinnedModelNames() []string
 }
 
 // NodeHealthStore is used by HealthMonitor for node status management.
@@ -137,9 +147,11 @@ type NodeManager interface {
 	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 }
 
-// BackendClientFactory creates gRPC backend clients.
+// BackendClientFactory creates gRPC backend clients. It takes the node id
+// because a dialer that must know WHICH node it is reaching, as a tunnel does,
+// cannot recover it from the address; a direct dialer ignores it.
 type BackendClientFactory interface {
-	NewClient(address string, parallel bool) grpc.Backend
+	NewClient(nodeID, address string, parallel bool) grpc.Backend
 }
 
 // tokenClientFactory is the default BackendClientFactory that creates gRPC
@@ -148,9 +160,23 @@ type tokenClientFactory struct {
 	token string
 }
 
-func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backend {
+func (f *tokenClientFactory) NewClient(_, address string, parallel bool) grpc.Backend {
 	if f.token != "" {
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
 	return grpc.NewClient(address, parallel, nil, false)
+}
+
+// WorkerNetDialerFor returns the dial function that reaches one worker's own
+// HTTP server, in the shape http.Transport.DialContext and
+// websocket.Dialer.NetDialContext take. It is keyed by node id, not address,
+// because two workers can report the same HTTP address (NAT, loopback) and a
+// tunnel must still reach the right one.
+type WorkerNetDialerFor func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error)
+
+// DirectWorkerNetDialer dials the address it is handed, whatever the node.
+func DirectWorkerNetDialer() WorkerNetDialerFor {
+	// Aggressive keepalive suits the long LAN transfers the file stager makes.
+	dial := (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 15 * time.Second}).DialContext
+	return func(string) func(context.Context, string, string) (net.Conn, error) { return dial }
 }

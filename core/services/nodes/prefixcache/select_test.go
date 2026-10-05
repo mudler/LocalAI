@@ -47,6 +47,17 @@ var _ = Describe("Select (filter-then-score)", func() {
 		Expect(got).To(Equal(rk("B", 0))) // cold placement: lowest cacheWeight eligible
 	})
 
+	It("disables prefix scoring when its configured weight is zero", func() {
+		cfg := prefixcache.DefaultConfig()
+		cfg.ScorerWeights[prefixcache.ScorerPrefixCache] = 0
+		cands := []prefixcache.Candidate{cand("B", 0, 0), cand("A", 0, 0)}
+		got, ok := prefixcache.Select(cands, prefixcache.PrefixDecision{
+			Hot: rk("B", 0), HasHot: true, MatchRatio: 1,
+		}, cfg)
+		Expect(ok).To(BeTrue())
+		Expect(got).To(Equal(rk("A", 0)))
+	})
+
 	It("cold-places to lowest-cacheWeight replica within the eligible subset", func() {
 		cands := []prefixcache.Candidate{cand("A", 0, 0), cand("B", 0, 0), cand("C", 0, 9)}
 		got, ok := prefixcache.Select(cands, prefixcache.PrefixDecision{

@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
@@ -16,7 +17,7 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 		nodeID := "node-x"
 
 		mc.scriptReply(messaging.SubjectNodeBackendUpgrade(nodeID),
-			messaging.BackendUpgradeReply{Success: true})
+			workerctl.BackendUpgradeReply{Success: true})
 
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
 		reply, err := adapter.UpgradeBackend(nodeID, "llama-cpp", `[{"name":"x"}]`, "", "", "", 0, "", nil)
@@ -43,17 +44,17 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 		opID := "op-upgrade-1"
 
 		mc.scriptReply(messaging.SubjectNodeBackendUpgrade(nodeID),
-			messaging.BackendUpgradeReply{Success: true})
+			workerctl.BackendUpgradeReply{Success: true})
 		// The worker would publish these while force-reinstalling. The harness
 		// replays them as soon as the adapter subscribes to the per-op subject.
-		mc.scheduleProgressPublish(nodeID, opID, []messaging.BackendInstallProgressEvent{
+		mc.scheduleProgressPublish(nodeID, opID, []workerctl.BackendInstallProgressEvent{
 			{NodeID: nodeID, FileName: "llama-cpp.tar", Current: "10 MB", Total: "100 MB", Percentage: 10},
 			{NodeID: nodeID, FileName: "llama-cpp.tar", Current: "100 MB", Total: "100 MB", Percentage: 100},
 		})
 
 		var mu sync.Mutex
-		var got []messaging.BackendInstallProgressEvent
-		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+		var got []workerctl.BackendInstallProgressEvent
+		onProgress := func(ev workerctl.BackendInstallProgressEvent) {
 			mu.Lock()
 			got = append(got, ev)
 			mu.Unlock()

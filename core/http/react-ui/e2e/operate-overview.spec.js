@@ -96,7 +96,11 @@ test.describe('Operate overview', () => {
     const rail = page.locator('.console-rail')
     await expect(rail.locator('a.nav-item[href="/app/backends"]')).toBeVisible()
     // Gating is the thing most likely to break silently when items move group.
-    await expect(rail.locator('a.nav-item[href="/app/nodes"]')).toHaveCount(0)
+    // The Nodes route stays reachable, but as "This machine" in Runtime: a
+    // single host is not a cluster.
+    await expect(rail.locator('a.nav-item[href="/app/nodes"]')).toHaveCount(1)
+    await expect(rail.locator('a.nav-item[href="/app/nodes"]')).toContainText('This machine')
+    await expect(rail.locator('a.nav-item', { hasText: /^Nodes/ })).toHaveCount(0)
     await expect(rail.locator('a.nav-item[href="/app/scheduling"]')).toHaveCount(0)
   })
 

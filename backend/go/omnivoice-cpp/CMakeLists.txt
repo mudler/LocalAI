@@ -5,6 +5,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(OMNIVOICE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/sources/omnivoice.cpp)
 
+# omnivoice.cpp 3ac485d uses CMAKE_SOURCE_DIR to locate ggml/, which is
+# wrong when omnivoice is nested under add_subdirectory (CMAKE_SOURCE_DIR
+# is the top-level project, not this CMakeLists.txt). Override it here
+# until the upstream fix (ServeurpersoCom/omnivoice.cpp#20) is merged.
+set(GGML_SOURCE_DIR "${OMNIVOICE_DIR}/ggml" CACHE PATH "ggml source tree")
+
 # Override upstream's CMAKE_CUDA_ARCHITECTURES before add_subdirectory.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES "75-virtual;80-virtual;86-real;89-real")

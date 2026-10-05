@@ -1,9 +1,12 @@
-.PHONY: fish-speech test-source-preparation
-fish-speech: test-source-preparation
+.PHONY: fish-speech test-source-preparation test-runtime-import
+fish-speech: test-source-preparation test-runtime-import
 	bash install.sh
 
 test-source-preparation:
 	bash prepare-source_test.sh
+
+test-runtime-import:
+	bash run_test.sh
 
 .PHONY: run
 run: fish-speech
@@ -11,8 +14,13 @@ run: fish-speech
 	bash run.sh
 	@echo "fish-speech run."
 
+.PHONY: test-unit
+test-unit:
+	python3 -m unittest -v prepare_upstream_test.py
+	bash run_test.sh
+
 .PHONY: test
-test: fish-speech
+test: fish-speech test-unit
 	@echo "Testing fish-speech..."
 	bash test.sh
 	@echo "fish-speech tested."

@@ -115,6 +115,7 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 	frontendPublishes := []string{
 		messaging.SubjectPrefixCacheObserve,
 		messaging.SubjectPrefixCacheInvalidate,
+		messaging.SubjectPrefixCachePressure,
 		messaging.SubjectNodeBackendInstall("node-1"),
 		messaging.SubjectGalleryProgress("op-1"),
 	}

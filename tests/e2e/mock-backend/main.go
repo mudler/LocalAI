@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -92,6 +93,10 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	// Lets e2e specs build a failover target whose backend cannot load.
+	if strings.HasPrefix(in.Model, "fail-load") {
+		return &pb.Result{Message: "mock: load failure", Success: false}, nil
+	}
 	return &pb.Result{
 		Message: "Model loaded successfully (mocked)",
 		Success: true,
@@ -102,7 +107,17 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if opts := snapshotLoadParams(); opts != nil && (strings.Contains(opts.Model, "mm-red") || strings.Contains(opts.Model, "mm-blue")) {
+		if err := auditDecision("predict", []byte(opts.Model)); err != nil {
+			return nil, err
+		}
+		b, err := json.Marshal(map[string]any{"model": opts.Model, "images": in.Images, "prompt": in.Prompt})
+		return &pb.Reply{Message: b, PromptTokens: 1, Tokens: 1}, err
+	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return nil, errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
@@ -254,11 +269,18 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}, nil
 }
 
+// errMockContextOverflow is llama.cpp's error for a prompt that does not fit
+// the slot's context (tools/server/server-context.cpp).
+var errMockContextOverflow = fmt.Errorf("request (9739 tokens) exceeds the available context size (8192 tokens), try increasing it")
+
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
 	}
@@ -269,6 +291,13 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 			}
 		}
 		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
+	}
+	if strings.Contains(in.Prompt, "MOCK_SLOW_STREAM") {
+		select {
+		case <-time.After(500 * time.Millisecond):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
 	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
@@ -417,6 +446,9 @@ func mockToolNameFromRequest(in *pb.PredictOptions) string {
 }
 
 func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.EmbeddingResult, error) {
+	if err := auditDecision("embedding", []byte("Embedding")); err != nil {
+		return nil, err
+	}
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
@@ -626,6 +658,7 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 	rms := 0.0
 
 	if dst != "" {
+		// #nosec G304 -- test-only mock backend reading the path core just staged
 		if data, err := os.ReadFile(dst); err == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
@@ -696,6 +729,9 @@ func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions)
 func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
+	}
+	if in.QuestionType == "systemone" {
+		return mockDecision(ctx, in)
 	}
 	xlog.Debug("Score called", "candidates", len(in.Candidates))
 	hint := extractRouteHint(in.Prompt)
@@ -996,7 +1032,7 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- test-only mock backend reading the path core just staged
 	if err != nil || len(data) < 44 {
 		return nil
 	}

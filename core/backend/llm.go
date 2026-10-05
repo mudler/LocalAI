@@ -47,6 +47,16 @@ func needsThinkingProbe(c *config.ModelConfig) bool {
 			c.ReasoningConfig.DisableReasoningTagPrefill == nil)
 }
 
+// needsMediaMarkerProbe reports whether ModelInference should ask the backend
+// for its multimodal media marker after Load. MediaMarker is process-scoped:
+// llama.cpp may pick a new random marker on each server launch (#12246 /
+// ggml-org/llama.cpp#21962). A non-empty value cached on the model config from
+// a previous process is therefore not trustworthy after a cold Load — re-probe
+// whenever the slot is empty or the model was not already resident.
+func needsMediaMarkerProbe(mediaMarker string, modelAlreadyLoaded bool) bool {
+	return mediaMarker == "" || !modelAlreadyLoaded
+}
+
 // persistProbedReasoning writes the post-probe reasoning slots (and media
 // marker) from probed back into the loader's persisted config for modelName,
 // skipping any reasoning slot the probe was not actually allowed to fill.
@@ -134,6 +144,11 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	ctx = distributedhdr.MaybeWithPrefixChain(ctx, c.ModelID(), chainSource)
 
 	opts := ModelOptions(*c, o, model.WithContext(ctx))
+	// Snapshot residency before Load so a cold start (eviction + re-spawn) still
+	// re-probes MediaMarker even when a previous process's marker is cached on
+	// the config (#12246). Load itself may cache-hit; the flag must reflect the
+	// pre-Load state.
+	modelAlreadyLoaded := loader.CheckIsLoaded(c.ModelID()) != nil
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
 		recordModelLoadFailure(o, c.Name, c.Backend, err, map[string]any{"model_file": modelFile})
@@ -144,9 +159,10 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// Two signals are captured: thinking-mode detection (only meaningful when the
 	// tokenizer template path is active) and the multimodal media marker (needed
 	// by custom chat templates so markers line up with what mtmd expects).
-	// We probe whenever any of those slots is still empty.
+	// Thinking slots are probed only while empty; the media marker is also
+	// re-probed after a cold Load because llama.cpp randomizes it per process.
 	shouldProbeThinking := needsThinkingProbe(c)
-	needsMarkerProbe := c.MediaMarker == ""
+	needsMarkerProbe := needsMediaMarkerProbe(c.MediaMarker, modelAlreadyLoaded)
 	if shouldProbeThinking || needsMarkerProbe {
 		modelOpts := grpcModelOpts(*c, o.SystemState.Model.ModelsPath)
 		// DetectThinkingSupportFromBackend only fills reasoning slots that are

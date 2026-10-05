@@ -31,7 +31,7 @@ jobs:
         if: ${{ !github.repository.fork && github.actor != 'dependabot[bot]' }}
       - name: Run Gosec Security Scanner
         if: ${{ !github.repository.fork && github.actor != 'dependabot[bot]' }}
-        uses: securego/gosec@v2.27.1
+        uses: securego/gosec@v2.29.0
         with:
           # we let the report trigger content trigger a failure using the GitHub Security features.
           # backend/go/supertonic is excluded: it vendors upstream supertone-inc/supertonic

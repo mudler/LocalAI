@@ -25,9 +25,9 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -75,15 +75,18 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
-	Token         string `json:"token,omitempty"`
-	TotalVRAM     uint64 `json:"total_vram,omitempty"`
-	AvailableVRAM uint64 `json:"available_vram,omitempty"`
-	TotalRAM      uint64 `json:"total_ram,omitempty"`
-	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	Name            string  `json:"name"`
+	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address         string  `json:"address"`
+	HTTPAddress     string  `json:"http_address,omitempty"`
+	Token           string  `json:"token,omitempty"`
+	TotalVRAM       uint64  `json:"total_vram,omitempty"`
+	AvailableVRAM   uint64  `json:"available_vram,omitempty"`
+	TotalRAM        uint64  `json:"total_ram,omitempty"`
+	AvailableRAM    uint64  `json:"available_ram,omitempty"`
+	CPULogicalCores uint64  `json:"cpu_logical_cores,omitempty"`
+	CPUUsagePercent float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1        float64 `json:"cpu_load_1,omitempty"`
 	// TotalDisk / AvailableDisk describe the filesystem backing the worker's
 	// MODELS directory (where staged weights land), not the root filesystem.
 	// Omitted by workers that predate the fields; the scheduler treats
@@ -106,6 +109,11 @@ type RegisterNodeRequest struct {
 	// VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
 	// registry resolves and enforces it against the raw reported VRAM.
 	VRAMBudget string `json:"vram_budget,omitempty"`
+	// Version is the LocalAI build version reported by the worker at
+	// registration. Empty for workers registered before this field existed.
+	Version string `json:"version,omitempty"`
+	// Commit is the git commit hash the worker binary was built from.
+	Commit string `json:"commit,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -182,6 +190,9 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			AvailableVRAM:        req.AvailableVRAM,
 			TotalRAM:             req.TotalRAM,
 			AvailableRAM:         req.AvailableRAM,
+			CPULogicalCores:      req.CPULogicalCores,
+			CPUUsagePercent:      req.CPUUsagePercent,
+			CPULoad1:             req.CPULoad1,
 			TotalDisk:            req.TotalDisk,
 			AvailableDisk:        req.AvailableDisk,
 			GPUVendor:            req.GPUVendor,
@@ -189,6 +200,8 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			Capability:           req.Capability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
 			VRAMBudget:           req.VRAMBudget,
+			Version:              req.Version,
+			Commit:               req.Commit,
 		}
 
 		ctx := c.Request().Context()
@@ -381,7 +394,8 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 		var updatePtr *nodes.HeartbeatUpdate
 		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil ||
-			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" {
+			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" ||
+			update.CPUUsagePercent != nil || update.CPULoad1 != nil {
 			updatePtr = &update
 		}
 
@@ -431,6 +445,12 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.MarkDraining(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be healthy to drain"))
+			}
 			xlog.Error("Failed to drain node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
 		}
@@ -443,7 +463,13 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		if err := registry.MarkHealthy(ctx, id); err != nil {
+		if err := registry.ResumeNode(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be draining to resume"))
+			}
 			xlog.Error("Failed to resume node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to resume node"))
 		}
@@ -642,7 +668,7 @@ func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *node
 		// single-node and cluster-wide views stay consistent.
 		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
 			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
-				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})
+				return c.JSON(http.StatusOK, []workerctl.NodeBackendInfo{})
 			}
 		}
 		if unloader == nil {
@@ -717,7 +743,7 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 
 // NodeBackendLogsListEndpoint proxies a request to a worker node's /v1/backend-logs
 // endpoint to list model IDs that have backend logs.
-func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -730,7 +756,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
 		}
 
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -745,7 +771,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 
 // NodeBackendLogsLinesEndpoint proxies a request to a worker node's
 // /v1/backend-logs/{modelId} endpoint to get buffered log lines.
-func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -761,7 +787,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 		}
 
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -776,7 +802,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 
 // NodeBackendLogsWSEndpoint proxies a WebSocket connection to a worker node's
 // /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
-func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	browserUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
@@ -815,7 +841,7 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
 		}
 
-		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, NetDialContext: dialFor(node.ID)}
 		workerWS, _, err := workerDialer.Dial(workerURL, workerHeaders)
 		if err != nil {
 			browserWS.WriteMessage(websocket.CloseMessage,
@@ -1117,21 +1143,22 @@ func GetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // SetSchedulingRequest is the request body for creating/updating a scheduling config.
 //
-// The four prefix-cache fields are POINTERS so an omitted field is
+// The prefix-cache fields are POINTERS so an omitted field is
 // distinguishable from an explicit zero. On update, an omitted prefix-cache
 // field preserves the model's previously-configured value instead of resetting
 // it (see SetSchedulingEndpoint's PATCH-style merge). ModelName, NodeSelector,
 // MinReplicas, MaxReplicas and SpreadAll keep their full-replace PUT semantics.
 type SetSchedulingRequest struct {
-	ModelName           string            `json:"model_name"`
-	NodeSelector        map[string]string `json:"node_selector,omitempty"`
-	MinReplicas         int               `json:"min_replicas"`
-	MaxReplicas         int               `json:"max_replicas"`
-	SpreadAll           bool              `json:"spread_all,omitempty"`
-	RoutePolicy         *string           `json:"route_policy,omitempty"`
-	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"`
-	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"`
-	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"`
+	ModelName           string              `json:"model_name"`
+	NodeSelector        map[string]string   `json:"node_selector,omitempty"`
+	MinReplicas         int                 `json:"min_replicas"`
+	MaxReplicas         int                 `json:"max_replicas"`
+	SpreadAll           bool                `json:"spread_all,omitempty"`
+	RoutePolicy         *string             `json:"route_policy,omitempty"`
+	BalanceAbsThreshold *int                `json:"balance_abs_threshold,omitempty"`
+	BalanceRelThreshold *float64            `json:"balance_rel_threshold,omitempty"`
+	MinPrefixMatch      *float64            `json:"min_prefix_match,omitempty"`
+	ScorerWeights       *map[string]float64 `json:"scorer_weights,omitempty"`
 }
 
 // validateSchedulingRequest enforces the invariants of a scheduling config.
@@ -1159,6 +1186,11 @@ func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, abs
 	if err := prefixcache.ValidateThresholds(routePolicy, absThr, relThr, minMatch); err != nil {
 		return err
 	}
+	if req.ScorerWeights != nil {
+		if err := prefixcache.ValidateScorerWeights(*req.ScorerWeights); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1166,7 +1198,7 @@ func validateSchedulingRequest(req SetSchedulingRequest, routePolicy string, abs
 //
 // The registry upsert full-replaces all columns, so a request that omits the
 // prefix-cache fields would otherwise wipe a model's previously-configured
-// routing settings. To avoid that footgun the four prefix-cache fields are
+// routing settings. To avoid that footgun the prefix-cache fields are
 // merged PATCH-style: a non-nil request pointer wins; a nil one preserves the
 // existing config's value (or the zero default when no config exists yet). The
 // non-prefix fields keep their full-replace PUT behavior.
@@ -1195,11 +1227,13 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		absThr := 0
 		relThr := 0.0
 		minMatch := 0.0
+		var scorerWeights map[string]float64
 		if existing != nil {
 			routePolicy = existing.RoutePolicy
 			absThr = existing.BalanceAbsThreshold
 			relThr = existing.BalanceRelThreshold
 			minMatch = existing.MinPrefixMatch
+			scorerWeights = existing.ScorerWeights
 		}
 		if req.RoutePolicy != nil {
 			routePolicy = *req.RoutePolicy
@@ -1212,6 +1246,9 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		}
 		if req.MinPrefixMatch != nil {
 			minMatch = *req.MinPrefixMatch
+		}
+		if req.ScorerWeights != nil {
+			scorerWeights = *req.ScorerWeights
 		}
 
 		if err := validateSchedulingRequest(req, routePolicy, absThr, relThr, minMatch); err != nil {
@@ -1253,6 +1290,7 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			BalanceAbsThreshold: absThr,
 			BalanceRelThreshold: relThr,
 			MinPrefixMatch:      minMatch,
+			ScorerWeights:       scorerWeights,
 		}
 		if err := registry.SetModelScheduling(ctx, config); err != nil {
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to set scheduling config"))
@@ -1274,9 +1312,14 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
-func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) {
+// The connection goes through dialFor(nodeID) because the advertised address
+// alone does not say how this frontend reaches that worker.
+func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, nodeID, httpAddress, path, token string) (*http.Response, error) {
 	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	// WithoutCancel keeps the request bounded only by the 15s client timeout,
+	// as before the dialer change; cancelling on admin disconnect would be a
+	// separate, deliberate behaviour change.
+	req, err := http.NewRequestWithContext(context.WithoutCancel(ctx), "GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1284,6 +1327,8 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := httpclient.NewWithTimeout(15 * time.Second)
+	t := httpclient.HardenedTransport()
+	t.DialContext = dialFor(nodeID)
+	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
 }

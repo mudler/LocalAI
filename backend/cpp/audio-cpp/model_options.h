@@ -17,8 +17,12 @@ struct ModelOptions {
     std::string family;
     // Pins the audio.cpp task, overriding RPC-based routing. Empty means route.
     std::string task;
-    // ggml backend: cpu, cuda, vulkan, metal, best.
+    // ggml backend: cpu, cuda, hip (or rocm), vulkan, metal, best.
     std::string backend = "cpu";
+    // True once a `backend:` entry has been seen: "cpu" is both the default
+    // and a legitimate explicit choice, so the value alone cannot tell them
+    // apart, and a caller merging in its own fallback needs the difference.
+    bool backend_set = false;
     int device = 0;
     // True once a `device:` entry has been seen. 0 is both the default and a
     // legitimate device index, so the value alone cannot tell an explicit

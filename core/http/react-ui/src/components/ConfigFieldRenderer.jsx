@@ -1,3 +1,4 @@
+import { useFormContext } from '../contexts/FormContext'
 import { useState } from 'react'
 import SettingRow from './SettingRow'
 import Toggle from './Toggle'
@@ -11,6 +12,7 @@ import PatternListEditor from './PatternListEditor'
 import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
+import FailoverTargetsEditor from './FailoverTargetsEditor'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -19,6 +21,8 @@ const PROVIDER_TO_CAPABILITY = {
   'models:transcript': 'FLAG_TRANSCRIPT',
   'models:vad': 'FLAG_VAD',
   'models:score': 'FLAG_SCORE',
+  'models:decisions': 'decisions',
+  'models:rerank': 'FLAG_RERANK',
   'models:token_classify': 'FLAG_TOKEN_CLASSIFY',
 }
 
@@ -159,6 +163,9 @@ function FieldLabel({ field }) {
 }
 
 export default function ConfigFieldRenderer({ field, value, onChange, onRemove, annotation }) {
+  const context = useFormContext()
+  const conditional = field.autocomplete_by
+  const provider = conditional?.providers[context?.formData?.[conditional.field]] ?? field.autocomplete_provider
   const handleChange = (raw) => {
     onChange(coerceValue(raw, field.ui_type))
   }
@@ -190,11 +197,13 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   }
 
   // Model-select
+  if (component === 'model-select' && provider === '') return null
   if (component === 'model-select') {
-    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
+    const cap = PROVIDER_TO_CAPABILITY[provider] || undefined
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
         <SearchableModelSelect
+          key={provider}
           value={value || ''}
           onChange={handleChange}
           capability={cap}
@@ -381,10 +390,27 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     )
   }
 
+  // Failover targets — ordered member list of a failover chain. Each row
+  // is {model, warm}; duplicate/self-reference detection reads the edited
+  // model's own name from FormContext.
+  if (component === 'failover-targets') {
+    return (
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
+          <div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
+          </div>
+        </div>
+        <FailoverTargetsEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
   // PII detectors — a capability-filtered multi-select of token_classify
   // models (the consuming model's pii.detectors list).
   if (component === 'model-multi-select') {
-    const cap = PROVIDER_TO_CAPABILITY[field.autocomplete_provider] || undefined
+    const cap = PROVIDER_TO_CAPABILITY[provider] || undefined
     return (
       <div className="list-row">
         <div className="hstack hstack--between mb-xs">

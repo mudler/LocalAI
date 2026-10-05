@@ -33,6 +33,8 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
 
+When `stream: true` is set and the llama.cpp backend fails before the first chunk, for example because the prompt exceeds the context size, the request fails with an HTTP error. The error message is not streamed as assistant content. An error after streaming has started is reported inside the stream.
+
 ### Edit completions
 
 https://platform.openai.com/docs/api-reference/edits
@@ -240,6 +242,61 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### WebSocket Responses
+
+Connect to `ws://localhost:8080/v1/responses` (or `wss://` when TLS is
+enabled) and send `response.create` messages over the WebSocket. Only one
+response may be in progress on a connection. Wait for `response.completed` or
+`response.failed` for the active response before sending the next
+`response.create`. An `error` that rejects an invalid or additional
+`response.create` applies only to that rejected message; it does not terminate
+a response that is already in progress.
+
+Set the WebSocket-only `generate` field to `false` to prepare a request without
+running inference:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "generate": false,
+  "store": false,
+  "input": "Say this is a test!"
+}
+```
+
+LocalAI emits `response.created` followed by `response.completed` with no
+generated output. The completed response still has an ID that can continue the
+prepared request:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "store": false,
+  "previous_response_id": "resp_abc123",
+  "input": []
+}
+```
+
+Response IDs created with `store: false` are available only on the WebSocket
+connection that created them and are removed when that connection closes. A
+`previous_response_id` chain can contain multiple responses; LocalAI replays the
+complete conversation from the oldest response through the referenced response
+before appending the new input. Keep `store: false` for every descendant of a
+connection-local response. LocalAI rejects a `store: true` response that depends
+on connection-local history because the resulting stored chain would be broken
+after the WebSocket closes.
+
+After delivery, LocalAI discards buffered stream events for `store: false`
+responses but retains their request and final response for continuation. A
+connection admits at most 128 local responses and accepts a new local request
+only while its current serialized history plus that request is at most 64 MiB.
+When either admission threshold is reached, LocalAI returns
+`connection_store_limit_reached`; reconnect to start a new local history. With
+authentication enabled, globally stored response IDs can be continued only by
+the identity that created them.
+
 #### Request Parameters
 
 | Parameter | Type | Required | Description |
@@ -284,6 +341,15 @@ curl http://localhost:8080/v1/responses \
     "max_output_tokens": 1024
   }'
 ```
+
+#### Streaming responses
+
+Set `"stream": true` to receive Server-Sent Events. Each `response.output_item.added` event assigns an `output_index` to an item.
+Use that index and the item ID to associate later deltas and completion events with the same item.
+
+If a request without explicit tools produces reasoning, the stream uses separate items for reasoning and answer text.
+Each item keeps its original index throughout the stream.
+The `response.completed` event includes both items in the same index order, followed by any automatically parsed tool calls.
 
 #### Background Processing
 
@@ -378,6 +444,11 @@ curl http://localhost:8080/v1/responses \
     "max_output_tokens": 1024
   }'
 ```
+
+For streaming requests with JSON tool output, LocalAI waits for the complete JSON
+object before emitting a completed `function_call` item. Arguments can span
+multiple tokens. Read the arguments from the `response.output_item.done` event
+before executing the tool.
 
 #### Reasoning Configuration
 
@@ -517,7 +588,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 |--------|------|-------------|---------|
 | `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
 | `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
-| `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `-1` (no limit). `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
+| `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `8192` MiB (llama.cpp default). `-1` removes the limit. `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
@@ -557,6 +628,8 @@ options:
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
 
+An explicit `parallel: 1` (or `n_parallel: 1`) in the model options takes precedence over `LLAMACPP_PARALLEL`, like any other value. The environment variable is only used when neither option is set; if it is missing or not a number, the backend uses one slot.
+
 ##### Hardware auto-tuning (and how to override it)
 
 On a detected GPU, LocalAI fills a few performance-relevant defaults the model config leaves unset - a larger physical batch on NVIDIA Blackwell, and a VRAM-scaled `parallel` slot count for concurrent serving. Both are gated on **per-device** VRAM at the model's context: when a large context already fills a single card (e.g. a 27B model with a 200k context across 2×16 GiB), the batch boost and the extra parallel slots are suppressed so they can't tip the tighter GPU into CUDA out-of-memory.
@@ -573,7 +646,7 @@ Agents, coding assistants, and Anthropic/OpenAI-compatible CLIs typically resend
 
 | Setting | Default | Role |
 |---|---|---|
-| `cache_ram:N` | `-1` (no limit) | Allocates the host-side prompt cache. `0` disables it. |
+| `cache_ram:N` | `8192` (llama.cpp default) | Allocates the host-side prompt cache. `0` disables it. |
 | `kv_unified:true` | `true` | Single unified KV buffer (**prerequisite** for idle-slot saving). |
 | `cache_idle_slots:true` | `true` | Persists the idle slot's KV into the prompt cache on task switch. |
 
@@ -587,6 +660,8 @@ options:
 ```
 
 Set `cache_ram:0` to opt out of the prompt cache entirely (saves host RAM at the cost of re-prefilling repeated prompts).
+
+`cache_ram:-1` removes the limit. With idle-slot saving on, every distinct prompt then leaves its slot state in host RAM, so a workload with many different prompts (classification, ingestion) grows the backend by roughly the KV size of each prompt until the host runs out of memory.
 
 #### Reference
 
@@ -918,6 +993,41 @@ options:
 The full list of registered parsers lives in `sglang.srt.function_call`
 and `sglang.srt.parser.reasoning_parser`.
 
+#### Reasoning defaults and token budgets
+
+Set SGLang reasoning options in the model's `options:` list:
+
+```yaml
+options:
+  - reasoning_parser:qwen3
+  - thinking_budget:512
+  - reasoning_default:on
+engine_args:
+  enable_strict_thinking: true
+```
+
+`thinking_budget` sets a positive integer token budget for reasoning on each request.
+Invalid, zero, and negative values produce a warning and leave the budget unset.
+SGLang requires `engine_args.enable_strict_thinking: true` to enforce the budget.
+LocalAI warns if you configure a budget without that engine option.
+Keep the budget well below the `max_tokens` of your requests: if `max_tokens` is reached first,
+the budget never triggers and the whole reply can be spent on reasoning, leaving the answer empty.
+
+`reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
+Request metadata `enable_thinking` set to `"true"` or `"false"` overrides this default.
+An explicit prompt bypasses tokenizer template rendering.
+When no default or request override is set, the template keeps its own behavior.
+
+LocalAI signals required reasoning when the rendered prompt ends with the configured parser's opening reasoning token.
+An explicit output grammar disables this detection.
+Configure a reasoning parser that matches your model.
+
+The backend reads these options when it loads the model.
+`POST /models/reload` rereads model configuration files but does not update options in an already loaded backend.
+Restarting only the backend does not reread configuration files.
+Restart LocalAI after changing these options to reload both the configuration and the backend.
+
+
 ### vllm.cpp
 
 [vllm.cpp](https://github.com/mudler/vllm.cpp) is the LocalAI team's C++ port of
@@ -987,6 +1097,7 @@ engine_args:
 | `tokenizer_config` | Override the `tokenizer_config.json` the chat template is read from | `<model_dir>/tokenizer_config.json` |
 | `speculative_config` | Speculative decoding (see below) | disabled |
 | `kv_transfer_config` | External KV connector / LMCache (see below) | none |
+| `hf_overrides` | JSON object of `config.json` keys merged over the model directory's own, as vLLM's `--hf-overrides` (see the [vllm.cpp backend page]({{% relref "features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)) | none |
 
 Raising `max_num_batched_tokens` lets more prefill land in a single step, at the
 cost of decode latency for requests queued behind it. The default deliberately

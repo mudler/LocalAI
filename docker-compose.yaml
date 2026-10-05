@@ -41,7 +41,7 @@ services:
     # Here we can specify a list of models to run (see quickstart https://localai.io/basics/getting_started/#running-models )
     # or an URL pointing to a YAML configuration file, for example:
     # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
-    - phi-2
+    - phi-2-chat
     # For NVIDIA GPU support with CDI (recommended for NVIDIA Container Toolkit 1.14+):
     # Uncomment the following deploy section and use driver: nvidia.com/gpu.
     # Include `utility` in capabilities so nvidia-smi / NVML are available —
@@ -59,6 +59,7 @@ services:
     #           capabilities: [gpu, utility]
     #
     # For legacy NVIDIA driver (for older NVIDIA Container Toolkit):
+    # Request compute for CUDA libraries (libcuda.so.1) and utility for NVML.
     # environment:
     #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
     # init: true
@@ -68,7 +69,7 @@ services:
     #       devices:
     #         - driver: nvidia
     #           count: 1
-    #           capabilities: [gpu, utility]
+    #           capabilities: [gpu, compute, utility]
 
   ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
   # postgres:

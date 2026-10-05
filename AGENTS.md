@@ -8,7 +8,7 @@ Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development w
 
 LocalAI follows the Linux kernel project's [guidelines for AI coding assistants](https://docs.kernel.org/process/coding-assistants.html). Before submitting AI-assisted code, read [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md). Key rules:
 
-- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin.
+- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin. One exception: automation a maintainer operates signs off with *that maintainer's* identity, since no other human submitter exists to certify it. See [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md).
 - **No `Co-Authored-By: <AI>` trailers.** The human contributor owns the change.
 - **Use an `Assisted-by:` trailer** to attribute AI involvement. Format: `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`.
 - **The human submitter is responsible** for reviewing, testing, and understanding every line of generated code.
@@ -33,6 +33,8 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 | [.agents/localai-assistant-mcp.md](.agents/localai-assistant-mcp.md) | LocalAI Assistant chat modality — adding admin tools to the in-process MCP server, editing skill prompts, keeping REST + MCP + skills in sync |
 | [.agents/backend-signing.md](.agents/backend-signing.md) | Backend OCI image signing (keyless cosign + sigstore-go) — producer-side CI setup, consumer-side gallery `verification:` block, strict mode (`LOCALAI_REQUIRE_BACKEND_INTEGRITY`), revocation via `not_before` |
 | [.agents/preparing-a-release.md](.agents/preparing-a-release.md) | Cutting a release: PR labels, `RELEASE_NOTES_vX.Y.Z.md`, the blog post under `website/content/blog/`, and the demo clips under `website/static/media/` |
+| [.agents/distributed-state.md](.agents/distributed-state.md) | Features that keep runtime state — how they must behave with several frontends (syncstate, advisory-lock leaders, fakebus tests) |
+| [.agents/distributed-seams.md](.agents/distributed-seams.md) | Distributed mode transports: the fan-out, queue, control verb, agent RPC and dial seams, subject rules, the no-route contract, conformance suites, open items for a second carrier |
 | [.impeccable.md](.impeccable.md) | Design context for UI/UX work — users, brand personality, aesthetic direction, and design principles |
 
 ## Quick Reference
@@ -49,3 +51,4 @@ LocalAI follows the Linux kernel project's [guidelines for AI coding assistants]
 - **Backend OS coverage**: a new backend must target every OS it can build for, not just Linux. `.github/backend-matrix.yml` has two matrices — `include:` (Linux) and `includeDarwin:` (macOS / Apple Silicon). Most C/C++/GGML and many Python backends build on Darwin too — wire the `includeDarwin` entry + `backend/index.yaml` `metal:` entries, or say in the PR why an OS is unsupported. See the darwin checklist in [.agents/adding-backends.md](.agents/adding-backends.md).
 - **Gallery variant ranking**: a gallery entry can declare `variants` (alternative builds of the same weights), and LocalAI ranks the ones a host can run by engine preference first, size second. A new backend that should be preferred on some hardware must be listed in `engineNamePreferenceRules` in `pkg/system/capabilities.go`; the sibling `backendBuildTagPreferenceRules` speaks build tags rather than engine names, and using the wrong table matches nothing without erroring. See [.agents/adding-backends.md](.agents/adding-backends.md).
 - **UI**: The active UI is the React app in `core/http/react-ui/`. The older Alpine.js/HTML UI in `core/http/static/` is pending deprecation — all new UI work goes in the React UI
+- **Distributed-aware state**: any feature that keeps runtime state (maps, caches, pins, schedulers, background loops) must choose shared (syncstate), single-runner (advisorylock), stateless, or documented per-instance behaviour for multi-frontend clusters. See [.agents/distributed-state.md](.agents/distributed-state.md).

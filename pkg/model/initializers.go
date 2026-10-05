@@ -51,6 +51,12 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
+
+	// Proxy backends serve a model by forwarding to another server instead
+	// of loading weights. Core special-cases both (credentials, failover
+	// kind, PII defaults), so every check goes through these names.
+	CloudProxyBackend   = "cloud-proxy"
+	LocalAIProxyBackend = "localai-proxy"
 )
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -133,7 +139,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
 			}
 			// Make sure the process is executable
-			process, err := ml.startProcess(uri, modelID, serverAddress)
+			process, err := ml.StartProcess(uri, modelID, serverAddress, o.envVars)
 			if err != nil {
 				xlog.Error("failed to launch", "error", err, "path", uri)
 				return nil, err
@@ -173,7 +179,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	if !ready {
 		xlog.Debug("GRPC Service NOT ready")
 		startupErr := grpcStartupError(client.Process())
-		stopLoadProcess(client, modelID)
+		ml.stopLoadProcess(client, modelID)
 		return nil, startupErr
 	}
 
@@ -189,11 +195,11 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 
 	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
 	if err != nil {
-		stopLoadProcess(client, modelID)
+		ml.stopLoadProcess(client, modelID)
 		return nil, fmt.Errorf("could not load model: %w", err)
 	}
 	if !res.Success {
-		stopLoadProcess(client, modelID)
+		ml.stopLoadProcess(client, modelID)
 		return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 	}
 
@@ -260,7 +266,7 @@ func lastNonEmptyLine(path string, maxBytes int64) string {
 
 // stopLoadProcess tears down a backend process whose load did not complete.
 // The stop error is only logged: the load error is what the caller reports.
-func stopLoadProcess(client *Model, modelID string) {
+func (ml *ModelLoader) stopLoadProcess(client *Model, modelID string) {
 	process := client.Process()
 	if process == nil {
 		return
@@ -268,6 +274,7 @@ func stopLoadProcess(client *Model, modelID string) {
 	if err := process.Stop(); err != nil {
 		xlog.Warn("failed to stop backend process after failed load", "error", err, "modelID", modelID)
 	}
+	ml.cleanupProcessRuntime(process)
 }
 
 // parallelSlotsFromOptions returns the effective n_parallel from the backend
@@ -472,7 +479,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		// Wrap remote models so connection errors during inference trigger eviction
 		if m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				ml.ShutdownModel(o.modelID)
+				if err := ml.ShutdownModel(o.modelID); err != nil {
+					xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+				}
 			})
 		}
 		return client, nil
@@ -496,7 +505,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		// Wrap remote models so connection errors during inference trigger eviction
 		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				ml.ShutdownModel(o.modelID)
+				if err := ml.ShutdownModel(o.modelID); err != nil {
+					xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+				}
 			})
 		}
 		return client, nil
@@ -537,7 +548,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			// Wrap remote models so connection errors during inference trigger eviction
 			if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 				model = newConnectionEvictingClient(model, o.modelID, func() {
-					ml.ShutdownModel(o.modelID)
+					if err := ml.ShutdownModel(o.modelID); err != nil {
+						xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+					}
 				})
 			}
 			return model, nil

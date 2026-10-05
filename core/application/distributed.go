@@ -11,10 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -27,6 +29,8 @@ import (
 // DistributedServices holds all services initialized for distributed mode.
 type DistributedServices struct {
 	Nats         *messaging.Client
+	WorkQueue    messaging.WorkQueue
+	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
 	Registry     *nodes.NodeRegistry
 	Router       *nodes.SmartRouter
@@ -42,6 +46,10 @@ type DistributedServices struct {
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
 	ModelCleanup *nodes.ModelCleanupService
+
+	// WorkerHTTPDial reaches a worker's own HTTP server for the admin
+	// backend-logs proxy, the same way the HTTP file stager does.
+	WorkerHTTPDial nodes.WorkerNetDialerFor
 
 	shutdownOnce sync.Once
 }
@@ -76,7 +84,9 @@ func (ds *DistributedServices) Shutdown() {
 // Returns nil if distributed mode is not enabled.
 // configLoader is used by the SmartRouter to compute concurrency-group
 // anti-affinity at placement time (#9659); it may be nil in tests.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader) (*DistributedServices, error) {
+// pinned, when set, replaces configLoader as the source of models the router
+// and reconciler must keep loaded (it adds warm failover targets).
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, pinned nodes.PinnedModelResolver) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -162,6 +172,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Bound durable heartbeat writes: a beat that only carries a fresher
+	// timestamp is what turned backend_nodes into a 460 MB six-row table.
+	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+
+	// Measure the vacuum horizon. The 42 days it stayed open went unnoticed
+	// because no gauge reported it until models started failing to load.
+	if err := monitoring.RegisterControlPlaneDBMetrics(authDB, 30*time.Second); err != nil {
+		// Metrics are diagnostic; a failure here must not stop the frontend.
+		xlog.Warn("Control-plane database metrics unavailable", "error", err)
+	}
+
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
 	// operator can pin placement to a stable name like "production" and have it
@@ -211,8 +232,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed job store initialized")
 
+	workQueue := messaging.NewNATSWorkQueue(natsClient)
+
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
+	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
@@ -247,6 +270,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("File manager initialized", "cacheDir", cacheDir)
 
 	// Create FileStager for distributed file transfer
+	workerHTTPDial := nodes.DirectWorkerNetDialer()
 	var fileStager nodes.FileStager
 	if cfg.Distributed.StorageURL != "" {
 		fileStager = nodes.NewS3NATSFileStager(fileMgr, natsClient)
@@ -261,7 +285,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
 			}
 			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken)
+		}, cfg.Distributed.RegistrationToken, workerHTTPDial)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
@@ -292,7 +316,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}
 		idx := prefixcache.NewIndex(prefixCfg)
 		prefixSync := prefixcache.NewSync(idx, natsClient)
-		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
+		pressure = prefixcache.NewSyncedPressure(prefixCfg.PressureWindow, natsClient)
 		prefixProvider = prefixSync
 
 		// Invalidate the prefix-cache index whenever a replica row is removed.
@@ -328,6 +352,19 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
 		}
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
+			pressure.ApplyPressure(ev, time.Now())
+		}); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCachePressure, err)
+		}
+
+		// Keep an exact-residency index current so backend producers can report
+		// their real KV state without coupling to router internals. Routing stays
+		// on the guessed provider until a backend producer is available.
+		reportedIndex := prefixcache.NewReportedIndex()
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheResidency, reportedIndex.Apply); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheResidency, err)
+		}
 
 		// Background eviction: sweep idle entries on the app context. Stopped
 		// when the app context is cancelled (mirrors the reconciler loop which
@@ -353,8 +390,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver
+	var pinnedResolver nodes.PinnedModelResolver
+	var modelFiles func(string) []string
 	if configLoader != nil {
 		conflictResolver = configLoader
+		pinnedResolver = configLoader
+		if cfg.SystemState != nil {
+			modelFiles = declaredModelFiles(configLoader, cfg.SystemState.Model.ModelsPath)
+		}
+	}
+	if pinned != nil {
+		pinnedResolver = pinned
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
@@ -365,6 +411,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		AuthToken:        routerAuthToken,
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
+		PinnedResolver:   pinnedResolver,
+		ModelFiles:       modelFiles,
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
@@ -427,6 +475,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ProbeStaleAfter:   2 * time.Minute,
 		Pressure:          pressure,
 		PressureThreshold: prefixCfg.PressureScaleThreshold,
+		PinnedResolver:    pinnedResolver,
 	})
 
 	// Create ModelRouterAdapter to wire into ModelLoader
@@ -435,6 +484,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	success = true
 	return &DistributedServices{
 		Nats:         natsClient,
+		WorkQueue:    workQueue,
+		AgentControl: nodes.NewNATSAgentControl(natsClient),
 		Store:        store,
 		Registry:     registry,
 		Router:       router,
@@ -450,6 +501,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
 		ModelCleanup: modelCleanup,
+
+		WorkerHTTPDial: workerHTTPDial,
 	}, nil
 }
 

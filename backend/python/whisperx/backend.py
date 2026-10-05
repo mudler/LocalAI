@@ -16,6 +16,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from transcript_utils import diarize_or_keep, require_diarization_token, seconds_to_nanoseconds
 
 
 
@@ -81,6 +82,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         import whisperx
         from whisperx.diarize import DiarizationPipeline
 
+        try:
+            require_diarization_token(request.diarize, self.hf_token)
+        except ValueError as err:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(err))
+
         resultSegments = []
         text = ""
         try:
@@ -106,19 +112,21 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             # Diarize if requested and HF token is available
             if request.diarize and self.hf_token:
-                if self.diarize_pipeline is None:
-                    self.diarize_pipeline = DiarizationPipeline(
-                        token=self.hf_token,
-                        device=self.device,
-                    )
-                diarize_segments = self.diarize_pipeline(audio)
-                transcript = whisperx.assign_word_speakers(diarize_segments, transcript)
+                def _diarize(t):
+                    if self.diarize_pipeline is None:
+                        self.diarize_pipeline = DiarizationPipeline(
+                            token=self.hf_token,
+                            device=self.device,
+                        )
+                    return whisperx.assign_word_speakers(self.diarize_pipeline(audio), t)
+
+                transcript = diarize_or_keep(transcript, _diarize, lambda m: print(m, file=sys.stderr))
 
             # Build result segments
             for idx, seg in enumerate(transcript["segments"]):
                 seg_text = seg.get("text", "")
-                start = int(seg.get("start", 0))
-                end = int(seg.get("end", 0))
+                start = seconds_to_nanoseconds(seg.get("start", 0))
+                end = seconds_to_nanoseconds(seg.get("end", 0))
                 speaker = seg.get("speaker", "")
 
                 resultSegments.append(backend_pb2.TranscriptSegment(
@@ -131,8 +139,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 text += seg_text
 
         except Exception as err:
+            # Report the failure instead of an empty, successful-looking result.
             print(f"Unexpected {err=}, {type(err)=}", file=sys.stderr)
-            return backend_pb2.TranscriptResult(segments=[], text="")
+            context.abort(grpc.StatusCode.INTERNAL, f"transcription failed: {err}")
 
         return backend_pb2.TranscriptResult(segments=resultSegments, text=text)
 

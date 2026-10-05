@@ -66,6 +66,7 @@ export default function VoiceProfileCreate() {
   const [description, setDescription] = useState('')
   const [language, setLanguage] = useState('')
   const [transcript, setTranscript] = useState('')
+  const [additionalReferences, setAdditionalReferences] = useState([])
   const [consent, setConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -75,7 +76,8 @@ export default function VoiceProfileCreate() {
 
   const durationValid = audio?.duration >= 1 && audio?.duration <= 120
   const durationRecommended = audio?.duration >= 6 && audio?.duration <= 30
-  const formReady = !!audio && durationValid && name.trim() && transcript.trim() && consent && !audioProcessing
+  const additionalReady = additionalReferences.every(reference => reference.audio && reference.transcript.trim())
+  const formReady = !!audio && durationValid && name.trim() && transcript.trim() && additionalReady && consent && !audioProcessing
 
   const readiness = useMemo(() => ({
     audio: !!audio && durationValid,
@@ -108,6 +110,23 @@ export default function VoiceProfileCreate() {
     }
   }
 
+  const handleAdditionalAudio = async (index, sample) => {
+    if (!sample) {
+      setAdditionalReferences(current => current.map((reference, itemIndex) => itemIndex === index ? { ...reference, audio: null } : reference))
+      return
+    }
+    setAudioProcessing(true)
+    try {
+      const normalized = await normalizeAudioSample(sample)
+      if (normalized.duration < 1 || normalized.duration > 120) throw new Error(t('voiceCreate.audio.durationError'))
+      setAdditionalReferences(current => current.map((reference, itemIndex) => itemIndex === index ? { ...reference, audio: normalized } : reference))
+    } catch (err) {
+      addToast(err.message || t('voiceCreate.audio.decodeError'), 'error')
+    } finally {
+      setAudioProcessing(false)
+    }
+  }
+
   const submit = async (event) => {
     event.preventDefault()
     if (!formReady) return
@@ -120,6 +139,10 @@ export default function VoiceProfileCreate() {
       formData.append('transcript', transcript.trim())
       formData.append('consent_confirmed', 'true')
       formData.append('audio', audio.blob, 'reference.wav')
+      additionalReferences.forEach((reference, index) => {
+        formData.append('transcript', reference.transcript.trim())
+        formData.append('audio', reference.audio.blob, `reference-${index + 2}.wav`)
+      })
       const profile = await voiceProfilesApi.create(formData)
       addToast(t('voiceCreate.toasts.created', { name: profile.name }), 'success')
       navigate(`/app/voice-library?selected=${encodeURIComponent(profile.id)}`)
@@ -133,7 +156,7 @@ export default function VoiceProfileCreate() {
   return (
     <main className="voice-create-page">
       <UnsavedChangesGuard
-        when={!submitting && !!(audio || name || description || language || transcript || consent)}
+        when={!submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent)}
       />
       <PageHeader
         eyebrow={t('voiceCreate.eyebrow')}
@@ -173,6 +196,21 @@ export default function VoiceProfileCreate() {
                 </div>
               </div>
             )}
+            {additionalReferences.map((reference, index) => (
+              <div className="voice-create-preview" key={index}>
+                <div className="voice-create-label-row">
+                  <strong>{t('voiceCreate.references.additional', { number: index + 2 })}</strong>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
+                    if (reference.audio?.objectUrl) URL.revokeObjectURL(reference.audio.dataUrl)
+                    setAdditionalReferences(current => current.filter((_, itemIndex) => itemIndex !== index))
+                  }}>{t('voiceCreate.references.remove')}</button>
+                </div>
+                <MediaInput mode="audio" label={t('voiceCreate.audio.label')} value={reference.audio} onChange={(sample) => handleAdditionalAudio(index, sample)} maxBytes={MAX_AUDIO_BYTES} preferBlob idPrefix={`voice-profile-${index + 2}`} />
+                <label className="form-label" htmlFor={`voice-profile-transcript-${index + 2}`}>{t('voiceCreate.fields.transcript')}</label>
+                <textarea id={`voice-profile-transcript-${index + 2}`} className="textarea" rows={3} maxLength={4000} value={reference.transcript} onChange={(event) => setAdditionalReferences(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transcript: event.target.value } : item))} required />
+              </div>
+            ))}
+            {additionalReferences.length < 9 && <button type="button" className="btn btn-secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><i className="fas fa-plus" aria-hidden="true" /> {t('voiceCreate.references.add')}</button>}
           </section>
 
           <section className="voice-create-section" aria-labelledby="voice-details-heading">
