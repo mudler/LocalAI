@@ -851,6 +851,11 @@ message KnownVoice {
   string name = 1;
   repeated float embedding = 2;
   string model = 3;
+  // Fingerprint of the encoder that made the embedding, when it is known: the
+  // embedding space ("voicedetect:<arch>:<name>:<dim>") and the exact weights
+  // ("sha256:<hex>"). Empty for voices registered before it was recorded.
+  string encoder_family = 5;
+  string encoder_weights = 6;
 }
 
 message DiarizeResponse {
@@ -913,6 +918,7 @@ message MemoryUsageData {
 message SpeakerEncoder {
   string identity = 1; // sha256 of loaded GGUF bytes
   int32 dimension = 2;
+  string family = 3; // embedding space of the encoder; empty when the backend cannot tell
 }
 
 message StatusResponse {

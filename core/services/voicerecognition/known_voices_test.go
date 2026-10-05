@@ -2,6 +2,7 @@ package voicerecognition_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
@@ -116,6 +117,34 @@ type listRegistry struct {
 func (r listRegistry) List(context.Context) ([]voicerecognition.Entry, error) {
 	return r.entries, r.err
 }
+
+var _ = Describe("encoder fingerprint of selected voices", func() {
+	const hash = "sha256:aaaa"
+	It("passes the family and takes the weights from a hash tag", func() {
+		e := entry("ada", hash, 1, 0)
+		e.Metadata.EncoderFamily = "voicedetect:ecapa_tdnn:ecapa:192"
+		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{e}, "spk.gguf")
+		Expect(sel.Voices).To(HaveLen(1))
+		Expect(sel.Voices[0].Family).To(Equal("voicedetect:ecapa_tdnn:ecapa:192"))
+		Expect(sel.Voices[0].Weights).To(Equal(hash))
+	})
+	It("leaves a file-name tagged voice unfingerprinted", func() {
+		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{entry("ada", "spk.gguf", 1, 0)}, "spk.gguf")
+		Expect(sel.Voices[0].Family).To(BeEmpty())
+		Expect(sel.Voices[0].Weights).To(BeEmpty())
+	})
+	It("loads a stored voice that has no family, and keeps the family when there is one", func() {
+		var old, fresh voicerecognition.Metadata
+		Expect(json.Unmarshal([]byte(`{"id":"1","name":"ada","registered_at":"2026-01-01T00:00:00Z","model":"spk.gguf"}`), &old)).To(Succeed())
+		Expect(old.EncoderFamily).To(BeEmpty())
+		raw, err := json.Marshal(voicerecognition.Metadata{ID: "2", Name: "ben", Model: hash, EncoderFamily: "f"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(json.Unmarshal(raw, &fresh)).To(Succeed())
+		Expect(fresh.EncoderFamily).To(Equal("f"))
+		raw, _ = json.Marshal(old)
+		Expect(string(raw)).ToNot(ContainSubstring("encoder_family"))
+	})
+})
 
 var _ = Describe("KnownVoicesFor", func() {
 	It("selects from the registry listing", func() {

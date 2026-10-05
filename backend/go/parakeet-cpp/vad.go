@@ -30,10 +30,13 @@ var vadTuning = []struct {
 	{"vad_min_speech", "min_speech", 0, math.Inf(1), false},
 	{"vad_speech_pad", "speech_pad", 0, math.Inf(1), false},
 	{"vad_max_segment", "max_segment", 0, math.Inf(1), true},
+	// vad_trim shrinks each transcription segment to its speech plus this much.
+	// Unset keeps the library default (0.3 s); 0 keeps the whole cuts.
+	{"vad_trim", "trim", 0, math.Inf(1), false},
 }
 
 // parseVADTuning reads the vad_threshold, vad_min_pause, vad_min_speech,
-// vad_speech_pad and vad_max_segment model options and returns them as the JSON
+// vad_speech_pad, vad_max_segment and vad_trim model options and returns them as the JSON
 // options object of the C-API, or "" when none is set. A value that does not
 // parse or is out of range fails the load.
 func parseVADTuning(opts *pb.ModelOptions) (string, error) {

@@ -205,6 +205,7 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 | `speaker_model:<path>` | a model with a diarization model | names registered speakers (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
 | `speaker_threshold:<float>` | a model with `speaker_model` | distance (1 minus cosine similarity) under which a speaker is named, in (0, 2); default `0.5` |
 | `speaker_margin:<float>` | a model with `speaker_model` | how much the best match must beat the runner-up, in [0, 1); default `0.05` |
+| `speaker_strict:<bool>` | a model with `speaker_model` | do not use registered voices that have no encoder fingerprint (see [Voice Recognition]({{% relref "voice-recognition" %}}#encoder-fingerprint)); default `false` |
 
 With a `diarization_model` companion, `/v1/audio/transcriptions` labels each segment with its `speaker` (`"0"`, `"1"`, ... in order of first appearance) and splits segments where the speaker changes; with `timestamp_granularities[]=word` each word carries its speaker too. With `stream=true` the closing `transcript.text.done` event lists the segments with their speakers. Pass `-F diarize=false` to skip diarization for one request. The diarization GGUF can also be imported directly: `local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-f16.gguf`.
 
@@ -305,8 +306,27 @@ The segmenter options below apply to both `vad:true` and `vad_model`. Each is op
 | `vad_min_pause` | seconds | A silence this long separates two pieces |
 | `vad_min_speech` | seconds | Shorter speech runs are dropped |
 | `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
+| `vad_trim` | seconds | Each piece shrinks to its first and last speech frame plus this much. Default `0.3`; `0` keeps the whole cuts, as before this option existed |
 
 `vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
+
+### Dropping noise words (`guard_*`)
+
+A decode of noise or silence can contain words that no one said. An opt-in filter removes the words that stand alone or sit among low-confidence words, and the words that are only punctuation. It runs on the finished decode. It is off unless one of these options is set, and a bad value fails the load:
+
+| Option | Unit | Meaning |
+|---|---|---|
+| `guard_min_local_conf` | 0 to 1 | A word is dropped when the mean confidence of the words that start within `guard_local_radius` seconds of it, itself included, is below this. `0` is off. `0.5` is a good start; higher values also drop real words on some models |
+| `guard_local_radius` | seconds, above 0 | The window of that mean. Default `5` |
+| `guard_drop_punct_only` | `true` or `false` | Drop words that are only punctuation. A CTC model can emit a lone `.` on noise. Default `false` |
+
+```yaml
+options:
+- guard_min_local_conf:0.5
+- guard_drop_punct_only:true
+```
+
+The filter applies to offline transcription, and with `vad:true` or `vad_model` to each piece on its own. It bypasses dynamic batching, like `vad:true`. Streaming is not affected. Speech with confident words comes out the same as without the filter. The number of dropped words is written to the backend log at debug level; the transcription response has no field for it. The options need a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_with`; an older library fails the load with a message that names it.
 
 ### Bundle GGUF files (several models in one file)
 

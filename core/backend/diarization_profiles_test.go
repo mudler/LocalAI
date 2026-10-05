@@ -78,10 +78,47 @@ var _ = Describe("portable voice compatibility", func() {
 	})
 })
 
+var _ = Describe("portable voice encoder family", func() {
+	const fam, other = "voicedetect:ecapa_tdnn:ecapa:192", "voicedetect:campplus:campplus:192"
+	It("keeps a voice with another weights hash when it has a family, for the backend to judge", func() {
+		identity := "sha256:" + strings.Repeat("a", 64)
+		otherHash := "sha256:" + strings.Repeat("b", 64)
+		m := &portableStatusBackend{identity: identity}
+		voices := []voicerecognition.KnownVoice{
+			{ID: "same-family", Model: otherHash, Weights: otherHash, Family: fam, Embedding: []float32{1, 0}},
+			{ID: "other-family", Model: otherHash, Weights: otherHash, Family: other, Embedding: []float32{1, 0}},
+			{ID: "no-family", Model: otherHash, Weights: otherHash, Embedding: []float32{1, 0}},
+			{ID: "wrong-size", Model: otherHash, Weights: otherHash, Family: fam, Embedding: []float32{1, 0, 0}},
+		}
+		got := compatiblePortableVoices(context.Background(), m, voices)
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].ID).To(Equal("same-family"))
+		Expect(got[1].ID).To(Equal("other-family"))
+	})
+	It("sends the fingerprint to the backend, offline and live", func() {
+		v := voicerecognition.KnownVoice{ID: "a", Name: "Ada", Embedding: []float32{1, 0}, Model: "sha256:x", Family: "f", Weights: "sha256:x"}
+		offline := (&DiarizationRequest{KnownVoices: []voicerecognition.KnownVoice{v}}).toProto(2, "model")
+		Expect(offline.KnownVoices[0].EncoderFamily).To(Equal("f"))
+		Expect(offline.KnownVoices[0].EncoderWeights).To(Equal("sha256:x"))
+		var live liveOptions
+		WithKnownVoices([]voicerecognition.KnownVoice{v})(&live)
+		cfg := liveConfigProto("en", live)
+		Expect(cfg.KnownVoices[0].EncoderFamily).To(Equal("f"))
+		Expect(cfg.KnownVoices[0].EncoderWeights).To(Equal("sha256:x"))
+	})
+	It("reads the family of the loaded encoder from the backend status", func() {
+		m := &portableStatusBackend{identity: "sha256:" + strings.Repeat("a", 64), family: fam}
+		trusted, err := speakerEncoderFromBackend(context.Background(), m)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(trusted.Family).To(Equal(fam))
+	})
+})
+
 type portableStatusBackend struct {
 	grpcPkg.Backend
 	identity  string
 	dimension int32
+	family    string
 }
 
 func (m *portableStatusBackend) Status(context.Context) (*pb.StatusResponse, error) {
@@ -89,7 +126,7 @@ func (m *portableStatusBackend) Status(context.Context) (*pb.StatusResponse, err
 	if dim == 0 {
 		dim = 2
 	}
-	return &pb.StatusResponse{SpeakerEncoder: &pb.SpeakerEncoder{Identity: m.identity, Dimension: dim}}, nil
+	return &pb.StatusResponse{SpeakerEncoder: &pb.SpeakerEncoder{Identity: m.identity, Dimension: dim, Family: m.family}}, nil
 }
 
 var _ = Describe("selection before portable compatibility", func() {

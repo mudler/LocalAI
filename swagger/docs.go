@@ -5281,6 +5281,10 @@ const docTemplate = `{
                 "dimension": {
                     "type": "integer"
                 },
+                "family": {
+                    "description": "embedding space of the encoder; empty when the backend cannot tell",
+                    "type": "string"
+                },
                 "identity": {
                     "description": "sha256 of loaded GGUF bytes",
                     "type": "string"
@@ -8206,6 +8210,10 @@ const docTemplate = `{
             "properties": {
                 "dimension": {
                     "type": "integer"
+                },
+                "family": {
+                    "description": "Family is the embedding space of the encoder. The server fills it from the loaded encoder; exported profiles do not carry it and it is not matched.",
+                    "type": "string"
                 },
                 "identity": {
                     "type": "string"

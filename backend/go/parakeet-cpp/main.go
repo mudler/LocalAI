@@ -163,6 +163,17 @@ func main() {
 		purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
 	}
 
+	// Encoder fingerprint of the speaker registry (additive, no ABI bump).
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_registry_add_embedding_fp"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbeddingFP, lib, "parakeet_capi_speaker_registry_add_embedding_fp")
+		purego.RegisterLibFunc(&CppSpeakerRegistrySetStrict, lib, "parakeet_capi_speaker_registry_set_strict")
+		purego.RegisterLibFunc(&CppSpeakerEncoderFamily, lib, "parakeet_capi_speaker_encoder_family")
+	}
+	// Word filter on transcription (additive, no ABI bump).
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_with"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONWith, lib, "parakeet_capi_transcribe_path_json_with")
+	}
+
 	for _, lf := range []LibFuncs{
 		{&CppSpeakerIdentity, "parakeet_capi_speaker_identity"},
 		{&CppSpeakerDim, "parakeet_capi_speaker_dim"},
