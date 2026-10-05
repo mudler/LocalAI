@@ -2751,6 +2751,46 @@
                 }
             }
         },
+        "/models/import": {
+            "post": {
+                "description": "Writes the posted model configuration. A config referencing\nremote assets (download_files entries, URI-valued model/mmproj)\nis enqueued on the gallery job queue and answered with a job id\nplus status URL to poll, like a gallery install; a config with\nno downloads is written synchronously and answered with a\nplain success response.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Import a model from a raw YAML or JSON configuration",
+                "parameters": [
+                    {
+                        "description": "model configuration (YAML or JSON body)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "remote assets present: job id and status URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.GalleryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "invalid or incomplete configuration",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ModelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/models/jobs": {
             "get": {
                 "tags": [

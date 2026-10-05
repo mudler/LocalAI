@@ -5301,6 +5301,38 @@ paths:
       summary: List all Galleries
       tags:
       - models
+  /models/import:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Writes the posted model configuration. A config referencing
+        remote assets (download_files entries, URI-valued model/mmproj)
+        is enqueued on the gallery job queue and answered with a job id
+        plus status URL to poll, like a gallery install; a config with
+        no downloads is written synchronously and answered with a
+        plain success response.
+      parameters:
+      - description: model configuration (YAML or JSON body)
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'remote assets present: job id and status URL'
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+        "400":
+          description: invalid or incomplete configuration
+          schema:
+            $ref: '#/definitions/localai.ModelResponse'
+      summary: Import a model from a raw YAML or JSON configuration
+      tags:
+      - models
   /models/jobs:
     get:
       responses:

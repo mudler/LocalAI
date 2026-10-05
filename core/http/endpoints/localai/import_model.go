@@ -125,6 +125,20 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 }
 
 // ImportModelEndpoint handles creating new model configurations
+// @Summary Import a model from a raw YAML or JSON configuration
+// @Description Writes the posted model configuration. A config referencing
+// @Description remote assets (download_files entries, URI-valued model/mmproj)
+// @Description is enqueued on the gallery job queue and answered with a job id
+// @Description plus status URL to poll, like a gallery install; a config with
+// @Description no downloads is written synchronously and answered with a
+// @Description plain success response.
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param request body object true "model configuration (YAML or JSON body)"
+// @Success 200 {object} schema.GalleryResponse "remote assets present: job id and status URL"
+// @Failure 400 {object} localai.ModelResponse "invalid or incomplete configuration"
+// @Router /models/import [post]
 func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, opcache *galleryop.OpCache) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// Get the raw body
