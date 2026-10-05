@@ -8212,7 +8212,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "family": {
-                    "description": "Family is the embedding space of the encoder. The server fills it from the loaded encoder; exported profiles do not carry it and it is not matched.",
+                    "description": "Family is the embedding space of the encoder. The server fills it from the\nloaded encoder; exported profiles do not carry it and it is not matched.",
                     "type": "string"
                 },
                 "identity": {
