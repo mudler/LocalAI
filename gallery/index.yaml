@@ -13911,6 +13911,86 @@
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-qat-q4_0-gguf/gemma-4-E2B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B-it-mmproj.gguf
       sha256: 021059cce659fe7f9170d5599761d7bbaf644b798dab9503aca30dc43e6beb14
+- name: winnow-e4b
+  variants:
+    - model: winnow-e4b-bf16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/EldanRing/Winnow-E4B
+    - https://huggingface.co/google/gemma-4-E4B-it
+  license: apache-2.0
+  description: |
+    Winnow-E4B is EldanRing's Gemma 4 E4B IT fine-tune for typed decisions,
+    chat, and image input. This Q8_0 GGUF includes the F16 vision projector.
+    This entry serves chat and vision through llama.cpp with an 8,192-token
+    default context. The publisher's custom decision API requires its
+    separate Winnow inference server.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/winnow-e4b/mmproj-Winnow-E4B.gguf
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/winnow-e4b/Winnow-E4B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/winnow-e4b/Winnow-E4B-Q8_0.gguf
+      sha256: 840e3f50e5a9c218727f44e121d1b37cc9e2c3b318c8eb422ba6ef2e27b618a2
+      uri: https://huggingface.co/EldanRing/Winnow-E4B/resolve/b29f0a445f0b2b6207300b1bc6c3bed23ada8c91/gguf/Winnow-E4B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/winnow-e4b/mmproj-Winnow-E4B.gguf
+      sha256: ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51
+      uri: https://huggingface.co/EldanRing/Winnow-E4B/resolve/b29f0a445f0b2b6207300b1bc6c3bed23ada8c91/gguf/mmproj-Winnow-E4B.gguf
+- name: winnow-e4b-bf16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/EldanRing/Winnow-E4B
+    - https://huggingface.co/google/gemma-4-E4B-it
+  license: apache-2.0
+  description: |
+    Winnow-E4B is EldanRing's Gemma 4 E4B IT fine-tune for typed decisions,
+    chat, and image input. This BF16 GGUF includes the F16 vision projector.
+    This entry serves chat and vision through llama.cpp with an 8,192-token
+    default context. The publisher's custom decision API requires its
+    separate Winnow inference server.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/winnow-e4b/mmproj-Winnow-E4B.gguf
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/winnow-e4b/Winnow-E4B-BF16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/winnow-e4b/Winnow-E4B-BF16.gguf
+      sha256: 53c3e504c061f6a7ce84cb6240d427ac6c630850a2cf93f3c2ee980c8136e7e7
+      uri: https://huggingface.co/EldanRing/Winnow-E4B/resolve/b29f0a445f0b2b6207300b1bc6c3bed23ada8c91/gguf/Winnow-E4B-BF16.gguf
+    - filename: llama-cpp/mmproj/winnow-e4b/mmproj-Winnow-E4B.gguf
+      sha256: ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51
+      uri: https://huggingface.co/EldanRing/Winnow-E4B/resolve/b29f0a445f0b2b6207300b1bc6c3bed23ada8c91/gguf/mmproj-Winnow-E4B.gguf
 - name: "gemma-4-e4b-it-qat-q4_0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

@@ -23,6 +23,30 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Winnow-E4B chat and vision
+
+[Winnow-E4B](https://huggingface.co/EldanRing/Winnow-E4B) is a Gemma 4 E4B IT fine-tune released under Apache-2.0.
+The gallery offers Q8_0 and BF16 GGUF builds for chat and image input through llama.cpp.
+Both include the matching F16 vision projector and use the embedded chat template with an 8,192-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install winnow-e4b
+```
+
+To select Q8_0 explicitly, use `--variant winnow-e4b`.
+To select BF16 explicitly, run:
+
+```bash
+local-ai models install winnow-e4b --variant winnow-e4b-bf16
+```
+
+The language weights require about 8.01 GB for Q8_0 or 15.05 GB for BF16.
+Each build also downloads a 0.99 GB projector. Runtime memory requirements are higher than download sizes.
+The publisher evaluated Q8_0 with images; BF16 image inference was not evaluated.
+These entries configure chat and vision. The publisher's custom decision API requires its separate Winnow inference server.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
