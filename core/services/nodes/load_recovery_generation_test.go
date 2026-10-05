@@ -3,6 +3,7 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -128,7 +129,7 @@ var _ = Describe("Load recovery generation", func() {
 	})
 })
 
-// Run the same contract against SQLite and every embedding of the router fake.
+// Run the same contract against the real registry and every embedding of the router fake.
 // Direct fixture insertion represents durable reconciliation evidence; elapsed
 // lease time alone must never supply that evidence.
 var _ = Describe("Load job store parity", func() {
@@ -164,6 +165,76 @@ var _ = Describe("Load job store parity", func() {
 				}
 			})
 
+			Context("lifecycle fields", func() {
+				var original *ModelLoadJob
+				ctx := context.Background()
+				BeforeEach(func() {
+					past := time.Now().Add(-time.Hour).Truncate(time.Microsecond)
+					seed(ModelLoadJob{TrackingKey: "lifecycle", Generation: "a", OwnerReplica: "owner",
+						State: LoadJobStateLoading, CreatedAt: past, UpdatedAt: past, LastProgress: past,
+						StartedAt: past, NodeID: "node", NodeName: "worker", ReplicaIndex: 2,
+						BytesSent: 10, TotalBytes: 100, FileIndex: 1, TotalFiles: 3})
+					var err error
+					original, err = store.GetLoadJob(ctx, "lifecycle")
+					Expect(err).NotTo(HaveOccurred())
+				})
+				for _, uncertain := range []bool{false, true} {
+					It(fmt.Sprintf("records all failure fields (previous uncertainty %t)", uncertain), func() {
+						if uncertain {
+							Expect(store.DeleteLoadJob(ctx, original.Ref())).To(Succeed())
+							original.WorkUncertain = true
+							seed(*original)
+						}
+						before := time.Now().Add(-time.Microsecond)
+						Expect(store.FailLoadJob(ctx, original.Ref(), "remote failure")).To(Succeed())
+						after := time.Now().Add(time.Microsecond)
+						current, err := store.GetLoadJob(ctx, original.TrackingKey)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(current.WorkUncertain).To(BeTrue())
+						Expect(current.LastProgress).To(BeTemporally(">=", before))
+						Expect(current.LastProgress).To(BeTemporally("<=", after))
+						Expect(current.UpdatedAt).To(BeTemporally("==", current.LastProgress))
+						Expect(current.TerminalUntil).NotTo(BeNil())
+						Expect(*current.TerminalUntil).To(BeTemporally("==", current.LastProgress.Add(loadJobFailureGrace)))
+						expected := *original
+						expected.State, expected.LastError, expected.WorkUncertain = LoadJobStateFailed, "remote failure", true
+						expected.LastProgress, expected.UpdatedAt, expected.TerminalUntil = current.LastProgress, current.UpdatedAt, current.TerminalUntil
+						Expect(current).To(Equal(&expected))
+						Expect(store.UpdateLoadJob(ctx, original.Ref(), LoadJobUpdate{})).To(MatchError(ErrStaleLoadJob))
+						Expect(store.FailLoadJob(ctx, original.Ref(), "late failure")).To(MatchError(ErrStaleLoadJob))
+						Expect(store.DeleteLoadJob(ctx, original.Ref())).To(MatchError(ErrStaleLoadJob))
+						job, claimed, err := store.ClaimLoadJob(ctx, original.TrackingKey, "other")
+						Expect(err).NotTo(HaveOccurred())
+						Expect(claimed).To(BeFalse())
+						Expect(job).To(Equal(current))
+					})
+				}
+				for _, heartbeat := range []bool{false, true} {
+					It(fmt.Sprintf("updates all supplied fields (heartbeat %t)", heartbeat), func() {
+						u := LoadJobUpdate{State: LoadJobStateStaging, NodeID: "new-node", NodeName: "new-name", ReplicaIndex: 4,
+							StartedAt: original.StartedAt.Add(time.Minute), BytesSent: 20, TotalBytes: 200, FileIndex: 2, TotalFiles: 4}
+						expected := *original
+						if heartbeat {
+							u = LoadJobUpdate{ReplicaIndex: 9}
+						} else {
+							expected.State, expected.NodeID, expected.NodeName = u.State, u.NodeID, u.NodeName
+							expected.ReplicaIndex, expected.StartedAt = u.ReplicaIndex, u.StartedAt
+						}
+						expected.BytesSent, expected.TotalBytes, expected.FileIndex, expected.TotalFiles = u.BytesSent, u.TotalBytes, u.FileIndex, u.TotalFiles
+						before := time.Now().Add(-time.Microsecond)
+						Expect(store.UpdateLoadJob(ctx, original.Ref(), u)).To(Succeed())
+						after := time.Now().Add(time.Microsecond)
+						current, err := store.GetLoadJob(ctx, original.TrackingKey)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(current.LastProgress).To(BeTemporally(">=", before))
+						Expect(current.LastProgress).To(BeTemporally("<=", after))
+						Expect(current.UpdatedAt).To(BeTemporally("==", current.LastProgress))
+						expected.LastProgress, expected.UpdatedAt = current.LastProgress, current.UpdatedAt
+						Expect(current).To(Equal(&expected))
+					})
+				}
+			})
+
 			for _, scenario := range []struct {
 				name                                                    string
 				legacy, terminal, uncertain, future, reclaim, deletable bool
@@ -193,6 +264,22 @@ var _ = Describe("Load job store parity", func() {
 							original.TerminalUntil, original.State = &until, LoadJobStateFailed
 						}
 						seed(original)
+					})
+					It("rejects stale mutations without changing any fields or timestamps", func() {
+						ctx := context.Background()
+						before, err := store.GetLoadJob(ctx, original.TrackingKey)
+						Expect(err).NotTo(HaveOccurred())
+						refs := []LoadJobRef{{TrackingKey: original.TrackingKey, Generation: "stale"}, {TrackingKey: original.TrackingKey}}
+						if scenario.terminal || scenario.legacy {
+							refs = append(refs, original.Ref())
+						}
+						for _, ref := range refs {
+							Expect(store.UpdateLoadJob(ctx, ref, LoadJobUpdate{State: LoadJobStateStaging, BytesSent: 99})).To(MatchError(ErrStaleLoadJob))
+							Expect(store.FailLoadJob(ctx, ref, "stale failure")).To(MatchError(ErrStaleLoadJob))
+							current, err := store.GetLoadJob(ctx, original.TrackingKey)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(current).To(Equal(before))
+						}
 					})
 					It("claims only after grace and confirmed termination", func() {
 						ctx := context.Background()

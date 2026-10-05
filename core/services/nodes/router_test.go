@@ -233,7 +233,8 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u Lo
 	}
 	job.BytesSent, job.TotalBytes = u.BytesSent, u.TotalBytes
 	job.FileIndex, job.TotalFiles = u.FileIndex, u.TotalFiles
-	job.LastProgress = time.Now()
+	now := time.Now()
+	job.LastProgress, job.UpdatedAt = now, now
 	return nil
 }
 
@@ -246,7 +247,10 @@ func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg st
 	}
 	job.State = LoadJobStateFailed
 	job.LastError = msg
-	until := time.Now().Add(loadJobFailureGrace)
+	now := time.Now()
+	job.WorkUncertain = true
+	job.LastProgress, job.UpdatedAt = now, now
+	until := now.Add(loadJobFailureGrace)
 	job.TerminalUntil = &until
 	return nil
 }
