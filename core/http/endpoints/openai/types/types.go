@@ -602,7 +602,7 @@ type ServerVad struct {
 	CreateResponse bool `json:"create_response,omitempty"`
 
 	// Whether or not to automatically interrupt any ongoing response with output to the default conversation (i.e. conversation of auto) when a VAD start event occurs.
-	InterruptResponse bool `json:"interrupt_response,omitempty"`
+	InterruptResponse *bool `json:"interrupt_response,omitempty"`
 
 	// Used only for server_vad mode. Amount of audio to include before the VAD detected speech (in milliseconds). Defaults to 300ms.
 	PrefixPaddingMs int64 `json:"prefix_padding_ms,omitempty"`
@@ -636,7 +636,7 @@ type RealtimeSessionSemanticVad struct {
 	CreateResponse bool `json:"create_response,omitempty"`
 
 	// Whether or not to automatically interrupt any ongoing response with output to the default conversation (i.e. conversation of auto) when a VAD start event occurs.
-	InterruptResponse bool `json:"interrupt_response,omitempty"`
+	InterruptResponse *bool `json:"interrupt_response,omitempty"`
 
 	// Used only for semantic_vad mode. The eagerness of the model to respond. low will wait longer for the user to continue speaking, high will respond more quickly. auto is the default and is equivalent to medium. low, medium, and high have max timeouts of 8s, 4s, and 2s respectively.
 	Eagerness string `json:"eagerness,omitempty"`

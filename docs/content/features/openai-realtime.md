@@ -91,6 +91,40 @@ curl -X POST http://localhost:8080/backend/load \
 
 The endpoint is not realtime-specific - it pre-loads any model. See [Backend Monitor]({{%relref "operations/backend-monitor" %}}) for the full request/response reference (it is the inverse of `/backend/shutdown`).
 
+### Controlling response interruption
+
+By default, speech detected by either VAD mode interrupts the active response.
+Set `interrupt_response: false` to let the response finish while the user speaks:
+
+```json
+{
+  "type": "session.update",
+  "session": {
+    "type": "realtime",
+    "audio": {
+      "input": {
+        "turn_detection": {
+          "type": "server_vad",
+          "silence_duration_ms": 500,
+          "interrupt_response": false
+        }
+      }
+    }
+  }
+}
+```
+
+This option also applies to `semantic_vad`. Speech events and transcription
+continue. If a response is active when another turn commits, LocalAI retains
+that turn in conversation history but skips its automatic response. It does
+not queue a response for that turn. A later turn can generate a response once
+the active one finishes. To request a response manually, wait for both
+`response.done` and the overlapping turn's `conversation.item.added` event, then
+send `response.create`. Transcription can finish after the active response.
+Explicit `response.cancel` and client response creation keep their existing
+behavior. When replacing the turn-detection settings, omit `interrupt_response`
+or set it to `true` to enable interruption again.
+
 ### Turn detection
 
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
