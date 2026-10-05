@@ -396,6 +396,18 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 				fields = append(fields, "stderr", diagnostic)
 			}
 			xlog.Warn("Backend process exited unexpectedly", fields...)
+
+			// The model stays in the store until something re-asks for it, so
+			// /system and /api/ps keep reporting a dead backend as loaded.
+			// Drop the entry now, but only when it still maps to this process:
+			// a replacement backend that reused the id holds a different
+			// *process.Process and must be left in place.
+			ml.mu.Lock()
+			store := ml.store
+			if cur, ok := store.Get(id); ok && cur.Process() == grpcControlProcess {
+				store.Delete(id)
+			}
+			ml.mu.Unlock()
 		}
 		runtime.cleanupScratch()
 		close(runtime.diagnosticsDone)
