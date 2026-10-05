@@ -1,4 +1,46 @@
 ---
+- name: "xing4.0-29b-a4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF
+  description: |
+    # Xing4.0-29B-A4B
+
+    > [!Note]
+    > This repository provides the model weights and configuration files for Xing4.0-29B-A4B in Hugging Face Transformers format, compatible with Transformers, vLLM, SGLang, KTransformers, and other mainstream inference frameworks.
+
+    **Xing4.0-29B-A4B** is a next-generation large language model in the Xing series (formerly TeleChat), developed by China Telecom Artificial Intelligence Technology Co., Ltd. With 29B total parameters and only 4B activated per token, it natively supports a 256K context length, extensible to 512K. It is the first model of this scale trained entirely on the Ascend NPU platform with the MindSpore framework, and deeply optimized for complex engineering tasks.
+
+    For more information, please refer to our GitHub repository.
+
+    ## Highlights
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Xing4.0-29B-A4B-Q4_K_M/Xing4.0-29B-A4B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Xing4.0-29B-A4B-Q4_K_M/Xing4.0-29B-A4B-Q4_K_M.gguf
+      sha256: 09148c314610aa3f341b64023cf806342ee7702ba8857cfdfecfc09443de71f2
+      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/main/Xing4.0-29B-A4B-Q4_K_M.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
