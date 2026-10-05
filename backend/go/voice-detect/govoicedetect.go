@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -36,6 +39,15 @@ var (
 	CppEmbedPCM    func(ctx uintptr, pcm []float32, nSamples, sampleRate int32, outVec, outDim unsafe.Pointer) int32
 	CppVerifyPaths func(ctx uintptr, a, b string, threshold float32, outDistance, outVerified unsafe.Pointer) int32
 	CppAnalyzeJSON func(ctx uintptr, wavPath string) uintptr
+
+	// Encoder identity (additive in voice-detect.cpp, ABI version stays 1). They
+	// stay nil on a libvoicedetect.so from before it, which is probed in main.go.
+	// Each returns a pointer BORROWED from the context: read it with
+	// goStringFromCPtr right away and never free it. It is valid until
+	// voicedetect_capi_free. NULL means unavailable.
+	CppEncoderArch   func(ctx uintptr) uintptr
+	CppEncoderName   func(ctx uintptr) uintptr
+	CppEncoderFamily func(ctx uintptr) uintptr
 )
 
 // VoiceDetect implements the speaker-recognition voice subset of the Backend
@@ -46,6 +58,12 @@ type VoiceDetect struct {
 	base.SingleThread
 	opts   loadOptions
 	ctxPtr uintptr
+
+	// Encoder fingerprint, read once at load. Empty when the library cannot
+	// report it (older libvoicedetect.so) or, for weights, when the model is
+	// not a readable file.
+	encoderFamily  string
+	encoderWeights string
 }
 
 func (v *VoiceDetect) Load(opts *pb.ModelOptions) error {
@@ -89,7 +107,53 @@ func (v *VoiceDetect) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("voice-detect: voicedetect_capi_load failed for %q", model)
 	}
 	v.ctxPtr = ctx
+	v.encoderFamily = readEncoderFamily(ctx)
+	v.encoderWeights = fileIdentity(model)
+	xlog.Info("voice-detect: encoder fingerprint", "family", v.encoderFamily, "weights", v.encoderWeights,
+		"arch", readBorrowed(CppEncoderArch, ctx), "name", readBorrowed(CppEncoderName, ctx))
 	return nil
+}
+
+// readBorrowed copies a string the library keeps on the context. fn is nil on a
+// library without the accessor. A NULL or empty result means unavailable. The
+// pointer is borrowed: it is copied here and never freed.
+func readBorrowed(fn func(ctx uintptr) uintptr, ctx uintptr) string {
+	if fn == nil || ctx == 0 {
+		return ""
+	}
+	return goStringFromCPtr(fn(ctx))
+}
+
+// readEncoderFamily returns "voicedetect:<arch>:<name>:<dim>", or "" when the
+// library cannot report it. A family with no part at all (":::") carries no
+// information and counts as unavailable.
+func readEncoderFamily(ctx uintptr) string {
+	family := readBorrowed(CppEncoderFamily, ctx)
+	if strings.Trim(family, ":") == "" {
+		return ""
+	}
+	return family
+}
+
+// fileIdentity is "sha256:<hex>" of the bytes of the model file, streamed so a
+// large file is never held in memory. It runs once per model load. It returns ""
+// when the path is not a readable regular file; the backend then reports no
+// weights identity and only the family fingerprints the voice.
+func fileIdentity(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+		return ""
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		xlog.Warn("voice-detect: could not hash the model file", "error", err)
+		return ""
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
 // VoiceEmbed returns the L2-normalized speaker embedding for an audio clip.
@@ -106,7 +170,12 @@ func (v *VoiceDetect) VoiceEmbed(req *pb.VoiceEmbedRequest) (pb.VoiceEmbedRespon
 	if err != nil {
 		return pb.VoiceEmbedResponse{}, err
 	}
-	return pb.VoiceEmbedResponse{Embedding: emb, Model: v.opts.modelName}, nil
+	return pb.VoiceEmbedResponse{
+		Embedding:      emb,
+		Model:          v.opts.modelName,
+		EncoderFamily:  v.encoderFamily,
+		EncoderWeights: v.encoderWeights,
+	}, nil
 }
 
 func (v *VoiceDetect) embedPath(path string) ([]float32, error) {

@@ -344,21 +344,43 @@ A voice with only a weights identity takes the family of the loaded encoder
 when the weights are the same file. A voice with a different weights hash and
 no family is dropped, as before.
 
-A voice registered from audio through the voice-detect backend has no
-fingerprint: libvoicedetect reports no architecture or model name, so the
-backend cannot tell the family, and only the file-name tag described above
-applies. Such voices and fingerprinted voices cannot share one registry in the
-library. When a request has any unfingerprinted voice, all of its voices are
-used without the fingerprint check (the old behaviour). To get the check, enroll
-every voice from `speaker_profiles`. With `speaker_strict:true` the backend
-ignores unfingerprinted voices, and a request that has only those fails with
-the library's message. The family is also reported in the internal backend
-status next to the identity.
+A voice registered from audio through the voice-detect backend (`POST
+/v1/voice/register` with `audio`) is fingerprinted too, when the libvoicedetect
+in the backend can report its encoder (voice-detect.cpp from the pin that adds
+`voicedetect_capi_encoder_family`). The backend reads the family from the
+loaded GGUF, and hashes the model file once at load to get the weights. LocalAI
+stores the family as `encoder_family` and the weights as `encoder_weights`; the
+`model` field keeps the encoder name as before. If the voice-detect model is
+not a plain file the backend cannot hash it and the weights stay empty, so the
+family alone fingerprints the voice. When the family is known, LocalAI sends
+the voice to the backend whatever its file name, so the family decides.
 
-{{% notice warning %}}
-Do not set a `model_name:` option on the voice-detect model config. It
-replaces the default name, the voices are then tagged with it, and they no
-longer match the `speaker_model:` file. Keep the default name.
+Voices registered before this change have no fingerprint, and so do voices
+from a backend that cannot report one (an older libvoicedetect, or the Python
+speaker-recognition backend). They are used as described above, by file-name
+tag. Such voices and fingerprinted voices cannot share one registry in the
+library. When a request has any unfingerprinted voice, all of its voices are
+used without the fingerprint check. **Register those voices again** to get
+the check. With `speaker_strict:true` the backend ignores unfingerprinted
+voices, and a request that has only those fails with the library's message.
+The family is also reported in the internal backend status next to the
+identity. `/v1/voice/identify` compares the family of a stored voice with the
+family of the probe when both have one, and falls back to the file-name tag
+when either has none.
+
+The family is built from the encoder GGUF metadata. For CAM++, WeSpeaker and
+ERes2Net the GGUF `general.name` is the path the model was converted from, so
+the same encoder converted again under another name has another family, and
+voices registered with the first file are refused with the second. Two
+fine-tunes that share an architecture, name and embedding size have the same
+family; only the weights hash tells them apart, and a hash mismatch alone only
+logs a warning.
+
+{{% notice note %}}
+With a fingerprint, the `model_name:` option on the voice-detect model config
+no longer breaks naming: the family decides, not the name. Voices registered
+without a fingerprint still need the default name to match the
+`speaker_model:` file.
 {{% /notice %}}
 
 ### Options
@@ -463,7 +485,8 @@ are independent.
 | `store` | string, optional | vector store model; defaults to local-store |
 
 Returns `{id, name, registered_at}`. The `id` is an opaque UUID used
-by `/v1/voice/identify` and `/v1/voice/forget`.
+by `/v1/voice/identify` and `/v1/voice/forget`. The stored voice records the
+encoder [fingerprint](#encoder-fingerprint) when the backend reports it.
 
 ### `POST /v1/voice/identify` (1:N recognition)
 
