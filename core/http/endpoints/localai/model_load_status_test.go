@@ -52,10 +52,10 @@ var _ = Describe("ModelLoadStatusEndpoint", func() {
 
 		It("reports the live progress of a running load", func() {
 			ctx := context.Background()
-			_, claimed, err := registry.ClaimLoadJob(ctx, "big-model", "replica-a")
+			bigmodelJob, claimed, err := registry.ClaimLoadJob(ctx, "big-model", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
-			Expect(registry.UpdateLoadJob(ctx, "big-model", nodes.LoadJobUpdate{
+			Expect(registry.UpdateLoadJob(ctx, bigmodelJob.Ref(), nodes.LoadJobUpdate{
 				State: nodes.LoadJobStateStaging, NodeID: "n1", NodeName: "nvidia-thor",
 				BytesSent: 1000, TotalBytes: 4000, FileIndex: 1, TotalFiles: 1,
 			})).To(Succeed())

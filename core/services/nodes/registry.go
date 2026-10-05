@@ -88,17 +88,17 @@ type BackendNode struct {
 	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
-	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	VRAMBudgetManuallySet bool `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
 	// Version is the LocalAI build version reported by the worker at
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
-	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 const (
@@ -325,10 +325,16 @@ type PendingBackendOp struct {
 // minutes and was killed by the role's statement_timeout. The job row lets the
 // lock shrink to the claim while the work itself runs unlocked and observable.
 //
-// Terminal rows are deleted rather than retained: NodeModel is already the
-// record of what is loaded, and keeping finished jobs would create a second
-// source of truth about it.
+// Successful jobs are deleted: NodeModel records what is loaded. Failed jobs
+// retain durable grace and remote uncertainty until safe recovery is possible.
 type ModelLoadJob struct {
+	// Generation is immutable. Empty generations are legacy jobs and cannot be adopted.
+	Generation string `gorm:"size:36" json:"generation"`
+	// TerminalUntil persists failure grace across frontend restarts.
+	TerminalUntil *time.Time `json:"terminal_until,omitempty"`
+	// WorkUncertain blocks replacement even when the owner's lease expires.
+	WorkUncertain bool `json:"work_uncertain"`
+
 	TrackingKey  string `gorm:"primaryKey;size:255" json:"tracking_key"`
 	State        string `gorm:"size:16;not null;index" json:"state"`
 	OwnerReplica string `gorm:"size:64" json:"owner_replica"`

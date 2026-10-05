@@ -44,13 +44,7 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 
 		job, claimed, err := r.registry.ClaimLoadJob(ctx, att.trackingKey, ReplicaID())
 		if err != nil {
-			// A broken job table must not make the model unroutable: fall back
-			// to loading inline, which is what every release before this did.
-			xlog.Warn("Claiming the model load job failed; loading inline instead",
-				"model", att.trackingKey, "error", err)
-			loadCtx, cancelLoad := r.newColdLoadContext(context.WithoutCancel(ctx))
-			defer cancelLoad()
-			return r.coldLoad(loadCtx, att, 1)
+			return nil, fmt.Errorf("claiming model load job: %w", err)
 		}
 
 		switch {
@@ -60,10 +54,10 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 			// the lock. Without it the claim would schedule a second copy of a
 			// model that is already up.
 			if result := r.tryWarmPath(ctx, att); result != nil {
-				r.finishLoadJob(ctx, att.trackingKey)
+				r.finishLoadJob(ctx, job.Ref())
 				return result, nil
 			}
-			r.startLoadJob(ctx, att)
+			r.startLoadJob(ctx, att, job.Ref())
 		case job != nil && job.State == LoadJobStateFailed:
 			// Inside the failure grace window: report the real cause rather
 			// than silently starting a fresh load of a model that just failed.
@@ -127,7 +121,7 @@ func (r *SmartRouter) loadingAnswer(ctx context.Context, trackingKey string, bud
 // request that triggered it. The job is owned by its record, not by that
 // request: the client may disconnect, be retried onto another replica, or time
 // out, and the transfer keeps going.
-func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt) {
+func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref LoadJobRef) {
 	trackingKey := att.trackingKey
 	// Keep the request's context VALUES (prefix chain and friends) but none of
 	// its cancellation — see newColdLoadContext.
@@ -140,7 +134,7 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt) {
 		phase := newLoadPhaseReporter()
 		loadCtx = withLoadPhaseReporter(loadCtx, phase)
 
-		stopHeartbeat := r.startLoadJobHeartbeat(parent, trackingKey, phase)
+		stopHeartbeat := r.startLoadJobHeartbeat(parent, ref, phase)
 
 		_, err := r.coldLoad(loadCtx, att, 0)
 
@@ -153,33 +147,29 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt) {
 
 		if err != nil {
 			xlog.Error("Cold load job failed", "model", trackingKey, "error", err)
-			if ferr := r.registry.FailLoadJob(bookCtx, trackingKey, err.Error()); ferr != nil {
+			if ferr := r.registry.FailLoadJob(bookCtx, ref, err.Error()); ferr != nil {
 				xlog.Warn("Failed to record cold load failure", "model", trackingKey, "error", ferr)
+				return
 			}
 			r.closeLoadWaiters(trackingKey)
-			// Keep the row briefly so a request arriving right now reports this
-			// failure instead of starting a duplicate load. Deleting it
-			// immediately turns a failure into a retry storm.
-			time.AfterFunc(loadJobFailureGrace, func() {
-				delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				defer cancel()
-				if derr := r.registry.DeleteLoadJob(delCtx, trackingKey); derr != nil {
-					xlog.Warn("Failed to clear failed cold load job", "model", trackingKey, "error", derr)
-				}
-			})
+			// Failure grace is durable. A failed RPC does not prove that remote
+			// work stopped, so leave cleanup to evidence-based reconciliation.
+
 			return
 		}
 
-		r.finishLoadJob(bookCtx, trackingKey)
+		r.finishLoadJob(bookCtx, ref)
 	}()
 }
 
 // finishLoadJob ends a job that succeeded. The NodeModel row (state `loaded`)
 // is the record from here, so the job row is dropped BEFORE waiters are woken:
 // they re-run the warm path and must not find a job that is really done.
-func (r *SmartRouter) finishLoadJob(ctx context.Context, trackingKey string) {
-	if err := r.registry.DeleteLoadJob(ctx, trackingKey); err != nil {
+func (r *SmartRouter) finishLoadJob(ctx context.Context, ref LoadJobRef) {
+	trackingKey := ref.TrackingKey
+	if err := r.registry.DeleteLoadJob(ctx, ref); err != nil {
 		xlog.Warn("Failed to clear completed cold load job", "model", trackingKey, "error", err)
+		return
 	}
 	r.closeLoadWaiters(trackingKey)
 }
@@ -192,7 +182,8 @@ func (r *SmartRouter) finishLoadJob(ctx context.Context, trackingKey string) {
 // row when bytes moved would look orphaned and be reclaimed mid-load. Byte
 // progress is copied in from the staging tracker, which already debounces the
 // per-chunk callbacks, so the row is written at most once per interval.
-func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey string, phase *loadPhaseReporter) func() {
+func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobRef, phase *loadPhaseReporter) func() {
+	trackingKey := ref.TrackingKey
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 
@@ -216,7 +207,7 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey 
 					u.StartedAt = startedAt
 				}
 				ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), loadJobHeartbeatInterval*5)
-				if err := r.registry.UpdateLoadJob(ctx, trackingKey, u); err != nil {
+				if err := r.registry.UpdateLoadJob(ctx, ref, u); err != nil {
 					xlog.Debug("Failed to heartbeat cold load job", "model", trackingKey, "error", err)
 				}
 				cancel()

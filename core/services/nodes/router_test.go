@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -184,12 +185,12 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 	if s.jobs == nil {
 		s.jobs = map[string]*ModelLoadJob{}
 	}
-	if existing, ok := s.jobs[trackingKey]; ok && !existing.IsOrphaned(time.Now()) {
+	if existing, ok := s.jobs[trackingKey]; ok {
 		cp := *existing
 		return &cp, false, nil
 	}
 	now := time.Now()
-	job := &ModelLoadJob{TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
+	job := &ModelLoadJob{Generation: uuid.NewString(), WorkUncertain: true, TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
 	s.jobs[trackingKey] = job
 	cp := *job
 	return &cp, true, nil
@@ -206,12 +207,12 @@ func (s *fakeLoadJobStore) GetLoadJob(_ context.Context, trackingKey string) (*M
 	return &cp, nil
 }
 
-func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, u LoadJobUpdate) error {
+func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u LoadJobUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	job, ok := s.jobs[trackingKey]
-	if !ok {
-		return nil
+	job, ok := s.jobs[ref.TrackingKey]
+	if !ok || job.Generation != ref.Generation || ref.Generation == "" || job.TerminalUntil != nil {
+		return ErrStaleLoadJob
 	}
 	if u.State != "" {
 		job.State = u.State
@@ -232,21 +233,28 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, 
 	return nil
 }
 
-func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, trackingKey, msg string) error {
+func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if job, ok := s.jobs[trackingKey]; ok {
-		job.State = LoadJobStateFailed
-		job.LastError = msg
-		job.LastProgress = time.Now()
+	job, ok := s.jobs[ref.TrackingKey]
+	if !ok || job.Generation != ref.Generation || ref.Generation == "" || job.TerminalUntil != nil {
+		return ErrStaleLoadJob
 	}
+	job.State = LoadJobStateFailed
+	job.LastError = msg
+	until := time.Now().Add(loadJobFailureGrace)
+	job.TerminalUntil = &until
 	return nil
 }
 
-func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, trackingKey string) error {
+func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.jobs, trackingKey)
+	job, ok := s.jobs[ref.TrackingKey]
+	if !ok || job.Generation != ref.Generation || ref.Generation == "" || job.TerminalUntil != nil {
+		return ErrStaleLoadJob
+	}
+	delete(s.jobs, ref.TrackingKey)
 	return nil
 }
 

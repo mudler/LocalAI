@@ -1392,3 +1392,20 @@ Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, R
 - **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
 - **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.
 - **Minor tuning + MCP parity** ([#10070](https://github.com/mudler/LocalAI/issues/10070)): per-model TTL override, probabilistic LRU updates, and MCP scheduling-config tool parity.
+
+### Cold-load ownership during frontend recovery
+
+Cold-load jobs carry an immutable generation. Heartbeats and completion writes
+must match that generation, so a delayed frontend cannot change a replacement
+job. Failure grace is stored in the database and survives frontend restarts.
+Successful loads still use the loaded replica record and permit warm-path retries.
+
+An expired heartbeat does **not** prove that a worker stopped loading. Jobs with
+an unresolved remote outcome remain protected from replacement, including failed
+jobs after their grace expires. Legacy jobs without a generation are quarantined,
+not automatically adopted. Do not delete such jobs to force a retry while remote
+work might still run. Operation-level reconciliation is required before safe
+replacement; generation fencing alone does not stop worker processes.
+
+Upgrade all frontend writers together: older frontends do not honor generation
+conditions. Mixed-version frontend failover is not protected by this fencing.
