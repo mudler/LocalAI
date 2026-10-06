@@ -99,3 +99,18 @@ var _ = Describe("Linked legacy staging inventory", func() {
 		Expect(s.modelsRunning(context.Background(), workerctl.ModelsRunningRequest{}).Operations).To(BeEmpty())
 	})
 })
+
+var _ = Describe("Linked absent-target recovery", func() {
+	It("preserves another model through adapter unload", func() {
+		backend := &modelStopBackend{}
+		addr, _, stop := startModelStopBackend(backend)
+		defer stop()
+		s := &backendSupervisor{cfg: &Config{}, nodeID: "worker", processes: map[string]*backendProcess{"other#0": {addr: addr}}}
+		bus := newRecordingBus()
+		Expect(registerLifecycleForTest(s, bus)).To(Succeed())
+		adapter := nodes.NewRemoteUnloaderAdapter(nil, recoveryLoopback{bus}, time.Second, time.Second)
+		Expect(adapter.UnloadModelOnNode("worker", "missing")).To(Succeed())
+		Expect(backend.freeCalls.Load()).To(BeZero())
+		Expect(s.processes).To(HaveKey("other#0"))
+	})
+})

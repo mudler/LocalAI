@@ -1518,3 +1518,55 @@ still prevents old broadcasts from restoring completed work after cache eviction
 Activity does not offer gallery cancellation for cold loads. Use the dedicated
 load-cancel endpoint with `job_id`. Synthetic `staging:` identities are rejected
 by gallery operation actions; dismissing them cannot clear a quarantined load.
+
+### Roll out load recovery
+
+Generation checks protect upgraded controller writers, not arbitrary database
+writers or direct gRPC clients. Worker inventory does not fence direct backend
+`LoadModel` calls. Do not treat a rolling upgrade as safe mixed-version failover.
+
+1. Pause new cold-load requests and scheduled replica creation during the maintenance window.
+2. Record unresolved jobs, their `job_id` values, worker identities, and reserved replicas.
+3. Back up the shared database before upgrading its schema.
+4. Stop every old frontend writer before enabling upgraded frontends against that database.
+5. Upgrade workers in stages, retaining quarantine for unresolved work throughout worker restarts.
+6. Check worker incarnation reports and operation inventory before relying on early restart detection.
+7. Resume traffic after checking ordinary loading, durable status, and cancellation on a second frontend.
+
+Legacy rows without a generation remain quarantined after migration. Do not
+invent a generation for them. Workers without incarnation reports cannot support
+early restart detection. Missing operation capabilities cannot establish cleanup
+success. Older frontends can bypass ownership predicates; keep them disconnected
+from the shared database, including during rollback.
+
+### Retry an interrupted load safely
+
+**Do not delete an uncertain job or reservation to force another load.** A worker
+restart or successful process stop does not exclude a delayed direct gRPC call.
+
+1. Read `/api/models/{id}/load-status` and record the exact `job_id` and placement.
+2. Request cancellation for that generation, if needed, from an upgraded administrator frontend.
+3. Keep replacement loading paused while `work_uncertain` remains true.
+4. Stop or isolate every old owner and caller that can submit delayed work to the affected backend.
+5. Verify termination of staging handlers, backend loads, and surviving child processes on the affected worker.
+6. Retain quarantine if you cannot establish both termination and exclusion of delayed submissions.
+7. Arrange controlled cleanup with the operator responsible for the database and worker before retrying.
+
+There is no automatic uncertain-job reclaim or general force-retry API. Database
+editing is not a substitute for termination evidence. Keep the recorded identity
+and cleanup evidence when arranging manual repair; do not clear unrelated jobs.
+A healthy long-running load needs no repair merely because its start time is old.
+
+| Response | Meaning | Operator action |
+|---|---|---|
+| Inference `503` with `Retry-After` | The request's wait budget expired. | Retry the request after the indicated delay; do not cancel healthy work. |
+| Cancellation `202` | Intent is durable; remote work remains uncertain. | Keep quarantine and investigate the recorded generation. |
+| Cancellation `200` | Retained evidence confirms owner completion. | Read current status before acting on a newer generation. |
+| Cancellation `400` | The generation request is missing or invalid. | Supply the exact `job_id` from load status. |
+| Cancellation `404` | No retained evidence identifies that generation. | Re-read status; absence does not prove termination. |
+| Cancellation `409` | The generation or node placement conflicts. | Re-read status; do not apply stale cancellation to replacement work. |
+| Activity `503` | The durable operations lookup failed. | Restore database access; the UI retains its last successful snapshot. |
+
+Backend regression tests use disposable databases and mocked or in-process
+control paths. They do not certify browser behavior, live worker transfers,
+network partitions, mixed-version failover, or the full repository CI gates.
