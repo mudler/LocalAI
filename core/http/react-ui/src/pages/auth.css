@@ -10,18 +10,18 @@
 }
 
 .status-badge-success {
-  background: var(--color-success, #22c55e)22;
-  color: var(--color-success, #22c55e);
+  background: var(--color-success-light);
+  color: var(--dk-ok-text);
 }
 
 .status-badge-danger {
-  background: var(--color-danger, #ef4444)22;
-  color: var(--color-danger, #ef4444);
+  background: var(--color-error-light);
+  color: var(--dk-error-text);
 }
 
 .status-badge-warning {
-  background: var(--color-warning, #eab308)22;
-  color: var(--color-warning, #eab308);
+  background: var(--color-warning-light);
+  color: var(--dk-warn-text);
 }
 
 .role-badge {
@@ -586,21 +586,20 @@
   align-items: center;
   justify-content: center;
   background: var(--color-modal-backdrop);
-  backdrop-filter: blur(4px);
-  animation: fadeIn var(--duration-normal) var(--ease-spring);
+  animation: dk-veil-in var(--dk-dur-2) ease-out both;
 }
 
 .modal-panel {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--dk-radius-4);
   width: 90%;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: auto;
-  box-shadow: var(--shadow-md);
-  animation: popIn var(--duration-slow) var(--ease-spring);
+  box-shadow: var(--shadow-lg);
+  animation: dk-dialog-in var(--dk-dur-3) var(--dk-ease-spring) both;
 }
 
 /* ─── Model list in permissions modal ─── */
@@ -629,7 +628,7 @@
 
 .model-item-checked {
   border-color: var(--color-primary);
-  background: var(--color-primary-light, rgba(59,130,246,0.08));
+  background: var(--color-primary-light);
 }
 
 .model-item-check {
@@ -767,11 +766,11 @@
 }
 
 .quota-progress-fill--warning {
-  background: var(--color-warning, #eab308);
+  background: var(--color-warning);
 }
 
 .quota-progress-fill--danger {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-error);
 }
 
 .quota-usage-label {

@@ -136,7 +136,7 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -147,6 +147,15 @@
   font-size: 1.25rem;
   cursor: pointer;
   padding: var(--spacing-xs);
+  border-radius: var(--radius-md);
+  transition: background var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.hamburger-btn:hover { background: var(--color-bg-hover); }
+.hamburger-btn:active { transform: scale(var(--dk-press-scale)); }
+.hamburger-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .mobile-title {
@@ -179,10 +188,14 @@
   min-height: 44px;
   padding: 10px;
   border-radius: var(--radius-full);
-  transition: background var(--duration-fast) var(--ease-default);
+  transition: background var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
 .mobile-header-btn:hover {
   background: var(--color-bg-hover);
+}
+.mobile-header-btn:active {
+  transform: scale(var(--dk-press-scale));
 }
 .mobile-header-btn:focus-visible {
   outline: 2px solid var(--color-focus-ring);
@@ -211,8 +224,8 @@
   width: var(--sidebar-width);
   height: 100vh;
   height: 100dvh;
-  background: var(--color-bg-secondary);
-  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-primary);
+  border-right: 1px solid transparent;
   display: flex;
   flex-direction: column;
   z-index: 50;
@@ -232,7 +245,6 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-sm) var(--spacing-sm);
-  border-bottom: 1px solid var(--color-border-subtle);
   min-height: 44px;
 }
 
@@ -263,6 +275,15 @@
   color: var(--color-text-secondary);
   font-size: 1.25rem;
   cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.sidebar-close-btn:hover { background: var(--color-bg-hover); }
+.sidebar-close-btn:active { transform: scale(var(--dk-press-scale)); }
+.sidebar-close-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .sidebar-nav {
@@ -280,8 +301,8 @@
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-text-secondary);
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -295,7 +316,13 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
-  transition: color var(--duration-fast);
+  transition: color var(--dk-dur-1) var(--dk-ease-out);
+}
+
+.sidebar-section-toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
 }
 
 .sidebar-section-toggle:hover {
@@ -305,7 +332,7 @@
 .sidebar-section-chevron {
   font-size: 0.5rem;
   opacity: 0.6;
-  transition: transform var(--duration-fast), opacity var(--duration-fast);
+  transition: transform var(--dk-dur-2) var(--dk-ease-out), opacity var(--dk-dur-1);
   flex-shrink: 0;
 }
 
@@ -327,22 +354,33 @@
   text-decoration: none;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  transition: color var(--duration-normal) var(--ease-spring),
-              background var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-spring);
+  transition: color var(--dk-dur-1) var(--dk-ease-out),
+              background var(--dk-dur-1) var(--dk-ease-out),
+              box-shadow var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-spring);
   white-space: nowrap;
   overflow: hidden;
 }
 
 .nav-item:hover:not(.active) {
   color: var(--color-text-primary);
-  background: var(--color-surface-elevated);
+  background: var(--color-bg-hover);
 }
 
+.nav-item:active:not(.disabled) {
+  transform: scale(var(--dk-press-scale-nav));
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Inside a card (the Operate rail) the current row takes the accent wash.
+   In the main sidebar it lifts onto a card instead; see .sidebar-nav. */
 .nav-item.active {
-  color: var(--color-primary);
+  color: var(--dk-accent-text);
   background: var(--color-primary-light);
-  box-shadow: inset 2px 0 0 var(--color-primary);
   font-weight: var(--font-weight-medium);
 }
 
@@ -368,15 +406,17 @@
   margin: 1px var(--spacing-sm);
   padding-left: var(--spacing-sm);
   padding-right: var(--spacing-sm);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
+/* The current row lifts onto a card with the rest shadow. That lift is the
+   whole indicator; the icon keeps the accent. */
 .sidebar-nav .nav-item.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: var(--font-weight-medium);
-  box-shadow: none;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
 }
-.sidebar-nav .nav-item.active .nav-icon { color: var(--color-primary); }
+.sidebar-nav .nav-item.active .nav-icon { color: var(--dk-accent-text); }
 /* Align tier labels with the inset item text (item margin + icon padding). */
 .sidebar-nav .sidebar-section-title {
   padding-left: var(--spacing-md);
@@ -391,7 +431,7 @@
 
 .sidebar-footer {
   padding: var(--spacing-xs) var(--spacing-sm);
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--color-border-divider);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -437,7 +477,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
 }
 
 .sidebar-user-link:hover {
@@ -496,13 +536,19 @@
   cursor: pointer;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  transition: color var(--duration-fast), background var(--duration-fast);
+  transition: color var(--dk-dur-1) var(--dk-ease-out), background var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
   flex-shrink: 0;
 }
 
 .sidebar-collapse-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
+}
+.sidebar-collapse-btn:active { transform: scale(var(--dk-press-scale)); }
+.sidebar-collapse-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Collapsed sidebar (desktop only) */
@@ -567,19 +613,25 @@
 /* Theme toggle */
 .theme-toggle {
   background: none;
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-default);
   color: var(--color-text-secondary);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.875rem;
-  transition: color var(--duration-fast) var(--ease-default),
-              border-color var(--duration-fast) var(--ease-default),
-              background var(--duration-fast) var(--ease-default);
+  transition: color var(--dk-dur-1) var(--dk-ease-out),
+              border-color var(--dk-dur-1) var(--dk-ease-out),
+              background var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
 .theme-toggle:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary-border);
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+.theme-toggle:active { transform: scale(var(--dk-press-scale)); }
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 .theme-toggle__icon {
   display: inline-block;
@@ -613,18 +665,21 @@
   bottom: calc(100% + 8px);
   left: 0;
   min-width: 160px;
-  background: var(--color-bg-elevated, var(--color-bg-secondary));
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   list-style: none;
   margin: 0;
   padding: 4px;
   z-index: 1000;
+  transform-origin: bottom left;
+  animation: dk-pop-in var(--dk-dur-2) var(--dk-ease-spring) both;
 }
 .sidebar.collapsed .language-switcher-menu {
   left: calc(100% + 8px);
   bottom: 0;
+  transform-origin: bottom left;
 }
 .language-switcher-menu li {
   margin: 0;
@@ -637,15 +692,20 @@
   background: transparent;
   border: 0;
   padding: var(--spacing-xs) var(--spacing-sm);
+  min-height: 40px;
   color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   text-align: left;
 }
 .language-switcher-option:hover {
-  background: var(--color-bg-tertiary, rgba(255, 255, 255, 0.04));
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+.language-switcher-option:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
 }
 .language-switcher-option.active {
   color: var(--color-primary);
@@ -670,14 +730,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-primary, #111);
+  background: var(--color-bg-primary);
 }
 .app-boot-spinner-dot {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 3px solid var(--color-border-subtle, rgba(255, 255, 255, 0.15));
-  border-top-color: var(--color-primary, #4f8cff);
+  border: 3px solid var(--color-border-subtle);
+  border-top-color: var(--color-primary);
   animation: app-boot-spin 0.8s linear infinite;
 }
 @keyframes app-boot-spin {
@@ -964,77 +1024,80 @@
   transition: width var(--duration-slow, 0.3s) var(--ease-spring, ease);
 }
 
-/* Toast */
+/* Toast — a pill on the inverse surface; success and error are solid fills.
+   The stack sits at the bottom centre and rises in 16px. */
 .toast-container {
   position: fixed;
-  top: var(--spacing-lg);
-  right: var(--spacing-lg);
+  left: 50%;
+  bottom: var(--spacing-md);
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
   z-index: 1100;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--spacing-sm);
+  pointer-events: none;
 }
 
 .toast {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: -0.005em;
-  animation: toastSlideIn var(--duration-normal) var(--ease-spring);
-  min-width: 280px;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+  background: var(--dk-inverse);
+  border: 0;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--dk-on-inverse);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  animation: dk-toast-in var(--dk-dur-2) var(--dk-ease-out) both;
 }
 
 .toast-enter {
   opacity: 0;
-  transform: translateX(12px);
+  transform: translateY(16px);
 }
 
 .toast-exit {
-  opacity: 0;
-  transform: translateX(12px);
-  transition: opacity var(--duration-fast) var(--ease-spring),
-              transform var(--duration-fast) var(--ease-spring);
+  animation: dk-toast-out var(--dk-dur-1) ease-in both;
 }
 
-.toast-success {
-  box-shadow: inset 3px 0 0 var(--color-success), var(--shadow-sm);
-  border-color: var(--color-border-subtle);
-}
-.toast-error {
-  box-shadow: inset 3px 0 0 var(--color-error), var(--shadow-sm);
-  border-color: var(--color-border-subtle);
-}
-.toast-warning {
-  box-shadow: inset 3px 0 0 var(--color-warning), var(--shadow-sm);
-  border-color: var(--color-border-subtle);
-}
-.toast-info {
-  box-shadow: inset 3px 0 0 var(--color-info), var(--shadow-sm);
-  border-color: var(--color-border-subtle);
-}
+.toast-success { background: var(--dk-ok); color: var(--dk-on-ok); }
+.toast-error { background: var(--dk-error); color: var(--dk-on-error); }
+.toast-warning { background: var(--dk-warn); color: var(--dk-on-warn); }
+.toast-info { background: var(--dk-inverse); color: var(--dk-on-inverse); }
+
+.toast > span { flex: 1 1 auto; min-width: 0; }
 
 .toast-close {
   margin-left: auto;
   background: none;
   border: none;
-  color: inherit;
-  opacity: 0.6;
-  cursor: pointer;
-  padding: 2px;
-}
-.toast-close:hover { opacity: 1; }
-.toast-link {
-  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
   color: inherit;
   opacity: 0.8;
+  cursor: pointer;
+  min-width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  transition: background-color var(--dk-dur-1) ease, opacity var(--dk-dur-1) ease,
+              transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.toast-close:hover { opacity: 1; background: color-mix(in srgb, currentColor 16%, transparent); }
+.toast-close:active { transform: scale(var(--dk-press-scale)); }
+.toast :focus-visible { outline-color: currentColor; }
+.toast-link {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: inherit;
+  opacity: 0.9;
   text-decoration: underline;
   white-space: nowrap;
   margin-left: var(--spacing-xs);
@@ -1076,14 +1139,9 @@
 .skeleton {
   display: block;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    100deg,
-    var(--color-surface-sunken) 30%,
-    var(--color-surface-hover) 50%,
-    var(--color-surface-sunken) 70%
-  );
+  background: linear-gradient(90deg, var(--dk-inset) 0%, var(--dk-hover) 50%, var(--dk-inset) 100%);
   background-size: 200% 100%;
-  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  animation: skeletonShimmer 1.3s linear infinite;
 }
 .skeleton--line { height: 0.85em; margin: 0.35em 0; width: 100%; }
 .skeleton--block { height: 100%; width: 100%; border-radius: var(--radius-md); }
@@ -1356,26 +1414,31 @@
 .card {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--spacing-lg);
-  box-shadow: var(--shadow-subtle), var(--shadow-inset-top);
-  transition: border-color var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-spring),
-              transform var(--duration-normal) var(--ease-spring);
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--dk-dur-1) var(--dk-ease-out),
+              border-color var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
 
-.card:hover {
-  border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-sm), var(--shadow-inset-top);
-  transform: translateY(-1px);
+/* A card is flat at rest and does not move on hover. Only a card that is
+   itself a link or a button reacts: hover swaps the surface, press scales. */
+a.card:hover,
+button.card:hover {
+  background: var(--color-bg-hover);
+}
+a.card:active,
+button.card:active {
+  transform: scale(var(--dk-press-scale));
 }
 
 /* Accent-rail variant — editorial left bar for highlighted cards */
 .card--accent {
-  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-subtle), var(--shadow-inset-top);
+  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-sm);
 }
 .card--accent:hover {
-  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-sm), var(--shadow-inset-top);
+  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-sm);
 }
 
 .card-grid {
@@ -1707,7 +1770,7 @@
   display: inline-flex;
   padding: 3px;
   background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   margin-bottom: var(--spacing-md);
   gap: 2px;
@@ -1725,14 +1788,16 @@
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out),
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
 .segmented__item:hover {
   color: var(--color-text-primary);
 }
+.segmented__item:active { transform: scale(var(--dk-press-scale)); }
 .segmented__item.is-active {
   background: var(--color-surface-raised);
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   box-shadow: var(--shadow-subtle);
 }
 
@@ -1749,7 +1814,7 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   user-select: none;
-  transition: border-color var(--duration-fast);
+  transition: border-color var(--dk-dur-1) var(--dk-ease-out);
   margin-bottom: var(--spacing-md);
 }
 .checkbox-row:hover {
@@ -1795,70 +1860,60 @@
   margin: 0;
 }
 
-/* Buttons */
+/* Buttons — flat. Hover swaps the surface, press scales to .97, focus is a
+   2px ring with a 2px offset. Danger is a tinted wash, never a solid fill. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
   padding: 0.5rem var(--spacing-md);
-  min-height: 34px;
+  min-height: 36px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-family: inherit;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.005em;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background var(--duration-normal) var(--ease-spring),
-              color var(--duration-normal) var(--ease-spring),
-              border-color var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-spring),
-              filter var(--duration-normal) var(--ease-spring),
-              transform var(--duration-normal) var(--ease-spring);
+  transition: background-color var(--dk-dur-1) ease,
+              color var(--dk-dur-1) ease,
+              border-color var(--dk-dur-1) ease,
+              transform var(--dk-dur-1) var(--dk-ease-out);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
-/* Global focus ring - any interactive that isn't a .btn. This box-shadow ring
-   is the single focus technique app-wide (it covers .btn plus the :where(...)
-   list below). The strengthened --color-focus-ring keeps it WCAG-AA visible
-   (>=3:1), so no separate solid-outline rule is needed; a bare :focus-visible
-   outline here would double-ring every element. */
+/* Global focus ring for any interactive that is not a .btn: a 2px outline in
+   the accent with a 2px offset. It is wrapped in :where() so component rules
+   can still refine it. The ring colour clears 3:1 on every surface (see the
+   contrast check on the theme file). */
 :where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .btn-primary {
   background: var(--color-primary);
   color: var(--color-primary-text);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), var(--shadow-inset-hi);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), var(--shadow-inset-hi);
-}
-.btn-primary:focus-visible:not(:disabled) {
-  box-shadow: 0 0 0 3px var(--color-focus-ring), var(--shadow-inset-hi);
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
-  background: var(--color-surface-elevated);
+  background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
-  border-color: var(--color-border-default);
+  border-color: transparent;
 }
 .btn-secondary:hover:not(:disabled) {
-  border-color: var(--color-border-strong);
-  background: var(--color-surface-hover);
-  transform: translateY(-1px);
+  background: var(--color-bg-hover);
 }
 
 .btn-ghost {
@@ -1867,40 +1922,42 @@
   border-color: transparent;
 }
 .btn-ghost:hover:not(:disabled) {
-  background: var(--color-surface-elevated);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
 .btn-danger {
   background: var(--color-error-light);
-  color: var(--color-error);
-  border-color: var(--color-error-border);
+  color: var(--dk-error-text);
+  border-color: transparent;
 }
 .btn-danger:hover:not(:disabled) {
-  background: var(--color-error);
-  color: var(--color-text-inverse);
-  border-color: var(--color-error);
-  filter: brightness(1.04);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--dk-error-wash) 82%, var(--dk-error));
+  color: var(--dk-error-text);
 }
 
 .btn-sm {
   padding: 0.35rem var(--spacing-sm);
-  min-height: 28px;
+  min-height: 30px;
   font-size: var(--text-xs);
   letter-spacing: 0;
 }
 
 .btn:active:not(:disabled) {
-  filter: brightness(0.95);
-  transform: translateY(0);
+  transform: scale(var(--dk-press-scale));
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
-  filter: none;
   transform: none;
+}
+
+/* Native checkboxes, radios and sliders take the accent. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--color-primary);
 }
 
 /* Toggle switch */
@@ -1923,7 +1980,7 @@
   inset: 0;
   border-radius: var(--radius-full);
   background: var(--color-toggle-off);
-  transition: background var(--duration-normal) var(--ease-default);
+  transition: background-color var(--dk-dur-1) ease;
 }
 .toggle__thumb {
   position: absolute;
@@ -1932,32 +1989,43 @@
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);
-  background: #ffffff;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--duration-normal) var(--ease-default);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-subtle);
+  transition: transform var(--dk-dur-2) var(--dk-ease-spring);
 }
 .toggle--on .toggle__track {
   background: var(--color-toggle-on);
 }
 .toggle--on .toggle__thumb {
   transform: translateX(16px);
+  background: var(--color-primary-text);
 }
-.toggle:hover:not(.toggle--disabled) .toggle__track {
-  filter: brightness(1.08);
+.toggle:active:not(.toggle--disabled) .toggle__thumb {
+  transform: scale(var(--dk-press-scale));
 }
-.toggle:focus-within .toggle__track {
-  box-shadow: 0 0 0 3px var(--color-border-focus);
+.toggle--on:active:not(.toggle--disabled) .toggle__thumb {
+  transform: translateX(16px) scale(var(--dk-press-scale));
+}
+.toggle:hover:not(.toggle--disabled):not(.toggle--on) .toggle__track {
+  background: color-mix(in srgb, var(--color-toggle-off) 85%, var(--dk-text));
+}
+.toggle--on:hover:not(.toggle--disabled) .toggle__track {
+  background: var(--color-primary-hover);
+}
+.toggle:has(input:focus-visible) .toggle__track {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 .toggle--disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-/* Inputs — sunken well, quiet border, sage focus ring */
+/* Inputs — card surface, control-edge border, accent focus ring */
 .input {
-  background: var(--color-surface-sunken);
+  background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--text-sm);
@@ -1965,27 +2033,30 @@
   letter-spacing: -0.005em;
   outline: none;
   width: 100%;
-  transition: border-color var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-spring),
-              background var(--duration-normal) var(--ease-spring);
+  transition: border-color var(--dk-dur-1) ease,
+              background-color var(--dk-dur-1) ease;
 }
 .input::placeholder {
   color: var(--color-text-muted);
-  opacity: 0.8;
+  opacity: 1;
 }
 .input:hover:not(:disabled):not(:focus) {
-  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
 }
 .input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-  background: var(--color-surface-sunken);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.input[aria-invalid="true"] {
+  border-color: var(--color-error);
 }
 .input:disabled {
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 select.input {
   cursor: pointer;
@@ -1999,9 +2070,9 @@ select.input {
 }
 
 .textarea {
-  background: var(--color-surface-sunken);
+  background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--text-sm);
@@ -2012,25 +2083,30 @@ select.input {
   resize: vertical;
   min-height: 80px;
   line-height: var(--leading-normal);
-  transition: border-color var(--duration-normal) var(--ease-spring),
-              box-shadow var(--duration-normal) var(--ease-spring);
+  transition: border-color var(--dk-dur-1) ease,
+              background-color var(--dk-dur-1) ease;
 }
 .textarea::placeholder {
   color: var(--color-text-muted);
-  opacity: 0.8;
+  opacity: 1;
 }
 .textarea:hover:not(:disabled):not(:focus) {
-  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
 }
 .textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.textarea[aria-invalid="true"] {
+  border-color: var(--color-error);
 }
 .textarea:disabled {
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 /* CodeMirror editor wrapper */
@@ -2056,13 +2132,13 @@ select.input {
   font-weight: 500;
 }
 
-/* Badges — sharp editorial rectangles, mono caps */
+/* Badges — soft pills, mono caps */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-family: var(--font-mono);
   font-size: 0.625rem;
   font-weight: 500;
@@ -2074,23 +2150,23 @@ select.input {
 
 .badge-success {
   background: var(--color-success-light);
-  color: var(--color-success);
+  color: var(--dk-ok-text);
 }
 .badge-error {
   background: var(--color-error-light);
-  color: var(--color-error);
+  color: var(--dk-error-text);
 }
 .badge-info {
   background: var(--color-info-light);
-  color: var(--color-info);
+  color: var(--dk-accent-text);
 }
 .badge-warning {
   background: var(--color-warning-light);
-  color: var(--color-warning);
+  color: var(--dk-warn-text);
 }
 .badge-accent {
   background: var(--color-accent-light);
-  color: var(--color-accent);
+  color: var(--dk-accent-text);
 }
 
 /* badge-link marks a badge that navigates somewhere (e.g. the use-case
@@ -2101,14 +2177,17 @@ select.input {
 .badge-link {
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  transition: background-color var(--dk-dur-1) ease, color var(--dk-dur-1) ease,
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
-.badge-link:hover,
-.badge-link:focus-visible {
+.badge-link:hover {
   background: var(--color-info);
-  color: var(--color-bg-primary);
-  box-shadow: 0 0 0 1px var(--color-info);
-  outline: none;
+  color: var(--dk-on-accent);
+}
+.badge-link:active { transform: scale(var(--dk-press-scale)); }
+.badge-link:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Horizontal row of badges used inside table cells — consistent spacing so
@@ -2170,13 +2249,13 @@ select.input {
    need to scream. Keeps the delete red readable without dominating rows. */
 .btn.btn-danger-ghost {
   background: transparent;
-  color: var(--color-error);
+  color: var(--dk-error-text);
   border-color: transparent;
 }
 .btn.btn-danger-ghost:hover:not(:disabled) {
   background: var(--color-error-light);
-  color: var(--color-error);
-  border-color: var(--color-error-light);
+  color: var(--dk-error-text);
+  border-color: transparent;
 }
 
 /* Small count pill used inside tabs ("(3) ↑ 2") so update counts are
@@ -2187,14 +2266,14 @@ select.input {
   gap: 3px;
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.4;
 }
 .tab-pill--warning {
   background: var(--color-warning-light);
-  color: var(--color-warning);
+  color: var(--dk-warn-text);
 }
 
 /* Stat cards — uniform-height cluster metrics for the Nodes dashboard.
@@ -2432,14 +2511,13 @@ select.input {
   flex-direction: column;
   padding: 0; /* sections provide their own padding */
   overflow: hidden;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
-  animation: popoverIn var(--duration-fast) var(--ease-default);
+  /* Scales from .96 to 1 out of the trigger corner. */
+  transform-origin: top left;
+  animation: dk-pop-in var(--dk-dur-2) var(--dk-ease-spring) both;
 }
-
-@keyframes popoverIn {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
+.popover--up { transform-origin: bottom left; }
 
 .popover__header {
   display: flex;
@@ -2622,15 +2700,18 @@ select.input {
   font-family: inherit;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: all var(--duration-fast);
+  transition: color var(--dk-dur-1) ease, border-color var(--dk-dur-1) ease,
+              background-color var(--dk-dur-1) ease, transform var(--dk-dur-1) var(--dk-ease-out);
 }
 
 .tab:hover {
   color: var(--color-text-primary);
+  background: var(--color-bg-hover);
 }
+.tab:active { transform: scale(var(--dk-press-scale)); }
 
 .tab-active {
-  color: var(--color-primary);
+  color: var(--dk-accent-text);
   border-bottom-color: var(--color-primary);
 }
 
@@ -3044,25 +3125,24 @@ button.collapsible-header:focus-visible {
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
-  box-shadow: var(--shadow-subtle);
-  transition: all var(--duration-fast);
+  transition: background-color var(--dk-dur-1) ease, color var(--dk-dur-1) ease,
+              border-color var(--dk-dur-1) ease, transform var(--dk-dur-1) var(--dk-ease-out);
 }
 
 .filter-btn:hover {
-  border-color: var(--color-primary-border);
-  color: var(--color-primary);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
+.filter-btn:active:not(:disabled) { transform: scale(var(--dk-press-scale)); }
 
 .filter-btn.active {
   background: var(--color-primary-light);
-  color: var(--color-primary);
+  color: var(--dk-accent-text);
   border-color: var(--color-primary-border);
 }
 
@@ -3072,8 +3152,8 @@ button.collapsible-header:focus-visible {
    with no visible keyboard focus indicator at all; this restates the ring where
    it outranks both the resting and the hover shadow. */
 .filter-btn:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
-  border-color: var(--color-primary);
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* A chip is disabled when the selected backend cannot serve that use case. It
@@ -3087,6 +3167,7 @@ button.collapsible-header:focus-visible {
 .filter-btn:disabled:hover {
   transform: none;
   box-shadow: none;
+  background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border-color: var(--color-border-default);
 }
@@ -3363,7 +3444,10 @@ button.collapsible-header:focus-visible {
 
 /* Page route transitions */
 .page-transition {
-  animation: pageReveal var(--duration-reveal) var(--ease-reveal) both;
+  /* Fill backwards, not both: a finished animation must not leave a transform
+     on the page, because that would make fixed overlays (dialog veils) cover
+     only the main column instead of the viewport. */
+  animation: pageReveal 250ms ease-out backwards;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -3372,7 +3456,7 @@ button.collapsible-header:focus-visible {
 }
 
 @keyframes pageReveal {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -4043,7 +4127,7 @@ button.collapsible-header:focus-visible {
   transition: background var(--duration-fast);
 }
 .chat-stop-btn:hover {
-  background: var(--color-error-hover, #dc2626);
+  background: color-mix(in srgb, var(--color-error) 85%, var(--dk-text));
 }
 
 .chat-token-info {
@@ -4610,7 +4694,7 @@ button.collapsible-header:focus-visible {
   transition: background var(--duration-fast), border-color var(--duration-fast);
 }
 .chat-settings-danger-btn:hover {
-  background: rgba(220, 38, 38, 0.08);
+  background: var(--color-error-light);
   border-color: var(--color-error);
 }
 
@@ -5218,8 +5302,8 @@ button.collapsible-header:focus-visible {
 
 /* Max tokens/sec badge */
 .chat-max-tps-badge {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--dk-accent-text);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   font-weight: 600;
@@ -5902,8 +5986,9 @@ button.collapsible-header:focus-visible {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--color-modal-backdrop);
     z-index: 40;
+    animation: dk-veil-in var(--dk-dur-2) ease-out both;
   }
 }
 
@@ -5919,9 +6004,23 @@ button.collapsible-header:focus-visible {
   .sidebar {
     transform: translateX(-100%);
     width: var(--sidebar-width);
+    /* A closed drawer must leave the tab order; visibility flips after the
+       slide-out finishes. */
+    visibility: hidden;
+    transition: width var(--duration-normal) var(--ease-spring),
+                transform var(--dk-dur-2) var(--dk-ease-out),
+                visibility 0s linear var(--dk-dur-2);
   }
   .sidebar.collapsed { width: var(--sidebar-width); }
-  .sidebar.open { transform: translateX(0); }
+  .sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: var(--shadow-md);
+    background: var(--color-bg-primary);
+    transition: width var(--duration-normal) var(--ease-spring),
+                transform var(--dk-dur-2) var(--dk-ease-out),
+                visibility 0s;
+  }
 
   .sidebar-close-btn { display: flex; }
 
@@ -5948,8 +6047,9 @@ button.collapsible-header:focus-visible {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--color-modal-backdrop);
     z-index: 40;
+    animation: dk-veil-in var(--dk-dur-2) ease-out both;
   }
 }
 
@@ -6365,7 +6465,7 @@ button.collapsible-header:focus-visible {
 
 .mcp-app-error {
   padding: var(--spacing-sm) var(--spacing-md);
-  color: var(--color-text-danger, #e53e3e);
+  color: var(--dk-error-text);
   font-size: 0.85rem;
 }
 
@@ -6387,18 +6487,17 @@ button.collapsible-header:focus-visible {
   align-items: center;
   justify-content: center;
   background: var(--color-modal-backdrop);
-  backdrop-filter: blur(4px);
-  animation: fadeIn var(--duration-normal) var(--ease-spring);
+  animation: dk-veil-in var(--dk-dur-2) ease-out both;
 }
 .confirm-dialog {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--dk-radius-4);
   max-width: 420px;
   width: 90%;
   padding: var(--spacing-lg);
-  box-shadow: var(--shadow-md);
-  animation: popIn var(--duration-slow) var(--ease-spring);
+  box-shadow: var(--shadow-lg);
+  animation: dk-dialog-in var(--dk-dur-3) var(--dk-ease-spring) both;
   will-change: transform, opacity;
 }
 @keyframes slideUp {
@@ -6412,7 +6511,7 @@ button.collapsible-header:focus-visible {
   margin-bottom: var(--spacing-md);
 }
 .confirm-dialog-danger-icon {
-  color: var(--color-error);
+  color: var(--dk-error-text);
   font-size: 1.125rem;
 }
 .confirm-dialog-title {
@@ -6431,16 +6530,7 @@ button.collapsible-header:focus-visible {
   justify-content: flex-end;
   gap: var(--spacing-sm);
 }
-.confirm-dialog-actions .btn-danger {
-  background: var(--color-error);
-  color: var(--color-text-inverse);
-  border: 1px solid var(--color-error);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), var(--shadow-inset-hi);
-}
-.confirm-dialog-actions .btn-danger:hover:not(:disabled) {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-}
+/* The confirm button is the same danger wash as every other danger button. */
 
 /* Home page */
 .home-page {
@@ -6586,7 +6676,7 @@ button.collapsible-header:focus-visible {
   justify-content: center;
   border-radius: 50%;
   background: var(--color-accent);
-  color: var(--color-on-accent, #ffffff);
+  color: var(--dk-on-accent);
   font-size: 1.1rem;
 }
 .home-assistant-text {
@@ -7558,7 +7648,7 @@ button.collapsible-header:focus-visible {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-bg-secondary);
   transition: transform var(--duration-fast);
   box-shadow: var(--shadow-subtle);
 }
@@ -7611,7 +7701,7 @@ button.collapsible-header:focus-visible {
   position: absolute;
   border: 2px solid var(--color-accent);
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 12px rgba(232, 168, 124, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
   pointer-events: none;
   transition: border-color var(--duration-fast);
 }
@@ -8011,7 +8101,7 @@ button.collapsible-header:focus-visible {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(232, 168, 124, 0.16);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   border-left: 1px dashed var(--color-accent-border);
   border-right: 1px dashed var(--color-accent-border);
   pointer-events: none;
@@ -8087,7 +8177,7 @@ button.collapsible-header:focus-visible {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(136, 192, 208, 0.16);
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
   border-left: 1px dashed var(--color-primary);
   border-right: 1px dashed var(--color-primary);
   pointer-events: none;
@@ -8835,18 +8925,20 @@ button.collapsible-header:focus-visible {
   height: 28px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   font-size: var(--text-sm);
   opacity: 0.45;
   transition:
-    opacity var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default),
-    background var(--duration-fast) var(--ease-default),
-    border-color var(--duration-fast) var(--ease-default);
+    opacity var(--dk-dur-1) ease,
+    color var(--dk-dur-1) ease,
+    background-color var(--dk-dur-1) ease,
+    border-color var(--dk-dur-1) ease,
+    transform var(--dk-dur-1) var(--dk-ease-out);
 }
+.action-menu__trigger:active { transform: scale(var(--dk-press-scale)); }
 .resource-row:hover .action-menu__trigger,
 .action-menu__trigger:focus-visible,
 .action-menu__trigger.is-open {
@@ -8854,8 +8946,8 @@ button.collapsible-header:focus-visible {
 }
 .action-menu__trigger:hover,
 .action-menu__trigger.is-open {
-  background: var(--color-bg-tertiary);
-  border-color: var(--color-border-subtle);
+  background: var(--color-bg-hover);
+  border-color: transparent;
   color: var(--color-text-primary);
 }
 .action-menu__trigger:focus-visible {
@@ -8882,9 +8974,10 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: 8px 10px;
+  padding: 0 var(--spacing-sm);
+  min-height: 40px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-primary);
   font-family: inherit;
@@ -8893,16 +8986,20 @@ button.collapsible-header:focus-visible {
   text-align: left;
   cursor: pointer;
   width: 100%;
-  transition: background var(--duration-fast) var(--ease-default),
-              color var(--duration-fast) var(--ease-default);
+  transition: background-color var(--dk-dur-1) ease,
+              color var(--dk-dur-1) ease,
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
 .action-menu__item.is-active,
 .action-menu__item:hover:not(:disabled) {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
+}
+.action-menu__item:active:not(:disabled) {
+  transform: scale(var(--dk-press-scale-nav));
 }
 .action-menu__item:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.5;
 }
 .action-menu__icon {
   width: 14px;
@@ -8929,16 +9026,16 @@ button.collapsible-header:focus-visible {
   letter-spacing: 0.04em;
   flex-shrink: 0;
 }
-.action-menu__item.is-danger { color: var(--color-error); }
-.action-menu__item.is-danger .action-menu__icon { color: var(--color-error); }
+.action-menu__item.is-danger { color: var(--dk-error-text); }
+.action-menu__item.is-danger .action-menu__icon { color: var(--dk-error-text); }
 .action-menu__item.is-danger:hover:not(:disabled),
 .action-menu__item.is-danger.is-active {
   background: var(--color-error-light);
-  color: var(--color-error);
+  color: var(--dk-error-text);
 }
 .action-menu__item.is-danger:hover:not(:disabled) .action-menu__icon,
 .action-menu__item.is-danger.is-active .action-menu__icon {
-  color: var(--color-error);
+  color: var(--dk-error-text);
 }
 .action-menu__divider {
   height: 1px;
@@ -8964,8 +9061,8 @@ button.collapsible-header:focus-visible {
   animation: btnPulseWarning 1.6s ease-in-out infinite;
 }
 @keyframes btnPulseWarning {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(235, 203, 139, 0); }
-  50%      { box-shadow: 0 0 0 4px rgba(235, 203, 139, 0.18); }
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warning) 18%, transparent); }
 }
 
 /* StatCard clickable variant — the Manage summary cards double as shortcuts
@@ -10045,7 +10142,7 @@ button.collapsible-header:focus-visible {
   .node-detail__mobile-meta { display: block; }
 }
 @media (max-width: 768px) {
-  .node-inspector__scrim { animation: node-inspector-scrim-in 180ms ease-out both; background: rgba(7, 10, 18, .52); display: block; inset: 0; position: fixed; z-index: 79; }
+  .node-inspector__scrim { animation: node-inspector-scrim-in 180ms ease-out both; background: var(--color-modal-backdrop); display: block; inset: 0; position: fixed; z-index: 79; }
   .node-inspector { border-bottom: 0; border-radius: 0; border-top: 0; bottom: 0; max-width: 100vw; position: fixed; top: 0; width: min(390px, 100vw); z-index: 80; }
   .node-inspector__header { padding-left: 18px; padding-right: 18px; padding-top: max(16px, env(safe-area-inset-top)); }
   .node-inspector__body { padding-left: 18px; padding-right: 18px; }
@@ -10575,9 +10672,9 @@ button.collapsible-header:focus-visible {
   min-width: 18px;
   height: 18px;
   padding: 0 var(--spacing-xs);
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: var(--color-primary-text);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-light);
+  color: var(--dk-accent-text);
   font-family: var(--font-mono);
   font-size: 0.625rem;
   font-weight: 700;
@@ -10585,7 +10682,7 @@ button.collapsible-header:focus-visible {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.nav-badge--error { background: var(--color-error); color: var(--color-bg-secondary); }
+.nav-badge--error { background: var(--color-error-light); color: var(--dk-error-text); }
 /* Collapsed, the label is gone and the item centres its icon: an inline badge
    would shove that icon off the rail's axis. Pinning it to the corner keeps the
    count visible without moving anything else. */
@@ -11487,21 +11584,21 @@ button.collapsible-header:focus-visible {
 .legend-dot--outline { background: transparent; border: 1.5px dashed var(--tone, var(--color-primary)); opacity: 0.6; }
 .chart-tooltip {
   position: absolute;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--dk-inverse);
+  border-radius: var(--radius-sm);
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--text-xs);
   font-family: var(--font-mono);
-  color: var(--color-text-primary);
+  color: var(--dk-on-inverse);
   pointer-events: none;
   z-index: 10;
   box-shadow: var(--shadow-md);
   white-space: nowrap;
 }
 .chart-tooltip__total {
-  color: var(--color-text-muted);
-  border-top: 1px solid var(--color-border);
+  color: var(--dk-on-inverse);
+  opacity: 0.8;
+  border-top: 1px solid color-mix(in srgb, currentColor 30%, transparent);
   margin-top: 2px;
   padding-top: 2px;
 }
@@ -11921,7 +12018,8 @@ button.collapsible-header:focus-visible {
 .talk-canvas { width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-sunken); }
 .talk-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-sm); }
 .btn--accent { background: var(--color-accent); color: var(--color-primary-text); border: none; }
-.btn--error { background: var(--color-error); color: var(--color-text-inverse); border: none; }
+.btn--error { background: var(--color-error-light); color: var(--dk-error-text); border: none; }
+.btn--error:hover:not(:disabled) { background: color-mix(in srgb, var(--dk-error-wash) 82%, var(--dk-error)); }
 .ml-auto { margin-left: auto; }
 
 /* ===========================================================================
@@ -12057,22 +12155,24 @@ button.collapsible-header:focus-visible {
 .modality-chip {
   flex-shrink: 0;
   padding: 3px var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-border-default);
   background: transparent;
   color: var(--color-text-muted);
   font-family: inherit;
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-default),
-              color var(--duration-fast) var(--ease-default),
-              border-color var(--duration-fast) var(--ease-default);
+  transition: background-color var(--dk-dur-1) ease,
+              color var(--dk-dur-1) ease,
+              border-color var(--dk-dur-1) ease,
+              transform var(--dk-dur-1) var(--dk-ease-out);
 }
-.modality-chip:hover:not(:disabled) { color: var(--color-text-primary); border-color: var(--color-border-strong); }
+.modality-chip:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-bg-hover); }
+.modality-chip:active:not(:disabled) { transform: scale(var(--dk-press-scale)); }
 .modality-chip.is-active {
   background: var(--color-primary-light);
   border-color: var(--color-primary-border);
-  color: var(--color-primary);
+  color: var(--dk-accent-text);
   font-weight: var(--font-weight-medium);
 }
 .modality-chip:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -12483,7 +12583,7 @@ button.collapsible-header:focus-visible {
   border: 1px solid var(--color-border-subtle);
 }
 .nip-scroll { max-height: 40vh; overflow-y: auto; }
-.btn--warning { background: var(--color-warning); border-color: var(--color-warning); }
+.btn--warning { background: var(--color-warning); border-color: var(--color-warning); color: var(--dk-on-warn); }
 .badge-success--soft { background: var(--color-success-light); color: var(--color-success); }
 .sr-offscreen { position: absolute; left: -9999px; }
 .btn-help { border: none; cursor: help; }

@@ -46,3 +46,46 @@ test.describe('reduced motion', () => {
     expect(parseFloat(delay)).toBeLessThan(0.05)
   })
 })
+
+test.describe('Shared UI kit theme', () => {
+  const canvas = {
+    dark: 'rgb(11, 19, 18)',
+    light: 'rgb(242, 245, 245)',
+  }
+
+  for (const mode of ['dark', 'light']) {
+    test(`the ${mode} canvas reaches the legacy page variables`, async ({ page }) => {
+      await page.addInitScript((m) => localStorage.setItem('localai-theme', m), mode)
+      await page.goto('/app/settings')
+      await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+      const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+      expect(bg).toBe(canvas[mode])
+    })
+  }
+
+  test('the theme is set before the app bundle runs', async ({ page }) => {
+    // Block every script chunk. Only the inline snippet in index.html can set
+    // the attribute, so a pass means first paint already has the right theme.
+    await page.route('**/assets/**/*.js', (route) => route.abort())
+    await page.route('**/assets/*.js', (route) => route.abort())
+    await page.addInitScript(() => localStorage.setItem('localai-theme', 'light'))
+    await page.goto('/app')
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  })
+
+  test('the page reveal is a 250ms fade', async ({ page }) => {
+    await page.goto('/app/settings')
+    const pt = page.locator('.page-transition').first()
+    await expect(pt).toBeVisible({ timeout: 15_000 })
+    const duration = await pt.evaluate((el) => getComputedStyle(el).animationDuration)
+    expect(duration).toBe('0.25s')
+  })
+
+  test('the current sidebar row lifts onto a card', async ({ page }) => {
+    await page.goto('/app/settings')
+    await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+    const active = page.locator('.sidebar-nav .nav-item.active').first()
+    const shadow = await active.evaluate((el) => getComputedStyle(el).boxShadow)
+    expect(shadow).not.toBe('none')
+  })
+})

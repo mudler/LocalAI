@@ -1632,20 +1632,25 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await openUseCases(page);
     // The global :focus-visible rule is wrapped in :where(), so it ties with
     // .filter-btn on specificity and loses on order. Without an explicit rule
-    // the chips render their resting shadow while focused, i.e. no indicator.
+    // the chips would render with no focus indicator at all.
     await page.locator(".filter-bar-group__search input").click();
     await page.keyboard.press("Tab"); // backend select
     await page.keyboard.press("Tab"); // use-case disclosure
     await page.keyboard.press("Tab"); // first chip
     const focused = page.locator(".filter-btn:focus-visible");
     await expect(focused).toHaveCount(1);
-    // The ring transitions in, so settle before reading the computed value.
+    // Settle any transition before reading the computed value.
     await page.waitForTimeout(400);
-    const shadow = await focused.evaluate(
-      (el) => getComputedStyle(el).boxShadow,
-    );
-    // A 3px spread ring, not the 1px/2px resting drop shadow.
-    expect(shadow).toMatch(/0px 0px 0px 3px/);
+    const ring = await focused.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        style: cs.outlineStyle,
+        width: cs.outlineWidth,
+        offset: cs.outlineOffset,
+      };
+    });
+    // The shared focus language: a 2px solid outline with a 2px offset.
+    expect(ring).toEqual({ style: "solid", width: "2px", offset: "2px" });
   });
 
   test("the context control is keyboard reachable and drives the value", async ({
