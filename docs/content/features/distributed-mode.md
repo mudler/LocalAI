@@ -1491,3 +1491,19 @@ model-wide stop for a loading generation.
 The admin MCP tool `cancel_model_load` accepts `model` and `job_id`. Confirm the
 exact generation before invoking it; report `uncertain` as pending, not stopped.
 This is separate from gallery installation cancellation.
+
+### Load recovery in Activity
+
+Activity identifies each durable cold load by its model and generation. Expired
+owner leases and terminal loads remain visible as failures with a recovery
+message, even without replica rows or new inference requests. The operations
+read does not reclaim or cancel work. The passive reconciler persists recovery
+state independently. A failure does not prove that remote work stopped.
+
+Durable state overrides local and mirrored staging progress. Only a newer
+snapshot from the same generation can update live byte counts. A delayed
+broadcast cannot restore a completed durable generation to Activity.
+
+Activity does not offer gallery cancellation for cold loads. Use the dedicated
+load-cancel endpoint with `job_id`. Synthetic `staging:` identities are rejected
+by gallery operation actions; dismissing them cannot clear a quarantined load.

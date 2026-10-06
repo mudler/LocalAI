@@ -251,7 +251,7 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 				return
 			case <-ticker.C:
 				u := phase.snapshot()
-				if st := r.stagingTracker.Get(trackingKey); st != nil {
+				if st := r.stagingTracker.Get(trackingKey); st != nil && st.Generation == ref.Generation {
 					u.BytesSent, u.TotalBytes = st.BytesSent, st.TotalBytes
 					u.FileIndex, u.TotalFiles = st.FileIndex, st.TotalFiles
 					if u.BytesSent > 0 && startedAt.IsZero() {

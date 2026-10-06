@@ -11,6 +11,8 @@ import (
 
 // StagingStatus represents the current progress of a model staging operation.
 type StagingStatus struct {
+	Generation string    `json:"generation,omitempty"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	ModelID    string    `json:"model_id"`
 	NodeName   string    `json:"node_name"`
 	FileName   string    `json:"file_name"`
@@ -64,9 +66,10 @@ type StagingTracker struct {
 // SubjectStagingProgress so peer replicas can mirror a staging op they did not
 // originate. Done signals the op finished (peers drop their mirrored copy).
 type StagingProgressEvent struct {
-	ModelID string         `json:"model_id"`
-	Status  *StagingStatus `json:"status,omitempty"`
-	Done    bool           `json:"done"`
+	ModelID    string         `json:"model_id"`
+	Status     *StagingStatus `json:"status,omitempty"`
+	Generation string         `json:"generation,omitempty"`
+	Done       bool           `json:"done"`
 }
 
 // NewStagingTracker creates a new tracker.
@@ -107,7 +110,7 @@ func publishStaging(p messaging.Publisher, evt StagingProgressEvent) {
 }
 
 // Start registers a new staging operation for the given model.
-func (t *StagingTracker) Start(modelID, nodeName string, totalFiles int) {
+func (t *StagingTracker) Start(modelID, nodeName string, totalFiles int, generation ...string) {
 	t.mu.Lock()
 	e := &stagingEntry{
 		status: StagingStatus{
@@ -120,6 +123,10 @@ func (t *StagingTracker) Start(modelID, nodeName string, totalFiles int) {
 		updatedAt: time.Now(),
 		// lastPub stays zero so the first UpdateFile tick always broadcasts.
 	}
+	if len(generation) > 0 {
+		e.status.Generation = generation[0]
+	}
+	e.status.UpdatedAt = e.updatedAt
 	t.active[modelID] = e
 	pub := t.publisher
 	snap := e.status
@@ -161,6 +168,7 @@ func (t *StagingTracker) UpdateFile(modelID, fileName string, fileIndex int, byt
 	}
 
 	e.updatedAt = time.Now()
+	e.status.UpdatedAt = e.updatedAt
 	// Leading-edge debounce: byte ticks fire many times per second; only
 	// re-broadcast at most once per stagingBroadcastInterval.
 	var pub messaging.Publisher
@@ -193,6 +201,7 @@ func (t *StagingTracker) FileComplete(modelID string, fileIndex, totalFiles int)
 	s.TotalBytes = 0
 	s.Speed = ""
 	e.updatedAt = time.Now()
+	e.status.UpdatedAt = e.updatedAt
 	e.lastPub = time.Now()
 	pub := t.publisher
 	snap := e.status
@@ -205,14 +214,14 @@ func (t *StagingTracker) FileComplete(modelID string, fileIndex, totalFiles int)
 // Complete removes a staging operation (it's done).
 func (t *StagingTracker) Complete(modelID string) {
 	t.mu.Lock()
-	_, ok := t.active[modelID]
+	entry, ok := t.active[modelID]
 	delete(t.active, modelID)
 	pub := t.publisher
 	t.mu.Unlock()
 
 	if ok {
 		// Tell peers to drop their mirrored copy.
-		publishStaging(pub, StagingProgressEvent{ModelID: modelID, Done: true})
+		publishStaging(pub, StagingProgressEvent{ModelID: modelID, Generation: entry.status.Generation, Done: true})
 	}
 }
 
@@ -227,6 +236,20 @@ func (t *StagingTracker) ApplyRemote(evt StagingProgressEvent) {
 	if existing, ok := t.active[evt.ModelID]; ok && !existing.remote {
 		// We own this op locally — ignore peer chatter about it.
 		return
+	}
+	if existing := t.active[evt.ModelID]; existing != nil {
+		if evt.Done && evt.Generation != existing.status.Generation {
+			return
+		}
+		if evt.Status != nil {
+			incoming, current := evt.Status, existing.status
+			if incoming.Generation != current.Generation && !incoming.StartedAt.After(current.StartedAt) {
+				return
+			}
+			if incoming.Generation == current.Generation && incoming.UpdatedAt.Before(current.UpdatedAt) {
+				return
+			}
+		}
 	}
 	if evt.Done {
 		delete(t.active, evt.ModelID)

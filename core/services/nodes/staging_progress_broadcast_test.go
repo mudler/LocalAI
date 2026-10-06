@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -105,5 +106,46 @@ var _ = Describe("SubjectStagingProgress", func() {
 	It("namespaces by model id and matches the wildcard prefix", func() {
 		Expect(messaging.SubjectStagingProgress("model-x")).To(Equal("staging.model-x.progress"))
 		Expect(messaging.SubjectStagingProgressWildcard).To(Equal("staging.*.progress"))
+	})
+})
+
+var _ = Describe("Load recovery staging broadcast", func() {
+	It("ignores an old completion and out-of-order same-generation byte tick", func() {
+		tracker := NewStagingTracker()
+		now := time.Now()
+		tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Status: &StagingStatus{ModelID: "m", Generation: "new", UpdatedAt: now, BytesSent: 80}})
+		tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Generation: "old", Done: true})
+		tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Status: &StagingStatus{ModelID: "m", Generation: "new", UpdatedAt: now.Add(-time.Second), BytesSent: 10}})
+		Expect(tracker.Get("m").BytesSent).To(Equal(int64(80)))
+	})
+	It("broadcasts generation identity through completion", func() {
+		mc := &fakeMessagingClient{}
+		tracker := NewStagingTracker()
+		tracker.SetPublisher(mc)
+		tracker.Start("m", "node", 1, "generation")
+		tracker.UpdateFile("m", "weights", 1, 20, 100, "")
+		tracker.Complete("m")
+		events := decodeStagingEvents(mc)
+		Expect(events).To(HaveLen(3))
+		Expect(events[0].Status.Generation).To(Equal("generation"))
+		Expect(events[1].Status.Generation).To(Equal("generation"))
+		Expect(events[2].Generation).To(Equal("generation"))
+		Expect(events[2].Done).To(BeTrue())
+	})
+
+	It("does not let a delayed older generation overwrite newer mirrored progress", func() {
+		tracker := NewStagingTracker()
+		for _, entry := range []struct {
+			generation string
+			started    string
+			bytes      int
+		}{{"new", "2026-10-05T10:00:00Z", 80}, {"old", "2026-10-04T10:00:00Z", 10}} {
+			raw, err := json.Marshal(map[string]any{"model_id": "model", "status": map[string]any{"model_id": "model", "generation": entry.generation, "started_at": entry.started, "bytes_sent": entry.bytes}})
+			Expect(err).NotTo(HaveOccurred())
+			var event StagingProgressEvent
+			Expect(json.Unmarshal(raw, &event)).To(Succeed())
+			tracker.ApplyRemote(event)
+		}
+		Expect(tracker.Get("model").BytesSent).To(Equal(int64(80)))
 	})
 })

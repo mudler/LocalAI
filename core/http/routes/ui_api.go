@@ -315,10 +315,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 			for modelID, status := range trackerStatuses {
 				stagingOperations[modelID] = map[string]any{
-					"id":           "staging:" + modelID,
+					"id":           "staging:" + modelID + stagingGenerationSuffix(status.Generation),
 					"name":         modelID,
 					"fullName":     modelID,
-					"jobID":        "staging:" + modelID,
+					"jobID":        "staging:" + modelID + stagingGenerationSuffix(status.Generation),
 					"progress":     int(status.Progress),
 					"taskType":     "staging",
 					"isDeletion":   false,
@@ -336,17 +336,32 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				jobs, err := d.Registry.ListActiveLoadJobs(c.Request().Context())
 				if err != nil {
 					xlog.Warn("Failed to list durable model load jobs", "error", err)
+					for _, op := range stagingOperations {
+						op["error"] = "Load status unavailable; remote work uncertain"
+						op["phase"] = "recovery"
+					}
 				} else {
+					// A generation-bearing mirror cannot establish durable ownership.
+					for key, status := range trackerStatuses {
+						if status.Generation != "" {
+							delete(stagingOperations, key)
+						}
+					}
 					for i := range jobs {
 						job := &jobs[i]
-						if job.State != nodes.LoadJobStateStaging {
+						delete(stagingOperations, job.TrackingKey)
+						status := nodes.LoadingStatus(job)
+						// WorkUncertain also guards healthy live jobs against replacement.
+						// Only owner failure, cancellation, or lease expiry ends active presentation.
+						recovery := status.LeaseExpired || status.Terminal || job.State == nodes.LoadJobStateFailed || status.CancelRequested
+						if job.State != nodes.LoadJobStateStaging && !recovery {
 							continue
 						}
 						op := map[string]any{
-							"id":           "staging:" + job.TrackingKey,
+							"id":           "staging:" + job.TrackingKey + stagingGenerationSuffix(job.Generation),
 							"name":         job.TrackingKey,
 							"fullName":     job.TrackingKey,
-							"jobID":        "staging:" + job.TrackingKey,
+							"jobID":        "staging:" + job.TrackingKey + stagingGenerationSuffix(job.Generation),
 							"progress":     int(job.Progress()),
 							"taskType":     "staging",
 							"isDeletion":   false,
@@ -360,7 +375,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 							"currentBytes": job.BytesSent,
 							"totalBytes":   job.TotalBytes,
 						}
-						if status, ok := trackerStatuses[job.TrackingKey]; ok {
+						op["job_id"] = job.Generation
+						op["terminal"] = status.Terminal
+						op["lease_expired"] = status.LeaseExpired
+						op["work_uncertain"] = status.WorkUncertain || status.LeaseExpired
+						op["cancel_requested"] = status.CancelRequested
+						op["last_progress_at"] = status.LastProgressAt
+						if recovery {
+							op["phase"] = "recovery"
+							reason := job.LastError
+							if reason == "" {
+								reason = "Load interrupted; remote work uncertain; verified operator cleanup required"
+							}
+							op["error"] = reason
+							op["message"] = reason
+						}
+						if status, ok := trackerStatuses[job.TrackingKey]; ok && !recovery && job.Generation != "" && status.Generation == job.Generation && status.UpdatedAt.After(job.LastProgress) {
 							op["nodeName"] = status.NodeName
 							op["message"] = status.Message
 							op["progress"] = int(status.Progress)
@@ -399,6 +429,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Cancel operation endpoint (admin only)
 	app.POST("/api/operations/:jobID/cancel", func(c echo.Context) error {
 		jobID := c.Param("jobID")
+		if strings.HasPrefix(jobID, "staging:") {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Cold loads require the model load-cancel endpoint and job_id"})
+		}
 		xlog.Debug("API request to cancel operation", "jobID", jobID)
 
 		err := galleryService.CancelOperation(jobID)
@@ -422,6 +455,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// partial download so submitting the same install later resumes it.
 	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
 		jobID := c.Param("jobID")
+		if strings.HasPrefix(jobID, "staging:") {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Cold loads require the model load-cancel endpoint and job_id"})
+		}
 		xlog.Debug("API request to pause operation", "jobID", jobID)
 
 		if err := galleryService.PauseOperation(jobID); err != nil {
@@ -439,6 +475,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Dismiss a failed operation (acknowledge the error and remove it from the list)
 	app.POST("/api/operations/:jobID/dismiss", func(c echo.Context) error {
 		jobID := c.Param("jobID")
+		if strings.HasPrefix(jobID, "staging:") {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": "Cold loads require the model load-cancel endpoint and job_id"})
+		}
 		xlog.Debug("API request to dismiss operation", "jobID", jobID)
 
 		// Remove the operation from the opcache so it no longer appears
@@ -1938,4 +1977,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.POST("/api/branding/asset/:kind", localai.UploadBrandingAssetEndpoint(appConfig), adminMiddleware)
 	app.DELETE("/api/branding/asset/:kind", localai.DeleteBrandingAssetEndpoint(appConfig), adminMiddleware)
 
+}
+
+func stagingGenerationSuffix(generation string) string {
+	if generation == "" {
+		return ""
+	}
+	return ":" + generation
 }

@@ -1538,7 +1538,8 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	totalFiles += len(declared)
 
 	// Start tracking staging progress
-	r.stagingTracker.Start(trackingKey, node.Name, totalFiles)
+	ref, _ := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
+	r.stagingTracker.Start(trackingKey, node.Name, totalFiles, ref.Generation)
 	defer r.stagingTracker.Complete(trackingKey)
 
 	fileIdx := 0

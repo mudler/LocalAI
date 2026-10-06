@@ -106,7 +106,7 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		})).To(Succeed())
 
 		operations := serveOperations(applicationWithDistributedServices(registry, router))
-		found := operationByID(operations, "staging:durable-model")
+		found := operationByID(operations, "staging:durable-model:"+durablemodelJob.Generation)
 		Expect(found).ToNot(BeNil())
 		Expect(found).To(SatisfyAll(
 			HaveKeyWithValue("name", "durable-model"),
@@ -130,13 +130,13 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		Expect(registry.UpdateLoadJob(context.Background(), overlaymodelJob.Ref(), nodes.LoadJobUpdate{
 			State: nodes.LoadJobStateStaging, NodeName: "durable-node", BytesSent: 10, TotalBytes: 100,
 		})).To(Succeed())
-		router.StagingTracker().Start("overlay-model", "fresh-node", 1)
+		router.StagingTracker().Start("overlay-model", "fresh-node", 1, overlaymodelJob.Generation)
 		router.StagingTracker().UpdateFile("overlay-model", "weights.gguf", 1, 70, 100, "1 MB/s")
 
 		operations := serveOperations(applicationWithDistributedServices(registry, router))
 		matches := []map[string]any{}
 		for _, operation := range operations {
-			if operation["id"] == "staging:overlay-model" {
+			if operation["id"] == "staging:overlay-model:"+overlaymodelJob.Generation {
 				matches = append(matches, operation)
 			}
 		}
