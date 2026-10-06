@@ -476,5 +476,45 @@ class TestCacheClear(unittest.TestCase):
         self.assertEqual(result, ["cache2"])
 
 
+class TestReusableCheckpoints(unittest.TestCase):
+    def test_snapshot_isolation_and_repeated_reuse(self):
+        cache = ThreadSafeLRUPromptCache(max_size=2)
+        original = [{"tokens": [1]}]
+        cache.insert_cache("m", [1], original, reusable=True)
+        original[0]["tokens"].append(99)
+        for _ in range(3):
+            result, remaining = cache.fetch_nearest_cache("m", [1, 2], prefix_only=True)
+            self.assertEqual(result, [{"tokens": [1]}])
+            self.assertEqual(remaining, [2])
+            result[0]["tokens"].append(88)
+        self.assertEqual(len(cache), 1)
+
+    def test_exact_match_leaves_token_for_generation(self):
+        cache = ThreadSafeLRUPromptCache()
+        cache.insert_cache("m", [1], ["short"], reusable=True)
+        cache.insert_cache("m", [1, 2], ["long"], reusable=True)
+        result, remaining = cache.fetch_nearest_cache("m", [1, 2], prefix_only=True)
+        self.assertEqual((result, remaining), (["short"], [2]))
+        self.assertEqual(cache.fetch_nearest_cache("m", [1], prefix_only=True), (None, [1]))
+
+    def test_reuse_refreshes_lru_and_zero_disables_inserts(self):
+        cache = ThreadSafeLRUPromptCache(max_size=2)
+        cache.insert_cache("m", [1], ["first"], reusable=True)
+        cache.insert_cache("m", [2], ["second"], reusable=True)
+        cache.fetch_nearest_cache("m", [1, 9], prefix_only=True)
+        cache.insert_cache("m", [3], ["third"], reusable=True)
+        self.assertEqual(cache.fetch_nearest_cache("m", [2, 9], prefix_only=True), (None, [2, 9]))
+        self.assertEqual(len(cache), 2)
+        disabled = ThreadSafeLRUPromptCache(max_size=0)
+        disabled.insert_cache("m", [1], ["unused"], reusable=True)
+        self.assertEqual(len(disabled), 0)
+
+    def test_reinserting_checkpoint_does_not_accumulate_references(self):
+        cache = ThreadSafeLRUPromptCache()
+        for _ in range(3):
+            cache.insert_cache("m", [1, 2], ["snapshot"], reusable=True)
+        self.assertEqual(cache._get("m", (1, 2)).count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -140,26 +140,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         prompt_cache = None
         cache_key = None
+        cache_is_trimmable = False
 
         try:
             # Prepare the prompt and tokenize for cache key
             prompt_text = self._prepare_prompt(request)
             cache_key = self._get_tokens_from_prompt(prompt_text)
+            input_token_count = len(cache_key)
 
-            # Fetch nearest cache (exact, shorter prefix, or create new)
-            prompt_cache, remaining_tokens = self.lru_cache.fetch_nearest_cache(
-                self.model_key, cache_key
+            prompt_cache, remaining_tokens, cache_is_trimmable = self._prepare_generation_cache(
+                request, cache_key
             )
-            if prompt_cache is None:
-                prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
-                remaining_tokens = cache_key
 
             # Build generation parameters using request attributes and options
             max_tokens, sampler_params, logits_params, stop_words = self._build_generation_params(request)
 
             print(
                 f"Generating text with MLX - max_tokens: {max_tokens}, "
-                f"cache_hit: {len(remaining_tokens) < len(cache_key)}",
+                f"prefilled_tokens: {len(cache_key) - len(remaining_tokens)}",
                 file=sys.stderr,
             )
 
@@ -186,13 +184,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 if stop_words and any(s in "".join(generated_text) for s in stop_words):
                     break
 
-            # Insert completed cache
-            self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
+            if cache_is_trimmable:
+                self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
 
             full_text = self._truncate_at_stop("".join(generated_text), stop_words)
             content, reasoning_content, tool_calls_proto, prompt_tokens, completion_tokens, logprobs_bytes = (
                 self._finalize_output(request, full_text, last_response)
             )
+            if not cache_is_trimmable:
+                prompt_tokens = input_token_count
 
             return backend_pb2.Reply(
                 message=bytes(content, encoding='utf-8'),
@@ -303,19 +303,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         prompt_cache = None
         cache_key = None
+        cache_is_trimmable = False
 
         try:
             # Prepare the prompt and tokenize for cache key
             prompt_text = self._prepare_prompt(request)
             cache_key = self._get_tokens_from_prompt(prompt_text)
+            input_token_count = len(cache_key)
 
-            # Fetch nearest cache (exact, shorter prefix, or create new)
-            prompt_cache, remaining_tokens = self.lru_cache.fetch_nearest_cache(
-                self.model_key, cache_key
+            prompt_cache, remaining_tokens, cache_is_trimmable = self._prepare_generation_cache(
+                request, cache_key
             )
-            if prompt_cache is None:
-                prompt_cache = make_prompt_cache(self.model, self.max_kv_size)
-                remaining_tokens = cache_key
 
             # Build generation parameters using request attributes and options
             max_tokens, sampler_params, logits_params, stop_words = self._build_generation_params(
@@ -324,7 +322,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
             print(
                 f"Streaming text with MLX - max_tokens: {max_tokens}, "
-                f"cache_hit: {len(remaining_tokens) < len(cache_key)}",
+                f"prefilled_tokens: {len(cache_key) - len(remaining_tokens)}",
                 file=sys.stderr,
             )
 
@@ -363,6 +361,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             content, reasoning_content, tool_calls_proto, prompt_tokens, completion_tokens, logprobs_bytes = (
                 self._finalize_output(request, full_text, last_response)
             )
+            if not cache_is_trimmable:
+                prompt_tokens = input_token_count
             yield backend_pb2.Reply(
                 message=b"",
                 prompt_tokens=prompt_tokens,
@@ -384,12 +384,63 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             yield backend_pb2.Reply(message=bytes("", encoding='utf-8'))
 
         finally:
-            # Always insert cache, even on interruption
-            if prompt_cache is not None and cache_key is not None:
+            # Hybrid checkpoints were saved before generation. A partially
+            # consumed generator does not expose a reliable recurrent-state key.
+            if cache_is_trimmable and prompt_cache is not None and cache_key is not None:
                 try:
                     self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
                 except Exception as e:
                     print(f"Error inserting cache: {e}", file=sys.stderr)
+
+    def _prepare_generation_cache(self, request, tokens):
+        fresh_cache = make_prompt_cache(self.model, self.max_kv_size)
+        trimmable = can_trim_prompt_cache(fresh_cache)
+        prompt_cache, remaining = self.lru_cache.fetch_nearest_cache(
+            self.model_key, tokens, prefix_only=not trimmable
+        )
+        if prompt_cache is None:
+            prompt_cache, remaining = fresh_cache, list(tokens)
+        if trimmable or self.lru_cache.max_size <= 0:
+            return prompt_cache, remaining, trimmable
+
+        prefix_len = self._hybrid_prefix_length(request, tokens)
+        cached_len = len(tokens) - len(remaining)
+        if prefix_len > cached_len:
+            # Bound attention workspace even when the shared system prompt is
+            # large. Evaluate before copying to detach a fully computed state.
+            for start in range(cached_len, prefix_len, 512):
+                chunk = tokens[start:min(start + 512, prefix_len)]
+                self.model(mx.array(chunk)[None], cache=prompt_cache)
+                mx.eval([entry.state for entry in prompt_cache])
+            self.lru_cache.insert_cache(
+                self.model_key, tokens[:prefix_len], prompt_cache, reusable=True
+            )
+            remaining = list(tokens[prefix_len:])
+        return prompt_cache, remaining, False
+
+    def _hybrid_prefix_length(self, request, tokens):
+        if request.Prompt or not request.UseTokenizerTemplate or not request.Messages:
+            return 0
+        try:
+            messages = messages_to_dicts(request.Messages)
+            leading = []
+            for message in messages:
+                if message["role"] != "system":
+                    break
+                leading.append(message)
+            probe = self._render_chat_prompt(
+                request, leading + [{"role": "user", "content": ""}]
+            )
+            probe_tokens = self._get_tokens_from_prompt(probe)
+        except Exception:
+            # Some templates reject an empty user turn. Cache reuse is optional.
+            return 0
+        common = 0
+        for actual, candidate in zip(tokens[:-1], probe_tokens):
+            if actual != candidate:
+                break
+            common += 1
+        return common
 
     def _prepare_prompt(self, request):
         """
@@ -425,27 +476,30 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     file=sys.stderr,
                 )
 
-            kwargs = {"tokenize": False, "add_generation_prompt": True}
-            if request.Tools:
-                try:
-                    kwargs["tools"] = json.loads(request.Tools)
-                except json.JSONDecodeError:
-                    pass
-            enable_thinking = request.Metadata.get("enable_thinking", "").lower()
-            if enable_thinking in ("true", "false"):
-                kwargs["enable_thinking"] = enable_thinking == "true"
-
-            try:
-                return self.tokenizer.apply_chat_template(messages, **kwargs)
-            except TypeError:
-                # Fallback for tokenizers whose template doesn't accept
-                # tools= or enable_thinking=.
-                return self.tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
+            return self._render_chat_prompt(request, messages)
         return request.Prompt
+
+    def _render_chat_prompt(self, request, messages):
+        kwargs = {"tokenize": False, "add_generation_prompt": True}
+        if request.Tools:
+            try:
+                kwargs["tools"] = json.loads(request.Tools)
+            except json.JSONDecodeError:
+                pass
+        enable_thinking = request.Metadata.get("enable_thinking", "").lower()
+        if enable_thinking in ("true", "false"):
+            kwargs["enable_thinking"] = enable_thinking == "true"
+
+        try:
+            return self.tokenizer.apply_chat_template(messages, **kwargs)
+        except TypeError:
+            # Fallback for tokenizers whose template doesn't accept
+            # tools= or enable_thinking=.
+            return self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
 
     def _get_tokens_from_prompt(self, prompt_text: str) -> List[int]:
         """
