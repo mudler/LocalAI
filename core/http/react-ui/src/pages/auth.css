@@ -54,31 +54,38 @@
 /* ─── Tab bar ─── */
 .auth-tab-bar {
   display: flex;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
   gap: var(--spacing-xs);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-xs);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--spacing-md);
 }
 
 .auth-tab-bar--flush {
-  gap: 0;
-  border-bottom-color: var(--color-border-default);
+  gap: var(--spacing-xs);
   margin-bottom: var(--spacing-lg);
 }
 
+/* The same segmented control as .tab: an inset track, and the current tab
+   lifts onto a card. */
 .auth-tab {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: var(--control-h);
+  padding: 0 var(--spacing-md);
   background: none;
   border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   color: var(--color-text-secondary);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 150ms, border-color 150ms, font-weight 150ms;
+  transition: color 150ms, background-color 150ms;
 }
 
 .auth-tab:hover {
@@ -86,9 +93,9 @@
 }
 
 .auth-tab.active {
-  font-weight: 600;
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-sm);
 }
 
 .auth-tab-icon {
@@ -96,7 +103,7 @@
 }
 
 .auth-tab--pill {
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-md);
 }
 
 /* ─── Toolbar (search + buttons row) ─── */
