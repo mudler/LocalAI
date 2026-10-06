@@ -150,8 +150,36 @@ All options are optional. An unset value keeps the default of the detector in us
 | `vad_min_speech` | seconds | `0.25` | `0.1` | Shorter speech runs are dropped |
 | `vad_speech_pad` | seconds | `0.03` | `0` | Padding added around each segment |
 | `vad_trim` | seconds | `0.3` | `0.3` | Only for transcription with `vad:true` or `vad_model`: each piece shrinks to its speech plus this much. `0` keeps the whole cuts. The endpoint ignores it |
+| `vad_run_gate` | 0 to below 1 | off | off | Only for the Moondream Ultra and Redux heads: a speech run is kept only if the median of its frame probabilities is at least this. `0` or unset is off; `1` or more fails the load. See [Run gate](#run-gate-for-the-ultra-and-redux-heads) |
 
 Option names differ from the Silero backend above (`min_silence_duration_ms` and `speech_pad_ms` are in milliseconds there). The same options tune transcription with `vad:true` or `vad_model`; see [audio to text]({{%relref "features/audio-to-text" %}}). Requests on one loaded model run one at a time.
+
+### Run gate for the Ultra and Redux heads
+
+The Ultra and Redux heads often call steady noise speech. `vad_run_gate` is an opt-in check on that. A speech run is a stretch of consecutive frames at or above `vad_threshold`. With the gate set, a run is dropped when the median of its frame probabilities is below the gate. Speech frames sit near 1.0. A noise run sits on a plateau around 0.8 to 0.9 with some higher peaks, so its median is lower than its peak. Unset, or `0`, the output is the same as without the option.
+
+Start with `0.92` to `0.96` on Redux. Ultra gains less and needs a higher gate. The parakeet.cpp author measured on real recordings without speech (false-alarm seconds per hour): Redux 1685 without the gate and 269 with `0.92`, Ultra 2174 and 826, Silero 48. The cost on recordings with speech was about 0.3 F1 points for Redux and 0.6 for Ultra, and no confidence interval excluded zero. Check it on your own audio before you rely on it.
+
+This example is the Redux VAD-only entry with the gate on. The gallery entries do not set it:
+
+```yaml
+name: parakeet-vad-redux-gated
+backend: parakeet-cpp
+known_usecases:
+  - vad
+parameters:
+  model: parakeet-cpp/redux-vad.gguf
+options:
+  - vad_run_gate:0.92
+```
+
+What it does not do:
+
+- Music still triggers the head. The gate is not a noise rejector and it does not classify sounds.
+- Silero does not need it. Silero is the always-on gate: its false alarms on the same recordings are already low.
+- It is offline only. The endpoint, `vad:true` and `vad_model` use it. A streaming VAD of libparakeet refuses a non-zero gate, and this backend does not use that stream for the VAD endpoint or for transcription, so nothing is skipped silently. The option has no effect on plain transcription without `vad:true`.
+
+It needs a `libparakeet.so` with run gate support (parakeet.cpp `9a28a3c` or newer). With an older library, an unset option keeps working. A set option fails the first VAD call or transcription, because the old library rejects the unknown `run_gate` key. With `vad:true` on a library without `parakeet_capi_transcribe_path_json_vad_with`, it fails the load.
 
 ## Detection Parameters
 

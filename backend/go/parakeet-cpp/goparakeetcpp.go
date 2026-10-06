@@ -313,6 +313,9 @@ type ParakeetCpp struct {
 	// vad_min_speech, vad_speech_pad, vad_max_segment and vad_trim model options ("" when
 	// none is set, so the library picks the defaults of the detector in use).
 	vadOptions string
+	// vadRunGate is the vad_run_gate model option (0 = off). It is already in
+	// vadOptions as run_gate; it is kept to word the error of an older library.
+	vadRunGate float64
 	// guardOptions is the JSON options object of the word filter (guard_*
 	// model options), "" when it is off. Offline transcription then takes the
 	// file-path route like vad:true, because the batched entry point has no filter.
@@ -338,6 +341,17 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if err != nil {
 		return err
 	}
+	gate, err := parseVADRunGate(opts)
+	if err != nil {
+		return err
+	}
+	if gate > 0 {
+		// Same flat object as the other VAD keys; the key is only present when on.
+		if vadOpts, err = mergeJSONObjects(vadOpts, fmt.Sprintf(`{"run_gate":%v}`, gate)); err != nil {
+			return err
+		}
+	}
+	p.vadRunGate = gate
 	p.vadOptions = vadOpts
 	guardOpts, err := parseGuardOptions(opts)
 	if err != nil {
@@ -346,6 +360,9 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	p.guardOptions = guardOpts
 	if guardOpts != "" && p.vad && CppTranscribePathJSONVadWith == nil {
 		return errors.New("parakeet-cpp: the guard_* options with vad:true need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+	}
+	if gate > 0 && p.vad && CppTranscribePathJSONVadWith == nil {
+		return fmt.Errorf("parakeet-cpp: option %s with vad:true needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp", vadRunGateOption)
 	}
 	if optString(opts, "vad_model") != "" || optString(opts, "vad_component") != "" {
 		if CppTranscribePathJSONVadWith == nil {
@@ -635,7 +652,7 @@ func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
 	}
 	p.engineMu.Unlock()
 	if cstr == 0 {
-		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, lastErr)
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, p.withRunGateHint(lastErr))
 	}
 	raw := goStringFromCPtr(cstr)
 	CppFreeString(cstr)

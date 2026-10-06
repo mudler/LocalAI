@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
@@ -35,9 +36,45 @@ var vadTuning = []struct {
 	{"vad_trim", "trim", 0, math.Inf(1), false},
 }
 
+// vadRunGateOption is the model option of the run gate of libparakeet, the
+// "run_gate" key. A speech run is kept only when the median of its frame
+// probabilities reaches it. It is for the Ultra and Redux VAD heads; Silero does
+// not need it. It is offline only: a VAD stream of the library refuses it, and
+// this backend uses no VAD stream, so there is no path to skip.
+const vadRunGateOption = "vad_run_gate"
+
+// parseVADRunGate reads vad_run_gate: a number in [0, 1). Unset and 0 mean off
+// and give 0, so the key is then not sent and an older libparakeet.so, which
+// rejects unknown keys, keeps working.
+func parseVADRunGate(opts *pb.ModelOptions) (float64, error) {
+	raw := optString(opts, vadRunGateOption)
+	if raw == "" {
+		return 0, nil
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0, fmt.Errorf("parakeet-cpp: option %s: %q is not a number", vadRunGateOption, raw)
+	}
+	if v < 0 || v >= 1 {
+		return 0, fmt.Errorf("parakeet-cpp: option %s: %v is out of range, want 0 to below 1 (0 = off)", vadRunGateOption, v)
+	}
+	return v, nil
+}
+
+// withRunGateHint names the option when the library fails a call that carried
+// run_gate. A libparakeet.so from before the gate rejects the unknown key with
+// an error that does not say which model option caused it.
+func (p *ParakeetCpp) withRunGateHint(msg string) string {
+	if p.vadRunGate > 0 && strings.Contains(msg, "run_gate") {
+		return msg + " (the " + vadRunGateOption + " option needs a libparakeet.so with run_gate support; rebuild the backend against a newer parakeet.cpp or unset the option)"
+	}
+	return msg
+}
+
 // parseVADTuning reads the vad_threshold, vad_min_pause, vad_min_speech,
 // vad_speech_pad, vad_max_segment and vad_trim model options and returns them as the JSON
-// options object of the C-API, or "" when none is set. A value that does not
+// options object of the C-API, or "" when none is set. vad_run_gate is read by
+// parseVADRunGate and added by the caller. A value that does not
 // parse or is out of range fails the load.
 func parseVADTuning(opts *pb.ModelOptions) (string, error) {
 	obj := map[string]float64{}
@@ -101,7 +138,7 @@ func (p *ParakeetCpp) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	}
 	p.engineMu.Unlock()
 	if cstr == 0 {
-		return pb.VADResponse{}, fmt.Errorf("parakeet-cpp: vad failed: %s", lastErr)
+		return pb.VADResponse{}, fmt.Errorf("parakeet-cpp: vad failed: %s", p.withRunGateHint(lastErr))
 	}
 	raw := goStringFromCPtr(cstr)
 	CppFreeString(cstr)
