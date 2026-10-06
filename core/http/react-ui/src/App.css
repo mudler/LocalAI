@@ -415,6 +415,8 @@
 .sidebar-nav .nav-item {
   margin: 2px var(--spacing-sm);
   gap: var(--spacing-sm);
+  /* 8px margin + 8px padding + half the 20px icon puts the icon centre 26px
+     in. The footer controls use the same figure (see .sidebar-footer). */
   padding-left: var(--spacing-sm);
   padding-right: var(--spacing-sm);
   border-radius: var(--radius-md);
@@ -453,7 +455,9 @@
 }
 
 .sidebar-footer {
-  padding: var(--spacing-sm);
+  /* 6px inline padding plus the 40px control boxes puts each icon centre at
+     26px, on the nav icon column. */
+  padding: var(--spacing-sm) 6px;
   border-top: 1px solid var(--color-border-divider);
   display: flex;
   align-items: center;
@@ -492,11 +496,12 @@
   gap: var(--spacing-xs);
   flex: 1;
   min-width: 0;
+  min-height: var(--control-h);
   background: none;
   border: none;
-  padding: 2px var(--spacing-xs);
-  margin: -2px calc(-1 * var(--spacing-xs));
-  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  margin: 0;
+  border-radius: var(--radius-md);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -537,9 +542,12 @@
 }
 
 .sidebar.collapsed .sidebar-user-link {
-  flex: 0;
+  /* Not "flex: 0": its basis of 0% and min-width: 0 shrink the link to its
+     padding, and the avatar then overflows to the right of the link's left
+     edge instead of sitting centred in it. */
+  flex: 0 0 auto;
   margin: 0;
-  padding: 2px;
+  padding: 0;
 }
 
 .sidebar.collapsed .sidebar-user-name,
@@ -680,6 +688,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* The globe is 16px wide: 12px of padding centres it on the icon column. */
+  padding-left: 12px;
 }
 .language-switcher-code {
   font-size: var(--text-xs);
@@ -6017,13 +6027,16 @@ button.collapsible-header:focus-visible {
     justify-content: center;
     flex-direction: column;
     gap: var(--spacing-xs);
+    padding-inline: 2px;
   }
+  .sidebar:not(.open) .theme-toggle { padding: 0; }
+  .sidebar:not(.open) .language-switcher-code { display: none; }
   .sidebar:not(.open) .sidebar-user-name,
   .sidebar:not(.open) .sidebar-logout-btn { display: none; }
   /* Center the avatar in the icon rail (mirrors .sidebar.collapsed, which
      isn't necessarily present in the tablet :not(.open) state). */
   .sidebar:not(.open) .sidebar-user { justify-content: center; }
-  .sidebar:not(.open) .sidebar-user-link { flex: 0; margin: 0; padding: 2px; }
+  .sidebar:not(.open) .sidebar-user-link { flex: 0 0 auto; margin: 0; padding: 0; }
 
   /* Pinned open: overlay the full sidebar on top of content */
   .sidebar.open {
