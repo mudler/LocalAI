@@ -23,7 +23,10 @@ export default [
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // Without eslint-plugin-react's jsx-uses-vars the core rule cannot see a
+      // component used only as JSX. Icon is on almost every page, so it is
+      // exempt rather than adding one warning per import.
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^(Icon|FaIcon)$' }],
     },
   },
 ]

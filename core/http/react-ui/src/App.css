@@ -14097,3 +14097,9 @@ button.lane:hover {
   touch-action: none;
   cursor: grab;
 }
+
+/* ---- Icons (shared kit outline set, see components/Icon.jsx) ---------- */
+.lai-icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+/* Sits on the text line like a glyph, 1em square. */
+.lai-icon { display: inline-block; vertical-align: -0.125em; flex: none; }
+.lai-icon--glyph { fill: currentColor; stroke: none; }
