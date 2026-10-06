@@ -136,14 +136,20 @@
   --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  --text-xs: 0.6875rem;
-  --text-sm: 0.8125rem;
-  --text-base: 0.875rem;
-  --text-lg: 1rem;
-  --text-xl: 1.25rem;
+  /* The kit's type scale: 12 / 13 / 15 / 17 / 21 / 32 / 44. Body and list
+     text is 15; 13 is for secondary lines and button labels. */
+  --text-xs: var(--dk-text-12);
+  --text-sm: var(--dk-text-13);
+  --text-base: var(--dk-text-15);
+  --text-lg: var(--dk-text-17);
+  --text-xl: var(--dk-text-21);
   --text-2xl: 1.625rem;
-  --text-3xl: 2rem;
-  --text-4xl: 2.5rem;
+  --text-3xl: var(--dk-text-32);
+  --text-4xl: var(--dk-text-44);
+
+  /* Control heights: 40 for buttons, inputs, selects and tabs; 32 compact. */
+  --control-h: 40px;
+  --control-h-sm: 32px;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -155,8 +161,8 @@
   --leading-normal: 1.55;
   --leading-relaxed: 1.7;
 
-  --sidebar-width: 200px;
-  --sidebar-width-collapsed: 52px;
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
 
   /* Page-width archetypes — applied via .page / .page--narrow /
      .page--medium / .page--wide. Default is wide-enough for ops/data

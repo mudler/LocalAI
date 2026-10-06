@@ -244,8 +244,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-sm);
-  min-height: 44px;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+  min-height: 64px;
 }
 
 .sidebar-logo-link {
@@ -288,18 +288,18 @@
 
 .sidebar-nav {
   flex: 1;
-  padding: 2px 0;
+  padding: var(--spacing-xs) 0;
   overflow-y: auto;
 }
 
 .sidebar-section {
-  padding: 2px 0;
+  padding: var(--spacing-xs) 0;
 }
 
 .sidebar-section-title {
-  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
+  padding: var(--spacing-md) var(--spacing-sm) var(--spacing-xs);
   font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--color-text-muted);
@@ -349,10 +349,11 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  min-height: var(--control-h);
   padding: 8px var(--spacing-md) 8px calc(var(--spacing-sm) + 2px);
   color: var(--color-text-secondary);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--font-weight-medium);
   transition: color var(--dk-dur-1) var(--dk-ease-out),
               background var(--dk-dur-1) var(--dk-ease-out),
@@ -385,10 +386,10 @@
 }
 
 .nav-icon {
-  width: 18px;
+  width: 20px;
   text-align: center;
   flex-shrink: 0;
-  font-size: 0.85rem;
+  font-size: 1rem;
 }
 
 .nav-label {
@@ -403,7 +404,8 @@
    shared .nav-item class (reused by the admin console rail) keeps its own
    treatment. */
 .sidebar-nav .nav-item {
-  margin: 1px var(--spacing-sm);
+  margin: 2px var(--spacing-sm);
+  gap: var(--spacing-sm);
   padding-left: var(--spacing-sm);
   padding-right: var(--spacing-sm);
   border-radius: var(--radius-md);
@@ -419,8 +421,8 @@
 .sidebar-nav .nav-item.active .nav-icon { color: var(--dk-accent-text); }
 /* Align tier labels with the inset item text (item margin + icon padding). */
 .sidebar-nav .sidebar-section-title {
-  padding-left: var(--spacing-md);
-  padding-right: var(--spacing-md);
+  padding-left: calc(var(--spacing-sm) + var(--spacing-sm));
+  padding-right: calc(var(--spacing-sm) + var(--spacing-sm));
 }
 .nav-external {
   font-size: 0.55rem;
@@ -430,7 +432,7 @@
 }
 
 .sidebar-footer {
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-sm);
   border-top: 1px solid var(--color-border-divider);
   display: flex;
   align-items: center;
@@ -445,20 +447,20 @@
   gap: var(--spacing-xs);
   width: 100%;
   padding: var(--spacing-xs) 0;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   overflow: hidden;
 }
 
 .sidebar-user-avatar {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 
 .sidebar-user-avatar-icon {
-  font-size: 1.25rem;
+  font-size: 1.75rem;
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
@@ -528,8 +530,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
   background: none;
   border: none;
   color: var(--color-text-muted);
@@ -602,8 +604,7 @@
 }
 
 .sidebar.collapsed .theme-toggle {
-  padding: 4px;
-  font-size: 0.75rem;
+  padding: 0;
 }
 
 .sidebar.collapsed .theme-toggle .nav-label {
@@ -612,13 +613,18 @@
 
 /* Theme toggle */
 .theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-h);
+  min-height: var(--control-h);
   background: none;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid transparent;
   color: var(--color-text-secondary);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 1rem;
   transition: color var(--dk-dur-1) var(--dk-ease-out),
               border-color var(--dk-dur-1) var(--dk-ease-out),
               background var(--dk-dur-1) var(--dk-ease-out),
@@ -653,8 +659,8 @@
   gap: 6px;
 }
 .language-switcher-code {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
 }
 .sidebar.collapsed .language-switcher-code {
@@ -696,7 +702,7 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   border-radius: var(--radius-md);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   text-align: left;
 }
 .language-switcher-option:hover {
@@ -1354,10 +1360,10 @@
    its voice from in the first place. */
 .page-title {
   font-family: var(--font-sans);
-  font-size: clamp(1.875rem, 1.3rem + 2.2vw, 3rem);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.04em;
-  line-height: 1.02;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
   margin-bottom: var(--spacing-xs);
   color: var(--color-text-primary);
   text-wrap: balance;
@@ -1367,8 +1373,8 @@
 .section-heading {
   font-family: var(--font-sans);
   font-size: var(--text-lg);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: -0.005em;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
   line-height: var(--leading-snug);
   color: var(--color-text-primary);
   margin: 0;
@@ -1867,13 +1873,14 @@ button.card:active {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
-  padding: 0.5rem var(--spacing-md);
-  min-height: 36px;
+  padding: 0 14px;
+  min-height: var(--control-h);
+  min-width: var(--control-h);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-family: inherit;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.005em;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0;
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color var(--dk-dur-1) ease,
@@ -1937,8 +1944,9 @@ button.card:active {
 }
 
 .btn-sm {
-  padding: 0.35rem var(--spacing-sm);
-  min-height: 30px;
+  padding: 0 var(--spacing-sm);
+  min-height: var(--control-h-sm);
+  min-width: var(--control-h-sm);
   font-size: var(--text-xs);
   letter-spacing: 0;
 }
@@ -2027,10 +2035,11 @@ input[type="range"] {
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-size: var(--text-sm);
+  padding: var(--spacing-sm) 14px;
+  min-height: var(--control-h);
+  font-size: var(--text-base);
   font-family: inherit;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   outline: none;
   width: 100%;
   transition: border-color var(--dk-dur-1) ease,
@@ -2074,10 +2083,10 @@ select.input {
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: var(--spacing-sm) var(--spacing-md);
-  font-size: var(--text-sm);
+  padding: var(--spacing-sm) 14px;
+  font-size: var(--text-base);
   font-family: inherit;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   outline: none;
   width: 100%;
   resize: vertical;
@@ -2126,10 +2135,10 @@ select.input {
 
 .form-label {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   margin-bottom: var(--spacing-xs);
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Badges — soft pills, mono caps */
@@ -2415,8 +2424,8 @@ select.input {
 .filter-bar-group__toggle {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--text-xs);
+  gap: var(--spacing-sm);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
   user-select: none;
@@ -2452,7 +2461,7 @@ select.input {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 .models-filters__context > label {
@@ -2684,22 +2693,34 @@ select.input {
 }
 
 /* Tabs */
+/* Segmented control: an inset track, the current tab lifts onto a card. */
 .tabs {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--color-border-subtle);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--spacing-md);
 }
 
 .tab {
-  padding: var(--spacing-sm) var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  min-height: var(--control-h);
+  padding: 0 var(--spacing-md);
   background: none;
   border: none;
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
   font-family: inherit;
+  white-space: nowrap;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
   transition: color var(--dk-dur-1) ease, border-color var(--dk-dur-1) ease,
               background-color var(--dk-dur-1) ease, transform var(--dk-dur-1) var(--dk-ease-out);
 }
@@ -2710,9 +2731,11 @@ select.input {
 }
 .tab:active { transform: scale(var(--dk-press-scale)); }
 
-.tab-active {
-  color: var(--dk-accent-text);
-  border-bottom-color: var(--color-primary);
+.tab-active,
+.tab-active:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Tables */
@@ -3065,7 +3088,7 @@ button.collapsible-header:focus-visible {
 
 .search-bar .search-icon {
   position: absolute;
-  left: var(--spacing-sm);
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--color-text-muted);
@@ -3073,7 +3096,7 @@ button.collapsible-header:focus-visible {
 }
 
 .search-bar .input {
-  padding-left: 2rem;
+  padding-left: 40px;
 }
 
 /* Pagination */
@@ -3121,7 +3144,8 @@ button.collapsible-header:focus-visible {
 }
 
 .filter-btn {
-  padding: 6px var(--spacing-md);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--spacing-md);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-default);
@@ -4064,12 +4088,12 @@ button.collapsible-header:focus-visible {
   background: transparent;
   color: var(--color-text-primary);
   border: none;
-  padding: 6px var(--spacing-sm);
-  font-size: 0.875rem;
+  padding: 10px var(--spacing-sm);
+  font-size: var(--text-base);
   font-family: inherit;
   outline: none;
   resize: none;
-  min-height: 32px;
+  min-height: var(--control-h);
   max-height: 200px;
   line-height: 1.5;
   overflow-y: auto;
@@ -4091,8 +4115,8 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
   flex-shrink: 0;
   align-self: flex-start;
   transition: background var(--duration-fast), transform var(--duration-fast);
@@ -4120,8 +4144,8 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h);
+  height: var(--control-h);
   flex-shrink: 0;
   align-self: flex-start;
   transition: background var(--duration-fast);
@@ -6561,8 +6585,8 @@ button.collapsible-header:focus-visible {
 .home-greeting {
   font-family: var(--font-sans);
   font-size: clamp(2rem, 1.4rem + 3vw, var(--text-4xl));
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
   line-height: 1.05;
   margin: var(--spacing-xs) 0 0;
 }
@@ -6687,11 +6711,11 @@ button.collapsible-header:focus-visible {
   min-width: 0;
 }
 .home-assistant-title {
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-lg);
 }
 .home-assistant-desc {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 .home-assistant-cta {
@@ -6699,9 +6723,9 @@ button.collapsible-header:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--dk-accent-text);
   white-space: nowrap;
 }
 @media (max-width: 600px) {
@@ -6802,8 +6826,10 @@ button.collapsible-header:focus-visible {
   border: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 6px 8px;
-  font-size: var(--text-sm);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--spacing-sm);
+  font-size: var(--text-base);
   border-radius: var(--radius-md);
   transition: color var(--duration-fast), background var(--duration-fast);
 }
@@ -6822,13 +6848,13 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: var(--control-h);
+  height: var(--control-h);
   background: var(--color-primary);
   color: var(--color-primary-text);
   border: none;
   border-radius: var(--radius-full);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: background var(--duration-fast), transform 100ms, box-shadow var(--duration-fast);
@@ -6857,13 +6883,14 @@ button.collapsible-header:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: 8px var(--spacing-md);
+  min-height: var(--control-h);
+  padding: 0 var(--spacing-md);
   background: var(--color-surface-raised);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
   font-family: inherit;
   cursor: pointer;
   text-decoration: none;
@@ -12690,13 +12717,14 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--color-border-subtle);
   flex-wrap: wrap;
 }
 
 .entity-rail__count {
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
@@ -12712,12 +12740,13 @@ button.collapsible-header:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: 2px 6px;
+  padding: 4px var(--spacing-sm);
   cursor: pointer;
 }
 
@@ -12747,7 +12776,7 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: var(--spacing-xs);
   width: 100%;
-  padding: 6px var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-surface-sunken);
   border: 0;
   border-top: 1px solid var(--color-border-subtle);
@@ -12761,20 +12790,20 @@ button.collapsible-header:focus-visible {
 
 .entity-rail__group:first-child .entity-rail__group-head { border-top: 0; }
 
-.entity-rail__caret { font-size: 0.5625rem; color: var(--color-text-muted); width: 10px; }
-.entity-rail__group-icon { font-size: 0.6875rem; color: var(--color-text-muted); }
+.entity-rail__caret { font-size: 0.625rem; color: var(--color-text-muted); width: 12px; }
+.entity-rail__group-icon { font-size: var(--text-xs); color: var(--color-text-muted); }
 
 .entity-rail__group-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .entity-rail__group-count {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -12784,7 +12813,7 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: var(--spacing-sm);
   width: 100%;
-  padding: 7px var(--spacing-sm);
+  padding: 10px var(--spacing-md);
   background: transparent;
   border: 0;
   border-top: 1px solid var(--color-border-divider);
@@ -12818,19 +12847,20 @@ button.collapsible-header:focus-visible {
 
 .entity-rail__icon {
   flex: none;
-  width: 16px;
-  font-size: 0.75rem;
+  width: 20px;
+  font-size: var(--text-base);
   color: var(--color-text-muted);
   text-align: center;
 }
 
 .entity-rail__item--on .entity-rail__icon { color: var(--color-primary); }
 
-.entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
 .entity-rail__name {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -12839,7 +12869,7 @@ button.collapsible-header:focus-visible {
 
 .entity-rail__meta {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--color-text-tertiary);
   font-variant-numeric: tabular-nums;
 }
@@ -12866,7 +12896,7 @@ button.collapsible-header:focus-visible {
 
 .split-view__pager { margin: 0; }
 .split-view__pager-label {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   padding: 0 var(--spacing-sm);
   font-variant-numeric: tabular-nums;
@@ -12879,7 +12909,7 @@ button.collapsible-header:focus-visible {
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   min-height: 420px;
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg);
 }
 
 .zero-pane { display: flex; flex-direction: column; gap: var(--spacing-lg); }
@@ -12888,20 +12918,21 @@ button.collapsible-header:focus-visible {
 
 .zero-pane__eyebrow {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--color-eyebrow);
 }
 
 .zero-pane__title {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
-.zero-pane__text { font-size: 0.8125rem; color: var(--color-text-muted); }
+.zero-pane__text { font-size: var(--text-base); color: var(--color-text-muted); }
 
 /* The heading needs air under it. Sitting a line's width from the text it
    introduces made the two read as one paragraph. */
@@ -12911,15 +12942,15 @@ button.collapsible-header:focus-visible {
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-sm);
 }
-.zero-pane__shelf-title { font-size: 0.875rem; font-weight: 600; }
+.zero-pane__shelf-title { font-size: var(--text-base); font-weight: var(--font-weight-bold); }
 .zero-pane__shelf-meta {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 .zero-pane__shelf-hint {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   margin-top: 0;
   margin-bottom: var(--spacing-sm);
@@ -12953,7 +12984,7 @@ button.collapsible-header:focus-visible {
   background: linear-gradient(150deg, var(--color-primary-light), transparent 68%), var(--color-bg-primary);
 }
 
-.zero-pane__tile-name { font-size: 0.8125rem; font-weight: 550; }
+.zero-pane__tile-name { font-size: var(--text-sm); font-weight: var(--font-weight-semibold); }
 .zero-pane__tile-foot { display: flex; align-items: center; gap: var(--spacing-xs); margin-top: auto; }
 
 /* One line that changes what you would do next. Reserved for that; a pane of
@@ -12962,9 +12993,9 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  font-size: 0.8125rem;
-  padding: 6px var(--spacing-sm);
-  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
   border: 1px solid;
 }
 
@@ -12975,7 +13006,8 @@ button.collapsible-header:focus-visible {
 .detail-pane__label {
   display: block;
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -12991,12 +13023,13 @@ button.collapsible-header:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  min-height: var(--control-h-sm);
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   background: transparent;
   border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-sm);
   cursor: pointer;
 }
 
@@ -13007,20 +13040,21 @@ button.collapsible-header:focus-visible {
 .detail-pane__icon {
   flex: none;
   font-size: 1.25rem;
-  color: var(--color-primary);
+  color: var(--dk-accent-text);
   padding-top: 2px;
 }
 
 .detail-pane__title { flex: 1 1 260px; min-width: 0; }
 
 .detail-pane__name {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
   word-break: break-word;
 }
 
-.detail-pane__lede { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 2px; }
+.detail-pane__lede { font-size: var(--text-base); color: var(--color-text-muted); margin-top: 2px; }
 
 .detail-pane__actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
 
@@ -13030,37 +13064,38 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--color-error);
   background: var(--color-error-light);
   border: 1px solid var(--color-error-border);
-  border-radius: var(--radius-sm);
-  padding: 6px var(--spacing-sm);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1px;
-  background: var(--color-border-default);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  gap: var(--spacing-sm);
 }
 
-.stat-grid__item { background: var(--color-surface-sunken); padding: 6px var(--spacing-sm); }
+.stat-grid__item {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
 
 .stat-grid__item dt {
   font-family: var(--font-mono);
-  font-size: 0.5625rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
 .stat-grid__item dd {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   margin-top: 1px;
 }
@@ -13075,7 +13110,8 @@ button.collapsible-header:focus-visible {
 
 .discover__chart-title {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-xs);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -13255,12 +13291,14 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: var(--spacing-xs);
   width: 100%;
-  padding: 6px var(--spacing-sm);
+  min-height: var(--control-h);
+  padding: 0 var(--spacing-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  font-size: 0.8125rem;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   text-align: left;
 }
@@ -13306,19 +13344,20 @@ button.collapsible-header:focus-visible {
 }
 
 .view-bar__title {
-  font-size: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 .view-bar__count {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.view-bar__actions { display: flex; gap: var(--spacing-xs); margin-left: auto; }
+.view-bar__actions { display: flex; gap: var(--spacing-sm); margin-left: auto; }
 
 .page--app .split-view { flex: 1; min-height: 0; }
 
@@ -13365,7 +13404,8 @@ button.collapsible-header:focus-visible {
 
 .models-filters__usecase-label {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-xs);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -13384,7 +13424,8 @@ button.collapsible-header:focus-visible {
 
 .models-filters__refine-label {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-xs);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--color-text-muted);
@@ -13393,7 +13434,7 @@ button.collapsible-header:focus-visible {
 .split-view__rail-col .filter-bar-group__toggle {
   justify-content: flex-start;
   width: 100%;
-  padding: 2px 0;
+  padding: var(--spacing-xs) 0;
 }
 
 .split-view__rail-col .models-filters__context {
@@ -13594,7 +13635,7 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: var(--spacing-md);
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-xs);
+  padding: var(--spacing-md) var(--spacing-xs);
   border: 0;
   border-bottom: 1px solid var(--color-border-default);
   background: transparent;
@@ -13632,8 +13673,8 @@ button.lane:hover {
 /* Uppercase micro-label. Blue where it names a route, mint where it reports
    live state — never both on one screen. */
 .lane__tag {
-  color: var(--color-primary);
-  font-size: 0.6875rem;
+  color: var(--dk-accent-text);
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -13645,13 +13686,13 @@ button.lane:hover {
 /* Identifiers are monospace, prose is not. A model id, a backend name or a
    filename is a thing you might type or paste, and setting it in the UI face
    makes it read as a label instead. */
-.lane__name--id { font-family: var(--font-mono); font-size: 0.875rem; font-weight: 500; }
-.lane__desc { color: var(--color-text-muted); font-size: 0.8125rem; }
+.lane__name--id { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--font-weight-medium); }
+.lane__desc { color: var(--color-text-muted); font-size: var(--text-base); }
 
 /* Identifiers and quantities are monospace; prose is not. */
 .lane__num {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--color-text-tertiary);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
@@ -13672,7 +13713,7 @@ button.lane:hover {
    the reset silently killed the gap between every block — "Sections" sat flush
    against the row above it. The header supplies its own bottom margin, so a
    uniform top margin is right everywhere. */
-.lane-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; }
+.lane-head h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--font-weight-bold); letter-spacing: -0.01em; }
 
 .lane-head__meta {
   margin-left: auto;
@@ -13714,8 +13755,8 @@ button.lane:hover {
 
 .home-stat__value {
   font-family: var(--font-mono);
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   line-height: 1;
@@ -13724,7 +13765,7 @@ button.lane:hover {
 .home-stat__value--ok { color: var(--color-success); }
 
 .home-stat__label {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -13755,7 +13796,7 @@ button.lane:hover {
 
 .operate-headline__cell dt {
   color: var(--color-text-muted);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -13764,8 +13805,8 @@ button.lane:hover {
 .operate-headline__value {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
   line-height: 1.1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
