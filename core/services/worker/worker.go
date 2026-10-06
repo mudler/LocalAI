@@ -257,6 +257,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}),
 	))
 
+	// The watchdog stops load operations the controller no longer renews.
+	go supervisor.runOperationWatchdog(shutdownCtx)
+
 	control := newNATSControlServer(natsClient, nodeID)
 	if err := supervisor.registerLifecycleVerbs(control); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)

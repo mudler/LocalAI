@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -57,6 +58,14 @@ type backendProcess struct {
 	// is exactly what stays the same across a reinstall.
 	backendDir   string
 	backendDirID os.FileInfo
+
+	// instance identifies this incarnation of the process. A port can be
+	// reused by a replacement under the same key, so an address alone does not
+	// say which process a stop meant.
+	instance string
+	// operationID is the load operation this process belongs to, empty when
+	// none (a legacy start, or a load that completed).
+	operationID string
 }
 
 const workerBackendFreeTimeout = 5 * time.Second
@@ -148,6 +157,15 @@ type backendSupervisor struct {
 	// the same not-yet-cached backend) are serialized here so the gallery
 	// download path doesn't race itself on the same directory.
 	backendLocks map[string]*sync.Mutex
+
+	// operations are the loads the watchdog bounds, by operation id. Guarded by
+	// mu. See operations.go.
+	operations map[string]*loadOperation
+	// opKillTTL, opTick and readyFn are overridden only by tests; zero or nil
+	// means the defaults.
+	opKillTTL time.Duration
+	opTick    time.Duration
+	readyFn   func(addr string) bool
 }
 
 // defaultPortQuarantine is how long a released gRPC port waits before it can be
@@ -496,6 +514,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		backendName:  backendName,
 		backendDir:   backendDir,
 		backendDirID: dirInfo,
+		instance:     uuid.NewString(),
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -850,7 +869,25 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	if bp == nil {
 		return nil
 	}
+	return s.finishStopping(key, bp, force)
+}
 
+// stopBackendExactBP stops exactly bp, and only if it is still the process the
+// supervisor holds under key. The watchdog uses it: it chose its victim earlier
+// and the key may have been reused since.
+func (s *backendSupervisor) stopBackendExactBP(key string, bp *backendProcess, force bool) error {
+	s.mu.Lock()
+	current, ok := s.processes[key]
+	if !ok || current != bp || bp.proc == nil || bp.stopping {
+		s.mu.Unlock()
+		return nil
+	}
+	bp.stopping = true
+	s.mu.Unlock()
+	return s.finishStopping(key, bp, force)
+}
+
+func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force bool) error {
 	if !force {
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
@@ -878,13 +915,20 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	s.mu.Lock()
 	bp, ok := s.processes[req.ProcessKey]
 	if !ok || bp.proc == nil {
+		if op, known := s.operations[req.OperationID]; known && req.OperationID != "" {
+			op.expired = true
+			delete(s.operations, req.OperationID)
+		}
 		s.mu.Unlock()
 		reply.Terminated = true
 		return reply
 	}
 	reply.Matched = true
 	reply.Address = bp.addr
-	if bp.addr != req.ExpectedAddress {
+	// A stop of a load operation may omit the address: the controller learns it
+	// only after the install replies. The operation, process key and instance
+	// checks below then carry the identity.
+	if bp.addr != req.ExpectedAddress && !(req.OperationID != "" && req.ExpectedAddress == "") {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
 		return reply
@@ -892,6 +936,17 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	if bp.stopping {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("process %s is already stopping", req.ProcessKey)
+		return reply
+	}
+	if req.OperationID != "" {
+		if err := s.checkOperationTarget(req, bp); err != nil {
+			s.mu.Unlock()
+			reply.Error = err.Error()
+			return reply
+		}
+	} else if req.ProcessInstance != "" && bp.instance != req.ProcessInstance {
+		s.mu.Unlock()
+		reply.Error = fmt.Sprintf("process instance mismatch for %s", req.ProcessKey)
 		return reply
 	}
 	bp.stopping = true
@@ -920,6 +975,14 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 			reply.Error = err.Error()
 		}
 		return reply
+	}
+	if req.OperationID != "" {
+		s.mu.Lock()
+		if op, known := s.operations[req.OperationID]; known {
+			op.expired = true
+			delete(s.operations, req.OperationID)
+		}
+		s.mu.Unlock()
 	}
 	reply.Terminated = true
 	return reply

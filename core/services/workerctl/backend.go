@@ -29,6 +29,17 @@ type BackendInstallRequest struct {
 	// running, debounced to roughly 250ms. Empty means the caller is a
 	// reconciler-driven retry that does not need progress streamed.
 	OpID string `json:"op_id,omitempty"`
+	// OperationID names the load this install belongs to (the load job
+	// generation). With it the worker tracks the load as an operation it can
+	// bound: it kills the backend when renewals stop or the deadline passes.
+	// Workers older than this field ignore it. Empty means a controller older
+	// than this field: the worker then tracks an anonymous operation.
+	OperationID string `json:"operation_id,omitempty"`
+	// DeadlineMs is the longest the load may run, as a duration in
+	// milliseconds, not a timestamp, so worker clock skew does not matter. The
+	// worker converts it to its own monotonic deadline when the request
+	// arrives. Zero means the worker's default.
+	DeadlineMs int64 `json:"deadline_ms,omitempty"`
 }
 
 // BackendInstallReply is the response from a backend.install control request.
@@ -36,6 +47,9 @@ type BackendInstallReply struct {
 	Success bool   `json:"success"`
 	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
 	Error   string `json:"error,omitempty"`
+	// ProcessInstance identifies this incarnation of the backend process, so a
+	// later stop cannot hit a replacement that took the same port.
+	ProcessInstance string `json:"process_instance,omitempty"`
 }
 
 // BackendUpgradeRequest is the payload for a backend.upgrade control request.
