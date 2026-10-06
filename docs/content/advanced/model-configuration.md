@@ -225,9 +225,35 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
-| `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
+| `context_size` | int | Server default or automatic selection | Maximum context size in tokens. Set this field at the top level of the model YAML. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
 | `gpu_layers` | int | `99999999` | Number of layers to offload to GPU. The default requests all layers; `0` keeps model layers on CPU. See [mixed CPU/GPU inference](#mixed-cpugpu-inference). |
+
+#### Set the context size for one model
+
+Place `context_size` alongside `backend` and `parameters`:
+
+```yaml
+name: my-model
+backend: llama-cpp
+context_size: 8192
+parameters:
+  model: Qwen3-VL-4B-Thinking-Q4_K_M.gguf
+```
+
+Merge this setting into your existing model YAML, keeping its other fields.
+Restart LocalAI after editing the file to reload the configuration and model.
+
+An explicit top-level `context_size` takes precedence over **Settings → Performance → Default Context Size**.
+The server also accepts this default through `--context-size` or `LOCALAI_CONTEXT_SIZE`.
+LocalAI applies a nonzero server default only when the model has no top-level `context_size`.
+Without either setting, llama.cpp uses automatic selection from GGUF metadata when available, with a fallback of 4096 tokens.
+
+{{% notice note %}}
+LocalAI ignores `parameters.context_size` because it is not a supported field inside `parameters`.
+For example, with a server default of `32768`, a nested `parameters.context_size: 8192` still uses `32768`.
+Move `context_size: 8192` to the top level to use `8192` for that model.
+{{% /notice %}}
 
 ### Memory Management
 
