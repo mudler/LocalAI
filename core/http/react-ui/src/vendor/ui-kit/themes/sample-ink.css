@@ -1,0 +1,98 @@
+/* Sample theme: ink. Original colours, cool and quiet. For tests and as a template. */
+:root {
+  --dk-canvas: #f3f4f8;
+  --dk-inset: #e7e9f0;
+  --dk-card: #ffffff;
+  --dk-hover: #dcdfea;
+  --dk-text: #161a2b;
+  --dk-muted: #535a70;
+  --dk-edge: #d6dae5;
+  --dk-control-edge: #7a8197;
+  --dk-accent: #3f50d8;
+  --dk-on-accent: #ffffff;
+  --dk-accent-text: #3040bd;
+  --dk-accent-wash: #e2e5fb;
+  --dk-ok: #1b8548;
+  --dk-on-ok: #ffffff;
+  --dk-ok-text: #16703c;
+  --dk-ok-wash: #dff3e7;
+  --dk-warn: #b45f00;
+  --dk-on-warn: #ffffff;
+  --dk-warn-text: #8a4a00;
+  --dk-warn-wash: #fbead2;
+  --dk-error: #c3312e;
+  --dk-on-error: #ffffff;
+  --dk-error-text: #b0231f;
+  --dk-error-wash: #fbe2e1;
+  --dk-inverse: #1b1f33;
+  --dk-on-inverse: #f1f2f8;
+  --dk-scrim: rgb(14 17 32 / .45);
+  --dk-shadow-tint: 22 26 48;
+  --dk-shadow-k: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --dk-canvas: #0e1017;
+    --dk-inset: #161923;
+    --dk-card: #1c2030;
+    --dk-hover: #272c3f;
+    --dk-text: #eceef6;
+    --dk-muted: #9aa2ba;
+    --dk-edge: #2b3044;
+    --dk-control-edge: #6b7391;
+    --dk-accent: #7d8cff;
+    --dk-on-accent: #0b0e22;
+    --dk-accent-text: #a1acff;
+    --dk-accent-wash: #232a55;
+    --dk-ok: #3fbf7a;
+    --dk-on-ok: #04180d;
+    --dk-ok-text: #62d698;
+    --dk-ok-wash: #173a2b;
+    --dk-warn: #e3a12f;
+    --dk-on-warn: #1d1200;
+    --dk-warn-text: #efb85a;
+    --dk-warn-wash: #3d2f12;
+    --dk-error: #ff7b75;
+    --dk-on-error: #2a0504;
+    --dk-error-text: #ff918c;
+    --dk-error-wash: #43201f;
+    --dk-inverse: #eceef6;
+    --dk-on-inverse: #151827;
+    --dk-scrim: rgb(2 3 10 / .62);
+    --dk-shadow-tint: 0 0 0;
+    --dk-shadow-k: 2.5;
+  }
+}
+
+:root[data-theme="dark"] {
+  --dk-canvas: #0e1017;
+  --dk-inset: #161923;
+  --dk-card: #1c2030;
+  --dk-hover: #272c3f;
+  --dk-text: #eceef6;
+  --dk-muted: #9aa2ba;
+  --dk-edge: #2b3044;
+  --dk-control-edge: #6b7391;
+  --dk-accent: #7d8cff;
+  --dk-on-accent: #0b0e22;
+  --dk-accent-text: #a1acff;
+  --dk-accent-wash: #232a55;
+  --dk-ok: #3fbf7a;
+  --dk-on-ok: #04180d;
+  --dk-ok-text: #62d698;
+  --dk-ok-wash: #173a2b;
+  --dk-warn: #e3a12f;
+  --dk-on-warn: #1d1200;
+  --dk-warn-text: #efb85a;
+  --dk-warn-wash: #3d2f12;
+  --dk-error: #ff7b75;
+  --dk-on-error: #2a0504;
+  --dk-error-text: #ff918c;
+  --dk-error-wash: #43201f;
+  --dk-inverse: #eceef6;
+  --dk-on-inverse: #151827;
+  --dk-scrim: rgb(2 3 10 / .62);
+  --dk-shadow-tint: 0 0 0;
+  --dk-shadow-k: 2.5;
+}
