@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import Icon from './Icon'
 
 export default function SearchableSelect({
   value, onChange, options, placeholder = 'Select...',
@@ -129,7 +130,7 @@ export default function SearchableSelect({
         }}
       >
         <span style={{ flex: 1, textAlign: 'left' }}>{displayLabel}</span>
-        <i className="fas fa-chevron-down" aria-hidden="true" style={{ fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
+        <Icon name="chevron-down" style={{ fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
       </button>
       {open && (
         <div style={{

@@ -4,6 +4,7 @@ import { formatBytes, formatCapacity, timeAgo, modelStateConfig } from './nodeSt
 import { nodesApi } from '../../utils/api'
 import { capacityReading, nodeLifecycleAction } from '../../utils/nodeFleet'
 import useInspectorDrawer from './useInspectorDrawer'
+import Icon from '../Icon'
 
 function InspectorMetric({ label, children }) {
   return <div><dt>{label}</dt><dd>{children}</dd></div>
@@ -74,9 +75,9 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
       <header className="node-inspector__header">
         <div className="node-inspector__topbar">
           {onBack
-            ? <button ref={backRef} type="button" className="node-inspector__back" onClick={onBack}><i className="fas fa-arrow-left" aria-hidden="true" /> {backLabel || 'Back'}</button>
+            ? <button ref={backRef} type="button" className="node-inspector__back" onClick={onBack}><Icon name="arrow-left" /> {backLabel || 'Back'}</button>
             : <span className="fleet-kicker">Node inspector</span>}
-          <button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close node inspector" onClick={onClose}><i className="fas fa-times" /></button>
+          <button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close node inspector" onClick={onClose}><Icon name="close" /></button>
         </div>
         <div className="node-inspector__identity">
           <h2>{node.name}</h2>

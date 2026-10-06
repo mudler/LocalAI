@@ -5,6 +5,7 @@ import { safeHref } from '../utils/url'
 import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
 import hljs from '../utils/hljs'
+import Icon from './Icon'
 
 const WIDTH_KEY = 'localai_canvas_width'
 const MIME_BY_EXT = { html: 'text/html', svg: 'image/svg+xml', json: 'application/json', css: 'text/css' }
@@ -101,7 +102,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'audio') {
       return (
         <div className="canvas-audio-wrapper">
-          <i className="fas fa-music canvas-audio-icon" />
+          <Icon name="music" className="canvas-audio-icon" />
           <p>{current.title}</p>
           <audio controls src={current.url} className="w-full" />
         </div>
@@ -113,7 +114,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'url') {
       return (
         <div className="canvas-url-card">
-          <i className="fas fa-external-link-alt" />
+          <Icon name="external-link" />
           <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer">{current.url}</a>
         </div>
       )
@@ -121,7 +122,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'file') {
       return (
         <div className="canvas-url-card">
-          <i className="fas fa-file" />
+          <Icon name="file" />
           <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer" download={current.title}>{current.title}</a>
         </div>
       )
@@ -175,10 +176,10 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
             title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           >
-            <i className={`fas ${fullscreen ? 'fa-compress' : 'fa-expand'}`} aria-hidden="true" />
+            <Icon name={fullscreen ? 'minimize' : 'maximize'} />
           </button>
           <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas" aria-label="Close canvas">
-            <i className="fas fa-times" aria-hidden="true" />
+            <Icon name="close" />
           </button>
         </div>
       </div>
@@ -208,7 +209,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
               onClick={() => onSelect(a.id)}
               title={a.title}
             >
-              <i className={`fas ${getArtifactIcon(a.type, a.language)}`} aria-hidden="true" />
+              <Icon name={getArtifactIcon(a.type, a.language)} />
               <span>{a.title}</span>
             </button>
           ))}
@@ -231,10 +232,10 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
         )}
         <div className="flex-1" />
         <button className="btn btn-secondary btn-sm" onClick={handleCopy} title="Copy">
-          <i className={`fas ${copySuccess ? 'fa-check' : 'fa-copy'}`} />
+          <Icon name={copySuccess ? 'check' : 'copy'} />
         </button>
         <button className="btn btn-secondary btn-sm" onClick={handleDownload} title="Download">
-          <i className="fas fa-download" />
+          <Icon name="download" />
         </button>
       </div>
 

@@ -6,6 +6,7 @@ import LocalRunningModels from './LocalRunningModels'
 import { useLocalMachine } from '../../hooks/useLocalMachine'
 import { hostAsNode } from '../../utils/localHost'
 import { summarizeFleet } from '../../utils/nodeFleet'
+import Icon from '../Icon'
 
 // What the Nodes page shows when distributed mode is off. It used to be only
 // an "enable distributed mode" card, which left a single-node install with no
@@ -26,7 +27,7 @@ export default function LocalMachineView({ addToast, scaleOut }) {
     <div className="page page--wide nodes-fleet-page local-machine-page" data-testid="local-machine">
       <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('localMachine.title')} supporting={t('localMachine.subtitle')}
         actions={<button type="button" className="btn btn-secondary btn-sm" aria-expanded={showScaleOut} onClick={() => setShowScaleOut(value => !value)}>
-          <i className="fas fa-network-wired" aria-hidden="true" /> {showScaleOut ? t('localMachine.hideScaleOut') : t('localMachine.scaleOut')}
+          <Icon name="network" /> {showScaleOut ? t('localMachine.hideScaleOut') : t('localMachine.scaleOut')}
         </button>} />
       {showScaleOut && scaleOut}
       <HostOverview summary={summary} models={machine.rows} ramTotal={machine.resources?.ram?.total} />

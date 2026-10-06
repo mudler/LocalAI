@@ -1,3 +1,4 @@
+import Icon from '../Icon'
 // DetailHeader is the top of the pane once something is selected: the way back
 // out, what you are looking at, and what you can do to it.
 //
@@ -12,12 +13,12 @@ export default function DetailHeader({
     <>
       {onBack && (
         <button type="button" className="detail-pane__back" onClick={onBack} data-testid={`${testId}-back`}>
-          <i className="fas fa-arrow-left" aria-hidden="true" /> {backLabel}
+          <Icon name="arrow-left" /> {backLabel}
         </button>
       )}
 
       <div className="detail-pane__head">
-        {icon && <i className={`fas ${icon} detail-pane__icon`} aria-hidden="true" />}
+        {icon && <Icon name={icon} className="detail-pane__icon" />}
         <div className="detail-pane__title">
           <h2 className="detail-pane__name">{name}</h2>
           {lede && (
@@ -31,7 +32,7 @@ export default function DetailHeader({
 
       {warning && (
         <p className="detail-pane__warning">
-          <i className="fas fa-circle-exclamation" aria-hidden="true" /> {warning}
+          <Icon name="alert-circle" /> {warning}
         </p>
       )}
     </>

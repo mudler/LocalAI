@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SUPPORTED_LANGUAGES } from '../i18n'
+import Icon from './Icon'
 
 export default function LanguageSwitcher() {
   const { i18n, t } = useTranslation('nav')
@@ -45,7 +46,7 @@ export default function LanguageSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <i className="fas fa-globe" aria-hidden="true" />
+        <Icon name="globe" />
         <span className="language-switcher-code">{current.flag}</span>
       </button>
       {open && (
@@ -62,7 +63,7 @@ export default function LanguageSwitcher() {
                 <span className="language-switcher-flag">{l.flag}</span>
                 <span className="language-switcher-name">{l.name}</span>
                 {l.code === current.code && (
-                  <i className="fas fa-check language-switcher-check" aria-hidden="true" />
+                  <Icon name="check" className="language-switcher-check" />
                 )}
               </button>
             </li>

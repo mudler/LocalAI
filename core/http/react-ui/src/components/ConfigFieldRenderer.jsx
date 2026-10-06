@@ -13,6 +13,7 @@ import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 import FailoverTargetsEditor from './FailoverTargetsEditor'
+import Icon from './Icon'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -69,13 +70,13 @@ function StringListEditor({ value, onChange, options }) {
             <input className="input cfr-input" value={item} onChange={e => update(i, e.target.value)} />
           )}
           <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <i className="fas fa-times" />
+            <Icon name="close" />
           </button>
         </div>
       ))}
       {(!options || availableOptions.length > 0) && (
         <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-          <i className="fas fa-plus" /> Add
+          <Icon name="plus" /> Add
         </button>
       )}
     </div>
@@ -104,12 +105,12 @@ function MapEditor({ value, onChange }) {
           <input className="input cfr-input" value={k} placeholder="key" onChange={e => update(i, e.target.value, v)} />
           <input className="input cfr-input" value={typeof v === 'string' ? v : JSON.stringify(v)} placeholder="value" onChange={e => update(i, k, e.target.value)} />
           <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <i className="fas fa-times" />
+            <Icon name="close" />
           </button>
         </div>
       ))}
       <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <i className="fas fa-plus" /> Add
+        <Icon name="plus" /> Add
       </button>
     </div>
   )
@@ -174,7 +175,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     <button type="button" onClick={() => onRemove(field.path)}
       title="Remove field"
       className="cfr-clear">
-      <i className="fas fa-times" />
+      <Icon name="close" />
     </button>
   )
 

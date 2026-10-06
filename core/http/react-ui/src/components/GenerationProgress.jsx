@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Icon from './Icon'
 
 // Loading feedback for slow media generation: shimmer placeholder tiles that
 // match the requested count, plus a live elapsed-time readout. Replaces a bare
@@ -20,7 +21,7 @@ export default function GenerationProgress({ count = 1, label }) {
         ))}
       </div>
       <div className="gen-progress__status">
-        <i className="fas fa-circle-notch fa-spin" aria-hidden="true" />
+        <Icon name="spinner" spin />
         <span>{label || 'Generating'}</span>
         <span className="gen-progress__time mono">{mm}:{ss}</span>
       </div>

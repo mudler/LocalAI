@@ -1,3 +1,4 @@
+import Icon from '../Icon'
 export default function AttentionCallout({ nodes, onApprove }) {
   const pending = nodes.filter(n => n.status === 'pending')
   const unhealthy = nodes.filter(n => n.status === 'unhealthy' || n.status === 'offline')
@@ -9,12 +10,12 @@ export default function AttentionCallout({ nodes, onApprove }) {
     return (
       <div className="attention-callout attention-callout--warn">
         <span>
-          <i className="fas fa-exclamation-circle" />{' '}
+          <Icon name="alert-circle" />{' '}
           <strong>{pending.length} node{pending.length > 1 ? 's' : ''} awaiting approval</strong>
           {' - '}{first.name}{extra > 0 ? ` +${extra} more` : ''}
         </span>
         <button className="btn btn-primary btn-sm" onClick={() => onApprove(first.id)}>
-          <i className="fas fa-check" /> Approve {first.name}
+          <Icon name="check" /> Approve {first.name}
         </button>
       </div>
     )
@@ -22,7 +23,7 @@ export default function AttentionCallout({ nodes, onApprove }) {
   return (
     <div className="attention-callout attention-callout--error">
       <span>
-        <i className="fas fa-exclamation-triangle" />{' '}
+        <Icon name="warning" />{' '}
         <strong>{unhealthy.length} node{unhealthy.length > 1 ? 's' : ''} unhealthy</strong>
         {' - '}{unhealthy.map(n => n.name).slice(0, 3).join(', ')}
       </span>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { relativeTime } from '../utils/format'
+import Icon from './Icon'
 
 function getLastMessagePreview(chat) {
   if (!chat?.history || chat.history.length === 0) return ''
@@ -146,7 +147,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
         title={t('menu.triggerTitle')}
         onClick={() => setOpen(prev => !prev)}
       >
-        <i className="fas fa-comments" />
+        <Icon name="chat" />
         <span className="chats-menu-trigger-label">{t('menu.trigger')}</span>
         <kbd className="chats-menu-trigger-kbd">⌘K</kbd>
       </button>
@@ -154,7 +155,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
       {open && (
         <div className="chats-menu-popover" role="menu" onKeyDown={handleListKey}>
           <div className="chats-menu-search">
-            <i className="fas fa-search chats-menu-search-icon" />
+            <Icon name="search" className="chats-menu-search-icon" />
             <input
               ref={searchRef}
               className="chats-menu-search-input"
@@ -170,7 +171,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                 onClick={() => setSearch('')}
                 aria-label={t('menu.clearSearch')}
               >
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             )}
           </div>
@@ -191,7 +192,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                 onClick={() => handleSelect(chat.id)}
                 onMouseEnter={() => setActiveIdx(idx)}
               >
-                <i className="fas fa-message chats-menu-item-icon" />
+                <Icon name="chat" className="chats-menu-item-icon" />
                 {editingId === chat.id ? (
                   <input
                     className="input chats-menu-item-rename"
@@ -213,7 +214,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                         onDoubleClick={(e) => { e.stopPropagation(); startRename(chat.id, chat.name) }}
                       >
                         {streamingChatId === chat.id && (
-                          <i className="fas fa-circle-notch fa-spin chats-menu-item-spin" />
+                          <Icon name="spinner" spin className="chats-menu-item-spin" />
                         )}
                         {chat.name}
                       </span>
@@ -230,7 +231,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                     onClick={(e) => { e.stopPropagation(); startRename(chat.id, chat.name) }}
                     title={t('menu.rename')}
                   >
-                    <i className="fas fa-pen" />
+                    <Icon name="pencil" />
                   </button>
                   {onDuplicate && (
                     <button
@@ -238,7 +239,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       onClick={(e) => { e.stopPropagation(); onDuplicate(chat); setOpen(false) }}
                       title={t('menu.duplicate')}
                     >
-                      <i className="fas fa-clone" />
+                      <Icon name="copy" />
                     </button>
                   )}
                   {(chat.history?.length || 0) > 0 && onCopyChat && (
@@ -247,7 +248,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       onClick={(e) => { e.stopPropagation(); onCopyChat(chat) }}
                       title={t('menu.copyChat')}
                     >
-                      <i className="fas fa-clipboard" />
+                      <Icon name="clipboard" />
                     </button>
                   )}
                   {(chat.history?.length || 0) > 0 && onExport && (
@@ -256,7 +257,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       onClick={(e) => { e.stopPropagation(); onExport(chat) }}
                       title={t('menu.exportMarkdown')}
                     >
-                      <i className="fas fa-download" />
+                      <Icon name="download" />
                     </button>
                   )}
                   {chats.length > 1 && (
@@ -266,7 +267,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                       onClick={(e) => { e.stopPropagation(); onDelete?.(chat.id) }}
                       title={t('menu.deleteChat')}
                     >
-                      <i className="fas fa-trash" />
+                      <Icon name="trash" />
                     </button>
                   )}
                 </div>
@@ -276,7 +277,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
 
           <div className="chats-menu-footer">
             <button type="button" className="btn btn-primary btn-sm chats-menu-new" onClick={handleNew}>
-              <i className="fas fa-plus" /> {t('menu.newChat')}
+              <Icon name="plus" /> {t('menu.newChat')}
             </button>
             {chats.length > 1 && (
               <button
@@ -285,7 +286,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                 onClick={() => { onDeleteAll?.(); setOpen(false) }}
                 title={t('menu.deleteAllTitle')}
               >
-                <i className="fas fa-trash" /> {t('menu.clearAll')}
+                <Icon name="trash" /> {t('menu.clearAll')}
               </button>
             )}
           </div>

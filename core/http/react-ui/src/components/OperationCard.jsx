@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../utils/format'
+import Icon from './Icon'
 
 const phaseKeys = {
   resolving: 'activity.phase.resolving',
@@ -49,7 +50,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   let icon
   let verb
   if (failed) {
-    icon = <i className="fas fa-circle-exclamation operation-card__icon operation-card__icon--error" aria-hidden="true" />
+    icon = <Icon name="alert-circle" className="operation-card__icon operation-card__icon--error" />
     // The failure phrase has to name the work that actually failed. A removal
     // or a staging job reported as a failed install describes the opposite of
     // what happened, and would make the missing Retry button look like a bug.
@@ -57,13 +58,13 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
     else if (operation.taskType === 'staging') verb = t('activity.verb.failedStaging')
     else verb = t('activity.verb.failed', { kind })
   } else if (operation.isQueued) {
-    icon = <i className="fas fa-clock operation-card__icon" aria-hidden="true" />
+    icon = <Icon name="clock" className="operation-card__icon" />
     verb = t('activity.verb.queued')
   } else if (operation.taskType === 'staging') {
-    icon = <i className="fas fa-cloud-arrow-up operation-card__icon operation-card__icon--staging" aria-hidden="true" />
+    icon = <Icon name="cloud-upload" className="operation-card__icon operation-card__icon--staging" />
     verb = t('activity.verb.staging')
   } else if (operation.isDeletion) {
-    icon = <i className="fas fa-trash operation-card__icon operation-card__icon--removing" aria-hidden="true" />
+    icon = <Icon name="trash" className="operation-card__icon operation-card__icon--removing" />
     verb = t('activity.verb.removing', { kind })
   } else {
     icon = <span className="operation-card__spinner" aria-hidden="true" />
@@ -191,7 +192,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
               title={t('activity.moveToHistory')}
               aria-label={t('activity.moveToHistory')}
             >
-              <i className="fas fa-xmark" aria-hidden="true" />
+              <Icon name="close" />
             </button>
           )}
         </div>
@@ -207,7 +208,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
           aria-controls={listId}
           onClick={() => setNodesOpenOverride(!nodesOpen)}
         >
-          <i className={`fas fa-chevron-${nodesOpen ? 'up' : 'down'}`} aria-hidden="true" />
+          <Icon name={`chevron-${nodesOpen ? 'up' : 'down'}`} />
           {nodesOpen ? t('activity.hideNodes') : t('activity.showNodes', { count: nodes.length })}
         </button>
       )}

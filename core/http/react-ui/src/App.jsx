@@ -10,6 +10,7 @@ import { useBranding } from './contexts/BrandingContext'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
 import { consoles, consolePaths } from './components/console/consoleConfig'
+import Icon from './components/Icon'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
@@ -111,7 +112,7 @@ export default function App() {
             aria-expanded={sidebarOpen}
             aria-controls="app-sidebar"
           >
-            <i className="fas fa-bars" aria-hidden="true" />
+            <Icon name="menu" />
           </button>
           <span className="mobile-title">{branding.instanceName}</span>
           <div className="mobile-header-actions">
@@ -122,7 +123,7 @@ export default function App() {
               aria-label={themeToggleLabel}
               title={themeToggleLabel}
             >
-              <i className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} aria-hidden="true" />
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
             </button>
             {showAvatar && (
               <button
@@ -135,7 +136,7 @@ export default function App() {
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" />
                 ) : (
-                  <i className="fas fa-user-circle" aria-hidden="true" />
+                  <Icon name="user" />
                 )}
               </button>
             )}
@@ -164,13 +165,13 @@ export default function App() {
               )}
               <div className="app-footer-links">
                 <a href="https://github.com/mudler/LocalAI" target="_blank" rel="noopener noreferrer">
-                  <i className="fab fa-github" /> {t('footer.github')}
+                  <Icon name="github" /> {t('footer.github')}
                 </a>
                 <a href="https://localai.io" target="_blank" rel="noopener noreferrer">
-                  <i className="fas fa-book" /> {t('footer.documentation')}
+                  <Icon name="book" /> {t('footer.documentation')}
                 </a>
                 <a href="https://mudler.pm" target="_blank" rel="noopener noreferrer">
-                  <i className="fas fa-user" /> {t('footer.author')}
+                  <Icon name="user" /> {t('footer.author')}
                 </a>
               </div>
               <span className="app-footer-copyright">

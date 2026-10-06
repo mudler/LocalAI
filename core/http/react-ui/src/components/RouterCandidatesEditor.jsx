@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import SearchableModelSelect from './SearchableModelSelect'
+import Icon from './Icon'
 
 // RouterCandidatesEditor renders the routing table for a router model.
 // Each row binds a downstream model to a SET of policy labels it can
@@ -63,7 +64,7 @@ export default function RouterCandidatesEditor({ value, onChange }) {
         className="btn btn-secondary btn-sm self-start"
         onClick={add}
       >
-        <i className="fas fa-plus" /> Add candidate
+        <Icon name="plus" /> Add candidate
       </button>
     </div>
   )
@@ -103,7 +104,7 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
           title="Move up (smaller priority)"
           style={{ padding: '0 6px' }}
         >
-          <i className="fas fa-arrow-up" />
+          <Icon name="arrow-up" />
         </button>
         <button
           type="button"
@@ -113,7 +114,7 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
           title="Move down"
           style={{ padding: '0 6px' }}
         >
-          <i className="fas fa-arrow-down" />
+          <Icon name="arrow-down" />
         </button>
         <span style={{ marginLeft: 'auto' }}>
           {index === 0 ? 'tried first' : index === total - 1 ? 'tried last (fallback-class)' : ''}
@@ -132,7 +133,7 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
           onClick={onRemove}
           title="Remove candidate"
         >
-          <i className="fas fa-trash" />
+          <Icon name="trash" />
         </button>
       </div>
 

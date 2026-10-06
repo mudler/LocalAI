@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
+import Icon from './Icon'
 
 // LocalAI's own API goes well beyond chat — a sample of capability endpoints
 // that have no OpenAI equivalent (see core/http/routes/*.go). The pitch leads
@@ -57,20 +58,20 @@ export default function HomeConnect() {
   return (
     <section className="home-connect card" aria-labelledby="home-connect-title">
       <div className="home-connect-head">
-        <span className="home-connect-icon"><i className="fas fa-plug" aria-hidden="true" /></span>
+        <span className="home-connect-icon"><Icon name="plug" /></span>
         <div>
           <h2 id="home-connect-title" className="home-connect-title">{t('connect.title')}</h2>
           <p className="home-connect-sub">{t('connect.subtitle')}</p>
         </div>
         <button type="button" className="home-connect-dismiss" onClick={dismiss} aria-label={t('connect.dismiss')} title={t('connect.dismiss')}>
-          <i className="fas fa-times" aria-hidden="true" />
+          <Icon name="close" />
         </button>
       </div>
 
       <div className="home-connect-url">
         <code>{base}</code>
         <button type="button" className="btn btn-secondary btn-sm" onClick={copy} aria-label={t('connect.copy')}>
-          <i className={`fas ${copied ? 'fa-check' : 'fa-copy'}`} aria-hidden="true" />
+          <Icon name={copied ? 'check' : 'copy'} />
           <span>{copied ? t('connect.copied') : t('connect.copy')}</span>
         </button>
       </div>
@@ -82,7 +83,7 @@ export default function HomeConnect() {
         aria-controls="home-connect-endpoints"
         onClick={() => setShowEndpoints(v => !v)}
       >
-        <i className={`fas fa-chevron-${showEndpoints ? 'up' : 'down'}`} aria-hidden="true" />
+        <Icon name={`chevron-${showEndpoints ? 'up' : 'down'}`} />
         <span>{showEndpoints ? t('connect.hide') : t('connect.browse')}</span>
       </button>
 
@@ -92,7 +93,7 @@ export default function HomeConnect() {
         <div className="home-connect-block-head">
           <span className="home-connect-block-title">{t('connect.nativeTitle')}</span>
           <a className="home-connect-docs" href={apiUrl('/swagger/index.html')} target="_blank" rel="noopener noreferrer">
-            {t('connect.apiReference')} <i className="fas fa-arrow-right" aria-hidden="true" />
+            {t('connect.apiReference')} <Icon name="arrow-right" />
           </a>
         </div>
         <ul className="home-connect-apis">

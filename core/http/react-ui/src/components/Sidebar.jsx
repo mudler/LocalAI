@@ -9,13 +9,14 @@ import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
 import { useOperations } from '../hooks/useOperations'
+import Icon from './Icon'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
 const topItems = [
-  { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
-  { path: '/app/models', icon: 'fas fa-cubes', labelKey: 'items.models', adminOnly: true },
+  { path: '/app', icon: 'home', labelKey: 'items.home' },
+  { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
 ]
 
 // Create stays inline (frequent, one-click creative destinations). The Build
@@ -26,9 +27,9 @@ const sections = [
     id: 'create',
     titleKey: 'sections.create',
     items: [
-      { path: '/app/chat', icon: 'fas fa-comments', labelKey: 'items.chat' },
-      { path: '/app/studio', icon: 'fas fa-palette', labelKey: 'items.studio' },
-      { path: '/app/talk', icon: 'fas fa-phone', labelKey: 'items.talk' },
+      { path: '/app/chat', icon: 'chat', labelKey: 'items.chat' },
+      { path: '/app/studio', icon: 'palette', labelKey: 'items.studio' },
+      { path: '/app/talk', icon: 'phone', labelKey: 'items.talk' },
     ],
   },
 ]
@@ -53,7 +54,7 @@ function NavItem({ item, onClose, collapsed }) {
       onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
-      <i className={`${item.icon} nav-icon`} aria-hidden="true" />
+      <Icon name={item.icon} className="nav-icon" aria-hidden="true" />
       <span className="nav-label">{label}</span>
     </NavLink>
   )
@@ -194,7 +195,7 @@ export default function Sidebar({ isOpen, onClose }) {
             onClick={onClose}
             aria-label={t('closeMenu')}
           >
-            <i className="fas fa-times" aria-hidden="true" />
+            <Icon name="close" />
           </button>
         </div>
 
@@ -224,7 +225,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   title={collapsed ? sectionTitle : undefined}
                 >
                   <span>{sectionTitle}</span>
-                  <i className="fas fa-chevron-right sidebar-section-chevron" />
+                  <Icon name="chevron-right" className="sidebar-section-chevron" />
                 </button>
                 {showItems && (
                   <div className="sidebar-section-items">
@@ -255,7 +256,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   onTouchStart={() => preloadRoute(target)}
                   title={collapsed ? label : undefined}
                 >
-                  <i className={`${config.icon} nav-icon`} aria-hidden="true" />
+                  <Icon name={config.icon} className="nav-icon" aria-hidden="true" />
                   <span className="nav-label">{label}</span>
                   {config.groups.some(g => g.items.some(i => i.badge === 'operations')) && activeOps > 0 && (
                     <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
@@ -283,12 +284,12 @@ export default function Sidebar({ isOpen, onClose }) {
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" className="sidebar-user-avatar" />
                 ) : (
-                  <i className="fas fa-user-circle sidebar-user-avatar-icon" />
+                  <Icon name="user" className="sidebar-user-avatar-icon" />
                 )}
                 <span className="nav-label sidebar-user-name">{user.name || user.email}</span>
               </button>
               <button className="sidebar-logout-btn" onClick={logout} title={t('logout')}>
-                <i className="fas fa-sign-out-alt" />
+                <Icon name="log-out" />
               </button>
             </div>
           )}
@@ -299,7 +300,7 @@ export default function Sidebar({ isOpen, onClose }) {
             onClick={toggleCollapse}
             title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
           >
-            <i className={`fas fa-chevron-${collapsed ? 'right' : 'left'}`} />
+            <Icon name={`chevron-${collapsed ? 'right' : 'left'}`} />
           </button>
         </div>
       </aside>

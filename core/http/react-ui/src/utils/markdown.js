@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from './hljs'
 import { copyToClipboard } from './clipboard'
+import { iconHtml } from './iconHtml'
 
 marked.setOptions({
   highlight(code, lang) {
@@ -96,7 +97,7 @@ export function enhanceCodeBlocks(element) {
     btn.type = 'button'
     btn.className = 'code-copy-btn'
     btn.setAttribute('aria-label', 'Copy code')
-    btn.innerHTML = '<i class="fas fa-copy" aria-hidden="true"></i>'
+    btn.innerHTML = iconHtml('copy')
     head.appendChild(label)
     head.appendChild(btn)
     pre.parentNode.insertBefore(wrap, pre)
@@ -115,10 +116,10 @@ if (typeof document !== 'undefined' && !window.__codeCopyDelegate) {
     if (!code) return
     const ok = await copyToClipboard(code.innerText)
     if (!ok) return
-    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>'
+    btn.innerHTML = iconHtml('check')
     btn.classList.add('code-copy-btn--ok')
     setTimeout(() => {
-      btn.innerHTML = '<i class="fas fa-copy" aria-hidden="true"></i>'
+      btn.innerHTML = iconHtml('copy')
       btn.classList.remove('code-copy-btn--ok')
     }, 2000)
   })

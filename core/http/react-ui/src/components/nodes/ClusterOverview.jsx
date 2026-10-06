@@ -1,4 +1,5 @@
 import { formatCapacity } from './nodeStatus'
+import Icon from '../Icon'
 
 const ATTENTION = [
   ['all', 'Needs attention'],
@@ -78,7 +79,7 @@ export default function ClusterOverview({ summary, activeAttention, onAttentionS
 
     </section>
     <aside className="fleet-attention" aria-label="Attention queue">
-      <span className="fleet-attention__title"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><strong>{summary.attentionNodeCount} node{summary.attentionNodeCount === 1 ? '' : 's'} need attention</strong></span>
+      <span className="fleet-attention__title"><Icon name="warning" /><strong>{summary.attentionNodeCount} node{summary.attentionNodeCount === 1 ? '' : 's'} need attention</strong></span>
       <div className="fleet-attention__filters">
         {ATTENTION.map(([key, label]) => {
           const count = key === 'all' ? summary.attentionNodeCount : summary.attention[key].length

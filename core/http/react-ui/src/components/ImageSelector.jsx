@@ -1,14 +1,15 @@
 import { useState } from 'react'
+import Icon from './Icon'
 
 const GPU_OPTIONS = [
-  { key: 'cpu',      label: 'CPU',             icon: 'fa-microchip', tag: 'latest-cpu',                  devTag: 'master-cpu',                  dockerFlags: '' },
-  { key: 'cuda12',   label: 'CUDA 12',         icon: 'fa-bolt',      tag: 'latest-gpu-nvidia-cuda-12',   devTag: 'master-gpu-nvidia-cuda-12',   dockerFlags: '--gpus all' },
-  { key: 'cuda13',   label: 'CUDA 13',         icon: 'fa-bolt',      tag: 'latest-gpu-nvidia-cuda-13',   devTag: 'master-gpu-nvidia-cuda-13',   dockerFlags: '--gpus all' },
-  { key: 'l4t12',    label: 'L4T CUDA 12',     icon: 'fa-bolt',      tag: 'latest-gpu-nvidia-l4t-cuda12',devTag: 'master-gpu-nvidia-l4t-cuda12',dockerFlags: '--runtime nvidia' },
-  { key: 'l4t13',    label: 'L4T CUDA 13',     icon: 'fa-bolt',      tag: 'latest-gpu-nvidia-l4t-cuda13',devTag: 'master-gpu-nvidia-l4t-cuda13',dockerFlags: '--runtime nvidia' },
-  { key: 'amd',      label: 'AMD',             icon: 'fa-fire',      tag: 'latest-gpu-hipblas',           devTag: 'master-gpu-hipblas',           dockerFlags: '--device /dev/kfd --device /dev/dri' },
-  { key: 'intel',    label: 'Intel',           icon: 'fa-atom',      tag: 'latest-gpu-intel',             devTag: 'master-gpu-intel',             dockerFlags: '--device /dev/dri' },
-  { key: 'vulkan',   label: 'Vulkan',          icon: 'fa-globe',     tag: 'latest-gpu-vulkan',            devTag: 'master-gpu-vulkan',            dockerFlags: '--device /dev/dri' },
+  { key: 'cpu',      label: 'CPU',             icon: 'cpu', tag: 'latest-cpu',                  devTag: 'master-cpu',                  dockerFlags: '' },
+  { key: 'cuda12',   label: 'CUDA 12',         icon: 'bolt',      tag: 'latest-gpu-nvidia-cuda-12',   devTag: 'master-gpu-nvidia-cuda-12',   dockerFlags: '--gpus all' },
+  { key: 'cuda13',   label: 'CUDA 13',         icon: 'bolt',      tag: 'latest-gpu-nvidia-cuda-13',   devTag: 'master-gpu-nvidia-cuda-13',   dockerFlags: '--gpus all' },
+  { key: 'l4t12',    label: 'L4T CUDA 12',     icon: 'bolt',      tag: 'latest-gpu-nvidia-l4t-cuda12',devTag: 'master-gpu-nvidia-l4t-cuda12',dockerFlags: '--runtime nvidia' },
+  { key: 'l4t13',    label: 'L4T CUDA 13',     icon: 'bolt',      tag: 'latest-gpu-nvidia-l4t-cuda13',devTag: 'master-gpu-nvidia-l4t-cuda13',dockerFlags: '--runtime nvidia' },
+  { key: 'amd',      label: 'AMD',             icon: 'flame',      tag: 'latest-gpu-hipblas',           devTag: 'master-gpu-hipblas',           dockerFlags: '--device /dev/kfd --device /dev/dri' },
+  { key: 'intel',    label: 'Intel',           icon: 'atom',      tag: 'latest-gpu-intel',             devTag: 'master-gpu-intel',             dockerFlags: '--device /dev/dri' },
+  { key: 'vulkan',   label: 'Vulkan',          icon: 'globe',     tag: 'latest-gpu-vulkan',            devTag: 'master-gpu-vulkan',            dockerFlags: '--device /dev/dri' },
 ]
 
 export function useImageSelector(defaultKey = 'cpu') {
@@ -40,7 +41,7 @@ export default function ImageSelector({ selected, onSelect, dev, onDevChange }) 
               transition: 'all 150ms',
             }}
           >
-            <i className={`fas ${opt.icon} text-xs`} />
+            <Icon name={opt.icon} className="text-xs" />
             {opt.label}
           </button>
         )
@@ -62,7 +63,7 @@ export default function ImageSelector({ selected, onSelect, dev, onDevChange }) 
           }}
           title="Use development (master) images instead of stable releases"
         >
-          <i className="fas fa-flask text-xs" />
+          <Icon name="flask" className="text-xs" />
           Dev
         </button>
       )}

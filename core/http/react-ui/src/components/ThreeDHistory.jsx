@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { relativeTime } from '../utils/format'
 import { useTranslation } from 'react-i18next'
+import Icon from './Icon'
 
 // ThreeDHistory — sibling of MediaHistory for IndexedDB-backed 3D entries
 // (see use3DHistory). Reuses MediaHistory's markup, CSS classes, and testids
@@ -18,7 +19,7 @@ export default memo(function ThreeDHistory({ entries, selectedId, onSelect, onDe
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'center' }}
       >
-        <i className="fas fa-chevron-right" />
+        <Icon name="chevron-right" />
         <span style={{ flex: 1 }}>{t('history.title')} ({entries.length})</span>
         {entries.length > 0 && (
           <button
@@ -26,7 +27,7 @@ export default memo(function ThreeDHistory({ entries, selectedId, onSelect, onDe
             title={t('history.clearTitle')}
             onClick={(e) => { e.stopPropagation(); onClearAll() }}
           >
-            <i className="fas fa-trash" />
+            <Icon name="trash" />
           </button>
         )}
       </div>
@@ -46,7 +47,7 @@ export default memo(function ThreeDHistory({ entries, selectedId, onSelect, onDe
                   {entry.inputThumb ? (
                     <img src={entry.inputThumb} alt="" />
                   ) : (
-                    <i className="fas fa-cube" />
+                    <Icon name="cube" />
                   )}
                 </div>
                 <div className="media-history-item-info">
@@ -64,7 +65,7 @@ export default memo(function ThreeDHistory({ entries, selectedId, onSelect, onDe
                   onClick={(e) => { e.stopPropagation(); onDelete(entry.id) }}
                   data-testid="media-history-delete"
                 >
-                  <i className="fas fa-times" />
+                  <Icon name="close" />
                 </button>
               </div>
             ))

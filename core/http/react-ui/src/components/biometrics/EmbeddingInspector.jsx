@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from 'react'
+import Icon from '../Icon'
 
 // EmbeddingInspector — compact visualization of a raw vector returned by /v1/face|voice/embed.
 // embedding: number[] (can be large). dim: int. model: string.
@@ -79,7 +80,7 @@ export default function EmbeddingInspector({ embedding, dim, model, elapsedMs })
           </div>
         </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={copy}>
-          <i className={`fas ${copied ? 'fa-check' : 'fa-copy'}`} aria-hidden="true" />
+          <Icon name={copied ? 'check' : 'copy'} />
           {copied ? ' Copied' : ' Copy JSON'}
         </button>
       </div>

@@ -2,6 +2,7 @@ import { Marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from './hljs'
 import { apiUrl } from './basePath'
+import { iconSlot, fillIconSlots } from './iconHtml'
 
 const FENCE_REGEX = /```(\w*)\n([\s\S]*?)```/g
 
@@ -113,19 +114,19 @@ export function extensionForLanguage(lang) {
 }
 
 export function getArtifactIcon(type, language) {
-  if (type === 'image') return 'fa-image'
-  if (type === 'pdf') return 'fa-file-pdf'
-  if (type === 'audio') return 'fa-music'
-  if (type === 'video') return 'fa-video'
-  if (type === 'url') return 'fa-link'
-  if (type === 'file') return 'fa-file'
+  if (type === 'image') return 'image'
+  if (type === 'pdf') return 'file-text'
+  if (type === 'audio') return 'music'
+  if (type === 'video') return 'video'
+  if (type === 'url') return 'link'
+  if (type === 'file') return 'file'
   if (type === 'code') {
-    if (language === 'html') return 'fa-globe'
-    if (language === 'svg') return 'fa-image'
-    if (language === 'css') return 'fa-palette'
-    if (language === 'md' || language === 'markdown') return 'fa-file-lines'
+    if (language === 'html') return 'globe'
+    if (language === 'svg') return 'image'
+    if (language === 'css') return 'palette'
+    if (language === 'md' || language === 'markdown') return 'file-text'
   }
-  return 'fa-code'
+  return 'code'
 }
 
 const artifactMarked = new Marked({
@@ -167,14 +168,14 @@ export function renderMarkdownWithArtifacts(text, messageIndex) {
       const title = guessTitle(language, blockIndex)
       blockIndex++
       return `<div class="artifact-card" data-artifact-id="${id}">
-        <div class="artifact-card-icon"><i class="fas ${icon}"></i></div>
+        <div class="artifact-card-icon">${iconSlot(icon)}</div>
         <div class="artifact-card-info">
           <span class="artifact-card-title">${title}</span>
           <span class="artifact-card-lang">${language}</span>
         </div>
         <div class="artifact-card-actions">
-          <button class="artifact-card-download" data-artifact-id="${id}" title="Download"><i class="fas fa-download"></i></button>
-          <button class="artifact-card-open" data-artifact-id="${id}" title="Open in canvas"><i class="fas fa-external-link-alt"></i></button>
+          <button class="artifact-card-download" data-artifact-id="${id}" title="Download">${iconSlot('download')}</button>
+          <button class="artifact-card-open" data-artifact-id="${id}" title="Open in canvas">${iconSlot('external-link')}</button>
         </div>
       </div>`
     },
@@ -182,5 +183,5 @@ export function renderMarkdownWithArtifacts(text, messageIndex) {
 
   const customMarked = new Marked({ renderer, breaks: true, gfm: true })
   const html = customMarked.parse(text)
-  return DOMPurify.sanitize(html, { ADD_ATTR: ['data-artifact-id'] })
+  return fillIconSlots(DOMPurify.sanitize(html, { ADD_ATTR: ['data-artifact-id', 'data-icon-slot'] }))
 }

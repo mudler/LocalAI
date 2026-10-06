@@ -1,4 +1,5 @@
 import MODEL_TEMPLATES from '../utils/modelTemplates'
+import Icon from './Icon'
 
 export default function TemplateSelector({ onSelect }) {
   return (
@@ -18,7 +19,7 @@ export default function TemplateSelector({ onSelect }) {
             onClick={() => onSelect(t)}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', width: '100%' }}>
-              <i className={`fas ${t.icon}`} style={{ fontSize: '1.25rem', color: 'var(--color-primary)', width: 28, textAlign: 'center' }} />
+              <Icon name={t.icon} style={{ fontSize: '1.25rem', color: 'var(--color-primary)', width: 28, textAlign: 'center' }} />
               <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>{t.label}</span>
             </div>
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5, margin: 0 }}>

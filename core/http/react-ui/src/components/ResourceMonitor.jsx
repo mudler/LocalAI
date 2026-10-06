@@ -1,5 +1,6 @@
 import { useResources } from '../hooks/useResources'
 import { formatBytes, percentColor, vendorColor } from '../utils/format'
+import Icon from './Icon'
 
 export default function ResourceMonitor() {
   const { resources, loading, error } = useResources()
@@ -58,7 +59,7 @@ export function ResourceMonitorView({
     <div className="resource-monitor" data-testid={testId}>
       <div className="hstack hstack--between mb-sm">
         <h3 className="resource-monitor-title m-0">
-          <i className="fas fa-chart-bar" aria-hidden="true" /> {title}
+          <Icon name="chart-bar" /> {title}
         </h3>
         <div className="resource-monitor-badges">
           {isGpu && gpus.length > 1 && (

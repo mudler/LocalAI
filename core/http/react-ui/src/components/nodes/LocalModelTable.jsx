@@ -61,14 +61,14 @@ export default function LocalModelTable({ models, onViewLogs, onStop, stoppingNa
                   triggerLabel={`Actions for ${model.model_name}`}
                   items={[{
                     key: 'logs',
-                    icon: 'fa-terminal',
+                    icon: 'terminal',
                     label: 'View logs',
                     onClick: () => onViewLogs(model),
                   }, {
                     divider: true,
                   }, {
                     key: 'stop',
-                    icon: 'fa-stop',
+                    icon: 'stop',
                     label: stopping ? 'Stopping…' : 'Stop model…',
                     danger: true,
                     disabled: !!stoppingName,

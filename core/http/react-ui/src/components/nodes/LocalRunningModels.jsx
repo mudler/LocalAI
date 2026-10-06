@@ -5,6 +5,7 @@ import { filterLocalModels, sortLocalModels } from '../../utils/localHost'
 import ConfirmDialog from '../ConfirmDialog'
 import LoadingSpinner from '../LoadingSpinner'
 import LocalModelTable from './LocalModelTable'
+import Icon from '../Icon'
 
 // Running models on this machine: search, sort, logs and stop. Takes the
 // polled data from useLocalMachine rather than fetching it, so a page that
@@ -65,10 +66,10 @@ export default function LocalRunningModels({ machine, addToast, limit, moreHref 
         {state === 'loaded' && <span aria-live="polite">{rows.length} running</span>}
       </div>}
       {state === 'loading' && <div className="model-workbench__state" role="status"><LoadingSpinner size="sm" /><strong>Loading running models…</strong></div>}
-      {state === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><strong>Unable to load running models</strong><span>{error}</span><button type="button" className="btn btn-secondary btn-sm" onClick={() => refresh()}>Retry</button></div>}
+      {state === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><Icon name="warning" /><strong>Unable to load running models</strong><span>{error}</span><button type="button" className="btn btn-secondary btn-sm" onClick={() => refresh()}>Retry</button></div>}
       {state === 'loaded' && rows.length === 0 && (
         <div className="model-workbench__state local-running__empty" data-testid="local-running-empty">
-          <i className="fas fa-layer-group" aria-hidden="true" />
+          <Icon name="layers" />
           <strong>No models running</strong>
           <span>A model loads on its first request, or when you start it from <Link to="/app/models?view=installed">Models</Link>. It will appear here while it is in memory.</span>
         </div>
@@ -81,7 +82,7 @@ export default function LocalRunningModels({ machine, addToast, limit, moreHref 
         {moreHref && (
           <div className="fleet-pagination local-running__more">
             {hidden > 0 && <span>{hidden} more not shown</span>}
-            <Link to={moreHref} className="btn btn-secondary btn-sm">Open this machine <i className="fas fa-arrow-right" aria-hidden="true" /></Link>
+            <Link to={moreHref} className="btn btn-secondary btn-sm">Open this machine <Icon name="arrow-right" /></Link>
           </div>
         )}
       </>}

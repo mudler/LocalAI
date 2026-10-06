@@ -1,3 +1,4 @@
+import Icon from './Icon'
 // AmbiguityAlert renders the inline picker shown when the import endpoint
 // returns a 400 with { modality, candidates }. It turns a failure into
 // forward progress by letting the user pick one of the candidate backends
@@ -35,11 +36,7 @@ export default function AmbiguityAlert({ modality, candidates = [], knownBackend
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-sm)' }}>
-        <i
-          className="fas fa-lightbulb"
-          aria-hidden="true"
-          style={{ color: 'var(--color-primary)', marginTop: '2px' }}
-        />
+        <Icon name="lightbulb" style={{ color: 'var(--color-primary)', marginTop: '2px' }} />
         <div style={{ flex: 1, fontSize: '0.875rem' }}>
           <div style={{ marginBottom: candidates.length > 0 ? 'var(--spacing-sm)' : 0 }}>
             {message}
@@ -72,11 +69,7 @@ export default function AmbiguityAlert({ modality, candidates = [], knownBackend
                   >
                     <span>{name}</span>
                     {!isInstalled && (
-                      <i
-                        className="fas fa-download text-meta"
-                        aria-hidden="true"
-                        title="Not installed yet — LocalAI will download it"
-                      />
+                      <Icon name="download" className="text-meta" title="Not installed yet — LocalAI will download it" />
                     )}
                   </button>
                 )
@@ -100,7 +93,7 @@ export default function AmbiguityAlert({ modality, candidates = [], knownBackend
               fontSize: '0.9rem',
             }}
           >
-            <i className="fas fa-times" aria-hidden="true" />
+            <Icon name="close" />
           </button>
         )}
       </div>

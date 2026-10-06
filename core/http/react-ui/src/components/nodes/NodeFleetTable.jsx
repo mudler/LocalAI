@@ -1,6 +1,7 @@
 import StatusPill from './StatusPill'
 import { formatBytes, timeAgo } from './nodeStatus'
 import { capacityReading, groupNodes, nodeLifecycleAction } from '../../utils/nodeFleet'
+import Icon from '../Icon'
 
 function MetricCell({ total, available, tone }) {
   const reading = capacityReading(total, available)
@@ -27,7 +28,7 @@ function SortButton({ column, label, sort, onSortChange }) {
   return (
     <button type="button" className="fleet-table__sort" onClick={() => onSortChange({ key: column, direction: nextDirection })}
       aria-label={`Sort by ${label.toLowerCase()}${active ? `, ${sort.direction}ending` : ''}`}>
-      {label} {active && <i className={`fas fa-arrow-${sort.direction === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />}
+      {label} {active && <Icon name={`arrow-${sort.direction === 'asc' ? 'up' : 'down'}`} />}
     </button>
   )
 }

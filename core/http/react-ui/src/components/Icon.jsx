@@ -29,7 +29,7 @@ export default function Icon({ name, size, className, title, spin = false, style
       style={sized}
       data-icon={id}
       focusable="false"
-      viewBox={glyph ? '0 0 24 24' : undefined}
+      viewBox="0 0 24 24"
       {...a11y}
       {...rest}
     >

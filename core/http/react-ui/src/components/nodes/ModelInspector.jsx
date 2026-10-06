@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import StatusPill from './StatusPill'
 import { timeAgo } from './nodeStatus'
 import useInspectorDrawer from './useInspectorDrawer'
+import Icon from '../Icon'
 
 function groupReplicasByNode(replicas, nodes) {
   const nodeById = new Map(nodes.map(node => [node.id, node]))
@@ -41,7 +42,7 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
     <div className="node-inspector__scrim" aria-hidden="true" onClick={onClose} />
     <aside ref={drawerRef} id="model-inspector" className="node-inspector model-inspector" aria-label="Model inspector" role={modal ? 'dialog' : undefined} aria-modal={modal ? 'true' : undefined} tabIndex={modal ? -1 : undefined}>
       <header className="node-inspector__header">
-        <div className="node-inspector__topbar"><span className="fleet-kicker">Running model</span><button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close model inspector" onClick={onClose}><i className="fas fa-times" /></button></div>
+        <div className="node-inspector__topbar"><span className="fleet-kicker">Running model</span><button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close model inspector" onClick={onClose}><Icon name="close" /></button></div>
         <h2>{model.model_name}</h2>
         <p>Replica placement across the active fleet</p>
       </header>
@@ -72,7 +73,7 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
                 <div className="model-inspector__node-actions">
                   {group.node ? <StatusPill status={group.node.status} /> : <span className="status-pill status-pill--neutral">Unknown</span>}
                   {group.nodeId && <button type="button" className="model-inspector__logs" aria-label={`View all ${model.model_name} logs on ${name}`}
-                    onClick={() => onViewLogs(group.nodeId, model.model_name)}><i className="fas fa-terminal" aria-hidden="true" /> Logs</button>}
+                    onClick={() => onViewLogs(group.nodeId, model.model_name)}><Icon name="terminal" /> Logs</button>}
                 </div>
               </div>
               <p>{group.replicas.length} replica{group.replicas.length === 1 ? '' : 's'} · {inFlight} in flight · {lastUsed ? timeAgo(lastUsed) : 'never used'}</p>

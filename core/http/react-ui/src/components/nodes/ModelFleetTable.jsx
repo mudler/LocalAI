@@ -1,5 +1,6 @@
 import { timeAgo } from './nodeStatus'
 import ActionMenu from '../ActionMenu'
+import Icon from '../Icon'
 
 export function SortButton({ column, label, sort, onSortChange }) {
   const active = sort.key === column
@@ -7,7 +8,7 @@ export function SortButton({ column, label, sort, onSortChange }) {
   return (
     <button type="button" className="fleet-table__sort" onClick={() => onSortChange({ key: column, direction: nextDirection })}
       aria-label={`Sort by ${label.toLowerCase()}${active ? `, ${sort.direction}ending` : ''}`}>
-      {label} {active && <i className={`fas fa-arrow-${sort.direction === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />}
+      {label} {active && <Icon name={`arrow-${sort.direction === 'asc' ? 'up' : 'down'}`} />}
     </button>
   )
 }
@@ -46,14 +47,14 @@ export default function ModelFleetTable({ models, selectedName, inspectorOpen, o
                 triggerLabel={`Actions for ${model.model_name}`}
                 items={[{
                   key: 'logs',
-                  icon: 'fa-terminal',
+                  icon: 'terminal',
                   label: 'View logs…',
                   onClick: invoker => onViewLogs(model, invoker),
                 }, {
                   divider: true,
                 }, {
                   key: 'stop',
-                  icon: 'fa-stop',
+                  icon: 'stop',
                   label: stoppingName === model.model_name ? 'Stopping…' : 'Stop model…',
                   danger: true,
                   disabled: !!stoppingName,

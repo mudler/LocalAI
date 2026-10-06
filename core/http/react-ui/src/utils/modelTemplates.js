@@ -5,7 +5,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'other',
     label: 'Other',
-    icon: 'fa-file-alt',
+    icon: 'file-text',
     description: 'Blank configuration — add any fields you need',
     fields: {
       'name': '',
@@ -14,7 +14,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'pipeline',
     label: 'Voice Pipeline',
-    icon: 'fa-diagram-project',
+    icon: 'nodes',
     description: 'Real-time voice pipeline combining VAD, transcription, LLM, and TTS models',
     fields: {
       'name': '',
@@ -28,7 +28,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'llm',
     label: 'LLM',
-    icon: 'fa-brain',
+    icon: 'brain',
     description: 'Language model for chat and text completion',
     fields: {
       'name': '',
@@ -40,7 +40,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'tts',
     label: 'TTS',
-    icon: 'fa-volume-up',
+    icon: 'volume',
     description: 'Text-to-speech model for voice synthesis',
     fields: {
       'name': '',
@@ -52,7 +52,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'image',
     label: 'Image Generation',
-    icon: 'fa-image',
+    icon: 'image',
     description: 'Image generation model using diffusers or other backends',
     fields: {
       'name': '',
@@ -65,7 +65,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'embedding',
     label: 'Embedding',
-    icon: 'fa-vector-square',
+    icon: 'bounding-box',
     description: 'Embedding model for text vectorization',
     fields: {
       'name': '',
@@ -77,7 +77,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'cloud-proxy-openai',
     label: 'OpenAI Cloud Proxy',
-    icon: 'fa-cloud',
+    icon: 'cloud',
     description: 'Forward chat completions to OpenAI or any OpenAI-compatible provider; PII redaction runs in flight',
     // known_usecases is pre-seeded with chat so the proxy model
     // surfaces in places that filter by capability — model pickers
@@ -99,7 +99,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'cloud-proxy-anthropic',
     label: 'Anthropic Cloud Proxy',
-    icon: 'fa-cloud',
+    icon: 'cloud',
     description: 'Forward chat completions to Anthropic via translate mode (OpenAI ↔ Messages); tool_use blocks and usage tokens survive the round-trip. PII redaction runs in flight.',
     fields: {
       'name': '',
@@ -123,7 +123,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'router',
     label: 'Routing Model',
-    icon: 'fa-route',
+    icon: 'route',
     description: 'Score-classifier router with three example policies and two candidates. Fill in the classifier_model (Arch-Router-1.5B recommended), the per-candidate downstream models, and the fallback. The L2 embedding cache is opt-in via the Routing section.',
     fields: {
       'name': 'smart-router',
@@ -145,7 +145,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'failover',
     label: 'Failover Chain',
-    icon: 'fa-shuffle',
+    icon: 'shuffle',
     description: 'Serve one model name from an ordered list of models. The first healthy one answers; the next takes over when it fails.',
     fields: {
       'name': '',
@@ -155,7 +155,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'alias',
     label: 'Alias / Routing',
-    icon: 'fa-arrow-right-arrow-left',
+    icon: 'swap',
     description: 'Point a model name at another configured model. Clients keep calling the alias; you swap the target anytime.',
     fields: {
       'name': '',
@@ -165,7 +165,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'mitm',
     label: 'MITM Intercept',
-    icon: 'fa-shield-halved',
+    icon: 'shield',
     description: 'Bind a hostname to this config for the cloudproxy MITM listener. PII filtering (the NER detectors listed here) is applied to intercepted request bodies for the host.',
     // The mitm- name prefix is a convention, not a contract — the
     // dispatcher looks up by host, not name. Prefixing keeps the
@@ -186,7 +186,7 @@ const MODEL_TEMPLATES = [
   {
     id: 'secret-filter',
     label: 'Secret Pattern Detector',
-    icon: 'fa-key',
+    icon: 'key',
     description: 'An in-process token_classify detector that flags high-entropy secrets (API keys, tokens) with bounded restricted-regex patterns — no backend, no GGUF, zero VRAM. Enable the built-in provider patterns below and/or add your own under PII Detection. Reference it from a model\'s pii.detectors, or toggle it on as a default detector on the Middleware page.',
     fields: {
       'name': 'secret-filter',

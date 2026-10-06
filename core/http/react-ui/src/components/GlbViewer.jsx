@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { parseGlb } from '../utils/glb'
+import Icon from './Icon'
 
 /* ── WebGL2 GLB viewer ──────────────────────────────────────────────────────
  * Ported from the trellis2cpp demo server's hand-rolled viewer
@@ -643,10 +644,10 @@ export default function GlbViewer({ blob }) {
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
         <button type="button" className={`btn btn-sm ${wire ? 'btn-primary' : 'btn-secondary'}`} onClick={toggleWire}>
-          <i className="fas fa-border-none" /> {t('threed.viewer.wireframe')}
+          <Icon name="square-dashed" /> {t('threed.viewer.wireframe')}
         </button>
         <button type="button" className={`btn btn-sm ${spin ? 'btn-primary' : 'btn-secondary'}`} onClick={toggleSpin}>
-          <i className="fas fa-rotate" /> {t('threed.viewer.autoRotate')}
+          <Icon name="refresh" /> {t('threed.viewer.autoRotate')}
         </button>
         {stats && (
           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85em' }} data-testid="glb-stats">

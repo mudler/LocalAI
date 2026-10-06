@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fileToBase64 } from '../utils/api'
+import Icon from './Icon'
 
 function AnimationInput({ input, value, onChange }) {
   const { t } = useTranslation('media')
@@ -84,7 +85,7 @@ export default function AnimationOptions({ operation, inputs, onInputsChange, pa
         ))}
       </div>
       <button type="button" className={`collapsible-header ${advanced ? 'open' : ''}`} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
-        <i className="fas fa-chevron-right" aria-hidden="true" /> {t('threed.labels.advanced')}
+        <Icon name="chevron-right" /> {t('threed.labels.advanced')}
       </button>
       {operation.output === 'skeleton_animation' && <p className="form-hint">{t('threed.animation.skeletonHint', 'Generates an animated skeleton, without a mesh or skin.')}</p>}
     </div>

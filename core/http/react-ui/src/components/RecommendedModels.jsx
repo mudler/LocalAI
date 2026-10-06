@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
+import Icon from './Icon'
 
 const CONTENT_ID = 'rec-models-content'
 
@@ -47,7 +48,7 @@ export default function RecommendedModels({ addToast }) {
     <section className="rec-models" data-testid="recommended-models">
       <div className="zero-pane__shelf-head">
         <h3 className="zero-pane__shelf-title">
-          <i className={`fas ${isGpu ? 'fa-microchip' : 'fa-memory'}`} aria-hidden="true" /> {t('recommended.title')}
+          <Icon name={isGpu ? 'cpu' : 'memory'} /> {t('recommended.title')}
         </h3>
         <span className="zero-pane__shelf-meta">
           {isGpu ? t('recommended.gpuNote') : t('recommended.cpuNote')}
@@ -76,8 +77,8 @@ export default function RecommendedModels({ addToast }) {
                 onClick={() => install(m.name)}
               >
                 {busy
-                  ? (<><i className="fas fa-spinner fa-spin" aria-hidden="true" /> {t('recommended.installing')}</>)
-                  : (<><i className="fas fa-download" aria-hidden="true" /> {t('recommended.install')}</>)}
+                  ? (<><Icon name="spinner" spin /> {t('recommended.installing')}</>)
+                  : (<><Icon name="download" /> {t('recommended.install')}</>)}
               </button>
             </li>
           )

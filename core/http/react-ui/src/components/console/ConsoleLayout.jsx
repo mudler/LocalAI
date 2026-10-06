@@ -7,6 +7,7 @@ import { preloadRoute } from '../../router'
 import RouteFallback from '../RouteFallback'
 import { isConsoleItemVisible } from './consoleConfig'
 import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
+import Icon from '../Icon'
 
 // The App wraps the outlet in key={pathname}, so this layout remounts on every
 // sub-navigation. Tracking the last-entered console id across mounts lets us
@@ -34,9 +35,9 @@ function RailItem({ item, label, collapsed }) {
   if (item.external) {
     return (
       <a className="nav-item" href={apiUrl(item.href)} target="_blank" rel="noopener noreferrer" aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined}>
-        <i className={`${item.icon} nav-icon`} />
+        <Icon name={item.icon} className="nav-icon" />
         <span className="nav-label">{label}</span>
-        <i className="fas fa-external-link-alt nav-external" />
+        <Icon name="external-link" className="nav-external" />
       </a>
     )
   }
@@ -49,7 +50,7 @@ function RailItem({ item, label, collapsed }) {
       aria-label={collapsed ? label : undefined}
       title={collapsed ? label : undefined}
     >
-      <i className={`${item.icon} nav-icon`} />
+      <Icon name={item.icon} className="nav-icon" />
       <span className="nav-label">{label}</span>
       {/* Ambient, and hidden from assistive tech: it changes under the reader
           and is never the only place a fact appears. The overview states the
@@ -98,7 +99,7 @@ function ConsoleLayoutInner({ config }) {
       <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}${railCollapsed ? ' console-rail--collapsed' : ''}`} aria-label={t(config.titleKey)}>
         <div className="console-rail-header">
           <span className="console-rail-header__title">
-            <i className={config.icon} aria-hidden="true" />
+            <Icon name={config.icon} aria-hidden="true" />
             <span>{t(config.titleKey)}</span>
           </span>
           <button
@@ -109,7 +110,7 @@ function ConsoleLayoutInner({ config }) {
             aria-label={t(railOpen ? 'console.collapseNavigation' : 'console.expandNavigation', { section: t(config.titleKey) })}
             onClick={() => setRailOpen(open => !open)}
           >
-            <i className={`fas fa-chevron-${railOpen ? 'up' : 'down'}`} aria-hidden="true" />
+            <Icon name={`chevron-${railOpen ? 'up' : 'down'}`} />
           </button>
           <button
             type="button"
@@ -119,7 +120,7 @@ function ConsoleLayoutInner({ config }) {
             title={t(railCollapsed ? 'console.expandNavigation' : 'console.collapseNavigation', { section: t(config.titleKey) })}
             onClick={toggleRailCollapsed}
           >
-            <i className={`fas fa-chevron-${railCollapsed ? 'right' : 'left'}`} aria-hidden="true" />
+            <Icon name={`chevron-${railCollapsed ? 'right' : 'left'}`} />
           </button>
         </div>
         <div id={`console-rail-groups-${config.id}`} className="console-rail-groups">

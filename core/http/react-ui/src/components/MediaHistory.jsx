@@ -1,13 +1,14 @@
 import { memo, useState } from 'react'
 import { relativeTime } from '../utils/format'
 import { useTranslation } from 'react-i18next'
+import Icon from './Icon'
 
 const ICONS = {
-  image: 'fa-image',
-  video: 'fa-video',
-  tts: 'fa-headphones',
-  sound: 'fa-music',
-  'audio-transform': 'fa-wave-square',
+  image: 'image',
+  video: 'video',
+  tts: 'headphones',
+  sound: 'music',
+  'audio-transform': 'waveform',
 }
 
 export default memo(function MediaHistory({ entries, selectedId, onSelect, onDelete, onClearAll, mediaType }) {
@@ -21,7 +22,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
         onClick={() => setExpanded(!expanded)}
         style={{ display: 'flex', alignItems: 'center' }}
       >
-        <i className="fas fa-chevron-right" />
+        <Icon name="chevron-right" />
         <span className="flex-1">{t('history.title')} ({entries.length})</span>
         {entries.length > 0 && (
           <button
@@ -29,7 +30,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
             title={t('history.clearTitle')}
             onClick={(e) => { e.stopPropagation(); onClearAll() }}
           >
-            <i className="fas fa-trash" />
+            <Icon name="trash" />
           </button>
         )}
       </div>
@@ -49,7 +50,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
                   {mediaType === 'image' && entry.results?.[0]?.url ? (
                     <img src={entry.results[0].url} alt="" />
                   ) : (
-                    <i className={`fas ${ICONS[mediaType] || 'fa-file'}`} />
+                    <Icon name={ICONS[mediaType] || 'file'} />
                   )}
                 </div>
                 <div className="media-history-item-info">
@@ -65,7 +66,7 @@ export default memo(function MediaHistory({ entries, selectedId, onSelect, onDel
                   onClick={(e) => { e.stopPropagation(); onDelete(entry.id) }}
                   data-testid="media-history-delete"
                 >
-                  <i className="fas fa-times" />
+                  <Icon name="close" />
                 </button>
               </div>
             ))

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
+import Icon from './Icon'
 
 // Offline CPU suggestions do not claim a measured GPU fit.
 const CPU_FALLBACK = [
@@ -50,7 +51,7 @@ export default function StarterModels({ addToast, onInstallStarted }) {
       <div className="home-starters-head">
         <strong>{t('starters.title')}</strong>
         <span className="home-starters-tier">
-          <i className={`fas ${tier.id === 'cpu' ? 'fa-memory' : 'fa-microchip'}`} aria-hidden="true" />
+          <Icon name={tier.id === 'cpu' ? 'memory' : 'cpu'} />
           {t(`starters.tier.${tier.id}`)}
         </span>
       </div>
@@ -72,8 +73,8 @@ export default function StarterModels({ addToast, onInstallStarted }) {
                 onClick={() => install(c.name)}
               >
                 {busy
-                  ? (<><i className="fas fa-spinner fa-spin" aria-hidden="true" /> {t('starters.installing')}</>)
-                  : (<><i className="fas fa-download" aria-hidden="true" /> {t('starters.install')}</>)}
+                  ? (<><Icon name="spinner" spin /> {t('starters.installing')}</>)
+                  : (<><Icon name="download" /> {t('starters.install')}</>)}
               </button>
             </li>
           )

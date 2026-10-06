@@ -3,6 +3,7 @@ import StatusPill from './StatusPill'
 import ModelChip from './ModelChip'
 import ActionMenu from '../ActionMenu'
 import { formatVRAM } from './nodeStatus'
+import Icon from '../Icon'
 
 export default function NodePanel({ node, models = [], onApprove, onDrain, onResume, onRemove }) {
   const navigate = useNavigate()
@@ -24,17 +25,17 @@ export default function NodePanel({ node, models = [], onApprove, onDrain, onRes
           <div className="node-panel__actions" onClick={(e) => e.stopPropagation()}>
             {node.status === 'pending' && (
               <button className="btn btn-primary btn-sm" onClick={() => onApprove(node.id)}>
-                <i className="fas fa-check" /> Approve
+                <Icon name="check" /> Approve
               </button>
             )}
             <ActionMenu
               ariaLabel={`Actions for ${node.name}`}
               triggerLabel={`Actions for ${node.name}`}
               items={[
-                { key: 'resume', icon: 'fa-play', label: 'Resume', hidden: node.status !== 'draining', onClick: () => onResume(node.id) },
-                { key: 'drain', icon: 'fa-pause', label: 'Drain', hidden: node.status === 'draining' || node.status === 'pending', onClick: () => onDrain(node.id) },
+                { key: 'resume', icon: 'play', label: 'Resume', hidden: node.status !== 'draining', onClick: () => onResume(node.id) },
+                { key: 'drain', icon: 'pause', label: 'Drain', hidden: node.status === 'draining' || node.status === 'pending', onClick: () => onDrain(node.id) },
                 { divider: true, hidden: node.status === 'pending' },
-                { key: 'remove', icon: 'fa-trash', label: 'Remove from cluster', danger: true, onClick: () => onRemove(node) },
+                { key: 'remove', icon: 'trash', label: 'Remove from cluster', danger: true, onClick: () => onRemove(node) },
               ]}
             />
           </div>

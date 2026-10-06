@@ -16,29 +16,29 @@
 export const buildConsole = {
   id: 'build',
   titleKey: 'sections.build',
-  icon: 'fas fa-screwdriver-wrench',
+  icon: 'wrench',
   groups: [
     {
       titleKey: 'console.automation',
       items: [
-        { path: '/app/agents', icon: 'fas fa-robot', labelKey: 'items.agents', feature: 'agents', requiresAgentPool: true },
-        { path: '/app/skills', icon: 'fas fa-wand-magic-sparkles', labelKey: 'items.skills', feature: 'skills', requiresAgentPool: true },
-        { path: '/app/collections', icon: 'fas fa-database', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true },
-        { path: '/app/agent-jobs', icon: 'fas fa-tasks', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true },
+        { path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents', requiresAgentPool: true },
+        { path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'skills', requiresAgentPool: true },
+        { path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true },
+        { path: '/app/agent-jobs', icon: 'checklist', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true },
       ],
     },
     {
       titleKey: 'console.training',
       items: [
-        { path: '/app/fine-tune', icon: 'fas fa-graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
-        { path: '/app/quantize', icon: 'fas fa-compress', labelKey: 'items.quantize', feature: 'quantization' },
+        { path: '/app/fine-tune', icon: 'graduation-cap', labelKey: 'items.fineTune', feature: 'fine_tuning' },
+        { path: '/app/quantize', icon: 'minimize', labelKey: 'items.quantize', feature: 'quantization' },
       ],
     },
     {
       titleKey: 'sections.recognition',
       items: [
-        { path: '/app/face', icon: 'fas fa-face-smile', labelKey: 'items.faces', feature: 'face_recognition' },
-        { path: '/app/voice', icon: 'fas fa-microphone-lines', labelKey: 'items.voices', feature: 'voice_recognition' },
+        { path: '/app/face', icon: 'smile', labelKey: 'items.faces', feature: 'face_recognition' },
+        { path: '/app/voice', icon: 'mic', labelKey: 'items.voices', feature: 'voice_recognition' },
       ],
     },
   ],
@@ -61,44 +61,44 @@ export const buildConsole = {
 export const operateConsole = {
   id: 'operate',
   titleKey: 'sections.operate',
-  icon: 'fas fa-sliders',
+  icon: 'sliders',
   groups: [
     {
       titleKey: 'operate.runtime',
       items: [
-        { path: '/app/operate', icon: 'fas fa-gauge-high', labelKey: 'items.overview', adminOnly: true, signal: 'attention' },
+        { path: '/app/operate', icon: 'gauge', labelKey: 'items.overview', adminOnly: true, signal: 'attention' },
         // The Nodes route under the name it has on a single-node install,
         // where it shows this host and what is loaded on it. With distributed
         // mode on, the Cluster group's Nodes entry takes over instead.
-        { path: '/app/nodes', icon: 'fas fa-desktop', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed', signal: 'running' },
-        { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true, signal: 'backends' },
-        { path: '/app/voice-library', icon: 'fas fa-wave-square', labelKey: 'items.voiceLibrary', adminOnly: true },
-        { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations', signal: 'activity' },
-        { path: '/app/failover', icon: 'fas fa-shuffle', labelKey: 'items.failover', adminOnly: true },
+        { path: '/app/nodes', icon: 'monitor', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed', signal: 'running' },
+        { path: '/app/backends', icon: 'server', labelKey: 'items.backends', adminOnly: true, signal: 'backends' },
+        { path: '/app/voice-library', icon: 'waveform', labelKey: 'items.voiceLibrary', adminOnly: true },
+        { path: '/app/activity', icon: 'download', labelKey: 'items.activity', adminOnly: true, badge: 'operations', signal: 'activity' },
+        { path: '/app/failover', icon: 'shuffle', labelKey: 'items.failover', adminOnly: true },
       ],
     },
     {
       titleKey: 'operate.cluster',
       items: [
-        { path: '/app/nodes', icon: 'fas fa-network-wired', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed', signal: 'nodes' },
-        { path: '/app/scheduling', icon: 'fas fa-calendar-alt', labelKey: 'items.scheduling', adminOnly: true, feature: 'distributed' },
-        { path: '/app/p2p', icon: 'fas fa-circle-nodes', labelKey: 'items.swarm', adminOnly: true },
+        { path: '/app/nodes', icon: 'network', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed', signal: 'nodes' },
+        { path: '/app/scheduling', icon: 'calendar', labelKey: 'items.scheduling', adminOnly: true, feature: 'distributed' },
+        { path: '/app/p2p', icon: 'nodes', labelKey: 'items.swarm', adminOnly: true },
       ],
     },
     {
       titleKey: 'operate.observability',
       items: [
-        { path: '/app/usage', icon: 'fas fa-chart-bar', labelKey: 'items.usage', adminOnly: true, signal: 'usage' },
-        { path: '/app/traces', icon: 'fas fa-chart-line', labelKey: 'items.traces', adminOnly: true, signal: 'traces' },
+        { path: '/app/usage', icon: 'chart-bar', labelKey: 'items.usage', adminOnly: true, signal: 'usage' },
+        { path: '/app/traces', icon: 'chart-line', labelKey: 'items.traces', adminOnly: true, signal: 'traces' },
       ],
     },
     {
       titleKey: 'operate.administration',
       items: [
-        { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
-        { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
-        { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
-        { href: '/swagger/index.html', icon: 'fas fa-code', labelKey: 'items.api', external: true, adminOnly: true },
+        { path: '/app/users', icon: 'users', labelKey: 'items.users', adminOnly: true, authOnly: true },
+        { path: '/app/middleware', icon: 'shield', labelKey: 'items.middleware', adminOnly: true },
+        { path: '/app/settings', icon: 'settings', labelKey: 'items.settings', adminOnly: true },
+        { href: '/swagger/index.html', icon: 'code', labelKey: 'items.api', external: true, adminOnly: true },
       ],
     },
   ],

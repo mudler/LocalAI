@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import Modal from './Modal'
 import SearchableSelect from './SearchableSelect'
 import { nodesApi, backendsApi } from '../utils/api'
+import Icon from './Icon'
 
 // NodeInstallPicker is the single multi-node install surface used both from
 // the Backends gallery split-button and from the "Install on more nodes" `+`
@@ -427,7 +428,7 @@ export default function NodeInstallPicker({
     <Modal onClose={onClose} maxWidth="780px">
       <div className="nip-bar nip-bar--head">
         <h2 className="hstack text-lg m-0">
-          <i className="fas fa-cog text-primary" />
+          <Icon name="settings" className="text-primary" />
           Install <span className="text-mono">{backend.name}</span>
           {backend.isMeta ? (
             <span className="badge badge-info text-xs">Auto-resolving</span>
@@ -446,7 +447,7 @@ export default function NodeInstallPicker({
       <div className="nip-body">
         {!backend.isMeta && (
           <div className="card nip-warn mb-md">
-            <i className="fas fa-microchip text-warning" />
+            <Icon name="cpu" className="text-warning" />
             <span className="text-warning text-sm">
               {targetLabel}. Install only on nodes where you want this build to run.
               {hardwareTarget && ` Targets: ${humanTargetLabel(hardwareTarget).replace(' build', '')}.`}
@@ -456,14 +457,14 @@ export default function NodeInstallPicker({
 
         {noNodes ? (
           <div className="empty-state">
-            <div className="empty-state-icon"><i className="fas fa-server" /></div>
+            <div className="empty-state-icon"><Icon name="server" /></div>
             <h3 className="empty-state-title">No backend nodes available</h3>
             <p className="empty-state-text">
               Approve pending workers or register new ones.
               {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}
             </p>
             <a className="btn btn-secondary btn-sm" href="/app/nodes">
-              <i className="fas fa-network-wired" /> Manage nodes
+              <Icon name="network" /> Manage nodes
             </a>
           </div>
         ) : (
@@ -471,7 +472,7 @@ export default function NodeInstallPicker({
             {/* Filter row */}
             <div className="hstack mb-sm">
               <div className="search-bar flex-1 min-w-180">
-                <i className="fas fa-search search-icon" />
+                <Icon name="search" className="search-icon" />
                 <input
                   ref={headerInputRef}
                   className="input"
@@ -502,7 +503,7 @@ export default function NodeInstallPicker({
                   onClick={() => setOverrideExpanded(v => !v)}
                   aria-expanded={overrideExpanded}
                 >
-                  <i className={`fas fa-chevron-${overrideExpanded ? 'down' : 'right'} icon-before text-xs`} />
+                  <Icon name={`chevron-${overrideExpanded ? 'down' : 'right'}`} className="icon-before text-xs" />
                   Override variant for selected nodes…
                 </button>
                 {overrideExpanded && (
@@ -604,11 +605,11 @@ export default function NodeInstallPicker({
                         <td>
                           {rowState?.status === 'installing' ? (
                             <span className="badge badge-info">
-                              <i className="fas fa-spinner fa-spin icon-before" />Installing
+                              <Icon name="spinner" spin className="icon-before" />Installing
                             </span>
                           ) : rowState?.status === 'done' ? (
                             <span className="badge badge-success">
-                              <i className="fas fa-check icon-before" />Installed
+                              <Icon name="check" className="icon-before" />Installed
                             </span>
                           ) : rowState?.status === 'error' ? (
                             <button
@@ -618,7 +619,7 @@ export default function NodeInstallPicker({
                               aria-describedby={`err-${node.id}`}
                               className="btn-help"
                             >
-                              <i className="fas fa-exclamation-triangle icon-before" />Failed
+                              <Icon name="warning" className="icon-before" />Failed
                               <span id={`err-${node.id}`} className="sr-offscreen">{rowState.error}</span>
                             </button>
                           ) : suit === 'installed' ? (
@@ -627,7 +628,7 @@ export default function NodeInstallPicker({
                             </span>
                           ) : suit === 'override' ? (
                             <span className="badge badge-warning">
-                              <i className="fas fa-exclamation-circle icon-before" />Override
+                              <Icon name="alert-circle" className="icon-before" />Override
                             </span>
                           ) : (
                             <span className="badge badge-success badge-success--soft">
@@ -695,7 +696,7 @@ export default function NodeInstallPicker({
           </div>
           {errorCount > 0 && !submitting && (
             <button className="btn btn-secondary btn-sm" type="button" onClick={retryFailed}>
-              <i className="fas fa-redo" /> Retry failed nodes
+              <Icon name="refresh" /> Retry failed nodes
             </button>
           )}
           <button className="btn btn-secondary btn-sm" type="button" onClick={onClose} disabled={submitting}>
@@ -708,7 +709,7 @@ export default function NodeInstallPicker({
             disabled={submitting || counts.selected === 0 || showMismatchConfirm}
           >
             {submitting ? (
-              <><i className="fas fa-spinner fa-spin" /> Installing…</>
+              <><Icon name="spinner" spin /> Installing…</>
             ) : (
               <>Install on {counts.selected} {counts.selected === 1 ? 'node' : 'nodes'}</>
             )}
