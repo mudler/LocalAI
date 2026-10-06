@@ -244,19 +244,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
-  min-height: 64px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: 72px;
 }
 
 .sidebar-logo-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  /* Line the mark up with the nav icons: row margin plus row padding. */
+  padding-left: var(--spacing-sm);
+  border-radius: var(--radius-md);
 }
 
 .sidebar-logo-img {
-  width: 100%;
-  max-width: 120px;
+  display: block;
+  width: 136px;
+  max-width: 100%;
   height: auto;
-  padding: 0 var(--spacing-xs);
+  max-height: 64px;
+  object-fit: contain;
 }
 
 .sidebar-logo-icon {
@@ -264,8 +271,10 @@
 }
 
 .sidebar-logo-icon-img {
-  width: 28px;
-  height: 28px;
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
 .sidebar-close-btn {
@@ -419,6 +428,18 @@
   box-shadow: var(--shadow-sm);
 }
 .sidebar-nav .nav-item.active .nav-icon { color: var(--dk-accent-text); }
+/* A dot on the current row, as the kit shows it. It is decoration: the row
+   already carries aria-current from the router link. */
+.sidebar-nav .nav-item.active::after {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--spacing-xs);
+  border-radius: var(--radius-full);
+  background: var(--dk-accent);
+}
+.sidebar.collapsed .sidebar-nav .nav-item.active::after { display: none; }
 /* Align tier labels with the inset item text (item margin + icon padding). */
 .sidebar-nav .sidebar-section-title {
   padding-left: calc(var(--spacing-sm) + var(--spacing-sm));
@@ -587,6 +608,8 @@
   justify-content: center;
   padding: 8px 0;
   border-left-width: 2px;
+  /* A 40px square tile centred in the rail. */
+  margin-inline: calc((var(--sidebar-width-collapsed) - var(--control-h)) / 2);
 }
 
 .sidebar.collapsed .nav-icon {
@@ -5986,8 +6009,10 @@ button.collapsible-header:focus-visible {
     justify-content: center;
     padding: 8px 0;
     border-left-width: 2px;
+    margin-inline: calc((var(--sidebar-width-collapsed) - var(--control-h)) / 2);
   }
   .sidebar:not(.open) .nav-icon { width: auto; font-size: 1rem; }
+  .sidebar:not(.open) .sidebar-nav .nav-item.active::after { display: none; }
   .sidebar:not(.open) .sidebar-footer {
     justify-content: center;
     flex-direction: column;
@@ -6059,9 +6084,11 @@ button.collapsible-header:focus-visible {
   .sidebar.collapsed .sidebar-section-title { display: unset; }
   .sidebar.collapsed .sidebar-logo-link { display: block; }
   .sidebar.collapsed .sidebar-logo-icon { display: none; }
+  .sidebar.collapsed .sidebar-nav .nav-item.active::after { display: block; }
   .sidebar.collapsed .nav-item {
     justify-content: flex-start;
     padding: 10px var(--spacing-md);
+    margin-inline: var(--spacing-sm);
     border-left-width: 3px;
   }
   .sidebar.collapsed .nav-icon {

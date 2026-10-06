@@ -22,6 +22,34 @@ test.describe('Editorial design system', () => {
     expect(bg).not.toBe('transparent')
   })
 
+  test('the current sidebar row carries an accent dot, other rows do not', async ({ page }) => {
+    await page.goto('/app/settings')
+    await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+    const dot = (loc) => loc.evaluate((el) => {
+      const cs = getComputedStyle(el, '::after')
+      return { content: cs.content, width: cs.width, radius: cs.borderTopLeftRadius, bg: cs.backgroundColor }
+    })
+    const active = await dot(page.locator('.sidebar-nav .nav-item.active').first())
+    expect(active.content).not.toBe('none')
+    expect(active.width).toBe('6px')
+    expect(active.bg).not.toBe('rgba(0, 0, 0, 0)')
+    const idle = await dot(page.locator('.sidebar-nav .nav-item:not(.active)').first())
+    expect(idle.content).toBe('none')
+  })
+
+  test('the collapsed sidebar shows the icon mark and hides the dot', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('localai_sidebar_collapsed', 'true'))
+    await page.goto('/app')
+    const sidebar = page.locator('.sidebar.collapsed')
+    await expect(sidebar).toBeVisible({ timeout: 15_000 })
+    expect((await sidebar.boundingBox()).width).toBe(64)
+    await expect(page.locator('.sidebar-logo-icon-img')).toBeVisible()
+    await expect(page.locator('.sidebar-logo-img')).toBeHidden()
+    const display = await page.locator('.sidebar-nav .nav-item.active').first()
+      .evaluate((el) => getComputedStyle(el, '::after').display)
+    expect(display).toBe('none')
+  })
+
   test('page reveal animation is defined on .page-transition', async ({ page }) => {
     await page.goto('/app/settings')
     const pt = page.locator('.page-transition').first()
