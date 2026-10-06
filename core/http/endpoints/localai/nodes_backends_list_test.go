@@ -21,7 +21,9 @@ type stubNodeCommandSender struct {
 	listBackendsCalled bool
 }
 
-func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+var _ nodes.NodeCommandSender = (*stubNodeCommandSender)(nil)
+
+func (s *stubNodeCommandSender) InstallBackend(_, _, _, _, _, _, _ string, _ int, _ string, _ func(workerctl.BackendInstallProgressEvent), _ ...string) (*workerctl.BackendInstallReply, error) {
 	return &workerctl.BackendInstallReply{}, nil
 }
 
