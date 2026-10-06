@@ -1,4 +1,88 @@
 ---
+- name: simplicio-27b-q4
+  variants:
+    - model: simplicio-27b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/wesleysimplicio/Simplicio-27B
+    - https://huggingface.co/mradermacher/Simplicio-27B-GGUF
+  description: |
+    Simplicio-27B is a Qwen3.8-27B fine-tune for code editing and software engineering.
+    This Q4_K_M GGUF build uses llama.cpp and includes the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Simplicio-27B/Simplicio-27B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Simplicio-27B-Q4_K_M/Simplicio-27B.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Simplicio-27B-Q4_K_M/Simplicio-27B.Q4_K_M.gguf
+      sha256: a13382b622b101a8e28df747d1fba476b563121251cbe8e569818c122e9f4600
+      uri: https://huggingface.co/mradermacher/Simplicio-27B-GGUF/resolve/e4269a7c2c770a15ef32a042bc0861642817f7ea/Simplicio-27B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Simplicio-27B/Simplicio-27B.mmproj-f16.gguf
+      sha256: 748cc53ee11b19221eb0cbb6c7fcb484199bc35eead8ed942280a81ae3840426
+      uri: https://huggingface.co/mradermacher/Simplicio-27B-GGUF/resolve/e4269a7c2c770a15ef32a042bc0861642817f7ea/Simplicio-27B.mmproj-f16.gguf
+- name: simplicio-27b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/wesleysimplicio/Simplicio-27B
+    - https://huggingface.co/mradermacher/Simplicio-27B-GGUF
+  description: |
+    Simplicio-27B is a Qwen3.8-27B fine-tune for code editing and software engineering.
+    This Q8_0 GGUF build uses llama.cpp and includes the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Simplicio-27B/Simplicio-27B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Simplicio-27B-Q8_0/Simplicio-27B.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Simplicio-27B-Q8_0/Simplicio-27B.Q8_0.gguf
+      sha256: 6f31929fa06110a61f3baf802efc4335ea7f4581ed2dc1bc562275bd5c45a454
+      uri: https://huggingface.co/mradermacher/Simplicio-27B-GGUF/resolve/e4269a7c2c770a15ef32a042bc0861642817f7ea/Simplicio-27B.Q8_0.gguf
+    - filename: llama-cpp/mmproj/Simplicio-27B/Simplicio-27B.mmproj-f16.gguf
+      sha256: 748cc53ee11b19221eb0cbb6c7fcb484199bc35eead8ed942280a81ae3840426
+      uri: https://huggingface.co/mradermacher/Simplicio-27B-GGUF/resolve/e4269a7c2c770a15ef32a042bc0861642817f7ea/Simplicio-27B.mmproj-f16.gguf
 - name: spark-s1-4b-v6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

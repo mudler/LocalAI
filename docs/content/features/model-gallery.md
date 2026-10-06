@@ -158,6 +158,27 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## Simplicio-27B
+
+[Simplicio-27B](https://huggingface.co/wesleysimplicio/Simplicio-27B) is a Qwen3.8-27B fine-tune for code editing and software engineering.
+The gallery provides Q4_K_M and Q8_0 GGUF builds for llama.cpp, each with the F16 vision projector.
+Both use the embedded chat template and a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install simplicio-27b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install simplicio-27b-q4 --variant simplicio-27b-q8
+```
+
+The files are pinned to a fixed Hugging Face revision and verified with SHA256 checksums.
+The publisher's benchmark claims do not validate these community quantizations.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
