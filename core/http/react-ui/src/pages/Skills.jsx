@@ -7,6 +7,7 @@ import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Icon from '../components/Icon'
 
 export default function Skills() {
   const { addToast } = useOutletContext()
@@ -211,7 +212,7 @@ export default function Skills() {
         <PageHeader title={t('title')} supporting={t('unavailable.subtitle')} />
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
           <button className="btn btn-primary" onClick={() => { setUnavailable(false); fetchSkills() }}>
-            <i className="fas fa-redo" /> {t('unavailable.retry')}
+            <Icon name="refresh" /> {t('unavailable.retry')}
           </button>
         </div>
       </div>
@@ -324,10 +325,10 @@ export default function Skills() {
               style={{ width: '200px' }}
             />
             <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
-              <i className="fas fa-plus" /> {t('actions.newSkill')}
+              <Icon name="plus" /> {t('actions.newSkill')}
             </button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-              <i className="fas fa-file-import" /> {importing ? t('actions.importing') : t('actions.import')}
+              <Icon name="import" /> {importing ? t('actions.importing') : t('actions.import')}
               <input
                 type="file"
                 accept=".tar.gz"
@@ -340,7 +341,7 @@ export default function Skills() {
               className={`btn ${showGitRepos ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setShowGitRepos((v) => !v)}
             >
-              <i className="fas fa-code-branch" /> {t('actions.gitRepos')}
+              <Icon name="git-branch" /> {t('actions.gitRepos')}
             </button>
           </div>
         }
@@ -349,7 +350,7 @@ export default function Skills() {
       {showGitRepos && (
         <div className="skills-git-section">
           <h2 className="skills-git-title">
-            <i className="fas fa-code-branch" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} /> {t('git.title')}
+            <Icon name="git-branch" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} /> {t('git.title')}
           </h2>
           <p className="skills-git-desc">
             {t('git.description')}
@@ -363,12 +364,12 @@ export default function Skills() {
               onChange={(e) => setGitRepoUrl(e.target.value)}
             />
             <button type="submit" className="btn btn-primary" disabled={gitReposAction === 'add'}>
-              {gitReposAction === 'add' ? <><i className="fas fa-spinner fa-spin" /> {t('actions.adding')}</> : t('actions.addRepo')}
+              {gitReposAction === 'add' ? <><Icon name="spinner" spin /> {t('actions.adding')}</> : t('actions.addRepo')}
             </button>
           </form>
           {gitReposLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-md)' }}>
-              <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)' }} />
+              <Icon name="spinner" spin style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)' }} />
             </div>
           ) : gitRepos.length === 0 ? (
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>{t('git.noRepos')}</p>
@@ -388,21 +389,21 @@ export default function Skills() {
                       disabled={gitReposAction === r.id}
                       title={t('actions.sync')}
                     >
-                      {gitReposAction === r.id ? <i className="fas fa-spinner fa-spin" /> : <><i className="fas fa-sync-alt" /> {t('actions.sync')}</>}
+                      {gitReposAction === r.id ? <Icon name="spinner" spin /> : <><Icon name="refresh" /> {t('actions.sync')}</>}
                     </button>
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => toggleGitRepo(r.id)}
                       title={r.enabled ? t('actions.disable') : t('actions.enable')}
                     >
-                      <i className={`fas fa-toggle-${r.enabled ? 'on' : 'off'}`} />
+                      <Icon name={`toggle-${r.enabled ? 'on' : 'off'}`} />
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => deleteGitRepo(r.id)}
                       title={t('git.removeRepo')}
                     >
-                      <i className="fas fa-trash" />
+                      <Icon name="trash" />
                     </button>
                   </div>
                 </div>
@@ -414,19 +415,19 @@ export default function Skills() {
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+          <Icon name="spinner" spin style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
         </div>
       ) : skills.length === 0 && !userGroups ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-book" /></div>
+          <div className="empty-state-icon"><Icon name="book" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">{t('empty.text')}</p>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center' }}>
             <button className="btn btn-primary" onClick={() => navigate('/app/skills/new')}>
-              <i className="fas fa-plus" /> {t('actions.createSkill')}
+              <Icon name="plus" /> {t('actions.createSkill')}
             </button>
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-              <i className="fas fa-file-import" /> {t('actions.import')}
+              <Icon name="import" /> {t('actions.import')}
               <input
                 type="file"
                 accept=".tar.gz"
@@ -460,7 +461,7 @@ export default function Skills() {
                     onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}`)}
                     title={t('card.editTitle')}
                   >
-                    <i className="fas fa-edit" /> {t('actions.edit')}
+                    <Icon name="edit" /> {t('actions.edit')}
                   </button>
                 )}
                 {!s.readOnly && (
@@ -469,7 +470,7 @@ export default function Skills() {
                     onClick={() => deleteSkill(s.name)}
                     title={t('card.deleteTitle')}
                   >
-                    <i className="fas fa-trash" /> {t('actions.delete')}
+                    <Icon name="trash" /> {t('actions.delete')}
                   </button>
                 )}
                 <button
@@ -477,7 +478,7 @@ export default function Skills() {
                   onClick={() => exportSkill(s.name)}
                   title={t('card.exportTitle')}
                 >
-                  <i className="fas fa-download" /> {t('actions.export')}
+                  <Icon name="download" /> {t('actions.export')}
                 </button>
               </div>
             </div>
@@ -520,7 +521,7 @@ export default function Skills() {
                         onClick={() => navigate(`/app/skills/edit/${encodeURIComponent(s.name)}?user_id=${encodeURIComponent(userId)}`)}
                         title={t('card.editTitle')}
                       >
-                        <i className="fas fa-edit" /> {t('actions.edit')}
+                        <Icon name="edit" /> {t('actions.edit')}
                       </button>
                     )}
                     {!s.readOnly && (
@@ -529,7 +530,7 @@ export default function Skills() {
                         onClick={() => deleteSkill(s.name, userId)}
                         title={t('card.deleteTitle')}
                       >
-                        <i className="fas fa-trash" /> {t('actions.delete')}
+                        <Icon name="trash" /> {t('actions.delete')}
                       </button>
                     )}
                     <button
@@ -537,7 +538,7 @@ export default function Skills() {
                       onClick={() => exportSkill(s.name, userId)}
                       title={t('card.exportTitle')}
                     >
-                      <i className="fas fa-download" /> {t('actions.export')}
+                      <Icon name="download" /> {t('actions.export')}
                     </button>
                   </div>
                 </div>

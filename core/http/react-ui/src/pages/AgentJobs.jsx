@@ -11,6 +11,7 @@ import { fileToBase64 } from '../utils/api'
 import Modal from '../components/Modal'
 import UserGroupSection from '../components/UserGroupSection'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Icon from '../components/Icon'
 
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
@@ -219,17 +220,17 @@ export default function AgentJobs() {
       <div className="page page--wide">
         <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-exclamation-triangle" style={{ fontSize: '3rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
+          <Icon name="warning" style={{ fontSize: '3rem', color: 'var(--color-warning)', marginBottom: 'var(--spacing-md)' }} />
           <h2 className="mb-sm">No Models Installed</h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', maxWidth: 500, margin: '0 auto var(--spacing-md)' }}>
             Agent Jobs require at least one model with MCP (Model Context Protocol) support. Install a model first, then configure MCP in the model settings.
           </p>
           <div className="hstack hstack--center">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-              <i className="fas fa-store" /> Browse Models
+              <Icon name="store" /> Browse Models
             </button>
             <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> Documentation
+              <Icon name="book" /> Documentation
             </a>
           </div>
         </div>
@@ -243,7 +244,7 @@ export default function AgentJobs() {
       <div className="page page--wide">
         <PageHeader title="Agent Jobs" supporting="Manage agent tasks and automated workflows" />
         <div className="card" style={{ textAlign: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-plug" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
+          <Icon name="plug" style={{ fontSize: '3rem', color: 'var(--color-primary)', marginBottom: 'var(--spacing-md)' }} />
           <h2 className="mb-sm">MCP Not Configured</h2>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-md)', maxWidth: 600, margin: '0 auto var(--spacing-md)' }}>
             You have models installed, but none have MCP (Model Context Protocol) enabled. Agent Jobs require MCP to interact with tools and external services. Edit a model configuration to add MCP servers.
@@ -258,10 +259,10 @@ export default function AgentJobs() {
           </div>
           <div className="hstack hstack--center">
             <button className="btn btn-primary" onClick={() => navigate('/app/models?view=installed')}>
-              <i className="fas fa-cog" /> Manage Models
+              <Icon name="settings" /> Manage Models
             </button>
             <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> Documentation
+              <Icon name="book" /> Documentation
             </a>
           </div>
         </div>
@@ -276,17 +277,17 @@ export default function AgentJobs() {
         supporting="Manage agent tasks and automated workflows"
         actions={
           <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
-            <i className="fas fa-plus" aria-hidden="true" /> New Task
+            <Icon name="plus" /> New Task
           </button>
         }
       />
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'tasks' ? 'tab-active' : ''}`} onClick={() => setActiveTab('tasks')}>
-          <i className="fas fa-list-check" /> Tasks ({tasks.length})
+          <Icon name="checklist" /> Tasks ({tasks.length})
         </button>
         <button className={`tab ${activeTab === 'jobs' ? 'tab-active' : ''}`} onClick={() => setActiveTab('jobs')}>
-          <i className="fas fa-clock-rotate-left" /> Job History ({jobs.length})
+          <Icon name="history" /> Job History ({jobs.length})
         </button>
       </div>
 
@@ -295,11 +296,11 @@ export default function AgentJobs() {
       ) : activeTab === 'tasks' ? (
         tasks.length === 0 && !taskUserGroups ? (
           <div className="empty-state">
-            <div className="empty-state-icon"><i className="fas fa-robot" /></div>
+            <div className="empty-state-icon"><Icon name="robot" /></div>
             <h2 className="empty-state-title">No tasks defined</h2>
             <p className="empty-state-text">Create a task to get started with agent workflows.</p>
             <button className="btn btn-primary" onClick={() => navigate('/app/agent-jobs/tasks/new')}>
-              <i className="fas fa-plus" /> Create Task
+              <Icon name="plus" /> Create Task
             </button>
           </div>
         ) : (
@@ -357,13 +358,13 @@ export default function AgentJobs() {
                       <td>
                         <div className="hstack hstack--xs hstack--end">
                           <button className="btn btn-primary btn-sm" onClick={() => openExecuteModal(task)} title="Execute">
-                            <i className="fas fa-play" />
+                            <Icon name="play" />
                           </button>
                           <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${task.id || task.name}/edit`)} title="Edit">
-                            <i className="fas fa-edit" />
+                            <Icon name="edit" />
                           </button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTask(task.id || task.name)} title="Delete">
-                            <i className="fas fa-trash" />
+                            <Icon name="trash" />
                           </button>
                         </div>
                       </td>
@@ -396,14 +397,14 @@ export default function AgentJobs() {
             </div>
             {jobs.length > 0 && (
               <button className="btn btn-secondary btn-sm" onClick={handleClearHistory}>
-                <i className="fas fa-broom" /> Clear History
+                <Icon name="broom" /> Clear History
               </button>
             )}
           </div>
 
           {filteredJobs.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-list-check" /></div>
+              <div className="empty-state-icon"><Icon name="checklist" /></div>
               <h2 className="empty-state-title">No jobs {jobFilter !== 'all' ? `with status "${jobFilter}"` : ''}</h2>
               <p className="empty-state-text">Execute a task to create a job.</p>
             </div>
@@ -435,11 +436,11 @@ export default function AgentJobs() {
                       <td>
                         <div className="hstack hstack--xs hstack--end">
                           <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)} title="View">
-                            <i className="fas fa-eye" />
+                            <Icon name="eye" />
                           </button>
                           {(job.status === 'running' || job.status === 'pending') && (
                             <button className="btn btn-danger btn-sm" onClick={() => handleCancelJob(job.id)} title="Cancel">
-                              <i className="fas fa-stop" />
+                              <Icon name="stop" />
                             </button>
                           )}
                         </div>
@@ -536,21 +537,21 @@ export default function AgentJobs() {
           <div className="pad-md">
             <div className="hstack hstack--between mb-md">
               <h3 className="fw-semibold">
-                <i className="fas fa-play text-primary icon-before" />
+                <Icon name="play" className="text-primary icon-before" />
                 Execute: {executeModal.name}
               </h3>
               <button className="btn btn-secondary btn-sm" onClick={() => setExecuteModal(null)}>
-                <i className="fas fa-xmark" />
+                <Icon name="close" />
               </button>
             </div>
 
             {/* Tabs */}
             <div className="tabs mb-md">
               <button className={`tab ${executeTab === 'parameters' ? 'tab-active' : ''}`} onClick={() => setExecuteTab('parameters')}>
-                <i className="fas fa-sliders-h" /> Parameters
+                <Icon name="sliders" /> Parameters
               </button>
               <button className={`tab ${executeTab === 'multimedia' ? 'tab-active' : ''}`} onClick={() => setExecuteTab('multimedia')}>
-                <i className="fas fa-photo-film" /> Multimedia
+                <Icon name="images" /> Multimedia
               </button>
             </div>
 
@@ -574,11 +575,11 @@ export default function AgentJobs() {
                   <div key={type} className="mb-md">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-xs)' }}>
                       <label className="form-label" style={{ marginBottom: 0, textTransform: 'capitalize' }}>
-                        <i className={`fas ${type === 'images' ? 'fa-image' : type === 'videos' ? 'fa-video' : type === 'audios' ? 'fa-headphones' : 'fa-file'} icon-before`} />
+                        <Icon name={type === 'images' ? 'image' : type === 'videos' ? 'video' : type === 'audios' ? 'headphones' : 'file'} className="icon-before" />
                         {type} ({executeMultimedia[type].length})
                       </label>
                       <button className="btn btn-secondary btn-sm" onClick={() => { fileTypeRef.current = type; fileInputRef.current?.click() }}>
-                        <i className="fas fa-plus" /> Add
+                        <Icon name="plus" /> Add
                       </button>
                     </div>
                     {executeMultimedia[type].length > 0 && (
@@ -590,7 +591,7 @@ export default function AgentJobs() {
                           }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || item.url?.slice(0, 40)}</span>
                             <button onClick={() => removeMultimedia(type, i)} style={{ background: 'none', border: 'none', color: 'var(--color-error)', cursor: 'pointer', padding: '2px 4px' }}>
-                              <i className="fas fa-xmark" />
+                              <Icon name="close" />
                             </button>
                           </div>
                         ))}
@@ -605,7 +606,7 @@ export default function AgentJobs() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
               <button className="btn btn-secondary" onClick={() => setExecuteModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleExecute} disabled={executing}>
-                {executing ? <><i className="fas fa-spinner fa-spin" /> Running...</> : <><i className="fas fa-play" /> Execute</>}
+                {executing ? <><Icon name="spinner" spin /> Running...</> : <><Icon name="play" /> Execute</>}
               </button>
             </div>
           </div>

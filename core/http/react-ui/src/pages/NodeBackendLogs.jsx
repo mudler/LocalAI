@@ -5,6 +5,7 @@ import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -158,7 +159,7 @@ export default function NodeBackendLogs() {
     return (
       <div className="page page--wide">
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
+          <div className="empty-state-icon"><Icon name="terminal" /></div>
           <h2 className="empty-state-title">No node/model selected</h2>
           <p className="empty-state-text">
             View backend logs from the{' '}
@@ -179,7 +180,7 @@ export default function NodeBackendLogs() {
       <PageHeader
         title={
           <>
-            <i className="fas fa-terminal cell-mono" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
+            <Icon name="terminal" className="cell-mono" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
             {baseModelName}
             {!isMerged && (
               <span
@@ -247,7 +248,7 @@ export default function NodeBackendLogs() {
             onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName)}`)}
             title="Show an interleaved timeline of all replicas — useful for comparing replica behavior side-by-side"
           >
-            <i className="fas fa-layer-group" aria-hidden="true" /> All merged
+            <Icon name="layers" /> All merged
           </button>
         </div>
       )}
@@ -266,14 +267,14 @@ export default function NodeBackendLogs() {
           ))}
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-          <i className="fas fa-download" /> Export
+          <Icon name="download" /> Export
         </button>
         <button
           className={`btn btn-sm ${showDetails ? 'btn-secondary' : 'btn-primary'}`}
           onClick={() => setShowDetails(prev => !prev)}
           title={showDetails ? 'Hide timestamps and stream labels for easier copying' : 'Show timestamps and stream labels'}
         >
-          <i className={`fas ${showDetails ? 'fa-eye-slash' : 'fa-eye'}`} /> {showDetails ? 'Text only' : 'Show details'}
+          <Icon name={showDetails ? 'eye-off' : 'eye'} /> {showDetails ? 'Text only' : 'Show details'}
         </button>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.8125rem' }}>
           <span style={{
@@ -303,7 +304,7 @@ export default function NodeBackendLogs() {
         </div>
       ) : filteredLines.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
+          <div className="empty-state-icon"><Icon name="terminal" /></div>
           <h2 className="empty-state-title">No log lines</h2>
           <p className="empty-state-text">
             {filter !== 'all'

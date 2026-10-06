@@ -8,6 +8,7 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import KeyValueChips from '../components/nodes/KeyValueChips'
 import { labelIndex } from '../utils/nodeLabelSuggestions'
+import Icon from '../components/Icon'
 
 // Numeric input with quick-pick preset chips. Picked over a slider because
 // replica counts are exact specs (operator math), not fuzzy estimates. The
@@ -121,21 +122,21 @@ function SchedulingForm({ initialConfig, onSave, onCancel, labels, aliases }) {
           className={`segmented__item${mode === 'placement' ? ' is-active' : ''}`}
           onClick={() => setMode('placement')}
         >
-          <i className="fas fa-thumbtack" aria-hidden="true" /> Pin to nodes
+          <Icon name="pin" /> Pin to nodes
         </button>
         <button
           type="button" role="radio" aria-checked={mode === 'autoscaling'}
           className={`segmented__item${mode === 'autoscaling' ? ' is-active' : ''}`}
           onClick={() => setMode('autoscaling')}
         >
-          <i className="fas fa-arrows-up-down" aria-hidden="true" /> Auto-scale
+          <Icon name="sort" /> Auto-scale
         </button>
         <button
           type="button" role="radio" aria-checked={mode === 'spread'}
           className={`segmented__item${mode === 'spread' ? ' is-active' : ''}`}
           onClick={() => setMode('spread')}
         >
-          <i className="fas fa-network-wired" aria-hidden="true" /> Spread to all
+          <Icon name="network" /> Spread to all
         </button>
       </div>
       <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 var(--spacing-lg) 0' }}>
@@ -173,7 +174,7 @@ function SchedulingForm({ initialConfig, onSave, onCancel, labels, aliases }) {
               the alias carries the rule along) is not visible anywhere else. */}
           {aliasTarget && (
             <span className="text-meta d-block mt-xs">
-              <i className="fas fa-link icon-before" aria-hidden="true" />
+              <Icon name="link" className="icon-before" />
               {modelName} is an alias for {aliasTarget}. This rule applies to whichever model the alias points at, and follows it if you repoint it.
             </span>
           )}
@@ -370,13 +371,13 @@ export default function Scheduling() {
   return (
     <div className="page page--wide">
       <PageHeader
-        title={<><i className="fas fa-calendar-alt" style={{ marginRight: 'var(--spacing-sm)' }} />{t('scheduling.title')}</>}
+        title={<><Icon name="calendar" style={{ marginRight: 'var(--spacing-sm)' }} />{t('scheduling.title')}</>}
         supporting={t('scheduling.subtitle')}
       />
       <div>
         <button className="btn btn-primary btn-sm mb-md"
           onClick={() => setFormState(current => current?.kind === 'add' ? null : { kind: 'add' })}>
-          <i className="fas fa-plus icon-before" />
+          <Icon name="plus" className="icon-before" />
           Add Scheduling Rule
         </button>
         {formState && (
@@ -428,7 +429,7 @@ export default function Scheduling() {
                       {cfg.model_name}
                       {governs && (
                         <div className="text-meta scheduling-rule-target">
-                          <i className="fas fa-arrow-right icon-before" aria-hidden="true" />
+                          <Icon name="arrow-right" className="icon-before" />
                           {governs}
                         </div>
                       )}
@@ -489,7 +490,7 @@ export default function Scheduling() {
                           className="scheduling-rule-shadowed"
                           title="Another rule already governs the same model, so this one has no effect. Placement decides where a single shared load runs, so only one rule per model can apply."
                         >
-                          <i className="fas fa-eye-slash icon-before" />
+                          <Icon name="eye-off" className="icon-before" />
                           Shadowed
                         </span>
                       ) : isUnsatisfiable ? (
@@ -503,7 +504,7 @@ export default function Scheduling() {
                             color: 'var(--color-warning, #d97706)',
                           }}
                         >
-                          <i className="fas fa-exclamation-triangle icon-before" />
+                          <Icon name="warning" className="icon-before" />
                           Unsatisfiable until {unsatisfiableUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       ) : (
@@ -513,10 +514,10 @@ export default function Scheduling() {
                     <td className="text-right">
                       <div className="scheduling-rule-actions">
                         <button className="btn btn-secondary btn-sm" aria-label={`Edit ${cfg.model_name}`} onClick={() => setFormState({ kind: 'edit', config: cfg })}>
-                          <i className="fas fa-edit" aria-hidden="true" />
+                          <Icon name="edit" />
                         </button>
                         <button className="btn btn-danger btn-sm" aria-label={`Delete ${cfg.model_name}`} onClick={() => setConfirmDelete(cfg.model_name)}>
-                          <i className="fas fa-trash" aria-hidden="true" />
+                          <Icon name="trash" />
                         </button>
                       </div>
                     </td>

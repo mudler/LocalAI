@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState'
 import Toggle from '../components/Toggle'
 import ResponsiveTable from '../components/ResponsiveTable'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
+import Icon from '../components/Icon'
 
 const TRAINING_METHODS = ['sft', 'dpo', 'grpo', 'rloo', 'reward', 'kto', 'orpo']
 const TRAINING_TYPES = ['lora', 'loha', 'lokr', 'full']
@@ -46,7 +47,7 @@ function FormSection({ icon, title, children }) {
   return (
     <section className="form-group">
       <h4 className="form-group__title">
-        <i className={icon} />
+        <Icon name={icon} />
         {title}
       </h4>
       <div className="form-group__body">{children}</div>
@@ -80,12 +81,12 @@ function KeyValueEditor({ entries, onChange }) {
             aria-label={`Extra option ${i + 1} value`}
           />
           <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEntry(i)} aria-label={`Remove extra option ${i + 1}`}>
-            <i className="fas fa-times" />
+            <Icon name="close" />
           </button>
         </div>
       ))}
       <button type="button" className="btn btn-sm" onClick={addEntry}>
-        <i className="fas fa-plus" /> Add option
+        <Icon name="plus" /> Add option
       </button>
     </div>
   )
@@ -102,7 +103,7 @@ function CopyButton({ text }) {
   }
   return (
     <button className="btn btn-sm btn-ghost" onClick={handleCopy} title="Copy to clipboard" aria-label="Copy to clipboard">
-      <i className={`fas fa-${copied ? 'check' : 'copy'}`} />
+      <Icon name={copied ? 'check' : 'copy'} />
     </button>
   )
 }
@@ -121,7 +122,7 @@ function JobCard({ job, onSelect, onUseConfig, onDelete }) {
             onClick={(e) => { e.stopPropagation(); onUseConfig(job) }}
             title="Use this job's configuration for a new job"
           >
-            <i className="fas fa-copy" /> Reuse
+            <Icon name="copy" /> Reuse
           </button>
           {TERMINAL_STATUSES.includes(job.status) && (
             <button
@@ -130,7 +131,7 @@ function JobCard({ job, onSelect, onUseConfig, onDelete }) {
               title="Delete this job and its data"
               aria-label="Delete job"
             >
-              <i className="fas fa-trash" />
+              <Icon name="trash" />
             </button>
           )}
           <StatusBadge status={job.status} />
@@ -141,14 +142,14 @@ function JobCard({ job, onSelect, onUseConfig, onDelete }) {
       </div>
       {job.output_dir && (
         <div className="ft-job__path">
-          <i className="fas fa-folder" />
+          <Icon name="folder" />
           <span className="cell-truncate" title={job.output_dir}>{job.output_dir}</span>
           <CopyButton text={job.output_dir} />
         </div>
       )}
       {job.message && (
         <div className={`ft-job__message${job.status === 'failed' ? ' ft-job__message--failed' : ''}`}>
-          <i className="fas fa-info-circle" /> {job.message}
+          <Icon name="info" /> {job.message}
         </div>
       )}
     </div>
@@ -304,7 +305,7 @@ function ChartsGrid({ events }) {
         <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="var(--color-data-2)" events={events} />
       ) : (
         <div className="ft-chart-empty">
-          <i className="fas fa-chart-area" />
+          <Icon name="chart-line" />
           Eval loss, waiting for eval data
         </div>
       )}
@@ -365,12 +366,12 @@ function TrainingMonitor({ job, onStop }) {
   return (
     <section className="card">
       <SectionHeading>
-        <i className="fas fa-chart-line" /> Training monitor
+        <Icon name="chart-line" /> Training monitor
       </SectionHeading>
 
       {connecting && !latest && (
         <EmptyState
-          icon="fas fa-satellite-dish"
+          icon="broadcast"
           title="Connecting to training stream"
           body="Waiting for the first progress event from the backend."
         />
@@ -379,15 +380,15 @@ function TrainingMonitor({ job, onStop }) {
       {latest && (
         <>
           <div className="stat-cards">
-            <StatCard icon="fas fa-circle-notch" label="Status" value={latest.status} accentVar="--color-info" />
-            <StatCard icon="fas fa-percent" label="Progress" value={`${latest.progress_percent?.toFixed(1)}%`} accentVar="--color-primary" />
-            <StatCard icon="fas fa-shoe-prints" label="Step" value={`${latest.current_step} / ${latest.total_steps}`} />
-            <StatCard icon="fas fa-arrow-trend-down" label="Loss" value={latest.loss?.toFixed(4)} accentVar="--color-data-7" />
-            <StatCard icon="fas fa-repeat" label="Epoch" value={`${latest.current_epoch?.toFixed(2)} / ${latest.total_epochs?.toFixed(0)}`} />
-            <StatCard icon="fas fa-gauge-high" label="Learning rate" value={latest.learning_rate?.toExponential(2)} accentVar="--color-data-3" />
-            <StatCard icon="fas fa-hourglass-half" label="ETA" value={formatEta(latest.eta_seconds)} />
+            <StatCard icon="spinner" label="Status" value={latest.status} accentVar="--color-info" />
+            <StatCard icon="percent" label="Progress" value={`${latest.progress_percent?.toFixed(1)}%`} accentVar="--color-primary" />
+            <StatCard icon="footprints" label="Step" value={`${latest.current_step} / ${latest.total_steps}`} />
+            <StatCard icon="trend-down" label="Loss" value={latest.loss?.toFixed(4)} accentVar="--color-data-7" />
+            <StatCard icon="repeat" label="Epoch" value={`${latest.current_epoch?.toFixed(2)} / ${latest.total_epochs?.toFixed(0)}`} />
+            <StatCard icon="gauge" label="Learning rate" value={latest.learning_rate?.toExponential(2)} accentVar="--color-data-3" />
+            <StatCard icon="hourglass" label="ETA" value={formatEta(latest.eta_seconds)} />
             {latest.extra_metrics?.tokens_per_second > 0 && (
-              <StatCard icon="fas fa-bolt" label="Tokens/sec" value={latest.extra_metrics.tokens_per_second.toFixed(0)} accentVar="--color-success" />
+              <StatCard icon="bolt" label="Tokens/sec" value={latest.extra_metrics.tokens_per_second.toFixed(0)} accentVar="--color-success" />
             )}
           </div>
 
@@ -408,13 +409,13 @@ function TrainingMonitor({ job, onStop }) {
 
       {latest?.message && (
         <p className="form-hint">
-          <i className="fas fa-info-circle" /> {latest.message}
+          <Icon name="info" /> {latest.message}
         </p>
       )}
 
       {ACTIVE_STATUSES.includes(latest?.status || job.status) && (
         <button className="btn btn-danger" onClick={() => onStop(job.id)}>
-          <i className="fas fa-stop" /> Stop training
+          <Icon name="stop" /> Stop training
         </button>
       )}
     </section>
@@ -437,7 +438,7 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
   if (loading) {
     return (
       <section className="card">
-        <SectionHeading><i className="fas fa-save" /> Checkpoints</SectionHeading>
+        <SectionHeading><Icon name="save" /> Checkpoints</SectionHeading>
         <p className="form-hint"><LoadingSpinner size="sm" /> Loading checkpoints...</p>
       </section>
     )
@@ -446,7 +447,7 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
 
   return (
     <section className="card">
-      <SectionHeading><i className="fas fa-save" /> Checkpoints</SectionHeading>
+      <SectionHeading><Icon name="save" /> Checkpoints</SectionHeading>
       <ResponsiveTable>
         <table className="data-table">
           <thead>
@@ -473,10 +474,10 @@ function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
                 <td>
                   <div className="row-actions">
                     <button className="btn btn-sm" onClick={() => onResume(cp)} title="Resume training from this checkpoint">
-                      <i className="fas fa-play" /> Resume
+                      <Icon name="play" /> Resume
                     </button>
                     <button className="btn btn-sm" onClick={() => onExportCheckpoint(cp)} title="Export this checkpoint">
-                      <i className="fas fa-file-export" /> Export
+                      <Icon name="export" /> Export
                     </button>
                   </div>
                 </td>
@@ -584,7 +585,7 @@ function ExportPanel({ job, prefilledCheckpoint }) {
 
   return (
     <section className="card">
-      <SectionHeading><i className="fas fa-file-export" /> Export model</SectionHeading>
+      <SectionHeading><Icon name="export" /> Export model</SectionHeading>
 
       <div className="ft-stack">
         {checkpoints.length > 0 && (
@@ -646,7 +647,7 @@ function ExportPanel({ job, prefilledCheckpoint }) {
           <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
             {exporting
               ? <><LoadingSpinner size="sm" /> Exporting...</>
-              : <><i className="fas fa-download" /> Export</>}
+              : <><Icon name="download" /> Export</>}
           </button>
         </div>
 
@@ -659,7 +660,7 @@ function ExportPanel({ job, prefilledCheckpoint }) {
                   Chat with {exportedModelName}
                 </a>
                 <a href={fineTuneApi.downloadUrl(job.id)} download className="btn btn-sm">
-                  <i className="fas fa-download" /> Download archive
+                  <Icon name="download" /> Download archive
                 </a>
               </span>
             )}
@@ -1042,15 +1043,15 @@ export default function FineTune() {
     <div className="page page--wide">
       <UnsavedChangesGuard when={dirty && showForm && !loading} />
       <PageHeader
-        title={<>Fine-tuning <span className={`badge badge-warning ft-actions btn fas fa-upload btn btn-primary fas fa-${showForm ? 'times' : 'plus'}`}>Experimental</span></>}
+        title={<>Fine-tuning <span className="badge badge-warning ft-actions">Experimental</span></>}
         supporting="Create and manage fine-tuning jobs"
         actions={
           <div>
             <button className="btn btn-secondary" onClick={handleImportConfig}>
-              <i className="fas fa-file-import" aria-hidden="true" /> Import config
+              <Icon name="import" /> Import config
             </button>
             <button className="btn btn-secondary" onClick={() => setShowForm(!showForm)}>
-              <i className={`fas ${showForm ? 'fa-xmark' : 'fa-plus'}`} aria-hidden="true" />
+              <Icon name={showForm ? 'close' : 'plus'} />
               {showForm ? 'Cancel' : 'New job'}
             </button>
           </div>
@@ -1059,7 +1060,7 @@ export default function FineTune() {
 
       {error && (
         <div className="attention-callout attention-callout--error" role="alert">
-          <span><i className="fas fa-exclamation-triangle" /> {error}</span>
+          <span><Icon name="warning" /> {error}</span>
         </div>
       )}
 
@@ -1068,15 +1069,15 @@ export default function FineTune() {
 
           {resumeFromCheckpoint && (
             <div className="ft-banner">
-              <i className="fas fa-redo ft-banner__icon" />
+              <Icon name="refresh" className="ft-banner__icon" />
               <span>Resuming from checkpoint: <code>{resumeFromCheckpoint}</code></span>
               <button type="button" className="btn btn-sm ft-banner__spacer" onClick={() => setResumeFromCheckpoint('')}>
-                <i className="fas fa-times" /> Clear
+                <Icon name="close" /> Clear
               </button>
             </div>
           )}
 
-          <FormSection icon="fas fa-server" title="Model and backend">
+          <FormSection icon="server" title="Model and backend">
             <div className="ft-grid-model">
               <div>
                 <label className="form-label" htmlFor="ft-backend">Backend</label>
@@ -1107,7 +1108,7 @@ export default function FineTune() {
             </div>
           </FormSection>
 
-          <FormSection icon="fas fa-layer-group" title="Training type and adapter">
+          <FormSection icon="layers" title="Training type and adapter">
             <div className="ft-grid-auto">
               <div>
                 <label className="form-label" htmlFor="ft-type">Training type</label>
@@ -1141,7 +1142,7 @@ export default function FineTune() {
             )}
           </FormSection>
 
-          <FormSection icon="fas fa-database" title="Dataset">
+          <FormSection icon="database" title="Dataset">
             <div className="ft-grid-dataset">
               <div>
                 <label className="form-label" htmlFor="ft-dataset">Source</label>
@@ -1160,7 +1161,7 @@ export default function FineTune() {
           </FormSection>
 
           {trainingMethod === 'grpo' && (
-            <FormSection icon="fas fa-trophy" title="Reward functions (GRPO)">
+            <FormSection icon="trophy" title="Reward functions (GRPO)">
               <p className="ft-hint">
                 GRPO requires at least one reward function. Select built-in functions or add custom ones.
               </p>
@@ -1221,7 +1222,7 @@ export default function FineTune() {
                 <div key={`inline-${idx}`} className="ft-reward ft-reward--on">
                   <div className="ft-job__head">
                     <span className="ft-reward__name">
-                      <i className="fas fa-code" /> {rf.name}
+                      <Icon name="code" /> {rf.name}
                     </span>
                     <button
                       type="button"
@@ -1229,7 +1230,7 @@ export default function FineTune() {
                       aria-label={`Remove ${rf.name}`}
                       onClick={() => setRewardFunctions(prev => prev.filter((_, i) => i !== rewardFunctions.indexOf(rf)))}
                     >
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   </div>
                   <pre className="ft-reward__code">{rf.code}</pre>
@@ -1273,7 +1274,7 @@ export default function FineTune() {
                         setShowAddCustomReward(false)
                       }}
                     >
-                      <i className="fas fa-plus" /> Add
+                      <Icon name="plus" /> Add
                     </button>
                     <button
                       type="button"
@@ -1286,13 +1287,13 @@ export default function FineTune() {
                 </div>
               ) : (
                 <button type="button" className="btn btn-sm" onClick={() => setShowAddCustomReward(true)}>
-                  <i className="fas fa-plus" /> Add custom reward function
+                  <Icon name="plus" /> Add custom reward function
                 </button>
               )}
             </FormSection>
           )}
 
-          <FormSection icon="fas fa-sliders-h" title="Hyperparameters">
+          <FormSection icon="sliders" title="Hyperparameters">
             <div className="ft-grid-auto-sm">
               <div>
                 <label className="form-label" htmlFor="ft-epochs">Epochs</label>
@@ -1349,8 +1350,8 @@ export default function FineTune() {
               onClick={() => setShowAdvanced(!showAdvanced)}
               aria-expanded={showAdvanced}
             >
-              <i className={`fas fa-chevron-${showAdvanced ? 'down' : 'right'} ft-disclosure__chevron`} />
-              <i className="fas fa-cog ft-disclosure__icon" />
+              <Icon name={`chevron-${showAdvanced ? 'down' : 'right'}`} className="ft-disclosure__chevron" />
+              <Icon name="settings" className="ft-disclosure__icon" />
               Advanced options
             </button>
 
@@ -1429,7 +1430,7 @@ export default function FineTune() {
                     <div className="ft-kv__row">
                       <input id="ft-resume" type="text" value={resumeFromCheckpoint} onChange={e => setResumeFromCheckpoint(e.target.value)} className="input ft-kv__key" />
                       <button type="button" className="btn btn-sm" onClick={() => setResumeFromCheckpoint('')} aria-label="Clear checkpoint">
-                        <i className="fas fa-times" />
+                        <Icon name="close" />
                       </button>
                     </div>
                   </div>
@@ -1476,11 +1477,11 @@ export default function FineTune() {
               {loading
                 ? <><LoadingSpinner size="sm" /> Starting...</>
                 : resumeFromCheckpoint
-                  ? <><i className="fas fa-redo" /> Resume training</>
-                  : <><i className="fas fa-play" /> Start fine-tuning</>}
+                  ? <><Icon name="refresh" /> Resume training</>
+                  : <><Icon name="play" /> Start fine-tuning</>}
             </button>
             <button type="button" className="btn" onClick={handleExportConfig}>
-              <i className="fas fa-download" /> Export config
+              <Icon name="download" /> Export config
             </button>
           </div>
         </form>
@@ -1491,7 +1492,7 @@ export default function FineTune() {
         <div className="ft-stack">
           <div>
             <button className="btn" onClick={() => setSelectedJob(null)}>
-              <i className="fas fa-arrow-left" /> Back to jobs
+              <Icon name="arrow-left" /> Back to jobs
             </button>
           </div>
           <div className="card">
@@ -1514,12 +1515,12 @@ export default function FineTune() {
           <SectionHeading>Jobs</SectionHeading>
           {jobs.length === 0 ? (
             <EmptyState
-              icon="fas fa-graduation-cap"
+              icon="graduation-cap"
               title="No fine-tuning jobs yet"
               body="Start one to train an adapter on your own data, then export it as a model you can chat with."
               actions={
                 <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-                  <i className="fas fa-plus" aria-hidden="true" /> New job
+                  <Icon name="plus" /> New job
                 </button>
               }
             />

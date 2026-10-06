@@ -5,25 +5,26 @@ import { p2pApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import ImageSelector, { useImageSelector, dockerImage, dockerFlags } from '../components/ImageSelector'
+import Icon from '../components/Icon'
 
 function NodeCard({ node, label, tone }) {
   return (
     <div className={`p2p-node ${tone}${node.isOnline ? ' p2p-node--online' : ''}`}>
       <div className="hstack hstack--between hstack--nowrap">
         <div className="hstack hstack--nowrap">
-          <span className="icon-chip"><i className="fas fa-server" /></span>
+          <span className="icon-chip"><Icon name="server" /></span>
           <div className="flex-1-min">
             <h4 className="p2p-node__name">{label}</h4>
             <p className="p2p-node__id">{node.id}</p>
           </div>
         </div>
         <span className="p2p-node__state">
-          <i className="fas fa-circle" />
+          <Icon name="circle" />
           {node.isOnline ? 'Online' : 'Offline'}
         </span>
       </div>
       <div className="p2p-node__foot">
-        <i className="fas fa-clock" />
+        <Icon name="clock" />
         <span>Updated: {new Date().toLocaleTimeString()}</span>
       </div>
     </div>
@@ -39,7 +40,7 @@ function CommandBlock({ command, addToast }) {
     <div className="p2p-cmd">
       <pre>{command}</pre>
       <button className="btn btn-sm p2p-cmd__copy" onClick={copy} title="Copy" aria-label="Copy command">
-        <i className="fas fa-copy" />
+        <Icon name="copy" />
       </button>
     </div>
   )
@@ -62,7 +63,7 @@ function NodeCount({ online, total }) {
 function NoNodes({ icon, title, hint }) {
   return (
     <div className="p2p-empty">
-      <i className={icon} />
+      <Icon name={icon} />
       <p>{title}</p>
       <p>{hint}</p>
     </div>
@@ -156,7 +157,7 @@ export default function P2P() {
     return (
       <div className="page page--narrow">
         <div className="p2p-hero">
-          <i className="fas fa-network-wired" />
+          <Icon name="network" />
           <h1>P2P distribution not enabled</h1>
           <p>
             Enable peer-to-peer distribution to scale your AI workloads across multiple devices. Share instances,
@@ -165,17 +166,17 @@ export default function P2P() {
 
           <div className="p2p-features">
             <div className="card p2p-feature tone-primary">
-              <span className="icon-chip"><i className="fas fa-network-wired" /></span>
+              <span className="icon-chip"><Icon name="network" /></span>
               <h3>Instance federation</h3>
               <p>Load balance across multiple instances</p>
             </div>
             <div className="card p2p-feature tone-accent">
-              <span className="icon-chip"><i className="fas fa-puzzle-piece" /></span>
+              <span className="icon-chip"><Icon name="puzzle" /></span>
               <h3>Model sharding</h3>
               <p>Split large models across workers</p>
             </div>
             <div className="card p2p-feature tone-success">
-              <span className="icon-chip"><i className="fas fa-share-alt" /></span>
+              <span className="icon-chip"><Icon name="share" /></span>
               <h3>Resource sharing</h3>
               <p>Pool resources from multiple devices</p>
             </div>
@@ -184,7 +185,7 @@ export default function P2P() {
 
         <div className="card p2p-enable">
           <h3 className="hstack tone-accent">
-            <i className="fas fa-rocket tone-icon" />
+            <Icon name="rocket" className="tone-icon" />
             How to enable P2P
           </h3>
           <div>
@@ -224,10 +225,10 @@ export default function P2P() {
 
         <div className="hstack hstack--md hstack--center">
           <a className="btn btn-primary" href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">
-            <i className="fas fa-book" /> Documentation <i className="fas fa-external-link-alt text-meta" />
+            <Icon name="book" /> Documentation <Icon name="external-link" className="text-meta" />
           </a>
           <a className="btn btn-secondary" href="https://localai.io/basics/getting_started/" target="_blank" rel="noopener noreferrer">
-            <i className="fas fa-graduation-cap" /> Getting started <i className="fas fa-external-link-alt text-meta" />
+            <Icon name="graduation-cap" /> Getting started <Icon name="external-link" className="text-meta" />
           </a>
         </div>
       </div>
@@ -245,13 +246,13 @@ export default function P2P() {
   return (
     <div className="page page--narrow">
       <PageHeader
-        title={<><i className="fas fa-circle-nodes" aria-hidden="true" /> {t('p2p.title')}</>}
+        title={<><Icon name="nodes" /> {t('p2p.title')}</>}
         supporting={
           <>
             {t('p2p.subtitle')}
             {' '}
             <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-up-right-from-square" aria-hidden="true" />
+              <Icon name="external-link" />
             </a>
           </>
         }
@@ -259,10 +260,10 @@ export default function P2P() {
 
       <section className="p2p-token">
         <div className="hstack hstack--nowrap tone-warning">
-          <i className="fas fa-key tone-icon" />
+          <Icon name="key" className="tone-icon" />
           <h3 className="flex-1-min">Network token</h3>
           <button className="btn btn-secondary btn-sm" onClick={copyToken} title="Copy token" aria-label="Copy token">
-            <i className="fas fa-copy" />
+            <Icon name="copy" />
           </button>
         </div>
         <pre className="p2p-token__value" onClick={copyToken}>{token || 'Loading...'}</pre>
@@ -279,7 +280,7 @@ export default function P2P() {
           onClick={() => setActiveTab('federation')}
           className={`p2p-tab tone-primary${activeTab === 'federation' ? ' p2p-tab--on' : ''}`}
         >
-          <span className="icon-chip"><i className="fas fa-circle-nodes" /></span>
+          <span className="icon-chip"><Icon name="nodes" /></span>
           <span className="p2p-tab__text">
             <span className="p2p-tab__label">Federation</span>
             <span className="p2p-tab__count">{fedOnline}/{fedTotal} instances</span>
@@ -291,7 +292,7 @@ export default function P2P() {
           onClick={() => setActiveTab('sharding')}
           className={`p2p-tab tone-accent${activeTab === 'sharding' ? ' p2p-tab--on' : ''}`}
         >
-          <span className="icon-chip"><i className="fas fa-puzzle-piece" /></span>
+          <span className="icon-chip"><Icon name="puzzle" /></span>
           <span className="p2p-tab__text">
             <span className="p2p-tab__label">Model sharding</span>
             <span className="p2p-tab__count">{llamaOnline + mlxOnline}/{llamaTotal + mlxTotal} workers</span>
@@ -306,20 +307,20 @@ export default function P2P() {
             <div className="p2p-diagram">
               <div className="p2p-diagram__row">
                 <div className="p2p-diagram__item tone-warning">
-                  <span className="icon-chip icon-chip--lg"><i className="fas fa-user" /></span>
+                  <span className="icon-chip icon-chip--lg"><Icon name="user" /></span>
                   <span className="p2p-diagram__label">API client</span>
                 </div>
-                <i className="fas fa-arrow-right p2p-diagram__arrow" />
+                <Icon name="arrow-right" className="p2p-diagram__arrow" />
                 <div className="p2p-diagram__item tone-success">
-                  <span className="icon-chip icon-chip--lg icon-chip--ring"><i className="fas fa-scale-balanced" /></span>
+                  <span className="icon-chip icon-chip--lg icon-chip--ring"><Icon name="scale" /></span>
                   <span className="p2p-diagram__label">Federated server</span>
                   <span className="p2p-diagram__sub">Load balancer</span>
                 </div>
-                <i className="fas fa-arrow-right p2p-diagram__arrow" />
+                <Icon name="arrow-right" className="p2p-diagram__arrow" />
                 <div className="p2p-diagram__item tone-primary">
                   <span className="p2p-diagram__group">
                     {[1, 2, 3].map(n => (
-                      <span key={n} className="icon-chip icon-chip--sm"><i className="fas fa-server" /></span>
+                      <span key={n} className="icon-chip icon-chip--sm"><Icon name="server" /></span>
                     ))}
                   </span>
                   <span className="p2p-diagram__label">Federated instances</span>
@@ -338,7 +339,7 @@ export default function P2P() {
             </div>
 
             {federation.length === 0 ? (
-              <NoNodes icon="fas fa-server" title="No federated instances connected" hint="Follow the setup steps below" />
+              <NoNodes icon="server" title="No federated instances connected" hint="Follow the setup steps below" />
             ) : (
               <div className="p2p-nodes">
                 {federation.map((node, i) => (
@@ -350,7 +351,7 @@ export default function P2P() {
 
           <div className="p2p-section">
             <h3 className="hstack tone-primary">
-              <i className="fas fa-book tone-icon" />
+              <Icon name="book" className="tone-icon" />
               Setup guide
             </h3>
 
@@ -397,32 +398,32 @@ export default function P2P() {
         <div className="p2p-panel">
           <div className="p2p-section">
             <p className="p2p-note">
-              <i className="fas fa-info-circle" />
+              <Icon name="info" />
               <strong>Different from federation:</strong> federation distributes whole requests across instances.
               Model sharding splits a single model across machines for joint inference.
             </p>
 
             <h3 className="hstack tone-accent">
-              <i className="fas fa-microchip tone-icon" />
+              <Icon name="cpu" className="tone-icon" />
               llama.cpp RPC workers
             </h3>
 
             <div className="p2p-diagram">
               <div className="p2p-diagram__row">
                 <div className="p2p-diagram__item tone-primary">
-                  <span className="icon-chip icon-chip--lg icon-chip--ring"><i className="fas fa-server" /></span>
+                  <span className="icon-chip icon-chip--lg icon-chip--ring"><Icon name="server" /></span>
                   <span className="p2p-diagram__label">LocalAI instance</span>
                   <span className="p2p-diagram__sub">Orchestrator</span>
                 </div>
                 <span className="p2p-diagram__arrow">
-                  <i className="fas fa-arrow-right" />
+                  <Icon name="arrow-right" />
                   <span>RPC</span>
                 </span>
                 <div className="p2p-diagram__item tone-accent">
                   <span className="p2p-diagram__group">
                     {['Layer 1-10', 'Layer 11-20', 'Layer 21-30'].map(label => (
                       <span key={label}>
-                        <span className="p2p-diagram__shard"><i className="fas fa-microchip" /></span>
+                        <span className="p2p-diagram__shard"><Icon name="cpu" /></span>
                         <span className="p2p-diagram__shard-label">{label}</span>
                       </span>
                     ))}
@@ -443,7 +444,7 @@ export default function P2P() {
             </div>
 
             {workers.length === 0 ? (
-              <NoNodes icon="fas fa-puzzle-piece" title="No llama.cpp workers connected" hint="Start workers to see them here" />
+              <NoNodes icon="puzzle" title="No llama.cpp workers connected" hint="Start workers to see them here" />
             ) : (
               <div className="p2p-nodes">
                 {workers.map((node, i) => (
@@ -455,26 +456,26 @@ export default function P2P() {
 
           <div className="p2p-section">
             <h3 className="hstack tone-warning">
-              <i className="fas fa-apple-whole tone-icon" />
+              <Icon name="apple" className="tone-icon" />
               MLX distributed workers
             </h3>
 
             <div className="p2p-diagram">
               <div className="p2p-diagram__row">
                 <div className="p2p-diagram__item tone-primary">
-                  <span className="icon-chip icon-chip--lg icon-chip--ring"><i className="fas fa-server" /></span>
+                  <span className="icon-chip icon-chip--lg icon-chip--ring"><Icon name="server" /></span>
                   <span className="p2p-diagram__label">LocalAI</span>
                   <span className="p2p-diagram__sub">Rank 0</span>
                 </div>
                 <span className="p2p-diagram__arrow">
-                  <i className="fas fa-arrows-left-right" />
+                  <Icon name="swap" />
                   <span>Ring / JACCL</span>
                 </span>
                 <div className="p2p-diagram__item tone-warning">
                   <span className="p2p-diagram__group">
                     {['Layers 1-16', 'Layers 17-32'].map(label => (
                       <span key={label}>
-                        <span className="p2p-diagram__shard p2p-diagram__shard--wide"><i className="fas fa-microchip" /></span>
+                        <span className="p2p-diagram__shard p2p-diagram__shard--wide"><Icon name="cpu" /></span>
                         <span className="p2p-diagram__shard-label">{label}</span>
                       </span>
                     ))}
@@ -495,7 +496,7 @@ export default function P2P() {
             </div>
 
             {mlxWorkers.length === 0 ? (
-              <NoNodes icon="fas fa-apple-whole" title="No MLX workers connected" hint="Start MLX workers on Apple Silicon Macs" />
+              <NoNodes icon="apple" title="No MLX workers connected" hint="Start MLX workers on Apple Silicon Macs" />
             ) : (
               <div className="p2p-nodes">
                 {mlxWorkers.map((node, i) => (
@@ -507,7 +508,7 @@ export default function P2P() {
 
           <div className="p2p-section">
             <h3 className="hstack tone-accent">
-              <i className="fas fa-book tone-icon" />
+              <Icon name="book" className="tone-icon" />
               Setup workers
             </h3>
 

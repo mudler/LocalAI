@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import Icon from '../../components/Icon'
 
 const SORT_FNS = {
   tokens: (a, b) => (b.tokens || 0) - (a.tokens || 0),
@@ -131,7 +132,7 @@ export default function SourcesTable({
   }, [rows, search, sortKey])
 
   const iconFor = (kind) =>
-    kind === 'apikey' ? 'fas fa-key' : kind === 'web' ? 'fas fa-globe' : 'fas fa-gear'
+    kind === 'apikey' ? 'key' : kind === 'web' ? 'globe' : 'settings'
 
   return (
     <div className="stack stack--sm">
@@ -201,9 +202,7 @@ export default function SourcesTable({
                 >
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <i
-                        className={`${iconFor(r.kind)} text-note`}
-                      />
+                      <Icon name={iconFor(r.kind)} className="text-note" />
                       <span>{r.name}</span>
                       {r.revoked && (
                         <span

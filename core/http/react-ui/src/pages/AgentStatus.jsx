@@ -3,6 +3,7 @@ import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import PageHeader from '../components/PageHeader'
+import Icon, { FaIcon } from '../components/Icon'
 
 function ObservableSummary({ observable }) {
   const creation = observable?.creation || {}
@@ -52,14 +53,14 @@ function ObservableSummary({ observable }) {
   }
 
   const items = []
-  if (creationMsg) items.push({ icon: 'fa-comment-dots', text: creationMsg, cls: 'creation' })
-  if (funcDef) items.push({ icon: 'fa-code', text: funcDef, cls: 'creation' })
-  if (funcParams) items.push({ icon: 'fa-sliders-h', text: funcParams, cls: 'creation' })
-  if (toolCallSummary) items.push({ icon: 'fa-wrench', text: toolCallSummary, cls: 'tool-call' })
-  if (completionMsg) items.push({ icon: 'fa-robot', text: completionMsg, cls: 'completion' })
-  if (actionResult) items.push({ icon: 'fa-bolt', text: actionResult, cls: 'tool-call' })
-  if (errorMsg) items.push({ icon: 'fa-exclamation-triangle', text: errorMsg, cls: 'error' })
-  if (filterInfo) items.push({ icon: 'fa-shield-alt', text: filterInfo, cls: 'completion' })
+  if (creationMsg) items.push({ icon: 'chat', text: creationMsg, cls: 'creation' })
+  if (funcDef) items.push({ icon: 'code', text: funcDef, cls: 'creation' })
+  if (funcParams) items.push({ icon: 'sliders', text: funcParams, cls: 'creation' })
+  if (toolCallSummary) items.push({ icon: 'wrench', text: toolCallSummary, cls: 'tool-call' })
+  if (completionMsg) items.push({ icon: 'robot', text: completionMsg, cls: 'completion' })
+  if (actionResult) items.push({ icon: 'bolt', text: actionResult, cls: 'tool-call' })
+  if (errorMsg) items.push({ icon: 'warning', text: errorMsg, cls: 'error' })
+  if (filterInfo) items.push({ icon: 'shield', text: filterInfo, cls: 'completion' })
 
   if (items.length === 0) return null
 
@@ -67,7 +68,7 @@ function ObservableSummary({ observable }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
       {items.map((item, i) => (
         <div key={i} className={`as-summary-item as-summary-${item.cls}`} title={item.text}>
-          <i className={`fas ${item.icon}`} />
+          <Icon name={item.icon} />
           <span>{item.text}</span>
         </div>
       ))}
@@ -85,18 +86,18 @@ function ObservableCard({ observable, children: childNodes }) {
       <div className="as-card-header" onClick={() => setExpanded(!expanded)}>
         <div className="as-card-title">
           <div className="as-obs-icon">
-            <i className={`fas fa-${observable.icon || 'robot'}`} />
+            <FaIcon name={observable.icon || 'robot'} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
               <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{observable.name}</span>
               <span className="as-id">#{observable.id}</span>
-              {!isComplete && <i className="fas fa-circle-notch fa-spin" style={{ fontSize: '0.7rem', color: 'var(--color-primary)' }} />}
+              {!isComplete && <Icon name="spinner" spin style={{ fontSize: '0.7rem', color: 'var(--color-primary)' }} />}
             </div>
             <ObservableSummary observable={observable} />
           </div>
         </div>
-        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
+        <Icon name={`chevron-${expanded ? 'up' : 'down'}`} style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
       </div>
 
       {expanded && (
@@ -354,21 +355,21 @@ export default function AgentStatus() {
       `}</style>
 
       <PageHeader
-        title={<><i className="fas fa-chart-bar" style={{ marginRight: 'var(--spacing-xs)' }} />{name} — Status</>}
+        title={<><Icon name="chart-bar" style={{ marginRight: 'var(--spacing-xs)' }} />{name} — Status</>}
         supporting="Agent observables and activity history"
         actions={
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
             <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-              <i className="fas fa-comment" /> Chat
+              <Icon name="chat" /> Chat
             </button>
             <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-              <i className="fas fa-edit" /> Edit
+              <Icon name="edit" /> Edit
             </button>
             <button className="btn btn-secondary" onClick={fetchData}>
-              <i className="fas fa-sync" /> Refresh
+              <Icon name="refresh" /> Refresh
             </button>
             <button className="btn btn-danger" onClick={handleClear} disabled={observables.length === 0}>
-              <i className="fas fa-trash" /> Clear
+              <Icon name="trash" /> Clear
             </button>
           </div>
         }
@@ -398,15 +399,15 @@ export default function AgentStatus() {
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
+          <Icon name="spinner" spin style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
         </div>
       ) : tree.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
+          <div className="empty-state-icon"><Icon name="chart-bar" /></div>
           <h2 className="empty-state-title">No observables yet</h2>
           <p className="empty-state-text">Send a message to the agent to see its activity here.</p>
           <button className="btn btn-primary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-            <i className="fas fa-comment" /> Chat with {name}
+            <Icon name="chat" /> Chat with {name}
           </button>
         </div>
       ) : (

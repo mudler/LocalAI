@@ -6,6 +6,7 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import StatusPill from '../components/StatusPill'
 import useFailoverChains from '../hooks/useFailoverChains'
 import { relative } from '../components/FailoverChainStatus'
+import Icon from '../components/Icon'
 
 // Failover: the Operate -> Runtime overview of every failover chain configured
 // on this profile. One row per chain: its live state, the target actually
@@ -34,7 +35,7 @@ export default function Failover() {
         <LoadingSpinner />
       ) : chains.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-shuffle" /></div>
+          <div className="empty-state-icon"><Icon name="shuffle" /></div>
           <h2 className="empty-state-title">{t('failover.overview.empty.title')}</h2>
           <p className="empty-state-text">{t('failover.overview.empty.text')}</p>
           <Link className="btn btn-primary btn-sm" to="/app/model-editor?template=failover">

@@ -6,6 +6,7 @@ import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
 import { CAP_CHAT } from '../utils/capabilities'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Icon from '../components/Icon'
 
 export default function AgentTaskDetails() {
   const { id } = useParams()
@@ -172,10 +173,10 @@ export default function AgentTaskDetails() {
           actions={
             <div className="hstack">
               <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-                <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+                <Icon name="arrow-left" /> Back
               </button>
               <button className="btn btn-primary btn-sm" onClick={() => navigate(`/app/agent-jobs/tasks/${id}/edit`)}>
-                <i className="fas fa-pen" aria-hidden="true" /> Edit
+                <Icon name="pencil" /> Edit
               </button>
             </div>
           }
@@ -184,7 +185,7 @@ export default function AgentTaskDetails() {
         {/* Task Info */}
         <div className="card mb-md">
           <h3 className="group-label">
-            <i className="fas fa-info-circle text-primary icon-before" />
+            <Icon name="info" className="text-primary icon-before" />
             Task Information
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
@@ -224,7 +225,7 @@ export default function AgentTaskDetails() {
         {/* API Usage Examples */}
         <div className="card mb-md">
           <h3 className="group-label">
-            <i className="fas fa-code" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-xs)' }} />
+            <Icon name="code" style={{ color: 'var(--color-accent)', marginRight: 'var(--spacing-xs)' }} />
             API Usage
           </h3>
           <div className="stack">
@@ -255,7 +256,7 @@ export default function AgentTaskDetails() {
         {task.webhooks && task.webhooks.length > 0 && (
           <div className="card mb-md">
             <h3 className="group-label">
-              <i className="fas fa-globe text-success icon-before" />
+              <Icon name="globe" className="text-success icon-before" />
               Webhooks ({task.webhooks.length})
             </h3>
             {task.webhooks.map((wh, i) => (
@@ -273,7 +274,7 @@ export default function AgentTaskDetails() {
         {jobHistory.length > 0 && (
           <div className="card">
             <h3 className="group-label">
-              <i className="fas fa-clock-rotate-left text-warning icon-before" />
+              <Icon name="history" className="text-warning icon-before" />
               Recent Jobs ({jobHistory.length})
             </h3>
             <div className="table-container">
@@ -291,7 +292,7 @@ export default function AgentTaskDetails() {
                       <td className="text-sub">{formatDate(job.created_at)}</td>
                       <td>
                         <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agent-jobs/jobs/${job.id}`)}>
-                          <i className="fas fa-eye" /> View
+                          <Icon name="eye" /> View
                         </button>
                       </td>
                     </tr>
@@ -312,7 +313,7 @@ export default function AgentTaskDetails() {
         title={isNew ? 'Create Task' : 'Edit Task'}
         actions={
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agent-jobs')}>
-            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+            <Icon name="arrow-left" /> Back
           </button>
         }
       />
@@ -368,7 +369,7 @@ export default function AgentTaskDetails() {
         {/* Cron Schedule */}
         <div className="card mb-md">
           <h3 className="group-label">
-            <i className="fas fa-clock icon-before" />
+            <Icon name="clock" className="icon-before" />
             Cron Schedule (optional)
           </h3>
           <div className="form-group">
@@ -405,11 +406,11 @@ export default function AgentTaskDetails() {
         <div className="card mb-md">
           <div className="hstack hstack--between mb-md">
             <h3 className="fw-semibold">
-              <i className="fas fa-photo-film icon-before" />
+              <Icon name="images" className="icon-before" />
               Multimedia Sources (optional)
             </h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addMultimediaSource}>
-              <i className="fas fa-plus" /> Add Source
+              <Icon name="plus" /> Add Source
             </button>
           </div>
           {task.multimedia_sources.length === 0 ? (
@@ -432,7 +433,7 @@ export default function AgentTaskDetails() {
                     <input className="input" value={ms.url} onChange={(e) => updateMultimediaSource(i, 'url', e.target.value)} placeholder="https://example.com/media.jpg" />
                   </div>
                   <button type="button" className="btn btn-danger btn-sm" onClick={() => removeMultimediaSource(i)} style={{ marginTop: 24 }}>
-                    <i className="fas fa-trash" />
+                    <Icon name="trash" />
                   </button>
                 </div>
                 <div className="form-group mt-xs">
@@ -448,11 +449,11 @@ export default function AgentTaskDetails() {
         <div className="card mb-md">
           <div className="hstack hstack--between mb-md">
             <h3 className="fw-semibold">
-              <i className="fas fa-globe icon-before" />
+              <Icon name="globe" className="icon-before" />
               Webhooks (optional)
             </h3>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addWebhook}>
-              <i className="fas fa-plus" /> Add Webhook
+              <Icon name="plus" /> Add Webhook
             </button>
           </div>
           {task.webhooks.length === 0 ? (
@@ -474,7 +475,7 @@ export default function AgentTaskDetails() {
                     <input className="input" value={wh.url} onChange={(e) => updateWebhook(i, 'url', e.target.value)} placeholder="https://hooks.slack.com/..." />
                   </div>
                   <button type="button" className="btn btn-danger btn-sm" onClick={() => removeWebhook(i)} style={{ marginTop: 24 }}>
-                    <i className="fas fa-trash" />
+                    <Icon name="trash" />
                   </button>
                 </div>
                 <div className="form-group mt-xs">
@@ -501,7 +502,7 @@ export default function AgentTaskDetails() {
 
         <div className="hstack">
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? <><i className="fas fa-spinner fa-spin" /> Saving...</> : <><i className="fas fa-save" /> {isNew ? 'Create Task' : 'Save Changes'}</>}
+            {saving ? <><Icon name="spinner" spin /> Saving...</> : <><Icon name="save" /> {isNew ? 'Create Task' : 'Save Changes'}</>}
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>Cancel</button>
         </div>

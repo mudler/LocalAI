@@ -3,15 +3,16 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import { agentJobsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
 
 const traceColors = {
-  reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 30%, transparent)', icon: 'fa-brain', color: 'var(--color-primary)' },
-  tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 12%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 32%, transparent)', icon: 'fa-wrench', color: 'var(--color-accent)' },
-  tool_result: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)', icon: 'fa-check', color: 'var(--color-success)' },
-  status: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', border: 'color-mix(in srgb, var(--color-warning) 30%, transparent)', icon: 'fa-info-circle', color: 'var(--color-warning)' },
-  stream_reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 6%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', icon: 'fa-lightbulb', color: 'var(--color-primary)' },
-  stream_content: { bg: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: 'color-mix(in srgb, var(--color-info) 25%, transparent)', icon: 'fa-pen-nib', color: 'var(--color-info)' },
-  stream_tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 7%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 20%, transparent)', icon: 'fa-bolt', color: 'var(--color-accent)' },
+  reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 30%, transparent)', icon: 'brain', color: 'var(--color-primary)' },
+  tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 12%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 32%, transparent)', icon: 'wrench', color: 'var(--color-accent)' },
+  tool_result: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)', icon: 'check', color: 'var(--color-success)' },
+  status: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', border: 'color-mix(in srgb, var(--color-warning) 30%, transparent)', icon: 'info', color: 'var(--color-warning)' },
+  stream_reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 6%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', icon: 'lightbulb', color: 'var(--color-primary)' },
+  stream_content: { bg: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: 'color-mix(in srgb, var(--color-info) 25%, transparent)', icon: 'pencil', color: 'var(--color-info)' },
+  stream_tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 7%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 20%, transparent)', icon: 'bolt', color: 'var(--color-accent)' },
 }
 
 function TraceCard({ trace, index }) {
@@ -28,7 +29,7 @@ function TraceCard({ trace, index }) {
           <span className="ajd-trace__index">
             {index + 1}
           </span>
-          <i className={`fas ${style.icon} text-base`} style={{ color: style.color }} />
+          <Icon name={style.icon} className="text-base" style={{ color: style.color }} />
           <span className="badge text-xs" style={{ background: style.border, color: style.color }}>
             {trace.type || 'unknown'}
           </span>
@@ -43,7 +44,7 @@ function TraceCard({ trace, index }) {
             </span>
           )}
         </div>
-        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'} text-meta`} />
+        <Icon name={`chevron-${expanded ? 'up' : 'down'}`} className="text-meta" />
       </button>
       {expanded && (
         <div className="ajd-trace__body">
@@ -120,16 +121,16 @@ export default function AgentJobDetails() {
 
   const statusBadge = (status) => {
     const map = {
-      pending: { cls: 'badge-warning', icon: 'fa-clock' },
-      running: { cls: 'badge-info', icon: 'fa-spinner fa-spin' },
-      completed: { cls: 'badge-success', icon: 'fa-check' },
-      failed: { cls: 'badge-error', icon: 'fa-xmark' },
-      cancelled: { cls: '', icon: 'fa-ban' },
+      pending: { cls: 'badge-warning', icon: 'clock' },
+      running: { cls: 'badge-info', icon: 'spinner', spin: true },
+      completed: { cls: 'badge-success', icon: 'check' },
+      failed: { cls: 'badge-error', icon: 'close' },
+      cancelled: { cls: '', icon: 'ban' },
     }
-    const m = map[status] || { cls: '', icon: 'fa-question' }
+    const m = map[status] || { cls: '', icon: 'help-circle' }
     return (
       <span className={`badge ${m.cls} badge--md`}>
-        <i className={`fas ${m.icon} icon-before`} /> {status || 'unknown'}
+        <Icon name={m.icon} spin={m.spin} className="icon-before" /> {status || 'unknown'}
       </span>
     )
   }
@@ -148,9 +149,9 @@ export default function AgentJobDetails() {
   if (!job) return (
     <div className="page page--narrow">
       <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-search" /></div>
+        <div className="empty-state-icon"><Icon name="search" /></div>
         <h2 className="empty-state-title">Job not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}><i className="fas fa-arrow-left" /> Back</button>
+        <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}><Icon name="arrow-left" /> Back</button>
       </div>
     </div>
   )
@@ -166,11 +167,11 @@ export default function AgentJobDetails() {
         actions={
           <div className="hstack">
             <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
-              <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+              <Icon name="arrow-left" /> Back
             </button>
             {(job.status === 'running' || job.status === 'pending') && (
               <button className="btn btn-danger" onClick={handleCancel}>
-                <i className="fas fa-ban" aria-hidden="true" /> Cancel
+                <Icon name="ban" /> Cancel
               </button>
             )}
           </div>
@@ -181,7 +182,7 @@ export default function AgentJobDetails() {
       <div className="card mb-md">
         <div className="hstack hstack--between mb-md">
           <h3 className="fw-semibold">
-            <i className="fas fa-circle-info text-primary icon-before" />
+            <Icon name="info" className="text-primary icon-before" />
             Job Status
           </h3>
           {statusBadge(job.status)}
@@ -224,7 +225,7 @@ export default function AgentJobDetails() {
       {task?.prompt && (
         <div className="card mb-md">
           <h3 className="group-label group-label--tight">
-            <i className="fas fa-file-lines text-accent icon-before" />
+            <Icon name="file-text" className="text-accent icon-before" />
             Agent Prompt Template
           </h3>
           <pre className="ajd-code">
@@ -237,7 +238,7 @@ export default function AgentJobDetails() {
       {job.triggered_by === 'cron' && job.cron_parameters && Object.keys(job.cron_parameters).length > 0 && (
         <div className="card mb-md">
           <h3 className="group-label group-label--tight">
-            <i className="fas fa-clock text-warning icon-before" />
+            <Icon name="clock" className="text-warning icon-before" />
             Cron Parameters
           </h3>
           <div className="hstack hstack--xs">
@@ -254,7 +255,7 @@ export default function AgentJobDetails() {
       {job.parameters && Object.keys(job.parameters).length > 0 && (
         <div className="card mb-md">
           <h3 className="group-label group-label--tight">
-            <i className="fas fa-sliders-h text-primary icon-before" />
+            <Icon name="sliders" className="text-primary icon-before" />
             Job Parameters
           </h3>
           <div className="hstack hstack--xs">
@@ -271,7 +272,7 @@ export default function AgentJobDetails() {
       {renderedPrompt && renderedPrompt !== task?.prompt && (
         <div className="card mb-md">
           <h3 className="group-label group-label--tight">
-            <i className="fas fa-spell-check text-success icon-before" />
+            <Icon name="spell-check" className="text-success icon-before" />
             Rendered Prompt
           </h3>
           <pre className="ajd-code ajd-code--tall">
@@ -284,7 +285,7 @@ export default function AgentJobDetails() {
       {job.result && (
         <div className="card mb-md">
           <h3 className="group-label group-label--tight">
-            <i className="fas fa-check-circle text-success icon-before" />
+            <Icon name="check-circle" className="text-success icon-before" />
             Result
           </h3>
           <pre className="ajd-code ajd-code--taller">
@@ -297,7 +298,7 @@ export default function AgentJobDetails() {
       {job.error && (
         <div className="card mb-md" style={{ borderColor: 'var(--color-error)' }}>
           <h3 className="fw-semibold text-error mb-sm">
-            <i className="fas fa-exclamation-triangle icon-before" />
+            <Icon name="warning" className="icon-before" />
             Error
           </h3>
           <pre className="ajd-code ajd-code--error">
@@ -310,7 +311,7 @@ export default function AgentJobDetails() {
       {traces.length > 0 && (
         <div className="card mb-md">
           <h3 className="group-label">
-            <i className="fas fa-wave-square text-accent icon-before" />
+            <Icon name="waveform" className="text-accent icon-before" />
             Execution Traces ({traces.length} steps)
           </h3>
           {traces.map((trace, i) => (
@@ -322,7 +323,7 @@ export default function AgentJobDetails() {
       {/* Running indicator */}
       {(job.status === 'running' || job.status === 'pending') && (
         <div className="ajd-polling">
-          <i className="fas fa-spinner fa-spin icon-before" />
+          <Icon name="spinner" spin className="icon-before" />
           Polling for updates every 2 seconds...
         </div>
       )}
@@ -331,13 +332,13 @@ export default function AgentJobDetails() {
       {(job.webhook_sent !== undefined || job.webhook_error) && (
         <div className="card">
           <h3 className="group-label">
-            <i className="fas fa-globe text-primary icon-before" />
+            <Icon name="globe" className="text-primary icon-before" />
             Webhook Status
           </h3>
           <div className="ajd-webhook">
             {job.webhook_sent ? (
               <>
-                <span className="badge badge-success"><i className="fas fa-check" /> Delivered</span>
+                <span className="badge badge-success"><Icon name="check" /> Delivered</span>
                 {job.webhook_sent_at && (
                   <span className="text-meta">
                     at {formatDate(job.webhook_sent_at)}
@@ -346,11 +347,11 @@ export default function AgentJobDetails() {
               </>
             ) : job.webhook_error ? (
               <>
-                <span className="badge badge-error"><i className="fas fa-xmark" /> Failed</span>
+                <span className="badge badge-error"><Icon name="close" /> Failed</span>
                 <span className="text-xs text-error">{job.webhook_error}</span>
               </>
             ) : (
-              <span className="badge badge-warning"><i className="fas fa-clock" /> Pending</span>
+              <span className="badge badge-warning"><Icon name="clock" /> Pending</span>
             )}
           </div>
         </div>

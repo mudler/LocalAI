@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { quantizationApi } from '../utils/api'
+import Icon from '../components/Icon'
 
 const QUANT_PRESETS = [
   'q2_k', 'q3_k_s', 'q3_k_m', 'q3_k_l',
@@ -22,7 +23,7 @@ function FormSection({ icon, title, children }) {
   return (
     <div className="form-group">
       <div className="form-group__title">
-        {icon && <i className={icon} />}
+        {icon && <Icon name={icon} />}
         <span>{title}</span>
       </div>
       <div className="form-group__body">
@@ -68,11 +69,11 @@ function ProgressMonitor({ job, onClose }) {
     <div className="card quantize-progress-card">
       <div className="quantize-progress-card__header">
         <h4 className="quantize-progress-card__title">
-          <i className="fas fa-chart-line" />
+          <Icon name="chart-line" />
           <span>Progress: {job.model}</span>
         </h4>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
-          <i className="fas fa-times" />
+          <Icon name="close" />
         </button>
       </div>
 
@@ -139,7 +140,7 @@ function ImportPanel({ job, onRefresh }) {
   return (
     <div className="card quantize-import-card">
       <h4 className="quantize-import-card__title">
-        <i className="fas fa-file-export" />
+        <Icon name="export" />
         <span>Output</span>
       </h4>
 
@@ -151,18 +152,18 @@ function ImportPanel({ job, onRefresh }) {
           className="btn btn-secondary"
           download
         >
-          <i className="fas fa-download" />
+          <Icon name="download" />
           <span>Download GGUF</span>
         </a>
 
         {job.import_status === 'completed' ? (
           <a href={`/app/chat/${encodeURIComponent(job.import_model_name)}`} className="btn btn-primary">
-            <i className="fas fa-comments" />
+            <Icon name="chat" />
             <span>Chat with {job.import_model_name}</span>
           </a>
         ) : job.import_status === 'importing' ? (
           <button type="button" className="btn btn-secondary" disabled>
-            <i className="fas fa-spinner fa-spin" />
+            <Icon name="spinner" spin />
             <span>Importing... {job.import_message}</span>
           </button>
         ) : (
@@ -174,7 +175,7 @@ function ImportPanel({ job, onRefresh }) {
               onChange={e => setModelName(e.target.value)}
             />
             <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing}>
-              <i className="fas fa-file-import" />
+              <Icon name="import" />
               <span>Import to LocalAI</span>
             </button>
           </>
@@ -287,7 +288,7 @@ export default function Quantize() {
       <div className="page-header quantize-page__header">
         <div>
           <h1 className="page-title">
-            <i className="fas fa-compress" /> Model Quantization
+            <Icon name="minimize" /> Model Quantization
           </h1>
           <p className="page-subtitle">Quantize and import GGUF models directly into LocalAI</p>
         </div>
@@ -296,13 +297,13 @@ export default function Quantize() {
 
       {error && (
         <div className="alert alert-error">
-          <i className="fas fa-exclamation-triangle" /> {error}
+          <Icon name="warning" /> {error}
         </div>
       )}
 
       {/* ── New Job Form ── */}
       <form onSubmit={handleSubmit} className="card quantize-form">
-        <FormSection icon="fas fa-cube" title="Model">
+        <FormSection icon="cube" title="Model">
           <input
             className="input btn-full"
             placeholder="HuggingFace model name (e.g. meta-llama/Llama-3.2-1B) or local path"
@@ -313,7 +314,7 @@ export default function Quantize() {
         </FormSection>
 
         <div className="form-grid-2col">
-          <FormSection icon="fas fa-sliders-h" title="Quantization Type">
+          <FormSection icon="sliders" title="Quantization Type">
             <div className="quantize-form__quant-row">
               <select
                 className="input"
@@ -344,7 +345,7 @@ export default function Quantize() {
             </div>
           </FormSection>
 
-          <FormSection icon="fas fa-server" title="Backend">
+          <FormSection icon="server" title="Backend">
             <select
               className="input btn-full"
               value={backend}
@@ -357,7 +358,7 @@ export default function Quantize() {
           </FormSection>
         </div>
 
-        <FormSection icon="fas fa-key" title="HuggingFace Token (optional)">
+        <FormSection icon="key" title="HuggingFace Token (optional)">
           <input
             className="input btn-full"
             type="password"
@@ -374,9 +375,9 @@ export default function Quantize() {
             disabled={submitting || !model || (useCustomQuant && !customQuantType)}
           >
             {submitting ? (
-              <><i className="fas fa-spinner fa-spin" /> <span>Starting...</span></>
+              <><Icon name="spinner" spin /> <span>Starting...</span></>
             ) : (
-              <><i className="fas fa-play" /> <span>Quantize ({effectiveQuantType})</span></>
+              <><Icon name="play" /> <span>Quantize ({effectiveQuantType})</span></>
             )}
           </button>
         </div>
@@ -404,7 +405,7 @@ export default function Quantize() {
       {jobs.length > 0 && (
         <div className="card quantize-jobs">
           <h4 className="quantize-jobs__title">
-            <i className="fas fa-list" />
+            <Icon name="list" />
             <span>Jobs</span>
           </h4>
           <div className="quantize-jobs__scroll">
@@ -443,11 +444,11 @@ export default function Quantize() {
                         <div className="data-table__actions" onClick={e => e.stopPropagation()}>
                           {isActive ? (
                             <button type="button" className="btn btn-sm btn-danger" onClick={() => handleStop(job.id)} title="Stop">
-                              <i className="fas fa-stop" />
+                              <Icon name="stop" />
                             </button>
                           ) : (
                             <button type="button" className="btn btn-sm btn-ghost" onClick={() => handleDelete(job.id)} title="Delete">
-                              <i className="fas fa-trash" />
+                              <Icon name="trash" />
                             </button>
                           )}
                         </div>

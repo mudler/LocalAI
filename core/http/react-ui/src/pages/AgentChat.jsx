@@ -11,6 +11,7 @@ import { useAgentChat } from '../hooks/useAgentChat'
 import { relativeTime, normalizeTimestampMs } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 import { chatHistoryFor } from '../utils/agentChatHistory'
+import Icon from '../components/Icon'
 
 function getLastMessagePreview(conv) {
   if (!conv.messages || conv.messages.length === 0) return ''
@@ -46,7 +47,7 @@ function AgentActivityGroup({ items }) {
   return (
     <div className="chat-message chat-message-assistant">
       <div className="chat-message-avatar chip-neutral">
-        <i className="fas fa-cogs" />
+        <Icon name="settings" />
       </div>
       <div className="chat-activity-group">
         <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
@@ -54,7 +55,7 @@ function AgentActivityGroup({ items }) {
             {summary}
             {items.length > 1 && <span className="chat-activity-count">+{items.length - 1}</span>}
           </span>
-          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+          <Icon name={`chevron-${expanded ? 'up' : 'down'}`} />
         </button>
         {expanded && (
           <div className="chat-activity-details">
@@ -460,7 +461,7 @@ export default function AgentChat() {
       <div className={`chat-sidebar${sidebarOpen ? '' : ' hidden'}`}>
         <div className="chat-sidebar-header">
           <button className="btn btn-primary btn-sm flex-1" onClick={() => addConversation()}>
-            <i className="fas fa-plus" /> New Chat
+            <Icon name="plus" /> New Chat
           </button>
           <button
             className="btn btn-secondary btn-sm"
@@ -476,13 +477,13 @@ export default function AgentChat() {
             title="Delete all conversations"
             style={{ padding: '6px 8px' }}
           >
-            <i className="fas fa-trash" />
+            <Icon name="trash" />
           </button>
         </div>
 
         <div style={{ padding: '0 var(--spacing-sm)' }}>
           <div className="chat-search-wrapper">
-            <i className="fas fa-search chat-search-icon" />
+            <Icon name="search" className="chat-search-icon" />
             <input
               className="chat-search-input"
               type="text"
@@ -492,7 +493,7 @@ export default function AgentChat() {
             />
             {chatSearch && (
               <button className="chat-search-clear" onClick={() => setChatSearch('')}>
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             )}
           </div>
@@ -505,7 +506,7 @@ export default function AgentChat() {
               className={`chat-list-item ${conv.id === activeId ? 'active' : ''}`}
               onClick={() => switchConversation(conv.id)}
             >
-              <i className="fas fa-message" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '2px' }} />
+              <Icon name="chat" style={{ fontSize: '0.7rem', flexShrink: 0, marginTop: '2px' }} />
               {editingName === conv.id ? (
                 <input
                   className="input"
@@ -524,7 +525,7 @@ export default function AgentChat() {
                       className="chat-list-item-name"
                       onDoubleClick={() => startRename(conv.id, conv.name)}
                     >
-                      {processingChatId === conv.id && <i className="fas fa-circle-notch fa-spin" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.7 }} />}
+                      {processingChatId === conv.id && <Icon name="spinner" spin style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.7 }} />}
                       {conv.name}
                     </span>
                     <span className="chat-list-item-time">{relativeTime(conv.updatedAt)}</span>
@@ -539,7 +540,7 @@ export default function AgentChat() {
                   onClick={(e) => { e.stopPropagation(); startRename(conv.id, conv.name) }}
                   title="Rename"
                 >
-                  <i className="fas fa-edit" />
+                  <Icon name="edit" />
                 </button>
                 {conversations.length > 1 && (
                   <button
@@ -547,7 +548,7 @@ export default function AgentChat() {
                     onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id) }}
                     title="Delete conversation"
                   >
-                    <i className="fas fa-trash" />
+                    <Icon name="trash" />
                   </button>
                 )}
               </div>
@@ -570,15 +571,15 @@ export default function AgentChat() {
           title={sidebarOpen ? 'Hide chat list' : 'Show chat list'}
           style={{ flexShrink: 0 }}
         >
-          <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
+          <Icon name={sidebarOpen ? 'chevrons-left' : 'chevrons-right'} />
         </button>
         <span className="chat-header-title">
-          <i className="fas fa-robot icon-before" />
+          <Icon name="robot" className="icon-before" />
           {name}
         </span>
         <div className="chat-header-actions">
           <label className="canvas-mode-toggle" title="Extract code blocks and media into a side panel for preview, copy, and download">
-            <i className="fas fa-columns" />
+            <Icon name="columns" />
             <span className="canvas-mode-label">Canvas</span>
             <span className={`toggle${canvasMode ? ' toggle--on' : ''}`}>
               <input
@@ -600,7 +601,7 @@ export default function AgentChat() {
               onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
               title="Open canvas panel"
             >
-              <i className="fas fa-layer-group" /> {artifacts.length}
+              <Icon name="layers" /> {artifacts.length}
             </button>
           )}
           <a
@@ -610,10 +611,10 @@ export default function AgentChat() {
             rel="noopener noreferrer"
             title="View status & observables in a new tab"
           >
-            <i className="fas fa-chart-bar" /> Status
+            <Icon name="chart-bar" /> Status
           </a>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">
-            <i className="fas fa-eraser" /> Clear
+            <Icon name="eraser" /> Clear
           </button>
         </div>
       </div>
@@ -623,13 +624,13 @@ export default function AgentChat() {
         {messages.length === 0 && !processing && (
           <div className="chat-empty-state">
             <div className="chat-empty-icon">
-              <i className="fas fa-robot" />
+              <Icon name="robot" />
             </div>
             <h2 className="chat-empty-title">Chat with {name}</h2>
             <p className="chat-empty-text">Send a message to start a conversation with this agent.</p>
             <div className="chat-empty-hints">
-              <span><i className="fas fa-keyboard" /> Enter to send</span>
-              <span><i className="fas fa-level-down-alt" /> Shift+Enter for newline</span>
+              <span><Icon name="keyboard" /> Enter to send</span>
+              <span><Icon name="corner-down-right" /> Shift+Enter for newline</span>
             </div>
           </div>
         )}
@@ -652,7 +653,7 @@ export default function AgentChat() {
             elements.push(
               <div key={msg.id} className={`chat-message chat-message-${role}`}>
                 <div className="chat-message-avatar">
-                  <i className={`fas ${role === 'user' ? 'fa-user' : 'fa-robot'}`} />
+                  <Icon name={role === 'user' ? 'user' : 'robot'} />
                 </div>
                 <div className="chat-message-bubble">
                   <div className="chat-message-content">
@@ -676,7 +677,7 @@ export default function AgentChat() {
                   )}
                   <div className="chat-message-actions">
                     <button onClick={() => copyMessage(msg.content)} title="Copy">
-                      <i className="fas fa-copy" />
+                      <Icon name="copy" />
                     </button>
                   </div>
                   <div className="chat-message-timestamp">
@@ -692,7 +693,7 @@ export default function AgentChat() {
         {processing && (streamReasoning || streamContent || streamToolCalls.length > 0) && (
           <div className="chat-message chat-message-assistant">
             <div className="chat-message-avatar">
-              <i className="fas fa-robot" />
+              <Icon name="robot" />
             </div>
             <div className="chat-message-bubble">
               {streamReasoning && (
@@ -715,7 +716,7 @@ export default function AgentChat() {
                   {streamToolCalls.map((tc, idx) => (
                     <details key={idx} className="chat-activity-item chat-activity-tool-call" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} open={!tc.result}>
                       <summary className="chat-activity-item-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                        <i className={`fas ${tc.result ? 'fa-check' : 'fa-bolt'}`} />
+                        <Icon name={tc.result ? 'check' : 'bolt'} />
                         <strong>{tc.name}</strong>
                         <span style={{ opacity: 0.5, fontSize: '0.85em' }}>
                           {tc.result ? 'done' : 'calling...'}
@@ -747,7 +748,7 @@ export default function AgentChat() {
         {processing && !streamReasoning && !streamContent && streamToolCalls.length === 0 && (
           <div className="chat-message chat-message-assistant">
             <div className="chat-message-avatar chip-neutral">
-              <i className="fas fa-cogs" />
+              <Icon name="settings" />
             </div>
             <div className="chat-activity-group chat-activity-streaming">
               <div className="chat-activity-toggle" style={{ cursor: 'default' }}>
@@ -784,7 +785,7 @@ export default function AgentChat() {
             aria-label="Send message"
             title="Send message"
           >
-            <i className="fas fa-paper-plane" aria-hidden="true" />
+            <Icon name="send" />
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import ResponsiveTable from '../components/ResponsiveTable'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
+import Icon from '../components/Icon'
 
 // How many traces the page keeps on screen. The server buffer holds far more;
 // the counters next to the tab labels report the true total.
@@ -160,13 +161,13 @@ function AudioSnippet({ data }) {
   return (
     <div className="mb-md">
       <h4 className="hstack hstack--xs text-sm fw-semibold mb-xs">
-        <i className="fas fa-headphones text-primary" /> Audio Snippet
+        <Icon name="headphones" className="text-primary" /> Audio Snippet
       </h4>
       <div className="tr-well">
         {audioUrl
           ? <WaveformPlayer src={audioUrl} height={64} />
           : <div data-testid="audio-snippet-unavailable" className="text-xs text-secondary pad-xs">
-              <i className="fas fa-triangle-exclamation" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
+              <Icon name="warning" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
             </div>}
         <div className="tr-metrics mt-sm">
           {metrics.map(m => (
@@ -216,7 +217,7 @@ function DataFields({ data, nested }) {
                 className={`tr-field__head${expandable ? ' tr-field__head--expandable' : ''}`}
               >
                 {expandable ? (
-                  <i className={`fas fa-chevron-${expanded ? 'down' : 'right'} tr-field__chevron`} />
+                  <Icon name={`chevron-${expanded ? 'down' : 'right'}`} className="tr-field__chevron" />
                 ) : (
                   <span className="tr-field__chevron" />
                 )}
@@ -270,7 +271,7 @@ function BackendTraceDetail({ trace }) {
       {/* Error banner */}
       {trace.error && (
         <div className="tr-error mb-md">
-          <i className="fas fa-exclamation-triangle text-error" />
+          <Icon name="warning" className="text-error" />
           <span className="text-error text-sm">{trace.error}</span>
         </div>
       )}
@@ -285,7 +286,7 @@ function BackendTraceDetail({ trace }) {
             href={`/app/backend-logs/${encodeURIComponent(trace.model_name)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}
             className="hstack hstack--xs text-sm text-primary"
           >
-            <i className="fas fa-terminal" /> View backend logs
+            <Icon name="terminal" /> View backend logs
           </a>
         </div>
       )}
@@ -333,7 +334,7 @@ function ApiTraceDetail({ trace }) {
       )}
       {trace.error && (
         <div className="tr-error mb-md">
-          <i className="fas fa-exclamation-triangle text-error" />
+          <Icon name="warning" className="text-error" />
           <span className="text-error text-sm text-mono wrap-anywhere">{trace.error}</span>
         </div>
       )}
@@ -396,7 +397,7 @@ export default function Traces() {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
       className="sortable-th" style={props.style}
     >
-      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'} ml-xs op-70`} aria-hidden="true" />}
+      {label}{sort.key === key && <Icon name={`chevron-${sort.dir === 'asc' ? 'up' : 'down'}`} className="ml-xs op-70" />}
     </th>
   )
   const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
@@ -538,20 +539,20 @@ export default function Traces() {
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'api' ? 'tab-active' : ''}`} onClick={() => setActiveTab('api')}>
-          <i className="fas fa-exchange-alt icon-before text-xs" />
+          <Icon name="swap" className="icon-before text-xs" />
           API Traces
           <span className="ml-xs op-60 text-xs">({apiCount})</span>
         </button>
         <button className={`tab ${activeTab === 'backend' ? 'tab-active' : ''}`} onClick={() => setActiveTab('backend')}>
-          <i className="fas fa-cogs icon-before text-xs" />
+          <Icon name="settings" className="icon-before text-xs" />
           Backend Traces
           <span className="ml-xs op-60 text-xs">({backendCount})</span>
         </button>
       </div>
 
       <div className="hstack mb-md">
-        <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><i className="fas fa-rotate" /> Refresh</button>
-        <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><i className="fas fa-download" /> Export</button>
+        <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><Icon name="refresh" /> Refresh</button>
+        <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><Icon name="download" /> Export</button>
         <div className="flex-1" />
         <button
           className="btn btn-danger btn-sm"
@@ -561,7 +562,7 @@ export default function Traces() {
              needs Clear to recover. Clearing an already-empty server-side
              buffer is a harmless no-op. */
           disabled={!loading && traces.length === 0}
-        ><i className="fas fa-trash" /> Clear</button>
+        ><Icon name="trash" /> Clear</button>
       </div>
 
       {settings && (() => {
@@ -573,14 +574,14 @@ export default function Traces() {
             className="tr-settings__toggle"
           >
             <div className="hstack">
-              <i className={`fas ${allEnabled ? 'fa-circle-check' : 'fa-exclamation-triangle'} shrink-0 ${allEnabled ? 'text-success' : 'text-warning'}`} />
+              <Icon name={allEnabled ? 'check-circle' : 'warning'} className={`shrink-0 ${allEnabled ? 'text-success' : 'text-warning'}`} />
               <span className="text-sm text-left">
                 Tracing is <strong>{tracingEnabled ? 'enabled' : 'disabled'}</strong>
                 {' · Backend logging is '}<strong>{backendLoggingEnabled ? 'enabled' : 'disabled'}</strong>
                 {!tracingEnabled && ' — new requests will not be recorded'}
               </span>
             </div>
-            <i className={`fas fa-chevron-${settingsExpanded ? 'up' : 'down'} text-meta shrink-0`} />
+            <Icon name={`chevron-${settingsExpanded ? 'up' : 'down'}`} className="text-meta shrink-0" />
           </button>
           {settingsExpanded && (
             <div className="tr-settings__body">
@@ -618,7 +619,7 @@ export default function Traces() {
               </SettingRow>
               <div className="form-group__actions hstack--end">
                 <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
-                  {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+                  {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><Icon name="save" /> Save</>}
                 </button>
               </div>
             </div>
@@ -631,7 +632,7 @@ export default function Traces() {
         <div className="loading-center"><LoadingSpinner size="lg" /></div>
       ) : traces.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-wave-square" /></div>
+          <div className="empty-state-icon"><Icon name="waveform" /></div>
           <h2 className="empty-state-title">
             {activeTab === 'api'
               ? (tracingEnabled ? 'No API traces yet' : 'API tracing is off')
@@ -664,7 +665,7 @@ export default function Traces() {
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={trace.id ?? i}>
                   <tr onClick={() => toggleRow(trace, i)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
+                    <td><Icon name={`chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'}`} className="text-xs" /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
                     <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
@@ -678,10 +679,10 @@ export default function Traces() {
                     <td><LatencyCell ns={trace.duration} max={slowestTrace} /></td>
                     <td className="text-center">
                       {trace.response?.status === 0
-                        ? <i className="fas fa-spinner fa-spin text-primary" title="In progress" />
+                        ? <Icon name="spinner" spin className="text-primary" title="In progress" />
                         : trace.error
-                        ? <i className="fas fa-times-circle text-error" title={trace.error} />
-                        : <i className="fas fa-check-circle text-success" />}
+                        ? <Icon name="close-circle" className="text-error" title={trace.error} />
+                        : <Icon name="check-circle" className="text-success" />}
                     </td>
                   </tr>
                   {expandedTraceId === (trace.id ?? i) && (
@@ -712,7 +713,7 @@ export default function Traces() {
               {sortedTraces.map((trace, i) => (
                 <React.Fragment key={trace.id ?? i}>
                   <tr onClick={() => toggleRow(trace, i)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
+                    <td><Icon name={`chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'}`} className="text-xs" /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td className="text-sub nowrap">{formatDateTime(trace.timestamp)}</td>
                     <td className="text-mono text-sm">{trace.model_name || '-'}</td>
@@ -722,10 +723,10 @@ export default function Traces() {
                     <td className="text-sub">{formatDuration(trace.duration)}</td>
                     <td className="text-center">
                       {trace.status === 'running'
-                        ? <i className="fas fa-spinner fa-spin text-primary" title="Running" />
+                        ? <Icon name="spinner" spin className="text-primary" title="Running" />
                         : trace.error
-                        ? <i className="fas fa-times-circle text-error" title={trace.error} />
-                        : <i className="fas fa-check-circle text-success" />}
+                        ? <Icon name="close-circle" className="text-error" title={trace.error} />
+                        : <Icon name="check-circle" className="text-success" />}
                     </td>
                   </tr>
                   {expandedTraceId === (trace.id ?? i) && (

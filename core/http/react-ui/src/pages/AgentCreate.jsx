@@ -7,6 +7,7 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
+import Icon from '../components/Icon'
 
 // --- MCP STDIO helpers ---
 
@@ -188,7 +189,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
             <div className="hstack hstack--between mb-md">
               <h4 style={{ margin: 0, fontWeight: 600 }}>{label} #{index + 1}</h4>
               <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemove(index)}>
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             </div>
             <div className="form-group">
@@ -241,7 +242,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
         )
       })}
       <button type="button" className="btn btn-secondary" onClick={onAdd}>
-        <i className="fas fa-plus" /> {addButtonText}
+        <Icon name="plus" /> {addButtonText}
       </button>
     </div>
   )
@@ -250,16 +251,16 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
 // --- Section definitions ---
 
 const SECTIONS = [
-  { id: 'BasicInfo', icon: 'fa-info-circle', label: 'Basic Info' },
-  { id: 'ModelSettings', icon: 'fa-brain', label: 'Model Settings' },
-  { id: 'MemorySettings', icon: 'fa-database', label: 'Memory' },
-  { id: 'PromptsGoals', icon: 'fa-bullseye', label: 'Prompts & Goals' },
-  { id: 'AdvancedSettings', icon: 'fa-cog', label: 'Advanced' },
-  { id: 'MCP', icon: 'fa-server', label: 'MCP Servers' },
-  { id: 'connectors', icon: 'fa-plug', label: 'Connectors' },
-  { id: 'actions', icon: 'fa-bolt', label: 'Actions' },
-  { id: 'filters', icon: 'fa-filter', label: 'Filters' },
-  { id: 'dynamic_prompts', icon: 'fa-wand-magic-sparkles', label: 'Dynamic Prompts' },
+  { id: 'BasicInfo', icon: 'info', label: 'Basic Info' },
+  { id: 'ModelSettings', icon: 'brain', label: 'Model Settings' },
+  { id: 'MemorySettings', icon: 'database', label: 'Memory' },
+  { id: 'PromptsGoals', icon: 'target', label: 'Prompts & Goals' },
+  { id: 'AdvancedSettings', icon: 'settings', label: 'Advanced' },
+  { id: 'MCP', icon: 'server', label: 'MCP Servers' },
+  { id: 'connectors', icon: 'plug', label: 'Connectors' },
+  { id: 'actions', icon: 'bolt', label: 'Actions' },
+  { id: 'filters', icon: 'filter', label: 'Filters' },
+  { id: 'dynamic_prompts', icon: 'sparkles', label: 'Dynamic Prompts' },
 ]
 
 // Fields handled by custom editors in the MCP section
@@ -331,7 +332,7 @@ export default function AgentCreate() {
       const hiddenInDistributed = new Set(['actions', 'connectors', 'filters', 'dynamic_prompts'])
       items = items.filter(s => !hiddenInDistributed.has(s.id))
     }
-    if (isEdit) items.push({ id: 'export', icon: 'fa-download', label: 'Export' })
+    if (isEdit) items.push({ id: 'export', icon: 'download', label: 'Export' })
     return items
   }, [isEdit, meta])
 
@@ -499,7 +500,7 @@ export default function AgentCreate() {
             {activeSection === 'AdvancedSettings' && form.enable_skills && availableSkills.length > 0 && (
               <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
                 <h4 className="agent-subsection-title">
-                  <i className="fas fa-puzzle-piece text-primary icon-before" />
+                  <Icon name="puzzle" className="text-primary icon-before" />
                   Select Skills
                 </h4>
                 <p className="agent-section-desc">Choose which skills this agent can use. If none selected, all available skills are included.</p>
@@ -613,7 +614,7 @@ export default function AgentCreate() {
                 }
                 setMcpJsonMode(!mcpJsonMode)
               }}>
-                <i className={`fas ${mcpJsonMode ? 'fa-list' : 'fa-code'}`} />
+                <Icon name={mcpJsonMode ? 'list' : 'code'} />
                 {mcpJsonMode ? ' Form Editor' : ' JSON Editor'}
               </button>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
@@ -641,7 +642,7 @@ export default function AgentCreate() {
             {/* STDIO Servers */}
             <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-terminal text-primary icon-before" />
+                <Icon name="terminal" className="text-primary icon-before" />
                 STDIO Servers
               </h4>
               <p className="agent-section-desc">Local command-based MCP servers (e.g. docker run).</p>
@@ -650,7 +651,7 @@ export default function AgentCreate() {
                   <div className="hstack hstack--between mb-sm">
                     <span className="fw-semibold text-base">Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeStdioServer(idx)}>
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
@@ -667,14 +668,14 @@ export default function AgentCreate() {
                     <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       Arguments
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => addArg(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <i className="fas fa-plus" /> Add
+                        <Icon name="plus" /> Add
                       </button>
                     </label>
                     {(server.args || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No arguments.</p>}
                     {(server.args || []).map((arg, ai) => (
                       <div key={ai} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                         <input className="input flex-1" value={arg} onChange={(e) => updateArg(idx, ai, e.target.value)} placeholder="argument" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><i className="fas fa-times" /></button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><Icon name="close" /></button>
                       </div>
                     ))}
                   </div>
@@ -682,28 +683,28 @@ export default function AgentCreate() {
                     <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       Environment Variables
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => addEnv(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <i className="fas fa-plus" /> Add
+                        <Icon name="plus" /> Add
                       </button>
                     </label>
                     {(server.env || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No environment variables.</p>}
                     {(server.env || []).map((env, ei) => (
                       <div key={ei} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                         <input className="input flex-1" value={env} onChange={(e) => updateEnv(idx, ei, e.target.value)} placeholder="KEY=VALUE" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><i className="fas fa-times" /></button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><Icon name="close" /></button>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
               <button type="button" className="btn btn-secondary" onClick={addStdioServer}>
-                <i className="fas fa-plus" /> Add STDIO Server
+                <Icon name="plus" /> Add STDIO Server
               </button>
             </div>
 
             {/* HTTP Servers */}
             <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-globe text-primary icon-before" />
+                <Icon name="globe" className="text-primary icon-before" />
                 HTTP Servers
               </h4>
               <p className="agent-section-desc">MCP servers connected over HTTP.</p>
@@ -712,7 +713,7 @@ export default function AgentCreate() {
                   <div className="hstack hstack--between mb-sm">
                     <span className="fw-semibold text-base">HTTP Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeMcpHttp(idx)}>
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   </div>
                   {(meta?.MCPServers || [{ name: 'url', label: 'URL', type: 'text' }, { name: 'token', label: 'API Key', type: 'password' }]).map(f => (
@@ -728,7 +729,7 @@ export default function AgentCreate() {
                 </div>
               ))}
               <button type="button" className="btn btn-secondary" onClick={addMcpHttp}>
-                <i className="fas fa-plus" /> Add HTTP Server
+                <Icon name="plus" /> Add HTTP Server
               </button>
             </div>
               </>
@@ -805,7 +806,7 @@ export default function AgentCreate() {
               className="btn btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
             >
-              <i className="fas fa-download icon-before" /> Export Agent
+              <Icon name="download" className="icon-before" /> Export Agent
             </a>
           </div>
         )
@@ -818,7 +819,7 @@ export default function AgentCreate() {
   if (loading) {
     return (
       <div className="page page--narrow loading-center">
-        <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+        <Icon name="spinner" spin className="icon-xl text-primary" />
       </div>
     )
   }
@@ -943,7 +944,7 @@ export default function AgentCreate() {
         title={isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}
         actions={
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
-            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+            <Icon name="arrow-left" /> Back
           </button>
         }
       />
@@ -965,7 +966,7 @@ export default function AgentCreate() {
                       className={`agent-wizard-nav-item ${activeSection === s.id ? 'active' : ''}`}
                       onClick={() => setActiveSection(s.id)}
                     >
-                      <i className={`fas ${s.icon}`} />
+                      <Icon name={s.icon} />
                       {s.label}
                       {count > 0 && <span className="agent-wizard-badge">{count}</span>}
                     </li>
@@ -978,7 +979,7 @@ export default function AgentCreate() {
           <div className="agent-form-content">
             <div className="card pad-lg">
               <h3 className="agent-section-title">
-                <i className={`fas ${visibleSections.find(s => s.id === activeSection)?.icon || 'fa-cog'} text-primary`} />
+                <Icon name={visibleSections.find(s => s.id === activeSection)?.icon || 'settings'} className="text-primary" />
                 {visibleSections.find(s => s.id === activeSection)?.label || activeSection}
               </h3>
               {renderSection()}
@@ -986,12 +987,12 @@ export default function AgentCreate() {
 
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
               <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/agents')}>
-                <i className="fas fa-times" /> Cancel
+                <Icon name="close" /> Cancel
               </button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving
-                  ? <><i className="fas fa-spinner fa-spin" /> Saving...</>
-                  : <><i className="fas fa-save" /> {isEdit ? 'Save Changes' : importedConfig ? 'Import Agent' : 'Create Agent'}</>
+                  ? <><Icon name="spinner" spin /> Saving...</>
+                  : <><Icon name="save" /> {isEdit ? 'Save Changes' : importedConfig ? 'Import Agent' : 'Create Agent'}</>
                 }
               </button>
             </div>

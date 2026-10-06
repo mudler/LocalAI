@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 import SourceMixRibbon from './SourceMixRibbon'
 import SourcesTable from './SourcesTable'
 import SourceTimeChart from './SourceTimeChart'
+import Icon from '../../components/Icon'
 
 const EMPTY_DATA = {
   buckets: [],
@@ -83,7 +84,7 @@ export default function SourcesTab({ period, adminUserId }) {
   if (error) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-triangle-exclamation" /></div>
+        <div className="empty-state-icon"><Icon name="warning" /></div>
         <h2 className="empty-state-title">Failed to load</h2>
         <p className="empty-state-text">{String(error.message || error)}</p>
       </div>
@@ -93,7 +94,7 @@ export default function SourcesTab({ period, adminUserId }) {
   if (isEmpty) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-key" /></div>
+        <div className="empty-state-icon"><Icon name="key" /></div>
         <h2 className="empty-state-title">{t('usage.sources.noTrafficShort')}</h2>
         <p className="empty-state-text">{t('usage.sources.noKeysYet')}</p>
       </div>
@@ -125,7 +126,7 @@ export default function SourcesTab({ period, adminUserId }) {
               border: '1px solid var(--color-border-subtle)',
             }}
           >
-            <i className="fas fa-filter text-meta" aria-hidden />
+            <Icon name="filter" className="text-meta" aria-hidden />
             {t('usage.sources.filteredTo', { name: labelForSelected(totals, selectedKey, t) })}
             <button
               type="button"
@@ -142,7 +143,7 @@ export default function SourcesTab({ period, adminUserId }) {
                 lineHeight: 1,
               }}
             >
-              <i className="fas fa-xmark" />
+              <Icon name="close" />
             </button>
           </span>
         </div>

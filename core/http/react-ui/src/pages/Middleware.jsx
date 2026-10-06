@@ -6,6 +6,7 @@ import { settingsApi, modelsApi } from '../utils/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Toggle from '../components/Toggle'
 import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
 
 // Middleware admin page. Three tabs:
 //   - Filtering: per-model resolved PII state + per-model detector list
@@ -23,10 +24,10 @@ import PageHeader from '../components/PageHeader'
 // admin role so the page works without --auth.
 
 const TABS = [
-  { id: 'filtering', label: 'Filtering', icon: 'fa-shield-halved' },
-  { id: 'routing', label: 'Routing', icon: 'fa-route' },
-  { id: 'proxy', label: 'MITM Proxy', icon: 'fa-shield' },
-  { id: 'events', label: 'Events', icon: 'fa-list-ul' },
+  { id: 'filtering', label: 'Filtering', icon: 'shield' },
+  { id: 'routing', label: 'Routing', icon: 'route' },
+  { id: 'proxy', label: 'MITM Proxy', icon: 'shield' },
+  { id: 'events', label: 'Events', icon: 'list' },
 ]
 
 function actionBadge(action) {
@@ -126,13 +127,13 @@ export default function Middleware() {
             className={`btn btn-sm ${activeTab === tab.id ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => selectTab(tab.id)}
           >
-            <i className={`fas ${tab.icon} icon-before`} />
+            <Icon name={tab.icon} className="icon-before" />
             {tab.label}
           </button>
         ))}
         <div className="flex-1" />
         <button className="btn btn-secondary btn-sm" onClick={fetchAll} disabled={loading}>
-          <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
+          <Icon name="refresh" spin={Boolean(loading)} /> Refresh
         </button>
       </div>
 
@@ -185,7 +186,7 @@ function FilteringTab({ status, addToast, onChanged }) {
       {/* Default rule banner */}
       <div className="card pad-md mb-md">
         <div className="hstack hstack--top hstack--nowrap">
-          <i className="fas fa-info-circle text-muted mt-xs" />
+          <Icon name="info" className="text-muted mt-xs" />
           <div>
             <div className="fw-semibold mb-xs">NER-based PII redaction</div>
             <div className="text-sub">
@@ -235,7 +236,7 @@ function FilteringTab({ status, addToast, onChanged }) {
                           title="Enabled but no detector resolved — nothing is scanned. Toggle a detector's Default on above, or add pii.detectors to the model."
                           className="mw-noop"
                         >
-                          <i className="fas fa-triangle-exclamation icon-before" />no-op
+                          <Icon name="warning" className="icon-before" />no-op
                         </span>
                       )}
                     </span>
@@ -255,7 +256,7 @@ function FilteringTab({ status, addToast, onChanged }) {
                       className="btn btn-secondary btn-sm pill-xs"
                       title={`Edit ${m.name}.yaml`}
                     >
-                      <i className="fas fa-pen-to-square" /> Edit
+                      <Icon name="edit" /> Edit
                     </Link>
                   </td>
                 </tr>
@@ -336,7 +337,7 @@ function DetectorModels({ pii, addToast, onChanged }) {
           onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })}
           title="Add a NER or pattern detector model"
         >
-          <i className="fas fa-plus" /> Add detector model
+          <Icon name="plus" /> Add detector model
         </button>
       </div>
       <div className="text-sub mb-sm">
@@ -384,7 +385,7 @@ function DetectorModels({ pii, addToast, onChanged }) {
                       className="btn btn-secondary btn-sm pill-xs"
                       title={`Edit ${d.name}.yaml`}
                     >
-                      <i className="fas fa-pen-to-square" /> Edit
+                      <Icon name="edit" /> Edit
                     </Link>
                   )}
                 </td>
@@ -520,7 +521,7 @@ function RoutingTab({ status, decisions }) {
   if (!router.configured || !router.models || router.models.length === 0) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-route" /></div>
+        <div className="empty-state-icon"><Icon name="route" /></div>
         <h2 className="empty-state-title">No routers configured</h2>
         <p className="empty-state-text">
           {router.note || 'Add a `router:` block to a model YAML to enable intelligent routing. The classifier picks one of the listed candidates per request and the standard model-resolution path runs against the chosen target.'}
@@ -529,7 +530,7 @@ function RoutingTab({ status, decisions }) {
           className="btn btn-primary mt-md"
           onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
         >
-          <i className="fas fa-plus" /> Create routing model
+          <Icon name="plus" /> Create routing model
         </button>
       </div>
     )
@@ -550,7 +551,7 @@ function RoutingTab({ status, decisions }) {
               onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}
               title="Open the model editor with the Routing Model template pre-selected"
             >
-              <i className="fas fa-plus" /> Add routing model
+              <Icon name="plus" /> Add routing model
             </button>
           </div>
         </div>
@@ -703,7 +704,7 @@ function ProxyTab({ status, addToast, onChanged }) {
   if (!mitm) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-shield" /></div>
+        <div className="empty-state-icon"><Icon name="shield" /></div>
         <h2 className="empty-state-title">MITM proxy status unavailable</h2>
         <p className="empty-state-text">The status endpoint did not return a mitm section.</p>
       </div>
@@ -721,7 +722,7 @@ function ProxyTab({ status, addToast, onChanged }) {
       {conflictHosts.length > 0 && (
         <div className="card mw-alert">
           <div className="hstack mb-xs">
-            <i className="fas fa-triangle-exclamation text-error" />
+            <Icon name="warning" className="text-error" />
             <span className="fw-semibold">MITM listener disabled — duplicate host claims</span>
           </div>
           <p className="text-sub m-0">
@@ -781,7 +782,7 @@ function ProxyTab({ status, addToast, onChanged }) {
             href={apiUrl(mitm.ca_cert_url)}
             download="localai-mitm-ca.crt"
           >
-            <i className="fas fa-download" /> Download CA cert
+            <Icon name="download" /> Download CA cert
           </a>
         ) : (
           <span className="text-meta">
@@ -798,7 +799,7 @@ function ProxyTab({ status, addToast, onChanged }) {
             onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })}
             title="Open the model editor with the MITM Intercept template pre-selected"
           >
-            <i className="fas fa-plus" /> Add MITM model
+            <Icon name="plus" /> Add MITM model
           </button>
         </div>
         {mitmModels.length === 0 ? (
@@ -829,7 +830,7 @@ function ProxyTab({ status, addToast, onChanged }) {
                       state={fromState(location, 'Middleware')}
                       className="btn btn-secondary btn-sm pill-xs"
                     >
-                      <i className="fas fa-pen-to-square" /> Edit
+                      <Icon name="edit" /> Edit
                     </Link>
                   </td>
                 </tr>
@@ -869,7 +870,7 @@ function ProxyTab({ status, addToast, onChanged }) {
             onClick={save}
             disabled={!dirty || saving}
           >
-            <i className={`fas ${saving ? 'fa-spinner fa-spin' : 'fa-save'}`} /> {saving ? 'Saving…' : 'Apply'}
+            <Icon name={saving ? 'spinner' : 'save'} spin={Boolean(saving)} /> {saving ? 'Saving…' : 'Apply'}
           </button>
           {dirty && (
             <button
@@ -990,7 +991,7 @@ function EventsTab({ events }) {
       </div>
       {filtered.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-list-ul" /></div>
+          <div className="empty-state-icon"><Icon name="list" /></div>
           <h2 className="empty-state-title">No events</h2>
           <p className="empty-state-text">
             Events appear here when a PII detector flags an entity, when the MITM proxy decides whether

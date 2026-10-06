@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { skillsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
 
 const RESOURCE_PREFIXES = ['scripts/', 'references/', 'assets/']
 function isValidResourcePath(path) {
@@ -18,13 +19,13 @@ function ResourceGroup({ title, icon, items, readOnly, pathPrefix, onView, onDel
           style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
           onClick={() => setCollapsed((v) => !v)}
         >
-          <i className={`fas fa-chevron-${collapsed ? 'right' : 'down'} text-meta`} />
-          <i className={`fas fa-${icon} text-primary`} /> {title}
+          <Icon name={`chevron-${collapsed ? 'right' : 'down'}`} className="text-meta" />
+          <Icon name={icon} className="text-primary" /> {title}
           <span className="badge ml-xs">{items.length}</span>
         </h3>
         {!readOnly && (
           <button className="btn btn-primary btn-sm" onClick={() => onUpload(pathPrefix)}>
-            <i className="fas fa-upload" /> Upload
+            <Icon name="upload" /> Upload
           </button>
         )}
       </div>
@@ -48,11 +49,11 @@ function ResourceGroup({ title, icon, items, readOnly, pathPrefix, onView, onDel
                 </div>
                 <div className="hstack hstack--xs">
                   <button className="btn btn-secondary btn-sm" onClick={() => onView(res)} title="View/Edit">
-                    <i className="fas fa-edit" /> View/Edit
+                    <Icon name="edit" /> View/Edit
                   </button>
                   {!readOnly && (
                     <button className="btn btn-danger btn-sm" onClick={() => onDelete(res.path)} title="Delete">
-                      <i className="fas fa-trash" />
+                      <Icon name="trash" />
                     </button>
                   )}
                 </div>
@@ -162,14 +163,14 @@ function ResourcesSection({ skillName, addToast }) {
   return (
     <>
       <h3 className="group-label group-label--tight">
-        <i className="fas fa-folder text-primary icon-before" /> Resources
+        <Icon name="folder" className="text-primary icon-before" /> Resources
       </h3>
       <p className="text-base text-secondary mb-md">
         Scripts, references, and assets for this skill. Paths must start with scripts/, references/, or assets/.
       </p>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-md)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)' }} />
+          <Icon name="spinner" spin style={{ fontSize: '1.5rem', color: 'var(--color-text-muted)' }} />
         </div>
       ) : (
         <>
@@ -183,7 +184,7 @@ function ResourcesSection({ skillName, addToast }) {
         <div className="skilledit-modal-overlay" onClick={() => !editor.saving && setEditor((e) => ({ ...e, open: false }))}>
           <div className="card skilledit-modal-card" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
             <h3 className="group-label">
-              <i className="fas fa-edit text-primary icon-before" /> Edit {editor.name}
+              <Icon name="edit" className="text-primary icon-before" /> Edit {editor.name}
             </h3>
             {editor.readable ? (
               <>
@@ -197,7 +198,7 @@ function ResourcesSection({ skillName, addToast }) {
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
                   <button className="btn btn-secondary" onClick={() => setEditor((e) => ({ ...e, open: false }))}>Cancel</button>
                   <button className="btn btn-primary" disabled={editor.saving} onClick={handleEditorSave}>
-                    {editor.saving ? <><i className="fas fa-spinner fa-spin" /> Saving...</> : <><i className="fas fa-save" /> Save</>}
+                    {editor.saving ? <><Icon name="spinner" spin /> Saving...</> : <><Icon name="save" /> Save</>}
                   </button>
                 </div>
               </>
@@ -212,7 +213,7 @@ function ResourcesSection({ skillName, addToast }) {
         <div className="skilledit-modal-overlay" onClick={() => !upload.uploading && setUpload((u) => ({ ...u, open: false }))}>
           <div className="card skilledit-modal-card" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
             <h3 className="group-label">
-              <i className="fas fa-upload text-primary icon-before" /> Upload to {upload.pathPrefix}
+              <Icon name="upload" className="text-primary icon-before" /> Upload to {upload.pathPrefix}
             </h3>
             <div className="form-group">
               <label className="form-label">File</label>
@@ -235,7 +236,7 @@ function ResourcesSection({ skillName, addToast }) {
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
               <button className="btn btn-secondary" onClick={() => setUpload((u) => ({ ...u, open: false }))}>Cancel</button>
               <button className="btn btn-primary" disabled={upload.uploading || !upload.file} onClick={handleUploadSubmit}>
-                {upload.uploading ? <><i className="fas fa-spinner fa-spin" /> Uploading...</> : <><i className="fas fa-upload" /> Upload</>}
+                {upload.uploading ? <><Icon name="spinner" spin /> Uploading...</> : <><Icon name="upload" /> Upload</>}
               </button>
             </div>
           </div>
@@ -249,7 +250,7 @@ function ResourcesSection({ skillName, addToast }) {
             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setDeletePath(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={handleDeleteConfirm}>
-                <i className="fas fa-trash" /> Delete
+                <Icon name="trash" /> Delete
               </button>
             </div>
           </div>
@@ -345,15 +346,15 @@ export default function SkillEdit() {
   if (loading) {
     return (
       <div className="page page--narrow loading-center">
-        <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+        <Icon name="spinner" spin className="icon-xl text-primary" />
       </div>
     )
   }
 
   const sections = [
-    { id: 'basic', label: 'Basic information', icon: 'fa-info-circle' },
-    { id: 'content', label: 'Content', icon: 'fa-file-alt' },
-    ...(!isNew && name ? [{ id: 'resources', label: 'Resources', icon: 'fa-folder' }] : []),
+    { id: 'basic', label: 'Basic information', icon: 'info' },
+    { id: 'content', label: 'Content', icon: 'file-text' },
+    ...(!isNew && name ? [{ id: 'resources', label: 'Resources', icon: 'folder' }] : []),
   ]
 
   return (
@@ -496,12 +497,12 @@ export default function SkillEdit() {
       `}</style>
 
       <a className="skilledit-back-link" onClick={() => navigate('/app/skills')}>
-        <i className="fas fa-arrow-left" /> Back to skills
+        <Icon name="arrow-left" /> Back to skills
       </a>
       <PageHeader
         title={
           <>
-            <i className="fas fa-book icon-before" /> {isNew ? 'New skill' : `Edit: ${name}`}
+            <Icon name="book" className="icon-before" /> {isNew ? 'New skill' : `Edit: ${name}`}
           </>
         }
       />
@@ -516,7 +517,7 @@ export default function SkillEdit() {
                   className={`skilledit-sidebar-item ${activeSection === s.id ? 'active' : ''}`}
                   onClick={() => setActiveSection(s.id)}
                 >
-                  <i className={`fas ${s.icon}`} /> {s.label}
+                  <Icon name={s.icon} /> {s.label}
                 </li>
               ))}
             </ul>
@@ -618,10 +619,10 @@ export default function SkillEdit() {
 
               <div className="skilledit-form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/skills')}>
-                  <i className="fas fa-times" /> Cancel
+                  <Icon name="close" /> Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  <i className="fas fa-save" /> {saving ? 'Saving...' : (isNew ? 'Create skill' : 'Save changes')}
+                  <Icon name="save" /> {saving ? 'Saving...' : (isNew ? 'Create skill' : 'Save changes')}
                 </button>
               </div>
             </form>

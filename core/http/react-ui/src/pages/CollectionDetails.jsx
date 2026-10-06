@@ -3,6 +3,7 @@ import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentCollectionsApi } from '../utils/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PageHeader from '../components/PageHeader'
+import Icon from '../components/Icon'
 
 export default function CollectionDetails() {
   const { name } = useParams()
@@ -297,19 +298,19 @@ export default function CollectionDetails() {
 
       <div className="tabs">
         <button className={`tab ${activeTab === 'entries' ? 'tab-active' : ''}`} onClick={() => setActiveTab('entries')}>
-          <i className="fas fa-list" /> Entries
+          <Icon name="list" /> Entries
         </button>
         <button className={`tab ${activeTab === 'search' ? 'tab-active' : ''}`} onClick={() => setActiveTab('search')}>
-          <i className="fas fa-search" /> Search
+          <Icon name="search" /> Search
         </button>
         <button className={`tab ${activeTab === 'sources' ? 'tab-active' : ''}`} onClick={() => setActiveTab('sources')}>
-          <i className="fas fa-globe" /> Sources
+          <Icon name="globe" /> Sources
         </button>
       </div>
 
       {loading ? (
         <div className="loading-center">
-          <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+          <Icon name="spinner" spin className="icon-xl text-primary" />
         </div>
       ) : activeTab === 'entries' ? (
         <>
@@ -321,13 +322,13 @@ export default function CollectionDetails() {
               style={{ flex: 1, minWidth: 200 }}
             />
             <button className="btn btn-primary" type="submit" disabled={!uploadFile || uploading}>
-              {uploading ? <><i className="fas fa-spinner fa-spin" /> Uploading...</> : <><i className="fas fa-upload" /> Upload</>}
+              {uploading ? <><Icon name="spinner" spin /> Uploading...</> : <><Icon name="upload" /> Upload</>}
             </button>
           </form>
 
           {entries.length === 0 ? (
             <div className="collection-detail-empty">
-              <i className="fas fa-inbox" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
+              <Icon name="inbox" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
               <p>No entries in this collection. Upload a file to get started.</p>
             </div>
           ) : (
@@ -350,10 +351,10 @@ export default function CollectionDetails() {
                       <td>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-xs)' }}>
                           <button className="btn btn-secondary btn-sm" onClick={() => handleViewContent(entry)} title="View Content">
-                            <i className="fas fa-eye" />
+                            <Icon name="eye" />
                           </button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleDeleteEntry(entry)} title="Delete">
-                            <i className="fas fa-trash" />
+                            <Icon name="trash" />
                           </button>
                         </div>
                       </td>
@@ -391,13 +392,13 @@ export default function CollectionDetails() {
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={!searchQuery.trim() || searching}>
-              {searching ? <><i className="fas fa-spinner fa-spin" /> Searching...</> : <><i className="fas fa-search" /> Search</>}
+              {searching ? <><Icon name="spinner" spin /> Searching...</> : <><Icon name="search" /> Search</>}
             </button>
           </form>
 
           {searchResults.length === 0 ? (
             <div className="collection-detail-empty">
-              <i className="fas fa-search" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
+              <Icon name="search" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
               <p>No results. Enter a query and click Search.</p>
             </div>
           ) : (
@@ -441,13 +442,13 @@ export default function CollectionDetails() {
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={!newSourceUrl.trim() || addingSource}>
-              {addingSource ? <><i className="fas fa-spinner fa-spin" /> Adding...</> : <><i className="fas fa-plus" /> Add Source</>}
+              {addingSource ? <><Icon name="spinner" spin /> Adding...</> : <><Icon name="plus" /> Add Source</>}
             </button>
           </form>
 
           {sources.length === 0 ? (
             <div className="collection-detail-empty">
-              <i className="fas fa-globe" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
+              <Icon name="globe" style={{ fontSize: '2rem', marginBottom: 'var(--spacing-sm)', display: 'block' }} />
               <p>No external sources configured. Add a URL to start ingesting data.</p>
             </div>
           ) : (
@@ -476,7 +477,7 @@ export default function CollectionDetails() {
                             onClick={() => handleRemoveSource(typeof source === 'string' ? source : source.url)}
                             title="Remove"
                           >
-                            <i className="fas fa-trash" />
+                            <Icon name="trash" />
                           </button>
                         </div>
                       </td>
@@ -504,21 +505,21 @@ export default function CollectionDetails() {
         <div className="collection-detail-modal-overlay" onClick={() => setViewEntry(null)}>
           <div className="collection-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="collection-detail-modal-header">
-              <h3 title={viewEntry}><i className="fas fa-file-alt icon-before" />{viewEntry}</h3>
+              <h3 title={viewEntry}><Icon name="file-text" className="icon-before" />{viewEntry}</h3>
               <button className="btn btn-secondary btn-sm" onClick={() => setViewEntry(null)}>
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             </div>
             <div className="collection-detail-modal-body">
               {viewLoading ? (
                 <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)' }}>
-                  <i className="fas fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }} />
+                  <Icon name="spinner" spin style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }} />
                 </div>
               ) : viewContent ? (
                 <>
                   <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
                     <div className="text-note">
-                      <i className="fas fa-puzzle-piece icon-before" />
+                      <Icon name="puzzle" className="icon-before" />
                       Chunks: <strong style={{ color: 'var(--color-text-primary)' }}>{viewContent.chunk_count ?? '-'}</strong>
                     </div>
                   </div>

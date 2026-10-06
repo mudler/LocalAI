@@ -13,13 +13,14 @@ import ModelFleetTable from '../components/nodes/ModelFleetTable'
 import ModelInspector from '../components/nodes/ModelInspector'
 import LocalMachineView from '../components/nodes/LocalMachineView'
 import ImageSelector, { dockerFlags, dockerImage, useImageSelector } from '../components/ImageSelector'
+import Icon from '../components/Icon'
 
 function CommandBlock({ command, addToast }) {
   const copy = () => {
     navigator.clipboard.writeText(command)
     addToast('Copied to clipboard', 'success', 2000)
   }
-  return <div className="p2p-cmd"><pre>{command}</pre><button onClick={copy} className="btn btn-sm p2p-cmd__copy" title="Copy"><i className="fas fa-copy" /></button></div>
+  return <div className="p2p-cmd"><pre>{command}</pre><button onClick={copy} className="btn btn-sm p2p-cmd__copy" title="Copy"><Icon name="copy" /></button></div>
 }
 
 function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
@@ -32,7 +33,7 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
   ` : ''
   return (
     <div className="card pad-lg mb-xl">
-      <h3 className="panel-title"><i className={`fas ${hasWorkers ? 'fa-plus-circle' : 'fa-info-circle'} text-primary`} />{hasWorkers ? 'Register another worker' : 'No workers registered yet'}</h3>
+      <h3 className="panel-title"><Icon name={hasWorkers ? 'plus' : 'info'} className="text-primary" />{hasWorkers ? 'Register another worker' : 'No workers registered yet'}</h3>
       <p className="text-base text-secondary mb-md">Start a worker to add compute capacity. It will register with this frontend and appear here automatically.</p>
       <p className="form-label">Select your hardware</p>
       <ImageSelector selected={selected} onSelect={setSelected} dev={dev} onDevChange={setDev} />
@@ -56,7 +57,7 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
 function ScaleOutCard({ addToast }) {
   return (
     <div className="card p2p-enable pad-lg mb-xl" data-testid="scale-out">
-      <h3 className="panel-title"><i className="fas fa-rocket text-accent" />Distributed mode is not enabled</h3>
+      <h3 className="panel-title"><Icon name="rocket" className="text-accent" />Distributed mode is not enabled</h3>
       <p className="text-base text-secondary mb-md">Distributed mode spreads models across worker machines and routes inference across the fleet. Start LocalAI with it enabled, then register a worker.</p>
       <CommandBlock command={'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'} addToast={addToast} />
       <p className="text-note mt-md">See the <a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="text-primary">Distributed Mode documentation</a> for production setup.</p>
@@ -69,7 +70,7 @@ function FleetSelect({ label, value, onChange, children }) {
     <label className="fleet-select-wrap">
       <span className="sr-only">{label}</span>
       <select className="fleet-select" aria-label={label} value={value} onChange={onChange}>{children}</select>
-      <i className="fas fa-chevron-down fleet-select__chevron" aria-hidden="true" />
+      <Icon name="chevron-down" className="fleet-select__chevron" />
     </label>
   )
 }
@@ -380,8 +381,8 @@ export default function Nodes() {
           <div id="fleet-models-panel" className="fleet-workbench__fleet model-workbench" role="tabpanel" aria-labelledby="fleet-models-tab" hidden={workbenchView !== 'models'}>
             <div className="model-workbench__scope"><div><strong>Running models</strong><span>Current loaded replicas on healthy nodes</span></div>{modelLoadState === 'loaded' && <span aria-live="polite">{orderedModels.length} model{orderedModels.length === 1 ? '' : 's'} in view</span>}</div>
             {modelLoadState === 'loading' && <div className="model-workbench__state" role="status"><LoadingSpinner size="sm" /><strong>Loading running models…</strong><span>Reading the controller's current replica inventory.</span></div>}
-            {modelLoadState === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><strong>Unable to load running models</strong><span>{modelError}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Retry loading running models" onClick={() => { modelRequestStarted.current = false; void loadModels() }}>Retry</button></div>}
-            {modelLoadState === 'loaded' && groupedModels.length === 0 && <div className="model-workbench__state"><i className="fas fa-layer-group" aria-hidden="true" /><strong>No running models</strong><span>Loaded replicas on healthy nodes will appear here.</span></div>}
+            {modelLoadState === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><Icon name="warning" /><strong>Unable to load running models</strong><span>{modelError}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Retry loading running models" onClick={() => { modelRequestStarted.current = false; void loadModels() }}>Retry</button></div>}
+            {modelLoadState === 'loaded' && groupedModels.length === 0 && <div className="model-workbench__state"><Icon name="layers" /><strong>No running models</strong><span>Loaded replicas on healthy nodes will appear here.</span></div>}
             {modelLoadState === 'loaded' && groupedModels.length > 0 && <>
               <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /></div>
               <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector}

@@ -6,6 +6,7 @@ import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import SourcesTab from './Usage/SourcesTab'
+import Icon from '../components/Icon'
 
 const PERIODS = [
   { key: 'day', label: 'Day' },
@@ -58,7 +59,7 @@ function StatCard({ icon, label, value, muted, text }) {
   return (
     <div className={`card usage-tile${muted ? ' usage-tile--muted' : ''}`}>
       <div className="hstack hstack--xs mb-xs">
-        <i className={`${icon} text-meta`} />
+        <Icon name={icon} className="text-meta" />
         <span className="overline fw-medium">{label}</span>
       </div>
       <div className="usage-tile__value">
@@ -323,7 +324,7 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
     return (
       <div className="card usage-panel usage-panel--muted mb-md">
         <div className="hstack hstack--xs text-note">
-          <i className="fas fa-chart-line" />
+          <Icon name="chart-line" />
           <span>Not enough data to predict trends (need at least 2 data points)</span>
         </div>
       </div>
@@ -337,7 +338,7 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
     <div className="mb-md">
       <div className="card usage-panel">
         <div className="hstack hstack--xs mb-sm">
-          <i className="fas fa-chart-line text-primary text-sm" />
+          <Icon name="chart-line" className="text-primary text-sm" />
           <span className="text-base fw-semibold">
             Projected {periodLabel}
           </span>
@@ -346,17 +347,17 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
           </span>
         </div>
         <div className="usage-grid">
-          <StatCard icon="fas fa-arrow-right-arrow-left" label="Proj. Requests" value={projectedTotals.request_count} muted />
-          <StatCard icon="fas fa-arrow-up" label="Proj. Prompt" value={projectedTotals.prompt_tokens} muted />
-          <StatCard icon="fas fa-arrow-down" label="Proj. Completion" value={projectedTotals.completion_tokens} muted />
-          <StatCard icon="fas fa-coins" label="Proj. Total" value={projectedTotals.total_tokens} muted />
+          <StatCard icon="swap" label="Proj. Requests" value={projectedTotals.request_count} muted />
+          <StatCard icon="arrow-up" label="Proj. Prompt" value={projectedTotals.prompt_tokens} muted />
+          <StatCard icon="arrow-down" label="Proj. Completion" value={projectedTotals.completion_tokens} muted />
+          <StatCard icon="coins" label="Proj. Total" value={projectedTotals.total_tokens} muted />
         </div>
       </div>
 
       {quotaExhaustion.length > 0 && (
         <div className="card pad-md mt-sm">
           <div className="hstack hstack--xs mb-sm">
-            <i className="fas fa-gauge-high text-note" />
+            <Icon name="gauge" className="text-note" />
             <span className="text-base fw-semibold">Quota forecast</span>
           </div>
           <div className="stack stack--sm">
@@ -378,11 +379,11 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
                     </span>
                     {item.withinLimits ? (
                       <span className="text-xs text-success">
-                        <i className="fas fa-check icon-before" />Within limits
+                        <Icon name="check" className="icon-before" />Within limits
                       </span>
                     ) : (
                       <span className="text-xs text-warning">
-                        <i className="fas fa-exclamation-triangle icon-before" />{formatDuration(item.hoursLeft)} left
+                        <Icon name="warning" className="icon-before" />{formatDuration(item.hoursLeft)} left
                       </span>
                     )}
                   </div>
@@ -726,21 +727,21 @@ export default function Usage() {
           className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('models')}
         >
-          <i className="fas fa-cube text-xs" /> Models
+          <Icon name="cube" className="text-xs" /> Models
         </button>
         {isAdmin && (
           <button
             className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('users')}
           >
-            <i className="fas fa-users text-xs" /> Users
+            <Icon name="users" className="text-xs" /> Users
           </button>
         )}
         <button
           className={`btn btn-sm ${activeTab === 'sources' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('sources')}
         >
-          <i className="fas fa-key text-xs" /> {t('usage.sources.tab')}
+          <Icon name="key" className="text-xs" /> {t('usage.sources.tab')}
         </button>
         <div className="flex-1" />
         <button
@@ -748,10 +749,10 @@ export default function Usage() {
           onClick={() => setShowPricing(v => !v)}
           title="Set token pricing to estimate cost"
         >
-          <i className="fas fa-dollar-sign" /> {costEnabled ? 'Pricing' : 'Set pricing'}
+          <Icon name="dollar" /> {costEnabled ? 'Pricing' : 'Set pricing'}
         </button>
         <button className="btn btn-secondary btn-sm gap-xs" onClick={fetchUsage} disabled={loading}>
-          <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
+          <Icon name="refresh" spin={Boolean(loading)} /> Refresh
         </button>
       </div>
 
@@ -777,7 +778,7 @@ export default function Usage() {
           </div>
           {costEnabled && (
             <button className="btn btn-secondary btn-sm gap-xs" onClick={() => setPricing({ prompt: 0, completion: 0 })}>
-              <i className="fas fa-times" /> Clear
+              <Icon name="close" /> Clear
             </button>
           )}
           <span className="text-meta flex-1">
@@ -794,12 +795,12 @@ export default function Usage() {
         <>
           {/* Summary cards */}
           <div className="usage-grid mb-md">
-            <StatCard icon="fas fa-arrow-right-arrow-left" label="Requests" value={displayTotals.request_count} />
-            <StatCard icon="fas fa-arrow-up" label="Prompt" value={displayTotals.prompt_tokens} />
-            <StatCard icon="fas fa-arrow-down" label="Completion" value={displayTotals.completion_tokens} />
-            <StatCard icon="fas fa-coins" label="Total" value={displayTotals.total_tokens} />
+            <StatCard icon="swap" label="Requests" value={displayTotals.request_count} />
+            <StatCard icon="arrow-up" label="Prompt" value={displayTotals.prompt_tokens} />
+            <StatCard icon="arrow-down" label="Completion" value={displayTotals.completion_tokens} />
+            <StatCard icon="coins" label="Total" value={displayTotals.total_tokens} />
             {costEnabled && (
-              <StatCard icon="fas fa-dollar-sign" label="Est. Cost" text={formatCost(costOf(displayTotals, pricing))} />
+              <StatCard icon="dollar" label="Est. Cost" text={formatCost(costOf(displayTotals, pricing))} />
             )}
           </div>
 
@@ -816,7 +817,7 @@ export default function Usage() {
           {activeTab === 'models' && (
             modelRows.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-state-icon"><i className="fas fa-chart-bar" /></div>
+                <div className="empty-state-icon"><Icon name="chart-bar" /></div>
                 <h2 className="empty-state-title">No usage data</h2>
                 <p className="empty-state-text">Usage data will appear here as API requests are made.</p>
               </div>
@@ -855,7 +856,7 @@ export default function Usage() {
           {activeTab === 'users' && isAdmin && (
             userRows.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-state-icon"><i className="fas fa-users" /></div>
+                <div className="empty-state-icon"><Icon name="users" /></div>
                 <h2 className="empty-state-title">No user usage data</h2>
                 <p className="empty-state-text">Per-user usage data will appear here as users make API requests.</p>
               </div>
@@ -886,7 +887,7 @@ export default function Usage() {
                             className="clickable"
                           >
                             <td className="text-center text-muted text-xs col-w-30">
-                              <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`} />
+                              <Icon name={`chevron-${isExpanded ? 'down' : 'right'}`} />
                             </td>
                             <td className="text-sm">{row.user_name}</td>
                             <td className="cell-mono">{formatNumber(row.request_count)}</td>
@@ -905,10 +906,10 @@ export default function Usage() {
                                 <div className="pad-md">
                                   {up.predictions && (
                                     <div className="usage-grid--narrow mb-sm">
-                                      <StatCard icon="fas fa-arrow-right-arrow-left" label="Proj. Requests" value={up.predictions.projectedTotals.request_count} muted />
-                                      <StatCard icon="fas fa-arrow-up" label="Proj. Prompt" value={up.predictions.projectedTotals.prompt_tokens} muted />
-                                      <StatCard icon="fas fa-arrow-down" label="Proj. Completion" value={up.predictions.projectedTotals.completion_tokens} muted />
-                                      <StatCard icon="fas fa-coins" label="Proj. Total" value={up.predictions.projectedTotals.total_tokens} muted />
+                                      <StatCard icon="swap" label="Proj. Requests" value={up.predictions.projectedTotals.request_count} muted />
+                                      <StatCard icon="arrow-up" label="Proj. Prompt" value={up.predictions.projectedTotals.prompt_tokens} muted />
+                                      <StatCard icon="arrow-down" label="Proj. Completion" value={up.predictions.projectedTotals.completion_tokens} muted />
+                                      <StatCard icon="coins" label="Proj. Total" value={up.predictions.projectedTotals.total_tokens} muted />
                                     </div>
                                   )}
                                   {up.timeSeries.length > 0 ? (

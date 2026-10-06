@@ -7,6 +7,7 @@ import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Icon from '../components/Icon'
 
 export default function Agents() {
   const { addToast } = useOutletContext()
@@ -189,17 +190,17 @@ export default function Agents() {
           <div className="header-actions">
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-store" /> {t('actions.agentHub')}
+                <Icon name="store" /> {t('actions.agentHub')}
               </a>
             )}
             {/* A label styled as a button, wrapping the file input it triggers,
                 so the control looks and behaves like its neighbours. */}
             <label className="btn btn-secondary">
-              <i className="fas fa-file-import" /> {t('actions.import')}
+              <Icon name="import" /> {t('actions.import')}
               <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
             </label>
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-              <i className="fas fa-plus" /> {t('actions.createAgent')}
+              <Icon name="plus" /> {t('actions.createAgent')}
             </button>
           </div>
         }
@@ -207,11 +208,11 @@ export default function Agents() {
 
       {loading ? (
         <div className="loading-center">
-          <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+          <Icon name="spinner" spin className="icon-xl text-primary" />
         </div>
       ) : agents.length === 0 && !userGroups ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-robot" /></div>
+          <div className="empty-state-icon"><Icon name="robot" /></div>
           <h2 className="empty-state-title">{t('empty.noConfigured')}</h2>
           <p className="empty-state-text">{t('empty.noConfiguredText')}</p>
           {agentHubURL && (
@@ -227,15 +228,15 @@ export default function Agents() {
           )}
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
-              <i className="fas fa-plus" /> {t('actions.createAgent')}
+              <Icon name="plus" /> {t('actions.createAgent')}
             </button>
             <label className="btn btn-secondary">
-              <i className="fas fa-file-import" /> {t('actions.import')}
+              <Icon name="import" /> {t('actions.import')}
               <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
             </label>
             {agentHubURL && (
               <a className="btn btn-secondary" href={agentHubURL} target="_blank" rel="noopener noreferrer">
-                <i className="fas fa-store" /> {t('actions.agentHub')}
+                <Icon name="store" /> {t('actions.agentHub')}
               </a>
             )}
           </div>
@@ -245,7 +246,7 @@ export default function Agents() {
           {userGroups && <h2 className="text-lg fw-semibold mb-md">{t('sections.yourAgents')}</h2>}
           <div className="agents-toolbar">
             <div className="agents-search">
-              <i className="fas fa-search" />
+              <Icon name="search" />
               <input
                 className="input"
                 type="text"
@@ -261,7 +262,7 @@ export default function Agents() {
 
           {filtered.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-search" /></div>
+              <div className="empty-state-icon"><Icon name="search" /></div>
               <h2 className="empty-state-title">{t('empty.noMatching')}</h2>
               <p className="empty-state-text">{t('empty.noMatchingText', { query: search })}</p>
             </div>
@@ -304,35 +305,35 @@ export default function Agents() {
                               onClick={() => handlePauseResume(agent)}
                               title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
-                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} />
+                              <Icon name={isActive ? 'pause' : 'play'} />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit`)}
                               title={t('actions.edit')}
                             >
-                              <i className="fas fa-edit" />
+                              <Icon name="edit" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat`)}
                               title={t('actions.chat')}
                             >
-                              <i className="fas fa-comment" />
+                              <Icon name="chat" />
                             </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleExport(name)}
                               title={t('actions.export')}
                             >
-                              <i className="fas fa-download" />
+                              <Icon name="download" />
                             </button>
                             <button
                               className="btn btn-danger btn-sm"
                               onClick={() => handleDelete(name)}
                               title={t('actions.delete')}
                             >
-                              <i className="fas fa-trash" />
+                              <Icon name="trash" />
                             </button>
                           </div>
                         </td>
@@ -355,7 +356,7 @@ export default function Agents() {
           currentUserId={user?.id}
           itemKey="agents"
           renderGroup={(items, userId) => (
-            <div className={`table-container table text-right agents-name agents-action-group btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'} fas ${isActive ? 'fa-pause' : 'fa-play'} btn btn-secondary btn-sm fas fa-edit btn btn-secondary btn-sm fas fa-comment btn btn-secondary btn-sm fas fa-download btn btn-danger btn-sm fas fa-trash`}>
+            <div className="table-container">
               <table>
                 <thead>
                   <tr>
@@ -381,31 +382,31 @@ export default function Agents() {
                               onClick={() => handlePauseResume(a, userId)}
                               title={isActive ? t('actions.pause') : t('actions.resume')}
                             >
-                              <i className={`fas ${isActive ? 'fa-pause' : 'fa-play'}`} aria-hidden="true" />
+                              <Icon name={isActive ? 'pause' : 'play'} />
                             </button>
                             <button
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/edit?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.edit')}
                             >
-                              <i className="fas fa-pen" aria-hidden="true" />
+                              <Icon name="pencil" />
                             </button>
                             <button
                               onClick={() => navigate(`/app/agents/${encodeURIComponent(a.name)}/chat?user_id=${encodeURIComponent(userId)}`)}
                               title={t('actions.chat')}
                             >
-                              <i className="fas fa-comments" aria-hidden="true" />
+                              <Icon name="chat" />
                             </button>
                             <button
                               onClick={() => handleExport(a.name, userId)}
                               title={t('actions.export')}
                             >
-                              <i className="fas fa-file-export" aria-hidden="true" />
+                              <Icon name="export" />
                             </button>
                             <button
                               onClick={() => handleDelete(a.name, userId)}
                               title={t('actions.delete')}
                             >
-                              <i className="fas fa-trash" aria-hidden="true" />
+                              <Icon name="trash" />
                             </button>
                           </div>
                         </td>

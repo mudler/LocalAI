@@ -7,6 +7,7 @@ import { useUserMap } from '../hooks/useUserMap'
 import UserGroupSection from '../components/UserGroupSection'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Icon from '../components/Icon'
 
 export default function Collections() {
   const { addToast } = useOutletContext()
@@ -132,17 +133,17 @@ export default function Collections() {
           onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
         />
         <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !newName.trim()}>
-          {creating ? <><i className="fas fa-spinner fa-spin" /> {t('actions.creating')}</> : <><i className="fas fa-plus" /> {t('actions.create')}</>}
+          {creating ? <><Icon name="spinner" spin /> {t('actions.creating')}</> : <><Icon name="plus" /> {t('actions.create')}</>}
         </button>
       </div>
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: 'var(--color-text-muted)' }} />
+          <Icon name="spinner" spin style={{ fontSize: '2rem', color: 'var(--color-text-muted)' }} />
         </div>
       ) : collections.length === 0 && !userGroups ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-database" /></div>
+          <div className="empty-state-icon"><Icon name="database" /></div>
           <h2 className="empty-state-title">{t('empty.title')}</h2>
           <p className="empty-state-text">
             {t('empty.text')}
@@ -160,18 +161,18 @@ export default function Collections() {
             return (
               <div className="card" key={name} style={{ cursor: 'pointer' }} onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}`)}>
                 <div className="collections-card-name">
-                  <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
+                  <Icon name="folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
                   {name}
                 </div>
                 <div className="collections-card-actions" onClick={(e) => e.stopPropagation()}>
                   <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}`)} title={t('actions.viewDetails')}>
-                    <i className="fas fa-eye" /> {t('actions.details')}
+                    <Icon name="eye" /> {t('actions.details')}
                   </button>
                   <button className="btn btn-secondary btn-sm" onClick={() => handleReset(name)} title={t('actions.resetCollection')}>
-                    <i className="fas fa-rotate" /> {t('actions.reset')}
+                    <Icon name="refresh" /> {t('actions.reset')}
                   </button>
                   <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name)} title={t('actions.deleteCollection')}>
-                    <i className="fas fa-trash" />
+                    <Icon name="trash" />
                   </button>
                 </div>
               </div>
@@ -196,18 +197,18 @@ export default function Collections() {
                 return (
                   <div className="card" key={name}>
                     <div className="collections-card-name">
-                      <i className="fas fa-folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
+                      <Icon name="folder" style={{ marginRight: 'var(--spacing-xs)', color: 'var(--color-primary)' }} />
                       {name}
                     </div>
                     <div className="collections-card-actions">
                       <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/collections/${encodeURIComponent(name)}?user_id=${encodeURIComponent(userId)}`)} title={t('actions.viewDetails')}>
-                        <i className="fas fa-eye" /> {t('actions.details')}
+                        <Icon name="eye" /> {t('actions.details')}
                       </button>
                       <button className="btn btn-secondary btn-sm" onClick={() => handleReset(name, userId)} title={t('actions.resetCollection')}>
-                        <i className="fas fa-rotate" /> {t('actions.reset')}
+                        <Icon name="refresh" /> {t('actions.reset')}
                       </button>
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name, userId)} title={t('actions.deleteCollection')}>
-                        <i className="fas fa-trash" />
+                        <Icon name="trash" />
                       </button>
                     </div>
                   </div>

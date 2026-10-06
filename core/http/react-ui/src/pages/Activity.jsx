@@ -11,6 +11,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 // eslint-disable-next-line no-unused-vars
 import OperationCard from '../components/OperationCard'
+import Icon from '../components/Icon'
 
 const FILTERS = [
   { id: 'all', labelKey: 'activity.filter.all' },
@@ -29,9 +30,9 @@ function matchesFilter(entry, filter) {
 }
 
 const outcomeIcon = {
-  completed: 'fas fa-check',
-  failed: 'fas fa-circle-exclamation',
-  cancelled: 'fas fa-ban',
+  completed: 'check',
+  failed: 'alert-circle',
+  cancelled: 'ban',
 }
 
 function timeOfDay(iso) {
@@ -224,10 +225,7 @@ export default function Activity() {
           <div className="activity-rows">
             {records.map((record) => (
               <div key={record.jobID} className="activity-row">
-                <i
-                  className={`${outcomeIcon[record.outcome] || 'fas fa-check'} activity-row__icon activity-row__icon--${record.outcome}`}
-                  aria-hidden="true"
-                />
+                <Icon name={outcomeIcon[record.outcome] || 'check'} className={`activity-row__icon activity-row__icon--${record.outcome}`} />
                 <span className="activity-row__name">
                   {record.name}
                   <small>{recordSummary(record, t)}</small>
@@ -249,14 +247,14 @@ export default function Activity() {
       {live.length === 0 && failing.length === 0 && records.length === 0 && (
         filter === 'all' ? (
           <div className="activity-empty">
-            <i className="fas fa-download activity-empty__icon" aria-hidden="true" />
+            <Icon name="download" className="activity-empty__icon" />
             <p className="activity-empty__title">{t('activity.emptyTitle')}</p>
             <p className="activity-empty__body">{t('activity.emptyBody')}</p>
             <Link className="btn btn-primary" to="/app/models">{t('activity.browseModels')}</Link>
           </div>
         ) : (
           <div className="activity-empty activity-empty--filtered">
-            <i className="fas fa-filter activity-empty__icon" aria-hidden="true" />
+            <Icon name="filter" className="activity-empty__icon" />
             <p className="activity-empty__title">{t('activity.emptyFiltered')}</p>
             <button type="button" className="btn btn-secondary" onClick={() => setFilter('all')}>
               {t('activity.showAll')}

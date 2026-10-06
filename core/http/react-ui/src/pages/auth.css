@@ -224,7 +224,7 @@
   padding: 2px 8px;
 }
 
-.perm-summary-btn i {
+.perm-summary-btn .lai-icon {
   margin-right: 4px;
 }
 
@@ -288,7 +288,7 @@
   letter-spacing: 0.03em;
 }
 
-.perm-section-title i {
+.perm-section-title .lai-icon {
   margin-right: var(--spacing-xs);
   font-size: 0.7rem;
 }
@@ -455,7 +455,7 @@
   padding: var(--spacing-xl);
 }
 
-.empty-icon-block i {
+.empty-icon-block .lai-icon {
   font-size: 1.5rem;
   color: var(--color-text-muted);
   margin-bottom: var(--spacing-sm);
@@ -537,7 +537,7 @@
   padding: 2px 6px;
 }
 
-.apikey-revoke-btn i {
+.apikey-revoke-btn .lai-icon {
   font-size: 0.6875rem;
 }
 

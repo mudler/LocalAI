@@ -10,6 +10,7 @@ import CapacityEditor from '../components/nodes/CapacityEditor'
 import KeyValueChips from '../components/nodes/KeyValueChips'
 import { formatVRAM, modelStateConfig, timeAgo } from '../components/nodes/nodeStatus'
 import { capacityReading, nodeLifecycleAction } from '../utils/nodeFleet'
+import Icon from '../components/Icon'
 
 // Deep-linkable node management home. Reached by clicking a roster panel on
 // /app/nodes. Surfaces what's running here plus the management affordances
@@ -59,9 +60,9 @@ export default function NodeDetail() {
   if (!node && loadError) {
     const notFound = loadError.includes('404') || loadError.toLowerCase().includes('not found')
     return <div className="page page--wide nodes-fleet-page node-detail-page">
-      <PageHeader className="nodes-fleet-page__header" eyebrow={<Link to="/app/nodes" className="link-plain"><i className="fas fa-arrow-left icon-before" aria-hidden="true" />Nodes</Link>}
+      <PageHeader className="nodes-fleet-page__header" eyebrow={<Link to="/app/nodes" className="link-plain"><Icon name="arrow-left" className="icon-before" />Nodes</Link>}
         title={notFound ? 'Node not found' : 'Could not load this node'} supporting={notFound ? 'It may have been removed from the cluster.' : loadError} />
-      {!notFound && <div className="node-detail__load-error" role="alert"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><div><strong>Could not load this node</strong><span>The cluster may be temporarily unavailable.</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void refresh()}>Retry</button></div>}
+      {!notFound && <div className="node-detail__load-error" role="alert"><Icon name="warning" /><div><strong>Could not load this node</strong><span>The cluster may be temporarily unavailable.</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void refresh()}>Retry</button></div>}
     </div>
   }
   if (!node) return <div className="page page--wide"><PageHeader title="Node not found" /></div>
@@ -95,16 +96,16 @@ export default function NodeDetail() {
     <div className="page page--wide nodes-fleet-page node-detail-page">
       <PageHeader
         className="nodes-fleet-page__header node-detail__header"
-        eyebrow={<span className="node-detail__breadcrumb"><Link to="/app/nodes">Nodes</Link><i className="fas fa-chevron-right" aria-hidden="true" /><span>{node.name}</span></span>}
+        eyebrow={<span className="node-detail__breadcrumb"><Link to="/app/nodes">Nodes</Link><Icon name="chevron-right" /><span>{node.name}</span></span>}
         title={node.name}
         supporting={<span className="node-detail__identity"><StatusPill status={node.status} /><span className="cell-mono">{node.address || node.id}</span><span>{node.node_type || 'backend'} node</span></span>}
         actions={
           <>
-            {lifecycleAction === 'approve' && <button className="btn btn-primary btn-sm" onClick={approve}><i className="fas fa-check" /> Approve</button>}
-            {lifecycleAction === 'resume' && <button className="btn btn-secondary btn-sm" onClick={resume}><i className="fas fa-play" /> Resume</button>}
-            {lifecycleAction === 'drain' && <button className="btn btn-secondary btn-sm" onClick={drain}><i className="fas fa-pause" /> Drain</button>}
+            {lifecycleAction === 'approve' && <button className="btn btn-primary btn-sm" onClick={approve}><Icon name="check" /> Approve</button>}
+            {lifecycleAction === 'resume' && <button className="btn btn-secondary btn-sm" onClick={resume}><Icon name="play" /> Resume</button>}
+            {lifecycleAction === 'drain' && <button className="btn btn-secondary btn-sm" onClick={drain}><Icon name="pause" /> Drain</button>}
             <ActionMenu ariaLabel={`${node.name} actions`} triggerLabel={`Actions for ${node.name}`} items={[{
-              key: 'remove', icon: 'fa-trash', label: 'Remove node…', danger: true, onClick: () => setConfirmRemove(true),
+              key: 'remove', icon: 'trash', label: 'Remove node…', danger: true, onClick: () => setConfirmRemove(true),
             }]} />
           </>
         }
@@ -153,7 +154,7 @@ export default function NodeDetail() {
           <section className="fleet-workbench node-detail__workbench" aria-label="Running models">
             <div className="model-workbench__scope"><div><strong>Running models</strong><span>Replica processes scheduled to this node</span></div><span>{models.length} replica{models.length === 1 ? '' : 's'}</span></div>
             {models.length === 0 ? (
-              <div className="node-detail__empty"><i className="fas fa-cube" aria-hidden="true" /><span>No models loaded yet. Replicas will appear here when scheduled to this node.</span></div>
+              <div className="node-detail__empty"><Icon name="cube" /><span>No models loaded yet. Replicas will appear here when scheduled to this node.</span></div>
             ) : (
               <div className="fleet-table-wrap">
                 <table className="fleet-table node-detail__table node-detail__table--models">
@@ -171,9 +172,9 @@ export default function NodeDetail() {
                         <td><span className="state-pill" style={{ background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}` }}>{model.state}</span></td>
                         <td className="cell-mono">{model.in_flight ?? 0}</td>
                         <td className="model-fleet-table__actions"><ActionMenu compact ariaLabel={`${model.model_name} replica ${replicaNumber} actions`} triggerLabel={`Actions for ${model.model_name} replica ${replicaNumber}`} items={[
-                          { key: 'logs', icon: 'fa-terminal', label: 'View logs', onClick: () => navigate(`/app/node-backend-logs/${encodeURIComponent(id)}/${encodeURIComponent(processKey)}`) },
+                          { key: 'logs', icon: 'terminal', label: 'View logs', onClick: () => navigate(`/app/node-backend-logs/${encodeURIComponent(id)}/${encodeURIComponent(processKey)}`) },
                           { divider: true },
-                          { key: 'unload', icon: 'fa-stop', label: 'Unload model…', danger: true, onClick: () => setConfirmUnload({ modelName: model.model_name, inFlight: model.in_flight ?? 0 }) },
+                          { key: 'unload', icon: 'stop', label: 'Unload model…', danger: true, onClick: () => setConfirmUnload({ modelName: model.model_name, inFlight: model.in_flight ?? 0 }) },
                         ]} /></td>
                       </tr>
                     })
@@ -184,7 +185,7 @@ export default function NodeDetail() {
           </section>
 
           <section className="fleet-workbench node-detail__workbench" aria-label="Installed backends">
-            <div className="model-workbench__scope"><div><strong>Installed backends</strong><span>Runtime engines available on this node</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/backends?target=${encodeURIComponent(id)}`)}><i className="fas fa-plus" aria-hidden="true" /> Add backend</button></div>
+            <div className="model-workbench__scope"><div><strong>Installed backends</strong><span>Runtime engines available on this node</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/backends?target=${encodeURIComponent(id)}`)}><Icon name="plus" /> Add backend</button></div>
             {backends.length === 0 ? (
               <div className="node-detail__empty"><span>None installed.</span><button type="button" className="node-detail__text-action" onClick={() => navigate(`/app/backends?target=${encodeURIComponent(id)}`)}>Install one from the gallery</button></div>
             ) : (
@@ -196,9 +197,9 @@ export default function NodeDetail() {
                     <td><span className={`state-pill ${backend.is_system ? 'state-pill--system' : 'state-pill--gallery'}`}>{backend.is_system ? 'system' : 'gallery'}</span></td>
                     <td className="text-note">{backend.installed_at ? timeAgo(backend.installed_at) : '—'}</td>
                     <td className="model-fleet-table__actions">{!backend.is_system && <ActionMenu compact ariaLabel={`${backend.name} backend actions`} triggerLabel={`Actions for backend ${backend.name}`} items={[
-                      { key: 'upgrade', icon: 'fa-arrow-up', label: 'Upgrade backend', onClick: () => upgradeBackend(backend.name) },
+                      { key: 'upgrade', icon: 'arrow-up', label: 'Upgrade backend', onClick: () => upgradeBackend(backend.name) },
                       { divider: true },
-                      { key: 'delete', icon: 'fa-trash', label: 'Delete backend…', danger: true, onClick: () => setConfirmDeleteBackend({ backend: backend.name }) },
+                      { key: 'delete', icon: 'trash', label: 'Delete backend…', danger: true, onClick: () => setConfirmDeleteBackend({ backend: backend.name }) },
                     ]} />}</td>
                   </tr>)}</tbody>
                 </table>
