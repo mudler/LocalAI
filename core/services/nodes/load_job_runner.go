@@ -50,7 +50,6 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 			return nil, fmt.Errorf("claiming model load job: %w", err)
 		}
 
-		waiter := r.loadWaiterChan(loadWaiterKey(job.Ref()))
 		switch {
 		case claimed:
 			// The model may have been loaded between this request's warm-path
@@ -71,6 +70,7 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 				"model", att.trackingKey, "state", job.State, "node", job.NodeName, "owner", job.OwnerReplica)
 		}
 
+		waiter := r.loadWaiterChan(loadWaiterKey(job.Ref()))
 		if err := r.waitForLoadJob(waitCtx, att.trackingKey, waiter, job.Ref()); err != nil {
 			// The caller's own context is still live, so it was the wait budget
 			// that ran out, not the client giving up: answer with progress.
@@ -288,6 +288,11 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 // replica has no channel to close and NATS broadcasts are fire-and-forget, so a
 // missed terminal event must not strand it.
 func (r *SmartRouter) waitForLoadJob(ctx context.Context, trackingKey string, waiter <-chan struct{}, refs ...LoadJobRef) error {
+	key := trackingKey
+	if len(refs) > 0 {
+		key = loadWaiterKey(refs[0])
+	}
+	defer r.releaseLoadWaiter(key, waiter)
 	var ref LoadJobRef
 	if len(refs) > 0 {
 		ref = refs[0]
@@ -325,6 +330,24 @@ func (r *SmartRouter) waitForLoadJob(ctx context.Context, trackingKey string, wa
 	}
 }
 
+// loadWaiter registrations are per request; local notifications are only hints.
+type loadWaiter struct {
+	ch   chan struct{}
+	refs int
+}
+
+func (r *SmartRouter) releaseLoadWaiter(key string, ch <-chan struct{}) {
+	r.loadWaitersMu.Lock()
+	defer r.loadWaitersMu.Unlock()
+	// Channel identity prevents delayed teardown from deleting a new registration.
+	if entry := r.loadWaiters[key]; entry != nil && entry.ch == ch {
+		entry.refs--
+		if entry.refs == 0 {
+			delete(r.loadWaiters, key)
+		}
+	}
+}
+
 // loadWaiterChan returns the broadcast channel for trackingKey, creating it on
 // first use. Same shape as advisorylock.localLocks: N local requests share one
 // wait and wake together.
@@ -332,14 +355,15 @@ func (r *SmartRouter) loadWaiterChan(trackingKey string) <-chan struct{} {
 	r.loadWaitersMu.Lock()
 	defer r.loadWaitersMu.Unlock()
 	if r.loadWaiters == nil {
-		r.loadWaiters = map[string]chan struct{}{}
+		r.loadWaiters = map[string]*loadWaiter{}
 	}
 	ch, ok := r.loadWaiters[trackingKey]
 	if !ok {
-		ch = make(chan struct{})
+		ch = &loadWaiter{ch: make(chan struct{})}
 		r.loadWaiters[trackingKey] = ch
 	}
-	return ch
+	ch.refs++
+	return ch.ch
 }
 
 // closeLoadWaiters wakes every local waiter on trackingKey. A waiter that
@@ -350,7 +374,7 @@ func (r *SmartRouter) closeLoadWaiters(trackingKey string) {
 	delete(r.loadWaiters, trackingKey)
 	r.loadWaitersMu.Unlock()
 	if ok {
-		close(ch)
+		close(ch.ch)
 	}
 }
 

@@ -76,6 +76,20 @@ var ErrLoadJobUnknown = errors.New("unknown load generation")
 // Cancel records durable intent before any remote action. Direct backend load
 // admission is not fenced, so even an exact process stop cannot release quarantine.
 func (s *LoadRecoveryService) Cancel(ctx context.Context, ref LoadJobRef, stopper LoadOperationStopper) (LoadRecoveryResult, error) {
+	return s.cancel(ctx, ref, stopper, "")
+}
+
+// CancelOnNode atomically fences a node-specific request against placement moves.
+// Cancel intentionally remains model-wide for the generation-based admin API.
+func (s *LoadRecoveryService) CancelOnNode(ctx context.Context, ref LoadJobRef, nodeID string, stopper LoadOperationStopper) (LoadRecoveryResult, error) {
+	if nodeID == "" {
+		return LoadRecoveryResult{}, ErrLoadJobConflict
+	}
+	return s.cancel(ctx, ref, stopper, nodeID)
+}
+
+func (s *LoadRecoveryService) cancel(ctx context.Context, ref LoadJobRef, stopper LoadOperationStopper, expectedNode string) (LoadRecoveryResult, error) {
+	var target ModelLoadJob
 	if stopper == nil {
 		stopper = s.Stopper
 	}
@@ -83,21 +97,27 @@ func (s *LoadRecoveryService) Cancel(ctx context.Context, ref LoadJobRef, stoppe
 	err := s.Registry.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var tomb LoadJobTombstone
 		tombErr := tx.First(&tomb, "tracking_key = ? AND generation = ? AND expires_at > ?", ref.TrackingKey, ref.Generation, time.Now()).Error
-		if tombErr == nil {
+		if tombErr == nil && expectedNode == "" {
 			result = LoadRecoveryResult{Outcome: LoadTerminalConfirmed, Reason: "owner-confirmed completion"}
 			return nil
 		}
-		if !errors.Is(tombErr, gorm.ErrRecordNotFound) {
+		if tombErr != nil && !errors.Is(tombErr, gorm.ErrRecordNotFound) {
 			return tombErr
 		}
 
 		now := time.Now()
-		res := tx.Model(&ModelLoadJob{}).Where("tracking_key = ? AND generation = ? AND generation <> '' AND (terminal_until IS NULL OR work_uncertain = ?)", ref.TrackingKey, ref.Generation, true).Updates(map[string]any{"cancel_requested": true, "state": LoadJobStateFailed, "work_uncertain": true, "terminal_until": now.Add(loadJobFailureGrace), "last_error": result.Reason, "updated_at": now})
+		query := tx.Model(&ModelLoadJob{}).Where("tracking_key = ? AND generation = ? AND generation <> '' AND (terminal_until IS NULL OR work_uncertain = ?)", ref.TrackingKey, ref.Generation, true)
+		if expectedNode != "" {
+			query = query.Where("node_id = ?", expectedNode)
+		}
+		res := query.Updates(map[string]any{"cancel_requested": true, "state": LoadJobStateFailed, "work_uncertain": true, "terminal_until": now.Add(loadJobFailureGrace), "last_error": result.Reason, "updated_at": now})
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 1 {
-			return nil
+			// The UPDATE holds the row lock; terminal state fences owner placement
+			// updates. Freeze the dispatch target before releasing that lock.
+			return tx.First(&target, "tracking_key = ? AND generation = ?", ref.TrackingKey, ref.Generation).Error
 		}
 		var job ModelLoadJob
 		err := tx.First(&job, "tracking_key = ?", ref.TrackingKey).Error
@@ -107,22 +127,18 @@ func (s *LoadRecoveryService) Cancel(ctx context.Context, ref LoadJobRef, stoppe
 		if err != nil {
 			return err
 		}
-		if job.Ref() == ref && job.TerminalUntil != nil && !job.WorkUncertain {
+		if (expectedNode == "" || job.NodeID == expectedNode) && job.Ref() == ref && job.TerminalUntil != nil && !job.WorkUncertain {
 			result = LoadRecoveryResult{Outcome: LoadTerminalConfirmed, Reason: "durable terminal confirmation"}
 			return nil
 		}
 		return ErrLoadJobConflict
 	})
 	if err == nil && result.Outcome == LoadUncertain && stopper != nil {
-		job, readErr := s.Registry.GetLoadJob(ctx, ref.TrackingKey)
-		if readErr != nil {
-			return result, readErr
-		}
-		if job != nil && job.Ref() == ref && job.NodeID != "" {
+		if target.NodeID != "" {
 			if lister, ok := stopper.(interface {
 				ListRunningModels(string) (*workerctl.ModelsRunningReply, error)
 			}); ok {
-				inventory, listErr := lister.ListRunningModels(job.NodeID)
+				inventory, listErr := lister.ListRunningModels(target.NodeID)
 				if listErr != nil {
 					result.Reason += ": worker inventory unavailable"
 					return result, nil
@@ -133,7 +149,7 @@ func (s *LoadRecoveryService) Cancel(ctx context.Context, ref LoadJobRef, stoppe
 						if op == nil || op.TrackingKey != ref.TrackingKey || op.Generation != ref.Generation || op.Incarnation == "" || op.Incarnation != inventory.Incarnation || process.ProcessInstance == "" || process.Address == "" {
 							continue
 						}
-						_, stopErr := stopper.StopLoadOperation(ctx, job.NodeID, ref, op.Incarnation, model.BackendProcessKey(process.ModelID, process.ReplicaIndex), process.Address, process.ProcessInstance, process.ConfigRevision)
+						_, stopErr := stopper.StopLoadOperation(ctx, target.NodeID, ref, op.Incarnation, model.BackendProcessKey(process.ModelID, process.ReplicaIndex), process.Address, process.ProcessInstance, process.ConfigRevision)
 						if stopErr != nil {
 							result.Reason += ": exact stop not confirmed"
 							return result, nil

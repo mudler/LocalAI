@@ -711,7 +711,10 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 				return c.JSON(409, nodeError(409, "load belongs to a different or unknown node"))
 			}
 			stopper, _ := unloader.(nodes.LoadOperationStopper)
-			result, err := (&nodes.LoadRecoveryService{Registry: registry}).Cancel(c.Request().Context(), job.Ref(), stopper)
+			result, err := (&nodes.LoadRecoveryService{Registry: registry}).CancelOnNode(c.Request().Context(), job.Ref(), nodeID, stopper)
+			if errors.Is(err, nodes.ErrLoadJobConflict) || errors.Is(err, nodes.ErrLoadJobUnknown) {
+				return c.JSON(409, nodeError(409, "load placement changed"))
+			}
 			if err != nil {
 				return c.JSON(500, nodeError(500, err.Error()))
 			}

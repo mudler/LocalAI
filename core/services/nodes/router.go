@@ -222,7 +222,7 @@ type SmartRouter struct {
 	// identical outcome, so they share one wait instead of queueing. See
 	// load_job_runner.go.
 	loadWaitersMu sync.Mutex
-	loadWaiters   map[string]chan struct{}
+	loadWaiters   map[string]*loadWaiter
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -278,7 +278,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
-		loadWaiters:          map[string]chan struct{}{},
+		loadWaiters:          map[string]*loadWaiter{},
 	}
 }
 
