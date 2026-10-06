@@ -35,7 +35,9 @@ const (
 	// than this. NATS pub/sub is fire-and-forget, so a missed Done event would
 	// otherwise leave a phantom staging row on a peer forever; a live op
 	// refreshes its mirror at least every stagingBroadcastInterval.
-	stagingRemoteTTL = 60 * time.Second
+	stagingRemoteTTL  = 60 * time.Second
+	stagingCacheLimit = 4096
+	stagingDoneTTL    = 15 * time.Minute
 )
 
 // stagingEntry wraps a StagingStatus with the bookkeeping needed to keep peer
@@ -57,10 +59,14 @@ type stagingEntry struct {
 // (SetPublisher); peers mirror it via ApplyRemote (SubscribeBroadcasts) so a
 // /api/operations poll that round-robins onto any replica surfaces the op.
 type StagingTracker struct {
-	mu        sync.RWMutex
-	active    map[string]*stagingEntry
-	publisher messaging.Publisher
+	mu          sync.RWMutex
+	active      map[string]*stagingEntry
+	publisher   messaging.Publisher
+	generations map[stagingIdentity]*stagingEntry
+	completed   map[stagingIdentity]time.Time
 }
+
+type stagingIdentity struct{ model, generation string }
 
 // StagingProgressEvent is the wire payload a frontend replica broadcasts on
 // SubjectStagingProgress so peer replicas can mirror a staging op they did not
@@ -75,7 +81,9 @@ type StagingProgressEvent struct {
 // NewStagingTracker creates a new tracker.
 func NewStagingTracker() *StagingTracker {
 	return &StagingTracker{
-		active: make(map[string]*stagingEntry),
+		active:      make(map[string]*stagingEntry),
+		generations: make(map[stagingIdentity]*stagingEntry),
+		completed:   make(map[stagingIdentity]time.Time),
 	}
 }
 
@@ -216,6 +224,12 @@ func (t *StagingTracker) Complete(modelID string) {
 	t.mu.Lock()
 	entry, ok := t.active[modelID]
 	delete(t.active, modelID)
+	if ok && entry.status.Generation != "" {
+		key := stagingIdentity{modelID, entry.status.Generation}
+		delete(t.generations, key)
+		t.completed[key] = time.Now()
+		t.pruneRemote(time.Now())
+	}
 	pub := t.publisher
 	t.mu.Unlock()
 
@@ -227,29 +241,62 @@ func (t *StagingTracker) Complete(modelID string) {
 
 // ApplyRemote merges a peer replica's staging broadcast into this tracker. It
 // never re-broadcasts (no echo loop). A locally-owned op is authoritative: a
-// remote event for the same model is ignored, so the origin replica receiving
+// remote event for the same generation is ignored, so the origin replica receiving
 // its own broadcast (and any stray peer event) cannot clobber or delete it.
 func (t *StagingTracker) ApplyRemote(evt StagingProgressEvent) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if existing, ok := t.active[evt.ModelID]; ok && !existing.remote {
+	incomingGeneration := evt.Generation
+	if !evt.Done && evt.Status != nil {
+		incomingGeneration = evt.Status.Generation
+	}
+	if existing, ok := t.active[evt.ModelID]; ok && !existing.remote && (incomingGeneration == "" || incomingGeneration == existing.status.Generation) {
 		// We own this op locally — ignore peer chatter about it.
 		return
 	}
-	if existing := t.active[evt.ModelID]; existing != nil {
-		if evt.Done && evt.Generation != existing.status.Generation {
+
+	now := time.Now()
+	t.pruneRemote(now)
+	generation := evt.Generation
+	if !evt.Done && evt.Status != nil {
+		generation = evt.Status.Generation
+	}
+	key := stagingIdentity{evt.ModelID, generation}
+	if generation != "" {
+		if _, done := t.completed[key]; done {
 			return
 		}
-		if evt.Status != nil {
-			incoming, current := evt.Status, existing.status
-			if incoming.Generation != current.Generation && !incoming.StartedAt.After(current.StartedAt) {
-				return
+		if evt.Done {
+			t.completed[key] = now
+			delete(t.generations, key)
+			if e := t.active[evt.ModelID]; e != nil && e.status.Generation == generation {
+				delete(t.active, evt.ModelID)
 			}
-			if incoming.Generation == current.Generation && incoming.UpdatedAt.Before(current.UpdatedAt) {
-				return
-			}
+			t.pruneRemote(now)
+			return
 		}
+		if evt.Status == nil {
+			return
+		}
+		if e := t.generations[key]; e != nil && !evt.Status.UpdatedAt.After(e.status.UpdatedAt) {
+			return
+		}
+		e := &stagingEntry{status: *evt.Status, remote: true, updatedAt: now}
+		t.generations[key] = e
+		// This compatibility view is not generation authority. Durable readers
+		// select an exact identity with GetGeneration instead.
+		if current := t.active[evt.ModelID]; current == nil || current.status.Generation == generation {
+			t.active[evt.ModelID] = e
+		}
+		t.pruneRemote(now)
+		return
+	}
+	// Legacy senders have no generation. Order their sessions only within
+	// this legacy namespace; they cannot overwrite generation-bearing work.
+	existing := t.active[evt.ModelID]
+	if existing != nil && existing.status.Generation != "" {
+		return
 	}
 	if evt.Done {
 		delete(t.active, evt.ModelID)
@@ -258,11 +305,95 @@ func (t *StagingTracker) ApplyRemote(evt StagingProgressEvent) {
 	if evt.Status == nil {
 		return
 	}
-	t.active[evt.ModelID] = &stagingEntry{
-		status:    *evt.Status,
-		remote:    true,
-		updatedAt: time.Now(),
+	if existing != nil {
+		incoming, current := evt.Status, existing.status
+		if incoming.StartedAt.Before(current.StartedAt) {
+			return
+		}
+		if incoming.StartedAt.Equal(current.StartedAt) && incoming.UpdatedAt.Before(current.UpdatedAt) {
+			return
+		}
 	}
+	t.active[evt.ModelID] = &stagingEntry{status: *evt.Status, remote: true, updatedAt: now}
+	t.pruneRemote(now)
+}
+
+// pruneRemote bounds per-instance hints by receiver time, never owner clocks.
+// The durable registry remains authoritative even after a tombstone expires.
+// Caller holds mu.
+func (t *StagingTracker) pruneRemote(now time.Time) {
+	for key, e := range t.generations {
+		if now.Sub(e.updatedAt) > stagingRemoteTTL {
+			delete(t.generations, key)
+		}
+	}
+	for len(t.generations) > stagingCacheLimit {
+		var oldest stagingIdentity
+		var at time.Time
+		for key, e := range t.generations {
+			if at.IsZero() || e.updatedAt.Before(at) {
+				oldest, at = key, e.updatedAt
+			}
+		}
+		delete(t.generations, oldest)
+	}
+	for key, at := range t.completed {
+		if now.Sub(at) > stagingDoneTTL {
+			delete(t.completed, key)
+		}
+	}
+	for len(t.completed) > stagingCacheLimit {
+		var oldest stagingIdentity
+		var at time.Time
+		for key, timestamp := range t.completed {
+			if at.IsZero() || timestamp.Before(at) {
+				oldest, at = key, timestamp
+			}
+		}
+		delete(t.completed, oldest)
+	}
+	for model, e := range t.active {
+		if !e.remote {
+			continue
+		}
+		if now.Sub(e.updatedAt) > stagingRemoteTTL || (e.status.Generation != "" && t.generations[stagingIdentity{model, e.status.Generation}] != e) {
+			delete(t.active, model)
+		}
+	}
+	// Bound legacy mirrors too, without evicting locally owned operations.
+	for {
+		count := 0
+		oldest := ""
+		var at time.Time
+		for model, e := range t.active {
+			if e.remote {
+				count++
+				if at.IsZero() || e.updatedAt.Before(at) {
+					oldest, at = model, e.updatedAt
+				}
+			}
+		}
+		if count <= stagingCacheLimit {
+			break
+		}
+		delete(t.active, oldest)
+	}
+}
+
+// GetGeneration returns only progress for the durable job's exact identity.
+// Generation identifiers and clocks from different owners have no ordering.
+func (t *StagingTracker) GetGeneration(modelID, generation string) *StagingStatus {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	e := t.active[modelID]
+	if e == nil || e.status.Generation != generation {
+		e = t.generations[stagingIdentity{modelID, generation}]
+	}
+	if e == nil || (e.remote && time.Since(e.updatedAt) > stagingRemoteTTL) {
+		return nil
+	}
+	s := e.status
+	return &s
 }
 
 // GetAll returns a snapshot of all active staging operations. Stale remote

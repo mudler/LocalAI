@@ -1503,6 +1503,17 @@ state independently. A failure does not prove that remote work stopped.
 Durable state overrides local and mirrored staging progress. Only a newer
 snapshot from the same generation can update live byte counts. A delayed
 broadcast cannot restore a completed durable generation to Activity.
+Recovery errors include the original diagnostic and an explicit warning about
+uncertain remote work. If the durable query fails, the endpoint returns HTTP
+503. The existing UI keeps its last successful snapshot instead of inferring
+completion from an empty list.
+
+Each frontend keeps ephemeral progress hints per exact generation. Cross-owner
+clocks and generation identifiers do not establish ordering or ownership.
+Remote hints expire after 60 seconds of receiver inactivity. Completion
+markers expire after 15 minutes; each cache holds at most 4096 entries.
+These per-instance caches do not grant replacement authority. Durable state
+still prevents old broadcasts from restoring completed work after cache eviction.
 
 Activity does not offer gallery cancellation for cold loads. Use the dedicated
 load-cancel endpoint with `job_id`. Synthetic `staging:` identities are rejected

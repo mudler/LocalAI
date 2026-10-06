@@ -336,10 +336,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				jobs, err := d.Registry.ListActiveLoadJobs(c.Request().Context())
 				if err != nil {
 					xlog.Warn("Failed to list durable model load jobs", "error", err)
-					for _, op := range stagingOperations {
-						op["error"] = "Load status unavailable; remote work uncertain"
-						op["phase"] = "recovery"
-					}
+					// A successful partial list would make existing consumers infer completion.
+					return c.JSON(http.StatusServiceUnavailable, map[string]any{"error": "Load status unavailable; remote work uncertain"})
 				} else {
 					// A generation-bearing mirror cannot establish durable ownership.
 					for key, status := range trackerStatuses {
@@ -383,14 +381,18 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 						op["last_progress_at"] = status.LastProgressAt
 						if recovery {
 							op["phase"] = "recovery"
-							reason := job.LastError
-							if reason == "" {
-								reason = "Load interrupted; remote work uncertain; verified operator cleanup required"
+							reason := "Load interrupted; remote work uncertain; verified operator cleanup required"
+							if job.LastError != "" {
+								reason += ": " + job.LastError
 							}
 							op["error"] = reason
 							op["message"] = reason
 						}
-						if status, ok := trackerStatuses[job.TrackingKey]; ok && !recovery && job.Generation != "" && status.Generation == job.Generation && status.UpdatedAt.After(job.LastProgress) {
+						var progress *nodes.StagingStatus
+						if d.Router != nil && job.Generation != "" {
+							progress = d.Router.StagingTracker().GetGeneration(job.TrackingKey, job.Generation)
+						}
+						if status := progress; status != nil && !recovery && status.UpdatedAt.After(job.LastProgress) {
 							op["nodeName"] = status.NodeName
 							op["message"] = status.Message
 							op["progress"] = int(status.Progress)

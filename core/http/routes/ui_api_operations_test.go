@@ -150,7 +150,7 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		))
 	})
 
-	It("retains tracker-only operations when the database read fails", func() {
+	It("fails closed even with tracker-only operations when the database read fails", func() {
 		db := testutil.SetupTestDB()
 		registry, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
@@ -162,14 +162,12 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sqlDB.Close()).To(Succeed())
 
-		operations := serveOperations(applicationWithDistributedServices(registry, router))
-		found := operationByID(operations, "staging:tracker-only")
-		Expect(found).ToNot(BeNil())
-		Expect(found).To(SatisfyAll(
-			HaveKeyWithValue("progress", float64(40)),
-			HaveKeyWithValue("currentBytes", float64(40)),
-			HaveKeyWithValue("totalBytes", float64(100)),
-		))
+		rec := httptest.NewRecorder()
+		recoveryOperationsServer(registry, router).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/operations", nil))
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Body.String()).To(ContainSubstring("remote work uncertain"))
+		// A failed fetch preserves the consumer's last snapshot, not a partial list.
+		Expect(router.StagingTracker().Get("tracker-only").BytesSent).To(Equal(int64(40)))
 	})
 })
 

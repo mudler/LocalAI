@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -147,5 +148,58 @@ var _ = Describe("Load recovery staging broadcast", func() {
 			tracker.ApplyRemote(event)
 		}
 		Expect(tracker.Get("model").BytesSent).To(Equal(int64(80)))
+	})
+})
+
+var _ = Describe("Load recovery generation cache", func() {
+	It("selects exact generations independently of clocks and retains completion fences", func() {
+		tracker := NewStagingTracker()
+		now := time.Now()
+		send := func(gen string, start, update time.Time, bytes int64) {
+			tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Status: &StagingStatus{ModelID: "m", Generation: gen, StartedAt: start, UpdatedAt: update, BytesSent: bytes}})
+		}
+		tracker.Start("m", "old-local", 1, "local")
+		send("current", now.Add(-time.Hour), now, 80)
+		send("current", now, now.Add(-time.Second), 20)
+		send("old", now.Add(time.Hour), now.Add(time.Hour), 10)
+		Expect(tracker.GetGeneration("m", "current").BytesSent).To(Equal(int64(80)))
+		Expect(tracker.Get("m").Generation).To(Equal("local"))
+		tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Generation: "current", Done: true})
+		send("current", now, now.Add(time.Hour), 99)
+		Expect(tracker.GetGeneration("m", "current")).To(BeNil())
+		Expect(tracker.GetGeneration("m", "old").BytesSent).To(Equal(int64(10)))
+	})
+	It("orders legacy sessions and ticks without mixing generation-bearing progress", func() {
+		tracker := NewStagingTracker()
+		now := time.Now()
+		send := func(start, update time.Time, bytes int64) {
+			tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Status: &StagingStatus{ModelID: "m", StartedAt: start, UpdatedAt: update, BytesSent: bytes}})
+		}
+		send(now, now, 20)
+		send(now, now.Add(time.Second), 80)
+		send(now, now, 10)
+		send(now.Add(-time.Hour), now.Add(time.Hour), 5)
+		Expect(tracker.Get("m").BytesSent).To(Equal(int64(80)))
+		send(now.Add(time.Second), now.Add(time.Second), 1)
+		Expect(tracker.Get("m").BytesSent).To(Equal(int64(1)))
+		tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Done: true})
+		Expect(tracker.Get("m")).To(BeNil())
+	})
+	It("bounds hints and tombstones and expires them by receiver time", func() {
+		tracker := NewStagingTracker()
+		now := time.Now()
+		for i := 0; i < stagingCacheLimit+1; i++ {
+			gen := fmt.Sprint(i)
+			tracker.ApplyRemote(StagingProgressEvent{ModelID: "m", Status: &StagingStatus{Generation: gen, UpdatedAt: now.Add(time.Hour)}})
+			tracker.ApplyRemote(StagingProgressEvent{ModelID: "done", Generation: gen, Done: true})
+		}
+		Expect(tracker.generations).To(HaveLen(stagingCacheLimit))
+		Expect(tracker.completed).To(HaveLen(stagingCacheLimit))
+		tracker.mu.Lock()
+		tracker.pruneRemote(now.Add(stagingDoneTTL + time.Minute))
+		tracker.mu.Unlock()
+		Expect(tracker.generations).To(BeEmpty())
+		Expect(tracker.completed).To(BeEmpty())
+		Expect(tracker.GetAll()).To(BeEmpty())
 	})
 })
