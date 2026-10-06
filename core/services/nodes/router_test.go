@@ -281,6 +281,17 @@ func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) erro
 	return nil
 }
 
+func (s *fakeLoadJobStore) ConfirmLoadOp(_ context.Context, ref LoadJobRef) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job := s.owned(ref)
+	if job == nil || job.State != LoadJobStateFailed {
+		return ErrStaleLoadJob
+	}
+	job.OpConfirmed = true
+	return nil
+}
+
 func (s *fakeLoadJobStore) DeleteFailedLoadJob(_ context.Context, ref LoadJobRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

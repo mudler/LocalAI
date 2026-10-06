@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
@@ -26,6 +27,11 @@ type ModelLoadingError struct {
 }
 
 func (e *ModelLoadingError) Error() string {
+	if e.Status.State == LoadJobStateFailed {
+		// A model held by a failed attempt: report the real cause. The caller
+		// may retry once the hold ends.
+		return fmt.Sprintf("loading model %s: %s", e.Status.Model, e.Status.LastError)
+	}
 	msg := fmt.Sprintf("model %s is %s", e.Status.Model, e.Status.State)
 	if e.Status.Node != "" {
 		msg += " on node " + e.Status.Node
@@ -55,7 +61,33 @@ func LoadingStatus(job *ModelLoadJob) schema.ModelLoadingStatus {
 	if eta, ok := job.ETA(time.Now()); ok {
 		status.ETASeconds = int(eta.Seconds())
 	}
+	now := time.Now()
+	status.JobID = job.Generation
+	status.CancelRequested = job.CancelRequested
+	status.LastError = job.LastError
+	if job.LeaseUntil != nil && job.State != LoadJobStateFailed {
+		secs := int(job.LeaseUntil.Sub(now).Seconds())
+		status.LeaseExpiresIn = &secs
+	}
+	if job.State == LoadJobStateFailed {
+		status.Stopping = !job.OpConfirmed
+		if job.StopDeadline != nil {
+			deadline := *job.StopDeadline
+			status.StopDeadline = &deadline
+			status.RetryAfter = max(int(math.Ceil(deadline.Sub(now).Seconds())), 0)
+		}
+	}
 	return status
+}
+
+// NewLoadHeldError is the answer for a request that finds its model held by a
+// failed attempt: 503 with the real cause and a Retry-After that says when the
+// hold ends. A hold always ends, so the answer is "try again", never "broken".
+func NewLoadHeldError(job *ModelLoadJob) *ModelLoadingError {
+	status := LoadingStatus(job)
+	retryAfter := time.Duration(status.RetryAfter) * time.Second
+	retryAfter = min(max(retryAfter, time.Second), retryAfterCeiling)
+	return &ModelLoadingError{Status: status, RetryAfter: retryAfter}
 }
 
 // newModelLoadingError builds the 503 answer for a caller whose wait budget

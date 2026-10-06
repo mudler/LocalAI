@@ -40,6 +40,9 @@ type LocalAIClient interface {
 	// it down). For a realtime pipeline model every configured sub-model is
 	// loaded; it returns the model names that became resident.
 	LoadModel(ctx context.Context, model string) ([]string, error)
+	// CancelModelLoad cancels one distributed load attempt, named by the job id
+	// that load-status reports. It never cancels a replacement attempt.
+	CancelModelLoad(ctx context.Context, model, jobID string) (LoadCancelResult, error)
 	ImportModelURI(ctx context.Context, req ImportModelURIRequest) (*ImportModelURIResponse, error)
 
 	// ---- Model aliases ----

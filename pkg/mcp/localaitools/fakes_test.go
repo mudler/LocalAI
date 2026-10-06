@@ -69,6 +69,11 @@ type fakeCall struct {
 	args   any
 }
 
+func (f *fakeClient) CancelModelLoad(_ context.Context, model, jobID string) (LoadCancelResult, error) {
+	f.record("CancelModelLoad", []string{model, jobID})
+	return LoadCancelResult{Model: model, JobID: jobID, State: "stopping"}, nil
+}
+
 func (f *fakeClient) record(method string, args any) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

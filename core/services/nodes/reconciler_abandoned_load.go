@@ -52,6 +52,10 @@ func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 		return
 	}
 
+	// Failed attempts whose remote work is not confirmed ended keep their stop
+	// retried until the worker answers or the deadline releases them.
+	rc.retryLoadStops(ctx)
+
 	sweep, err := rc.registry.SweepLoadJobs(ctx)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to sweep load job leases, leaving replica slots held", "error", err)

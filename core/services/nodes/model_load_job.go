@@ -44,6 +44,12 @@ const (
 	// time and never blocks the model for ever.
 	loadJobStopWindow = 150 * time.Second
 
+	// loadJobLegacyStopWindow is the stop window for a worker that cannot confirm
+	// a stop or watch operations: the longest a load RPC may run. Such a worker
+	// gives no sooner bound, so the model is held no longer than the load itself
+	// could have run, which is what a stuck load cost before leases existed.
+	loadJobLegacyStopWindow = 45 * time.Minute
+
 	// loadJobFailureReport is how long a failure is kept when the work is known
 	// to have ended. It exists so waiters and callers that arrive right after
 	// the failure read the real cause instead of starting a duplicate load of a
@@ -410,6 +416,7 @@ func (r *NodeRegistry) expireLoadJob(ctx context.Context, ref LoadJobRef) error 
 		Updates(map[string]any{
 			"state":         LoadJobStateFailed,
 			"last_error":    "the load owner stopped renewing its lease",
+			"op_confirmed":  false,
 			"stop_deadline": r.dbAfter(loadJobStopWindow),
 			"last_progress": now,
 			"updated_at":    now,
@@ -546,6 +553,7 @@ func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg stri
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
 		"state":         LoadJobStateFailed,
 		"last_error":    msg,
+		"op_confirmed":  !workMayRun,
 		"stop_deadline": r.dbAfter(hold),
 		"last_progress": now,
 		"updated_at":    now,
@@ -573,4 +581,174 @@ func (r *NodeRegistry) DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) 
 	return loadJobResult(r.ownedLoadJob(ctx, ref).
 		Where("state = ? AND stop_deadline < ?", LoadJobStateFailed, r.dbNow()).
 		Delete(&ModelLoadJob{}))
+}
+
+// ConfirmLoadOp records that the remote work of a failed attempt ended: the
+// worker acknowledged a stop, or it restarted. It shortens the stop window to
+// the report window, so a model whose worker answers is free again in seconds
+// and not after the full stop window. It never lengthens a window and never
+// touches an attempt that has not failed. A replaced attempt returns
+// ErrStaleLoadJob.
+func (r *NodeRegistry) ConfirmLoadOp(ctx context.Context, ref LoadJobRef) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
+	if err := loadJobResult(r.ownedLoadJob(ctx, ref).
+		Where("state = ?", LoadJobStateFailed).
+		Update("op_confirmed", true)); err != nil {
+		return err
+	}
+	// Shorten only: a window already shorter than the report window stays.
+	return r.ownedLoadJob(ctx, ref).
+		Where("state = ? AND stop_deadline > ?", LoadJobStateFailed, r.dbAfter(loadJobFailureReport)).
+		Update("stop_deadline", r.dbAfter(loadJobFailureReport)).Error
+}
+
+// ConfirmNodeLoadOps confirms every failed attempt that ran on nodeID. A new
+// worker incarnation calls it: the backends of the previous process exited with
+// their parent, so none of that node's operations still runs.
+func (r *NodeRegistry) ConfirmNodeLoadOps(ctx context.Context, nodeID string) (int, error) {
+	var jobs []ModelLoadJob
+	if err := r.db.WithContext(ctx).
+		Where("state = ? AND op_confirmed = ? AND node_id = ?", LoadJobStateFailed, false, nodeID).
+		Find(&jobs).Error; err != nil {
+		return 0, fmt.Errorf("listing unconfirmed load operations: %w", err)
+	}
+	confirmed := 0
+	for _, j := range jobs {
+		switch err := r.ConfirmLoadOp(ctx, j.Ref()); {
+		case err == nil:
+			confirmed++
+		case !errors.Is(err, ErrStaleLoadJob):
+			return confirmed, err
+		}
+	}
+	return confirmed, nil
+}
+
+// ListLoadJobsAwaitingStop returns failed attempts on a known node whose remote
+// work is not yet confirmed ended. The reconciler retries their stop.
+func (r *NodeRegistry) ListLoadJobsAwaitingStop(ctx context.Context) ([]ModelLoadJob, error) {
+	var jobs []ModelLoadJob
+	if err := r.db.WithContext(ctx).
+		Where("state = ? AND op_confirmed = ? AND node_id <> ?", LoadJobStateFailed, false, "").
+		Find(&jobs).Error; err != nil {
+		return nil, fmt.Errorf("listing load jobs awaiting stop: %w", err)
+	}
+	return jobs, nil
+}
+
+// SetLegacyStopWindow gives a failed attempt on a worker that cannot confirm a
+// stop the longest window the controller knows: the load RPC deadline. Such a
+// worker does not watch operations, so nothing bounds its work sooner.
+func (r *NodeRegistry) SetLegacyStopWindow(ctx context.Context, ref LoadJobRef, window time.Duration) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
+	return loadJobResult(r.ownedLoadJob(ctx, ref).
+		Where("state = ? AND op_confirmed = ?", LoadJobStateFailed, false).
+		Update("stop_deadline", r.dbAfter(window)))
+}
+
+// CancelOutcome is what CancelLoadJob did.
+type CancelOutcome int
+
+const (
+	// CancelRecorded: the job was running and is now failed and cancelled.
+	CancelRecorded CancelOutcome = iota
+	// CancelAlready: the job had already failed. The stop window is untouched.
+	CancelAlready
+	// CancelGone: no job exists for the model.
+	CancelGone
+	// CancelConflict: another generation holds the model. The returned job is it.
+	CancelConflict
+)
+
+// CancelLoadJob records an administrator's cancel of one attempt. It fails the
+// attempt with the stop window, so the model is held while the remote work is
+// stopped, and it marks the cancel. Repeating it never extends the window.
+// The returned job is the row as it is after the call (nil for CancelGone).
+func (r *NodeRegistry) CancelLoadJob(ctx context.Context, ref LoadJobRef) (CancelOutcome, *ModelLoadJob, error) {
+	now := r.now()
+	var outcome CancelOutcome
+	err := advisorylock.WithLockCtx(ctx, r.db, advisorylock.KeyFromString(loadJobLockPrefix+ref.TrackingKey), func() error {
+		job, err := r.GetLoadJob(ctx, ref.TrackingKey)
+		if err != nil {
+			return err
+		}
+		switch {
+		case job == nil:
+			outcome = CancelGone
+			return nil
+		case job.Generation != ref.Generation:
+			outcome = CancelConflict
+			return nil
+		case job.State == LoadJobStateFailed:
+			outcome = CancelAlready
+			return nil
+		}
+		werr := loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
+			"state":            LoadJobStateFailed,
+			"cancel_requested": true,
+			"last_error":       "cancelled by an administrator",
+			"op_confirmed":     false,
+			"stop_deadline":    r.dbAfter(loadJobStopWindow),
+			"last_progress":    now,
+			"updated_at":       now,
+		}))
+		if errors.Is(werr, ErrStaleLoadJob) {
+			outcome = CancelConflict
+			return nil
+		}
+		outcome = CancelRecorded
+		return werr
+	})
+	if err != nil {
+		return outcome, nil, err
+	}
+	if outcome == CancelGone {
+		return outcome, nil, nil
+	}
+	job, err := r.GetLoadJob(ctx, ref.TrackingKey)
+	return outcome, job, err
+}
+
+// ListLoadJobsOnNode returns the jobs placed on nodeID.
+func (r *NodeRegistry) ListLoadJobsOnNode(ctx context.Context, nodeID string) ([]ModelLoadJob, error) {
+	var jobs []ModelLoadJob
+	if err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).Find(&jobs).Error; err != nil {
+		return nil, fmt.Errorf("listing load jobs on node: %w", err)
+	}
+	return jobs, nil
+}
+
+// ObserveWorkerIncarnation notes the incarnation a worker reported. When it
+// differs from the one stored, the worker restarted: every operation of the
+// previous process ended, so the failed attempts that ran there are confirmed.
+// Most calls change nothing and cost no query, because the last value seen per
+// node is cached.
+func (r *NodeRegistry) ObserveWorkerIncarnation(ctx context.Context, nodeID, incarnation string) error {
+	if incarnation == "" {
+		return nil
+	}
+	if seen, ok := r.incarnations.Load(nodeID); ok && seen == incarnation {
+		return nil
+	}
+	var node BackendNode
+	if err := r.db.WithContext(ctx).Select("id", "worker_incarnation").First(&node, "id = ?", nodeID).Error; err != nil {
+		return nil // an unknown node is the heartbeat's business
+	}
+	if node.WorkerIncarnation != incarnation {
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+			Update("worker_incarnation", incarnation).Error; err != nil {
+			return fmt.Errorf("recording worker incarnation: %w", err)
+		}
+		if node.WorkerIncarnation != "" {
+			if _, err := r.ConfirmNodeLoadOps(ctx, nodeID); err != nil {
+				return err
+			}
+		}
+	}
+	r.incarnations.Store(nodeID, incarnation)
+	return nil
 }

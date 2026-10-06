@@ -22,15 +22,18 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	// WorkerIncarnation identifies the worker process that last reported. A new
+	// value is proof that every load operation of the previous process ended.
+	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
+	ID                string `gorm:"primaryKey;size:36" json:"id"`
+	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -365,6 +368,12 @@ type ModelLoadJob struct {
 	// forward with every heartbeat. A running job whose lease is missing or in
 	// the past has no live owner.
 	LeaseUntil *time.Time `json:"-"`
+	// OpConfirmed is true once the remote work of a failed job is known to have
+	// ended: the owner saw the backend answer, the worker acknowledged a stop, or
+	// the worker restarted. It shortens the stop window.
+	OpConfirmed bool `gorm:"not null;default:false" json:"-"`
+	// CancelRequested marks a job an administrator cancelled.
+	CancelRequested bool `gorm:"not null;default:false" json:"-"`
 	// StopDeadline is set when the job fails: the earliest moment the model may
 	// be loaded again. It is database time too.
 	StopDeadline *time.Time `json:"-"`
@@ -386,6 +395,8 @@ type NodeRegistry struct {
 	clock func() time.Time
 	// leaseTTL overrides loadJobLeaseTTL when set (tests).
 	leaseTTL time.Duration
+	// incarnations caches the last worker incarnation seen per node.
+	incarnations sync.Map
 	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
 	// is removed. This is the single chokepoint that lets dependent state be
 	// invalidated no matter which removal path (router eviction, reconciler
@@ -1122,6 +1133,8 @@ type HeartbeatUpdate struct {
 	GPUVendor       string   `json:"gpu_vendor,omitempty"`
 	CPUUsagePercent *float64 `json:"cpu_usage_percent,omitempty"`
 	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
+	// WorkerIncarnation is the worker process identity. See BackendNode.
+	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
 }
 
 func clampCPUUsage(usage float64) float64 {

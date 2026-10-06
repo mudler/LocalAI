@@ -171,6 +171,19 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		return nil
 	}))
 
+	// Cancel one load attempt. Admin only. It is deliberately not in the auth
+	// RouteFeatureRegistry: that registry meters modality use, and a cancel is
+	// management, not inference.
+	router.POST("/api/models/:id/load-cancel", localai.ModelLoadCancelEndpoint(func() *nodes.LoadCancelService {
+		if d := app.Distributed(); d != nil && d.Registry != nil {
+			return &nodes.LoadCancelService{Registry: d.Registry, Stopper: d.Unloader}
+		}
+		return nil
+	}, func(id string) bool {
+		_, ok := cl.GetModelConfig(id)
+		return ok
+	}), adminMiddleware)
+
 	// Failover chains: reads and the event stream use standard auth (any
 	// authenticated caller may watch chain health); pin/unpin are admin-only
 	// since they override the routing decision for every caller of the chain.
@@ -344,6 +357,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
 				"model_load_status":   "/api/models/:id/load-status",
+				"model_load_cancel":   "/api/models/:id/load-cancel",
 				"tts":                 "/tts",
 				"tts_voices":          "/v1/audio/voices",
 				"voice_profiles":      "/api/voice-profiles",
@@ -382,6 +396,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"reload":       "/models/reload",
 					"list_aliases": "/api/aliases",
 					"load_status":  "/api/models/:id/load-status",
+					"load_cancel":  "/api/models/:id/load-cancel",
 				},
 				"ai_functions": map[string]string{
 					"tts":            "/tts",

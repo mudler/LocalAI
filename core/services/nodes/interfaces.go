@@ -76,6 +76,24 @@ type LoadJobStore interface {
 	FailLoadJob(ctx context.Context, ref LoadJobRef, msg string, workMayRun bool) error
 	DeleteLoadJob(ctx context.Context, ref LoadJobRef) error
 	DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) error
+	ConfirmLoadOp(ctx context.Context, ref LoadJobRef) error
+}
+
+// LoadOperationInstaller is a NodeCommandSender that can start a backend as a
+// load operation the worker bounds. The router uses it when the sender has it.
+type LoadOperationInstaller interface {
+	InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
+}
+
+// LoadOperationStopper is the only path that kills remote load work. It stops
+// one operation by id and never "any running backend".
+type LoadOperationStopper interface {
+	StopLoadOperation(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error)
+}
+
+// LoadOperationRenewer renews and completes load operations on a worker node.
+type LoadOperationRenewer interface {
+	OperationControl(nodeID string, req workerctl.OperationRequest) (*workerctl.OperationReply, error)
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

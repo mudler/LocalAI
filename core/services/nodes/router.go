@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -422,6 +423,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
+	reportLoadAddress(ctx, backendAddr)
 	client := r.buildClientForAddr(node, backendAddr, parallel)
 
 	// Load the model on the remote node
@@ -463,7 +465,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			// minutes past the client timeout, and each retry stacked another
 			// multi-GB loader process on the worker. Reap the replica we just
 			// abandoned before handing the failure back.
-			if loadAbandonedOnWorker(err) {
+			// A load owner stops its own work through the operation stop path,
+			// so it does not reap here as well.
+			if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); !owned && loadAbandonedOnWorker(err) {
 				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
 			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
@@ -1396,10 +1400,25 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// the whole time; here a cancelled ctx (typically the model-load ceiling)
 	// frees the caller promptly. The shared install keeps running in the
 	// background and still coalesces other callers via singleflight.
+	// A load owner starts the backend as an operation the worker bounds. The
+	// operation id is the load job generation, so a stop can name exactly this
+	// attempt. A sender without the capability starts a plain install.
+	ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
+	installer, canOperate := r.unloader.(LoadOperationInstaller)
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
-		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		var reply *workerctl.BackendInstallReply
+		var err error
+		if owned && canOperate {
+			reply, err = installer.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
+		} else {
+			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		}
 		if err != nil {
 			return "", err
+		}
+		if owned && canOperate && reply.Success && reply.ProcessInstance == "" {
+			// A worker that predates operations: it cannot confirm a stop.
+			markLegacyWorker(ctx)
 		}
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
@@ -2232,4 +2251,13 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 	}
 
 	return nil, ErrEvictionBusy
+}
+
+// loadOperationDeadline is the longest a worker may keep one load running: the
+// controller's own absolute cap. Renewals are what normally end a load sooner.
+func (r *SmartRouter) loadOperationDeadline() time.Duration {
+	if r.modelLoadAbsoluteMax > 0 {
+		return r.modelLoadAbsoluteMax
+	}
+	return modelLoadAbsoluteMax
 }

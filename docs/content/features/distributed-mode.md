@@ -158,8 +158,52 @@ The `error` envelope keeps OpenAI clients working unchanged; `loading` is additi
 The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
 
 {{% notice note %}}
-A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
+A frontend replica that dies mid-load does not wedge the model: the job row carries a lease, and a job whose lease ran out is failed and then released. The lease is renewed on a timer, not on byte progress, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
+
+#### The worker bounds the work it runs
+
+The frontend owns the job row, but the real work runs in a backend process on a worker. The worker therefore watches each load too. A load is an **operation** named by the job's generation:
+
+- The install request carries the operation id and the longest the load may run, as a duration, so a worker clock that is wrong changes nothing. The backend starts in its own process group.
+- The frontend renews the operation every few seconds and completes it when the load finishes. The worker kills the whole process group when no renewal arrives for 90 seconds, or when the deadline passes. A backend that already reports `READY` is never killed: a lost completion message must not destroy a model that serves.
+- A stop names the operation, the process key and, when known, the address and process instance. The worker refuses unless they all match its own records. There is no fallback to "any running backend". A stop for a load that already finished leaves the serving model alone.
+- A restarted worker reports a new incarnation on its next heartbeat. That proves every operation of the previous process ended, so the failed loads on that node are confirmed at once.
+
+When a load fails after remote work may have started (a timeout, a cancel, a lost lease), the owner stops the operation immediately. An acknowledged stop shortens the hold to the 15 second report window. A silent worker keeps the hold at the stop window (2.5 minutes), and the reconciler retries the stop on every pass until the worker answers or the window ends. Nothing needs manual cleanup.
+
+| Setting | Value | Meaning |
+|---------|-------|---------|
+| Lease TTL | 30 s | How long a job's lease lasts after each renewal |
+| Worker kill TTL | 90 s | No renewal for this long: the worker kills the operation |
+| Stop window | 150 s | How long a failed load holds the model if the worker never confirms |
+| Report window | 15 s | How long a failure with confirmed-ended work is kept |
+
+A model held by a failed job answers `503` with `Retry-After` set to the seconds until the hold ends, and the real cause in the body.
+
+#### Cancelling a load
+
+`POST /api/models/{id}/load-cancel` (admin only) cancels one load attempt. The body names the exact attempt, as `GET /api/models/{id}/load-status` reports it:
+
+```json
+{"job_id": "0b6e4a3c-5c1d-4d52-8f0a-0f3c9e0b8f11"}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `200` | `state: stopped` (the worker confirmed) or `state: gone` (no such load any more) |
+| `202` | `state: stopping`. The cancel is recorded and the stop is pending. The model is released after `retry_after` seconds regardless. |
+| `400` | The body is not `{"job_id": "..."}` |
+| `404` | Unknown model, or the server is not distributed |
+| `409` | A different attempt is current. The body carries its `current_job_id`. |
+
+The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The `cancel_model_load` tool of the assistant calls the same service.
+
+`load-status` also reports `job_id`, `lease_expires_in`, `cancel_requested`, `last_error`, `stopping`, `stop_deadline` and `retry_after`. A database error is a `503`, never an empty answer.
+
+#### Rolling upgrades
+
+Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop is sent by exact process address, never by model name. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -549,7 +593,8 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
-| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
+| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker. Cancels a load of that model on the worker first. |
+| `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |

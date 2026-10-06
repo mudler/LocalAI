@@ -94,6 +94,29 @@ const exactModelStopTimeout = 10 * time.Second
 // cleanup intentionally has no backend.stop fallback: an old worker that does
 // not understand this request leaves the quarantine row for a later retry.
 func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (workerctl.ModelStopReply, error) {
+	return a.stopModelExact(ctx, nodeID, workerctl.ModelStopRequest{
+		ModelName:       replica.ModelName,
+		ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
+		ExpectedAddress: replica.Address,
+		Force:           force,
+		ConfigRevision:  replica.ConfigRevision,
+	})
+}
+
+// StopLoadOperation stops the process of one load operation, addressed by the
+// operation id (the load job generation) and the process key. It is the only
+// call that kills remote load work. It names the operation, never a model: the
+// worker refuses unless the operation, the process key and, when given, the
+// address and process instance all match its own records, so a stop of a load
+// that finished cannot become an unload of the model.
+func (a *RemoteUnloaderAdapter) StopLoadOperation(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+	if req.OperationID == "" {
+		return workerctl.ModelStopReply{}, errors.New("a load stop needs an operation id")
+	}
+	return a.stopModelExact(ctx, nodeID, req)
+}
+
+func (a *RemoteUnloaderAdapter) stopModelExact(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -106,13 +129,7 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 	}
 	done := make(chan result, 1)
 	go func() {
-		reply, err := controlRequestJSON[workerctl.ModelStopRequest, workerctl.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), workerctl.ModelStopRequest{
-			ModelName:       replica.ModelName,
-			ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
-			ExpectedAddress: replica.Address,
-			Force:           force,
-			ConfigRevision:  replica.ConfigRevision,
-		}, exactModelStopTimeout)
+		reply, err := controlRequestJSON[workerctl.ModelStopRequest, workerctl.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), req, exactModelStopTimeout)
 		done <- result{reply: reply, err: err}
 	}()
 
@@ -125,6 +142,29 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 		}
 		return *result.reply, nil
 	}
+}
+
+// OperationControl renews and completes load operations on a node. A worker
+// that predates operations never answers; the caller treats that as a node it
+// cannot confirm stops on.
+func (a *RemoteUnloaderAdapter) OperationControl(nodeID string, req workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return controlRequestJSON[workerctl.OperationRequest, workerctl.OperationReply](a.nats, messaging.SubjectNodeModelOp(nodeID), req, operationControlTimeout)
+}
+
+const operationControlTimeout = 5 * time.Second
+
+// InstallBackendOp is InstallBackend for a load operation: the request carries
+// the operation id and the longest the load may run, so the worker can bound it.
+func (a *RemoteUnloaderAdapter) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	return a.installBackend(nodeID, workerctl.BackendInstallRequest{
+		Backend:          backendType,
+		ModelID:          modelID,
+		BackendGalleries: galleriesJSON,
+		ReplicaIndex:     int32(replicaIndex),
+		OpID:             opID,
+		OperationID:      operationID,
+		DeadlineMs:       deadline.Milliseconds(),
+	}, onProgress)
 }
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
@@ -215,14 +255,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	opID string,
 	onProgress func(workerctl.BackendInstallProgressEvent),
 ) (*workerctl.BackendInstallReply, error) {
-	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
-
-	// Subscribe to the per-op progress subject BEFORE publishing the install
-	// request so we don't miss early events.
-	sub := a.subscribeProgress(nodeID, opID, onProgress)
-
-	reply, err := controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](a.nats, subject, workerctl.BackendInstallRequest{
+	return a.installBackend(nodeID, workerctl.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -231,7 +264,19 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		OpID:             opID,
-	}, a.installTimeout)
+	}, onProgress)
+}
+
+func (a *RemoteUnloaderAdapter) installBackend(nodeID string, req workerctl.BackendInstallRequest, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	backendType, modelID, replicaIndex, opID := req.Backend, req.ModelID, int(req.ReplicaIndex), req.OpID
+	subject := messaging.SubjectNodeBackendInstall(nodeID)
+	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
+
+	// Subscribe to the per-op progress subject BEFORE publishing the install
+	// request so we don't miss early events.
+	sub := a.subscribeProgress(nodeID, opID, onProgress)
+
+	reply, err := controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](a.nats, subject, req, a.installTimeout)
 
 	if sub != nil {
 		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
@@ -545,18 +590,36 @@ func (a *RemoteUnloaderAdapter) dropStoppedReplicaRows(nodeID, op, backendName s
 	}
 }
 
-// UnloadModelOnNode sends a model.unload request to a specific node.
-// The worker calls gRPC Free() to release GPU memory.
+// UnloadModelOnNode sends a model.unload request to a specific node, one per
+// replica of the model recorded there, each naming the replica's address. The
+// worker calls gRPC Free() on exactly that process. A node with no recorded
+// replica has nothing to free, and no request is sent: the worker never picks a
+// process on its own.
 func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) error {
 	subject := messaging.SubjectNodeModelUnload(nodeID)
-	xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", modelName)
-
-	reply, err := controlRequestJSON[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](a.nats, subject, workerctl.ModelUnloadRequest{ModelName: modelName}, 30*time.Second)
+	lister, ok := a.registry.(interface {
+		GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
+	})
+	if !ok {
+		return nil
+	}
+	replicas, err := lister.GetNodeModels(context.Background(), nodeID)
 	if err != nil {
 		return err
 	}
-	if !reply.Success {
-		return fmt.Errorf("model.unload on node %s: %s", nodeID, reply.Error)
+	for _, replica := range replicas {
+		if replica.ModelName != modelName || replica.Address == "" {
+			continue
+		}
+		xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", modelName, "replica", replica.ReplicaIndex)
+		reply, err := controlRequestJSON[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](a.nats, subject,
+			workerctl.ModelUnloadRequest{ModelName: modelName, Address: replica.Address}, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		if !reply.Success {
+			return fmt.Errorf("model.unload on node %s: %s", nodeID, reply.Error)
+		}
 	}
 	return nil
 }
