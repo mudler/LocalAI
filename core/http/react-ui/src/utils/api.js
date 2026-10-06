@@ -567,6 +567,12 @@ export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
   create: (name) => postJSON('/api/auth/api-keys', { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
+  setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disabled, paused_until: pausedUntil }),
+  }),
 }
 
 // Fine-tuning API

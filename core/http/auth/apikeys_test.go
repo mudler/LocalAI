@@ -4,6 +4,7 @@ package auth_test
 
 import (
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/onsi/ginkgo/v2"
@@ -207,6 +208,76 @@ var _ = Describe("API Keys", func() {
 			other := createTestUser(db, "attacker@example.com", auth.RoleUser, auth.ProviderGitHub)
 			err = auth.RevokeAPIKey(db, record.ID, other.ID)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("SetAPIKeyPause", func() {
+		var (
+			plaintext string
+			record    *auth.UserAPIKey
+		)
+
+		BeforeEach(func() {
+			var err error
+			plaintext, record, err = auth.CreateAPIKey(db, user.ID, "pausable", auth.RoleUser, hmacSecret, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("keeps new keys active", func() {
+			Expect(record.Disabled).To(BeFalse())
+			Expect(record.PausedUntil).To(BeNil())
+		})
+
+		It("rejects a key paused indefinitely and accepts it after resume", func() {
+			Expect(auth.SetAPIKeyPause(db, record.ID, user.ID, true, nil)).To(Succeed())
+
+			_, err := auth.ValidateAPIKey(db, plaintext, hmacSecret)
+			Expect(err).To(MatchError(ContainSubstring("paused")))
+
+			Expect(auth.SetAPIKeyPause(db, record.ID, user.ID, false, nil)).To(Succeed())
+			_, err = auth.ValidateAPIKey(db, plaintext, hmacSecret)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("rejects a key paused until a future time", func() {
+			until := time.Now().Add(time.Hour)
+			Expect(auth.SetAPIKeyPause(db, record.ID, user.ID, false, &until)).To(Succeed())
+
+			_, err := auth.ValidateAPIKey(db, plaintext, hmacSecret)
+			Expect(err).To(MatchError(ContainSubstring("paused")))
+		})
+
+		It("does not update last_used for a paused key", func() {
+			Expect(auth.SetAPIKeyPause(db, record.ID, user.ID, true, nil)).To(Succeed())
+			_, _ = auth.ValidateAPIKey(db, plaintext, hmacSecret)
+
+			keys, err := auth.ListAPIKeys(db, user.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(keys[0].LastUsed).To(BeNil())
+		})
+
+		It("treats a pause time that has passed as active again", func() {
+			past := time.Now().Add(-time.Minute)
+			Expect(db.Model(&auth.UserAPIKey{}).Where("id = ?", record.ID).
+				Update("paused_until", past).Error).To(Succeed())
+
+			_, err := auth.ValidateAPIKey(db, plaintext, hmacSecret)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("rejects a pause time in the past", func() {
+			past := time.Now().Add(-time.Minute)
+			err := auth.SetAPIKeyPause(db, record.ID, user.ID, false, &past)
+			Expect(err).To(MatchError(auth.ErrPauseInPast))
+		})
+
+		It("only allows the owner to pause a key", func() {
+			other := createTestUser(db, "other-pauser@example.com", auth.RoleAdmin, auth.ProviderGitHub)
+			err := auth.SetAPIKeyPause(db, record.ID, other.ID, true, nil)
+			Expect(err).To(HaveOccurred())
+
+			_, err = auth.ValidateAPIKey(db, plaintext, hmacSecret)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

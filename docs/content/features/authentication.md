@@ -291,6 +291,30 @@ curl -X POST http://localhost:8080/api/auth/api-keys \
 
 User API keys inherit the creating user's role. Admin keys grant admin access; user keys grant user-level access.
 
+You can pause a key without deleting it, and resume it later. Only the key's owner can pause it. A paused key is rejected like an invalid key until it is resumed. Pause it until you resume it, or until a time in the future, after which it works again by itself:
+
+```bash
+# Pause until resumed
+curl -X PATCH http://localhost:8080/api/auth/api-keys/<key-id> \
+  -H "Cookie: session=<session-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"disabled": true, "paused_until": null}'
+
+# Pause until a given time (RFC 3339, must be in the future)
+curl -X PATCH http://localhost:8080/api/auth/api-keys/<key-id> \
+  -H "Cookie: session=<session-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"disabled": false, "paused_until": "2030-01-01T00:00:00Z"}'
+
+# Resume
+curl -X PATCH http://localhost:8080/api/auth/api-keys/<key-id> \
+  -H "Cookie: session=<session-id>" \
+  -H "Content-Type: application/json" \
+  -d '{"disabled": false, "paused_until": null}'
+```
+
+The key list returns `disabled` and, when set, `pausedUntil` for each key. The Account page in the web UI has a Pause and Resume button for each key.
+
 ### Auth API Endpoints
 
 | Method | Endpoint | Description | Auth Required |
@@ -307,6 +331,7 @@ User API keys inherit the creating user's role. Admin keys grant admin access; u
 | `GET` | `/api/auth/me` | Current user info | Yes |
 | `POST` | `/api/auth/api-keys` | Create API key | Yes |
 | `GET` | `/api/auth/api-keys` | List user's API keys | Yes |
+| `PATCH` | `/api/auth/api-keys/:id` | Pause or resume API key | Yes |
 | `DELETE` | `/api/auth/api-keys/:id` | Revoke API key | Yes |
 | `GET` | `/api/auth/usage` | User's own usage stats | Yes |
 | `GET` | `/api/auth/usage/sources` | User's own per-API-key / per-source breakdown | Yes |

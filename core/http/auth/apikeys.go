@@ -5,12 +5,16 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// ErrPauseInPast is returned when a pause end time is not in the future.
+var ErrPauseInPast = errors.New("paused_until must be in the future")
 
 const (
 	apiKeyPrefix    = "lai-"
@@ -90,8 +94,12 @@ func ValidateAPIKey(db *gorm.DB, plaintext, hmacSecret string) (*UserAPIKey, err
 		return nil, fmt.Errorf("user account is not active")
 	}
 
-	// Update LastUsed
 	now := time.Now()
+	if key.IsPaused(now) {
+		return nil, fmt.Errorf("API key is paused")
+	}
+
+	// Update LastUsed
 	db.Model(&key).Update("last_used", now)
 
 	return &key, nil
@@ -113,6 +121,27 @@ func RevokeAPIKey(db *gorm.DB, keyID, userID string) error {
 		return fmt.Errorf("API key not found or not owned by user")
 	}
 	return result.Error
+}
+
+// SetAPIKeyPause pauses or resumes an API key. Only the owner can change it.
+// A paused key is rejected by ValidateAPIKey. Pass disabled=true to pause
+// until resumed, or a pausedUntil in the future to pause until that time.
+// Pass disabled=false and a nil pausedUntil to resume.
+func SetAPIKeyPause(db *gorm.DB, keyID, userID string, disabled bool, pausedUntil *time.Time) error {
+	if pausedUntil != nil && !pausedUntil.After(time.Now()) {
+		return ErrPauseInPast
+	}
+
+	result := db.Model(&UserAPIKey{}).
+		Where("id = ? AND user_id = ?", keyID, userID).
+		Updates(map[string]any{"disabled": disabled, "paused_until": pausedUntil})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("API key not found or not owned by user")
+	}
+	return nil
 }
 
 // CleanExpiredAPIKeys removes all API keys that have passed their expiry time.
