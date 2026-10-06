@@ -71,5 +71,8 @@ func (s *backendSupervisor) modelsRunning(_ context.Context, _ workerctl.ModelsR
 	for _, op := range s.operations {
 		operations = append(operations, *op)
 	}
+	for op := range s.anonymousStages {
+		operations = append(operations, *op)
+	}
 	return workerctl.ModelsRunningReply{Models: running, Incarnation: workerIncarnation, ReportsOperations: true, Operations: operations}
 }

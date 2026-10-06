@@ -110,13 +110,15 @@ func (s *backendSupervisor) backendIdentity(name string) map[string]struct{} {
 // backendSupervisor manages multiple backend gRPC processes on different ports.
 // Each backend type (e.g., llama-cpp, bert-embeddings) gets its own process and port.
 type backendSupervisor struct {
-	operations  map[string]*workerctl.LoadOperation
-	cfg         *Config
-	ml          *model.ModelLoader
-	systemState *system.SystemState
-	galleries   []config.Gallery
-	nodeID      string
-	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
+	operations      map[string]*workerctl.LoadOperation
+	installs        map[string]*installReservation
+	anonymousStages map[*workerctl.LoadOperation]struct{}
+	cfg             *Config
+	ml              *model.ModelLoader
+	systemState     *system.SystemState
+	galleries       []config.Gallery
+	nodeID          string
+	sigCh           chan<- os.Signal // send shutdown signal instead of os.Exit
 
 	// installFn and upgradeFn are the installers serveInstall and serveUpgrade
 	// run. nil means installBackend and upgradeBackend; specs set them to drive
@@ -460,6 +462,9 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			return "", fmt.Errorf("backend %s is stopping", backend)
 		}
 		if bp.proc != nil && bp.proc.IsAlive() {
+			if token := s.installs[backend]; token != nil {
+				token.process = bp
+			}
 			s.mu.Unlock()
 			return bp.addr, nil
 		}
@@ -508,6 +513,9 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// Capture reference before unlocking for race-safe health check.
 	// Another goroutine could stopBackend and recycle the port while we poll.
 	bp := s.processes[backend]
+	if token := s.installs[backend]; token != nil {
+		token.process = bp
+	}
 	s.mu.Unlock()
 
 	// Wait for the gRPC server to be ready before reporting success.

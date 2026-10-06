@@ -112,14 +112,15 @@ type fileStagingVerbs struct {
 
 // ensure downloads an object storage key into the local cache.
 func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureRequest) workerctl.FileEnsureReply {
-	if req.Operation != nil {
+	if req.Operation != nil || v.supervisor != nil {
 		if v.supervisor == nil {
 			return workerctl.FileEnsureReply{Error: "operation tracking unavailable"}
 		}
-		if err := v.supervisor.beginStaging(req.Operation, req.ProcessKey); err != nil {
+		token, err := v.supervisor.beginStaging(req.Operation, req.ProcessKey)
+		if err != nil {
 			return workerctl.FileEnsureReply{Error: err.Error()}
 		}
-		defer v.supervisor.endStaging(req.ProcessKey)
+		defer v.supervisor.endStaging(token)
 	}
 	value, err, _ := v.ensureGroup.Do(req.Key, func() (any, error) {
 		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key)
@@ -139,14 +140,15 @@ func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureR
 
 // stage uploads a local file to object storage.
 func (v *fileStagingVerbs) stage(ctx context.Context, req workerctl.FileStageRequest) workerctl.FileStageReply {
-	if req.Operation != nil {
+	if req.Operation != nil || v.supervisor != nil {
 		if v.supervisor == nil {
 			return workerctl.FileStageReply{Error: "operation tracking unavailable"}
 		}
-		if err := v.supervisor.beginStaging(req.Operation, req.ProcessKey); err != nil {
+		token, err := v.supervisor.beginStaging(req.Operation, req.ProcessKey)
+		if err != nil {
 			return workerctl.FileStageReply{Error: err.Error()}
 		}
-		defer v.supervisor.endStaging(req.ProcessKey)
+		defer v.supervisor.endStaging(token)
 	}
 	allowedDirs := []string{v.cacheDir}
 	if v.cfg.ModelsPath != "" {

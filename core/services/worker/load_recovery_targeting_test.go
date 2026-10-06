@@ -45,22 +45,26 @@ var _ = Describe("Load recovery targeting", func() {
 		id := &workerctl.OperationIdentity{TrackingKey: "model", Generation: "g1", Incarnation: workerIncarnation}
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
 		req := workerctl.BackendInstallRequest{ModelID: "model", Backend: "backend", Operation: id}
-		Expect(s.beginLoadOperation(req)).To(Succeed())
+		token, err := s.beginLoadOperation(req)
+		Expect(err).NotTo(HaveOccurred())
+		_ = token
 		inv := s.modelsRunning(context.Background(), workerctl.ModelsRunningRequest{})
 		Expect(inv.ReportsOperations).To(BeTrue())
 		Expect(inv.Operations).To(HaveLen(1))
 		Expect(inv.Operations[0].Active).To(BeTrue())
 		stop := s.stopModelExact(workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: "localhost:1", Operation: id})
 		Expect(stop.Terminated).To(BeFalse())
-		s.finishLoadInstall(req)
+		s.finishLoadInstall(req, token)
 		inv = s.modelsRunning(context.Background(), workerctl.ModelsRunningRequest{})
 		Expect(inv.Operations[0].Phase).To(Equal("stage-or-load"))
-		Expect(s.beginLoadOperation(req)).NotTo(Succeed())
+		_, err = s.beginLoadOperation(req)
+		Expect(err).To(HaveOccurred())
 		stale := *id
 		stale.Incarnation = "old-boot"
 		req.ModelID = "other"
 		req.Operation = &stale
-		Expect(s.beginLoadOperation(req)).NotTo(Succeed())
+		_, err = s.beginLoadOperation(req)
+		Expect(err).To(HaveOccurred())
 	})
 	It("fences same-address reuse with process instance and generation", func() {
 		proc := startModelStopProcess()

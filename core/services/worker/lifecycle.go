@@ -117,10 +117,11 @@ func (s *backendSupervisor) stopModelExactCtx(_ context.Context, req workerctl.M
 // directory.
 func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.BackendInstallRequest, progress progressSink) (reply workerctl.BackendInstallReply) {
 	xlog.Info("Received NATS backend.install event")
-	if err := s.beginLoadOperation(req); err != nil {
+	token, err := s.beginLoadOperation(req)
+	if err != nil {
 		return workerctl.BackendInstallReply{Error: err.Error()}
 	}
-	defer func() { reply.ProcessInstance = s.finishLoadInstall(req) }()
+	defer func() { reply.ProcessInstance = s.finishLoadInstall(req, token) }()
 	release := s.lockBackend(req.Backend)
 	defer release()
 	downloadCb, flush := s.downloadProgress(req.OpID, req.Backend, progress)

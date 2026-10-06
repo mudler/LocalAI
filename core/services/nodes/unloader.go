@@ -31,7 +31,7 @@ import (
 // UpgradeBackend returns ErrNoRoute on an old worker that does not serve
 // backend.upgrade, and the caller falls back to the legacy install.
 type NodeCommandSender interface {
-	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
+	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent), configRevision ...string) (*workerctl.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error)
 	DeleteBackend(nodeID, backendName string) (*workerctl.BackendDeleteReply, error)
 	ListBackends(nodeID string) (*workerctl.BackendListReply, error)
@@ -214,7 +214,12 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	replicaIndex int,
 	opID string,
 	onProgress func(workerctl.BackendInstallProgressEvent),
+	configRevision ...string,
 ) (*workerctl.BackendInstallReply, error) {
+	revision := ""
+	if len(configRevision) > 0 {
+		revision = configRevision[0]
+	}
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
 
@@ -223,6 +228,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
 	reply, err := controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](a.nats, subject, workerctl.BackendInstallRequest{
+		ConfigRevision:   revision,
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -331,7 +337,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 // doesn't subscribe to the new subject). It re-fires the legacy
 // backend.install with Force=true. Drop this once every worker is on
 // 2026-05-08 or newer.
-func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent), configRevision ...string) (*workerctl.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
 

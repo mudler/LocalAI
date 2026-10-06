@@ -537,10 +537,11 @@ type fakeUnloader struct {
 // every call so tests can verify both presence and shape (e.g. that backend
 // is non-empty).
 type installCall struct {
-	nodeID  string
-	backend string
-	modelID string
-	replica int
+	revision string
+	nodeID   string
+	backend  string
+	modelID  string
+	replica  int
 }
 
 type upgradeCall struct {
@@ -549,7 +550,7 @@ type upgradeCall struct {
 	replica int
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent), configRevision ...string) (*workerctl.BackendInstallReply, error) {
 	// installHook intentionally runs OUTSIDE the mutex: the hook may block
 	// on a channel and we don't want to serialize concurrent callers,
 	// which would defeat the singleflight-overlap test.
@@ -557,7 +558,11 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 		f.installHook()
 	}
 	f.mu.Lock()
-	f.installCalls = append(f.installCalls, installCall{nodeID, backend, modelID, replica})
+	revision := ""
+	if len(configRevision) > 0 {
+		revision = configRevision[0]
+	}
+	f.installCalls = append(f.installCalls, installCall{nodeID: nodeID, backend: backend, modelID: modelID, replica: replica, revision: revision})
 	f.mu.Unlock()
 	return f.installReply, f.installErr
 }
@@ -1342,7 +1347,7 @@ var _ = Describe("SmartRouter", func() {
 			done := make(chan error, 5)
 			for i := 0; i < 5; i++ {
 				go func() {
-					_, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "my-model", 0)
+					_, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "my-model", 0, "")
 					done <- err
 				}()
 			}
@@ -1372,9 +1377,9 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: &stubClientFactory{client: &stubBackend{}},
 			})
 
-			_, err1 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 0)
-			_, err2 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-B", 0)
-			_, err3 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 1)
+			_, err1 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 0, "")
+			_, err2 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-B", 0, "")
+			_, err3 := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 1, "")
 			Expect(err1).ToNot(HaveOccurred())
 			Expect(err2).ToNot(HaveOccurred())
 			Expect(err3).ToNot(HaveOccurred())
@@ -1732,5 +1737,17 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			Expect(reg.removeCalls).To(ContainElement("X:m"),
 				"UnloadModel must remove the replica via the registry removal chokepoint")
 		})
+	})
+})
+
+var _ = Describe("Router install revision propagation", func() {
+	It("passes the load revision through scheduling into the install adapter", func() {
+		reg := &fakeModelRouter{findIdleNode: &BackendNode{ID: "worker", Address: "localhost:1"}}
+		unloader := &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "localhost:2"}}
+		router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: &stubClientFactory{client: &stubBackend{}}})
+		_, err := router.scheduleAndLoad(context.Background(), "backend", "model", "model", "revision", nil, false, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(unloader.installCalls).To(HaveLen(1))
+		Expect(unloader.installCalls[0].revision).To(Equal("revision"))
 	})
 })

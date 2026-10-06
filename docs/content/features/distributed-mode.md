@@ -1409,3 +1409,28 @@ replacement; generation fencing alone does not stop worker processes.
 
 Upgrade all frontend writers together: older frontends do not honor generation
 conditions. Mixed-version frontend failover is not protected by this fencing.
+
+### Worker operation inventory and exact cleanup
+
+Workers track install invocations before acquiring the backend installation
+lock, including requests from older frontends. A concurrent install for the
+same process slot is refused rather than allowed to replace its reservation.
+Model installs carry the routing configuration revision into the worker;
+exact cleanup refuses a conflicting revision. An older install request with
+no revision does not erase an existing process revision.
+
+Operation inventory is worker-process-local and resets on worker restart.
+`ReportsOperations` covers worker install and file ensure/stage handlers, not
+direct backend `LoadModel` calls. Legacy file work appears as active
+`legacy-stage` entries with empty identity and process key: it cannot safely
+be attributed to a model or generation. Legacy install entries have a process
+key but no generation. These entries disappear when their handlers return.
+Absence of these entries is not proof that a whole model load has ended.
+
+Owned installs retain their `stage-or-load` reservation after the install
+handler returns. Exact process termination retains a
+`terminated-process-work-uncertain` tombstone and does not acknowledge
+whole-operation termination. These same-boot reservations have no reclamation
+or fixed inventory-size bound yet. Controllers must quarantine uncertain work
+rather than infer safe replacement from a timeout, idle process, or empty
+inventory. Request cancellation does not prove remote work has stopped.

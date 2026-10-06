@@ -350,7 +350,7 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
 	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
 
-	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
+	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts, configRevision)
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
@@ -1064,7 +1064,7 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 // Returns (node, gRPC address, replicaIndex, err). replicaIndex is the slot
 // the worker has been told to use; the caller must pass the same index into
 // SetNodeModel so the registry row matches the live process.
-func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions) (*BackendNode, string, int, error) {
+func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions, configRevision string) (*BackendNode, string, int, error) {
 	// Estimate VRAM required for the model
 	var estimatedVRAM uint64
 	if modelOpts != nil {
@@ -1240,7 +1240,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 
 	// Send backend.install — the worker installs the backend if needed and
 	// starts the gRPC process bound to a port for this (model, replica) slot.
-	addr, installErr := r.installBackendOnNode(ctx, node, backendType, modelID, replicaIdx)
+	addr, installErr := r.installBackendOnNode(ctx, node, backendType, modelID, replicaIdx, configRevision)
 	if installErr != nil {
 		// Roll back the reservation explicitly so the column is accurate
 		// before the next heartbeat. Best-effort.
@@ -1353,13 +1353,13 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 // Routine load: the worker's fast-path "already running → return current
 // address" is correct here. Upgrades go through
 // DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
-func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int) (string, error) {
+func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int, configRevision string) (string, error) {
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
 	reportLoadPhase(ctx, LoadJobStateInstalling, node, replicaIndex)
 
-	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
+	key := fmt.Sprintf("%s|%s|%s|%d|%s", node.ID, backendType, modelID, replicaIndex, configRevision)
 	// DoChan rather than Do so this wait honors ctx cancellation. InstallBackend
 	// blocks for its full NATS deadline (15m by default) when a worker accepts
 	// the request but never replies (e.g. it died mid-install). Without ctx
@@ -1368,7 +1368,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// frees the caller promptly. The shared install keeps running in the
 	// background and still coalesces other callers via singleflight.
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
-		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil, configRevision)
 		if err != nil {
 			return "", err
 		}
