@@ -53,6 +53,10 @@
   --color-border-default: var(--dk-edge);
   --color-border-strong: var(--dk-control-edge);
   --color-border-divider: color-mix(in srgb, var(--dk-edge) 75%, var(--dk-canvas));
+  /* The edge of a layered surface (card, pane, composer, popover): the
+     decorative edge with a little text colour, so a card reads against the
+     canvas in dark as well as light. */
+  --color-border-card: color-mix(in srgb, var(--dk-edge) 88%, var(--dk-text));
   --color-border-primary: color-mix(in srgb, var(--dk-accent) 55%, transparent);
   --color-border-focus: var(--dk-accent);
 
@@ -176,6 +180,17 @@
   /* Responsive breakpoints — kept here so JS can read them via getComputedStyle. */
   --bp-mobile: 640px;
   --bp-tablet: 1024px;
+}
+
+/* Floating surfaces (menus, popovers) sit above cards, so in dark they take
+   the hover tone: a card-coloured menu over a card would vanish. Light keeps
+   the white card, which the float shadow lifts. */
+:root,
+[data-theme="dark"] {
+  --color-surface-float: var(--dk-hover);
+}
+[data-theme="light"] {
+  --color-surface-float: var(--dk-card);
 }
 
 /* Fixed data hues: no role matches them. Dark values first (also the

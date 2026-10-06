@@ -671,8 +671,8 @@
   bottom: calc(100% + 8px);
   left: 0;
   min-width: 160px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-float);
+  border: 1px solid var(--color-border-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   list-style: none;
@@ -1419,7 +1419,7 @@
 /* Cards */
 .card {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-card);
   border-radius: var(--radius-xl);
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-sm);
@@ -2521,6 +2521,8 @@ select.input {
   padding: 0; /* sections provide their own padding */
   overflow: hidden;
   border-radius: var(--radius-xl);
+  background: var(--color-surface-float);
+  border-color: var(--color-border-card);
   box-shadow: var(--shadow-lg);
   /* Scales from .96 to 1 out of the trigger corner. */
   transform-origin: top left;
@@ -2843,9 +2845,9 @@ select.input {
 /* Anchored to the input row so the list covers what follows the field rather
    than pushing the rest of the form down as the user types. */
 .kvchips__suggestions {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  background: var(--color-surface-float);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   left: 0;
   list-style: none;
@@ -3929,9 +3931,8 @@ button.collapsible-header:focus-visible {
 }
 
 .chat-input-area {
-  padding: var(--spacing-xs) var(--spacing-md) var(--spacing-sm);
-  background: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+  background: var(--color-bg-primary);
 }
 
 .chat-input-wrapper {
@@ -3940,9 +3941,10 @@ button.collapsible-header:focus-visible {
   align-items: flex-start;
   flex-wrap: wrap;
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-xs);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-sm);
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
@@ -4069,7 +4071,7 @@ button.collapsible-header:focus-visible {
 }
 .chat-input-wrapper:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary-border);
+  box-shadow: var(--shadow-sm), 0 0 0 3px var(--color-primary-light);
 }
 
 .chat-attach-btn {
@@ -4127,7 +4129,8 @@ button.collapsible-header:focus-visible {
 }
 
 .chat-send-btn:disabled {
-  opacity: 0.3;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
   cursor: not-allowed;
 }
 .chat-send-btn:active:not(:disabled) {
@@ -4471,9 +4474,9 @@ button.collapsible-header:focus-visible {
   z-index: 100;
   width: 320px;
   max-width: calc(100vw - var(--spacing-md) * 2);
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--color-surface-float);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -4935,18 +4938,18 @@ button.collapsible-header:focus-visible {
 
 /* Chat header */
 .chat-header {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-card);
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   background: var(--color-bg-secondary);
   flex-shrink: 0;
-  min-height: 40px;
+  min-height: 56px;
 }
 .chat-header-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5033,9 +5036,9 @@ button.collapsible-header:focus-visible {
   min-width: 240px;
   max-height: 320px;
   overflow-y: auto;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--color-surface-float);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   animation: dropdownIn 120ms ease-out;
 }
@@ -6515,7 +6518,7 @@ button.collapsible-header:focus-visible {
 }
 .confirm-dialog {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-card);
   border-radius: var(--dk-radius-4);
   max-width: 420px;
   width: 90%;
@@ -6539,12 +6542,12 @@ button.collapsible-header:focus-visible {
   font-size: 1.125rem;
 }
 .confirm-dialog-title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 .confirm-dialog-body {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--color-text-secondary);
   margin-bottom: var(--spacing-lg);
   line-height: 1.5;
@@ -6674,8 +6677,8 @@ button.collapsible-header:focus-visible {
   width: 100%;
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-md) var(--spacing-lg);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-xl);
   cursor: pointer;
   text-align: left;
@@ -6684,12 +6687,10 @@ button.collapsible-header:focus-visible {
   transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 .home-assistant-card:hover {
-  background: var(--color-accent-light, var(--color-surface-hover));
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent);
 }
 .home-assistant-card:active {
-  transform: translateY(0);
+  transform: scale(var(--dk-press-scale));
 }
 .home-assistant-icon {
   flex: 0 0 auto;
@@ -6698,7 +6699,7 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   background: var(--color-accent);
   color: var(--dk-on-accent);
   font-size: 1.1rem;
@@ -6742,10 +6743,15 @@ button.collapsible-header:focus-visible {
 .home-chat-card {
   width: 100%;
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-card);
   border-radius: var(--radius-xl);
   padding: var(--spacing-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.home-chat-card:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm), 0 0 0 3px var(--color-primary-light);
 }
 .home-model-row {
   display: flex;
@@ -6784,14 +6790,9 @@ button.collapsible-header:focus-visible {
 
 /* Home input container */
 .home-input-container {
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-default);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-lg);
-  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-}
-.home-input-container:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 .home-textarea {
   width: 100%;
@@ -6799,7 +6800,7 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-primary);
   border: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-xs);
   font-size: var(--text-base);
   font-family: inherit;
   outline: none;
@@ -6814,8 +6815,8 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-xs) var(--spacing-md);
-  border-top: 1px solid var(--color-border-divider);
+  padding: var(--spacing-sm) var(--spacing-xs) 0 var(--spacing-xs);
+  border-top: 1px solid var(--color-border-card);
 }
 .home-attach-buttons {
   display: flex;
@@ -6864,8 +6865,20 @@ button.collapsible-header:focus-visible {
   background: var(--color-primary-hover);
   transform: scale(1.05);
 }
+/* Nothing to send yet: the button is quiet. Submitting an empty box does
+   nothing, so the quiet look is truthful. It lights up with text or a file. */
+.home-send-btn[data-empty],
+.home-send-btn[data-empty]:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  box-shadow: none;
+  transform: none;
+  cursor: default;
+}
 .home-send-btn:disabled {
-  opacity: 0.3;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  box-shadow: none;
   cursor: not-allowed;
 }
 .home-send-btn:active:not(:disabled) {
@@ -12708,8 +12721,9 @@ button.collapsible-header:focus-visible {
 
 .entity-rail {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -12718,7 +12732,8 @@ button.collapsible-header:focus-visible {
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-card);
+  background: var(--color-surface-sunken);
   flex-wrap: wrap;
 }
 
@@ -12779,7 +12794,7 @@ button.collapsible-header:focus-visible {
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-surface-sunken);
   border: 0;
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--color-border-card);
   color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
@@ -12812,11 +12827,12 @@ button.collapsible-header:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  width: 100%;
-  padding: 10px var(--spacing-md);
+  width: calc(100% - var(--spacing-md));
+  margin: 2px var(--spacing-sm);
+  padding: 10px var(--spacing-sm);
   background: transparent;
   border: 0;
-  border-top: 1px solid var(--color-border-divider);
+  border-radius: var(--radius-md);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -12840,9 +12856,11 @@ button.collapsible-header:focus-visible {
   .entity-rail__group-head { padding-top: 10px; padding-bottom: 10px; }
 }
 
-.entity-rail__item--on {
+/* The selected row: an accent wash and a thin accent edge, in both themes. */
+.entity-rail__item--on,
+.entity-rail__item--on:hover {
   background: var(--color-primary-light);
-  box-shadow: inset 2px 0 0 var(--color-primary);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .entity-rail__icon {
@@ -12853,7 +12871,8 @@ button.collapsible-header:focus-visible {
   text-align: center;
 }
 
-.entity-rail__item--on .entity-rail__icon { color: var(--color-primary); }
+.entity-rail__item--on .entity-rail__icon { color: var(--dk-accent-text); }
+.entity-rail__item--on .entity-rail__name { font-weight: var(--font-weight-bold); }
 
 .entity-rail__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
@@ -12906,8 +12925,9 @@ button.collapsible-header:focus-visible {
 
 .split-view__pane {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
   min-height: 420px;
   padding: var(--spacing-lg);
 }
@@ -12965,8 +12985,8 @@ button.collapsible-header:focus-visible {
 }
 
 .zero-pane__tile {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-card);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   display: flex;

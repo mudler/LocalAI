@@ -419,6 +419,7 @@ export default function Home() {
                   <button
                     type="submit"
                     className="home-send-btn"
+                    data-empty={!message.trim() && allFiles.length === 0 ? 'true' : undefined}
                     disabled={!selectedModel}
                     title={!selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')}
                   >
