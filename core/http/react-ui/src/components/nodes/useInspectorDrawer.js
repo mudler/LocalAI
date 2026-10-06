@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const MOBILE_DRAWER_QUERY = '(max-width: 768px)'
-const FOCUSABLE = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+const FOCUSABLE = 'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
 function isolateBackground(drawer) {
   const changed = new Map()
