@@ -297,6 +297,7 @@ export default function ModelEditor() {
       await new Promise(r => setTimeout(r, 1000))
       let data
       try { data = await modelsApi.getJobStatus(jobId) } catch { continue }
+      if (data?.cancelled) throw new Error('Import cancelled')
       if (data?.error) {
         throw new Error(typeof data.error === 'string' ? data.error : 'model asset download failed')
       }

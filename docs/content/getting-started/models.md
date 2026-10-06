@@ -135,6 +135,10 @@ answers a queued import with a job id and a status URL to poll
 (`/models/jobs/{id}` — the same shape gallery installs use), and a
 download-free import with a plain success response.
 
+If you cancel a queued import, the import page and model editor report the
+cancellation and stay on the current page. They report success only after the
+job succeeds.
+
 ## Method 2: Installing from Hugging Face
 
 LocalAI can directly install models from Hugging Face:

@@ -241,14 +241,15 @@ export default function ImportModel() {
     pollRef.current = setInterval(async () => {
       try {
         const data = await modelsApi.getJobStatus(jobId)
-        if (data.error || (data.message && data.message.startsWith('error:'))) {
+        if (data.cancelled || data.error || (data.message && data.message.startsWith('error:'))) {
           transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
           setJob(null)
           let msg = 'Unknown error'
-          if (typeof data.error === 'string') msg = data.error
+          if (data.cancelled) msg = 'Import cancelled'
+          else if (typeof data.error === 'string') msg = data.error
           else if (data.error?.message) msg = data.error.message
           else if (data.message) msg = data.message
           if (msg.startsWith('error: ')) msg = msg.substring(7)
