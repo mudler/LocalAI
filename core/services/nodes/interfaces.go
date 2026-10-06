@@ -180,3 +180,9 @@ func DirectWorkerNetDialer() WorkerNetDialerFor {
 	dial := (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 15 * time.Second}).DialContext
 	return func(string) func(context.Context, string, string) (net.Conn, error) { return dial }
 }
+
+// LoadOperationStopper supplies generation-conditioned process cleanup without
+// equating process termination with termination of external staging/load work.
+type LoadOperationStopper interface {
+	StopLoadOperation(ctx context.Context, nodeID string, ref LoadJobRef, incarnation, processKey, address, instance, revision string) (workerctl.ModelStopReply, error)
+}

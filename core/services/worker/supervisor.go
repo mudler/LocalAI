@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"maps"
 	"os"
 	"path/filepath"
@@ -24,9 +25,12 @@ import (
 
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
-	proc *process.Process
-	addr string // gRPC address (host:port)
-	port int
+	instance  string
+	revision  string
+	operation *workerctl.OperationIdentity
+	proc      *process.Process
+	addr      string // gRPC address (host:port)
+	port      int
 	// serving marks a process that has answered a gRPC health check and is
 	// therefore actually listening on addr. It is the opening bracket of the
 	// lifecycle that stopping closes.
@@ -106,6 +110,7 @@ func (s *backendSupervisor) backendIdentity(name string) map[string]struct{} {
 // backendSupervisor manages multiple backend gRPC processes on different ports.
 // Each backend type (e.g., llama-cpp, bert-embeddings) gets its own process and port.
 type backendSupervisor struct {
+	operations  map[string]*workerctl.LoadOperation
 	cfg         *Config
 	ml          *model.ModelLoader
 	systemState *system.SystemState
@@ -490,6 +495,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	}
 
 	s.processes[backend] = &backendProcess{
+		instance:     uuid.NewString(),
 		proc:         proc,
 		addr:         clientAddr,
 		port:         port,
@@ -875,15 +881,37 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) workerctl.ModelStopReply {
 	reply := workerctl.ModelStopReply{ProcessKey: req.ProcessKey}
 
+	name, _, valid := parseProcessKey(req.ProcessKey)
+	if !valid || req.ExpectedAddress == "" || (req.ModelName != "" && req.ModelName != name) {
+		reply.Error = "invalid exact model target"
+		return reply
+	}
 	s.mu.Lock()
+	if err := s.checkOperationLocked(req.Operation, req.ProcessKey); err != nil {
+		s.mu.Unlock()
+		reply.Error = err.Error()
+		return reply
+	}
+	if op := s.operations[req.ProcessKey]; op != nil && op.Active {
+		s.mu.Unlock()
+		reply.Error = "operation still active"
+		return reply
+	}
 	bp, ok := s.processes[req.ProcessKey]
 	if !ok || bp.proc == nil {
+		s.retireOperationLocked(req.ProcessKey)
+		reply.OperationAcknowledged = false
 		s.mu.Unlock()
 		reply.Terminated = true
 		return reply
 	}
 	reply.Matched = true
 	reply.Address = bp.addr
+	if (req.ConfigRevision != "" && req.ConfigRevision != bp.revision) || (req.ProcessInstance != "" && req.ProcessInstance != bp.instance) || (bp.operation != nil && (req.Operation == nil || *req.Operation != *bp.operation)) {
+		s.mu.Unlock()
+		reply.Error = "process identity mismatch"
+		return reply
+	}
 	if bp.addr != req.ExpectedAddress {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
@@ -921,6 +949,10 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 		}
 		return reply
 	}
+	s.mu.Lock()
+	s.retireOperationLocked(req.ProcessKey)
+	s.mu.Unlock()
+	reply.OperationAcknowledged = false
 	reply.Terminated = true
 	return reply
 }

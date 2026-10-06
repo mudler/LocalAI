@@ -8,7 +8,9 @@ package workerctl
 // FileEnsureRequest asks a worker to download an object storage key into its
 // local cache.
 type FileEnsureRequest struct {
-	Key string `json:"key"`
+	Operation  *OperationIdentity `json:"operation,omitempty"`
+	ProcessKey string             `json:"process_key,omitempty"`
+	Key        string             `json:"key"`
 }
 
 // FileEnsureReply carries the local path of the cached file, or an error.
@@ -20,8 +22,10 @@ type FileEnsureReply struct {
 // FileStageRequest asks a worker to upload a local file to object storage
 // under Key.
 type FileStageRequest struct {
-	LocalPath string `json:"local_path"`
-	Key       string `json:"key"`
+	Operation  *OperationIdentity `json:"operation,omitempty"`
+	ProcessKey string             `json:"process_key,omitempty"`
+	LocalPath  string             `json:"local_path"`
+	Key        string             `json:"key"`
 }
 
 // FileStageReply carries the key the file was uploaded under, or an error.

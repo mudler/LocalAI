@@ -18,11 +18,11 @@ import (
 // so a malformed key is skipped rather than reported under a wrong identity.
 func parseProcessKey(key string) (modelID string, replicaIndex int, ok bool) {
 	hash := strings.LastIndex(key, "#")
-	if hash < 0 {
+	if hash <= 0 {
 		return "", 0, false
 	}
 	replica, err := strconv.Atoi(key[hash+1:])
-	if err != nil {
+	if err != nil || replica < 0 {
 		return "", 0, false
 	}
 	return key[:hash], replica, true
@@ -49,9 +49,12 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 			continue
 		}
 		running = append(running, workerctl.RunningModelInfo{
-			ModelID:      modelID,
-			ReplicaIndex: replicaIndex,
-			Address:      bp.addr,
+			ProcessInstance: bp.instance,
+			ConfigRevision:  bp.revision,
+			Operation:       bp.operation,
+			ModelID:         modelID,
+			ReplicaIndex:    replicaIndex,
+			Address:         bp.addr,
 		})
 	}
 	return running
@@ -62,5 +65,11 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 func (s *backendSupervisor) modelsRunning(_ context.Context, _ workerctl.ModelsRunningRequest) workerctl.ModelsRunningReply {
 	running := s.runningModels()
 	xlog.Debug("Answering models.running", "nodeID", s.nodeID, "count", len(running))
-	return workerctl.ModelsRunningReply{Models: running}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	operations := make([]workerctl.LoadOperation, 0, len(s.operations))
+	for _, op := range s.operations {
+		operations = append(operations, *op)
+	}
+	return workerctl.ModelsRunningReply{Models: running, Incarnation: workerIncarnation, ReportsOperations: true, Operations: operations}
 }

@@ -46,7 +46,7 @@ const invalidFileRequest = "invalid request"
 
 // registerFileStagingVerbs serves the file staging verbs, backed by the
 // configured object storage.
-func (cfg *Config) registerFileStagingVerbs(srv controlServer, capacity *EphemeralCapacityGuard) error {
+func (cfg *Config) registerFileStagingVerbs(srv controlServer, capacity *EphemeralCapacityGuard, supervisors ...*backendSupervisor) error {
 	// Create FileManager with same S3 config as the frontend
 	// TODO: propagate a caller-provided context once Config carries one
 	s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
@@ -71,6 +71,9 @@ func (cfg *Config) registerFileStagingVerbs(srv controlServer, capacity *Ephemer
 	}
 
 	v := &fileStagingVerbs{cfg: cfg, fm: fm, cacheDir: cacheDir, capacity: capacity}
+	if len(supervisors) > 0 {
+		v.supervisor = supervisors[0]
+	}
 	if err := srv.handle(verbFilesEnsure, unary(decodeJSON[workerctl.FileEnsureRequest], func(error) workerctl.FileEnsureReply {
 		return workerctl.FileEnsureReply{Error: invalidFileRequest}
 	}, v.ensure)); err != nil {
@@ -97,10 +100,11 @@ func (cfg *Config) registerFileStagingVerbs(srv controlServer, capacity *Ephemer
 // fileStagingVerbs holds what the file staging verbs share for the lifetime
 // of the worker.
 type fileStagingVerbs struct {
-	cfg      *Config
-	fm       *storage.FileManager
-	cacheDir string
-	capacity *EphemeralCapacityGuard
+	supervisor *backendSupervisor
+	cfg        *Config
+	fm         *storage.FileManager
+	cacheDir   string
+	capacity   *EphemeralCapacityGuard
 	// ensureGroup lives as long as the verbs so concurrent ensures of one key
 	// share a single download and a single capacity reservation.
 	ensureGroup singleflight.Group
@@ -108,6 +112,15 @@ type fileStagingVerbs struct {
 
 // ensure downloads an object storage key into the local cache.
 func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureRequest) workerctl.FileEnsureReply {
+	if req.Operation != nil {
+		if v.supervisor == nil {
+			return workerctl.FileEnsureReply{Error: "operation tracking unavailable"}
+		}
+		if err := v.supervisor.beginStaging(req.Operation, req.ProcessKey); err != nil {
+			return workerctl.FileEnsureReply{Error: err.Error()}
+		}
+		defer v.supervisor.endStaging(req.ProcessKey)
+	}
 	value, err, _ := v.ensureGroup.Do(req.Key, func() (any, error) {
 		return ensureWorkerFile(ctx, v.fm, v.capacity, req.Key)
 	})
@@ -126,6 +139,15 @@ func (v *fileStagingVerbs) ensure(ctx context.Context, req workerctl.FileEnsureR
 
 // stage uploads a local file to object storage.
 func (v *fileStagingVerbs) stage(ctx context.Context, req workerctl.FileStageRequest) workerctl.FileStageReply {
+	if req.Operation != nil {
+		if v.supervisor == nil {
+			return workerctl.FileStageReply{Error: "operation tracking unavailable"}
+		}
+		if err := v.supervisor.beginStaging(req.Operation, req.ProcessKey); err != nil {
+			return workerctl.FileStageReply{Error: err.Error()}
+		}
+		defer v.supervisor.endStaging(req.ProcessKey)
+	}
 	allowedDirs := []string{v.cacheDir}
 	if v.cfg.ModelsPath != "" {
 		allowedDirs = append(allowedDirs, v.cfg.ModelsPath)

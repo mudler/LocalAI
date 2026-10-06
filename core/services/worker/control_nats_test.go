@@ -175,7 +175,7 @@ var _ = Describe("Worker control verbs over NATS", func() {
 			Eventually(replies).Should(Receive(Equal(want)))
 		},
 		Entry("backend.list", messaging.SubjectNodeBackendList, `{"backends":null}`),
-		Entry("models.running", messaging.SubjectNodeModelsRunning, `{"models":[]}`),
+		Entry("models.running", messaging.SubjectNodeModelsRunning, `{"incarnation":"`+workerIncarnation+`","reports_operations":true,"models":[]}`),
 	)
 
 	It("signals shutdown on node.stop without replying, and never blocks on a repeat", func() {

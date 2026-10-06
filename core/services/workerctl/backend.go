@@ -2,9 +2,11 @@ package workerctl
 
 // BackendInstallRequest is the payload for a backend.install control request.
 type BackendInstallRequest struct {
-	Backend          string `json:"backend"`
-	ModelID          string `json:"model_id,omitempty"`
-	BackendGalleries string `json:"backend_galleries,omitempty"`
+	Operation        *OperationIdentity `json:"operation,omitempty"`
+	ConfigRevision   string             `json:"config_revision,omitempty"`
+	Backend          string             `json:"backend"`
+	ModelID          string             `json:"model_id,omitempty"`
+	BackendGalleries string             `json:"backend_galleries,omitempty"`
 	// URI is set for external installs (OCI image, URL, or path). When non-empty
 	// the worker routes to InstallExternalBackend instead of the gallery lookup.
 	URI   string `json:"uri,omitempty"`
@@ -33,9 +35,11 @@ type BackendInstallRequest struct {
 
 // BackendInstallReply is the response from a backend.install control request.
 type BackendInstallReply struct {
-	Success bool   `json:"success"`
-	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
-	Error   string `json:"error,omitempty"`
+	OperationAcknowledged bool   `json:"operation_acknowledged,omitempty"`
+	ProcessInstance       string `json:"process_instance,omitempty"`
+	Success               bool   `json:"success"`
+	Address               string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
+	Error                 string `json:"error,omitempty"`
 }
 
 // BackendUpgradeRequest is the payload for a backend.upgrade control request.

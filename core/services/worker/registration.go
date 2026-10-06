@@ -165,17 +165,19 @@ func (cfg *Config) registrationBody() map[string]any {
 		maxReplicas = 1
 	}
 	body := map[string]any{
-		"name":                   nodeName,
-		"address":                cfg.advertiseAddr(),
-		"http_address":           cfg.advertiseHTTPAddr(),
-		"total_vram":             totalVRAM,
-		"available_vram":         totalVRAM, // initially all VRAM is available
-		"gpu_vendor":             gpuVendor,
-		"gpu_compute_capability": gpuComputeCap,
-		"capability":             capability,
-		"max_replicas_per_model": maxReplicas,
-		"version":                internal.Version,
-		"commit":                 internal.Commit,
+		"worker_incarnation":      workerIncarnation,
+		"reports_load_operations": true,
+		"name":                    nodeName,
+		"address":                 cfg.advertiseAddr(),
+		"http_address":            cfg.advertiseHTTPAddr(),
+		"total_vram":              totalVRAM,
+		"available_vram":          totalVRAM, // initially all VRAM is available
+		"gpu_vendor":              gpuVendor,
+		"gpu_compute_capability":  gpuComputeCap,
+		"capability":              capability,
+		"max_replicas_per_model":  maxReplicas,
+		"version":                 internal.Version,
+		"commit":                  internal.Commit,
 	}
 
 	// Report free space on the filesystem that backs the MODELS directory.
@@ -247,7 +249,7 @@ func (cfg *Config) registrationBody() map[string]any {
 // used", while reporting total-as-available lies to the scheduler about
 // free capacity.
 func (cfg *Config) heartbeatBody() map[string]any {
-	body := map[string]any{}
+	body := map[string]any{"worker_incarnation": workerIncarnation, "reports_load_operations": true}
 	aggregate := getGPUAggregateInfo()
 	if aggregate.TotalVRAM > 0 {
 		body["available_vram"] = aggregate.FreeVRAM

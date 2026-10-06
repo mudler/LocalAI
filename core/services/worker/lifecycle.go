@@ -115,8 +115,12 @@ func (s *backendSupervisor) stopModelExactCtx(_ context.Context, req workerctl.M
 // backends. Per-backend serialization is provided by lockBackend so two
 // requests targeting the same on-disk artifact don't race the gallery
 // directory.
-func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.BackendInstallRequest, progress progressSink) workerctl.BackendInstallReply {
+func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.BackendInstallRequest, progress progressSink) (reply workerctl.BackendInstallReply) {
 	xlog.Info("Received NATS backend.install event")
+	if err := s.beginLoadOperation(req); err != nil {
+		return workerctl.BackendInstallReply{Error: err.Error()}
+	}
+	defer func() { reply.ProcessInstance = s.finishLoadInstall(req) }()
 	release := s.lockBackend(req.Backend)
 	defer release()
 	downloadCb, flush := s.downloadProgress(req.OpID, req.Backend, progress)
@@ -148,7 +152,7 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 			advertiseAddr = net.JoinHostPort(advertiseHost, port)
 		}
 	}
-	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr}
+	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr, OperationAcknowledged: req.Operation != nil, ProcessInstance: ""}
 }
 
 // serveUpgrade answers backend.upgrade: force-reinstall a backend. It is its
@@ -372,28 +376,31 @@ func (s *backendSupervisor) backendList(_ context.Context, _ workerctl.BackendLi
 func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.ModelUnloadRequest) workerctl.ModelUnloadReply {
 	xlog.Info("Received NATS model.unload event")
 
-	// Find the backend address for this model's backend type
-	// The request includes an Address field if the router knows which process to target
-	targetAddr := req.Address
-	if targetAddr == "" {
-		// Fallback: try all running backends
-		s.mu.Lock()
-		for _, bp := range s.processes {
-			targetAddr = bp.addr
-			break
-		}
-		s.mu.Unlock()
+	if strings.TrimSpace(req.ModelName) == "" {
+		return workerctl.ModelUnloadReply{Error: "model name is required"}
 	}
-
-	if targetAddr != "" {
-		// Best-effort bounded gRPC Free(). A model.unload request must not
-		// occupy the NATS reply handler forever when a backend is wedged.
-		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
-		if err := client.Free(freeCtx); err != nil {
-			xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
+	// Hold the process table lock across bounded Free calls so no stop/start can
+	// recycle a selected address before the call finishes.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, bp := range s.processes {
+		name, _, valid := parseProcessKey(key)
+		if !valid || name != req.ModelName || bp == nil || (req.Address != "" && req.Address != bp.addr) {
+			continue
 		}
+		if err := s.checkOperationLocked(req.Operation, key); err != nil {
+			return workerctl.ModelUnloadReply{Error: err.Error()}
+		}
+		if bp.stopping || bp.operation != nil {
+			return workerctl.ModelUnloadReply{Error: "use exact stop for an owned process"}
+		}
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
+		err := client.Free(freeCtx)
 		cancel()
+		if err != nil {
+			return workerctl.ModelUnloadReply{Error: err.Error()}
+		}
 	}
 
 	return workerctl.ModelUnloadReply{Success: true}

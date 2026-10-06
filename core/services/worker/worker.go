@@ -265,7 +265,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Serve the file staging verbs only when S3 is configured
 	if cfg.StorageURL != "" {
-		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
+		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity, supervisor); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}

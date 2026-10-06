@@ -591,3 +591,23 @@ func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
 	return a.nats.Publish(subject, nil)
 }
+
+// StopLoadOperation never falls back to a backend-wide stop or treats silence
+// as acknowledgement. Terminated describes only the process; callers must
+// separately require OperationAcknowledged before reclaiming a load job.
+func (a *RemoteUnloaderAdapter) StopLoadOperation(ctx context.Context, nodeID string, ref LoadJobRef, incarnation, processKey, address, instance, revision string) (workerctl.ModelStopReply, error) {
+	if err := ctx.Err(); err != nil {
+		return workerctl.ModelStopReply{}, err
+	}
+	if ref.Generation == "" || ref.TrackingKey == "" || incarnation == "" || instance == "" {
+		return workerctl.ModelStopReply{}, fmt.Errorf("complete operation identity is required")
+	}
+	reply, err := controlRequestJSON[workerctl.ModelStopRequest, workerctl.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), workerctl.ModelStopRequest{
+		ModelName: ref.TrackingKey, ProcessKey: processKey, ExpectedAddress: address, ProcessInstance: instance, ConfigRevision: revision, Force: true,
+		Operation: &workerctl.OperationIdentity{TrackingKey: ref.TrackingKey, Generation: ref.Generation, Incarnation: incarnation},
+	}, exactModelStopTimeout)
+	if err != nil {
+		return workerctl.ModelStopReply{}, err
+	}
+	return *reply, nil
+}
