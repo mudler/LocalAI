@@ -54482,6 +54482,62 @@
     - filename: voice-detect-wespeaker-resnet34.gguf
       uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
       sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-multilingual-diarization-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Parakeet TDT 0.6B v3 (multilingual, 25 European languages) paired with
+    Nemotron-3-Diarization (Sortformer) through the diarization_model option
+    and WeSpeaker ResNet34 through the speaker_model option, all GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). One call to
+    /v1/audio/diarization with include_text and include_speaker_profiles
+    returns the speaker turns, the text of each turn in the spoken language,
+    and one voice-print embedding per speaker, so a client does not need a
+    separate diarization call and transcription call. Use it where the
+    English-only 110M ASR of parakeet-cpp-nemotron-3-diarization-asr-speakers
+    is not enough. Also serves /v1/audio/transcriptions. License per model:
+    transcription model CC-BY-4.0, diarization model OpenMDW-1.1, WeSpeaker
+    encoder CC-BY-4.0.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - asr
+    - diarization
+    - speaker-diarization
+    - speech-recognition
+    - multilingual
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+      - diarization
+    name: parakeet-cpp-multilingual-diarization-speakers
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
 - name: parakeet-cpp-realtime-scene-speakers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
