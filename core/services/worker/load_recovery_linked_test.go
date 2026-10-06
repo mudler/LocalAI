@@ -35,7 +35,13 @@ func (b recoveryLoopback) Request(subject string, data []byte, timeout time.Dura
 var _ = Describe("Linked revision cleanup", func() {
 	It("installs through the adapter then stops the actual worker process at the same revision", func() {
 		proc := startModelStopProcess()
-		defer proc.Stop()
+		terminated := false
+		DeferCleanup(func() {
+			// The successful stop below already removes the temporary PID file.
+			if !terminated {
+				Expect(proc.Stop()).To(Succeed())
+			}
+		})
 		s := &backendSupervisor{cfg: &Config{}, nodeID: "worker", processes: map[string]*backendProcess{"model#0": {proc: proc, addr: "127.0.0.1:1", instance: "instance"}}}
 		// Use real installBackend's reuse path, including its backend directory check.
 		bp := s.processes["model#0"]
@@ -59,6 +65,7 @@ var _ = Describe("Linked revision cleanup", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stopped.Terminated).To(BeTrue())
 		Expect(proc.IsAlive()).To(BeFalse())
+		terminated = true
 		Expect(stopped.OperationAcknowledged).To(BeFalse())
 	})
 })

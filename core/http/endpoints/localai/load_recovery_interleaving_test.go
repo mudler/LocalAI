@@ -14,31 +14,24 @@ import (
 
 var _ = Describe("Independent Task4 probes", func() {
 	It("node target interleaving", func() {
-		t := GinkgoT()
 		db := testutil.SetupTestDB()
 		r, err := nodes.NewNodeRegistry(db)
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		j, _, err := r.ClaimLoadJob(context.Background(), "review-node", "owner")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = r.UpdateLoadJob(context.Background(), j.Ref(), nodes.LoadJobUpdate{NodeID: "node-a"}); err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		err = r.UpdateLoadJob(context.Background(), j.Ref(), nodes.LoadJobUpdate{NodeID: "node-a"})
+		Expect(err).NotTo(HaveOccurred())
 		fired := false
 		name := "review_move"
-		db.Callback().Query().After("gorm:query").Register(name, func(tx *gorm.DB) {
+		Expect(db.Callback().Query().After("gorm:query").Register(name, func(tx *gorm.DB) {
 			if fired || tx.Statement.Table != "model_load_jobs" {
 				return
 			}
 			fired = true
-			if err := r.UpdateLoadJob(context.Background(), j.Ref(), nodes.LoadJobUpdate{NodeID: "node-b"}); err != nil {
-				t.Fatal(err)
-			}
-		})
-		defer db.Callback().Query().Remove(name)
+			err := r.UpdateLoadJob(context.Background(), j.Ref(), nodes.LoadJobUpdate{NodeID: "node-b"})
+			Expect(err).NotTo(HaveOccurred())
+		})).To(Succeed())
+		DeferCleanup(func() error { return db.Callback().Query().Remove(name) })
 		e := echo.New()
 		sender := &recoveryUnloadSender{}
 		e.POST("/nodes/:id/unload", UnloadModelOnNodeEndpoint(sender, r))
@@ -47,18 +40,12 @@ var _ = Describe("Independent Task4 probes", func() {
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		current, err := r.GetLoadJob(context.Background(), j.TrackingKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !fired {
-			t.Fatal("interleaving not exercised")
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fired).To(BeTrue(), "interleaving not exercised")
 		Expect(rec.Code).To(Equal(409))
 		Expect(sender.calls).To(BeZero())
 		Expect(current.NodeID).To(Equal("node-b"))
 		Expect(current.TerminalUntil).To(BeNil())
-		if current.CancelRequested {
-			t.Fatalf("node-a request canceled job now on node-b: HTTP %d body %s", rec.Code, rec.Body.String())
-		}
+		Expect(current.CancelRequested).To(BeFalse(), "node-a request canceled job now on node-b: HTTP %d body %s", rec.Code, rec.Body.String())
 	})
 })

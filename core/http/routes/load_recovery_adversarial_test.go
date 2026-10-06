@@ -43,10 +43,10 @@ var _ = Describe("Load recovery adversarial", func() {
 		Expect(recoveryOperations(e)).To(HaveLen(1))
 		Expect(db.Callback().Query().Before("gorm:query").Register("review-read-error", func(tx *gorm.DB) {
 			if tx.Statement.Table == "model_load_jobs" {
-				tx.AddError(errors.New("review injected read failure"))
+				Expect(tx.AddError(errors.New("review injected read failure"))).To(MatchError("review injected read failure"))
 			}
 		})).To(Succeed())
-		defer db.Callback().Query().Remove("review-read-error")
+		DeferCleanup(func() error { return db.Callback().Query().Remove("review-read-error") })
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/operations", nil))
 		GinkgoWriter.Printf("durable read failure HTTP status=%d body=%s\n", rec.Code, rec.Body.String())
@@ -65,7 +65,7 @@ var _ = Describe("Load recovery adversarial", func() {
 		defer nc.Close()
 		sub, err := router.StagingTracker().SubscribeBroadcasts(nc)
 		Expect(err).NotTo(HaveOccurred())
-		defer sub.Unsubscribe()
+		defer func() { Expect(sub.Unsubscribe()).To(Succeed()) }()
 		now := time.Now()
 		send := func(gen string, started time.Time, bytes int64) {
 			Expect(nc.Publish(messaging.SubjectStagingProgress("clock"), nodes.StagingProgressEvent{ModelID: "clock", Status: &nodes.StagingStatus{ModelID: "clock", Generation: gen, StartedAt: started, UpdatedAt: now.Add(time.Second), BytesSent: bytes, TotalBytes: 100, Progress: float64(bytes)}})).To(Succeed())
@@ -100,7 +100,7 @@ var _ = Describe("Load recovery adversarial", func() {
 		defer nc.Close()
 		sub, err := router.StagingTracker().SubscribeBroadcasts(nc)
 		Expect(err).NotTo(HaveOccurred())
-		defer sub.Unsubscribe()
+		defer func() { Expect(sub.Unsubscribe()).To(Succeed()) }()
 		for _, gen := range []string{j.Generation, "older", ""} {
 			Expect(nc.Publish(messaging.SubjectStagingProgress("reorder"), nodes.StagingProgressEvent{ModelID: "reorder", Generation: gen, Done: true})).To(Succeed())
 			Expect(nc.Publish(messaging.SubjectStagingProgress("reorder"), nodes.StagingProgressEvent{ModelID: "reorder", Status: &nodes.StagingStatus{ModelID: "reorder", Generation: gen, UpdatedAt: time.Now().Add(time.Hour), Progress: 99}})).To(Succeed())

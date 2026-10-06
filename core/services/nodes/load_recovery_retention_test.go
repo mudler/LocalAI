@@ -12,31 +12,21 @@ import (
 
 var _ = Describe("Independent Task4 probes", func() {
 	It("remote waiter retention", func() {
-		t := GinkgoT()
 		r, err := NewNodeRegistry(testutil.SetupTestDB())
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		router := NewSmartRouter(r, SmartRouterOptions{})
 		for i := 0; i < 12; i++ {
 			j, _, err := r.ClaimLoadJob(context.Background(), fmt.Sprintf("review-%d", 0), "remote-owner")
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 			ch := router.loadWaiterChan(loadWaiterKey(j.Ref()))
-			if err = r.DeleteLoadJob(context.Background(), j.Ref()); err != nil {
-				t.Fatal(err)
-			}
+			err = r.DeleteLoadJob(context.Background(), j.Ref())
+			Expect(err).NotTo(HaveOccurred())
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			err = router.waitForLoadJob(ctx, j.TrackingKey, ch, j.Ref())
 			cancel()
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 		}
-		if n := len(router.loadWaiters); n != 0 {
-			t.Fatalf("remote-completed generations permanently retained: %d", n)
-		}
+		Expect(router.loadWaiters).To(BeEmpty(), "remote-completed generations permanently retained")
 	})
 })
 

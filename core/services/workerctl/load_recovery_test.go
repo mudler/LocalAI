@@ -3,27 +3,22 @@ package workerctl_test
 import (
 	"encoding/json"
 	"github.com/mudler/LocalAI/core/services/workerctl"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestRecoveryWire(t *testing.T) {
-	id := &workerctl.OperationIdentity{TrackingKey: "model", Generation: "g", Incarnation: "boot"}
-	raw, err := json.Marshal(workerctl.ModelStopRequest{Operation: id, ProcessInstance: "instance"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var got workerctl.ModelStopRequest
-	if err := json.Unmarshal(raw, &got); err != nil {
-		t.Fatal(err)
-	}
-	if got.Operation == nil || *got.Operation != *id || got.ProcessInstance != "instance" {
-		t.Fatalf("lost identity: %s", raw)
-	}
-	var legacy workerctl.ModelsRunningReply
-	if err := json.Unmarshal([]byte(`{"models":[]}`), &legacy); err != nil {
-		t.Fatal(err)
-	}
-	if legacy.ReportsOperations || legacy.Incarnation != "" {
-		t.Fatal("legacy response claimed recovery capability")
-	}
-}
+var _ = Describe("Load recovery wire", func() {
+	It("preserves identity and defaults legacy capabilities", func() {
+		id := &workerctl.OperationIdentity{TrackingKey: "model", Generation: "g", Incarnation: "boot"}
+		raw, err := json.Marshal(workerctl.ModelStopRequest{Operation: id, ProcessInstance: "instance"})
+		Expect(err).NotTo(HaveOccurred())
+		var got workerctl.ModelStopRequest
+		Expect(json.Unmarshal(raw, &got)).To(Succeed())
+		Expect(got.Operation).To(Equal(id))
+		Expect(got.ProcessInstance).To(Equal("instance"))
+		var legacy workerctl.ModelsRunningReply
+		Expect(json.Unmarshal([]byte(`{"models":[]}`), &legacy)).To(Succeed())
+		Expect(legacy.ReportsOperations).To(BeFalse())
+		Expect(legacy.Incarnation).To(BeEmpty())
+	})
+})

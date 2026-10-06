@@ -27,7 +27,7 @@ var _ = Describe("Load recovery targeting", func() {
 	})
 	It("rejects a stop whose model does not match its process key", func() {
 		proc := startModelStopProcess()
-		defer proc.Stop()
+		DeferCleanup(proc.Stop)
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"other#0": {proc: proc, addr: "localhost:1"}}}
 		reply := s.stopModelExact(workerctl.ModelStopRequest{ModelName: "wanted", ProcessKey: "other#0", ExpectedAddress: "localhost:1", Force: true})
 		Expect(reply.Terminated).To(BeFalse())
@@ -35,7 +35,7 @@ var _ = Describe("Load recovery targeting", func() {
 	})
 	It("rejects unverified configuration revisions", func() {
 		proc := startModelStopProcess()
-		defer proc.Stop()
+		DeferCleanup(proc.Stop)
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"model#0": {proc: proc, addr: "localhost:1"}}}
 		reply := s.stopModelExact(workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: "localhost:1", ConfigRevision: "new", Force: true})
 		Expect(reply.Terminated).To(BeFalse())
@@ -68,7 +68,7 @@ var _ = Describe("Load recovery targeting", func() {
 	})
 	It("fences same-address reuse with process instance and generation", func() {
 		proc := startModelStopProcess()
-		defer proc.Stop()
+		DeferCleanup(proc.Stop)
 		id := &workerctl.OperationIdentity{TrackingKey: "model", Generation: "g2", Incarnation: workerIncarnation}
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"model#0": {proc: proc, addr: "localhost:1", instance: "new", operation: id}}}
 		req := workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: "localhost:1", ProcessInstance: "old", Force: true}
