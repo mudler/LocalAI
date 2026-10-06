@@ -2,8 +2,10 @@ package worker
 
 import (
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	process "github.com/mudler/go-processmanager"
@@ -37,7 +39,7 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 
 		Eventually(func() bool { return grandAlive(grandchild) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse(),
 			"an orphaned grandchild keeps GPU memory and a port")
-		Eventually(func() bool { return pidAlive(proc.CurrentPID()) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse())
+		Eventually(func() bool { return leaderGone(pid) }, 20*time.Second, 50*time.Millisecond).Should(BeTrue())
 	})
 
 	It("kills a group whose leader already exited but whose grandchild lives on", func() {
@@ -48,7 +50,9 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		newProcessLedger(path).add("model#0", pid)
 		// Only the leader dies.
 		Expect(syscallKill(pid)).To(Succeed())
-		Eventually(func() bool { return pidAlive(proc.CurrentPID()) }, 10*time.Second, 50*time.Millisecond).Should(BeFalse())
+		// A killed leader may stay a zombie until it is reaped. Dead or zombie
+		// both mean it no longer runs.
+		Eventually(func() bool { return leaderGone(pid) }, 20*time.Second, 50*time.Millisecond).Should(BeTrue())
 		Expect(grandAlive(grandchild)).To(BeTrue())
 
 		Expect(newProcessLedger(path).sweepStale()).To(Equal(1))
@@ -124,3 +128,14 @@ var _ = Describe("Port allocation", func() {
 		Expect(err).To(MatchError(ErrNoFreePort))
 	})
 })
+
+// leaderGone reports whether pid is gone or only a zombie waiting to be reaped.
+func leaderGone(pid int) bool {
+	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return true
+	}
+	text := string(data)
+	i := strings.LastIndex(text, ")")
+	return i >= 0 && len(text) > i+2 && text[i+2] == 'Z'
+}
