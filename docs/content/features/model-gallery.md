@@ -39,6 +39,30 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Index-Translate-2B
+
+Index-Translate-2B provides text translation across 150 languages with terminology,
+formatting, style, and context instructions. The gallery offers Q4_K_M and Q8_0
+GGUF builds for llama.cpp. Both use greedy decoding and disable thinking.
+
+Install the model with automatic variant selection:
+
+```bash
+local-ai models install index-translate-2b
+```
+
+To select the Q8_0 build explicitly:
+
+```bash
+local-ai models install index-translate-2b --variant index-translate-2b-q8
+```
+
+Use the installed model through the chat completions API. Include the target
+language and source text in your message, for example: "Translate to French,
+return only the translation: Hello, world." These entries support text input;
+they do not install a vision projector. See the [official model card](https://huggingface.co/IndexTeam/Index-Translate-2B)
+for constrained translation prompts.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
