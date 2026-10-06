@@ -167,7 +167,7 @@ var _ = Describe("commitUtterance (sound-detection-only session)", func() {
 		tr := &fakeTransport{}
 		utt := make([]byte, 32) // non-empty PCM so commitUtterance proceeds
 
-		commitUtterance(context.Background(), utt, session, &Conversation{}, tr)
+		commitUtterance(context.Background(), utt, session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemSoundDetection)).To(Equal(1))
 		// No transcription happened.

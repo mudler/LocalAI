@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -77,7 +78,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return NewHTTPFileStager(func(string) (string, error) {
 				return listener.Addr().String(), nil
-			}, token), func() {
+			}, token, DirectWorkerNetDialer()), func() {
 				Expect(server.Shutdown(context.Background())).To(Succeed())
 			}
 	}
@@ -161,7 +162,7 @@ var _ = Describe("File stager exact-key release", func() {
 		DeferCleanup(server.Close)
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			return strings.TrimPrefix(server.URL, "http://"), nil
-		}, "")
+		}, "", DirectWorkerNetDialer())
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",
 			"ephemeral/images/request-id/frame.jpg",
@@ -178,7 +179,7 @@ var _ = Describe("File stager exact-key release", func() {
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			resolved = true
 			return "127.0.0.1:1", nil
-		}, "token")
+		}, "token", DirectWorkerNetDialer())
 
 		for _, key := range []string{
 			"models/model.gguf",
@@ -247,7 +248,7 @@ var _ = Describe("File stager exact-key release", func() {
 
 		Expect(client.requestCalled).To(BeTrue())
 		Expect(client.subject).To(Equal(messaging.SubjectNodeFilesRelease("node.one")))
-		var payload fileReleaseRequest
+		var payload workerctl.FileReleaseRequest
 		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
 		Expect(payload.Key).To(Equal(key))
 		exists, err := store.Exists(context.Background(), key)
@@ -274,7 +275,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
 
 		Expect(client.requestCount).To(Equal(1))
-		var payload fileReleaseRequest
+		var payload workerctl.FileReleaseRequest
 		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
 		Expect(payload.Key).To(BeEmpty())
 		Expect(payload.RequestID).To(Equal("request-id"))
@@ -301,7 +302,7 @@ var _ = Describe("File stager exact-key release", func() {
 
 		Expect(client.requestCount).To(Equal(1))
 		Expect(len(client.payload)).To(BeNumerically("<", 128))
-		var payload fileReleaseRequest
+		var payload workerctl.FileReleaseRequest
 		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
 		Expect(payload.RequestID).To(Equal("request-id"))
 	})

@@ -48,6 +48,9 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppFree, lib, "parakeet_capi_free")
 		purego.RegisterLibFunc(&CppTranscribePath, lib, "parakeet_capi_transcribe_path")
 		purego.RegisterLibFunc(&CppTranscribePathJSON, lib, "parakeet_capi_transcribe_path_json")
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppTranscribePathJSONVad, lib, "parakeet_capi_transcribe_path_json_vad")
+		}
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_pcm_batch_json"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 		}
@@ -89,6 +92,18 @@ func ensureLibLoaded() {
 			purego.RegisterLibFunc(&CppSpeakerRegistryLastError, lib, "parakeet_capi_speaker_registry_last_error")
 			purego.RegisterLibFunc(&CppSceneStreamBeginSpeaker, lib, "parakeet_capi_scene_stream_begin_speaker")
 			purego.RegisterLibFunc(&CppTranscribeAndDiarizeNamedJSON, lib, "parakeet_capi_transcribe_and_diarize_named_json")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_load_component"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppLoadComponent, lib, "parakeet_capi_load_component")
+			purego.RegisterLibFunc(&CppBundleComponentsJSON, lib, "parakeet_capi_bundle_components_json")
+			purego.RegisterLibFunc(&CppLoadError, lib, "parakeet_capi_load_error")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_embed_pcm"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppSpeakerEmbedPCM, lib, "parakeet_capi_speaker_embed_pcm")
+			purego.RegisterLibFunc(&CppFreeFloats, lib, "parakeet_capi_free_floats")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_identity"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppSpeakerIdentity, lib, "parakeet_capi_speaker_identity")
 		}
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_named_pcm_json"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbedding, lib, "parakeet_capi_speaker_registry_add_embedding")

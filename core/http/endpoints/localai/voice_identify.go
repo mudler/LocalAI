@@ -3,6 +3,7 @@ package localai
 import (
 	"cmp"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
@@ -57,6 +58,28 @@ func VoiceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return err
 		}
 
+		// Portable vectors require exact loaded-weight identity. Legacy audio
+		// registrations retain their filename-tag compatibility behavior.
+		var trusted schema.SpeakerEncoder
+		var trustedErr error
+		for _, m := range matches {
+			if strings.HasPrefix(m.Metadata.Model, "sha256:") {
+				trusted, trustedErr = backend.ModelSpeakerEncoder(c.Request().Context(), ml, *cfg, appConfig)
+				break
+			}
+		}
+		filtered := matches[:0]
+		for _, m := range matches {
+			if strings.HasPrefix(m.Metadata.Model, "sha256:") {
+				if trustedErr != nil || m.Metadata.Model != trusted.Identity || len(embed.GetEmbedding()) != trusted.Dimension {
+					continue
+				}
+			} else if m.Metadata.Model != "" && voicerecognition.EncoderTag(m.Metadata.Model) != voicerecognition.EncoderTag(embed.GetModel()) {
+				continue
+			}
+			filtered = append(filtered, m)
+		}
+		matches = filtered
 		response := schema.VoiceIdentifyResponse{
 			Matches: make([]schema.VoiceIdentifyMatch, len(matches)),
 		}

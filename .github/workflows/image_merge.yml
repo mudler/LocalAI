@@ -30,6 +30,9 @@ on:
 jobs:
   merge:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     env:
       quay_username: ${{ secrets.quayUsername }}
     steps:
@@ -42,9 +45,22 @@ jobs:
             .github/scripts
           sparse-checkout-cone-mode: false
 
+      # The internal artifact API truncates large release runs at 1,000 items.
+      # Use the paginated public API with a limit taken from this run.
+      - name: Count run artifacts
+        id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=1" --jq .total_count)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
       - name: Download digests
         uses: actions/download-artifact@v8
+        env:
+          ACTIONS_ARTIFACT_MAX_ARTIFACT_COUNT: ${{ steps.artifacts.outputs.count }}
         with:
+          github-token: ${{ github.token }}
           # `--` separator anchors the glob so we don't over-match sibling
           # tag-suffixes (e.g. -nvidia-l4t-arm64 vs -nvidia-l4t-arm64-cuda-13).
           # Must stay in sync with image_build.yml's upload-artifact name.

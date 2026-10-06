@@ -25,9 +25,9 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 	application *application.Application,
 ) {
 	// Anthropic Messages API endpoint
-	var natsClient mcpTools.MCPNATSClient
+	var agentControl mcpTools.AgentControl
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
+		agentControl = d.AgentControl
 	}
 
 	messagesHandler := anthropic.MessagesEndpoint(
@@ -35,7 +35,7 @@ func RegisterAnthropicRoutes(app *echo.Echo,
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	messagesMiddleware := []echo.MiddlewareFunc{

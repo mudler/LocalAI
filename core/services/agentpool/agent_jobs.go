@@ -54,7 +54,7 @@ type AgentJobService struct {
 	// taskNats is the distributed NATS client backing the tasks SyncedMap. It is
 	// not available at construction time, so it is injected via SetTaskSyncNATS
 	// during distributed wiring; nil keeps tasks in-memory-only (standalone).
-	taskNats messaging.MessagingClient
+	taskNats messaging.Broadcaster
 
 	// Storage (in-memory primary, persister for secondary persistence)
 	jobs      *xsync.SyncedMap[string, schema.Job]
@@ -115,7 +115,7 @@ func (s *AgentJobService) SetDistributedJobStore(store *jobs.JobStore) {
 // tasks SyncedMap is rebuilt to pick it up. It is always called before Start /
 // hydrate, while the map is still empty, so rebuilding loses no state. Passing nil
 // (standalone) keeps the map in-memory-only with no broadcast.
-func (s *AgentJobService) SetTaskSyncNATS(nats messaging.MessagingClient) {
+func (s *AgentJobService) SetTaskSyncNATS(nats messaging.Broadcaster) {
 	s.taskNats = nats
 	s.buildTasksMap()
 }

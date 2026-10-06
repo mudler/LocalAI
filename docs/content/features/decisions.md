@@ -108,11 +108,19 @@ Install one from the gallery and filter on the `decisions` tag:
 | `tev1-4b-vllm-cpp` | Tev1 4B | Autoregressive Qwen3.5-4B fine-tune that answers with an option letter, about 9.3 GB |
 | `tev1-0.8b-vllm-cpp` | Tev1 0.8B | Autoregressive Qwen3.5-0.8B fine-tune that answers with an option letter, about 1.8 GB |
 | `kev-0.8b-vllm-cpp` | kev 0.8B | Qwen3.5-0.8B-Base with a merged LoRA and a PointerHead readout, converted for vllm.cpp only, about 1.53 GB |
+| `nimble-9b-vllm-cpp` | Bespoke Nimble 9B | Qwen3.5-9B with the Nimble LoRA merged, reads the answer-letter logits, converted for vllm.cpp only, about 19.3 GB |
+| `clm-v0.1-8b-vllm-cpp` | CLM v0.1 8B | Bi-encoder: Qwen3-8B backbone with state and action heads, answers by cosine similarity, converted for vllm.cpp only, about 16.5 GB |
 
 The engine, [vllm.cpp]({{% relref "features/vllm-cpp" %}}), also supports the
-CLM and xor decision models. Those checkpoints need a conversion step, so
-they are not gallery entries yet. The kev entry installs a checkpoint that was
-already converted with the vllm.cpp `convert-kev.py` script.
+xor decision model. That checkpoint needs a conversion step, so it is not a
+gallery entry yet. The kev, Nimble and CLM entries install checkpoints that
+were already converted with the vllm.cpp `convert-kev.py`, `convert-nimble.py`
+and `convert-clm.py` scripts.
+
+Nimble refuses a question with more than 26 choices (the upstream release
+allows 255). On CPU it needs about 20 GB of free RAM. For CLM, put the
+question in `instructions`: the state head reads the state followed by the
+instructions. On CPU it needs about 19 GB of free RAM.
 
 Tev1 is an autoregressive decision model. The engine answers each question by
 scoring the option letters, so its `confidence` is the entropy measure Ollama
@@ -128,7 +136,7 @@ The same model also answers `/v1/chat/completions` requests.
 
 A request is refused with `400` (or `413` for the body size) when:
 
-- the body is larger than 64 KiB,
+- a text-only body is larger than 64 KiB (image-bearing bodies have the bounded budget below),
 - `state` is missing or blank,
 - there are no questions, or more than 64,
 - a question id is blank,
@@ -162,3 +170,208 @@ common case. These behaviors differ:
 When authentication is on, the three routes need the `decisions` feature. It is
 on by default for every user, like the other API features, and an administrator
 can turn it off per user.
+
+## Native llama.cpp decisions
+
+The stock `llama-cpp` backend supports text-only decision GGUFs carrying upstream
+SystemOne metadata. Declare `known_usecases: [decisions]`; ordinary `score` need
+not be enabled. Requests use the existing internal Score RPC, not a backend HTTP
+server. Choice, score, and noul questions may be combined in one request. Structured
+state and questions are forwarded without NER rendering. llama.cpp score questions
+accept 2–10 levels; this backend-specific limit does not constrain vllm-cpp.
+Older forks without native decision support return 501. Missing decision metadata
+also returns 501, while backend invalid requests return 400.
+
+### Bounded image input
+
+The public routes and internal decision validator share an image contract. Supply
+PNG or JPEG base64 data URLs in `images`, OpenAI `image_url` message content, or
+Anthropic `image` content with a `base64` source and `media_type`. Remote URLs and
+file paths are never fetched. MIME must match the decoded image header; malformed
+base64, unsupported formats and invalid headers return 400.
+
+Limits per request are **8 images**, **12 MiB aggregate encoded data-URL bytes**,
+**8 MiB aggregate decoded bytes**, **4096 pixels per dimension**, and
+**16 million aggregate pixels**. Exceeding these limits returns 413. Headers are
+checked before full pixel decoding, which rejects truncated or corrupt images; native decoders must independently
+protect direct RPC inputs.
+
+Image-bearing request bodies may use up to **16 MiB**. Text-only requests retain
+the **64 KiB raw-wire limit**, including whitespace; JSON escaping during internal
+serialization does not impose a second HTTP limit. Absent, `null`, or empty
+`images` do not enable the larger budget. Native decision responses retain a
+separate **64 KiB** limit, independent of the request budget. These limits do not
+raise any global HTTP limit.
+
+A shared **8-request admission ceiling** covers public decision handlers and
+internal decision runners before body buffering, image decoding or serialization.
+Saturation fails promptly (HTTP 503); cancellation before admission does not take
+a slot. A slot remains held through inference/response handling, and an internal
+cancelled call retains its slot until its underlying worker actually ends. This
+bounds concurrent decision-owned allocation and retained request bodies, not total
+process memory: caller-owned inputs, upstream middleware buffers and model/backend
+memory are outside this budget. Full decoding is sequential per admitted request,
+with each pixel buffer limited by the checked dimensions and aggregate pixel
+budget (up to 16 million pixels; decoded byte storage depends on pixel format).
+Garbage collection timing is not an RSS guarantee. The separate 8-operation backend ceiling still
+bounds abandoned native operations. Validation helpers do not acquire nested slots.
+
+For image-only input, provide explicit structured state such as `"state": {}`
+alongside `images`, or a message containing image content. Missing, null or blank
+string state remains invalid. Arbitrary domain JSON is preserved, not interpreted
+as image content outside message content parts. Images are never replaced by
+invented text.
+
+Admission is not a promise of model image capability: the NER path and text-only
+native decision models reject images with 501 rather than silently dropping them.
+OpenJev requires its vision projector (see below). Failed requests are not billed.
+Router image probes preserve the canonical request; full public API image
+validation across installed models is separate from native RPC validation.
+
+Native responses report backend input/output usage, including zero generated
+tokens. LocalAI records supplied usage once; explicit zero counts are distinct
+from missing usage. Missing counts are not estimated, and invalid negative counts
+are rejected rather than billed.
+
+### Julia-1 CPU example
+
+Install the separate stock llama.cpp entry (existing vllm-cpp entries are unchanged):
+
+```sh
+local-ai models install julia-1-llama-cpp
+```
+
+Julia-1 is a 144.3M-parameter multilingual text decision model. The gallery pins
+`ggml-org/Julia-1-GGUF` revision `16fee17949206fbf58da9347daea44d792a81211`,
+file `Julia-1-Q8_0.gguf` (168,166,496 bytes, about 160.4 MiB), SHA-256
+`1ea6a7e87156eeeda88cb7a36a61265b37ba7b993897b7289b99aea5b5e47069`.
+The source model and GGUF publisher declare Apache-2.0. Source provenance:
+`SupersonicLabs/Julia-1` revision `a85b127321d580d65176c89ced8273f305745d85`,
+based on `jhu-clsp/mmBERT-small`. This is a real model, not the upstream tiny test
+fixture; assess its accuracy for your own tasks.
+
+```sh
+curl http://localhost:8080/v1/systemone \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"julia-1-llama-cpp","state":"I was charged twice and need a refund.","questions":{"route":{"type":"choice","instructions":"Which team should handle this?","criteria":{"billing":"payments and refunds","shipping":"delivery problems","technical":"software issues"}},"refund":{"type":"noul","instructions":"Does the customer request a refund?"}}}'
+```
+
+The pinned artifact was installed through the gallery installer, checksum-verified,
+and tested on CPU with the native Score RPC using choice, score, and noul in one
+request. That smoke returned 97 input tokens and zero output tokens; token counts
+vary with the request. This does not establish broad model accuracy or image
+support.
+
+### Native family defaults
+
+Each family has a separately named default; these do not replace vllm-cpp entries.
+All entries except OpenJev are text-only and omit projectors. OpenJev includes
+its Q8 projector. Download size is not a RAM estimate.
+
+| Gallery entry | Quantization | Artifact bytes | License | Validation status |
+|---|---|---:|---|---|
+| `julia-1-llama-cpp` | Q8_0 | 168,166,496 | Apache-2.0 | Gallery install and CPU request verified |
+| `laya-llama-cpp` | Q8_0 | 449,397,600 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `kev-4b-llama-cpp` | Q4_K_M | 3,033,489,824 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `lev-llama-cpp` | Q4_K_M | 3,011,777,440 | Apache-2.0 | Gallery install and CPU choice/score/noul verified |
+| `openjev-llama-cpp` | Q4_K_M + Q8 projector | 19,603,119,520 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+| `nimble-9b-v3-llama-cpp` | Q4_K_M | 6,324,185,632 | **CC-BY-NC-4.0** | Gallery install and CPU choice/score/noul verified |
+
+OpenJev and Nimble are noncommercial models. OpenJev's upstream multimodal
+capability does **not** imply LocalAI decision-image support. Nimble requires the
+native Nimble integration included in this source tree's llama.cpp pin
+`bed0a856606ee4a24a164066f73d2379447033f5`; older installed backends must be
+updated before serving it. This source prerequisite is integrated, but the
+OpenJev and Nimble installation/runtime checks remain pending as listed above.
+The published entries pin revisions and SHA-256 checksums, but metadata verification
+alone is not a runtime test. No model-quality guarantee follows from these smoke
+tests. Laya, Kev-4B, and lev were also retested against the newer native backend
+with 1- and 11-level score requests correctly rejected.
+
+OpenJev and Nimble validation used the native backend at llama.cpp revision
+`bed0a856606ee4a24a164066f73d2379447033f5`, CPU-only with two threads, a 2048-token
+context, and batch size 512. Each artifact was installed through the gallery,
+SHA-256 verified, and checked for its decision metadata and SystemOne template.
+Each request included choice, score, and noul questions together, including the
+full question set required by Nimble. Response-shape, probability-normalization,
+and noul-bound assertions passed; 1- and 11-level score requests were rejected.
+The test requests reported 224 input tokens for OpenJev and 933 for Nimble, with
+explicit zero output tokens for both. No projector was installed or tested.
+
+These are bounded text contract smoke tests, not accuracy benchmarks or
+performance guarantees. Floating-point probabilities can vary with hardware and
+build settings; tests do not require exact answer probabilities or token counts.
+Neither image support nor interruption during active evaluation is established
+by these tests. CC-BY-NC-4.0's noncommercial restriction still applies.
+
+### Multimodal router probes
+
+The `decisions` router classifier preserves ordered OpenAI message content and
+Anthropic base64 image sources as structured state, including image-only turns.
+It uses the internal decision runner, not a loopback HTTP request. The shared
+image limits above are validated before model loading; no URL is fetched by the
+classifier. Original message content is not rewritten when selecting a candidate
+or the configured fallback.
+
+Score, rerank and KNN classifiers are text-only: image input produces an explicit
+classifier error and follows the existing configured fallback policy, rather
+than classifying an image-stripped prompt. Without a fallback, routing fails.
+Parent cancellation remains terminal and does not select a fallback. Image probes
+bypass text embedding caches and are not trimmed to text-only turns. Native
+context overflow is reported by the backend rather than silently dropping images.
+These transport guarantees do not establish installed projector capability or
+real-model image accuracy; those require separate native and end-to-end validation.
+
+OpenAI chat routing classifies the original structured message before preparing
+media for the selected model. Remote image URLs are not downloaded as decision
+inputs. After selection (including a configured fallback), the served model's
+normal media preparation runs without replacing the original content blocks.
+Invalid classifier configuration fails closed even with a configured fallback.
+Runtime classification and input errors follow the configured fallback policy.
+Cancellation never selects a fallback.
+
+Router probe extraction checks the shared 16 MiB state budget before copying
+text or serializing messages, including JSON escaping expansion. This applies
+to typed and untyped internal requests as well as parsed API requests; it does
+not add a limit to non-router inference. Direct internal probes containing
+custom structs, JSON/text marshalers, or excessively nested values fail
+extraction rather than executing their serialization. Supported internal values
+are the chat schema message/content/tool types and plain JSON values (including
+`json.RawMessage`, conservatively budgeted for escaping). Direct prompt-only
+probes also check serialized escaping before allocation. The separate 64 KiB text-only Decisions
+request limit is unchanged. Anthropic conversion preserves typed content blocks
+through both native selection and fallback, including ordered text and images.
+
+### OpenJev image decisions
+
+The `openjev-llama-cpp` gallery entry installs OpenJev Q4_K_M and its pinned
+Q8 vision projector (`mmproj-OpenJev-Q8_0.gguf`). Both artifacts come from
+`ggml-org/OpenJev-GGUF` revision `10840f375658dea7afc5ff4711127bca8218b560`.
+The weights occupy 18,973,872,288 bytes and the projector 629,247,232 bytes:
+19,603,119,520 bytes total (about 19.61 GB decimal), excluding runtime memory,
+KV cache and backend files. The model is **CC-BY-NC-4.0, noncommercial only**;
+LocalAI's software license does not override the model license.
+
+For a manually installed model, set `mmproj: mmproj-OpenJev-Q8_0.gguf` alongside
+`parameters.model`, not inside `parameters`. LocalAI resolves that filename
+relative to the model directory and forwards it to llama.cpp's projector loader.
+The gallery uses an 8192-token context to leave room for image tokens and
+question framing. This is not a guarantee that all eight maximum-sized images
+fit; context overflow remains an error. Size the context for the actual workload.
+
+Native image decisions require both a decision format that accepts images and a
+loaded projector that supports **vision input**. A missing projector, an
+audio-only projector, or a text-only decision model does not silently fall back
+to a text decision. Other decision gallery entries remain text-only.
+
+Direct native RPC callers receive the same image count, encoded/decoded byte,
+dimension and aggregate pixel bounds as public callers. Validation precedes
+llama.cpp's permissive media parsing and full pixel decode; PNG decompression
+is independently bounded before stb decodes pixels. This validation applies
+only to native decision tasks, not ordinary chat or legacy scoring.
+
+Native decision image validation rejects PNG streams with invalid checksums and
+incomplete JPEG scans, including truncated scans with an appended end marker.
+Source builds with native decision support require zlib and libjpeg development
+packages (`zlib1g-dev libjpeg-dev` on Ubuntu; `zlib jpeg-turbo` on Homebrew).
+Packaged backends include the required runtime libraries.

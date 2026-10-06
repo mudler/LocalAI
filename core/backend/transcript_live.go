@@ -243,7 +243,7 @@ func WithKnownVoices(v []voicerecognition.KnownVoice) LiveOption {
 func liveConfigProto(language string, o liveOptions) *proto.TranscriptLiveConfig {
 	cfg := &proto.TranscriptLiveConfig{Language: language, SampleRate: liveSampleRate}
 	for _, v := range o.knownVoices {
-		cfg.KnownVoices = append(cfg.KnownVoices, &proto.KnownVoice{Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+		cfg.KnownVoices = append(cfg.KnownVoices, &proto.KnownVoice{Id: v.ID, Name: v.Name, Embedding: v.Embedding, Model: v.Model, EncoderFamily: v.Family, EncoderWeights: v.Weights})
 	}
 	return cfg
 }
@@ -269,6 +269,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	if err != nil {
 		return nil, err
 	}
+	lo.knownVoices = compatiblePortableVoices(ctx, transcriptionModel, lo.knownVoices)
 	release, err := AcquireGlobalBackendSlot()
 	if err != nil {
 		return nil, err

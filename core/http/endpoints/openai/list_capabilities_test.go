@@ -76,6 +76,28 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		return nil
 	}
 
+	It("does not inherit native decisions eligibility through aliases", func() {
+		writeConfig("native", "name: native\nbackend: llama-cpp\nknown_usecases: [decisions]\n")
+		writeConfig("native-vllm", "name: native-vllm\nbackend: vllm-cpp\nknown_usecases: [decisions]\n")
+		writeConfig("decision-alias", "name: decision-alias\nalias: native\n")
+		writeConfig("disabled-native", "name: disabled-native\nbackend: llama-cpp\nknown_usecases: [decisions]\ndisabled: true\n")
+		writeConfig("disabled-alias", "name: disabled-alias\nalias: disabled-native\n")
+		resp := call()
+		for _, name := range []string{"native", "native-vllm"} {
+			entry := entryFor(resp, name)
+			Expect(entry).NotTo(BeNil())
+			Expect(entry.Capabilities).To(ContainElement(config.UsecaseDecisions))
+		}
+		alias := entryFor(resp, "decision-alias")
+		Expect(alias).NotTo(BeNil())
+		Expect(alias.Capabilities).NotTo(ContainElement(config.UsecaseDecisions))
+		for _, name := range []string{"disabled-native", "disabled-alias"} {
+			if entry := entryFor(resp, name); entry != nil {
+				Expect(entry.Capabilities).NotTo(ContainElement(config.UsecaseDecisions))
+			}
+		}
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))

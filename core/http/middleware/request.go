@@ -273,6 +273,11 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
+	// Router inputs must be classified before any candidate-specific media fetch.
+	if cfg.HasRouter() {
+		return nil
+	}
+
 	err := mergeOpenAIRequestAndModelConfig(cfg, input)
 	if err != nil {
 		return err
@@ -478,10 +483,17 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		switch content := m.Content.(type) {
 		case string:
 			input.Messages[i].StringContent = content
-		case []any:
-			dat, _ := json.Marshal(content)
-			c := []schema.Content{}
-			json.Unmarshal(dat, &c)
+		case []any, []schema.Content:
+			c, typed := content.([]schema.Content)
+			if !typed {
+				dat, err := json.Marshal(content)
+				if err != nil {
+					return fmt.Errorf("message content: %w", err)
+				}
+				if err := json.Unmarshal(dat, &c); err != nil {
+					return fmt.Errorf("message content: %w", err)
+				}
+			}
 
 			textContent := ""
 			// we will template this at the end

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -343,7 +344,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Create an Echo test server with the proxy endpoint
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, nodes.DirectWorkerNetDialer()))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -365,7 +366,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token, nodes.DirectWorkerNetDialer()))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs/remote-model", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -382,7 +383,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 		It("should return 404 for unknown node ID", func() {
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, nodes.DirectWorkerNetDialer()))
 
 			req := httptest.NewRequest("GET", "/api/nodes/nonexistent-id/backend-logs", nil)
 			rec := httptest.NewRecorder()
@@ -426,7 +427,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Start Echo server with the WebSocket proxy route
 			e := echo.New()
-			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token))
+			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token, nodes.DirectWorkerNetDialer()))
 
 			lis, err := net.Listen("tcp", "127.0.0.1:0")
 			Expect(err).ToNot(HaveOccurred())
@@ -501,6 +502,125 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 				// Should get a non-101 status (404 or similar)
 				Expect(resp.StatusCode).ToNot(Equal(http.StatusSwitchingProtocols))
 			}
+		})
+	})
+
+	Context("Frontend proxy through the per-node worker dialer", func() {
+		var (
+			infra       *TestInfra
+			registry    *nodes.NodeRegistry
+			logStore    *model.BackendLogStore
+			workerAddr  string
+			workerClean func()
+			token       string
+			echoServer  *http.Server
+			echoAddr    string
+			dialedMu    sync.Mutex
+			dialed      []string
+		)
+
+		BeforeEach(func() {
+			infra = SetupInfra("localai_backend_logs_dialer_test")
+
+			db, err := gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			registry, err = nodes.NewNodeRegistry(db)
+			Expect(err).ToNot(HaveOccurred())
+
+			token = "dialer-proxy-token"
+			logStore = model.NewBackendLogStore(1000)
+			logStore.AppendLine("dialed-model", "stdout", "line through the dialer")
+
+			workerAddr, workerClean, err = startTestFileTransferServerWithLogs(token, logStore)
+			Expect(err).ToNot(HaveOccurred())
+
+			dialedMu.Lock()
+			dialed = nil
+			dialedMu.Unlock()
+
+			// The node's advertised address is unresolvable on purpose: only a
+			// proxy that dials through the per-node dialer can reach the worker.
+			var d net.Dialer
+			dialFor := func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
+				return func(ctx context.Context, network, _ string) (net.Conn, error) {
+					dialedMu.Lock()
+					dialed = append(dialed, nodeID)
+					dialedMu.Unlock()
+					return d.DialContext(ctx, network, workerAddr)
+				}
+			}
+
+			e := echo.New()
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, dialFor))
+			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token, dialFor))
+			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token, dialFor))
+
+			lis, err := net.Listen("tcp", "127.0.0.1:0")
+			Expect(err).ToNot(HaveOccurred())
+			echoAddr = lis.Addr().String()
+			echoServer = &http.Server{Handler: e}
+			go func() { _ = echoServer.Serve(lis) }()
+
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{
+				ID:          "n1",
+				Name:        "dialer-node",
+				Address:     "127.0.0.1:50051",
+				HTTPAddress: "n1.worker.invalid:80",
+			}, true)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if echoServer != nil {
+				_ = echoServer.Close()
+			}
+			if workerClean != nil {
+				workerClean()
+			}
+		})
+
+		dialedNodes := func() []string {
+			dialedMu.Lock()
+			defer dialedMu.Unlock()
+			return append([]string(nil), dialed...)
+		}
+
+		It("routes backend logs list, lines and WebSocket through the dialer", func() {
+			client := &http.Client{Timeout: 10 * time.Second}
+
+			resp, err := client.Get(fmt.Sprintf("http://%s/api/nodes/n1/backend-logs", echoAddr))
+			Expect(err).ToNot(HaveOccurred())
+			var models []string
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(json.NewDecoder(resp.Body).Decode(&models)).To(Succeed())
+			Expect(resp.Body.Close()).To(Succeed())
+			Expect(models).To(ContainElement("dialed-model"))
+			Expect(dialedNodes()).To(Equal([]string{"n1"}))
+
+			resp, err = client.Get(fmt.Sprintf("http://%s/api/nodes/n1/backend-logs/dialed-model", echoAddr))
+			Expect(err).ToNot(HaveOccurred())
+			var lines []model.BackendLogLine
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(json.NewDecoder(resp.Body).Decode(&lines)).To(Succeed())
+			Expect(resp.Body.Close()).To(Succeed())
+			Expect(lines).To(HaveLen(1))
+			Expect(lines[0].Text).To(Equal("line through the dialer"))
+			Expect(dialedNodes()).To(Equal([]string{"n1", "n1"}))
+
+			wsDialer := websocket.Dialer{HandshakeTimeout: 5 * time.Second}
+			conn, _, err := wsDialer.Dial(fmt.Sprintf("ws://%s/ws/nodes/n1/backend-logs/dialed-model", echoAddr), nil)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = conn.Close() }()
+
+			Expect(conn.SetReadDeadline(time.Now().Add(5 * time.Second))).To(Succeed())
+			var initialMsg map[string]json.RawMessage
+			Expect(conn.ReadJSON(&initialMsg)).To(Succeed())
+			var msgType string
+			Expect(json.Unmarshal(initialMsg["type"], &msgType)).To(Succeed())
+			Expect(msgType).To(Equal("initial"))
+			Expect(dialedNodes()).To(Equal([]string{"n1", "n1", "n1"}))
 		})
 	})
 })

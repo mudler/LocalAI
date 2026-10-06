@@ -19,6 +19,9 @@ type SystemState struct {
 	Backend   Backend
 	Model     Model
 	VRAM      uint64
+	// StagingPath holds in-flight downloads before extraction; empty
+	// falls back to the OS temp directory.
+	StagingPath string
 
 	systemCapabilities string
 
@@ -50,6 +53,12 @@ func WithBackendPath(path string) SystemStateOptions {
 func WithBackendSystemPath(path string) SystemStateOptions {
 	return func(s *SystemState) {
 		s.Backend.BackendsSystemPath = path
+	}
+}
+
+func WithStagingPath(path string) SystemStateOptions {
+	return func(s *SystemState) {
+		s.StagingPath = path
 	}
 }
 

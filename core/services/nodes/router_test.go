@@ -12,13 +12,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -476,7 +475,7 @@ type stubClientFactory struct {
 	client *stubBackend
 }
 
-func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
+func (f *stubClientFactory) NewClient(_, _ string, _ bool) grpc.Backend {
 	return f.client
 }
 
@@ -489,7 +488,7 @@ type fakeUnloader struct {
 	// goroutines (e.g. singleflight specs) don't race the slice appends.
 	mu sync.Mutex
 
-	installReply *messaging.BackendInstallReply
+	installReply *workerctl.BackendInstallReply
 	installErr   error
 	installCalls []installCall // every InstallBackend invocation, in order
 	// installHook, if non-nil, runs at the start of InstallBackend before
@@ -498,7 +497,7 @@ type fakeUnloader struct {
 	// blocks on a channel to overlap two callers.
 	installHook func()
 
-	upgradeReply *messaging.BackendUpgradeReply
+	upgradeReply *workerctl.BackendUpgradeReply
 	upgradeErr   error
 	upgradeCalls []upgradeCall // every UpgradeBackend invocation, in order
 
@@ -533,7 +532,7 @@ type upgradeCall struct {
 	replica int
 }
 
-func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error) {
+func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	// installHook intentionally runs OUTSIDE the mutex: the hook may block
 	// on a channel and we don't want to serialize concurrent callers,
 	// which would defeat the singleflight-overlap test.
@@ -546,19 +545,19 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 	return f.installReply, f.installErr
 }
 
-func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error) {
+func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
 	f.mu.Lock()
 	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})
 	f.mu.Unlock()
 	return f.upgradeReply, f.upgradeErr
 }
 
-func (f *fakeUnloader) DeleteBackend(_, _ string) (*messaging.BackendDeleteReply, error) {
-	return &messaging.BackendDeleteReply{Success: true}, nil
+func (f *fakeUnloader) DeleteBackend(_, _ string) (*workerctl.BackendDeleteReply, error) {
+	return &workerctl.BackendDeleteReply{Success: true}, nil
 }
 
-func (f *fakeUnloader) ListBackends(_ string) (*messaging.BackendListReply, error) {
-	return &messaging.BackendListReply{}, nil
+func (f *fakeUnloader) ListBackends(_ string) (*workerctl.BackendListReply, error) {
+	return &workerctl.BackendListReply{}, nil
 }
 
 func (f *fakeUnloader) StopBackend(nodeID, backend string) error {
@@ -582,7 +581,7 @@ func (f *fakeUnloader) PingNode(nodeID string) error {
 	dead := f.deadNodes[nodeID]
 	f.mu.Unlock()
 	if dead {
-		return nats.ErrNoResponders
+		return ErrNoRoute
 	}
 	return f.pingErr
 }
@@ -608,7 +607,7 @@ var _ = Describe("SmartRouter", func() {
 			backend = &stubBackend{}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -759,7 +758,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -941,7 +940,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.1:9001",
 				},
@@ -1040,7 +1039,7 @@ var _ = Describe("SmartRouter", func() {
 			}
 			factory := &stubClientFactory{client: backend}
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{
+				installReply: &workerctl.BackendInstallReply{
 					Success: true,
 					Address: "10.0.0.71:9001",
 				},
@@ -1310,7 +1309,7 @@ var _ = Describe("SmartRouter", func() {
 			started := make(chan struct{}, 5)
 			release := make(chan struct{})
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
 			}
 			unloader.installHook = func() {
 				started <- struct{}{}
@@ -1349,7 +1348,7 @@ var _ = Describe("SmartRouter", func() {
 		It("does NOT coalesce installs for different (modelID, replica) keys", func() {
 			node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
 			}
 			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
 				Unloader:      unloader,
@@ -1423,7 +1422,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		backend = &stubBackend{healthResult: true}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 

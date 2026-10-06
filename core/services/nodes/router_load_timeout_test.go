@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
@@ -51,7 +51,7 @@ func (b *deadlineBackend) budget() time.Duration {
 
 type deadlineClientFactory struct{ client *deadlineBackend }
 
-func (f *deadlineClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
+func (f *deadlineClientFactory) NewClient(_, _ string, _ bool) grpc.Backend { return f.client }
 
 var _ = Describe("remote LoadModel deadline", func() {
 	var (
@@ -67,7 +67,7 @@ var _ = Describe("remote LoadModel deadline", func() {
 		backend = &deadlineBackend{}
 		factory = &deadlineClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 

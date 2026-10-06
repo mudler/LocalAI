@@ -2,6 +2,7 @@ package middleware_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -52,6 +53,18 @@ var _ = Describe("RouteModel middleware (score classifier)", func() {
 		_ = os.RemoveAll(modelDir)
 	})
 
+	It("uses configured fallback for image input on text classifiers without changing content", func() {
+		cfg := newScoreRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "qwen3-0.6b")
+		req := openAIChat("")
+		req.Messages[0].Content = []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64,AA=="}}}
+		before, _ := json.Marshal(req.Messages)
+		rec, err := runRouter(loader, appConfig, store, cfg, req, func(string) backend.Scorer { return &stubScorer{} })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Body.String()).To(Equal("served:qwen3-0.6b"))
+		after, _ := json.Marshal(req.Messages)
+		Expect(after).To(Equal(before))
+	})
 	It("routes to a candidate whose labels cover the active set", func() {
 		// 3 policies, 2 candidates. Small model has [casual-chat],
 		// bigger has [code-generation, math-reasoning, casual-chat].
@@ -129,11 +142,7 @@ var _ = Describe("RouteModel middleware (score classifier)", func() {
 			"math-reasoning":  -4.0,
 		}}
 		_, err := runRouter(loader, appConfig, store, routerCfg, openAIChat("debug something"), stubScorerFactory(s))
-		// Build-time config bugs (here: a candidate referencing a
-		// label not declared in policies) must surface to the client
-		// — the previous silent-fallback behaviour hid the broken
-		// config and left operators wondering why traces never showed
-		// the classifier model running.
+		// Invalid classifier configuration must fail closed even with a fallback.
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("unknown label"))
 	})
@@ -820,5 +829,23 @@ var _ = Describe("RouteModel middleware (knn classifier)", func() {
 		// which errors loudly.
 		Expect(rec.Body.String()).To(Equal("served:small-model"))
 		Expect(store.records[0].Cached).To(BeFalse())
+	})
+})
+
+var _ = Describe("Multimodal router probes", func() {
+	It("preserves image-only OpenAI content without mutating the request", func() {
+		r := &schema.OpenAIRequest{Messages: []schema.Message{{Role: "user", Content: []any{map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:image/png;base64,AA=="}}}}}}
+		before, _ := json.Marshal(r)
+		p := OpenAIProbeFromRequest(r)
+		Expect(string(p.State)).To(ContainSubstring("data:image/png;base64,AA=="))
+		Expect(p.Prompt).To(BeEmpty())
+		after, _ := json.Marshal(r)
+		Expect(after).To(Equal(before))
+	})
+	It("preserves typed Anthropic base64 source", func() {
+		r := &schema.AnthropicRequest{Messages: []schema.AnthropicMessage{{Role: "user", Content: []schema.AnthropicContentBlock{{Type: "image", Source: &schema.AnthropicImageSource{Type: "base64", MediaType: "image/png", Data: "AA=="}}}}}}
+		p, ok := AnthropicProbe(r)
+		Expect(ok).To(BeTrue())
+		Expect(string(p.State)).To(ContainSubstring(`"media_type":"image/png"`))
 	})
 })

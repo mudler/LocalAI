@@ -377,8 +377,7 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		session := newTranscriptionOnlySession(m, true)
 		tr := &fakeTransport{}
 
-		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, nil,
-			&schema.TranscriptionResult{Text: "batch text", Eou: true}, "item_turn", session, &Conversation{}, tr)
+		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, nil, &schema.TranscriptionResult{Text: "batch text", Eou: true}, "item_turn", session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionDelta)).To(Equal(0))
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
@@ -389,8 +388,7 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		session := newTranscriptionOnlySession(m, true)
 		tr := &fakeTransport{}
 
-		commitUtteranceWithTranscript(context.Background(), []byte{1, 2},
-			&liveUtterance{Text: "hello"}, nil, "item_turn", session, &Conversation{}, tr)
+		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, &liveUtterance{Text: "hello"}, nil, "item_turn", session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionDelta)).To(Equal(0))
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
@@ -411,8 +409,7 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		session := newTranscriptionOnlySession(m, false)
 		tr := &fakeTransport{}
 
-		commitUtteranceWithTranscript(context.Background(), []byte{1, 2},
-			&liveUtterance{}, nil, "", session, &Conversation{}, tr)
+		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, &liveUtterance{}, nil, "", session, &Conversation{}, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 	})
@@ -423,7 +420,7 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		tr := &fakeTransport{}
 		conv := &Conversation{}
 
-		commitUtterance(context.Background(), []byte{1, 2}, session, conv, tr)
+		commitUtterance(context.Background(), []byte{1, 2}, session, conv, tr, session.nextCommitSlot())
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 		Expect(conv.Items).To(BeEmpty())

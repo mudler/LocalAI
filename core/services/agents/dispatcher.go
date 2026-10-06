@@ -40,17 +40,6 @@ type AgentChatEvent struct {
 	Skills []SkillInfo  `json:"skills,omitempty"` // resolved per-user skills
 }
 
-// Dispatcher routes agent chat requests to the executor.
-// Two implementations: LocalDispatcher (direct goroutine) and NATSDispatcher (queue).
-type Dispatcher interface {
-	// Dispatch sends a chat message to an agent and returns immediately.
-	// The response is delivered asynchronously via the configured event delivery mechanism.
-	Dispatch(userID, agentName, message string) (messageID string, err error)
-
-	// Start initializes the dispatcher (e.g., subscribes to NATS queue).
-	Start(ctx context.Context) error
-}
-
 // ConfigProvider loads agent configs. Implemented by both file-based and DB-backed stores.
 type ConfigProvider interface {
 	GetAgentConfig(userID, name string) (*AgentConfig, error)
@@ -222,100 +211,62 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 
 // --- NATS Dispatcher (distributed) ---
 
-// NATSDispatcher dispatches agent chats via NATS queue group.
+// NATSDispatcher runs the agent chats a WorkConsumer delivers.
 type NATSDispatcher struct {
-	nats        messaging.MessagingClient
-	eventBridge *EventBridge
-	configs     ConfigProvider
-	apiURL      string
-	apiKey      string
-	subject     string
-	queue       string
-	sub         messaging.Subscription // stored subscription for cleanup
-	sem         chan struct{}          // concurrency limiter; nil = unlimited
-	wg          sync.WaitGroup
+	consumer      messaging.WorkConsumer
+	eventBridge   *EventBridge
+	configs       ConfigProvider
+	apiURL        string
+	apiKey        string
+	maxConcurrent int
+	sub           messaging.Subscription // stored subscription for cleanup
 }
 
-// NewNATSDispatcher creates a dispatcher that uses NATS for distribution.
-// maxConcurrent limits the number of concurrent agent jobs; 0 means unlimited.
-func NewNATSDispatcher(nats messaging.MessagingClient, bridge *EventBridge, configs ConfigProvider, apiURL, apiKey, subject, queue string, maxConcurrent int) *NATSDispatcher {
-	d := &NATSDispatcher{
-		nats:        nats,
-		eventBridge: bridge,
-		configs:     configs,
-		apiURL:      apiURL,
-		apiKey:      apiKey,
-		subject:     subject,
-		queue:       queue,
+// NewNATSDispatcher creates a dispatcher that runs the agent runs consumer
+// delivers. maxConcurrent limits the number of concurrent agent jobs; 0 means
+// unlimited.
+func NewNATSDispatcher(consumer messaging.WorkConsumer, bridge *EventBridge, configs ConfigProvider, apiURL, apiKey string, maxConcurrent int) *NATSDispatcher {
+	return &NATSDispatcher{
+		consumer:      consumer,
+		eventBridge:   bridge,
+		configs:       configs,
+		apiURL:        apiURL,
+		apiKey:        apiKey,
+		maxConcurrent: maxConcurrent,
 	}
-	if maxConcurrent > 0 {
-		d.sem = make(chan struct{}, maxConcurrent)
-	}
-	return d
 }
 
 func (d *NATSDispatcher) Start(ctx context.Context) error {
-	sub, err := d.nats.QueueSubscribe(d.subject, d.queue, func(data []byte) {
-		var evt AgentChatEvent
-		if err := json.Unmarshal(data, &evt); err != nil {
-			xlog.Error("Failed to unmarshal agent chat event", "error", err)
-			return
-		}
-		if d.sem != nil {
-			select {
-			case d.sem <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-		}
-		d.wg.Add(1)
-		concurrency.SafeGo(func() {
-			defer d.wg.Done()
-			if d.sem != nil {
-				defer func() { <-d.sem }()
-			}
-			d.handleJob(ctx, evt)
-		})
-	})
+	sub, err := d.consumer.Consume(ctx, messaging.WorkAgentRun, d.maxConcurrent, d.runDelivery)
 	if err != nil {
-		return fmt.Errorf("subscribing to %s: %w", d.subject, err)
+		return err
 	}
 	d.sub = sub
-	xlog.Info("NATS agent dispatcher started", "subject", d.subject, "queue", d.queue)
+	xlog.Info("NATS agent dispatcher started")
 	return nil
 }
 
-// Stop unsubscribes from the NATS queue, stopping message delivery.
+// runDelivery ignores events: on NATS it is the same bus the process-wide
+// event bridge already publishes on. An undecodable event returns nil because
+// a carrier that redelivers on error would hand it back forever.
+func (d *NATSDispatcher) runDelivery(ctx context.Context, payload []byte, _ messaging.Publisher) error {
+	var evt AgentChatEvent
+	if err := json.Unmarshal(payload, &evt); err != nil {
+		xlog.Error("Failed to unmarshal agent chat event", "error", err)
+		return nil
+	}
+	d.handleJob(ctx, evt)
+	return nil
+}
+
+// Stop stops delivery and waits for the agent runs already in flight.
 func (d *NATSDispatcher) Stop() error {
 	if d.sub != nil {
 		err := d.sub.Unsubscribe()
 		d.sub = nil
-		d.wg.Wait()
 		return err
 	}
 	return nil
-}
-
-func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, error) {
-	messageID := uuid.New().String()
-
-	// Send user message to SSE immediately
-	if d.eventBridge != nil {
-		d.eventBridge.PublishMessage(agentName, userID, RoleUser, message, messageID+"-user")
-		d.eventBridge.PublishStatus(agentName, userID, "processing")
-	}
-
-	evt := AgentChatEvent{
-		AgentName: agentName,
-		UserID:    userID,
-		Message:   message,
-		MessageID: messageID,
-		Role:      RoleUser,
-	}
-	if err := d.nats.Publish(d.subject, evt); err != nil {
-		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
-	}
-	return messageID, nil
 }
 
 func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {

@@ -36,8 +36,46 @@ var (
 	CppFree               func(ctx uintptr)
 	CppTranscribePath     func(ctx uintptr, wavPath string, decoder int32) uintptr
 	CppTranscribePathJSON func(ctx uintptr, wavPath string, decoder int32) uintptr
-	CppFreeString         func(s uintptr)
-	CppLastError          func(ctx uintptr) string
+	// CppTranscribePathJSONWith is CppTranscribePathJSON with the optional word
+	// filter (min_local_conf, local_radius, drop_punct_only as a JSON object).
+	// nil on a libparakeet.so from before the filter.
+	CppTranscribePathJSONWith func(ctx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+	CppFreeString             func(s uintptr)
+	CppLastError              func(ctx uintptr) string
+
+	// Bundle GGUF (additive in the C-API, no ABI bump; see bundle.go). All three
+	// are registered together and nil on an older libparakeet.so, where a
+	// bundle file is loaded like any other file (the library then refuses it)
+	// and the *_component options are rejected.
+	// CppLoadComponent opens one named component of a bundle.
+	// CppBundleComponentsJSON returns the component list as a malloc'd JSON
+	// array (uintptr, freed via CppFreeString), or 0 when the file is not a bundle.
+	// CppLoadError is the reason of the last failed load on the calling thread.
+	CppLoadComponent        func(ggufPath, component string) uintptr
+	CppBundleComponentsJSON func(ggufPath string) uintptr
+	CppLoadError            func() string
+
+	// CppTranscribePathJSONVad is CppTranscribePathJSON with long audio cut at
+	// pauses by the model's own VAD head (segments of at most 30 s; the document
+	// has the same shape, times are relative to the whole file). Returns 0 and
+	// sets last_error to "model has no VAD head" for models without one. Present
+	// only in newer libparakeet.so (additive, no ABI bump); nil when absent.
+	CppTranscribePathJSONVad func(ctx uintptr, wavPath string, decoder int32) uintptr
+
+	// CppTranscribePathJSONVadWith is CppTranscribePathJSONVad with the speech
+	// probabilities taken from an external Silero VAD context (vadCtx), so an ASR
+	// model without a VAD head can cut long audio. vadCtx == 0 uses the model's
+	// own head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, max_segment). Additive; nil when absent.
+	CppTranscribePathJSONVadWith func(ctx, vadCtx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+
+	// CppVadPcmJSON is the standalone VAD: it returns the speech regions of mono
+	// float PCM as a JSON document, for a Silero context or an ASR context with a
+	// VAD head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, speech_pad, max_segment, mode,
+	// probabilities). Returns 0 on error with the message in last_error.
+	// Additive; nil when absent.
+	CppVadPcmJSON func(ctx uintptr, samples []float32, nSamples int32, sampleRate int32, optionsJSON string) uintptr
 
 	// Batched JSON transcription: takes a concatenated float buffer of clips
 	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
@@ -109,12 +147,25 @@ var (
 	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
 	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
 	// Load refuses speaker_model: unless the v10 ones are present.
+	// CppSpeakerEmbedPCM embeds 16 kHz mono PCM with the speaker context. It returns 0 on
+	// success; *out is a malloc'd float vector of *dim values that the caller releases with
+	// CppFreeFloats. Additive, nil on a library from before it (VoiceEmbed then refuses).
+	CppSpeakerEmbedPCM             func(speaker uintptr, pcm *float32, n, sampleRate int32, out, dim unsafe.Pointer) int32
+	CppFreeFloats                  func(p uintptr)
+	CppSpeakerIdentity             func(ctx uintptr) uintptr
+	CppDiarizeProfilesPCMJSON      func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
 	CppSpeakerDim                  func(ctx uintptr) int32
 	CppSpeakerRegistryNew          func() uintptr
 	CppSpeakerRegistryFree         func(reg uintptr)
 	CppSpeakerRegistryAddEmbedding func(reg uintptr, name string, emb *float32, dim int32) int32
 	CppSpeakerRegistryLastError    func(reg uintptr) string
 	CppSceneStreamBeginSpeaker     func(asr, diar, tagger, speaker, reg uintptr, o *cSceneOpts) uintptr
+	// Encoder fingerprint (additive, ABI 10). Probed as a group; nil on a library
+	// from before it. CppSpeakerEncoderFamily returns a borrowed char*, read it with
+	// goStringFromCPtr and do not free it. A family or weights string "" means none.
+	CppSpeakerRegistryAddEmbeddingFP func(reg uintptr, name string, emb *float32, dim int32, family, weights string) int32
+	CppSpeakerRegistrySetStrict      func(reg uintptr, strict int32)
+	CppSpeakerEncoderFamily          func(ctx uintptr) uintptr
 	// CppDiarizeNamedPCMJSON takes two float32 arguments (acceptThreshold, margin), which
 	// purego passes in floating-point registers. Not exercised without the real library.
 	CppDiarizeNamedPCMJSON           func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
@@ -165,6 +216,10 @@ type transcriptJSON struct {
 	FrameSec float64           `json:"frame_sec"`
 	Words    []transcriptWord  `json:"words"`
 	Tokens   []transcriptToken `json:"tokens"`
+	// Guard is present only when the word filter ran (guard_* options).
+	Guard *struct {
+		DroppedWords int `json:"dropped_words"`
+	} `json:"guard"`
 }
 
 // streamFeedJSON mirrors the document returned by
@@ -222,6 +277,12 @@ type ParakeetCpp struct {
 	spkCtx        uintptr
 	speakerAccept float32
 	speakerMargin float32
+	// speakerStrict (speaker_strict:true) refuses registered voices that carry no
+	// encoder fingerprint instead of using them unverified.
+	speakerStrict bool
+	// verifyDistance is the VoiceVerify distance threshold when the request has none
+	// (voice_verify_threshold:, default 0.5).
+	verifyDistance float32
 	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
 	// streaming (diarization_latency: option, default "low"). Unused until
 	// the diarization/scene streaming paths land.
@@ -230,13 +291,32 @@ type ParakeetCpp struct {
 	// primary (asr_model:/diarization_model:/sound_model: options), so Free
 	// can release them after the primary.
 	companions []uintptr
-	engineMu   sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
-	bat        *batcher
-	batStop    chan struct{}
+	// bundle lists the components of the primary model file when it is a bundle
+	// GGUF (bundle.go); nil for a plain file.
+	bundle   []bundleComponent
+	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
+	bat      *batcher
+	batStop  chan struct{}
 	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
 	segmentGapFrames int
+	// vad routes offline transcription through the VAD-segmented C-API entry
+	// point (vad:true model option). It bypasses the dynamic batcher, which has
+	// no VAD variant, and is not used for streaming.
+	vad bool
+	// vadCtx is the Silero VAD context: the primary when the model file is a
+	// Silero GGUF, or the vad_model: companion. 0 when none is loaded; the VAD
+	// RPC then falls back to the ASR context's own VAD head.
+	vadCtx uintptr
+	// vadOptions is the JSON object built from the vad_threshold, vad_min_pause,
+	// vad_min_speech, vad_speech_pad, vad_max_segment and vad_trim model options ("" when
+	// none is set, so the library picks the defaults of the detector in use).
+	vadOptions string
+	// guardOptions is the JSON options object of the word filter (guard_*
+	// model options), "" when it is off. Offline transcription then takes the
+	// file-path route like vad:true, because the batched entry point has no filter.
+	guardOptions string
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -246,6 +326,33 @@ type ParakeetCpp struct {
 func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if opts.ModelFile == "" {
 		return errors.New("parakeet-cpp: ModelFile is required")
+	}
+
+	vad, err := parseVADOption(opts)
+	if err != nil {
+		return err
+	}
+	p.vad = vad
+
+	vadOpts, err := parseVADTuning(opts)
+	if err != nil {
+		return err
+	}
+	p.vadOptions = vadOpts
+	guardOpts, err := parseGuardOptions(opts)
+	if err != nil {
+		return err
+	}
+	p.guardOptions = guardOpts
+	if guardOpts != "" && p.vad && CppTranscribePathJSONVadWith == nil {
+		return errors.New("parakeet-cpp: the guard_* options with vad:true need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+	}
+	if optString(opts, "vad_model") != "" || optString(opts, "vad_component") != "" {
+		if CppTranscribePathJSONVadWith == nil {
+			return errors.New("parakeet-cpp: vad_model and vad_component need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+		}
+		// vad_model and vad_component imply vad: a Silero model is only useful to cut audio.
+		p.vad = true
 	}
 
 	if err := p.loadRoles(opts); err != nil {
@@ -305,6 +412,37 @@ func optInt(opts *pb.ModelOptions, key string, def int) int {
 		}
 	}
 	return def
+}
+
+// optBool reads a boolean model option (key:value form, strconv.ParseBool
+// values). It returns def when the key is absent and an error when the value
+// does not parse, so a typo like "vad:ture" fails the load instead of being
+// silently ignored.
+func optBool(opts *pb.ModelOptions, key string, def bool) (bool, error) {
+	v := optString(opts, key)
+	if v == "" {
+		return def, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("parakeet-cpp: option %s: %q is not a boolean", key, v)
+	}
+	return b, nil
+}
+
+// parseVADOption reads the vad: model option (default false). Enabling it
+// needs a libparakeet.so that exports parakeet_capi_transcribe_path_json_vad.
+// Whether the model itself has a VAD head is only known to the library; a
+// model without one fails each request with the library's message.
+func parseVADOption(opts *pb.ModelOptions) (bool, error) {
+	vad, err := optBool(opts, "vad", false)
+	if err != nil || !vad {
+		return false, err
+	}
+	if CppTranscribePathJSONVad == nil {
+		return false, errors.New("parakeet-cpp: vad:true needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad; rebuild the backend against a newer parakeet.cpp")
+	}
+	return true, nil
 }
 
 // runBatch is the dispatcher's batch handler and the ONLY caller of the C
@@ -400,21 +538,30 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
 	// mirrors what every other audio backend (whisper, crispasr) does via
 	// utils.AudioToWav before handing the file to the engine.
-	if p.bat == nil {
+	//
+	// With vad:true the same file-path route is taken through the
+	// VAD-segmented entry point, which cuts long audio at pauses. The batcher
+	// has no VAD variant, so this path replaces it for offline requests.
+	if p.bat == nil || p.vad || p.guardOptions != "" {
 		converted, cleanup, err := convertToWavMono16k(opts.Dst)
 		if err != nil {
 			return pb.TranscriptResult{}, err
 		}
 		defer cleanup()
-		cstr := CppTranscribePathJSON(p.ctxPtr, converted, 0)
-		if cstr == 0 {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: transcribe_path_json failed: %s", CppLastError(p.ctxPtr))
+		doc, err := p.transcribePathDoc(converted)
+		if err != nil {
+			return pb.TranscriptResult{}, err
 		}
-		raw := goStringFromCPtr(cstr)
-		CppFreeString(cstr)
-		var doc transcriptJSON
-		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
-			return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+		if (p.vad || p.guardOptions != "") && p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+			pcm, _, err := decodeWavMono16k(converted)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			segs, err := p.diarizeSegmentsPCM(pcm)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, assignSpeakers(doc.Words, segs)), nil
 		}
 		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
 	}
@@ -456,6 +603,51 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 		speakers = assignSpeakers(doc.Words, segs)
 	}
 	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// transcribePathDoc transcribes a 16 kHz mono WAV at path through the file-path
+// C-API (the VAD-segmented variant when vad:true) and decodes the JSON document.
+// It holds engineMu for the call: the engine is single-threaded and the batcher
+// is not involved on this path.
+func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
+	call, name := func() uintptr { return CppTranscribePathJSON(p.ctxPtr, path, 0) }, "transcribe_path_json"
+	switch {
+	case p.vad && (p.vadCtx != 0 || p.vadOptions != "" || p.guardOptions != "") && CppTranscribePathJSONVadWith != nil:
+		// An external Silero, tuned segmenter options on the model's own head, or the
+		// word filter: the segmenter takes the VAD keys and the filter keys in one object.
+		opts, err := mergeJSONObjects(p.vadOptions, p.guardOptions)
+		if err != nil {
+			return transcriptJSON{}, fmt.Errorf("parakeet-cpp: build vad options: %w", err)
+		}
+		call, name = func() uintptr {
+			return CppTranscribePathJSONVadWith(p.ctxPtr, p.vadCtx, path, 0, opts)
+		}, "transcribe_path_json_vad_with"
+	case p.vad:
+		call, name = func() uintptr { return CppTranscribePathJSONVad(p.ctxPtr, path, 0) }, "transcribe_path_json_vad"
+	case p.guardOptions != "" && CppTranscribePathJSONWith != nil:
+		call, name = func() uintptr { return CppTranscribePathJSONWith(p.ctxPtr, path, 0, p.guardOptions) }, "transcribe_path_json_with"
+	}
+	p.engineMu.Lock()
+	cstr := call()
+	var lastErr string
+	if cstr == 0 {
+		lastErr = CppLastError(p.ctxPtr)
+	}
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, lastErr)
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+	if doc.Guard != nil {
+		// TranscriptResult has no field for it, so the count is only logged.
+		xlog.Debug("parakeet-cpp: word filter", "dropped_words", doc.Guard.DroppedWords)
+	}
+	return doc, nil
 }
 
 // segmentSeparators is NeMo's default segment_seperators (sentence-ending
@@ -982,7 +1174,7 @@ func (p *ParakeetCpp) Free() error {
 	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx} {
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx, &p.vadCtx} {
 		if *ctxField != 0 {
 			CppFree(*ctxField)
 			*ctxField = 0

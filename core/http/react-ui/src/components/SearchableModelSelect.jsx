@@ -186,7 +186,7 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
                     <span className="sms-hint">{hints[m.id]}</span>
                   )}
                   {isEnterTarget && (
-                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>↵</span>
+                    <span className="text-meta shrink-0">↵</span>
                   )}
                 </div>
               )

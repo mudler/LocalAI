@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc/codes"
@@ -43,7 +43,7 @@ func (b *failingLoadBackend) LoadModel(_ context.Context, _ *pb.ModelOptions, _ 
 
 type failingClientFactory struct{ client *failingLoadBackend }
 
-func (f *failingClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
+func (f *failingClientFactory) NewClient(_, _ string, _ bool) grpc.Backend { return f.client }
 
 // replicaSlotRouter pins the replica slot scheduleAndLoad allocates so a spec
 // can assert the reaped process key carries the real index, not a hardcoded 0.
@@ -69,7 +69,7 @@ var _ = Describe("reaping an abandoned remote load", func() {
 		reg = &replicaSlotRouter{fakeModelRouter: base, replica: 2}
 		backend = &failingLoadBackend{}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 

@@ -14,7 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -111,8 +111,13 @@ type backendSupervisor struct {
 	systemState *system.SystemState
 	galleries   []config.Gallery
 	nodeID      string
-	nats        messaging.MessagingClient
 	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
+
+	// installFn and upgradeFn are the installers serveInstall and serveUpgrade
+	// run. nil means installBackend and upgradeBackend; specs set them to drive
+	// the verbs without a gallery.
+	installFn func(req workerctl.BackendInstallRequest, force bool, downloadCb func(file, current, total string, percentage float64)) (string, error)
+	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error)
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
@@ -867,8 +872,8 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 // stopModelExact implements the acknowledged controller-to-worker stop path.
 // The address check and stopping reservation are one critical section so a
 // stale controller request can never stop a replacement under the same key.
-func (s *backendSupervisor) stopModelExact(req messaging.ModelStopRequest) messaging.ModelStopReply {
-	reply := messaging.ModelStopReply{ProcessKey: req.ProcessKey}
+func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) workerctl.ModelStopReply {
+	reply := workerctl.ModelStopReply{ProcessKey: req.ProcessKey}
 
 	s.mu.Lock()
 	bp, ok := s.processes[req.ProcessKey]

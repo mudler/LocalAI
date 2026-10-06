@@ -72,11 +72,12 @@ func (p *ParakeetCpp) sceneWanted() bool {
 // speaker-named stream (0 for a plain one). The stream borrows both: sceneFree
 // frees the stream first and then the registry, which this handle owns.
 type sceneStreamHandle struct {
-	s    uintptr
-	diar uintptr
-	tag  uintptr
-	spk  uintptr
-	reg  uintptr
+	names map[string]string
+	s     uintptr
+	diar  uintptr
+	tag   uintptr
+	spk   uintptr
+	reg   uintptr
 }
 
 // sceneBegin opens a no-ASR scene stream (diarization and/or sound events
@@ -119,10 +120,13 @@ func (p *ParakeetCpp) sceneBegin(voices []*pb.KnownVoice) sceneStreamHandle {
 		opts.SpeakerMargin = p.speakerMargin
 		s := CppSceneStreamBeginSpeaker(0, diar, tag, p.spkCtx, reg, &opts)
 		if s == 0 {
+			// The library also refuses a registry from another encoder (or without a
+			// fingerprint under speaker_strict) here and says why on the speaker context.
+			xlog.Warn("parakeet-cpp: could not start a live session with speaker names", "error", CppLastError(p.spkCtx))
 			p.freeSpeakerRegistry(reg)
 			return sceneStreamHandle{}
 		}
-		return sceneStreamHandle{s: s, diar: diar, tag: tag, spk: p.spkCtx, reg: reg}
+		return sceneStreamHandle{s: s, diar: diar, tag: tag, spk: p.spkCtx, reg: reg, names: voiceNames(voices)}
 	}
 	s := CppSceneStreamBegin(0, diar, tag, &opts)
 	if s == 0 {
@@ -193,6 +197,7 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		return sceneFeedJSON{}, fmt.Errorf("parakeet-cpp: decode scene json: %w", err)
 	}
+	translateNames(doc.Names, h.names)
 	return doc, nil
 }
 

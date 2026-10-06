@@ -105,6 +105,13 @@ func (c *KNNClassifier) WithTokenTrim(tokenize func(string) (int, error), maxCon
 func (c *KNNClassifier) Name() string { return ClassifierKNN }
 
 func (c *KNNClassifier) Classify(ctx context.Context, p Probe) (Decision, error) {
+	if err := ctx.Err(); err != nil {
+		return Decision{}, err
+	}
+	if err := requireTextProbe(ctx, p); err != nil {
+		return Decision{}, err
+	}
+
 	start := time.Now()
 
 	vec, err := c.embedder.Embed(ctx, trimmedProbeText(p, c.budget, identityRender))

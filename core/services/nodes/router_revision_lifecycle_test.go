@@ -9,8 +9,8 @@ import (
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -27,11 +27,11 @@ type recordingRevisionStopper struct {
 	err      error
 }
 
-func (s *recordingRevisionStopper) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (messaging.ModelStopReply, error) {
+func (s *recordingRevisionStopper) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (workerctl.ModelStopReply, error) {
 	s.mu.Lock()
 	s.replicas = append(s.replicas, replica)
 	s.mu.Unlock()
-	return messaging.ModelStopReply{}, s.err
+	return workerctl.ModelStopReply{}, s.err
 }
 
 var _ = Describe("revision-bound load publication", func() {
@@ -56,7 +56,7 @@ var _ = Describe("revision-bound load publication", func() {
 		node = &BackendNode{Name: "revision-worker", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051", TotalVRAM: 64_000_000_000, AvailableVRAM: 64_000_000_000}
 		Expect(registry.Register(ctx, node, true)).To(Succeed())
 		backend = &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
-		unloader = &fakeUnloader{installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"}}
+		unloader = &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"}}
 	})
 
 	It("quarantines and exactly stops a load that finishes after its revision changes", func() {

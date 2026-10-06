@@ -678,10 +678,27 @@ definitions:
       total:
         type: integer
     type: object
+  proto.SpeakerEncoder:
+    properties:
+      dimension:
+        type: integer
+      family:
+        description: embedding space of the encoder; empty when the backend cannot
+          tell
+        type: string
+      identity:
+        description: sha256 of loaded GGUF bytes
+        type: string
+    type: object
   proto.StatusResponse:
     properties:
       memory:
         $ref: '#/definitions/proto.MemoryUsageData'
+      speaker_encoder:
+        allOf:
+        - $ref: '#/definitions/proto.SpeakerEncoder'
+        description: trusted metadata from the loaded server encoder, never request
+          data
       state:
         $ref: '#/definitions/proto.StatusResponse_State'
     type: object
@@ -1061,6 +1078,8 @@ definitions:
         items:
           $ref: '#/definitions/schema.DiarizationSegment'
         type: array
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
       speakers:
         items:
           $ref: '#/definitions/schema.DiarizationSpeaker'
@@ -2207,6 +2226,10 @@ definitions:
         $ref: '#/definitions/functions.JSONFunctionStructure'
       ignore_eos:
         type: boolean
+      include_speaker_profiles:
+        type: boolean
+      include_text:
+        type: boolean
       input: {}
       instruction:
         description: Edit endpoint
@@ -2736,6 +2759,53 @@ definitions:
       model:
         type: string
     type: object
+  schema.SpeakerEncoder:
+    properties:
+      dimension:
+        type: integer
+      family:
+        description: |-
+          Family is the embedding space of the encoder. The server fills it from the
+          loaded encoder; exported profiles do not carry it and it is not matched.
+        type: string
+      identity:
+        type: string
+    type: object
+  schema.SpeakerProfile:
+    properties:
+      clean_duration:
+        type: number
+      embedding:
+        items:
+          type: number
+        type: array
+      intervals:
+        items:
+          $ref: '#/definitions/schema.SpeakerProfileInterval'
+        type: array
+      speaker:
+        type: integer
+      unavailable_reason:
+        type: string
+    type: object
+  schema.SpeakerProfileInterval:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
+  schema.SpeakerProfiles:
+    properties:
+      encoder:
+        $ref: '#/definitions/schema.SpeakerEncoder'
+      speakers:
+        items:
+          $ref: '#/definitions/schema.SpeakerProfile'
+        type: array
+      version:
+        type: integer
+    type: object
   schema.StreamOptions:
     properties:
       include_usage:
@@ -3263,6 +3333,10 @@ definitions:
         type: string
       name:
         type: string
+      speaker_profiles:
+        $ref: '#/definitions/schema.SpeakerProfiles'
+      speaker_slot:
+        type: integer
       store:
         type: string
     type: object
@@ -5338,6 +5412,10 @@ paths:
     post:
       consumes:
       - multipart/form-data
+      - application/json
+      description: JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles
+        and response_format. Profiles require voice-recognition permission and json
+        or verbose_json; unsupported backends return 501.
       parameters:
       - description: model
         in: formData
@@ -5378,6 +5456,11 @@ paths:
         in: formData
         name: language
         type: string
+      - description: export portable biometric profiles (voice-recognition permission;
+          JSON formats only)
+        in: formData
+        name: include_speaker_profiles
+        type: boolean
       - description: include per-segment transcript when the backend supports it
         in: formData
         name: include_text
@@ -6176,6 +6259,10 @@ paths:
       - voice-recognition
   /v1/voice/register:
     post:
+      description: Supply either audio or speaker_profiles plus an explicit numeric
+        speaker_slot. The selected model must expose matching trusted encoder metadata
+        for portable enrollment. Registrations are global and ephemeral, with a fresh
+        ID for each request.
       parameters:
       - description: query params
         in: body

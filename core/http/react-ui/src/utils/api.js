@@ -83,6 +83,7 @@ export async function streamChat(body, signal) {
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),
   listV1: () => fetchJSON(API_CONFIG.endpoints.modelsList),
+  listNativeCapabilities: () => fetchJSON('/v1/models/capabilities'),
   listCapabilities: () => fetchJSON(API_CONFIG.endpoints.modelsCapabilities),
   listAliases: () => fetchJSON(API_CONFIG.endpoints.modelsAliases),
   // variant is optional. Omitting it lets the server auto-select the best
@@ -441,7 +442,7 @@ export const agentsApi = {
   status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
   observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
   clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message }),
+  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
   export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
   import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
   configMeta: () => fetchJSON('/api/agents/config/metadata'),
@@ -566,6 +567,12 @@ export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
   create: (name) => postJSON('/api/auth/api-keys', { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
+  setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ disabled, paused_until: pausedUntil }),
+  }),
 }
 
 // Fine-tuning API
@@ -682,4 +689,19 @@ export function fileToBase64(file) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+// Multipart requests must let the browser set the boundary.
+export const diarizationApi = {
+  run: async ({ file, model, profiles = false }) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('model', model)
+    if (profiles) {
+      body.append('include_speaker_profiles', 'true')
+      body.append('include_text', 'true')
+      body.append('response_format', 'verbose_json')
+    }
+    return handleResponse(await fetch(apiUrl('/v1/audio/diarization'), { method: 'POST', body }))
+  },
 }

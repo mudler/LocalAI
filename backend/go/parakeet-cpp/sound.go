@@ -51,7 +51,7 @@ type classAvg struct {
 func (p *ParakeetCpp) SoundDetection(ctx context.Context, req *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
 	if p.tagCtx == 0 {
 		return nil, status.Error(codes.FailedPrecondition,
-			"parakeet-cpp: model is not a sound (CED) model")
+			"parakeet-cpp: model is not a sound (CED) model"+p.roleHint(componentSound, "sound_component"))
 	}
 	if CppSoundStreamBegin == nil || CppSoundStreamFeed == nil || CppSoundStreamDrainScoresJSON == nil ||
 		CppSoundStreamFree == nil || CppSoundOptsDefault == nil || CppNumClasses == nil {

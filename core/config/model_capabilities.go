@@ -143,6 +143,8 @@ func (c *ModelConfig) Capabilities() []string {
 		}
 	}
 
+	add(c.NativeDecisionsEligible(), UsecaseDecisions)
+	add(c.HasUsecases(FLAG_SCORE), UsecaseScore)
 	add(chat, UsecaseChat)
 	add(completion, UsecaseCompletion)
 	add(c.HasUsecases(FLAG_EDIT), UsecaseEdit)
@@ -238,4 +240,21 @@ func (c *ModelConfig) OutputModalities() []string {
 	modalities[ModalityVideo] = modalities[ModalityVideo] || videoOut
 	modalities[Modality3D] = modalities[Modality3D] || threeDOut
 	return orderedModalities(modalities)
+}
+
+// NativeDecisionsEligible excludes generation/NER heuristics and dispatchers.
+func (c *ModelConfig) NativeDecisionsEligible() bool {
+	if c.IsDisabled() || c.HasRouter() || c.Router.Classifier != "" || c.IsAlias() || c.KnownUsecases == nil || (*c.KnownUsecases&FLAG_DECISIONS) == 0 {
+		return false
+	}
+	backend := GetBackendCapability(c.Backend)
+	if backend == nil {
+		return false
+	}
+	for _, method := range backend.GRPCMethods {
+		if method == MethodScore {
+			return true
+		}
+	}
+	return false
 }

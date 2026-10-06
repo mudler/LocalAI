@@ -71,6 +71,37 @@ func main() {
 		purego.RegisterLibFunc(&CppTranscribePcmBatchJSON, lib, "parakeet_capi_transcribe_pcm_batch_json")
 	}
 
+	// VAD-segmented offline transcription (vad:true model option). Additive in
+	// the C-API (no ABI bump); same probe pattern, so an older libparakeet.so
+	// still loads and Load refuses vad:true with a clear message.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVad, lib, "parakeet_capi_transcribe_path_json_vad")
+	}
+
+	// Silero VAD, the standalone VAD RPC and transcription with an external Silero
+	// (vad_model: option). Additive in the C-API (no ABI bump). Each symbol is
+	// probed on its own: a library without one still loads, and the feature that
+	// needs it fails with a clear message only when it is used.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_vad_with"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONVadWith, lib, "parakeet_capi_transcribe_path_json_vad_with")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_vad_pcm_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppVadPcmJSON, lib, "parakeet_capi_vad_pcm_json")
+	}
+
+	// Bundle GGUF (one file with several models; docs/bundle.md in parakeet.cpp).
+	// Additive in the C-API. The three entry points come together, so one probe
+	// decides; without them a bundle file is handled like any other file.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_load_component"); err == nil && sym != 0 {
+		if sym2, err2 := purego.Dlsym(lib, "parakeet_capi_bundle_components_json"); err2 == nil && sym2 != 0 {
+			if sym3, err3 := purego.Dlsym(lib, "parakeet_capi_load_error"); err3 == nil && sym3 != 0 {
+				purego.RegisterLibFunc(&CppLoadComponent, lib, "parakeet_capi_load_component")
+				purego.RegisterLibFunc(&CppBundleComponentsJSON, lib, "parakeet_capi_bundle_components_json")
+				purego.RegisterLibFunc(&CppLoadError, lib, "parakeet_capi_load_error")
+			}
+		}
+	}
+
 	// Per-request language variants (multilingual nemotron). Same probe pattern:
 	// present only in libparakeet.so built with multilingual support, so the
 	// backend still loads against an older library and falls back to the
@@ -132,6 +163,33 @@ func main() {
 		purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
 	}
 
+	// Encoder fingerprint of the speaker registry (additive, no ABI bump).
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_registry_add_embedding_fp"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbeddingFP, lib, "parakeet_capi_speaker_registry_add_embedding_fp")
+		purego.RegisterLibFunc(&CppSpeakerRegistrySetStrict, lib, "parakeet_capi_speaker_registry_set_strict")
+		purego.RegisterLibFunc(&CppSpeakerEncoderFamily, lib, "parakeet_capi_speaker_encoder_family")
+	}
+	// Speaker embedding from PCM (additive, no ABI bump). Both symbols come together.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_speaker_embed_pcm"); err == nil && sym != 0 {
+		if sym2, err2 := purego.Dlsym(lib, "parakeet_capi_free_floats"); err2 == nil && sym2 != 0 {
+			purego.RegisterLibFunc(&CppSpeakerEmbedPCM, lib, "parakeet_capi_speaker_embed_pcm")
+			purego.RegisterLibFunc(&CppFreeFloats, lib, "parakeet_capi_free_floats")
+		}
+	}
+	// Word filter on transcription (additive, no ABI bump).
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_path_json_with"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribePathJSONWith, lib, "parakeet_capi_transcribe_path_json_with")
+	}
+
+	for _, lf := range []LibFuncs{
+		{&CppSpeakerIdentity, "parakeet_capi_speaker_identity"},
+		{&CppSpeakerDim, "parakeet_capi_speaker_dim"},
+		{&CppDiarizeProfilesPCMJSON, "parakeet_capi_diarize_profiles_pcm_json"},
+	} {
+		if sym, err := purego.Dlsym(lib, lf.Name); err == nil && sym != 0 {
+			purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
+		}
+	}
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

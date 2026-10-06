@@ -69,11 +69,10 @@ type localAGICore struct {
 
 // distributedBridge connects to the NATS-based distributed agent system.
 type distributedBridge struct {
-	natsClient  messaging.Publisher     // NATS client for distributed agent execution
+	workQueue   messaging.WorkQueue     // Non-nil selects distributed mode; carries agent runs
 	agentStore  *agents.AgentStore      // PostgreSQL agent config store
 	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
-	dispatcher  agents.Dispatcher       // Native dispatcher (distributed or local)
 }
 
 // userManager handles per-user services, storage, and auth.
@@ -123,7 +122,7 @@ type AgentConfigStore interface {
 type AgentPoolOptions struct {
 	AuthDB      *gorm.DB
 	SkillStore  *distributed.SkillStore
-	NATSClient  messaging.Publisher
+	WorkQueue   messaging.WorkQueue
 	EventBridge AgentEventBridge
 	AgentStore  *agents.AgentStore
 }
@@ -140,8 +139,8 @@ func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolO
 		if o.SkillStore != nil {
 			svc.distributed.skillStore = o.SkillStore
 		}
-		if o.NATSClient != nil {
-			svc.distributed.natsClient = o.NATSClient
+		if o.WorkQueue != nil {
+			svc.distributed.workQueue = o.WorkQueue
 		}
 		if o.EventBridge != nil {
 			svc.distributed.eventBridge = o.EventBridge
@@ -175,7 +174,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 
 	// Distributed mode: use native executor + NATSDispatcher.
 	// No LocalAGI pool, no collections, no skills service — all stateless.
-	if s.distributed.natsClient != nil {
+	if s.distributed.workQueue != nil {
 		return s.startDistributed(ctx, apiURL, apiKey)
 	}
 
@@ -244,16 +243,15 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	// Start the background agent scheduler on the frontend.
 	// It needs DB access to list configs and update LastRunAt — the worker doesn't have DB.
 	// The advisory lock ensures only one frontend instance runs the scheduler.
-	if s.users.authDB != nil && s.distributed.natsClient != nil && s.distributed.agentStore != nil {
+	if s.users.authDB != nil && s.distributed.workQueue != nil && s.distributed.agentStore != nil {
 		var schedulerOpts []agents.AgentSchedulerOpt
 		if s.distributed.skillStore != nil {
 			schedulerOpts = append(schedulerOpts, agents.WithSchedulerSkillProvider(s.buildSkillProvider()))
 		}
 		scheduler := agents.NewAgentScheduler(
 			s.users.authDB,
-			s.distributed.natsClient,
+			s.distributed.workQueue,
 			s.distributed.agentStore,
-			messaging.SubjectAgentExecute,
 			schedulerOpts...,
 		)
 		go scheduler.Start(ctx)
@@ -391,12 +389,6 @@ func (s *AgentPoolService) Pool() *state.AgentPool {
 	return s.localAGI.pool
 }
 
-// SetNATSClient sets the NATS client for distributed agent execution.
-// Deprecated: prefer passing NATSClient via AgentPoolOptions at construction time.
-func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
-	s.distributed.natsClient = nc
-}
-
 // SetEventBridge sets the event bridge for distributed SSE + persistence.
 // Deprecated: prefer passing EventBridge via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
@@ -422,7 +414,7 @@ func (s *AgentPoolService) GetAgent(name string) *agent.Agent {
 }
 
 // Chat sends a message to an agent and returns immediately. Responses come via SSE.
-func (s *AgentPoolService) Chat(name, message string) (string, error) {
+func (s *AgentPoolService) Chat(name, message string, history []ChatHistoryMessage) (string, error) {
 	ag := s.localAGI.pool.GetAgent(name)
 	if ag == nil {
 		return "", fmt.Errorf("%w: %s", ErrAgentNotFound, name)
@@ -450,10 +442,16 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	})
 	manager.Send(sse.NewMessage(string(statusMsg)).WithEvent("json_message_status"))
 
+	// Carry the conversation's earlier turns, as sent by the client for the
+	// conversation it is showing. Without them every chat message is a fresh
+	// job, so a follow-up such as "now add two days to item 3" cannot see the
+	// answer it refers to.
+	opts := chatJobOptions(history, message)
+
 	// Process asynchronously
 	go func() {
 		started := time.Now()
-		response := ag.Ask(coreTypes.WithText(message))
+		response := ag.Ask(opts...)
 		outcome := "completed"
 		if response == nil {
 			outcome = "cancelled"
@@ -992,11 +990,11 @@ func (s *AgentPoolService) ClearAgentObservablesForUser(userID, name string) err
 }
 
 // ChatForUser sends a message to a user's agent.
-func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, error) {
-	return s.configBackend.Chat(userID, name, message)
+func (s *AgentPoolService) ChatForUser(userID, name, message string, history ...ChatHistoryMessage) (string, error) {
+	return s.configBackend.Chat(userID, name, message, history)
 }
 
-// dispatchChat publishes a chat event to the NATS agent execution queue.
+// dispatchChat enqueues a chat event as agent-run work.
 // The event is enriched with the full agent config and resolved skills so that
 // the worker does not need direct database access.
 func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, error) {
@@ -1040,7 +1038,7 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 		Config:    cfg,
 		Skills:    skills,
 	}
-	if err := s.distributed.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
+	if err := s.distributed.workQueue.Enqueue(context.Background(), messaging.WorkAgentRun, evt); err != nil {
 		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
 	}
 	return messageID, nil

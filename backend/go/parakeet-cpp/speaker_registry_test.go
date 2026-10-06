@@ -69,6 +69,16 @@ var _ = Describe("buildSpeakerRegistry", func() {
 		return &pb.KnownVoice{Name: name, Embedding: make([]float32, n)}
 	}
 
+	It("keeps duplicate display names under distinct registration IDs", func() {
+		p := &ParakeetCpp{spkCtx: 5}
+		_, err := p.buildSpeakerRegistry([]*pb.KnownVoice{
+			{Id: "id-a", Name: "Ada", Embedding: []float32{1, 0, 0}},
+			{Id: "id-b", Name: "Ada", Embedding: []float32{0, 1, 0}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(added).To(Equal([]string{"id-a", "id-b"}))
+	})
+
 	It("adds every known voice, in order", func() {
 		p := &ParakeetCpp{spkCtx: 5}
 		reg, err := p.buildSpeakerRegistry([]*pb.KnownVoice{

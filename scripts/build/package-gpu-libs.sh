@@ -15,6 +15,16 @@
 
 set -e
 
+# macOS uses system GPU frameworks; this packager handles Linux ELF libraries.
+# Return before Bash 3.2 encounters the associative arrays used below.
+if [[ "$(uname -s)" == Darwin ]]; then
+    package_gpu_libs() {
+        echo "Detected Darwin; no Linux GPU libraries to package"
+    }
+    export -f package_gpu_libs
+    return 0 2>/dev/null || exit 0
+fi
+
 TARGET_LIB_DIR="${1:-./lib}"
 
 # Create target directory if it doesn't exist

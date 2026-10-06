@@ -185,6 +185,64 @@ recognition - the voice-recognition HTTP API is designed to swap the
 backing store without changing the wire format.
 {{% /notice %}}
 
+### Voices from different encoders
+
+Voices from encoders with different embedding sizes can be registered on the
+same instance, for example 192-value ECAPA-TDNN voices next to 256-value
+WeSpeaker ResNet34 voices. LocalAI keeps one in-memory vector store per
+embedding size, so registering a voice of a new size no longer fails.
+
+- Identification compares the probe only with voices of the same size. Voices
+  from an encoder of another size are never candidates.
+- If no voice of the probe size is registered, `/v1/voice/identify` returns an
+  empty `matches` list and the realtime voice gate reports an unknown speaker.
+  Neither returns an error.
+- Two encoders can still give the same size (ECAPA and CAM++ both give 192
+  values). Those voices share a store and the encoder tag or identity checks
+  described below apply.
+- A name is not unique. One name can hold one voice per encoder, and each
+  registration has its own ID. `/v1/voice/forget` removes the voice with that
+  ID only, so forget each ID to remove a person from every encoder.
+- Naming in diarization and live transcription reads the registry as a whole
+  and uses the voices that match the loaded encoder.
+
+## A parakeet-cpp bundle as the embedding model
+
+A parakeet-cpp model that has a speaker encoder can serve `/v1/voice/embed`,
+`/v1/voice/verify`, `/v1/voice/register` and `/v1/voice/identify`, and the
+`voice_recognition` stage of a realtime pipeline. That is every
+[bundle]({{% relref "audio-to-text#bundle-gguf-files-several-models-in-one-file" %}}) with a `voice` component
+(`parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard`), and any
+parakeet-cpp config with a `speaker_model:` or `speaker_component:` option, such as
+`parakeet-cpp-realtime-scene-speakers`. Declare `speaker_recognition` in the
+`known_usecases` of the config; the gallery entries above already do. Then use the model
+name as `model`:
+
+```bash
+local-ai models install parakeet-cpp-bundle-small
+curl http://localhost:8080/v1/voice/embed -H "Content-Type: application/json" \
+  -d '{"model": "parakeet-cpp-bundle-small", "audio": "https://example.com/clip.wav"}'
+```
+
+The `voice` component holds the same weights as `voice-detect-wespeaker-resnet34`
+(256 dimensions), so a voice registered with one model also matches embeddings from the
+other. Use a distance threshold near 0.5 for this encoder, as for `speaker_model:`
+naming below. The response `model` field is the `sha256:` identity of the encoder
+weights.
+
+`/v1/voice/verify` uses a distance threshold of 0.5 when the request has none. Set the
+model option `voice_verify_threshold:<distance>` (a distance in (0, 2)) to change it.
+
+Only embedding, identification and plain verification are available. There is no
+anti-spoofing head, so a verify request with `anti_spoofing: true` is refused, and
+`/v1/voice/analyze` is not served by parakeet-cpp. The backend needs a libparakeet.so
+that exports `parakeet_capi_speaker_embed_pcm`. With an older library these calls fail
+with an `Unimplemented` error that names the missing symbol, and a model without a
+speaker encoder fails with a `FailedPrecondition` error.
+
+Voices of other embedding sizes stay in their own store, see
+[Voices from different encoders](#voices-from-different-encoders).
+
 ## Naming speakers in diarization and live transcription
 
 The parakeet-cpp backend can put the names of registered voices on
@@ -208,6 +266,42 @@ this, speakers only carry labels such as `SPEAKER_00`.
    [Speaker Diarization]({{% relref "audio-diarization" %}}) for the
    response.
 
+### Naming speakers from a bundle
+
+A parakeet-cpp bundle file holds the speaker encoder as a component, so its
+config has `speaker_component:voice` and no `speaker_model:` (the
+`parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` gallery
+entries are set up like this). LocalAI treats `speaker_component:` as the
+speaker encoder of the model when `speaker_model:` is not set. A
+`speaker_model:` entry always wins, including one that points at the bundle
+file itself.
+
+A bundle has no encoder file name, so LocalAI cannot compare file-name tags,
+and it never guesses a tag from the bundle file name. For a bundle component
+LocalAI sends the backend:
+
+- voices with an [encoder fingerprint](#encoder-fingerprint), whatever their
+  tag: the backend checks the fingerprint against the loaded component.
+  Voices enrolled from `speaker_profiles` are in this group. The WeSpeaker
+  component of the published bundles has the same weights as
+  `voice-detect-wespeaker-resnet34`, so a voice enrolled with one works with
+  the other;
+- voices with no tag (registered before tags existed);
+- voices whose tag equals the `speaker_tag:` option, if set.
+
+Other voices are ignored. To use a voice that carries only a file-name tag,
+set the same tag on the model config. For voices registered through the
+`voice-detect-wespeaker-resnet34` gallery model:
+
+```yaml
+options:
+- speaker_component:voice
+- speaker_tag:voice-detect-wespeaker-resnet34.gguf
+```
+
+Use `speaker_tag:` only for voices made by the same weights as the bundle
+component. The check by size alone cannot tell two encoders apart.
+
 ### Which voices are used
 
 LocalAI sends the backend only the registered voices made by the same
@@ -222,6 +316,42 @@ tagged ones (or all of them, when no voice carries a matching tag). The
 backend skips a voice whose embedding size does not match the speaker model's,
 with a warning in the LocalAI log. Naming then falls back to the remaining
 voices, or to no names.
+
+### Encoder fingerprint
+
+Two encoders can give embeddings of the same size (ECAPA and CAM++ both give
+192 values), so a size match does not prove the voices and the `speaker_model:`
+file share an embedding space. A voice enrolled from `speaker_profiles` (see
+[Speaker Diarization]({{% relref "audio-diarization" %}})) is stored with the
+encoder that made it: its **weights** (`sha256:` of the encoder file, kept in
+the voice's `model` field as before) and its **family**
+(`voicedetect:<arch>:<name>:<dim>`, read from the encoder GGUF metadata and
+stored as `encoder_family`). The parakeet-cpp backend builds the registry with
+that fingerprint, and libparakeet checks it against the loaded `speaker_model:`
+before it names anyone:
+
+| Registered voices | Result |
+|---|---|
+| Same family, same weights | names are assigned |
+| Same family, other weights (for example another quantization) | names are assigned, the library logs a warning |
+| Another family, and no other usable voice | the request fails, and the error names both families |
+| Another family, with usable voices of the right family | the other voices are left out, with a warning |
+| No fingerprint | used as before, with a warning that the encoder is unverified |
+
+A voice with only a weights identity takes the family of the loaded encoder
+when the weights are the same file. A voice with a different weights hash and
+no family is dropped, as before.
+
+A voice registered from audio through the voice-detect backend has no
+fingerprint: libvoicedetect reports no architecture or model name, so the
+backend cannot tell the family, and only the file-name tag described above
+applies. Such voices and fingerprinted voices cannot share one registry in the
+library. When a request has any unfingerprinted voice, all of its voices are
+used without the fingerprint check (the old behaviour). To get the check, enroll
+every voice from `speaker_profiles`. With `speaker_strict:true` the backend
+ignores unfingerprinted voices, and a request that has only those fails with
+the library's message. The family is also reported in the internal backend
+status next to the identity.
 
 {{% notice warning %}}
 Do not set a `model_name:` option on the voice-detect model config. It
@@ -238,8 +368,11 @@ options).
 | Option | Default | Meaning |
 |---|---|---|
 | `speaker_model:<path>` | none | speaker encoder GGUF; needs a diarization model (the primary one, or `diarization_model:`) |
+| `speaker_component:<name>` | none | speaker encoder component of a bundle file; used as the speaker encoder for naming when `speaker_model:` is not set (see [Naming speakers from a bundle](#naming-speakers-from-a-bundle)) |
+| `speaker_tag:<tag>` | none | encoder tag that also counts as the loaded encoder, for voices that carry only a file-name tag; mainly for a bundle component |
 | `speaker_threshold:<float>` | `0.5` | largest distance (1 minus cosine similarity, the unit `/v1/voice/identify` reports) at which a speaker is named; must be in (0, 2) |
 | `speaker_margin:<float>` | `0.05` | the best match must beat the runner-up by this much, otherwise the speaker stays unnamed; must be in [0, 1) |
+| `speaker_strict:<bool>` | `false` | ignore registered voices that carry no [encoder fingerprint](#encoder-fingerprint); needs a libparakeet that exports `parakeet_capi_speaker_registry_set_strict` |
 
 parakeet.cpp's measured starting values for `speaker_threshold` are 0.5 for
 WeSpeaker ResNet34 and CAM++, and 0.3 for ECAPA. A lower value names fewer
@@ -249,7 +382,7 @@ speakers and makes fewer mistakes.
 
 - The voice registry is in memory and global. Registered names disappear when
   LocalAI restarts, and every user of the instance shares them.
-- Anyone who is allowed to call a model with `speaker_model:` can learn which
+- Anyone who is allowed to call a model with `speaker_model:` or `speaker_component:` can learn which
   registered names match their audio, and their audio is matched against voices
   registered by any user, because the voice registry is global. Restrict such
   models with the per-user model allowlist.
@@ -262,7 +395,10 @@ speakers and makes fewer mistakes.
 - Accuracy was measured on one fixture (two read-speech voices). Check the
   threshold on your own audio.
 - The backend needs a libparakeet with C-API v10. With an older library a
-  model config that sets `speaker_model:` fails to load.
+  model config that sets `speaker_model:` or `speaker_component:` fails to load.
+- A bundle does not serve `/v1/voice/register`, `/v1/voice/identify` or
+  `/v1/voice/verify` itself. Register voices with a voice-detect model (or
+  from `speaker_profiles`), then name them through the bundle.
 
 ## API reference
 
@@ -402,3 +538,68 @@ default only applies when omitted.
   both the face and voice 1:N recognition pipelines.
 - [Embeddings](/features/embeddings/) - text-only OpenAI-compatible
   embedding endpoint; for audio embeddings use `/v1/voice/embed`.
+
+## Portable profile registration
+
+`POST /v1/voice/register` also accepts a JSON alternative to `audio`:
+
+```javascript
+// result is the parsed diarization response; slot is a selected raw speaker slot.
+const request = {
+  model: "parakeet-diarization",
+  name: "Ada",
+  labels: {team: "research"},
+  speaker_slot: slot,
+  speaker_profiles: result.speaker_profiles
+};
+// POST JSON.stringify(request) with Content-Type: application/json.
+```
+
+Copy the complete `speaker_profiles` object returned by diarization unchanged.
+Select `speaker_slot` explicitly, including for slot zero. It is the raw numeric
+slot whose decimal string matches the diarization `label`, not a normalized
+`SPEAKER_NN`, array index, or display name. `audio` and `speaker_profiles` are
+mutually exclusive. `speaker_slot` without profiles is also invalid. Audio-only
+registration keeps its existing JSON shape and behavior.
+
+The server loads the requested, authorized model and obtains encoder identity and
+dimension from backend metadata. It validates the complete profile export and
+selects the requested usable slot. Missing slots, unavailable speech, unsupported
+versions, non-finite/zero/wrong-size vectors and encoder mismatch return 400.
+A backend without trusted encoder metadata returns 501. Success returns the
+existing `{id, name, registered_at}` response.
+
+Portable registrations store the **server-derived SHA-256 identity**, not a
+caller-provided filename tag. Offline/live recognition admits these registrations
+only when the loaded encoder has the same identity and dimension. Legacy audio
+registrations retain their filename-tag compatibility rules. `/v1/voice/identify`
+filters incompatible matches; a backend unable to report trusted identity cannot
+match portable registrations, even when vector dimensions agree. Filtering can
+return fewer than `top_k` results. The parakeet diarization model need not support
+the separate audio-only VoiceEmbed RPC used by `/v1/voice/identify`.
+
+Each successful enrollment inserts a new registration with its own ID and vector.
+Duplicate display names do not merge embeddings or update an earlier enrollment.
+There is no automatic enrollment or sample aggregation.
+
+The recognition registry is **global, in-memory and per LocalAI instance**;
+registrations are lost on restart and are not synchronized across frontends.
+This is not durable “remembering” and not a per-user private address book. The
+persistent `/api/voice-profiles` TTS-cloning feature is unrelated. Export and
+registration use the existing voice-recognition permission, with existing model
+access restrictions; permission does not establish biometric consent.
+
+API tracing excludes the entire exchange for `/v1/audio/diarization`, its
+`/audio/diarization` alias, and `/v1/voice/register` before capturing bodies.
+This also protects JSON base64 audio when profile export is off. These routes
+produce no in-memory or persisted API trace; other routes keep their existing
+tracing behavior. External proxies and client logs must apply the same privacy
+policy. Existing trace files from older versions are not retroactively scrubbed.
+
+For offline and live diarization replay, registry tags never determine the
+encoder dimension. LocalAI orders candidates by registration ID (tagged first),
+then uses loaded encoder metadata to filter dimensions. Portable registrations
+require an exact SHA-256 identity match as well. Older backends without trusted
+metadata reject portable candidates and retain their native legacy dimension
+checks. Identification filters compatibility after the store's `top_k` query;
+incompatible results can crowd out compatible candidates within that window.

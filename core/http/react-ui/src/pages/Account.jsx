@@ -253,6 +253,10 @@ function ApiKeysTab({ addToast }) {
   const [newKeyPlaintext, setNewKeyPlaintext] = useState(null)
   const [revokingId, setRevokingId] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [pauseFormId, setPauseFormId] = useState(null)
+  const [pauseMode, setPauseMode] = useState('indefinite')
+  const [pauseUntil, setPauseUntil] = useState('')
+  const [pauseBusyId, setPauseBusyId] = useState(null)
 
   const fetchKeys = useCallback(async () => {
     setLoading(true)
@@ -305,6 +309,38 @@ function ApiKeysTab({ addToast }) {
         }
       },
     })
+  }
+
+  const isPaused = (k) => k.disabled || (k.pausedUntil && new Date(k.pausedUntil) > new Date())
+
+  const applyPause = async (id, disabled, pausedUntil) => {
+    setPauseBusyId(id)
+    try {
+      await apiKeysApi.setPause(id, disabled, pausedUntil)
+      setPauseFormId(null)
+      setPauseUntil('')
+      await fetchKeys()
+      addToast(t(disabled || pausedUntil ? 'account.apiKeys.pausedToast' : 'account.apiKeys.resumedToast'), 'success')
+    } catch (err) {
+      addToast(t('account.apiKeys.pauseFailed', { message: err.message }), 'error')
+    } finally {
+      setPauseBusyId(null)
+    }
+  }
+
+  const submitPause = (id) => {
+    if (pauseMode === 'until') {
+      if (!pauseUntil) return
+      applyPause(id, false, new Date(pauseUntil).toISOString())
+    } else {
+      applyPause(id, true, null)
+    }
+  }
+
+  const openPauseForm = (id) => {
+    setPauseMode('indefinite')
+    setPauseUntil('')
+    setPauseFormId(id)
   }
 
   const copyToClipboard = (text) => {
@@ -394,23 +430,88 @@ function ApiKeysTab({ addToast }) {
       ) : (
         <div className="card">
           {keys.map((k) => (
-            <div key={k.id} className="apikey-row">
-              <i className="fas fa-key apikey-icon" />
-              <div className="apikey-info">
-                <div className="apikey-name">{k.name}</div>
-                <div className="apikey-details">
-                  {k.keyPrefix}... &middot; {formatDate(k.createdAt)}
-                  {k.lastUsed && <> &middot; {t('account.apiKeys.lastUsed', { date: formatDate(k.lastUsed) })}</>}
+            <div key={k.id} className="apikey-item">
+              <div className="apikey-row">
+                <i className="fas fa-key apikey-icon" />
+                <div className="apikey-info">
+                  <div className="apikey-name">
+                    {k.name}
+                    {isPaused(k) && (
+                      <span className="apikey-paused-badge">
+                        {k.pausedUntil && !k.disabled
+                          ? t('account.apiKeys.pausedUntil', { date: formatDate(k.pausedUntil) })
+                          : t('account.apiKeys.paused')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="apikey-details">
+                    {k.keyPrefix}... &middot; {formatDate(k.createdAt)}
+                    {k.lastUsed && <> &middot; {t('account.apiKeys.lastUsed', { date: formatDate(k.lastUsed) })}</>}
+                  </div>
                 </div>
+                {isPaused(k) ? (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => applyPause(k.id, false, null)}
+                    disabled={pauseBusyId === k.id}
+                  >
+                    {pauseBusyId === k.id ? <LoadingSpinner size="sm" /> : <><i className="fas fa-play" /> {t('account.apiKeys.resume')}</>}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => (pauseFormId === k.id ? setPauseFormId(null) : openPauseForm(k.id))}
+                  >
+                    <i className="fas fa-pause" /> {t('account.apiKeys.pause')}
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm apikey-revoke-btn"
+                  onClick={() => handleRevoke(k.id, k.name)}
+                  disabled={revokingId === k.id}
+                  title={t('account.apiKeys.revokeKey')}
+                >
+                  {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" />}
+                </button>
               </div>
-              <button
-                className="btn btn-sm apikey-revoke-btn"
-                onClick={() => handleRevoke(k.id, k.name)}
-                disabled={revokingId === k.id}
-                title={t('account.apiKeys.revokeKey')}
-              >
-                {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" />}
-              </button>
+              {pauseFormId === k.id && !isPaused(k) && (
+                <div className="apikey-pause-form">
+                  <label className="apikey-pause-option">
+                    <input
+                      type="radio"
+                      name={`pause-mode-${k.id}`}
+                      checked={pauseMode === 'indefinite'}
+                      onChange={() => setPauseMode('indefinite')}
+                    />
+                    {t('account.apiKeys.pauseIndefinitely')}
+                  </label>
+                  <label className="apikey-pause-option">
+                    <input
+                      type="radio"
+                      name={`pause-mode-${k.id}`}
+                      checked={pauseMode === 'until'}
+                      onChange={() => setPauseMode('until')}
+                    />
+                    {t('account.apiKeys.pauseUntil')}
+                  </label>
+                  {pauseMode === 'until' && (
+                    <input
+                      type="datetime-local"
+                      className="input apikey-pause-date"
+                      aria-label={t('account.apiKeys.pauseUntil')}
+                      value={pauseUntil}
+                      onChange={(e) => setPauseUntil(e.target.value)}
+                    />
+                  )}
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => submitPause(k.id)}
+                    disabled={pauseBusyId === k.id || (pauseMode === 'until' && !pauseUntil)}
+                  >
+                    {t('account.apiKeys.pauseConfirm')}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

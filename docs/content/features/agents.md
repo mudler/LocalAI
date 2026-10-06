@@ -106,6 +106,14 @@ The embedded vector store sets per-connection timeouts so a single stuck or corr
 
 These are read directly from the LocalAI process environment by the embedded store (the same as `DATABASE_URL` and `HYBRID_SEARCH_*`).
 
+#### Connection pool size (PostgreSQL only)
+
+Every collection opens its own connection pool, so the total number of connections can reach the pool size times the number of collections. Keep this total below the `max_connections` setting of the PostgreSQL server.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_POOL_MAX_CONNS` | `4` | Maximum number of connections in the pool of each collection. A `pool_max_conns` parameter in the database URL has priority. |
+
 ### Docker Compose Example
 
 Basic setup with in-memory vector store:
@@ -365,6 +373,22 @@ curl -X POST http://localhost:8080/api/agents/my-agent/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "What is the weather today?"}'
 ```
+
+Each message runs as a new job. To continue a conversation, send its earlier turns as `history`; only `user` and `assistant` turns with text are used, and only the most recent 40 turns up to 64,000 characters:
+
+```bash
+curl -X POST http://localhost:8080/api/agents/my-agent/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Add two days to item 3",
+    "history": [
+      {"role": "user", "content": "Draft an offer for the rollout"},
+      {"role": "assistant", "content": "Offer AG-1: ... item 3: 15 days ..."}
+    ]
+  }'
+```
+
+The web UI does this for you: each conversation in the agent chat sends only its own visible turns. **New Chat** and switching conversations therefore continue from that conversation alone, and **Clear** starts the conversation over without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
 
 Listen to real-time events via SSE:
 

@@ -2,8 +2,13 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
@@ -20,15 +25,16 @@ import (
 // don't act on. IncludeText only matters for backends that emit
 // per-segment transcripts as a by-product (e.g. vibevoice.cpp).
 type DiarizationRequest struct {
-	Audio               string
-	Language            string
-	NumSpeakers         int32
-	MinSpeakers         int32
-	MaxSpeakers         int32
-	ClusteringThreshold float32
-	MinDurationOn       float32
-	MinDurationOff      float32
-	IncludeText         bool
+	Audio                  string
+	Language               string
+	NumSpeakers            int32
+	MinSpeakers            int32
+	MaxSpeakers            int32
+	ClusteringThreshold    float32
+	MinDurationOn          float32
+	MinDurationOff         float32
+	IncludeText            bool
+	IncludeSpeakerProfiles bool
 	// KnownVoices are registered voices a speaker-identifying backend may use
 	// to name the speakers. Empty for every other backend and model.
 	KnownVoices []voicerecognition.KnownVoice
@@ -38,21 +44,22 @@ type DiarizationRequest struct {
 func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *proto.DiarizeRequest {
 	known := make([]*proto.KnownVoice, 0, len(r.KnownVoices))
 	for _, v := range r.KnownVoices {
-		known = append(known, &proto.KnownVoice{Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+		known = append(known, &proto.KnownVoice{Id: v.ID, Name: v.Name, Embedding: v.Embedding, Model: v.Model, EncoderFamily: v.Family, EncoderWeights: v.Weights})
 	}
 	return &proto.DiarizeRequest{
-		ModelIdentity:       modelIdentity,
-		Dst:                 r.Audio,
-		Threads:             threads,
-		Language:            r.Language,
-		NumSpeakers:         r.NumSpeakers,
-		MinSpeakers:         r.MinSpeakers,
-		MaxSpeakers:         r.MaxSpeakers,
-		ClusteringThreshold: r.ClusteringThreshold,
-		MinDurationOn:       r.MinDurationOn,
-		MinDurationOff:      r.MinDurationOff,
-		IncludeText:         r.IncludeText,
-		KnownVoices:         known,
+		ModelIdentity:          modelIdentity,
+		Dst:                    r.Audio,
+		Threads:                threads,
+		Language:               r.Language,
+		NumSpeakers:            r.NumSpeakers,
+		MinSpeakers:            r.MinSpeakers,
+		MaxSpeakers:            r.MaxSpeakers,
+		ClusteringThreshold:    r.ClusteringThreshold,
+		MinDurationOn:          r.MinDurationOn,
+		MinDurationOff:         r.MinDurationOff,
+		IncludeText:            r.IncludeText,
+		IncludeSpeakerProfiles: r.IncludeSpeakerProfiles,
+		KnownVoices:            known,
 	}
 }
 
@@ -85,16 +92,29 @@ func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.Mod
 		threads = uint32(*modelConfig.Threads)
 	}
 
+	req.KnownVoices = compatiblePortableVoices(ctx, m, req.KnownVoices)
 	r, err := m.Diarize(ctx, req.toProto(threads, modelConfig.Model))
 	if err != nil {
 		return nil, err
 	}
-	return diarizationResultFromProto(r), nil
+	out := diarizationResultFromProto(r)
+	if req.IncludeSpeakerProfiles {
+		trusted, err := speakerEncoderFromBackend(ctx, m)
+		if err != nil {
+			return nil, err
+		}
+		profiles, err := decodeSpeakerProfiles(r.GetSpeakerProfilesJson(), trusted)
+		if err != nil {
+			return nil, err
+		}
+		out.SpeakerProfiles = profiles
+	}
+	return out, nil
 }
 
 // diarizationResultFromProto normalizes backend speaker labels to
 // "SPEAKER_NN" — the convention pyannote/RTTM tooling expects — while
-// keeping the original label available via the Speaker field. Each
+// keeping the original label available via the Label field. Each
 // distinct backend label gets its own normalized id, in first-seen order.
 func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationResult {
 	if r == nil {
@@ -172,5 +192,65 @@ func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationRes
 		return out.Speakers[i].Id < out.Speakers[j].Id
 	})
 
+	return out
+}
+
+// ModelSpeakerEncoder obtains trusted metadata from the configured loaded model.
+// HTTP enrollment must use this, never metadata supplied by the caller.
+func ModelSpeakerEncoder(ctx context.Context, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.SpeakerEncoder, error) {
+	m, err := loadDiarizationModel(ml, modelConfig, appConfig)
+	if err != nil {
+		return schema.SpeakerEncoder{}, err
+	}
+	return speakerEncoderFromBackend(ctx, m)
+}
+func speakerEncoderFromBackend(ctx context.Context, m grpcPkg.Backend) (schema.SpeakerEncoder, error) {
+	r, err := m.Status(ctx)
+	if err != nil {
+		return schema.SpeakerEncoder{}, err
+	}
+	e := r.GetSpeakerEncoder()
+	trusted := schema.SpeakerEncoder{Identity: e.GetIdentity(), Dimension: int(e.GetDimension()), Family: e.GetFamily()}
+	if err := (schema.SpeakerProfiles{Version: 1, Encoder: trusted}).Validate(trusted); err != nil {
+		return schema.SpeakerEncoder{}, status.Error(codes.Unimplemented, "backend does not expose trusted speaker encoder metadata")
+	}
+	return trusted, nil
+}
+func decodeSpeakerProfiles(raw string, trusted schema.SpeakerEncoder) (*schema.SpeakerProfiles, error) {
+	if raw == "" {
+		return nil, status.Error(codes.Unimplemented, "backend does not support speaker profiles")
+	}
+	var profiles schema.SpeakerProfiles
+	if err := json.Unmarshal([]byte(raw), &profiles); err != nil {
+		return nil, fmt.Errorf("decode speaker profiles: %w", err)
+	}
+	if err := profiles.Validate(trusted); err != nil {
+		return nil, err
+	}
+	return &profiles, nil
+}
+
+// Portable registrations require exact loaded identity and dimension. Legacy
+// candidates use the trusted dimension when available; older backends without
+// metadata retain their native dimension check. A portable voice with other
+// weights is dropped here unless it carries an encoder family: the backend
+// compares families, accepts another quantization of the same encoder with a
+// warning, and refuses another encoder by name.
+func compatiblePortableVoices(ctx context.Context, m grpcPkg.Backend, voices []voicerecognition.KnownVoice) []voicerecognition.KnownVoice {
+	if len(voices) == 0 {
+		return voices
+	}
+	trusted, err := speakerEncoderFromBackend(ctx, m)
+	out := make([]voicerecognition.KnownVoice, 0, len(voices))
+	for _, v := range voices {
+		if err == nil && len(v.Embedding) != trusted.Dimension {
+			continue
+		}
+		if strings.HasPrefix(v.Model, "sha256:") && (err != nil || len(v.Embedding) != trusted.Dimension ||
+			(v.Model != trusted.Identity && v.Family == "")) {
+			continue
+		}
+		out = append(out, v)
+	}
 	return out
 }
