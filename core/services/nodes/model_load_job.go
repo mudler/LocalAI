@@ -171,10 +171,26 @@ func (ref LoadJobRef) owned() bool { return ref.Generation != "" }
 // rules as any other: it is a waiter's target while its owner heartbeats, and
 // it is reclaimed once the heartbeat stops. Rows an old binary writes after
 // this runs keep the empty default and follow the same path in ClaimLoadJob.
+//
+// The UUIDs are generated here, not by the database, so the migration runs the
+// same on PostgreSQL and SQLite. Each write names the empty generation it
+// observed, so a row another frontend already upgraded is left alone.
 func backfillLoadJobGenerations(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).Exec(
-		`UPDATE model_load_jobs SET generation = gen_random_uuid()::text
-		 WHERE generation IS NULL OR generation = ''`).Error
+	const batch = 100
+	for {
+		var legacy []ModelLoadJob
+		if err := db.WithContext(ctx).Where("generation = ?", "").Limit(batch).Find(&legacy).Error; err != nil {
+			return err
+		}
+		if len(legacy) == 0 {
+			return nil
+		}
+		for _, row := range legacy {
+			if err := ownedLoadJobOn(db.WithContext(ctx), row.Ref()).Update("generation", uuid.NewString()).Error; err != nil {
+				return err
+			}
+		}
+	}
 }
 
 type (
