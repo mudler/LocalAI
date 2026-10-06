@@ -1669,7 +1669,7 @@ func (r *NodeRegistry) AdvanceModelConfigRevisions(ctx context.Context, transiti
 			if err := tx.Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Find(&transitionQuarantined).Error; err != nil {
 				return err
 			}
-			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"load_uncertain": gorm.Expr("load_uncertain OR state IN ('loading', 'staging')"), "state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
+			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"load_uncertain": gorm.Expr(uncertainReplicaSQL), "state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
 				return err
 			}
 			for i := range transitionQuarantined {
@@ -1987,13 +1987,11 @@ func (r *NodeRegistry) GetNodeModel(ctx context.Context, nodeID, modelName strin
 }
 
 // CountReplicasOnNode returns how many replicas of modelName are currently
-// recorded for nodeID (across all states). Used by NextFreeReplicaIndex and
-// by capacity checks.
+// reserved for nodeID, including uncertain work on obsolete revisions.
 func (r *NodeRegistry) CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ? AND state <> ?", nodeID, modelName, "unloading").
-		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
+	if err := reservedReplicas(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}
@@ -2016,9 +2014,8 @@ func (r *NodeRegistry) NextFreeReplicaIndex(ctx context.Context, nodeID, modelNa
 		return 0, ErrNoFreeSlot
 	}
 	var taken []int
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+	if err := reservedReplicas(r.db.WithContext(ctx).Model(&NodeModel{})).
 		Where("node_models.node_id = ? AND node_models.model_name = ?", nodeID, modelName).
-		Where("(state <> ? AND (NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_name = node_models.model_name) OR config_revision = (SELECT config_revision FROM model_config_states WHERE model_name = node_models.model_name))) OR load_uncertain = true OR state IN (?, ?)", "unloading", "staging", "loading").
 		Pluck("replica_index", &taken).Error; err != nil {
 		return 0, err
 	}
@@ -2446,12 +2443,10 @@ func (r *NodeRegistry) FindNodesWithFreeSlot(ctx context.Context, modelName stri
 	if len(candidateNodeIDs) > 0 {
 		q = q.Where("id IN ?", candidateNodeIDs)
 	}
-	// Subquery: per-node count of loaded+loading replicas of this model.
-	// We count any non-removed row (state != deleted) so a load in progress
-	// counts against the cap and a second concurrent scale-up can't overshoot.
-	subq := currentModelRevision(r.db.Model(&NodeModel{})).
+	// Count reservations, including quarantined work on obsolete revisions.
+	subq := reservedReplicas(r.db.Model(&NodeModel{})).
 		Select("node_id, COUNT(*) as cnt").
-		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
+		Where("node_models.model_name = ?", modelName).
 		Group("node_id")
 
 	var out []BackendNode
@@ -2478,9 +2473,9 @@ func (r *NodeRegistry) ClusterCapacityForModel(ctx context.Context, modelName st
 	if len(candidateNodeIDs) > 0 {
 		q = q.Where("id IN ?", candidateNodeIDs)
 	}
-	subq := currentModelRevision(r.db.Model(&NodeModel{})).
+	subq := reservedReplicas(r.db.Model(&NodeModel{})).
 		Select("node_id, COUNT(*) as cnt").
-		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
+		Where("node_models.model_name = ?", modelName).
 		Group("node_id")
 
 	var nodes []struct {
@@ -2930,10 +2925,23 @@ func (r *NodeRegistry) CountPendingBackendOpsByBackend(ctx context.Context) (map
 	return out, nil
 }
 
-// removableReplicas is applied to the DELETE itself, not a preceding read.
-// The row marker persists even when a config edit changes state to unloading.
+// A published replica can still belong to an unfinished owner. Consult the job
+// in the same SQL statement: failure and config changes may commit in either
+// order, and publication alone does not confirm that remote work ended.
+const attributedLoadJobSQL = "SELECT 1 FROM model_load_jobs WHERE tracking_key = node_models.model_name AND (generation = node_models.load_generation OR generation = '')"
+const uncertainReplicaSQL = "(load_uncertain = true OR state IN ('staging', 'loading') OR EXISTS (" + attributedLoadJobSQL + " AND (work_uncertain = true OR generation = '')))"
+const protectedReplicaSQL = "(" + uncertainReplicaSQL + " OR EXISTS (" + attributedLoadJobSQL + " AND terminal_until IS NULL))"
+
+// reservedReplicas is the shared admission/capacity authority, not a serving
+// filter. Confirmed unloading or obsolete rows remain reusable, but protected
+// work occupies its slot regardless of the current configuration revision.
+func reservedReplicas(tx *gorm.DB) *gorm.DB {
+	return tx.Where(protectedReplicaSQL + " OR (node_models.state <> 'unloading' AND (NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_name = node_models.model_name)))")
+}
+
+// removableReplicas applies the same protection to the DELETE itself.
 func removableReplicas(tx *gorm.DB) *gorm.DB {
-	return tx.Where("load_uncertain = false AND state NOT IN (?, ?)", "staging", "loading").Where("NOT EXISTS (SELECT 1 FROM model_load_jobs WHERE tracking_key = node_models.model_name AND (generation = node_models.load_generation OR generation = '') AND (work_uncertain = true OR generation = ''))")
+	return tx.Where("NOT " + protectedReplicaSQL)
 }
 
 // replicaObservationKey binds asynchronous probes to the row they inspected.
