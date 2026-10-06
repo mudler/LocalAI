@@ -44,11 +44,16 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{Name: ToolCancelModelLoad, Description: "Cancel one distributed load generation. Requires user confirmation per safety rule 1. Uncertain means cancellation is pending, not that work stopped."}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
 		Model string `json:"model"`
 		JobID string `json:"job_id"`
-	}) (*mcp.CallToolResult, any, error) { if args.Model == "" || args.JobID == "" {
-		return errorResultf("model and job_id are required"), nil, nil
-	}; result, err := client.CancelModelLoad(ctx, args.Model, args.JobID); if err != nil {
-		return errorResult(err), nil, nil
-	}; return jsonResult(result), nil, nil })
+	}) (*mcp.CallToolResult, any, error) {
+		if args.Model == "" || args.JobID == "" {
+			return errorResultf("model and job_id are required"), nil, nil
+		}
+		result, err := client.CancelModelLoad(ctx, args.Model, args.JobID)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(result), nil, nil
+	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        ToolEditModelConfig,

@@ -54,6 +54,9 @@ func (stubClient) ReloadModels(_ context.Context) error { return nil }
 func (stubClient) LoadModel(_ context.Context, model string) ([]string, error) {
 	return []string{model}, nil
 }
+func (stubClient) CancelModelLoad(_ context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	return localaitools.LoadCancelResult{Model: model, JobID: jobID, State: "uncertain"}, nil
+}
 func (stubClient) SetAlias(_ context.Context, _, _ string) error {
 	return nil
 }
@@ -173,6 +176,18 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		out, err := exec.ExecuteTool(ctx, "list_installed_models", `{"capability":"chat"}`)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(out).ToNot(BeEmpty())
+	})
+
+	It("dispatches cancellation for the exact load generation", func() {
+		h := NewLocalAIAssistantHolder()
+		DeferCleanup(h.Close)
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+
+		exec := h.Executor()
+		Expect(exec.IsTool(localaitools.ToolCancelModelLoad)).To(BeTrue())
+		out, err := exec.ExecuteTool(ctx, localaitools.ToolCancelModelLoad, `{"model":"stub-model","job_id":"stub-generation"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(MatchJSON(`{"model":"stub-model","job_id":"stub-generation","state":"uncertain"}`))
 	})
 
 	It("Initialize is exactly-once even under concurrent callers", func() {
