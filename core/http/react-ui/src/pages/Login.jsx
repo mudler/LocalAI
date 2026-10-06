@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import './auth.css'
+import Icon from '../components/Icon'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -279,7 +280,7 @@ export default function Login() {
             className="btn btn-primary login-btn-full"
             style={{ marginBottom: hasOIDC ? '0.5rem' : undefined }}
           >
-            <i className="fab fa-github" /> {t('login.signInWithGitHub')}
+            <Icon name="github" /> {t('login.signInWithGitHub')}
           </a>
         )}
 
@@ -288,7 +289,7 @@ export default function Login() {
             href={oidcLoginUrl}
             className="btn btn-primary login-btn-full"
           >
-            <i className="fas fa-sign-in-alt" /> {t('login.signInWithSSO')}
+            <Icon name="log-in" /> {t('login.signInWithSSO')}
           </a>
         )}
 
@@ -453,7 +454,7 @@ export default function Login() {
                 />
               </div>
               <button type="submit" className="btn btn-secondary login-btn-full" disabled={submitting}>
-                <i className="fas fa-key" /> {t('login.loginWithToken')}
+                <Icon name="key" /> {t('login.loginWithToken')}
               </button>
             </form>
           )}

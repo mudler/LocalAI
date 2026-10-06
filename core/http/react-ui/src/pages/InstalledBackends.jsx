@@ -12,10 +12,11 @@ import EntityRail from '../components/split/EntityRail'
 import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { stripMarkdown } from '../utils/markdown'
+import Icon from '../components/Icon'
 
 const STATE_GROUPS = [
-  { id: 'update', labelKey: 'backends.lifecycle.updateGroup', icon: 'fa-arrow-up' },
-  { id: 'installed', labelKey: 'backends.lifecycle.installedGroup', icon: 'fa-check' },
+  { id: 'update', labelKey: 'backends.lifecycle.updateGroup', icon: 'arrow-up' },
+  { id: 'installed', labelKey: 'backends.lifecycle.installedGroup', icon: 'check' },
 ]
 
 const VALID_STATES = new Set(['all', 'user', 'system', 'upgradable', 'offline'])
@@ -211,19 +212,19 @@ export default function InstalledBackends({
   }
 
   const filters = [
-    { key: 'all', label: t('backends.lifecycle.filterAll'), icon: 'fa-layer-group', count: visibleBase.length },
-    { key: 'user', label: t('backends.lifecycle.filterUser'), icon: 'fa-download', count: visibleBase.filter(backend => !backend.IsSystem).length },
-    { key: 'system', label: t('backends.lifecycle.filterSystem'), icon: 'fa-shield-alt', count: visibleBase.filter(backend => backend.IsSystem).length },
+    { key: 'all', label: t('backends.lifecycle.filterAll'), icon: 'layers', count: visibleBase.length },
+    { key: 'user', label: t('backends.lifecycle.filterUser'), icon: 'download', count: visibleBase.filter(backend => !backend.IsSystem).length },
+    { key: 'system', label: t('backends.lifecycle.filterSystem'), icon: 'shield', count: visibleBase.filter(backend => backend.IsSystem).length },
     ...(Object.keys(upgrades).length > 0 ? [{
       key: 'upgradable',
       label: t('backends.lifecycle.filterUpdates'),
-      icon: 'fa-arrow-up',
+      icon: 'arrow-up',
       count: visibleBase.filter(backend => upgrades[backend.Name]).length,
     }] : []),
     ...(distributedEnabled && visibleBase.some(offlineFor) ? [{
       key: 'offline',
       label: t('backends.lifecycle.filterOffline'),
-      icon: 'fa-exclamation-circle',
+      icon: 'alert-circle',
       count: visibleBase.filter(offlineFor).length,
     }] : []),
   ]
@@ -235,12 +236,12 @@ export default function InstalledBackends({
       {Object.keys(upgrades).length > 0 && (
         <div className="upgrade-banner">
           <div className="upgrade-banner__text">
-            <i className="fas fa-arrow-up" aria-hidden="true" />
+            <Icon name="arrow-up" />
             <span>{t('backends.lifecycle.updatesAvailable', { count: Object.keys(upgrades).length })}</span>
           </div>
           <div className="upgrade-banner__actions">
             <button className="btn btn-primary btn-sm" onClick={handleUpgradeAll} disabled={upgradingAll}>
-              <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} aria-hidden="true" />
+              <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} />
               {upgradingAll ? t('backends.lifecycle.upgrading') : t('backends.lifecycle.upgradeAll')}
             </button>
           </div>
@@ -249,14 +250,14 @@ export default function InstalledBackends({
 
       {globalError && (
         <div className="attention-callout attention-callout--error mb-md" role="alert">
-          <i className="fas fa-circle-exclamation" aria-hidden="true" />
+          <Icon name="alert-circle" />
           <span>{globalError}</span>
         </div>
       )}
 
       {backends.length === 0 ? (
         <div className="empty-state empty-state--page">
-          <div className="empty-state-icon"><i className="fas fa-server" /></div>
+          <div className="empty-state-icon"><Icon name="server" /></div>
           <h2 className="empty-state-title">{t('backends.lifecycle.emptyTitle')}</h2>
           <p className="empty-state-text">{t('backends.lifecycle.emptyBody')}</p>
         </div>
@@ -275,7 +276,7 @@ export default function InstalledBackends({
                 label: hiddenVariantCount > 0
                   ? t('backends.lifecycle.variantsCount', { count: hiddenVariantCount })
                   : t('backends.lifecycle.variants'),
-                icon: 'fa-cubes',
+                icon: 'boxes',
                 checked: showVariants,
                 onChange: () => updateParam('show_all', showVariants ? '' : '1'),
               },
@@ -284,7 +285,7 @@ export default function InstalledBackends({
                 label: hiddenDevelopmentCount > 0
                   ? t('backends.lifecycle.developmentCount', { count: hiddenDevelopmentCount })
                   : t('backends.lifecycle.development'),
-                icon: 'fa-flask',
+                icon: 'flask',
                 checked: showDevelopment,
                 onChange: () => updateParam('development', showDevelopment ? '' : '1'),
               },
@@ -293,7 +294,7 @@ export default function InstalledBackends({
 
           {visibleBackends.length === 0 ? (
             <div className="empty-state">
-              <i className="fas fa-filter" />
+              <Icon name="filter" />
               <p>{t('backends.lifecycle.noMatches')}</p>
               <button className="btn btn-ghost btn-sm" onClick={() => {
                 setSearchParams(prev => {
@@ -380,7 +381,7 @@ function railItemForBackend(backend, upgrades, isProcessing, t) {
     metaTone = 'warn'
   }
 
-  return { id: backend.Name, name: backend.Name, icon: 'fa-server', meta, metaTone, stripe, groupId }
+  return { id: backend.Name, name: backend.Name, icon: 'server', meta, metaTone, stripe, groupId }
 }
 
 function InstalledBackendDetail({
@@ -404,7 +405,7 @@ function InstalledBackendDetail({
     <div className="detail-pane">
       <DetailHeader
         testId="backends-installed"
-        icon="fa-server"
+        icon="server"
         name={name}
         lede={catalog?.description ? stripMarkdown(catalog.description).slice(0, 220) : null}
         ledeTitle={catalog?.description ? stripMarkdown(catalog.description) : null}
@@ -412,13 +413,13 @@ function InstalledBackendDetail({
         backLabel={t('backends.lifecycle.allBackends')}
         actions={backend.IsSystem ? (
           <span className="badge" title={t('backends.lifecycle.protectedTitle')}>
-            <i className="fas fa-lock" /> {t('backends.lifecycle.protected')}
+            <Icon name="lock" /> {t('backends.lifecycle.protected')}
           </span>
         ) : (
           <>
             {upgrade && (
               <button className="btn btn-primary btn-sm" onClick={() => onUpgrade(name)} disabled={processing}>
-                <i className="fas fa-arrow-up" />
+                <Icon name="arrow-up" />
                 {upgrade.available_version
                   ? t('backends.lifecycle.upgradeTo', { version: upgrade.available_version })
                   : t('backends.lifecycle.upgrade')}
@@ -430,7 +431,7 @@ function InstalledBackendDetail({
               items={[
                 {
                   key: 'reinstall',
-                  icon: 'fa-rotate',
+                  icon: 'refresh',
                   label: t('backends.lifecycle.reinstall'),
                   onClick: () => onReinstall(name),
                   disabled: processing,
@@ -438,7 +439,7 @@ function InstalledBackendDetail({
                 { divider: true },
                 {
                   key: 'delete',
-                  icon: 'fa-trash',
+                  icon: 'trash',
                   label: t('backends.lifecycle.deleteBackend'),
                   danger: true,
                   onClick: () => onDelete(name),
@@ -451,7 +452,7 @@ function InstalledBackendDetail({
 
       {error && (
         <div className="attention-callout attention-callout--error" role="alert">
-          <i className="fas fa-circle-exclamation" aria-hidden="true" />
+          <Icon name="alert-circle" />
           <span>{error}</span>
         </div>
       )}
@@ -532,7 +533,7 @@ function InstalledOverview({ backends, upgrades, onSelect, t }) {
           <div className="rowlist">
             {staleNames.map(name => (
               <button className="rowline" key={name} onClick={() => onSelect(name)}>
-                <span className="badge badge-warning"><i className="fas fa-arrow-up icon-tiny" /> {t('backends.lifecycle.updateAvailable')}</span>
+                <span className="badge badge-warning"><Icon name="arrow-up" className="icon-tiny" /> {t('backends.lifecycle.updateAvailable')}</span>
                 <span>{name}</span>
               </button>
             ))}

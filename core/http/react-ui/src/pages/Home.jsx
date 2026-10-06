@@ -21,6 +21,7 @@ import SectionHeading from '../components/SectionHeading'
 import EmptyState from '../components/EmptyState'
 import StarterModels from '../components/StarterModels'
 import { staggerStyle } from '../hooks/useStagger'
+import Icon from '../components/Icon'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -334,13 +335,13 @@ export default function Home() {
               onClick={openAssistantChat}
               className="home-assistant-card"
             >
-              <span className="home-assistant-icon"><i className="fas fa-user-shield" /></span>
+              <span className="home-assistant-icon"><Icon name="user-shield" /></span>
               <span className="home-assistant-text">
                 <span className="home-assistant-title">{t('assistant.title')}</span>
                 <span className="home-assistant-desc">{t('assistant.description')}</span>
               </span>
               <span className="home-assistant-cta">
-                {t('assistant.open')} <i className="fas fa-arrow-right" />
+                {t('assistant.open')} <Icon name="arrow-right" />
               </span>
             </button>
           )}
@@ -378,10 +379,10 @@ export default function Home() {
                 <div className="home-file-tags">
                   {allFiles.map((f, i) => (
                     <span key={i} className="home-file-tag">
-                      <i className={`fas ${f.type?.startsWith('image/') ? 'fa-image' : f.type?.startsWith('audio/') ? 'fa-microphone' : 'fa-file'}`} />
+                      <Icon name={f.type?.startsWith('image/') ? 'image' : f.type?.startsWith('audio/') ? 'mic' : 'file'} />
                       {f.name}
                       <button type="button" onClick={() => removeFile(f)}>
-                        <i className="fas fa-times" />
+                        <Icon name="close" />
                       </button>
                     </span>
                   ))}
@@ -406,13 +407,13 @@ export default function Home() {
                 <div className="home-input-footer">
                   <div className="home-attach-buttons">
                     <button type="button" className="home-attach-btn" onClick={() => imageInputRef.current?.click()} title={t('input.attachImage')}>
-                      <i className="fas fa-image" />
+                      <Icon name="image" />
                     </button>
                     <button type="button" className="home-attach-btn" onClick={() => audioInputRef.current?.click()} title={t('input.attachAudio')}>
-                      <i className="fas fa-microphone" />
+                      <Icon name="mic" />
                     </button>
                     <button type="button" className="home-attach-btn" onClick={() => fileInputRef.current?.click()} title={t('input.attachFile')}>
-                      <i className="fas fa-file" />
+                      <Icon name="file" />
                     </button>
                   </div>
                   <span className="home-input-hint">{t('input.enterToSend')}</span>
@@ -423,7 +424,7 @@ export default function Home() {
                     disabled={!selectedModel}
                     title={!selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')}
                   >
-                    <i className="fas fa-arrow-up" />
+                    <Icon name="arrow-up" />
                   </button>
                 </div>
                 <input ref={imageInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => addFiles(e.target.files, setImageFiles)} />
@@ -443,22 +444,22 @@ export default function Home() {
                     onClick={openAssistantChat}
                     title={t('assistant.tooltip')}
                   >
-                    <i className="fas fa-user-shield" /> {t('quickLinks.manageByChat')}
+                    <Icon name="user-shield" /> {t('quickLinks.manageByChat')}
                   </button>
                 )}
                 <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-                  <i className="fas fa-download" aria-hidden="true" /> {t('quickLinks.browseGallery')}
+                  <Icon name="download" /> {t('quickLinks.browseGallery')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/models?view=installed')}>
-                  <i className="fas fa-desktop" aria-hidden="true" /> {t('quickLinks.installedModels')}
+                  <Icon name="monitor" /> {t('quickLinks.installedModels')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-                  <i className="fas fa-upload" aria-hidden="true" /> {t('quickLinks.importModel')}
+                  <Icon name="upload" /> {t('quickLinks.importModel')}
                 </button>
               </>
             )}
             <a className="home-link-btn home-link-btn--quiet" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" aria-hidden="true" /> {t('quickLinks.documentation')}
+              <Icon name="book" /> {t('quickLinks.documentation')}
             </a>
           </div>
 
@@ -522,7 +523,7 @@ export default function Home() {
                         title={t('loadedModels.stop')}
                         aria-label={t('loadedModels.stop')}
                       >
-                        <i className="fas fa-times" aria-hidden="true" />
+                        <Icon name="close" />
                       </button>
                     </li>
                   ))}
@@ -543,7 +544,7 @@ export default function Home() {
         <div className="home-wizard">
           <EmptyState
             eyebrow={branding.instanceName}
-            icon="fa-rocket"
+            icon="rocket"
             title={t('wizard.getStarted', { name: branding.instanceName })}
             body={t('wizard.intro')}
           />
@@ -576,13 +577,13 @@ export default function Home() {
 
           <div className="home-wizard-actions">
             <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-              <i className="fas fa-store" /> {t('wizard.browseGallery')}
+              <Icon name="store" /> {t('wizard.browseGallery')}
             </button>
             <button className="btn btn-secondary" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> {t('wizard.importModel')}
+              <Icon name="upload" /> {t('wizard.importModel')}
             </button>
             <a className="btn btn-secondary" href="https://localai.io/docs/getting-started" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> {t('wizard.docs')}
+              <Icon name="book" /> {t('wizard.docs')}
             </a>
           </div>
         </div>
@@ -596,7 +597,7 @@ export default function Home() {
           </div>
           <div className="home-wizard-actions">
             <a className="btn btn-secondary" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-book" /> {t('quickLinks.documentation')}
+              <Icon name="book" /> {t('quickLinks.documentation')}
             </a>
           </div>
         </div>

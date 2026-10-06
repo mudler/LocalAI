@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader'
 import SettingRow from '../components/SettingRow'
 import ConfirmDialog from '../components/ConfirmDialog'
 import './auth.css'
+import Icon from '../components/Icon'
 
 function formatDate(d) {
   if (!d) return '-'
@@ -15,9 +16,9 @@ function formatDate(d) {
 }
 
 const TABS = [
-  { id: 'profile', icon: 'fa-user', labelKey: 'account.tabs.profile' },
-  { id: 'security', icon: 'fa-lock', labelKey: 'account.tabs.security' },
-  { id: 'apikeys', icon: 'fa-key', labelKey: 'account.tabs.apiKeys' },
+  { id: 'profile', icon: 'user', labelKey: 'account.tabs.profile' },
+  { id: 'security', icon: 'lock', labelKey: 'account.tabs.security' },
+  { id: 'apikeys', icon: 'key', labelKey: 'account.tabs.apiKeys' },
 ]
 
 function ProfileTab({ addToast }) {
@@ -55,7 +56,7 @@ function ProfileTab({ addToast }) {
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="user-avatar--lg" />
           ) : (
-            <i className="fas fa-user account-avatar-icon" />
+            <Icon name="user" className="account-avatar-icon" />
           )}
         </div>
         <div className="account-user-meta">
@@ -115,7 +116,7 @@ function ProfileTab({ addToast }) {
           >
             {saving
               ? <><LoadingSpinner size="sm" /> {t('account.profile.saving')}</>
-              : <><i className="fas fa-save" /> {t('account.profile.save')}</>}
+              : <><Icon name="save" /> {t('account.profile.save')}</>}
           </button>
         </div>
       </form>
@@ -164,7 +165,7 @@ function SecurityTab({ addToast }) {
   if (!isLocal) {
     return (
       <div className="card empty-icon-block">
-        <i className="fas fa-shield-halved" />
+        <Icon name="shield" />
         <div className="empty-icon-block-text">
           {t('account.security.oauthOnly', { provider: user?.provider || 'OAuth' })}
         </div>
@@ -387,7 +388,7 @@ function ApiKeysTab({ addToast }) {
                 maxLength={64}
               />
               <button type="submit" className="btn btn-primary btn-sm" disabled={creating || !newKeyName.trim()}>
-                {creating ? <LoadingSpinner size="sm" /> : <><i className="fas fa-plus" /> {t('account.apiKeys.createButton')}</>}
+                {creating ? <LoadingSpinner size="sm" /> : <><Icon name="plus" /> {t('account.apiKeys.createButton')}</>}
               </button>
             </div>
           </SettingRow>
@@ -398,7 +399,7 @@ function ApiKeysTab({ addToast }) {
       {newKeyPlaintext && (
         <div className="new-key-banner">
           <div className="new-key-banner-header">
-            <i className="fas fa-triangle-exclamation" />
+            <Icon name="warning" />
             {t('account.apiKeys.copyNow')}
           </div>
           <div className="new-key-banner-body">
@@ -406,10 +407,10 @@ function ApiKeysTab({ addToast }) {
               {newKeyPlaintext}
             </code>
             <button className="btn btn-secondary btn-sm" onClick={() => copyToClipboard(newKeyPlaintext)}>
-              <i className="fas fa-copy" />
+              <Icon name="copy" />
             </button>
             <button className="btn btn-secondary btn-sm" onClick={() => setNewKeyPlaintext(null)}>
-              <i className="fas fa-times" />
+              <Icon name="close" />
             </button>
           </div>
         </div>
@@ -422,7 +423,7 @@ function ApiKeysTab({ addToast }) {
         </div>
       ) : keys.length === 0 ? (
         <div className="card empty-icon-block">
-          <i className="fas fa-key" />
+          <Icon name="key" />
           <div className="empty-icon-block-text">
             {t('account.apiKeys.empty')}
           </div>
@@ -432,7 +433,7 @@ function ApiKeysTab({ addToast }) {
           {keys.map((k) => (
             <div key={k.id} className="apikey-item">
               <div className="apikey-row">
-                <i className="fas fa-key apikey-icon" />
+                <Icon name="key" className="apikey-icon" />
                 <div className="apikey-info">
                   <div className="apikey-name">
                     {k.name}
@@ -455,14 +456,14 @@ function ApiKeysTab({ addToast }) {
                     onClick={() => applyPause(k.id, false, null)}
                     disabled={pauseBusyId === k.id}
                   >
-                    {pauseBusyId === k.id ? <LoadingSpinner size="sm" /> : <><i className="fas fa-play" /> {t('account.apiKeys.resume')}</>}
+                    {pauseBusyId === k.id ? <LoadingSpinner size="sm" /> : <><Icon name="play" /> {t('account.apiKeys.resume')}</>}
                   </button>
                 ) : (
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => (pauseFormId === k.id ? setPauseFormId(null) : openPauseForm(k.id))}
                   >
-                    <i className="fas fa-pause" /> {t('account.apiKeys.pause')}
+                    <Icon name="pause" /> {t('account.apiKeys.pause')}
                   </button>
                 )}
                 <button
@@ -471,7 +472,7 @@ function ApiKeysTab({ addToast }) {
                   disabled={revokingId === k.id}
                   title={t('account.apiKeys.revokeKey')}
                 >
-                  {revokingId === k.id ? <LoadingSpinner size="sm" /> : <i className="fas fa-trash" />}
+                  {revokingId === k.id ? <LoadingSpinner size="sm" /> : <Icon name="trash" />}
                 </button>
               </div>
               {pauseFormId === k.id && !isPaused(k) && (
@@ -539,7 +540,7 @@ export default function Account() {
     return (
       <div className="page page--narrow">
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-user-gear" /></div>
+          <div className="empty-state-icon"><Icon name="user-settings" /></div>
           <h2 className="empty-state-title">{t('account.unavailable')}</h2>
           <p className="empty-state-text">{t('account.unavailableText')}</p>
         </div>
@@ -564,7 +565,7 @@ export default function Account() {
             onClick={() => setActiveTab(tab.id)}
             className={`auth-tab ${activeTab === tab.id ? 'active' : ''}`}
           >
-            <i className={`fas ${tab.icon} auth-tab-icon`} />
+            <Icon name={tab.icon} className="auth-tab-icon" />
             {t(tab.labelKey)}
           </button>
         ))}

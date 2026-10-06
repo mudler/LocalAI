@@ -14,13 +14,14 @@ import TemplateSelector from '../components/TemplateSelector'
 import { ModelFailoverStatus } from '../components/FailoverChainStatus'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
+import Icon from '../components/Icon'
 
 const SECTION_ICONS = {
-  general: 'fa-cog', llm: 'fa-microchip', parameters: 'fa-sliders',
-  templates: 'fa-file-code', functions: 'fa-wrench', reasoning: 'fa-brain',
-  diffusers: 'fa-image', tts: 'fa-volume-up', pipeline: 'fa-code-branch',
-  grpc: 'fa-server', agent: 'fa-robot', mcp: 'fa-plug', router: 'fa-route', proxy: 'fa-cloud',
-  mitm: 'fa-user-secret', pii: 'fa-user-shield', failover: 'fa-shuffle', other: 'fa-ellipsis-h',
+  general: 'settings', llm: 'cpu', parameters: 'sliders',
+  templates: 'file-code', functions: 'wrench', reasoning: 'brain',
+  diffusers: 'image', tts: 'volume', pipeline: 'git-branch',
+  grpc: 'server', agent: 'robot', mcp: 'plug', router: 'route', proxy: 'cloud',
+  mitm: 'user-secret', pii: 'user-shield', failover: 'shuffle', other: 'more',
 }
 
 const SECTION_COLORS = {
@@ -268,7 +269,7 @@ export default function ModelEditor() {
     if (vramEstimate.loading) {
       return (
         <div className="text-meta mt-xs">
-          <i className="fas fa-spinner fa-spin icon-before" />
+          <Icon name="spinner" spin className="icon-before" />
           Estimating VRAM...
         </div>
       )
@@ -276,7 +277,7 @@ export default function ModelEditor() {
     if (vramEstimate.vramDisplay) {
       return (
         <div className="text-xs text-warning fw-medium mt-xs">
-          <i className="fas fa-memory icon-before" />
+          <Icon name="memory" className="icon-before" />
           ~{vramEstimate.vramDisplay} VRAM
         </div>
       )
@@ -463,16 +464,16 @@ export default function ModelEditor() {
             else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/models?view=installed')
           }}>
-            <i className="fas fa-arrow-left" /> {t('actions.backTo', {page: backPage})}
+            <Icon name="arrow-left" /> {t('actions.backTo', {page: backPage})}
           </button>
           {!showTemplateSelector && tab === 'interactive' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleYamlSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
         </div>
@@ -502,7 +503,7 @@ export default function ModelEditor() {
                   }}
                   className={`me-tab${active ? ' me-tab--on' : ''}${blocked ? ' me-tab--blocked' : ''}`}
                 >
-                  <i className={`fas ${tb === 'interactive' ? 'fa-sliders' : 'fa-code'} icon-before`} />
+                  <Icon name={tb === 'interactive' ? 'sliders' : 'code'} className="icon-before" />
                   {tb === 'interactive' ? t('tabs.interactive') : t('tabs.yaml')}
                 </button>
               )
@@ -510,7 +511,7 @@ export default function ModelEditor() {
           </div>
           {tabSwitchWarning && isDirty && (
             <div className="me-warn">
-              <i className="fas fa-exclamation-triangle" />
+              <Icon name="warning" />
               <span>{t('actions.switchWarning')}</span>
               <button
                 className="btn btn-secondary ml-auto pill-tiny"
@@ -557,7 +558,7 @@ export default function ModelEditor() {
             <div className="me-pad mb-md">
               <div className="card pad-md">
                 <label className="form-label fw-semibold">
-                  <i className="fas fa-tag icon-before text-primary" />
+                  <Icon name="tag" className="icon-before text-primary" />
                   {t('forms.modelName.label')}
                 </label>
                 <input
@@ -596,10 +597,7 @@ export default function ModelEditor() {
                   onClick={() => scrollTo(s.id)}
                   className={`set-rail__item${activeSection === s.id ? ' set-rail__item--on' : ''}`}
                 >
-                  <i
-                    className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'} set-rail__icon`}
-                    style={activeSection === s.id ? { color: SECTION_COLORS[s.id] || 'var(--color-primary)' } : undefined}
-                  />
+                  <Icon name={SECTION_ICONS[s.id] || 'settings'} className="set-rail__icon" style={activeSection === s.id ? { color: SECTION_COLORS[s.id] || 'var(--color-primary)' } : undefined} />
                   {s.label}
                   <span className="ml-auto text-meta">
                     {fieldsBySection[s.id]?.length || 0}
@@ -619,7 +617,7 @@ export default function ModelEditor() {
             >
               {activeSections.length === 0 && (
                 <div className="card loading-center text-center">
-                  <i className="fas fa-sliders icon-xl text-muted mb-md" />
+                  <Icon name="sliders" className="icon-xl text-muted mb-md" />
                   <h3 className="mb-sm">{t('forms.empty.title')}</h3>
                   <p className="text-base text-secondary">
                     {t('forms.empty.text')}
@@ -636,9 +634,8 @@ export default function ModelEditor() {
                       onClick={() => toggleSection(s.id)}
                       className={`me-section-head${isCollapsed ? ' me-section-head--collapsed' : ''}`}
                     >
-                      <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} me-chevron`} />
-                      <i className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'}`}
-                        style={{ color: SECTION_COLORS[s.id] || 'var(--color-primary)' }} />
+                      <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} className="me-chevron" />
+                      <Icon name={SECTION_ICONS[s.id] || 'settings'} style={{ color: SECTION_COLORS[s.id] || 'var(--color-primary)' }} />
                       {s.label}
                       <span className="text-xs fw-normal text-muted">
                         ({sectionFields.length})

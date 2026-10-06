@@ -10,6 +10,7 @@ import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
 import ModalityChips from '../components/ModalityChips'
+import Icon from '../components/Icon'
 
 // Fallback list used when /backends/known fails — keeps the form usable
 // with auto-detect only rather than showing an empty dropdown.
@@ -415,7 +416,7 @@ export default function ImportModel() {
       </ul>
       <p className="import-formats__foot">
         <a href="https://huggingface.co/models?sort=trending" target="_blank" rel="noreferrer">
-          {t('actions.browseHF')} <i className="fas fa-external-link-alt" aria-hidden="true" />
+          {t('actions.browseHF')} <Icon name="external-link" />
         </a>
       </p>
     </div>
@@ -449,7 +450,7 @@ export default function ImportModel() {
           if (!selected || selected.installed) return null
           return (
             <p data-testid="auto-install-note" className="form-hint-sm hstack hstack--xs">
-              <i className="fas fa-download" aria-hidden="true" />
+              <Icon name="download" />
               {t('form.backendNotInstalled')}
             </p>
           )
@@ -533,7 +534,7 @@ export default function ImportModel() {
         <div className="hstack hstack--between">
           <span className="form-label">{t('form.customPreferences')}</span>
           <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomPref} disabled={isSubmitting}>
-            <i className="fas fa-plus" aria-hidden="true" /> {t('actions.addCustom')}
+            <Icon name="plus" /> {t('actions.addCustom')}
           </button>
         </div>
         <p className="form-hint-sm import-field__lead">{t('form.customKeyValueHint')}</p>
@@ -564,7 +565,7 @@ export default function ImportModel() {
               disabled={isSubmitting}
               aria-label={t('form.removePref')}
             >
-              <i className="fas fa-trash" aria-hidden="true" />
+              <Icon name="trash" />
             </button>
           </div>
         ))}
@@ -599,7 +600,7 @@ export default function ImportModel() {
               onClick={() => setTab('source')}
               data-testid="import-tab-source"
             >
-              <i className="fas fa-link" aria-hidden="true" />
+              <Icon name="link" />
               {t('tabs.source')}
             </button>
             <button
@@ -610,7 +611,7 @@ export default function ImportModel() {
               onClick={() => setTab('yaml')}
               data-testid="import-tab-yaml"
             >
-              <i className="fas fa-code" aria-hidden="true" />
+              <Icon name="code" />
               {t('tabs.yaml')}
             </button>
           </div>
@@ -652,7 +653,7 @@ export default function ImportModel() {
                 >
                   {isSubmitting
                     ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</>
-                    : <><i className="fas fa-file-import" aria-hidden="true" /> {t('actions.import')}</>}
+                    : <><Icon name="import" /> {t('actions.import')}</>}
                 </button>
               </div>
               <p className="form-hint-sm">{t('form.uriHint')}</p>
@@ -667,7 +668,7 @@ export default function ImportModel() {
                     aria-controls="import-formats-panel"
                     onClick={() => setShowFormats(v => !v)}
                   >
-                    <i className={`fas fa-chevron-${showFormats ? 'down' : 'right'}`} aria-hidden="true" />
+                    <Icon name={`chevron-${showFormats ? 'down' : 'right'}`} />
                     {t('form.supportedFormats')}
                   </button>
                   {showFormats && <div id="import-formats-panel">{renderFormats()}</div>}
@@ -745,7 +746,7 @@ export default function ImportModel() {
                 aria-controls="import-options-panel"
                 onClick={() => setShowOptions(v => !v)}
               >
-                <i className={`fas fa-chevron-${showOptions ? 'down' : 'right'}`} aria-hidden="true" />
+                <Icon name={`chevron-${showOptions ? 'down' : 'right'}`} />
                 {t('form.options')}
                 {!showOptions && <span className="import-options__summary">{t('form.optionsSummary')}</span>}
               </button>
@@ -767,7 +768,7 @@ export default function ImportModel() {
                 className="btn btn-secondary btn-sm"
                 onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}
               >
-                <i className="fas fa-copy" aria-hidden="true" /> {t('actions.copy')}
+                <Icon name="copy" /> {t('actions.copy')}
               </button>
               <button
                 type="button"
@@ -778,7 +779,7 @@ export default function ImportModel() {
               >
                 {isSubmitting
                   ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</>
-                  : <><i className="fas fa-plus" aria-hidden="true" /> {t('actions.create')}</>}
+                  : <><Icon name="plus" /> {t('actions.create')}</>}
               </button>
             </div>
           </div>

@@ -21,6 +21,7 @@ import StatGrid from '../components/split/StatGrid'
 import { useResources } from '../hooks/useResources'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import InstalledBackends from './InstalledBackends'
+import Icon from '../components/Icon'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
@@ -394,13 +395,13 @@ export default function Backends() {
   }
 
   const FILTERS = [
-    { key: '', label: 'All', icon: 'fa-layer-group' },
-    { key: 'chat', label: 'Chat', icon: 'fa-brain' },
-    { key: 'image', label: 'Image', icon: 'fa-image' },
-    { key: 'video', label: 'Video', icon: 'fa-video' },
-    { key: 'tts', label: 'TTS', icon: 'fa-microphone' },
-    { key: 'transcript', label: 'STT', icon: 'fa-headphones' },
-    { key: 'vision', label: 'Vision', icon: 'fa-eye' },
+    { key: '', label: 'All', icon: 'layers' },
+    { key: 'chat', label: 'Chat', icon: 'brain' },
+    { key: 'image', label: 'Image', icon: 'image' },
+    { key: 'video', label: 'Video', icon: 'video' },
+    { key: 'tts', label: 'TTS', icon: 'mic' },
+    { key: 'transcript', label: 'STT', icon: 'headphones' },
+    { key: 'vision', label: 'Vision', icon: 'eye' },
   ]
 
   return (
@@ -414,11 +415,11 @@ export default function Backends() {
           <div className="view-bar__actions">
             {Object.keys(upgrades).length > 0 && (
               <button className="btn btn-primary btn-sm" onClick={handleUpgradeAll} disabled={upgradingAll}>
-                <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} /> Upgrade all ({Object.keys(upgrades).length})
+                <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} /> Upgrade all ({Object.keys(upgrades).length})
               </button>
             )}
             <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
-              <i className={`fas ${showManualInstall ? 'fa-chevron-up' : 'fa-plus'}`} /> Manual Install
+              <Icon name={showManualInstall ? 'chevron-up' : 'plus'} /> Manual Install
             </button>
           </div>
         )}
@@ -430,7 +431,7 @@ export default function Backends() {
           to={hrefForView('catalog')}
           aria-current={activeView === 'catalog' ? 'page' : undefined}
         >
-          <i className="fas fa-layer-group icon-before" aria-hidden="true" />
+          <Icon name="layers" className="icon-before" />
           {t('backends.lifecycle.catalog')}
         </Link>
         <Link
@@ -438,7 +439,7 @@ export default function Backends() {
           to={hrefForView('installed')}
           aria-current={activeView === 'installed' ? 'page' : undefined}
         >
-          <i className="fas fa-server icon-before" aria-hidden="true" />
+          <Icon name="server" className="icon-before" />
           {t('backends.lifecycle.installed')}
         </Link>
       </nav>
@@ -449,13 +450,13 @@ export default function Backends() {
           user knows they're in a special mode without it feeling alarming. */}
       {activeView === 'catalog' && targetNode && (
         <div className="card bk-notice tone-primary mb-md">
-          <i className="fas fa-bullseye" style={{ color: 'var(--color-primary)' }} />
+          <Icon name="target" style={{ color: 'var(--color-primary)' }} />
           <span className="bk-notice__text">
             Installing only on <span style={{ fontFamily: 'var(--font-mono)' }}>{targetNode.name}</span>
           </span>
           <span style={{ flex: 1 }} />
           <button className="btn btn-ghost btn-sm" type="button" onClick={clearTarget}>
-            <i className="fas fa-times" /> Clear
+            <Icon name="close" /> Clear
           </button>
         </div>
       )}
@@ -474,7 +475,7 @@ export default function Backends() {
         <>
       {catalogGlobalError && (
         <div className="attention-callout attention-callout--error mb-md" role="alert">
-          <i className="fas fa-circle-exclamation" aria-hidden="true" />
+          <Icon name="alert-circle" />
           <span>{catalogGlobalError}</span>
         </div>
       )}
@@ -483,7 +484,7 @@ export default function Backends() {
       {Object.keys(upgrades).length > 0 && (
         <div className="card bk-notice bk-notice--between tone-warning mb-md">
           <div className="hstack hstack--sm">
-            <i className="fas fa-arrow-up bk-notice__icon" />
+            <Icon name="arrow-up" className="bk-notice__icon" />
             <span className="bk-notice__text">
               {Object.keys(upgrades).length} backend{Object.keys(upgrades).length > 1 ? 's have' : ' has'} updates available
             </span>
@@ -493,7 +494,7 @@ export default function Backends() {
             onClick={handleUpgradeAll}
             disabled={upgradingAll}
           >
-            <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} style={{ marginRight: 4 }} />
+            <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} style={{ marginRight: 4 }} />
             Upgrade All
           </button>
         </div>
@@ -502,7 +503,7 @@ export default function Backends() {
       {showManualInstall && (
         <form onSubmit={handleManualInstall} className="card" style={{ marginBottom: 'var(--spacing-md)' }}>
           <h3 className="text-base fw-semibold mb-sm">
-            <i className="fas fa-download" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+            <Icon name="download" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
             Install External Backend
           </h3>
           <div className="bk-manual-grid">
@@ -519,7 +520,7 @@ export default function Backends() {
               <input className="input" value={manualAlias} onChange={(e) => setManualAlias(e.target.value)} placeholder="alias" />
             </div>
             <button type="submit" className="btn btn-primary">
-              <i className="fas fa-download" /> Install
+              <Icon name="download" /> Install
             </button>
           </div>
           {manualError && <p className="form-error" role="alert">{manualError}</p>}
@@ -540,7 +541,7 @@ export default function Backends() {
             {/* The filters narrow the rail and nothing else, so they live with it. */}
             <div className="bk-filters">
               <div className="search-bar search-grow">
-                <i className="fas fa-search search-icon" />
+                <Icon name="search" className="search-icon" />
                 <input className="input" placeholder="Search backends by name, description, or type..." value={search} onChange={(e) => handleSearch(e.target.value)} />
               </div>
             </div>
@@ -553,7 +554,7 @@ export default function Backends() {
                     className={`filter-btn ${filter === f.key ? 'active' : ''}`}
                     onClick={() => { setFilter(f.key); updateUrlParam('state', f.key); setPage(1) }}
                   >
-                  <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
+                  <Icon name={f.icon} style={{ marginRight: 4 }} />
                   {f.label}
                 </button>
               ))}
@@ -563,12 +564,12 @@ export default function Backends() {
               <div className="bk-toggles">
                 <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   <Toggle checked={showAllBackends} onChange={handleToggleAllBackends} />
-                  <i className="fas fa-cubes" style={{ fontSize: '0.625rem' }} />
+                  <Icon name="boxes" style={{ fontSize: '0.625rem' }} />
                   Show all
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   <Toggle checked={showDevelopment} onChange={handleToggleDev} />
-                  <i className="fas fa-flask" style={{ fontSize: '0.625rem' }} />
+                  <Icon name="flask" style={{ fontSize: '0.625rem' }} />
                   Development
                 </label>
               </div>
@@ -596,11 +597,11 @@ export default function Backends() {
               {totalPages > 1 && (
                 <div className="pagination split-view__pager">
                   <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Previous page">
-                    <i className="fas fa-chevron-left" />
+                    <Icon name="chevron-left" />
                   </button>
                   <span className="split-view__pager-label">{page} / {totalPages}</span>
                   <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} aria-label="Next page">
-                    <i className="fas fa-chevron-right" />
+                    <Icon name="chevron-right" />
                   </button>
                 </div>
               )}
@@ -608,7 +609,7 @@ export default function Backends() {
           }
           pane={backends.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-server" /></div>
+              <div className="empty-state-icon"><Icon name="server" /></div>
               <h2 className="empty-state-title">No backends found</h2>
               <p className="empty-state-text">
                 {search || filter ? 'Try adjusting your search or filters.' : 'No backends available in the gallery.'}
@@ -652,7 +653,7 @@ export default function Backends() {
                       (b.nodes || []).some(n => (n.node_id ?? n.NodeID) === targetNode.id) ? (
                         <>
                           <button className="btn btn-secondary btn-sm" onClick={() => handleInstallOnTarget(name)} title={`Reinstall on ${targetNode.name}`}>
-                            <i className="fas fa-rotate" /> Reinstall
+                            <Icon name="refresh" /> Reinstall
                           </button>
                           <button className="btn btn-danger btn-sm" onClick={async () => {
                             setCatalogErrors(current => ({ ...current, [name]: '' }))
@@ -664,26 +665,26 @@ export default function Backends() {
                               setCatalogErrors(current => ({ ...current, [name]: `Remove failed: ${err.message}` }))
                             }
                           }} title={`Remove from ${targetNode.name}`}>
-                            <i className="fas fa-trash" /> Remove
+                            <Icon name="trash" /> Remove
                           </button>
                         </>
                       ) : (
                         <button className="btn btn-primary btn-sm" onClick={() => handleInstallOnTarget(name)} data-testid="backends-install">
-                          <i className="fas fa-download" /> Install on {targetNode.name}
+                          <Icon name="download" /> Install on {targetNode.name}
                         </button>
                       )
                     ) : b.installed ? (
                       <>
                         {upgrade && (
                           <button className="btn btn-primary btn-sm" onClick={() => handleUpgrade(name)} title={`Upgrade to ${upgrade.available_version ? 'v' + upgrade.available_version : 'latest'}`}>
-                            <i className="fas fa-arrow-up" /> Upgrade
+                            <Icon name="arrow-up" /> Upgrade
                           </button>
                         )}
                         <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(name)} title="Reinstall">
-                          <i className="fas fa-rotate" /> Reinstall
+                          <Icon name="refresh" /> Reinstall
                         </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name)} title="Delete">
-                          <i className="fas fa-trash" /> Delete
+                          <Icon name="trash" /> Delete
                         </button>
                       </>
                     ) : distributedEnabled ? (
@@ -694,7 +695,7 @@ export default function Backends() {
                       b.isMeta ? (
                         <div className="inline-flex">
                           <button className="btn btn-primary btn-sm" onClick={() => handleInstall(name)} title="Install on all nodes" style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }} data-testid="backends-install">
-                            <i className="fas fa-download" /> Install on all
+                            <Icon name="download" /> Install on all
                           </button>
                           <button
                             ref={splitMenuAnchorRef}
@@ -704,17 +705,17 @@ export default function Backends() {
                             aria-expanded={splitMenuOpen}
                             aria-label="More install options"
                           >
-                            <i className={`fas fa-chevron-${splitMenuOpen ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
+                            <Icon name={`chevron-${splitMenuOpen ? 'up' : 'down'}`} style={{ fontSize: '0.6875rem' }} />
                           </button>
                         </div>
                       ) : (
                         <button className="btn btn-primary btn-sm" onClick={() => openPicker(b)} title="Choose nodes to install on" data-testid="backends-install">
-                          <i className="fas fa-server" /> Choose nodes…
+                          <Icon name="server" /> Choose nodes…
                         </button>
                       )
                     ) : (
                       <button className="btn btn-primary btn-sm" onClick={() => handleInstall(name)} title="Install" data-testid="backends-install">
-                        <i className="fas fa-download" /> Install
+                        <Icon name="download" /> Install
                       </button>
                     )
                   }
@@ -722,7 +723,7 @@ export default function Backends() {
 
                 {catalogErrors[name] && (
                   <div className="attention-callout attention-callout--error" role="alert">
-                    <i className="fas fa-circle-exclamation" aria-hidden="true" />
+                    <Icon name="alert-circle" />
                     <span>{catalogErrors[name]}</span>
                   </div>
                 )}
@@ -753,7 +754,7 @@ export default function Backends() {
                             onClick={() => openPicker(b, missing)}
                             aria-label="Install on more nodes"
                           >
-                            <i className="fas fa-plus" style={{ fontSize: '0.6875rem' }} /> {missing.length} more
+                            <Icon name="plus" style={{ fontSize: '0.6875rem' }} /> {missing.length} more
                           </button>
                         )
                       })()}
@@ -807,7 +808,7 @@ export default function Backends() {
               if (selectedBackend) openPicker(selectedBackend)
             }}
           >
-            <i className="fas fa-server action-menu__icon" />
+            <Icon name="server" className="action-menu__icon" />
             Install on specific nodes…
           </button>
         </div>
@@ -879,7 +880,7 @@ function BackendDetail({ backend }) {
               <div className="stack stack--xs">
                 {backend.urls.map((url, i) => (
                   <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary wrap-anywhere">
-                    <i className="fas fa-external-link-alt icon-before text-xs" />{url}
+                    <Icon name="external-link" className="icon-before text-xs" />{url}
                   </a>
                 ))}
               </div>
@@ -925,7 +926,7 @@ function BackendSortButton({ col, label, sortBy, sortOrder, onSort }) {
       onClick={() => onSort(col)}
     >
       {label}
-      {active && <i className={`fas fa-arrow-${sortOrder === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />}
+      {active && <Icon name={`arrow-${sortOrder === 'asc' ? 'up' : 'down'}`} />}
     </button>
   )
 }
@@ -962,7 +963,7 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
 
       {staleNames.length > 0 && (
         <div className="zero-pane__alert zero-pane__alert--warn">
-          <i className="fas fa-arrow-up" aria-hidden="true" />
+          <Icon name="arrow-up" />
           <span>
             {staleNames.length === 1
               ? '1 installed backend has a newer build.'
@@ -970,7 +971,7 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
             {' '}{staleNames.slice(0, 3).join(', ')}{staleNames.length > 3 ? '…' : ''}
           </span>
           <button className="btn btn-secondary btn-sm" onClick={onUpgradeAll} disabled={upgradingAll}>
-            <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} /> Upgrade all
+            <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} /> Upgrade all
           </button>
         </div>
       )}
@@ -992,7 +993,7 @@ function BackendHostPane({ resources, backends, installedCount, upgrades, onSele
                   onClick={() => onSelect(name)}
                 >
                   <span className="hstack hstack--xs">
-                    <i className={`fas ${groupForEntity(b).icon}`} aria-hidden="true" />
+                    <Icon name={groupForEntity(b).icon} />
                     <span className="zero-pane__tile-name">{name}</span>
                   </span>
                   <span className="text-sm text-muted">{stripMarkdown(b.description).slice(0, 90) || '—'}</span>

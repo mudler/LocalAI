@@ -11,23 +11,24 @@ import { CAP_CHAT } from '../utils/capabilities'
 import Toggle from '../components/Toggle'
 import SettingRow from '../components/SettingRow'
 import { formatBytes, percentColor } from '../utils/format'
+import Icon from '../components/Icon'
 
 const SECTIONS = [
-  { id: 'branding', icon: 'fa-palette', color: 'var(--color-primary)' },
-  { id: 'watchdog', icon: 'fa-shield-halved', color: 'var(--color-primary)' },
-  { id: 'memory', icon: 'fa-memory', color: 'var(--color-accent)' },
-  { id: 'backends', icon: 'fa-cogs', color: 'var(--color-accent)' },
-  { id: 'performance', icon: 'fa-gauge-high', color: 'var(--color-success)' },
-  { id: 'tracing', icon: 'fa-bug', color: 'var(--color-warning)' },
-  { id: 'api', icon: 'fa-globe', color: 'var(--color-warning)' },
-  { id: 'p2p', icon: 'fa-network-wired', color: 'var(--color-accent)' },
-  { id: 'galleries', icon: 'fa-images', color: 'var(--color-accent)' },
-  { id: 'apikeys', icon: 'fa-key', color: 'var(--color-error)' },
-  { id: 'agents', icon: 'fa-tasks', color: 'var(--color-primary)' },
-  { id: 'agentpool', icon: 'fa-robot', color: 'var(--color-primary)' },
-  { id: 'assistant', icon: 'fa-user-shield', color: 'var(--color-accent)' },
-  { id: 'distributed', icon: 'fa-server', color: 'var(--color-accent)' },
-  { id: 'responses', icon: 'fa-database', color: 'var(--color-accent)' },
+  { id: 'branding', icon: 'palette', color: 'var(--color-primary)' },
+  { id: 'watchdog', icon: 'shield', color: 'var(--color-primary)' },
+  { id: 'memory', icon: 'memory', color: 'var(--color-accent)' },
+  { id: 'backends', icon: 'settings', color: 'var(--color-accent)' },
+  { id: 'performance', icon: 'gauge', color: 'var(--color-success)' },
+  { id: 'tracing', icon: 'bug', color: 'var(--color-warning)' },
+  { id: 'api', icon: 'globe', color: 'var(--color-warning)' },
+  { id: 'p2p', icon: 'network', color: 'var(--color-accent)' },
+  { id: 'galleries', icon: 'images', color: 'var(--color-accent)' },
+  { id: 'apikeys', icon: 'key', color: 'var(--color-error)' },
+  { id: 'agents', icon: 'checklist', color: 'var(--color-primary)' },
+  { id: 'agentpool', icon: 'robot', color: 'var(--color-primary)' },
+  { id: 'assistant', icon: 'user-shield', color: 'var(--color-accent)' },
+  { id: 'distributed', icon: 'server', color: 'var(--color-accent)' },
+  { id: 'responses', icon: 'database', color: 'var(--color-accent)' },
 ]
 
 const BRANDING_ASSETS = [
@@ -169,7 +170,7 @@ export default function Settings() {
           supporting={t('settings.subtitle')}
           actions={
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><i className="fas fa-floppy-disk" aria-hidden="true" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
+              {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><Icon name="save" /> {isDirty ? 'Save Changes' : 'Saved'}</>}
             </button>
           }
         />
@@ -185,10 +186,7 @@ export default function Settings() {
               onClick={() => scrollTo(s.id)}
               className={`set-rail__item${activeSection === s.id ? ' set-rail__item--on' : ''}`}
             >
-              <i
-                className={`fas ${s.icon} set-rail__icon`}
-                style={activeSection === s.id ? { color: s.color } : undefined}
-              />
+              <Icon name={s.icon} className="set-rail__icon" style={activeSection === s.id ? { color: s.color } : undefined} />
               {t(`settings.sections.${s.id}`)}
             </button>
           ))}
@@ -202,7 +200,7 @@ export default function Settings() {
           {/* Branding / Whitelabeling */}
           <div ref={el => sectionRefs.current.branding = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-palette text-primary" /> Branding
+              <Icon name="palette" className="text-primary" /> Branding
             </h3>
             <div className="card">
               <SettingRow label="Instance Name" description="Replaces &quot;LocalAI&quot; in the sidebar, footer, and browser tab. Visible on the login screen.">
@@ -232,11 +230,11 @@ export default function Settings() {
                         {url ? (
                           <img src={url} alt="" />
                         ) : (
-                          <i className="fas fa-image text-muted" />
+                          <Icon name="image" className="text-muted" />
                         )}
                       </div>
                       <label className="btn btn-secondary m-0" style={{ cursor: busy ? 'wait' : 'pointer' }}>
-                        <i className="fas fa-upload" /> {busy ? 'Uploading…' : 'Upload'}
+                        <Icon name="upload" /> {busy ? 'Uploading…' : 'Upload'}
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
@@ -257,7 +255,7 @@ export default function Settings() {
                           disabled={busy}
                           title="Revert to bundled default"
                         >
-                          <i className="fas fa-undo" /> Reset
+                          <Icon name="undo" /> Reset
                         </button>
                       )}
                     </div>
@@ -270,7 +268,7 @@ export default function Settings() {
           {/* Watchdog */}
           <div ref={el => sectionRefs.current.watchdog = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-shield-halved text-primary" /> Watchdog
+              <Icon name="shield" className="text-primary" /> Watchdog
             </h3>
             <div className="card">
               <SettingRow label="Enable Watchdog" description="Automatically monitor and manage backend processes">
@@ -310,10 +308,10 @@ export default function Settings() {
           <div ref={el => sectionRefs.current.memory = el} className="mb-xl">
             <div className="hstack hstack--between mb-md">
               <h3 className="hstack text-lg fw-semibold">
-                <i className="fas fa-memory text-accent" /> Memory Reclaimer
+                <Icon name="memory" className="text-accent" /> Memory Reclaimer
               </h3>
               <button className="btn btn-secondary btn-sm" onClick={fetchResources} title="Refresh resource status">
-                <i className="fas fa-sync-alt" />
+                <Icon name="refresh" />
               </button>
             </div>
             <div className="card">
@@ -367,7 +365,7 @@ export default function Settings() {
           {/* Backends */}
           <div ref={el => sectionRefs.current.backends = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-cogs text-accent" /> Backend Management
+              <Icon name="settings" className="text-accent" /> Backend Management
             </h3>
             <div className="card">
               <SettingRow label="Max Active Backends" description="Maximum models to keep loaded simultaneously (0 = unlimited)">
@@ -385,7 +383,7 @@ export default function Settings() {
           {/* Performance */}
           <div ref={el => sectionRefs.current.performance = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-gauge-high text-success" /> Performance
+              <Icon name="gauge" className="text-success" /> Performance
             </h3>
             <div className="card">
               <SettingRow label="Default Threads" description="CPU threads for inference (0 = auto-detect)">
@@ -412,7 +410,7 @@ export default function Settings() {
           {/* Tracing */}
           <div ref={el => sectionRefs.current.tracing = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-bug text-warning" /> Tracing
+              <Icon name="bug" className="text-warning" /> Tracing
             </h3>
             <div className="card">
               <SettingRow label="Enable Tracing" description="Record API requests, responses, and backend operations for debugging">
@@ -433,7 +431,7 @@ export default function Settings() {
           {/* API & CORS */}
           <div ref={el => sectionRefs.current.api = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-globe text-warning" /> API & CORS
+              <Icon name="globe" className="text-warning" /> API & CORS
             </h3>
             <div className="card">
               <SettingRow label="Enable CORS" description="Enable Cross-Origin Resource Sharing">
@@ -451,18 +449,18 @@ export default function Settings() {
           {/* P2P */}
           <div ref={el => sectionRefs.current.p2p = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-network-wired text-accent" /> P2P Network
+              <Icon name="network" className="text-accent" /> P2P Network
             </h3>
             <div className="card">
               <SettingRow label="P2P Token" description="Generate a new token or paste an existing one to join a network">
                 <div className="hstack hstack--xs">
                   <input className="input col-w-200" value={settings.p2p_token || ''} onChange={(e) => update('p2p_token', e.target.value)} placeholder="No token set" />
                   <button className="btn btn-primary btn-sm" onClick={() => update('p2p_token', '0')} title="Generate a new P2P token (applied on save)">
-                    <i className="fas fa-rotate" /> Generate
+                    <Icon name="refresh" /> Generate
                   </button>
                   {settings.p2p_token && (
                     <button className="btn btn-secondary btn-sm text-error" onClick={() => update('p2p_token', '')} title="Clear token (disables P2P on save)">
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   )}
                 </div>
@@ -479,7 +477,7 @@ export default function Settings() {
           {/* Galleries */}
           <div ref={el => sectionRefs.current.galleries = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-images text-accent" /> Galleries
+              <Icon name="images" className="text-accent" /> Galleries
             </h3>
             <div className="card">
               <SettingRow label="Load and pre-warm galleries on boot" description="Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts">
@@ -517,11 +515,11 @@ export default function Settings() {
           {/* API Keys */}
           <div ref={el => sectionRefs.current.apikeys = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-key text-error" /> API Keys
+              <Icon name="key" className="text-error" /> API Keys
             </h3>
             <div className="card">
               <div className="text-note mb-sm">
-                <i className="fas fa-exclamation-triangle text-warning icon-before" />
+                <Icon name="warning" className="text-warning icon-before" />
                 API keys are sensitive. One key per line or comma-separated.
               </div>
               <textarea
@@ -537,7 +535,7 @@ export default function Settings() {
           {/* Agent Jobs */}
           <div ref={el => sectionRefs.current.agents = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-tasks text-primary" /> Agent Jobs
+              <Icon name="checklist" className="text-primary" /> Agent Jobs
             </h3>
             <div className="card">
               <SettingRow label="Job Retention Days" description="Number of days to keep job history">
@@ -549,7 +547,7 @@ export default function Settings() {
           {/* Agent Pool */}
           <div ref={el => sectionRefs.current.agentpool = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-robot text-primary" /> Agent Pool
+              <Icon name="robot" className="text-primary" /> Agent Pool
             </h3>
             <div className="card">
               <SettingRow label="Enabled" description="Enable or disable the agent pool feature (requires restart)">
@@ -606,7 +604,7 @@ export default function Settings() {
           {/* LocalAI Assistant */}
           <div ref={el => sectionRefs.current.assistant = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-user-shield text-accent" /> LocalAI Assistant
+              <Icon name="user-shield" className="text-accent" /> LocalAI Assistant
             </h3>
             <div className="card">
               <SettingRow label="Enabled" description="Allow admins to opt chat sessions into the in-process admin tool surface. Disabling refuses new requests with the localai_assistant flag; takes effect without restart.">
@@ -618,7 +616,7 @@ export default function Settings() {
           {/* Distributed mode */}
           <div ref={el => sectionRefs.current.distributed = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-server text-accent" /> {t('settings.sections.distributed')}
+              <Icon name="server" className="text-accent" /> {t('settings.sections.distributed')}
             </h3>
             <div className="card">
               <SettingRow label="Disk headroom check" description="Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. Free space is measured on each worker's models filesystem and compared against the model's own size plus a small margin. Turning this off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node. Takes effect without restart.">
@@ -630,7 +628,7 @@ export default function Settings() {
           {/* Open Responses */}
           <div ref={el => sectionRefs.current.responses = el} className="mb-xl">
             <h3 className="panel-title">
-              <i className="fas fa-database text-accent" /> Open Responses
+              <Icon name="database" className="text-accent" /> Open Responses
             </h3>
             <div className="card">
               <SettingRow label="Response Store TTL" description="Time-to-live for stored responses (e.g. 1h, 30m, 0 = no expiration)">

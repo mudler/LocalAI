@@ -20,6 +20,7 @@ import { formatBytes } from '../utils/format'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
+import Icon from '../components/Icon'
 
 
 // The rail groups what it has, so it needs enough rows for the groups to mean
@@ -67,26 +68,26 @@ const readCollapseVariantsPreference = () => {
 }
 
 const FILTERS = [
-  { key: '', labelKey: 'filters.all', icon: 'fa-layer-group' },
-  { key: 'chat', labelKey: 'filters.llm', icon: 'fa-brain' },
-  { key: 'image', labelKey: 'filters.image', icon: 'fa-image' },
-  { key: 'video', labelKey: 'filters.video', icon: 'fa-video' },
-  { key: '3d', labelKey: 'filters.threed', icon: 'fa-cube' },
-  { key: '3d_animation', labelKey: 'filters.threedAnimation', icon: 'fa-person-walking' },
-  { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'fa-shapes' },
-  { key: 'vision', labelKey: 'filters.vision', icon: 'fa-eye' },
-  { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
-  { key: 'transcript', labelKey: 'filters.stt', icon: 'fa-headphones' },
-  { key: 'diarization', labelKey: 'filters.diarization', icon: 'fa-users' },
-  { key: 'sound_classification', labelKey: 'filters.soundClassification', icon: 'fa-ear-listen' },
-  { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'fa-music' },
-  { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'fa-sliders' },
-  { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'fa-tower-broadcast' },
-  { key: 'embeddings', labelKey: 'filters.embedding', icon: 'fa-vector-square' },
-  { key: 'rerank', labelKey: 'filters.rerank', icon: 'fa-sort' },
-  { key: 'detection', labelKey: 'filters.detection', icon: 'fa-bullseye' },
-  { key: 'vad', labelKey: 'filters.vad', icon: 'fa-wave-square' },
-  { key: 'token_classify', labelKey: 'filters.ner', icon: 'fa-tags' },
+  { key: '', labelKey: 'filters.all', icon: 'layers' },
+  { key: 'chat', labelKey: 'filters.llm', icon: 'brain' },
+  { key: 'image', labelKey: 'filters.image', icon: 'image' },
+  { key: 'video', labelKey: 'filters.video', icon: 'video' },
+  { key: '3d', labelKey: 'filters.threed', icon: 'cube' },
+  { key: '3d_animation', labelKey: 'filters.threedAnimation', icon: 'walk' },
+  { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'shapes' },
+  { key: 'vision', labelKey: 'filters.vision', icon: 'eye' },
+  { key: 'tts', labelKey: 'filters.tts', icon: 'mic' },
+  { key: 'transcript', labelKey: 'filters.stt', icon: 'headphones' },
+  { key: 'diarization', labelKey: 'filters.diarization', icon: 'users' },
+  { key: 'sound_classification', labelKey: 'filters.soundClassification', icon: 'ear' },
+  { key: 'sound_generation', labelKey: 'filters.soundGen', icon: 'music' },
+  { key: 'audio_transform', labelKey: 'filters.audioTransform', icon: 'sliders' },
+  { key: 'realtime_audio', labelKey: 'filters.realtimeAudio', icon: 'broadcast' },
+  { key: 'embeddings', labelKey: 'filters.embedding', icon: 'bounding-box' },
+  { key: 'rerank', labelKey: 'filters.rerank', icon: 'sort' },
+  { key: 'detection', labelKey: 'filters.detection', icon: 'target' },
+  { key: 'vad', labelKey: 'filters.vad', icon: 'waveform' },
+  { key: 'token_classify', labelKey: 'filters.ner', icon: 'tag' },
 ]
 
 // The chips grouped, using the families the rest of the UI already speaks. The
@@ -94,17 +95,17 @@ const FILTERS = [
 // than a use case and grouping it under a heading would imply otherwise.
 const FILTER_SECTIONS = [
   { id: 'all', labelKey: null, keys: [''] },
-  { id: 'text', labelKey: 'groups.text', icon: 'fa-brain', pick: 'chat',
+  { id: 'text', labelKey: 'groups.text', icon: 'brain', pick: 'chat',
     blurbKey: 'shelves.pickText',
     keys: ['chat', 'embeddings', 'rerank', 'token_classify'] },
-  { id: 'vision', labelKey: 'groups.vision', icon: 'fa-eye', pick: 'vision',
+  { id: 'vision', labelKey: 'groups.vision', icon: 'eye', pick: 'vision',
     blurbKey: 'shelves.pickVision',
     keys: ['vision', 'multimodal', 'detection'] },
-  { id: 'audio', labelKey: 'groups.audio', icon: 'fa-wave-square', pick: 'tts',
+  { id: 'audio', labelKey: 'groups.audio', icon: 'waveform', pick: 'tts',
     blurbKey: 'shelves.pickAudio',
     keys: ['tts', 'transcript', 'diarization', 'sound_classification',
       'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
-  { id: 'visual', labelKey: 'groups.visual', icon: 'fa-image', pick: 'image',
+  { id: 'visual', labelKey: 'groups.visual', icon: 'image', pick: 'image',
     blurbKey: 'shelves.pickVisual',
     keys: ['image', 'video', '3d', '3d_animation'] },
 ]
@@ -125,14 +126,14 @@ function ModelsLifecycleNav({ activeView, searchParams, t }) {
         to={hrefFor('explore')}
         aria-current={activeView === 'explore' ? 'page' : undefined}
       >
-        <i className="fas fa-compass" aria-hidden="true" /> {t('lifecycle.views.explore')}
+        <Icon name="compass" /> {t('lifecycle.views.explore')}
       </Link>
       <Link
         className={`tab ${activeView === 'installed' ? 'tab-active' : ''}`}
         to={hrefFor('installed')}
         aria-current={activeView === 'installed' ? 'page' : undefined}
       >
-        <i className="fas fa-hard-drive" aria-hidden="true" /> {t('lifecycle.views.installed')}
+        <Icon name="hard-drive" /> {t('lifecycle.views.installed')}
       </Link>
     </nav>
   )
@@ -600,10 +601,10 @@ export default function Models() {
           <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
           <div className="view-bar__actions">
             <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('lifecycle.title')) })}>
-              <i className="fas fa-plus" /> {t('actions.addModel')}
+              <Icon name="plus" /> {t('actions.addModel')}
             </button>
             <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> {t('actions.importModel')}
+              <Icon name="upload" /> {t('actions.importModel')}
             </button>
           </div>
         </div>
@@ -633,10 +634,10 @@ export default function Models() {
         <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
         <div className="view-bar__actions">
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-            <i className="fas fa-plus" /> {t('actions.addModel')}
+            <Icon name="plus" /> {t('actions.addModel')}
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-            <i className="fas fa-upload" /> {t('actions.importModel')}
+            <Icon name="upload" /> {t('actions.importModel')}
           </button>
         </div>
       </div>
@@ -676,7 +677,7 @@ export default function Models() {
               <div className="filter-bar-group models-filters">
                 <div className="filter-bar-group__row models-filters__query">
                   <div className="search-bar filter-bar-group__search">
-                    <i className="fas fa-search search-icon" aria-hidden="true" />
+                    <Icon name="search" className="search-icon" />
                     <input
                       className="input"
                       type="text"
@@ -707,9 +708,9 @@ export default function Models() {
           aria-expanded={useCaseOpen}
           onClick={() => setUseCaseOpen(v => !v)}
         >
-          <i className="fas fa-layer-group" aria-hidden="true" />
+          <Icon name="layers" />
           <span>{useCaseLabel}</span>
-          <i className={`fas fa-chevron-${useCaseOpen ? 'up' : 'down'} models-filters__usecase-caret`} aria-hidden="true" />
+          <Icon name={`chevron-${useCaseOpen ? 'up' : 'down'}`} className="models-filters__usecase-caret" />
         </button>
 
         {/* An inline disclosure rather than a popover. Picking use cases is
@@ -741,7 +742,7 @@ export default function Models() {
                         title={!available ? t('filters.unavailableForBackend') : undefined}
                         onClick={() => toggleFilter(f.key)}
                       >
-                        <i className={`fas ${f.icon}`} aria-hidden="true" />
+                        <Icon name={f.icon} />
                         {t(f.labelKey)}
                       </button>
                     )
@@ -765,19 +766,19 @@ export default function Models() {
                       checked={collapseVariants}
                       onChange={(v) => { setCollapseVariants(v); setPage(1) }}
                     />
-                    <i className="fas fa-layer-group" aria-hidden="true" />
+                    <Icon name="layers" />
                     <span>{t('filters.collapseVariants')}</span>
                   </label>
                   {totalGpuMemory > 0 && (
                     <label className="filter-bar-group__toggle">
                       <Toggle checked={fitsFilter} onChange={setFitsFilter} />
-                      <i className="fas fa-microchip" aria-hidden="true" />
+                      <Icon name="cpu" />
                       <span>{t('filters.fitsGpu')}</span>
                     </label>
                   )}
                   <div className="models-filters__context">
                     <label htmlFor="models-context-size">
-                      <i className="fas fa-memory" aria-hidden="true" />
+                      <Icon name="memory" />
                       {t('filters.contextSize')}
                     </label>
                     <input
@@ -822,11 +823,11 @@ export default function Models() {
               {totalPages > 1 && (
                 <div className="pagination split-view__pager">
                   <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
-                    <i className="fas fa-chevron-left" />
+                    <Icon name="chevron-left" />
                   </button>
                   <span className="split-view__pager-label">{page} / {totalPages}</span>
                   <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
-                    <i className="fas fa-chevron-right" />
+                    <Icon name="chevron-right" />
                   </button>
                 </div>
               )}
@@ -835,7 +836,7 @@ export default function Models() {
           pane={
             visibleModels.length === 0 ? (
     <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-search" /></div>
+              <div className="empty-state-icon"><Icon name="search" /></div>
               <h2 className="empty-state-title">{t('empty.title')}</h2>
               <p className="empty-state-text">
                 {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
@@ -856,7 +857,7 @@ export default function Models() {
                   className="btn btn-secondary btn-sm"
                   onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
                 >
-                  <i className="fas fa-times" /> {t('search.clearFilters')}
+                  <Icon name="close" /> {t('search.clearFilters')}
                 </button>
               )}
             </div>
@@ -937,7 +938,7 @@ export default function Models() {
                           onClick={() => { setFilters([sec.pick]); setPage(1); setUseCaseOpen(false) }}
                         >
                           <span className="lane__tag">
-                            <i className={`fas ${sec.icon}`} aria-hidden="true" /> {t(sec.labelKey)}
+                            <Icon name={sec.icon} /> {t(sec.labelKey)}
                           </span>
                           <span className="lane__desc">{t(sec.blurbKey)}</span>
                           <span className="lane__go" aria-hidden="true">→</span>
@@ -1061,7 +1062,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                 {vramDisplay}
                 {fit !== null && (
                   <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
-                    <i className="fas fa-microchip" /> {fit ? t('detail.fitsGpu') : t('detail.mayNotFitGpu')}
+                    <Icon name="cpu" /> {fit ? t('detail.fitsGpu') : t('detail.mayNotFitGpu')}
                   </span>
                 )}
               </span>
@@ -1070,7 +1071,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           {variantData?.loading && (
             <DetailRow label={t('variants.title')}>
               <span style={{ color: 'var(--color-text-muted)' }}>
-                <i className="fas fa-spinner fa-spin" style={{ marginRight: 6 }} />{t('variants.loading')}
+                <Icon name="spinner" spin style={{ marginRight: 6 }} />{t('variants.loading')}
               </span>
             </DetailRow>
           )}
@@ -1118,7 +1119,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                         onLoadVariantDetail?.(v.model)
                       }}
                     >
-                      <i className="fas fa-circle-info" aria-hidden="true" />
+                      <Icon name="info" />
                     </button>
                     {/* Listing the alternatives without offering them made the
                         detail view read as a menu that could not be ordered
@@ -1149,7 +1150,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       <span className="variant-row__status">
                         {isAuto && (
                           <span className="badge badge-success">
-                            <i className="fas fa-circle-check" /> {t('variants.autoSelected')}
+                            <Icon name="check-circle" /> {t('variants.autoSelected')}
                           </span>
                         )}
                         {!v.fits && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
@@ -1160,11 +1161,11 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                             says why this build is worth choosing. */}
                         {(v.features || []).map(f => (
                           <span key={f} className="badge badge-info">
-                            <i className="fas fa-bolt" aria-hidden="true" /> {variantFeatureLabel(f, t)}
+                            <Icon name="bolt" /> {variantFeatureLabel(f, t)}
                           </span>
                         ))}
                       </span>
-                      <i className="fas fa-download variant-row__action" aria-hidden="true" />
+                      <Icon name="download" className="variant-row__action" />
                     </button>
                     {detailOpen && (
                       // An inline disclosure rather than a modal. This is
@@ -1175,7 +1176,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       <div className="variant-detail" id={panelId}>
                         {(!detail || detail.loading) && (
                           <div className="variant-detail__state">
-                            <i className="fas fa-spinner fa-spin" aria-hidden="true" />
+                            <Icon name="spinner" spin />
                             <span>{t('variants.detailsLoading')}</span>
                           </div>
                         )}
@@ -1184,7 +1185,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                           // rendering fault rather than as a lookup that
                           // failed.
                           <div className="variant-detail__state variant-detail__state--error" role="status">
-                            <i className="fas fa-triangle-exclamation" aria-hidden="true" />
+                            <Icon name="warning" />
                             <span>{t('variants.detailsUnavailable', { variant: v.model })}</span>
                           </div>
                         )}
@@ -1214,7 +1215,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {model.urls.map((url, i) => (
                   <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
-                    <i className="fas fa-external-link-alt" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
+                    <Icon name="external-link" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
                   </a>
                 ))}
               </div>
@@ -1223,7 +1224,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           {model.trustRemoteCode && (
             <DetailRow label={t('detail.warning')}>
               <span className="badge badge-error" style={{ fontSize: '0.6875rem' }}>
-                <i className="fas fa-circle-exclamation" /> {t('detail.requiresTrustRemoteCode')}
+                <Icon name="alert-circle" /> {t('detail.requiresTrustRemoteCode')}
               </span>
             </DetailRow>
           )}
@@ -1235,7 +1236,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                   onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}
                   style={{ marginBottom: expandedFiles ? 'var(--spacing-sm)' : 0 }}
                 >
-                  <i className={`fas fa-chevron-${expandedFiles ? 'down' : 'right'}`} style={{ fontSize: '0.5rem', marginRight: 4 }} />
+                  <Icon name={`chevron-${expandedFiles ? 'down' : 'right'}`} style={{ fontSize: '0.5rem', marginRight: 4 }} />
                   {t('detail.fileCount', { count: files.length })}
                 </button>
                 {expandedFiles && (
@@ -1327,7 +1328,7 @@ function SortButton({ col, label, sort, order, onSort }) {
       onClick={() => onSort(col)}
     >
       {label}
-      {active && <i className={`fas fa-arrow-${order === 'asc' ? 'up' : 'down'}`} aria-hidden="true" />}
+      {active && <Icon name={`arrow-${order === 'asc' ? 'up' : 'down'}`} />}
     </button>
   )
 }
@@ -1413,7 +1414,7 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
         ))}
       </div>
       <p className={`discover__chart-verdict discover__chart-verdict--${verdictClass}`}>
-        <i className="fas fa-microchip" aria-hidden="true" /> {verdict}
+        <Icon name="cpu" /> {verdict}
       </p>
     </div>
   )
@@ -1465,17 +1466,17 @@ function DiscoverDetail({
             <>
               {openUseCase && (
                 <button className="btn btn-primary btn-sm" onClick={() => onOpen(openUseCase.route(name))}>
-                  <i className="fas fa-arrow-up-right-from-square" aria-hidden="true" />
+                  <Icon name="external-link" />
                   {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
                 </button>
               )}
               <button className="btn btn-secondary btn-sm" onClick={() => onManage(name)}>
-                <i className="fas fa-sliders" aria-hidden="true" /> {t('lifecycle.actions.manageInstallation')}
+                <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
               </button>
             </>
           ) : (
             <button className="btn btn-primary btn-sm" onClick={() => onInstall(name)} data-testid="discover-install">
-              <i className="fas fa-download" /> {t('actions.install')}
+              <Icon name="download" /> {t('actions.install')}
             </button>
           )
       }

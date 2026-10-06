@@ -24,6 +24,7 @@ import {
   CAP_SPEAKER_RECOGNITION, CAP_EMBEDDINGS, CAP_RERANK,
   CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
+import Icon from '../components/Icon'
 
 const USE_CASES = [
   { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chat/${encodeURIComponent(id)}` },
@@ -50,9 +51,9 @@ export function modelUseCases(model) {
 }
 
 const MODEL_STATE_GROUPS = [
-  { id: 'running', labelKey: 'running', icon: 'fa-circle-play' },
-  { id: 'idle', labelKey: 'idle', icon: 'fa-pause' },
-  { id: 'disabled', labelKey: 'disabled', icon: 'fa-ban' },
+  { id: 'running', labelKey: 'running', icon: 'play-circle' },
+  { id: 'idle', labelKey: 'idle', icon: 'pause' },
+  { id: 'disabled', labelKey: 'disabled', icon: 'ban' },
 ]
 
 export function ModelLifecycleDetailShell({
@@ -85,7 +86,7 @@ export function ModelLifecycleDetailShell({
       {Array.isArray(stats) && <StatGrid stats={stats} />}
       {error && (
         <div className="attention-callout attention-callout--error" role="alert">
-          <span><i className="fas fa-circle-exclamation icon-before" aria-hidden="true" />{error}</span>
+          <span><Icon name="alert-circle" className="icon-before" />{error}</span>
         </div>
       )}
       {children}
@@ -171,12 +172,12 @@ export default function InstalledModels({
   ), [loadedModelIds])
 
   const filters = [
-    { key: 'all', label: t('lifecycle.filters.all'), icon: 'fa-layer-group' },
-    { key: 'running', label: t('lifecycle.filters.running'), icon: 'fa-circle-play' },
-    { key: 'idle', label: t('lifecycle.filters.idle'), icon: 'fa-pause' },
-    { key: 'disabled', label: t('lifecycle.filters.disabled'), icon: 'fa-ban' },
-    { key: 'pinned', label: t('lifecycle.filters.pinned'), icon: 'fa-thumbtack' },
-    { key: 'distributed', label: t('lifecycle.filters.distributed'), icon: 'fa-server' },
+    { key: 'all', label: t('lifecycle.filters.all'), icon: 'layers' },
+    { key: 'running', label: t('lifecycle.filters.running'), icon: 'play-circle' },
+    { key: 'idle', label: t('lifecycle.filters.idle'), icon: 'pause' },
+    { key: 'disabled', label: t('lifecycle.filters.disabled'), icon: 'ban' },
+    { key: 'pinned', label: t('lifecycle.filters.pinned'), icon: 'pin' },
+    { key: 'distributed', label: t('lifecycle.filters.distributed'), icon: 'server' },
   ]
 
   const matchesState = model => {
@@ -327,7 +328,7 @@ export default function InstalledModels({
       meta = t('lifecycle.states.running')
       metaTone = 'ok'
     }
-    return { id: model.id, name: model.id, icon: 'fa-brain', groupId, stripe, meta, metaTone }
+    return { id: model.id, name: model.id, icon: 'brain', groupId, stripe, meta, metaTone }
   })
 
   const groups = MODEL_STATE_GROUPS.map(group => ({
@@ -345,7 +346,7 @@ export default function InstalledModels({
     return (
       <ModelLifecycleDetailShell
         testId="installed-models"
-        icon="fa-brain"
+        icon="brain"
         name={selectedModel.id}
         lede={enriched?.description ? stripMarkdown(enriched.description).slice(0, 220) : null}
         ledeTitle={enriched?.description ? stripMarkdown(enriched.description) : null}
@@ -371,13 +372,13 @@ export default function InstalledModels({
           <>
             {!selectedModel.disabled && !running && (
               <button className="btn btn-primary btn-sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
-                <i className={`fas ${pending ? 'fa-spinner fa-spin' : 'fa-bolt'}`} aria-hidden="true" />
+                <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
                 {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
               </button>
             )}
             {running && (
               <button className="btn btn-secondary btn-sm" onClick={() => handleStop(selectedModel.id)} disabled={pending}>
-                <i className="fas fa-stop" aria-hidden="true" /> {t('lifecycle.actions.stop')}
+                <Icon name="stop" /> {t('lifecycle.actions.stop')}
               </button>
             )}
             <ActionMenu
@@ -386,21 +387,21 @@ export default function InstalledModels({
               items={[
                 {
                   key: 'toggle',
-                  icon: selectedModel.disabled ? 'fa-toggle-on' : 'fa-toggle-off',
+                  icon: selectedModel.disabled ? 'toggle-on' : 'toggle-off',
                   label: selectedModel.disabled ? t('lifecycle.actions.enable') : t('lifecycle.actions.disable'),
                   onClick: () => handleToggleState(selectedModel.id, selectedModel.disabled),
                   disabled: pending,
                 },
                 {
                   key: 'pin',
-                  icon: 'fa-thumbtack',
+                  icon: 'pin',
                   label: selectedModel.pinned ? t('lifecycle.actions.unpin') : t('lifecycle.actions.pin'),
                   onClick: () => handleTogglePinned(selectedModel.id, selectedModel.pinned),
                   disabled: pending || !!selectedModel.disabled,
                 },
                 {
                   key: 'edit',
-                  icon: 'fa-pen-to-square',
+                  icon: 'edit',
                   label: t('lifecycle.actions.edit'),
                   onClick: () => navigate(`/app/model-editor/${encodeURIComponent(selectedModel.id)}`, {
                     state: fromState(location, t('lifecycle.title')),
@@ -408,14 +409,14 @@ export default function InstalledModels({
                 },
                 {
                   key: 'logs',
-                  icon: 'fa-terminal',
+                  icon: 'terminal',
                   label: t('lifecycle.actions.logs'),
                   onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(selectedModel.id)}`),
                 },
                 { divider: true },
                 {
                   key: 'delete',
-                  icon: 'fa-trash',
+                  icon: 'trash',
                   label: t('lifecycle.actions.delete'),
                   danger: true,
                   onClick: () => handleDelete(selectedModel.id),
@@ -429,17 +430,17 @@ export default function InstalledModels({
           <div className="badge-row">
             {selectedModel.source === 'registry-only' && (
               <span className="badge badge-warning" title={t('lifecycle.detail.adoptedHint')}>
-                <i className="fas fa-ghost" /> {t('lifecycle.detail.adopted')}
+                <Icon name="ghost" /> {t('lifecycle.detail.adopted')}
               </span>
             )}
             {aliasTargets[selectedModel.id] && (
               <span className="badge badge-info" title={t('lifecycle.detail.aliasTitle', { target: aliasTargets[selectedModel.id] })}>
-                <i className="fas fa-arrow-right-arrow-left" /> {t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}
+                <Icon name="swap" /> {t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}
               </span>
             )}
             {chain && (
               <span className="badge badge-info" title={t('lifecycle.detail.chainTitle', { target: chain.active })}>
-                <i className="fas fa-shuffle" /> {t('lifecycle.detail.chain', { target: chain.active })}
+                <Icon name="shuffle" /> {t('lifecycle.detail.chain', { target: chain.active })}
               </span>
             )}
           </div>
@@ -494,7 +495,7 @@ export default function InstalledModels({
         onFilterChange={onStateChange}
         rightSlot={(
           <button className="btn btn-secondary btn-sm" onClick={handleReload} disabled={pendingActions.has('models')}>
-            <i className={`fas ${pendingActions.has('models') ? 'fa-spinner fa-spin' : 'fa-rotate'}`} />
+            <Icon name={pendingActions.has('models') ? 'spinner' : 'refresh'} spin={Boolean(pendingActions.has('models'))} />
             {pendingActions.has('models') ? t('lifecycle.actions.updating') : t('lifecycle.actions.update')}
           </button>
         )}
@@ -507,7 +508,7 @@ export default function InstalledModels({
       )}
       {actionErrors.models && (
         <div className="attention-callout attention-callout--error" role="alert">
-          <span><i className="fas fa-circle-exclamation icon-before" aria-hidden="true" />{actionErrors.models}</span>
+          <span><Icon name="alert-circle" className="icon-before" />{actionErrors.models}</span>
         </div>
       )}
 
@@ -515,21 +516,21 @@ export default function InstalledModels({
         <GalleryLoader />
       ) : models.length === 0 ? (
         <div className="empty-state empty-state--page">
-          <div className="empty-state-icon"><i className="fas fa-brain" /></div>
+          <div className="empty-state-icon"><Icon name="brain" /></div>
           <h2 className="empty-state-title">{t('lifecycle.empty.title')}</h2>
           <p className="empty-state-text">{t('lifecycle.empty.text')}</p>
           <div className="empty-state__actions">
             <button className="btn btn-primary btn-sm" onClick={() => navigate('/app/models')}>
-              <i className="fas fa-store" /> {t('lifecycle.empty.explore')}
+              <Icon name="store" /> {t('lifecycle.empty.explore')}
             </button>
             <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-              <i className="fas fa-upload" /> {t('lifecycle.empty.import')}
+              <Icon name="upload" /> {t('lifecycle.empty.import')}
             </button>
           </div>
         </div>
       ) : visibleModels.length === 0 ? (
         <div className="empty-state">
-          <i className="fas fa-filter" />
+          <Icon name="filter" />
           <p>{t('lifecycle.empty.noMatches')}</p>
           <button className="btn btn-ghost btn-sm" onClick={() => { onQueryChange(''); onStateChange('all') }}>
             {t('lifecycle.empty.clear')}
@@ -584,7 +585,7 @@ function InstalledModelDetail({ model, enriched, distributedMode, t }) {
 
   return (
     <div className="resource-row__detail">
-      <h3><i className="fas fa-circle-info" /> {t('lifecycle.detail.title')}</h3>
+      <h3><Icon name="info" /> {t('lifecycle.detail.title')}</h3>
       <dl className="resource-row__detail-grid">
         <dt>{t('lifecycle.detail.description')}</dt>
         <dd>
@@ -617,7 +618,7 @@ function InstalledModelDetail({ model, enriched, distributedMode, t }) {
             <div className="stack stack--xs">
               {urls.map(url => (
                 <a key={url} href={safeHref(url)} target="_blank" rel="noopener noreferrer" className="badge badge-info badge-link">
-                  <i className="fas fa-external-link-alt icon-before text-xs" />{url}
+                  <Icon name="external-link" className="icon-before text-xs" />{url}
                 </a>
               ))}
             </div>

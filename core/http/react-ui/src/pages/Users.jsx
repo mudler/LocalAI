@@ -10,6 +10,7 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Toggle from '../components/Toggle'
 import './auth.css'
+import Icon from '../components/Icon'
 
 function RoleBadge({ role }) {
   const isPrimary = role === 'admin'
@@ -64,7 +65,7 @@ function PermissionSummary({ user, onClick }) {
       onClick={onClick}
       title="Edit permissions"
     >
-      <i className="fas fa-shield-halved" />
+      <Icon name="shield" />
       {apiOn}/{apiFeatures.length} API, {agentOn}/{agentFeatures.length} Agent, {generalOn}/{generalFeatures.length} Features
       {modelRestricted && ' | Models restricted'}
       {quotaCount > 0 && ` · ${quotaCount} quota${quotaCount !== 1 ? 's' : ''}`}
@@ -200,7 +201,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="perm-modal-avatar" />
           ) : (
-            <i className="fas fa-user-circle user-avatar-placeholder--lg" />
+            <Icon name="user" className="user-avatar-placeholder--lg" />
           )}
           <h3>Permissions for &ldquo;{user.name || user.email}&rdquo;</h3>
         </div>
@@ -209,7 +210,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         <div className="perm-section">
           <div className="perm-section-header">
             <strong className="perm-section-title">
-              <i className="fas fa-plug" />
+              <Icon name="plug" />
               API Endpoints
             </strong>
             <div className="action-group">
@@ -234,7 +235,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         <div className="perm-section">
           <div className="perm-section-header">
             <strong className="perm-section-title">
-              <i className="fas fa-robot" />
+              <Icon name="robot" />
               Agent Features
             </strong>
             <div className="action-group">
@@ -260,7 +261,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         <div className="perm-section">
           <div className="perm-section-header">
             <strong className="perm-section-title">
-              <i className="fas fa-sliders" />
+              <Icon name="sliders" />
               Features
             </strong>
             <div className="action-group">
@@ -286,7 +287,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         <div className="perm-section">
           <div className="perm-section-header">
             <strong className="perm-section-title">
-              <i className="fas fa-cubes" />
+              <Icon name="boxes" />
               Model Access
             </strong>
           </div>
@@ -319,7 +320,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                         onChange={() => toggleModel(m)}
                       />
                       <span className="model-item-check">
-                        {checked && <i className="fas fa-check" />}
+                        {checked && <Icon name="check" />}
                       </span>
                       <span className="model-item-name">{m}</span>
                     </label>
@@ -339,16 +340,16 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
         <div className="perm-section">
           <div className="perm-section-header">
             <strong className="perm-section-title">
-              <i className="fas fa-gauge-high" />
+              <Icon name="gauge" />
               Quotas
             </strong>
             <button className="btn btn-sm btn-primary" onClick={addQuota}>
-              <i className="fas fa-plus" /> Add rule
+              <Icon name="plus" /> Add rule
             </button>
           </div>
           {quotas.length === 0 ? (
             <div className="quota-empty">
-              <i className="fas fa-infinity quota-empty-icon" />
+              <Icon name="infinity" className="quota-empty-icon" />
               <span>No quota rules &mdash; unlimited access</span>
             </div>
           ) : (
@@ -384,7 +385,7 @@ function PermissionsModal({ user, featureMeta, availableModels, onClose, onSave,
                         title="Remove rule"
                         aria-label="Remove quota rule"
                       >
-                        <i className="fas fa-trash" />
+                        <Icon name="trash" />
                       </button>
                     </div>
                     <div className="quota-card-fields">
@@ -557,16 +558,16 @@ function InvitesTab({ addToast }) {
     <>
       <div className="auth-toolbar">
         <button className="btn btn-primary btn-sm" onClick={handleCreate} disabled={creating}>
-          <i className="fas fa-plus" /> {creating ? 'Creating...' : 'Generate Invite Link'}
+          <Icon name="plus" /> {creating ? 'Creating...' : 'Generate Invite Link'}
         </button>
         <button className="btn btn-secondary btn-sm" onClick={fetchInvites} disabled={loading}>
-          <i className="fas fa-rotate" /> Refresh
+          <Icon name="refresh" /> Refresh
         </button>
       </div>
 
       {invites.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-envelope-open-text" /></div>
+          <div className="empty-state-icon"><Icon name="mail" /></div>
           <h2 className="empty-state-title">No invite links</h2>
           <p className="empty-state-text">Generate an invite link to let someone register.</p>
         </div>
@@ -602,7 +603,7 @@ function InvitesTab({ addToast }) {
                               onClick={() => handleCopyUrl(code)}
                               title="Copy invite URL"
                             >
-                              <i className="fas fa-copy" /> Copy
+                              <Icon name="copy" /> Copy
                             </button>
                           </div>
                         )
@@ -631,7 +632,7 @@ function InvitesTab({ addToast }) {
                         onClick={() => handleRevoke(inv)}
                         title="Revoke invite"
                       >
-                        <i className="fas fa-trash" />
+                        <Icon name="trash" />
                       </button>
                     )}
                   </td>
@@ -819,7 +820,7 @@ export default function Users() {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
       style={{ cursor: 'pointer', userSelect: 'none' }}
     >
-      {label}{sort.key === key && <i className={`fas fa-caret-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} aria-hidden="true" />}
+      {label}{sort.key === key && <Icon name={`chevron-${sort.dir === 'asc' ? 'up' : 'down'}`} style={{ marginLeft: 4, opacity: 0.7 }} />}
     </th>
   )
 
@@ -839,13 +840,13 @@ export default function Users() {
           className={`btn btn-sm auth-tab--pill ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('users')}
         >
-          <i className="fas fa-users" /> Users
+          <Icon name="users" /> Users
         </button>
         <button
           className={`btn btn-sm auth-tab--pill ${activeTab === 'invites' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('invites')}
         >
-          <i className="fas fa-envelope-open-text" /> Invites
+          <Icon name="mail" /> Invites
         </button>
       </div>
 
@@ -855,7 +856,7 @@ export default function Users() {
         <>
           <div className="auth-toolbar">
             <div className="search-field">
-              <i className="fas fa-search search-field-icon" />
+              <Icon name="search" className="search-field-icon" />
               <input
                 type="text"
                 className="input"
@@ -865,7 +866,7 @@ export default function Users() {
               />
             </div>
             <button className="btn btn-secondary btn-sm" onClick={fetchUsers} disabled={loading}>
-              <i className="fas fa-rotate" /> Refresh
+              <Icon name="refresh" /> Refresh
             </button>
           </div>
 
@@ -875,7 +876,7 @@ export default function Users() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-state-icon"><i className="fas fa-users" /></div>
+              <div className="empty-state-icon"><Icon name="users" /></div>
               <h2 className="empty-state-title">{search ? 'No matching users' : 'No users'}</h2>
               <p className="empty-state-text">{search ? 'Try a different search term.' : 'No registered users found.'}</p>
             </div>
@@ -901,7 +902,7 @@ export default function Users() {
                           {u.avatarUrl ? (
                             <img src={u.avatarUrl} alt="" className="user-avatar" />
                           ) : (
-                            <i className="fas fa-user-circle user-avatar-placeholder" />
+                            <Icon name="user" className="user-avatar-placeholder" />
                           )}
                           <span className="user-name">{u.name || '(no name)'}</span>
                         </div>
@@ -928,7 +929,7 @@ export default function Users() {
                                 onClick={() => handleToggleStatus(u)}
                                 title="Approve user"
                               >
-                                <i className="fas fa-check" />
+                                <Icon name="check" />
                               </button>
                             ) : (
                               <button
@@ -936,7 +937,7 @@ export default function Users() {
                                 onClick={() => handleToggleStatus(u)}
                                 title="Disable user"
                               >
-                                <i className="fas fa-ban" />
+                                <Icon name="ban" />
                               </button>
                             )}
                             <button
@@ -944,7 +945,7 @@ export default function Users() {
                               onClick={() => handleToggleRole(u)}
                               title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}
                             >
-                              <i className={`fas fa-${u.role === 'admin' ? 'arrow-down' : 'arrow-up'}`} />
+                              <Icon name={u.role === 'admin' ? 'arrow-down' : 'arrow-up'} />
                             </button>
                             {(!u.provider || u.provider === 'local') && (
                               <button
@@ -952,7 +953,7 @@ export default function Users() {
                                 onClick={() => handleResetPassword(u)}
                                 title="Reset password"
                               >
-                                <i className="fas fa-key" />
+                                <Icon name="key" />
                               </button>
                             )}
                             <button
@@ -960,7 +961,7 @@ export default function Users() {
                               onClick={() => handleDelete(u)}
                               title="Delete user"
                             >
-                              <i className="fas fa-trash" />
+                              <Icon name="trash" />
                             </button>
                           </div>
                         )}
