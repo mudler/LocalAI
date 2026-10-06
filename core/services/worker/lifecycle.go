@@ -384,57 +384,89 @@ func (s *backendSupervisor) backendList(_ context.Context, _ workerctl.BackendLi
 	return workerctl.BackendListReply{Backends: infos}
 }
 
+// unloadTargets returns the gRPC addresses a model.unload request must free.
+//
+// The address in the request wins when set. Otherwise the request names a
+// model, and only that model's processes (every replica) are returned. A
+// request that names no running model frees nothing: freeing some other
+// model's process would empty its loaded weights while the control plane
+// still counts it as loaded, and its next request would fail.
+func (s *backendSupervisor) unloadTargets(req workerctl.ModelUnloadRequest) []string {
+	if req.Address != "" {
+		return []string{req.Address}
+	}
+	if req.ModelName == "" {
+		return nil
+	}
+	keys := s.resolveProcessKeys(req.ModelName)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var addrs []string
+	for _, k := range keys {
+		if bp, ok := s.processes[k]; ok && bp.addr != "" {
+			addrs = append(addrs, bp.addr)
+		}
+	}
+	return addrs
+}
+
 // unloadModel answers model.unload: call gRPC Free() to release GPU memory
 // without killing the backend process.
 //
-// The request must name the process by address. There is no fallback to "any
-// running backend": a request that does not say which process it means is
-// refused, because guessing frees an unrelated model. The supervisor lock is
-// held only to snapshot the target and to verify it again afterwards, never
-// across the Free() call.
+// The target is the address in the request, or else every replica of the model
+// the request names (see unloadTargets). There is no fallback to "any running
+// backend": a request that names nothing running frees nothing. The supervisor
+// lock is held only to snapshot each target and to verify it again afterwards,
+// never across the Free() call.
 func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.ModelUnloadRequest) workerctl.ModelUnloadReply {
-	xlog.Info("Received NATS model.unload event")
+	xlog.Info("Received NATS model.unload event", "model", req.ModelName)
 
-	if req.Address == "" {
-		xlog.Warn("Refusing model.unload without an address; the worker does not pick a process", "model", req.ModelName)
+	targets := s.unloadTargets(req)
+	if len(targets) == 0 {
+		xlog.Warn("model.unload names no running process; freeing nothing", "model", req.ModelName)
 		return workerctl.ModelUnloadReply{Success: true}
 	}
 
-	s.mu.Lock()
-	var target *backendProcess
-	var key string
-	for k, bp := range s.processes {
-		if bp.addr == req.Address && !bp.stopping {
-			target, key = bp, k
-			break
+	var replaced []string
+	for _, addr := range targets {
+		// Snapshot the process at this address under the lock. Nothing there, or
+		// a different incarnation than the caller meant: it is already gone.
+		s.mu.Lock()
+		var target *backendProcess
+		var key string
+		for k, bp := range s.processes {
+			if bp.addr == addr && !bp.stopping {
+				target, key = bp, k
+				break
+			}
 		}
-	}
-	if target == nil || (req.ProcessInstance != "" && target.instance != req.ProcessInstance) {
+		if target == nil || (req.ProcessInstance != "" && target.instance != req.ProcessInstance) {
+			s.mu.Unlock()
+			continue
+		}
+		instance := target.instance
 		s.mu.Unlock()
-		// Nothing at that address (or a different incarnation): the process the
-		// caller meant is already gone.
-		return workerctl.ModelUnloadReply{Success: true}
-	}
-	instance := target.instance
-	s.mu.Unlock()
 
-	// Best-effort bounded gRPC Free(). A model.unload request must not occupy
-	// the NATS reply handler forever when a backend is wedged.
-	client := grpc.NewClientWithToken(req.Address, false, nil, false, s.cfg.RegistrationToken)
-	freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
-	freeErr := client.Free(freeCtx)
-	cancel()
-	if freeErr != nil {
-		xlog.Warn("Free() failed during model.unload", "error", freeErr, "addr", req.Address)
-	}
+		// Best-effort bounded gRPC Free(), outside the lock. A model.unload
+		// request must not occupy the NATS reply handler forever when a backend
+		// is wedged.
+		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.RegistrationToken)
+		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
+		if err := client.Free(freeCtx); err != nil {
+			xlog.Warn("Free() failed during model.unload", "error", err, "addr", addr)
+		}
+		cancel()
 
-	// The process may have been replaced while Free() ran. Say so instead of
-	// reporting a success for a process that is not the one that was freed.
-	s.mu.Lock()
-	current, ok := s.processes[key]
-	replaced := !ok || current != target || current.instance != instance
-	s.mu.Unlock()
-	if replaced {
+		// The process may have been replaced while Free() ran. Say so instead of
+		// reporting a success for a process that is not the one that was freed.
+		s.mu.Lock()
+		current, ok := s.processes[key]
+		if !ok || current != target || current.instance != instance {
+			replaced = append(replaced, addr)
+		}
+		s.mu.Unlock()
+	}
+	if len(replaced) > 0 {
 		return workerctl.ModelUnloadReply{Success: false, Error: "process was replaced during unload"}
 	}
 	return workerctl.ModelUnloadReply{Success: true}

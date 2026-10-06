@@ -295,6 +295,10 @@ type CacheInvalidateEvent struct {
 	ConfigRevision string `json:"config_revision,omitempty"`
 }
 
+// SubjectCacheInvalidateCollectionAll matches the collection cache
+// invalidation subject of every collection.
+const SubjectCacheInvalidateCollectionAll = "cache.invalidate.collections.*"
+
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
 func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)

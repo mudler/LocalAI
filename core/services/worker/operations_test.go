@@ -273,7 +273,7 @@ var _ = Describe("Stopping one operation", func() {
 })
 
 var _ = Describe("model.unload", func() {
-	It("frees nothing when the request names no process", func() {
+	It("frees nothing when the request names no running model, and never another model's process", func() {
 		backend := &freeHookBackend{}
 		addr, port, stopServer := startFreeHookBackend(backend)
 		defer stopServer()
@@ -281,10 +281,13 @@ var _ = Describe("model.unload", func() {
 			"model#0": {addr: addr, port: port, instance: "i"},
 		}}
 
-		reply := s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"})
-
-		Expect(reply.Success).To(BeTrue())
+		Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{}).Success).To(BeTrue())
+		Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "another-model"}).Success).To(BeTrue())
 		Expect(backend.frees.Load()).To(BeZero(), "the worker must not guess which running backend to free")
+
+		// A request that names the model frees that model's own process.
+		Expect(s.unloadModel(context.Background(), workerctl.ModelUnloadRequest{ModelName: "model"}).Success).To(BeTrue())
+		Expect(backend.frees.Load()).To(Equal(int32(1)))
 	})
 
 	It("frees only the process at the given address and instance", func() {

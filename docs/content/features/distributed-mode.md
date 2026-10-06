@@ -886,6 +886,17 @@ gauge and the query above see only LocalAI's own sessions -- and the transaction
 wedges the horizon is typically the co-located vector store connecting as a different
 role, which is exactly the case they exist to catch.
 
+## Agent collections across frontends
+
+Collections (the `/api/agents/collections` routes) are **shared state**: every frontend shows the same list. With the `postgres` vector engine, the database is the source of truth for which collections exist. Each frontend keeps the collections it has opened in memory, but only as a cache:
+
+- Listing a collection set reads it from the database.
+- A request for a collection that this frontend has not opened yet checks the database before it answers `404`, and opens the collection if it exists. A collection created through one frontend is therefore usable through any other one at once.
+- A frontend re-checks a cached collection at most every 5 seconds, so a collection removed through another frontend stops being served within that time.
+- Creating or resetting a collection publishes an event on the message bus, so the other frontends re-check immediately.
+
+This needs `LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres` and `LOCALAI_AGENT_POOL_DATABASE_URL`. With another vector engine there is no shared registry, and each frontend keeps its own list. Per-user collections (authentication enabled) are not yet coordinated this way.
+
 ## Agent Workers
 
 Agent workers are dedicated processes for executing agent chats and MCP CI jobs. Unlike backend workers (which run gRPC model inference), agent workers use cogito to orchestrate multi-step conversations with tool calls.
