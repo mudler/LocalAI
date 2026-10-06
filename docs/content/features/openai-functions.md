@@ -108,6 +108,8 @@ state cannot be trimmed. With `use_tokenizer_template: true`, the backend saves
 an independent checkpoint before the first user message diverges. This can reuse
 the leading system messages and tool definitions across requests with different
 user messages. Both streaming and non-streaming requests use these checkpoints.
+Repetition, presence, and frequency penalties include the full prompt history,
+including the shared prefix, on both cold requests and cache hits.
 
 The backend verifies the prefix against the actual prompt tokens, including the
 template's tool and thinking settings. Raw prompts and templates that reject an
