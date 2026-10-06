@@ -54228,8 +54228,6 @@
       uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/redux-vad.gguf
       sha256: 588e1d6e2ee5b6cdfd9ec5ea98dc0993d5bea498d9cc4ec8d6077041eef8a34f
 - name: parakeet-cpp-vad-moondream-ultra
-  variants:
-    - model: parakeet-cpp-vad-moondream-ultra-q8_0
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
