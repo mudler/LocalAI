@@ -103,6 +103,6 @@ test.describe('Traces - bounded list and on-demand detail', () => {
 
     await expect(page.locator('text=hello from the request body')).toBeVisible()
     const originalRow = page.locator('tr', { hasText: '/v1/chat/completions' }).first()
-    await expect(originalRow.locator('i.fa-chevron-down')).toBeVisible()
+    await expect(originalRow.locator('svg[data-icon="chevron-down"]')).toBeVisible()
   })
 })

@@ -123,7 +123,7 @@ test.describe('Nodes page — per-node backend actions', () => {
     // Positive: the action menu names the operation and uses an upgrade icon.
     const upgradeItem = menu.getByRole('menuitem', { name: 'Upgrade backend' })
     await expect(upgradeItem).toBeVisible()
-    await expect(upgradeItem.locator('i.fa-arrow-up')).toBeVisible()
+    await expect(upgradeItem.locator('svg[data-icon="arrow-up"]')).toBeVisible()
   })
 
   test('per-node backend row shows a delete (trash) button next to upgrade', async ({ page }) => {
@@ -133,7 +133,7 @@ test.describe('Nodes page — per-node backend actions', () => {
     const menu = await openBackendActions(page)
     const deleteItem = menu.getByRole('menuitem', { name: 'Delete backend…' })
     await expect(deleteItem).toBeVisible()
-    await expect(deleteItem.locator('i.fa-trash')).toBeVisible()
+    await expect(deleteItem.locator('svg[data-icon="trash"]')).toBeVisible()
   })
 
   test('clicking delete opens the confirm dialog and POSTs to the per-node delete endpoint', async ({ page }) => {

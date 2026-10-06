@@ -62,12 +62,14 @@ test.describe('Editorial design system', () => {
     expect(content.y).toBeGreaterThanOrEqual(rail.y + rail.height - 1)
   })
 
-  test('the settings save button carries no icon font of its own', async ({ page }) => {
+  test('the settings save button carries no icon class of its own', async ({ page }) => {
     await page.goto('/app/settings')
     const btn = page.locator('.set-head button.btn').first()
     await expect(btn).toBeVisible({ timeout: 15_000 })
-    // "fas fa-save" on the button put a missing glyph before the label.
-    await expect(btn).not.toHaveClass(/\bfas\b/)
+    // An icon class on the button itself once put a missing glyph before the
+    // label. The icon is a child svg.
+    await expect(btn).not.toHaveClass(/\b(fas|far|fab|lai-icon)\b/)
+    await expect(btn.locator('svg[data-icon]')).toHaveCount(1)
   })
 
   test('page reveal animation is defined on .page-transition', async ({ page }) => {

@@ -32,9 +32,9 @@ const centres = (page) =>
       nav: [...document.querySelectorAll('.sidebar-nav .nav-icon')].map(cx),
       mark: one('.sidebar-logo-icon-img'),
       avatar: one('.sidebar-user-avatar, .sidebar-user-avatar-icon'),
-      language: one('.language-switcher-trigger i'),
+      language: one('.language-switcher-trigger svg'),
       theme: one('.theme-toggle__icon'),
-      collapse: one('.sidebar-collapse-btn i'),
+      collapse: one('.sidebar-collapse-btn svg'),
     }
   })
 
