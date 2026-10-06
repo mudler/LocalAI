@@ -240,13 +240,33 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryServ
 			return c.JSON(http.StatusInternalServerError, response)
 		}
 
-		// A config referencing remote assets is a download, not just a file
-		// write: route it through the gallery op queue so the UI tracks it
-		// like a gallery install (job UUID + /models/jobs/{uuid}), instead
-		// of downloading synchronously inside this request via Preload. The
-		// op writes the config file and reloads once the downloads finish;
-		// configs with no remote assets keep the fast synchronous path.
-		if files := remoteAssetFiles(&modelConfig); len(files) > 0 && gs != nil {
+		// A config whose assets are not on disk yet is a download, not just
+		// a file write: route it through the gallery op queue so the UI
+		// tracks it like a gallery install (job UUID + /models/jobs/{uuid})
+		// instead of acquiring synchronously inside this request. The op
+		// writes the config file and reloads once acquisition finishes;
+		// configs needing no acquisition keep the fast synchronous path.
+		//
+		// WHICH acquisition is the artifact resolver's call, not a string
+		// test: a managed artifact (explicit artifacts:, an hf:// repo or
+		// bare owner/repo on a directory-consuming backend) must enqueue
+		// with NO files, so the worker's InstallModel runs the same binding
+		// and repository materializer as a gallery install — flattening a
+		// repository into file entries would send it to the single-file
+		// downloader and skip the materializer. Plain remote files
+		// (download_files, URL model/mmproj on single-file backends) ride
+		// as file entries through the same downloader preload would use.
+		// (A URL mmproj on an artifact config stays preload's job, as it
+		// was before queued imports.)
+		_, _, hasArtifact, err := modelConfig.PrimaryArtifactSpec(appConfig.SystemState.Model.ModelsPath)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Invalid model reference: " + err.Error()})
+		}
+		var queueFiles []gallery.File
+		if !hasArtifact {
+			queueFiles = remoteAssetFiles(&modelConfig)
+		}
+		if gs != nil && (hasArtifact || len(queueFiles) > 0) {
 			jobUUID, err := uuid.NewUUID()
 			if err != nil {
 				return err
@@ -261,7 +281,9 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryServ
 				GalleryElement: &gallery.ModelConfig{
 					Name:       modelConfig.Name,
 					ConfigFile: string(yamlData),
-					Files:      files,
+					// nil for artifact configs: InstallModel's empty-Files
+					// branch re-resolves and binds the artifact itself.
+					Files: queueFiles,
 				},
 				BackendGalleries: appConfig.BackendGalleries,
 			})
