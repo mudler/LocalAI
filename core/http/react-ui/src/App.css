@@ -485,6 +485,10 @@
 }
 
 .sidebar-user-avatar-icon {
+  /* Exactly the 28px box the old glyph filled, so the avatar centre stays on
+     the nav icon column. */
+  width: 28px;
+  height: 28px;
   font-size: 1.75rem;
   color: var(--color-text-muted);
   flex-shrink: 0;
@@ -691,6 +695,7 @@
   /* The globe is 16px wide: 12px of padding centres it on the icon column. */
   padding-left: 12px;
 }
+.language-switcher-trigger .lai-icon { width: 16px; height: 16px; }
 .language-switcher-code {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
@@ -14106,17 +14111,17 @@ button.lane:hover {
    visual size, and the em unit keeps every icon following its context's font
    size. The line is a little heavier than the kit's 1.75 so it holds up at the
    12-16px sizes the app uses. */
-.lai-icon {
+:where(.lai-icon) {
   display: inline-block;
   width: 1.2em;
   height: 1.2em;
   vertical-align: -0.25em;
   flex: none;
-  stroke-width: 2;
 }
 .lai-icon--glyph { fill: currentColor; stroke: none; }
+.lai-icon:not(.lai-icon--glyph) { fill: none; stroke: currentColor; stroke-width: var(--lai-stroke, 2); stroke-linecap: round; stroke-linejoin: round; }
 /* Large marks (empty states, heroes) read heavier at the same line weight. */
-.empty-state-icon.lai-icon, .p2p-hero > .lai-icon, .p2p-empty .lai-icon { stroke-width: 1.5; }
+.empty-state-icon.lai-icon, .empty-state-icon .lai-icon, .p2p-hero > .lai-icon, .p2p-empty .lai-icon, .biometrics-empty > .lai-icon { --lai-stroke: 1.5; }
 .lai-icon--beat { animation: lai-icon-beat 1s ease-in-out infinite; }
 @keyframes lai-icon-beat {
   50% { transform: scale(1.18); }

@@ -17,7 +17,7 @@ ensureSprite()
 export default function Icon({ name, size, className, title, spin = false, style, ...rest }) {
   const glyph = BRAND_GLYPHS[name]
   const id = glyph || SPRITE_IDS.has(name) ? name : FALLBACK_ICON
-  const classes = ['dk-icon', 'lai-icon', spin && 'dk-spin', glyph && 'lai-icon--glyph', className]
+  const classes = ['lai-icon', spin && 'dk-spin', glyph && 'lai-icon--glyph', className]
     .filter(Boolean)
     .join(' ')
   const dim = typeof size === 'number' ? `${size}px` : size

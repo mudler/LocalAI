@@ -8,7 +8,7 @@ ensureSprite()
 // is checked against the sprite, so the string never carries caller input.
 export function iconHtml(name) {
   const id = SPRITE_IDS.has(name) ? name : FALLBACK_ICON
-  return `<svg class="dk-icon lai-icon" data-icon="${id}" aria-hidden="true" focusable="false"><use href="#${SPRITE_PREFIX}${id}"></use></svg>`
+  return `<svg class="lai-icon" data-icon="${id}" aria-hidden="true" focusable="false"><use href="#${SPRITE_PREFIX}${id}"></use></svg>`
 }
 
 // A slot is what the sanitizer lets through; fillIconSlots swaps each one for

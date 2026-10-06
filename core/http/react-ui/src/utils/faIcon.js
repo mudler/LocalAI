@@ -1,4 +1,4 @@
-import faMap from '../vendor/ui-kit/icons/fa-map.json'
+import faMap from '../vendor/ui-kit/icons/fa-map.json' with { type: 'json' }
 
 // The icon drawn for a name the map does not know.
 export const FALLBACK_ICON = 'circle'

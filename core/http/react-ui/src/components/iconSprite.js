@@ -19,6 +19,8 @@ export function ensureSprite() {
   holder.id = HOLDER_ID
   holder.className = 'lai-icon-sprite'
   holder.setAttribute('aria-hidden', 'true')
-  holder.innerHTML = spriteSource
+  // The symbols fix their own line width. Drop it so the width set on each svg
+  // (the --lai-stroke custom property in App.css) applies.
+  holder.innerHTML = spriteSource.replaceAll(' stroke-width="1.75"', '')
   document.body.prepend(holder)
 }
