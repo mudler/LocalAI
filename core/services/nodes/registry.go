@@ -160,8 +160,11 @@ type NodeModel struct {
 	CleanupError         string     `gorm:"column:cleanup_error;type:text" json:"cleanup_error,omitempty"`
 	CleanupAttempts      int        `gorm:"column:cleanup_attempts;default:0" json:"cleanup_attempts,omitempty"`
 	CleanupNextRetryAt   *time.Time `gorm:"column:cleanup_next_retry_at" json:"cleanup_next_retry_at,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	// LoadGeneration names the load attempt that created this replica row. A row
+	// still staging or loading whose attempt no longer has a job is abandoned.
+	LoadGeneration string    `gorm:"column:load_generation;size:36;not null;default:''" json:"-"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
@@ -358,6 +361,13 @@ type ModelLoadJob struct {
 	// minutes, so a reaper keyed on byte movement would reclaim a healthy job
 	// mid-load. Byte progress is measured separately, by load_deadline.go.
 	LastProgress time.Time `gorm:"index" json:"last_progress_at"`
+	// LeaseUntil is the owner's lease, in database time. The owner pushes it
+	// forward with every heartbeat. A running job whose lease is missing or in
+	// the past has no live owner.
+	LeaseUntil *time.Time `json:"-"`
+	// StopDeadline is set when the job fails: the earliest moment the model may
+	// be loaded again. It is database time too.
+	StopDeadline *time.Time `json:"-"`
 }
 
 // Op constants mirror the operation names used by DistributedBackendManager
@@ -371,6 +381,11 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// clock stamps display fields of load jobs. Tests replace it to prove that
+	// the lease never depends on it. nil means time.Now.
+	clock func() time.Time
+	// leaseTTL overrides loadJobLeaseTTL when set (tests).
+	leaseTTL time.Duration
 	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
 	// is removed. This is the single chokepoint that lets dependent state be
 	// invalidated no matter which removal path (router eviction, reconciler
@@ -1401,11 +1416,17 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
+		assign := map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
+			"config_revision": revision, "effective_options_hash": effectiveOptionsHash}
+		// A row written by a load owner names its attempt, so the reconciler can
+		// tell when that attempt is gone.
+		if ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); owned {
+			assign["load_generation"] = ref.Generation
+		}
 		var nm NodeModel
 		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 			Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
-			Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
-				"config_revision": revision, "effective_options_hash": effectiveOptionsHash}).
+			Assign(assign).
 			FirstOrCreate(&nm).Error
 	})
 }

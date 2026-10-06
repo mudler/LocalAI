@@ -185,12 +185,18 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 	if s.jobs == nil {
 		s.jobs = map[string]*ModelLoadJob{}
 	}
-	if existing, ok := s.jobs[trackingKey]; ok && !existing.reclaimable(time.Now()) {
-		cp := *existing
-		return &cp, false, nil
-	}
 	now := time.Now()
-	job := &ModelLoadJob{TrackingKey: trackingKey, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
+	if existing, ok := s.jobs[trackingKey]; ok {
+		past := func(t *time.Time) bool { return t != nil && now.After(*t) }
+		reclaim := existing.State == LoadJobStateFailed && past(existing.StopDeadline) ||
+			existing.State != LoadJobStateFailed && past(existing.LeaseUntil)
+		if !reclaim {
+			cp := *existing
+			return &cp, false, nil
+		}
+	}
+	lease := now.Add(loadJobLeaseTTL)
+	job := &ModelLoadJob{TrackingKey: trackingKey, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now, LeaseUntil: &lease}
 	s.jobs[trackingKey] = job
 	cp := *job
 	return &cp, true, nil
@@ -240,10 +246,12 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u Lo
 	job.BytesSent, job.TotalBytes = u.BytesSent, u.TotalBytes
 	job.FileIndex, job.TotalFiles = u.FileIndex, u.TotalFiles
 	job.LastProgress = time.Now()
+	lease := time.Now().Add(loadJobLeaseTTL)
+	job.LeaseUntil = &lease
 	return nil
 }
 
-func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg string) error {
+func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg string, workMayRun bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	job := s.owned(ref)
@@ -253,6 +261,12 @@ func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg st
 	job.State = LoadJobStateFailed
 	job.LastError = msg
 	job.LastProgress = time.Now()
+	hold := loadJobFailureReport
+	if workMayRun {
+		hold = loadJobStopWindow
+	}
+	deadline := time.Now().Add(hold)
+	job.StopDeadline = &deadline
 	return nil
 }
 
@@ -271,7 +285,7 @@ func (s *fakeLoadJobStore) DeleteFailedLoadJob(_ context.Context, ref LoadJobRef
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	job := s.owned(ref)
-	if job == nil || job.State != LoadJobStateFailed || time.Since(job.LastProgress) < loadJobFailureGrace {
+	if job == nil || job.State != LoadJobStateFailed || job.StopDeadline == nil || time.Now().Before(*job.StopDeadline) {
 		return ErrStaleLoadJob
 	}
 	delete(s.jobs, ref.TrackingKey)

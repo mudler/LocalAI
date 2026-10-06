@@ -223,6 +223,9 @@ type SmartRouter struct {
 	// load_job_runner.go.
 	loadWaitersMu sync.Mutex
 	loadWaiters   map[string]*loadWaiter
+
+	// leaseTTL overrides loadJobLeaseTTL for the owner's own deadline (tests).
+	leaseTTL time.Duration
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is

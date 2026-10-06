@@ -164,7 +164,12 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 	err := work(ownerCtx)
 	stopHeartbeat()
 
-	lost := errors.Is(context.Cause(ownerCtx), ErrStaleLoadJob)
+	cause := context.Cause(ownerCtx)
+	lost := errors.Is(cause, ErrStaleLoadJob)
+	leaseExpired := errors.Is(cause, ErrLoadLeaseExpired)
+	if leaseExpired {
+		err = fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrLoadLeaseExpired)
+	}
 	// Bookkeeping must survive the owner context, which may be exactly what
 	// just ended.
 	bookCtx, cancelBook := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -177,7 +182,11 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 		return fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrStaleLoadJob)
 	case err != nil:
 		xlog.Error("Cold load job failed", "model", ref.TrackingKey, "error", err)
-		if ferr := r.registry.FailLoadJob(bookCtx, ref, err.Error()); ferr != nil {
+		// Work may outlive the failure when we gave up on it (deadline, cancel,
+		// lost lease) once a node was chosen. An answer from the backend, or a
+		// failure before any node was chosen, means nothing is left running.
+		mayRun := phase.snapshot().State != LoadJobStatePending && (leaseExpired || loadAbandonedOnWorker(err))
+		if ferr := r.registry.FailLoadJob(bookCtx, ref, err.Error(), mayRun); ferr != nil {
 			if errors.Is(ferr, ErrStaleLoadJob) {
 				r.closeLoadWaiters(loadWaiterKey(ref))
 				return fmt.Errorf("loading model %s: %w (load error: %v)", ref.TrackingKey, ErrStaleLoadJob, err)
@@ -185,11 +194,11 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 			xlog.Warn("Failed to record cold load failure", "model", ref.TrackingKey, "error", ferr)
 		}
 		r.closeLoadWaiters(loadWaiterKey(ref))
-		// Keep the row for the grace window so a request arriving right now
-		// reports this failure instead of starting a duplicate load. The
-		// timer only tidies the table: a restart loses it, and the next
-		// claim replaces a failed row past its grace window without it.
-		time.AfterFunc(loadJobFailureGrace+time.Second, func() {
+		// The row stays until its stop deadline so a request arriving right
+		// now reports this failure instead of starting a duplicate load. The
+		// timer only tidies the table: a restart loses it, and the next claim
+		// replaces a failed row past its deadline without it.
+		time.AfterFunc(r.failedJobTidyDelay(mayRun), func() {
 			delCtx, cancelDel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancelDel()
 			if derr := r.registry.DeleteFailedLoadJob(delCtx, ref); derr != nil && !errors.Is(derr, ErrStaleLoadJob) {
@@ -235,6 +244,9 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 		ticker := time.NewTicker(loadJobHeartbeatInterval)
 		defer ticker.Stop()
 		var startedAt time.Time
+		// lastRenewed is monotonic, so the owner's own deadline does not move
+		// with the wall clock.
+		lastRenewed := time.Now()
 		for {
 			select {
 			case <-done:
@@ -261,8 +273,17 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 					abort(ErrStaleLoadJob)
 					return
 				}
-				if err != nil {
-					xlog.Debug("Failed to heartbeat cold load job", "model", trackingKey, "error", err)
+				if err == nil {
+					lastRenewed = time.Now()
+					continue
+				}
+				xlog.Debug("Failed to heartbeat cold load job", "model", trackingKey, "error", err)
+				// A failed renewal is not fatal by itself. The owner keeps
+				// working until the lease it last extended has run out, then
+				// stops: it must not outlive a lease it cannot extend.
+				if time.Since(lastRenewed) >= r.loadLeaseTTL() {
+					abort(ErrLoadLeaseExpired)
+					return
 				}
 			}
 		}
@@ -389,4 +410,20 @@ func (r *SmartRouter) closeLoadWaiters(key string) {
 	if ok {
 		close(w.ch)
 	}
+}
+
+func (r *SmartRouter) loadLeaseTTL() time.Duration {
+	if r.leaseTTL > 0 {
+		return r.leaseTTL
+	}
+	return loadJobLeaseTTL
+}
+
+// failedJobTidyDelay is when the in-process timer tries to remove a failed row.
+// It only has to be after the stop deadline the row was given.
+func (r *SmartRouter) failedJobTidyDelay(mayRun bool) time.Duration {
+	if mayRun {
+		return loadJobStopWindow + time.Second
+	}
+	return loadJobFailureReport + time.Second
 }

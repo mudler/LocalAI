@@ -99,17 +99,19 @@ var _ = Describe("ModelLoadJob", func() {
 			<-done
 		})
 
-		It("reclaims a job whose owner stopped heartbeating", func() {
+		It("reclaims a job whose owner stopped renewing its lease", func() {
 			_, claimed, err := registry.ClaimLoadJob(ctx, "orphan", "dead-replica")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
 
-			// Backdate the heartbeat past the orphan window, as a replica killed
+			// Expire the lease on the database clock, as a replica killed
 			// mid-load would leave it.
-			stale := time.Now().Add(-2 * loadJobOrphanWindow)
-			Expect(db.Model(&ModelLoadJob{}).Where("tracking_key = ?", "orphan").
-				Update("last_progress", stale).Error).ToNot(HaveOccurred())
+			Expect(db.Exec("UPDATE model_load_jobs SET lease_until = now() - interval '1 second' WHERE tracking_key = 'orphan'").Error).To(Succeed())
+			_, claimed, err = registry.ClaimLoadJob(ctx, "orphan", "live-replica")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeFalse(), "the dead owner's remote work may still run, so the stop window applies")
 
+			Expect(db.Exec("UPDATE model_load_jobs SET stop_deadline = now() - interval '1 second' WHERE tracking_key = 'orphan'").Error).To(Succeed())
 			job, claimed, err := registry.ClaimLoadJob(ctx, "orphan", "live-replica")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue(), "a dead replica must not wedge the model permanently")
@@ -182,7 +184,7 @@ var _ = Describe("ModelLoadJob", func() {
 		It("records the failure cause for waiters to read", func() {
 			m3Job, _, err := registry.ClaimLoadJob(ctx, "m3", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, m3Job.Ref(), "no available nodes")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, m3Job.Ref(), "no available nodes", false)).To(Succeed())
 
 			job, err := registry.GetLoadJob(ctx, "m3")
 			Expect(err).ToNot(HaveOccurred())
@@ -193,7 +195,7 @@ var _ = Describe("ModelLoadJob", func() {
 		It("hands a request arriving inside the failure grace the real error", func() {
 			m4Job, _, err := registry.ClaimLoadJob(ctx, "m4", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, m4Job.Ref(), "worker out of VRAM")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, m4Job.Ref(), "worker out of VRAM", false)).To(Succeed())
 
 			job, claimed, err := registry.ClaimLoadJob(ctx, "m4", "replica-b")
 			Expect(err).ToNot(HaveOccurred())

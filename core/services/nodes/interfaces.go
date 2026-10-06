@@ -73,7 +73,7 @@ type LoadJobStore interface {
 	ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error)
 	GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error)
 	UpdateLoadJob(ctx context.Context, ref LoadJobRef, u LoadJobUpdate) error
-	FailLoadJob(ctx context.Context, ref LoadJobRef, msg string) error
+	FailLoadJob(ctx context.Context, ref LoadJobRef, msg string, workMayRun bool) error
 	DeleteLoadJob(ctx context.Context, ref LoadJobRef) error
 	DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) error
 }

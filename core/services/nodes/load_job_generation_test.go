@@ -41,9 +41,10 @@ var _ = Describe("Load job generation fencing", func() {
 		ctx = context.Background()
 	})
 
-	backdate := func(trackingKey string, age time.Duration) {
-		Expect(db.Model(&ModelLoadJob{}).Where("tracking_key = ?", trackingKey).
-			Update("last_progress", time.Now().Add(-age)).Error).To(Succeed())
+	// release moves a failed job's stop deadline into the past, on the
+	// database clock.
+	release := func(trackingKey string) {
+		Expect(db.Exec("UPDATE model_load_jobs SET stop_deadline = now() - interval '1 second' WHERE tracking_key = ?", trackingKey).Error).To(Succeed())
 	}
 
 	loadJobCount := func(trackingKey string) int64 {
@@ -67,7 +68,7 @@ var _ = Describe("Load job generation fencing", func() {
 
 			for _, stale := range []LoadJobRef{a.Ref(), {TrackingKey: "aba-model"}} {
 				Expect(registry.UpdateLoadJob(ctx, stale, LoadJobUpdate{State: LoadJobStateLoading})).To(MatchError(ErrStaleLoadJob))
-				Expect(registry.FailLoadJob(ctx, stale, "late failure")).To(MatchError(ErrStaleLoadJob))
+				Expect(registry.FailLoadJob(ctx, stale, "late failure", false)).To(MatchError(ErrStaleLoadJob))
 				Expect(registry.DeleteLoadJob(ctx, stale)).To(MatchError(ErrStaleLoadJob))
 			}
 
@@ -126,7 +127,7 @@ var _ = Describe("Load job generation fencing", func() {
 		It("frees a failed model without manual SQL, even after a frontend restart", func() {
 			failed, _, err := registry.ClaimLoadJob(ctx, "retry-model", "frontend-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, failed.Ref(), "worker out of disk")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, failed.Ref(), "worker out of disk", false)).To(Succeed())
 
 			// Inside the grace window every caller sees the real cause.
 			got, claimed, err := registry.ClaimLoadJob(ctx, "retry-model", "frontend-b")
@@ -135,7 +136,7 @@ var _ = Describe("Load job generation fencing", func() {
 			Expect(got.State).To(Equal(LoadJobStateFailed))
 			Expect(got.LastError).To(Equal("worker out of disk"))
 
-			backdate("retry-model", loadJobFailureGrace+time.Second)
+			release("retry-model")
 
 			// A new registry stands in for a restarted frontend: the release
 			// must not depend on an in-process timer.
@@ -155,13 +156,13 @@ var _ = Describe("Load job generation fencing", func() {
 		It("does not let the success path delete a failed job", func() {
 			failed, _, err := registry.ClaimLoadJob(ctx, "failed-delete", "frontend-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, failed.Ref(), "boom")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, failed.Ref(), "boom", false)).To(Succeed())
 			Expect(registry.DeleteLoadJob(ctx, failed.Ref())).To(MatchError(ErrStaleLoadJob))
 			Expect(loadJobCount("failed-delete")).To(Equal(int64(1)))
 
 			// The failed row is removed by its own, grace-gated call.
 			Expect(registry.DeleteFailedLoadJob(ctx, failed.Ref())).To(MatchError(ErrStaleLoadJob))
-			backdate("failed-delete", loadJobFailureGrace+time.Second)
+			release("failed-delete")
 			Expect(registry.DeleteFailedLoadJob(ctx, failed.Ref())).To(Succeed())
 			Expect(loadJobCount("failed-delete")).To(BeZero())
 		})
@@ -184,7 +185,7 @@ var _ = Describe("Load job generation fencing", func() {
 				VALUES (?, 'staging', 'old-frontend', ?, now(), now())`, key, time.Now().Add(-age)).Error).To(Succeed())
 		}
 
-		It("gives a pre-existing row a generation and reclaims it once its owner stops heartbeating", func() {
+		It("gives a pre-existing row a generation and an expired lease", func() {
 			legacyDB := legacySchema()
 			insertLegacy(legacyDB, "legacy-dead", 5*time.Minute)
 			insertLegacy(legacyDB, "legacy-live", time.Second)
@@ -199,17 +200,18 @@ var _ = Describe("Load job generation fencing", func() {
 				Expect(j.Generation).ToNot(BeEmpty(), "the migration must give every legacy row a generation")
 			}
 
-			// A live legacy owner keeps its job: we wait on it.
-			live, claimed, err := migrated.ClaimLoadJob(ctx, "legacy-live", "new-frontend")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(claimed).To(BeFalse())
-			Expect(live.OwnerReplica).To(Equal("old-frontend"))
-
-			// A dead one does not block the model.
+			// No old binary renews a lease, so every legacy row is expired,
+			// live or not. It is released after the stop window.
+			for _, key := range []string{"legacy-dead", "legacy-live"} {
+				held, claimed, err := migrated.ClaimLoadJob(ctx, key, "new-frontend")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(claimed).To(BeFalse())
+				Expect(held.State).To(Equal(LoadJobStateFailed))
+			}
+			Expect(legacyDB.Exec("UPDATE model_load_jobs SET stop_deadline = now() - interval '1 second'").Error).To(Succeed())
 			dead, claimed, err := migrated.ClaimLoadJob(ctx, "legacy-dead", "new-frontend")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
-			Expect(dead.OwnerReplica).To(Equal("new-frontend"))
 			Expect(dead.Generation).ToNot(BeEmpty())
 		})
 
@@ -225,9 +227,14 @@ var _ = Describe("Load job generation fencing", func() {
 
 			// No new owner can hold an empty generation, so no write may match it.
 			Expect(migrated.UpdateLoadJob(ctx, row.Ref(), LoadJobUpdate{})).To(MatchError(ErrStaleLoadJob))
-			Expect(migrated.FailLoadJob(ctx, row.Ref(), "x")).To(MatchError(ErrStaleLoadJob))
+			Expect(migrated.FailLoadJob(ctx, row.Ref(), "x", false)).To(MatchError(ErrStaleLoadJob))
 			Expect(migrated.DeleteLoadJob(ctx, row.Ref())).To(MatchError(ErrStaleLoadJob))
 
+			held, claimed, err := migrated.ClaimLoadJob(ctx, "late-legacy", "new-frontend")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(BeFalse())
+			Expect(held.State).To(Equal(LoadJobStateFailed))
+			Expect(legacyDB.Exec("UPDATE model_load_jobs SET stop_deadline = now() - interval '1 second'").Error).To(Succeed())
 			job, claimed, err := migrated.ClaimLoadJob(ctx, "late-legacy", "new-frontend")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
@@ -359,7 +366,7 @@ var _ = Describe("Load job generation fencing", func() {
 			backend.mu.Lock()
 			backend.loadResult = &pb.Result{Success: true}
 			backend.mu.Unlock()
-			backdate("retry-route", loadJobFailureGrace+time.Second)
+			release("retry-route")
 
 			res, err := router.Route(ctx, "retry-route", "models/retry.gguf", "llama-cpp", "", opts, false)
 			Expect(err).ToNot(HaveOccurred())

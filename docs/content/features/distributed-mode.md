@@ -124,8 +124,10 @@ So the load does **not** run on the request. The first request for an unloaded m
 - It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
-- A failed job stays for 15 seconds so every waiter reads the same cause. After that, the next request for the model starts a new attempt. No manual cleanup is needed, and the release does not depend on the frontend that failed the job still running.
-- Each attempt has its own generation. If another replica reclaims a job because its owner stopped heartbeating, the old owner notices at its next heartbeat and stops its load. Its late writes to the job and to the replica table are rejected.
+- The owner of a job holds a 30 second lease, which it renews on every heartbeat. The database clock decides whether a lease has expired, so a frontend with a wrong clock cannot expire a live lease or keep a dead one. If an owner cannot renew for a whole lease, it stops its own load.
+- If an owner dies, its job is marked failed once the lease runs out, with or without a new request. A request that arrives then reads the cause. The model is held for a 2.5 minute stop window, because remote work may still run. After that the next request starts a new attempt. No manual cleanup is needed.
+- A failure that is known to have ended the remote work (an error from the backend, or a failure before a node was chosen) is kept for 15 seconds only, so every waiter reads the same cause and the next request can retry.
+- Each attempt has its own generation. If a job is replaced, the old owner notices at its next heartbeat and stops its load. Its late writes to the job and to the replica table are rejected.
 - If the job table cannot be read, a cold load fails instead of running without a job. Models that are already loaded keep serving, because routing to a loaded replica does not read the job table.
 
 When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
@@ -1306,7 +1308,7 @@ Notes:
 **A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
 - A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
 - The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
-- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- Each replica row names the load attempt that made it. Liveness is decided by that attempt's job lease, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer whose owner still renews its lease is never reclaimed however long it takes. A row is reclaimed when its attempt has no job: the job was released after a failure, or another attempt replaced it.
 - `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
 
 **A request fails with `nats: no responders available for request`:**

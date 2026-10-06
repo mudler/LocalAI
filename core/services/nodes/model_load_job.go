@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Cold-load job states. `pending` covers node selection and replica
@@ -30,17 +31,24 @@ const (
 	// per second regardless of how many 32 KB chunks land in it.
 	loadJobHeartbeatInterval = stagingBroadcastInterval
 
-	// loadJobOrphanWindow is how long a job may go without a heartbeat before
-	// another replica may reclaim it. Generous relative to the 1s heartbeat: a
-	// frontend under GC pressure or a stalled DB write must not have its
-	// perfectly healthy multi-GB transfer stolen and restarted from zero.
-	loadJobOrphanWindow = 60 * time.Second
+	// loadJobLeaseTTL is how long a job's lease lasts after each renewal. The
+	// owner renews on every heartbeat, so it has about thirty chances. A frontend
+	// under GC pressure or a slow database write must not have a healthy
+	// multi-GB transfer taken from it, and a dead one must not hold a model for
+	// long.
+	loadJobLeaseTTL = 30 * time.Second
 
-	// loadJobFailureGrace is how long a failed job row is kept before deletion.
-	// Without it a waiter polling just after the failure finds no row, concludes
-	// "not loading", and starts a duplicate load of a model that just failed —
-	// a retry storm dressed as recovery.
-	loadJobFailureGrace = 15 * time.Second
+	// loadJobStopWindow is how long a failed job keeps its model when remote
+	// work may still run: the lease, a worker-side bound, and a margin. After it
+	// the job is released. A silent worker therefore delays a retry by a bounded
+	// time and never blocks the model for ever.
+	loadJobStopWindow = 150 * time.Second
+
+	// loadJobFailureReport is how long a failure is kept when the work is known
+	// to have ended. It exists so waiters and callers that arrive right after
+	// the failure read the real cause instead of starting a duplicate load of a
+	// model that just failed.
+	loadJobFailureReport = 15 * time.Second
 
 	// loadJobPollInterval is how often a waiter on a non-owning replica polls
 	// the job row. The DB is the authority: NATS staging broadcasts are
@@ -64,24 +72,6 @@ var (
 func ReplicaID() string {
 	replicaIDOnce.Do(func() { replicaIDValue = uuid.New().String() })
 	return replicaIDValue
-}
-
-// IsOrphaned reports whether the job's owner has stopped heartbeating and the
-// job may be reclaimed by another replica.
-func (j *ModelLoadJob) IsOrphaned(now time.Time) bool {
-	return now.Sub(j.LastProgress) > loadJobOrphanWindow
-}
-
-// reclaimable reports whether a new owner may replace this row. A running job
-// is replaceable once its owner stops heartbeating. A failed job is replaceable
-// once its grace window ends: the window keeps waiters that arrive right after
-// the failure from starting a duplicate load, and it is read from the row, so a
-// restarted frontend releases the model the same way as the one that failed it.
-func (j *ModelLoadJob) reclaimable(now time.Time) bool {
-	if j.State == LoadJobStateFailed {
-		return now.Sub(j.LastProgress) >= loadJobFailureGrace
-	}
-	return j.IsOrphaned(now)
 }
 
 // Progress returns overall completion as a percentage, or 0 when the job has
@@ -131,6 +121,11 @@ func (j *ModelLoadJob) Ref() LoadJobRef { return LoadJobRef{j.TrackingKey, j.Gen
 // failed, or now belongs to another generation. An owner that sees it must stop.
 var ErrStaleLoadJob = errors.New("stale model load job ownership")
 
+// ErrLoadLeaseExpired means the owner could not extend its lease before the
+// lease it last held ran out. The owner stops its own work: it must not outlive
+// a lease it can no longer extend.
+var ErrLoadLeaseExpired = errors.New("model load job lease expired")
+
 // loadJobResult turns the outcome of a write on one job row into an error.
 // Zero rows is not a database failure: it is the proof that this attempt lost
 // the job.
@@ -156,6 +151,32 @@ func (r *NodeRegistry) ownedLoadJob(ctx context.Context, ref LoadJobRef) *gorm.D
 	return ownedLoadJobOn(r.db.WithContext(ctx), ref)
 }
 
+// now is the frontend clock. It stamps display fields only. Whether a lease
+// has expired is always decided by the database clock in SQL, so a wrong
+// frontend clock cannot expire a live lease or keep a dead one.
+func (r *NodeRegistry) now() time.Time {
+	if r.clock != nil {
+		return r.clock()
+	}
+	return time.Now()
+}
+
+func (r *NodeRegistry) leaseSeconds() float64 {
+	if r.leaseTTL > 0 {
+		return r.leaseTTL.Seconds()
+	}
+	return loadJobLeaseTTL.Seconds()
+}
+
+// leaseExpr and deadlineExpr compute a deadline from the database clock.
+func (r *NodeRegistry) leaseExpr() clause.Expr {
+	return gorm.Expr("now() + make_interval(secs => ?)", r.leaseSeconds())
+}
+
+func deadlineExpr(d time.Duration) clause.Expr {
+	return gorm.Expr("now() + make_interval(secs => ?)", d.Seconds())
+}
+
 // activeLoadJob limits a write to an attempt that has not failed. A failed row
 // only changes through its own grace-gated release.
 func activeLoadJob(q *gorm.DB) *gorm.DB {
@@ -166,15 +187,19 @@ func activeLoadJob(q *gorm.DB) *gorm.DB {
 // one, so every owner write rejects it before it reaches the database.
 func (ref LoadJobRef) owned() bool { return ref.Generation != "" }
 
-// backfillLoadJobGenerations gives every row written before the generation
-// column existed a generation of its own. A legacy row then follows the same
-// rules as any other: it is a waiter's target while its owner heartbeats, and
-// it is reclaimed once the heartbeat stops. Rows an old binary writes after
-// this runs keep the empty default and follow the same path in ClaimLoadJob.
+// backfillLoadJobGenerations upgrades rows written before the generation and
+// lease columns existed. Each gets a generation of its own. A running row gets
+// an expired lease, because no old binary renews one, and a failed row gets a
+// stop window. Both then follow the same rules as any other row. Rows an old
+// binary writes after this runs keep the empty generation and a missing lease,
+// which ClaimLoadJob reads the same way.
 func backfillLoadJobGenerations(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).Exec(
-		`UPDATE model_load_jobs SET generation = gen_random_uuid()::text
-		 WHERE generation IS NULL OR generation = ''`).Error
+	return db.WithContext(ctx).Exec(`UPDATE model_load_jobs SET
+		generation = CASE WHEN generation IS NULL OR generation = '' THEN gen_random_uuid()::text ELSE generation END,
+		lease_until = CASE WHEN state <> 'failed' AND lease_until IS NULL THEN now() - interval '1 second' ELSE lease_until END,
+		stop_deadline = CASE WHEN state = 'failed' AND stop_deadline IS NULL THEN now() + make_interval(secs => ?) ELSE stop_deadline END
+		WHERE generation IS NULL OR generation = '' OR (state <> 'failed' AND lease_until IS NULL) OR (state = 'failed' AND stop_deadline IS NULL)`,
+		loadJobStopWindow.Seconds()).Error
 }
 
 type (
@@ -236,11 +261,26 @@ type LoadJobUpdate struct {
 	StartedAt time.Time
 }
 
+// claimRow is a job row together with the database's verdict on its deadlines.
+type claimRow struct {
+	ModelLoadJob
+	LeaseExpired bool
+	StopPassed   bool
+}
+
 // ClaimLoadJob decides, under the per-model advisory lock, whether this replica
-// owns the cold load of trackingKey. It returns the live job and claimed=false
-// when another replica is already loading it (or it just failed and is inside
-// its grace window), or a fresh `pending` job with claimed=true when this
-// replica took the work.
+// owns the cold load of trackingKey. It returns claimed=true with a fresh
+// `pending` job when this replica took the work, and claimed=false with the
+// existing job otherwise. The rules, all judged by the database clock:
+//
+//  1. No row: insert.
+//  2. Running, lease live: return it. The caller waits.
+//  3. Running, lease expired: mark it failed with a stop window and return it.
+//     The caller retries once the window ends.
+//  4. Failed, stop window over: delete it and insert a new generation.
+//  5. Failed, window still open: return it with its cause.
+//
+// A row with no lease (written by an older binary) counts as expired.
 //
 // The lock is held only across these statements — no network, file, or gRPC I/O
 // happens inside it, which is the entire point of the job row. The primary key
@@ -253,28 +293,46 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 	)
 	lockKey := advisorylock.KeyFromString(loadJobLockPrefix + trackingKey)
 	err := advisorylock.WithLockCtx(ctx, r.db, lockKey, func() error {
-		var existing ModelLoadJob
-		err := r.db.WithContext(ctx).First(&existing, "tracking_key = ?", trackingKey).Error
-		switch {
-		case err == nil:
-			if !existing.reclaimable(time.Now()) {
+		row, found, err := r.readClaimRow(ctx, trackingKey)
+		if err != nil {
+			return err
+		}
+		if found {
+			existing := row.ModelLoadJob
+			switch {
+			case existing.State == LoadJobStateFailed && existing.StopDeadline == nil:
+				// Written by an older binary: give it the window it never got.
+				if err := r.setStopWindow(ctx, existing.Ref()); err != nil {
+					return err
+				}
+				job, claimed = r.rereadOr(ctx, trackingKey, &existing), false
+				return nil
+			case existing.State == LoadJobStateFailed && !row.StopPassed:
 				job, claimed = &existing, false
 				return nil
+			case existing.State != LoadJobStateFailed && !row.LeaseExpired:
+				job, claimed = &existing, false
+				return nil
+			case existing.State != LoadJobStateFailed:
+				// The owner stopped renewing. Fail it instead of replacing it:
+				// its remote work may still run, so the model stays held for
+				// the stop window.
+				err := r.expireLoadJob(ctx, existing.Ref())
+				if err != nil && !errors.Is(err, ErrStaleLoadJob) {
+					return err
+				}
+				job, claimed = r.rereadOr(ctx, trackingKey, &existing), false
+				return nil
 			}
-			// The owner is gone (a crashed frontend, or a failed load whose
-			// grace window is over). Without this the model stays wedged:
-			// every later request would wait for a load nobody runs. The
-			// delete names the generation it observed, so a row another
-			// writer replaced meanwhile is not removed.
+			// Failed, and the stop window is over. The delete names the
+			// generation it observed, so a row another writer replaced
+			// meanwhile is not removed.
 			if err := r.ownedLoadJob(ctx, existing.Ref()).Delete(&ModelLoadJob{}).Error; err != nil {
-				return fmt.Errorf("deleting reclaimable model load job: %w", err)
+				return fmt.Errorf("deleting released model load job: %w", err)
 			}
-		case errors.Is(err, gorm.ErrRecordNotFound):
-		default:
-			return fmt.Errorf("reading model load job: %w", err)
 		}
 
-		now := time.Now()
+		now := r.now()
 		fresh := &ModelLoadJob{
 			TrackingKey:  trackingKey,
 			Generation:   uuid.NewString(),
@@ -287,6 +345,9 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 		if err := r.db.WithContext(ctx).Create(fresh).Error; err != nil {
 			return fmt.Errorf("creating model load job: %w", err)
 		}
+		if err := r.ownedLoadJob(ctx, fresh.Ref()).Update("lease_until", r.leaseExpr()).Error; err != nil {
+			return fmt.Errorf("leasing model load job: %w", err)
+		}
 		job, claimed = fresh, true
 		return nil
 	})
@@ -294,6 +355,96 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 		return nil, false, err
 	}
 	return job, claimed, nil
+}
+
+func (r *NodeRegistry) readClaimRow(ctx context.Context, trackingKey string) (claimRow, bool, error) {
+	var row claimRow
+	res := r.db.WithContext(ctx).Raw(`SELECT *,
+		(lease_until IS NULL OR lease_until < now()) AS lease_expired,
+		(stop_deadline IS NOT NULL AND stop_deadline < now()) AS stop_passed
+		FROM model_load_jobs WHERE tracking_key = ?`, trackingKey).Scan(&row)
+	if res.Error != nil {
+		return row, false, fmt.Errorf("reading model load job: %w", res.Error)
+	}
+	return row, res.RowsAffected > 0, nil
+}
+
+// rereadOr returns the row as it is now, or fallback when it cannot be read.
+func (r *NodeRegistry) rereadOr(ctx context.Context, trackingKey string, fallback *ModelLoadJob) *ModelLoadJob {
+	if job, err := r.GetLoadJob(ctx, trackingKey); err == nil && job != nil {
+		return job
+	}
+	return fallback
+}
+
+// expireLoadJob fails a running job whose lease has run out, as judged by the
+// database clock at the moment of the write. A renewal that landed first makes
+// it a no-op and returns ErrStaleLoadJob.
+func (r *NodeRegistry) expireLoadJob(ctx context.Context, ref LoadJobRef) error {
+	now := r.now()
+	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).
+		Where("lease_until IS NULL OR lease_until < now()").
+		Updates(map[string]any{
+			"state":         LoadJobStateFailed,
+			"last_error":    "the load owner stopped renewing its lease",
+			"stop_deadline": deadlineExpr(loadJobStopWindow),
+			"last_progress": now,
+			"updated_at":    now,
+		}))
+}
+
+func (r *NodeRegistry) setStopWindow(ctx context.Context, ref LoadJobRef) error {
+	return loadJobResult(r.ownedLoadJob(ctx, ref).
+		Where("state = ? AND stop_deadline IS NULL", LoadJobStateFailed).
+		Update("stop_deadline", deadlineExpr(loadJobStopWindow)))
+}
+
+// LoadJobSweep counts what one SweepLoadJobs pass did.
+type LoadJobSweep struct {
+	Expired  int
+	Released []LoadJobRef
+}
+
+// SweepLoadJobs applies the lease rules to every job without waiting for a
+// request: it fails jobs whose lease ran out and releases failed jobs whose
+// stop window is over. Each write is fenced by the generation read, so a job
+// replaced during the sweep is not touched.
+func (r *NodeRegistry) SweepLoadJobs(ctx context.Context) (LoadJobSweep, error) {
+	var out LoadJobSweep
+	var running, failed []ModelLoadJob
+	if err := r.db.WithContext(ctx).
+		Where("state <> ? AND (lease_until IS NULL OR lease_until < now())", LoadJobStateFailed).
+		Find(&running).Error; err != nil {
+		return out, fmt.Errorf("listing expired model load jobs: %w", err)
+	}
+	if err := r.db.WithContext(ctx).
+		Where("state = ? AND (stop_deadline IS NULL OR stop_deadline < now())", LoadJobStateFailed).
+		Find(&failed).Error; err != nil {
+		return out, fmt.Errorf("listing releasable model load jobs: %w", err)
+	}
+	for _, j := range running {
+		switch err := r.expireLoadJob(ctx, j.Ref()); {
+		case err == nil:
+			out.Expired++
+		case !errors.Is(err, ErrStaleLoadJob):
+			return out, err
+		}
+	}
+	for _, j := range failed {
+		if j.StopDeadline == nil {
+			if err := r.setStopWindow(ctx, j.Ref()); err != nil && !errors.Is(err, ErrStaleLoadJob) {
+				return out, err
+			}
+			continue
+		}
+		switch err := r.DeleteFailedLoadJob(ctx, j.Ref()); {
+		case err == nil:
+			out.Released = append(out.Released, j.Ref())
+		case !errors.Is(err, ErrStaleLoadJob):
+			return out, err
+		}
+	}
+	return out, nil
 }
 
 // GetLoadJob returns the active job for trackingKey, or (nil, nil) when none is
@@ -320,16 +471,17 @@ func (r *NodeRegistry) ListActiveLoadJobs(ctx context.Context) ([]ModelLoadJob, 
 	return jobs, nil
 }
 
-// UpdateLoadJob applies a phase transition or heartbeat. LastProgress is always
-// touched: it is the liveness signal the orphan check reads, and it must tick
-// even during phases that move no bytes at all. It returns ErrStaleLoadJob when
+// UpdateLoadJob applies a phase transition or heartbeat and renews the lease
+// from the database clock. It must tick even during phases that move no bytes
+// at all: a checkpoint load moves none for many minutes. It returns ErrStaleLoadJob when
 // the attempt no longer owns the job, which is the owner's signal to stop.
 func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u LoadJobUpdate) error {
 	if !ref.owned() {
 		return ErrStaleLoadJob
 	}
-	now := time.Now()
+	now := r.now()
 	fields := map[string]any{
+		"lease_until":   r.leaseExpr(),
 		"last_progress": now,
 		"updated_at":    now,
 		"bytes_sent":    u.BytesSent,
@@ -355,16 +507,23 @@ func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u Load
 
 // FailLoadJob records the real failure on the job row so every waiter, local
 // or on another replica, reports the same cause instead of an anonymous
-// timeout. The row stays for loadJobFailureGrace, then the next claim replaces
-// it or DeleteFailedLoadJob removes it.
-func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg string) error {
+// timeout. workMayRun says whether remote work may outlive the failure (a
+// deadline, a cancel, a lost lease). If it may, the model stays held for the
+// stop window. If the work is known to have ended, the row is kept only for the
+// short report window. The next claim after that deadline replaces the row.
+func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg string, workMayRun bool) error {
 	if !ref.owned() {
 		return ErrStaleLoadJob
 	}
-	now := time.Now()
+	hold := loadJobFailureReport
+	if workMayRun {
+		hold = loadJobStopWindow
+	}
+	now := r.now()
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
 		"state":         LoadJobStateFailed,
 		"last_error":    msg,
+		"stop_deadline": deadlineExpr(hold),
 		"last_progress": now,
 		"updated_at":    now,
 	}))
@@ -381,14 +540,14 @@ func (r *NodeRegistry) DeleteLoadJob(ctx context.Context, ref LoadJobRef) error 
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Delete(&ModelLoadJob{}))
 }
 
-// DeleteFailedLoadJob removes a failed job once its grace window is over. It
-// keeps the table tidy when nobody retries; the next claim does not need it.
+// DeleteFailedLoadJob releases a failed job once its stop deadline has passed
+// on the database clock. The next claim does the same, so this only keeps the
+// table tidy when nobody retries.
 func (r *NodeRegistry) DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) error {
 	if !ref.owned() {
 		return ErrStaleLoadJob
 	}
-	cutoff := time.Now().Add(-loadJobFailureGrace)
 	return loadJobResult(r.ownedLoadJob(ctx, ref).
-		Where("state = ? AND last_progress <= ?", LoadJobStateFailed, cutoff).
+		Where("state = ? AND stop_deadline < now()", LoadJobStateFailed).
 		Delete(&ModelLoadJob{}))
 }
