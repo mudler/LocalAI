@@ -8,7 +8,7 @@ const SERIES_COLORS = [
   'var(--color-success, #10b981)',
   'var(--color-warning, #f59e0b)',
   'var(--color-info, #3b82f6)',
-  'var(--color-danger, #ef4444)',
+  'var(--color-error)',
   '#a855f7',
   '#ec4899',
 ]

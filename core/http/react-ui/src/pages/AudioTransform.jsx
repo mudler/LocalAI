@@ -429,7 +429,7 @@ function AudioInput({ label, help, file, onChange }) {
               <>
                 {!cap.recording && !recordPending && (
                   <button type="button" className="btn btn-primary btn-sm" onClick={startRecord}>
-                    <i className="fas fa-circle" style={{ color: '#e25555' }} /> {t('audioTransform.input.startRecording')}
+                    <i className="fas fa-circle" style={{ color: 'var(--color-error)' }} /> {t('audioTransform.input.startRecording')}
                   </button>
                 )}
                 {cap.recording && (

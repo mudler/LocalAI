@@ -658,7 +658,7 @@ export default function GlbViewer({ blob }) {
       {glError === 'no-webgl2' && <p style={{ color: 'var(--color-text-muted)' }}>{t('threed.viewer.noWebgl')}</p>}
       {glError === 'context-lost' && <p style={{ color: 'var(--color-text-muted)' }}>{t('threed.viewer.contextLost')}</p>}
       {glError && glError !== 'no-webgl2' && glError !== 'context-lost' && (
-        <p style={{ color: 'var(--color-danger, #e5484d)' }}>{glError}</p>
+        <p style={{ color: 'var(--color-error)' }}>{glError}</p>
       )}
       <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8em', margin: 0 }}>{t('threed.viewer.hint')}</p>
     </div>

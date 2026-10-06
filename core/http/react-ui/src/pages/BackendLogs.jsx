@@ -117,7 +117,7 @@ function BackendLogsDetail({ modelId }) {
       const lineTime = new Date(el.dataset.timestamp).getTime()
       if (lineTime >= fromDate) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        el.style.background = 'rgba(59,130,246,0.1)'
+        el.style.background = 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
         setTimeout(() => { el.style.background = '' }, 3000)
         scrolledToTimestampRef.current = true
         break
