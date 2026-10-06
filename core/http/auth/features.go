@@ -10,6 +10,9 @@ type RouteFeature struct {
 // RouteFeatureRegistry is the single source of truth for endpoint -> feature mappings.
 // To gate a new endpoint, add an entry here -- no other file changes needed.
 var RouteFeatureRegistry = []RouteFeature{
+	// Management: admin middleware applies separately; no modality feature gate.
+	{"POST", "/api/models/:id/load-cancel", ""},
+	{"GET", "/api/models/:id/load-status", ""},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},

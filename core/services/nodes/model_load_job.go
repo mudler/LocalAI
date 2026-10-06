@@ -282,7 +282,26 @@ func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg stri
 func (r *NodeRegistry) DeleteLoadJob(ctx context.Context, ref LoadJobRef) error {
 	// Active deletion is an owner-confirmed success. Failed work can only be
 	// removed after durable grace, and only if no remote placement is unresolved.
-	return loadJobResult(r.ownedLoadJob(ctx, ref).
-		Where("terminal_until IS NULL OR (terminal_until <= ? AND work_uncertain = ?)", time.Now(), false).
-		Delete(&ModelLoadJob{}))
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Where("tracking_key = ? AND generation = ? AND generation <> ''", ref.TrackingKey, ref.Generation).
+			Where("terminal_until IS NULL OR (terminal_until <= ? AND work_uncertain = ?)", time.Now(), false).Delete(&ModelLoadJob{})
+		if err := loadJobResult(res); err != nil {
+			return err
+		}
+		if err := tx.Where("expires_at < ?", time.Now()).Delete(&LoadJobTombstone{}).Error; err != nil {
+			return err
+		}
+		// Bound retained history even under sustained successful load churn.
+		if err := tx.Where("generation IN (?)", tx.Model(&LoadJobTombstone{}).Select("generation").Order("expires_at DESC").Offset(4095)).Delete(&LoadJobTombstone{}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&LoadJobTombstone{Generation: ref.Generation, TrackingKey: ref.TrackingKey, ExpiresAt: time.Now().Add(15 * time.Minute)}).Error
+	})
+}
+
+// Tombstones are durable, time-limited evidence of owner-confirmed completion.
+type LoadJobTombstone struct {
+	Generation  string    `gorm:"primaryKey;size:36"`
+	TrackingKey string    `gorm:"index;size:255"`
+	ExpiresAt   time.Time `gorm:"index"`
 }

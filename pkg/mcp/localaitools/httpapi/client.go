@@ -849,3 +849,9 @@ func (c *Client) PinFailoverTarget(ctx context.Context, chain, target string) er
 func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
 	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
 }
+
+func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	var result localaitools.LoadCancelResult
+	err := c.do(ctx, http.MethodPost, "/api/models/"+url.PathEscape(model)+"/load-cancel", map[string]string{"job_id": jobID}, &result)
+	return result, err
+}

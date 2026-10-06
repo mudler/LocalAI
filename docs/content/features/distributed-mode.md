@@ -1464,3 +1464,30 @@ without incarnation reports continue ordinary loading but cannot provide early
 restart detection. Direct backend loads do not have worker-side generation
 admission fencing, so this recovery does not promise safe automatic replacement
 or termination after a restart, including when child processes survive it.
+
+### Cancel a distributed load
+
+`GET /api/models/{id}/load-status` retains the existing progress fields and adds
+`job_id`, `last_progress_at` (owner heartbeat, **not** byte progress),
+`lease_expired`, `terminal`, `cancel_requested`, `work_uncertain`, and `last_error`.
+A terminal owner can still have uncertain remote work. Neither lease expiry nor
+an empty worker inventory proves termination.
+
+An administrator can POST `{"job_id":"<generation from load-status>"}` to
+`/api/models/{id}/load-cancel`. Missing/invalid bodies return 400, a different
+current generation returns 409, and unknown generations return 404. A 202 means
+that cancellation intent is durable but remote termination is uncertain. A 200
+is reserved for a retained, owner-confirmed completion record. Completion records
+expire after 15 minutes (with a retained-history cap of 4096 records); absence is never treated as successful cancellation.
+Do not automatically replace a quarantined load: verified operator cleanup is
+required. Stopping one process cannot exclude a delayed direct backend load.
+
+State is **shared and durable** in the controller database; cancellation works
+on a frontend other than the owner. Local waiter notifications are only hints.
+Client disconnects cancel their own wait, not the distributed job. Node-specific
+unload refuses a job placed on a different node and never falls back to a
+model-wide stop for a loading generation.
+
+The admin MCP tool `cancel_model_load` accepts `model` and `job_id`. Confirm the
+exact generation before invoking it; report `uncertain` as pending, not stopped.
+This is separate from gallery installation cancellation.

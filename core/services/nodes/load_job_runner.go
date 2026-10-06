@@ -42,15 +42,15 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 	}
 
 	for range maxColdLoadRounds {
-		// Register interest BEFORE claiming, so a job that finishes immediately
-		// cannot close the channel before this waiter exists.
-		waiter := r.loadWaiterChan(att.trackingKey)
+		// Capture the durable generation before registering a local hint.
+		// An immediate authority check covers completion before registration.
 
 		job, claimed, err := r.registry.ClaimLoadJob(ctx, att.trackingKey, ReplicaID())
 		if err != nil {
 			return nil, fmt.Errorf("claiming model load job: %w", err)
 		}
 
+		waiter := r.loadWaiterChan(loadWaiterKey(job.Ref()))
 		switch {
 		case claimed:
 			// The model may have been loaded between this request's warm-path
@@ -71,7 +71,7 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 				"model", att.trackingKey, "state", job.State, "node", job.NodeName, "owner", job.OwnerReplica)
 		}
 
-		if err := r.waitForLoadJob(waitCtx, att.trackingKey, waiter); err != nil {
+		if err := r.waitForLoadJob(waitCtx, att.trackingKey, waiter, job.Ref()); err != nil {
 			// The caller's own context is still live, so it was the wait budget
 			// that ran out, not the client giving up: answer with progress.
 			if ctx.Err() == nil && waitCtx.Err() != nil {
@@ -156,6 +156,14 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref L
 					err = loadCtx.Err()
 					break wait
 				case <-ticker.C:
+					readCtx, stopRead := context.WithTimeout(loadCtx, 2*time.Second)
+					job, readErr := r.registry.GetLoadJob(readCtx, trackingKey)
+					stopRead()
+					if readErr == nil && (job == nil || job.Generation != ref.Generation || job.TerminalUntil != nil) {
+						err = fmt.Errorf("load ownership ended or cancellation requested")
+						cancelLoad()
+						break wait
+					}
 					nodeID, boot := phase.boot()
 					if boot == "" {
 						continue
@@ -194,7 +202,7 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref L
 				xlog.Warn("Failed to record cold load failure", "model", trackingKey, "error", ferr)
 				return
 			}
-			r.closeLoadWaiters(trackingKey)
+			r.closeLoadWaiters(loadWaiterKey(ref))
 			// Failure grace is durable. A failed RPC does not prove that remote
 			// work stopped, so leave cleanup to evidence-based reconciliation.
 
@@ -214,7 +222,7 @@ func (r *SmartRouter) finishLoadJob(ctx context.Context, ref LoadJobRef) {
 		xlog.Warn("Failed to clear completed cold load job", "model", trackingKey, "error", err)
 		return
 	}
-	r.closeLoadWaiters(trackingKey)
+	r.closeLoadWaiters(loadWaiterKey(ref))
 }
 
 // startLoadJobHeartbeat keeps the job row's liveness and progress fresh while
@@ -279,31 +287,39 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 // waiters instantly; the DB poll is the authority, because a waiter on another
 // replica has no channel to close and NATS broadcasts are fire-and-forget, so a
 // missed terminal event must not strand it.
-func (r *SmartRouter) waitForLoadJob(ctx context.Context, trackingKey string, waiter <-chan struct{}) error {
+func (r *SmartRouter) waitForLoadJob(ctx context.Context, trackingKey string, waiter <-chan struct{}, refs ...LoadJobRef) error {
+	var ref LoadJobRef
+	if len(refs) > 0 {
+		ref = refs[0]
+	} else {
+		job, err := r.registry.GetLoadJob(ctx, trackingKey)
+		if err != nil {
+			return err
+		}
+		if job != nil {
+			ref = job.Ref()
+		}
+	}
+	if err, done := r.checkLoadWait(ctx, ref); done {
+		return err
+	}
 	ticker := time.NewTicker(loadJobPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-waiter:
-			return nil
+			waiter = nil
+			if err, done := r.checkLoadWait(ctx, ref); done {
+				return err
+			}
 		case <-ctx.Done():
 			// The client gave up. The job is unaffected: it is owned by the job
 			// record, not by this request.
 			return ctx.Err()
 		case <-ticker.C:
-			job, err := r.registry.GetLoadJob(ctx, trackingKey)
-			if err != nil {
-				xlog.Debug("Polling the model load job failed", "model", trackingKey, "error", err)
-				continue
-			}
-			if job == nil {
-				// Terminal: either it succeeded, or it was reaped. Either way
-				// the caller re-checks the warm path.
-				return nil
-			}
-			if job.State == LoadJobStateFailed {
-				return fmt.Errorf("loading model %s: %s", trackingKey, job.LastError)
+			if err, done := r.checkLoadWait(ctx, ref); done {
+				return err
 			}
 		}
 	}
@@ -337,3 +353,45 @@ func (r *SmartRouter) closeLoadWaiters(trackingKey string) {
 		close(ch)
 	}
 }
+
+func (r *SmartRouter) checkLoadWait(ctx context.Context, ref LoadJobRef) (error, bool) {
+	readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	ctx = readCtx
+	job, err := r.registry.GetLoadJob(ctx, ref.TrackingKey)
+	if err != nil {
+		return err, true
+	}
+	if job == nil {
+		if registry, ok := r.registry.(*NodeRegistry); ok {
+			var tomb LoadJobTombstone
+			err := registry.db.WithContext(ctx).First(&tomb, "tracking_key = ? AND generation = ? AND expires_at > ?", ref.TrackingKey, ref.Generation, time.Now()).Error
+			if err != nil {
+				return ErrStaleLoadJob, true
+			}
+		}
+		return nil, true
+	}
+	if job.Generation != ref.Generation {
+		return ErrStaleLoadJob, true
+	}
+	if job.State == LoadJobStateFailed {
+		return fmt.Errorf("loading model %s: %s", ref.TrackingKey, job.LastError), true
+	}
+	if job.IsOrphaned(time.Now()) {
+		if registry, ok := r.registry.(*NodeRegistry); ok {
+			recoveryCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			result, err := (&LoadRecoveryService{Registry: registry}).Reconcile(recoveryCtx, ref)
+			if err != nil {
+				return err, true
+			}
+			if result.Outcome != LoadStillActive {
+				return fmt.Errorf("loading model %s: %s", ref.TrackingKey, result.Reason), true
+			}
+		}
+	}
+	return nil, false
+}
+
+func loadWaiterKey(ref LoadJobRef) string { return ref.TrackingKey + "\x00" + ref.Generation }

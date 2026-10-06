@@ -114,7 +114,7 @@ var _ = Describe("Load recovery generation", func() {
 		b, _, err := store.ClaimLoadJob(ctx, "runner-model", "frontend-b")
 		Expect(err).NotTo(HaveOccurred())
 		router := NewSmartRouter(store, SmartRouterOptions{})
-		waiter := router.loadWaiterChan("runner-model")
+		waiter := router.loadWaiterChan(loadWaiterKey(b.Ref()))
 		router.finishLoadJob(ctx, a.Ref())
 		select {
 		case <-waiter:

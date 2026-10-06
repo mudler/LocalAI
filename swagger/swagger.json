@@ -1275,6 +1275,82 @@
                 }
             }
         },
+        "/api/models/{id}/load-cancel": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Cancel one distributed load generation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Exact generation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmed completion",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Durable pending or uncertain cancellation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{id}/load-status": {
             "get": {
                 "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same `loading` object the 503 response carries while a model is still staging.",
@@ -5235,6 +5311,9 @@
                 "last_used": {
                     "type": "string"
                 },
+                "load_uncertain": {
+                    "type": "boolean"
+                },
                 "loading_by": {
                     "description": "frontend ID that triggered loading",
                     "type": "string"
@@ -6851,6 +6930,28 @@
                 }
             }
         },
+        "schema.ModelLoadCancelRequest": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadCancelResponse": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelLoadRequest": {
             "type": "object",
             "properties": {
@@ -6881,12 +6982,27 @@
                 "bytes_sent": {
                     "type": "integer"
                 },
+                "cancel_requested": {
+                    "type": "boolean"
+                },
                 "eta_seconds": {
                     "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
                     "type": "integer"
                 },
                 "file_index": {
                     "type": "integer"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_progress_at": {
+                    "type": "string"
+                },
+                "lease_expired": {
+                    "type": "boolean"
                 },
                 "model": {
                     "type": "string"
@@ -6900,11 +7016,17 @@
                 "state": {
                     "type": "string"
                 },
+                "terminal": {
+                    "type": "boolean"
+                },
                 "total_bytes": {
                     "type": "integer"
                 },
                 "total_files": {
                     "type": "integer"
+                },
+                "work_uncertain": {
+                    "type": "boolean"
                 }
             }
         },

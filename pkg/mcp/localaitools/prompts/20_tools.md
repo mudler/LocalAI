@@ -49,3 +49,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
 - `pin_failover_target` — Force a failover chain to one target.
 - `unpin_failover_target` — Remove a failover pin.
+
+- `cancel_model_load` — Request cancellation of the exact job_id from load-status. Uncertain is pending, not proof of termination.

@@ -333,6 +333,7 @@ type PendingBackendOp struct {
 // Successful jobs are deleted: NodeModel records what is loaded. Failed jobs
 // retain durable grace and remote uncertainty until safe recovery is possible.
 type ModelLoadJob struct {
+	CancelRequested bool `json:"cancel_requested"`
 	// Generation is immutable. Empty generations are legacy jobs and cannot be adopted.
 	Generation string `gorm:"size:36" json:"generation"`
 	// TerminalUntil persists failure grace across frontend restarts.
@@ -503,7 +504,7 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &LoadJobTombstone{}, &ModelConfigState{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}

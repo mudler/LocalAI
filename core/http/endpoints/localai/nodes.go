@@ -702,6 +702,22 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 		if err := c.Bind(&req); err != nil || req.ModelName == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "model_name required"))
 		}
+		job, err := registry.GetLoadJob(c.Request().Context(), req.ModelName)
+		if err != nil {
+			return c.JSON(500, nodeError(500, err.Error()))
+		}
+		if job != nil {
+			if job.NodeID != nodeID {
+				return c.JSON(409, nodeError(409, "load belongs to a different or unknown node"))
+			}
+			stopper, _ := unloader.(nodes.LoadOperationStopper)
+			result, err := (&nodes.LoadRecoveryService{Registry: registry}).Cancel(c.Request().Context(), job.Ref(), stopper)
+			if err != nil {
+				return c.JSON(500, nodeError(500, err.Error()))
+			}
+			return c.JSON(202, map[string]string{"model": req.ModelName, "job_id": job.Generation, "state": string(result.Outcome)})
+		}
+
 		if err := unloader.UnloadModelOnNode(nodeID, req.ModelName); err != nil {
 			xlog.Error("Failed to unload model on node", "node", nodeID, "model", req.ModelName, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to unload model on node"))
@@ -712,7 +728,9 @@ func UnloadModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "model unloaded but backend stop failed"))
 		}
 		// Remove every replica of this model on the node from the registry.
-		registry.RemoveAllNodeModelReplicas(c.Request().Context(), nodeID, req.ModelName)
+		if err := registry.RemoveAllNodeModelReplicas(c.Request().Context(), nodeID, req.ModelName); err != nil {
+			return c.JSON(500, nodeError(500, err.Error()))
+		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "model unloaded"})
 	}
 }

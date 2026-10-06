@@ -420,3 +420,8 @@ func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error 
 	}
 	return nil
 }
+
+func (f *fakeClient) CancelModelLoad(_ context.Context, model, jobID string) (LoadCancelResult, error) {
+	f.record("CancelModelLoad", []string{model, jobID})
+	return LoadCancelResult{Model: model, JobID: jobID, State: "uncertain"}, nil
+}

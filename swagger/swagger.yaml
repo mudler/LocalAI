@@ -653,6 +653,8 @@ definitions:
         type: integer
       last_used:
         type: string
+      load_uncertain:
+        type: boolean
       loading_by:
         description: frontend ID that triggered loading
         type: string
@@ -1774,6 +1776,20 @@ definitions:
       object:
         type: string
     type: object
+  schema.ModelLoadCancelRequest:
+    properties:
+      job_id:
+        type: string
+    type: object
+  schema.ModelLoadCancelResponse:
+    properties:
+      job_id:
+        type: string
+      model:
+        type: string
+      state:
+        type: string
+    type: object
   schema.ModelLoadRequest:
     properties:
       model:
@@ -1797,6 +1813,8 @@ definitions:
     properties:
       bytes_sent:
         type: integer
+      cancel_requested:
+        type: boolean
       eta_seconds:
         description: |-
           ETASeconds is omitted rather than guessed until enough bytes have moved
@@ -1805,6 +1823,14 @@ definitions:
         type: integer
       file_index:
         type: integer
+      job_id:
+        type: string
+      last_error:
+        type: string
+      last_progress_at:
+        type: string
+      lease_expired:
+        type: boolean
       model:
         type: string
       node:
@@ -1813,10 +1839,14 @@ definitions:
         type: number
       state:
         type: string
+      terminal:
+        type: boolean
       total_bytes:
         type: integer
       total_files:
         type: integer
+      work_uncertain:
+        type: boolean
     type: object
   schema.ModelsDataResponse:
     properties:
@@ -4173,6 +4203,56 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{id}/load-cancel:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Exact generation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadCancelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmed completion
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "202":
+          description: Durable pending or uncertain cancellation
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Cancel one distributed load generation
+      tags:
+      - models
   /api/models/{id}/load-status:
     get:
       description: Returns the live state of a distributed cold load — phase, node,

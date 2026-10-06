@@ -55,6 +55,7 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "model-management",
+		Intro:       "GET /api/models/{id}/load-status exposes job_id and lease freshness. Admin POST /api/models/{id}/load-cancel requires that job_id; 202 means durable pending/uncertain cancellation, not termination. 200 requires confirmed completion. Never cancel a replacement generation or infer success from 404.",
 		Description: "Browse the gallery, install, delete, and manage models and backends",
 		Tags:        []string{"models", "backends"},
 	},

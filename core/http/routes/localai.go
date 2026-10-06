@@ -171,6 +171,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		return nil
 	}))
 
+	router.POST("/api/models/:id/load-cancel", localai.ModelLoadCancelEndpoint(func() *nodes.LoadRecoveryService {
+		if d := app.Distributed(); d != nil && d.Registry != nil {
+			return &nodes.LoadRecoveryService{Registry: d.Registry, Stopper: d.Unloader}
+		}
+		return nil
+	}, nil), adminMiddleware)
+
 	// Failover chains: reads and the event stream use standard auth (any
 	// authenticated caller may watch chain health); pin/unpin are admin-only
 	// since they override the routing decision for every caller of the chain.
@@ -343,6 +350,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"config_patch":        "/api/models/config-json/:name",
 				"autocomplete":        "/api/models/config-metadata/autocomplete/:provider",
 				"vram_estimate":       "/api/models/vram-estimate",
+				"model_load_cancel":   "/api/models/:id/load-cancel",
 				"model_load_status":   "/api/models/:id/load-status",
 				"tts":                 "/tts",
 				"tts_voices":          "/v1/audio/voices",
@@ -381,6 +389,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"import":       "/models/import",
 					"reload":       "/models/reload",
 					"list_aliases": "/api/aliases",
+					"load_cancel":  "/api/models/:id/load-cancel",
 					"load_status":  "/api/models/:id/load-status",
 				},
 				"ai_functions": map[string]string{

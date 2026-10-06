@@ -436,3 +436,10 @@ type FailoverChainInfo struct {
 	Pinned  string               `json:"pinned,omitempty"`
 	Targets []FailoverTargetInfo `json:"targets"`
 }
+
+// LoadCancelResult distinguishes durable pending intent from confirmed completion.
+type LoadCancelResult struct {
+	Model string `json:"model"`
+	JobID string `json:"job_id"`
+	State string `json:"state"`
+}

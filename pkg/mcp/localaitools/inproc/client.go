@@ -1146,3 +1146,16 @@ func (c *Client) UnpinFailoverTarget(_ context.Context, chain string) error {
 	}
 	return c.Failover.Unpin(chain)
 }
+
+func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	result := localaitools.LoadCancelResult{Model: model, JobID: jobID}
+	if model == "" || jobID == "" {
+		return result, fmt.Errorf("model and job_id required")
+	}
+	if c.NodeRegistry == nil {
+		return result, nodes.ErrLoadJobUnknown
+	}
+	outcome, err := (&nodes.LoadRecoveryService{Registry: c.NodeRegistry}).Cancel(ctx, nodes.LoadJobRef{TrackingKey: model, Generation: jobID}, nil)
+	result.State = string(outcome.Outcome)
+	return result, err
+}

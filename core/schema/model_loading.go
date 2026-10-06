@@ -1,18 +1,27 @@
 package schema
 
+import "time"
+
 // ModelLoadingStatus describes a cold load that is still in progress. In
 // distributed mode a model can take tens of minutes to stage onto a worker,
 // which is far longer than a request may be held; a caller that runs out of
 // wait budget gets this instead of an anonymous hang or a misleading error.
 type ModelLoadingStatus struct {
-	Model      string  `json:"model"`
-	State      string  `json:"state"`
-	Node       string  `json:"node,omitempty"`
-	Progress   float64 `json:"progress"`
-	BytesSent  int64   `json:"bytes_sent"`
-	TotalBytes int64   `json:"total_bytes"`
-	FileIndex  int     `json:"file_index"`
-	TotalFiles int     `json:"total_files"`
+	JobID           string    `json:"job_id"`
+	LastProgressAt  time.Time `json:"last_progress_at"`
+	LeaseExpired    bool      `json:"lease_expired"`
+	CancelRequested bool      `json:"cancel_requested"`
+	WorkUncertain   bool      `json:"work_uncertain"`
+	Terminal        bool      `json:"terminal"`
+	LastError       string    `json:"last_error,omitempty"`
+	Model           string    `json:"model"`
+	State           string    `json:"state"`
+	Node            string    `json:"node,omitempty"`
+	Progress        float64   `json:"progress"`
+	BytesSent       int64     `json:"bytes_sent"`
+	TotalBytes      int64     `json:"total_bytes"`
+	FileIndex       int       `json:"file_index"`
+	TotalFiles      int       `json:"total_files"`
 	// ETASeconds is omitted rather than guessed until enough bytes have moved
 	// for the observed rate to mean anything. A confidently wrong ETA on a
 	// twenty-minute wait is worse than none.
@@ -25,4 +34,13 @@ type ModelLoadingStatus struct {
 type ModelLoadingResponse struct {
 	Error   *APIError           `json:"error,omitempty"`
 	Loading *ModelLoadingStatus `json:"loading,omitempty"`
+}
+
+type ModelLoadCancelRequest struct {
+	JobID string `json:"job_id"`
+}
+type ModelLoadCancelResponse struct {
+	Model string `json:"model"`
+	JobID string `json:"job_id"`
+	State string `json:"state"`
 }

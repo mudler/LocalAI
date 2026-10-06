@@ -43,7 +43,8 @@ func (e *ModelLoadingError) Error() string {
 // LoadingStatus renders a job row as the API's `loading` object.
 func LoadingStatus(job *ModelLoadJob) schema.ModelLoadingStatus {
 	status := schema.ModelLoadingStatus{
-		Model:      job.TrackingKey,
+		Model: job.TrackingKey,
+		JobID: job.Generation, LastProgressAt: job.LastProgress, LeaseExpired: job.IsOrphaned(time.Now()), CancelRequested: job.CancelRequested, WorkUncertain: job.WorkUncertain, Terminal: job.TerminalUntil != nil, LastError: job.LastError,
 		State:      job.State,
 		Node:       job.NodeName,
 		Progress:   job.Progress(),

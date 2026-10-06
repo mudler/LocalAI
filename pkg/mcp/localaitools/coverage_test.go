@@ -53,6 +53,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolImportModelURI:      "POST /models/import-uri",
 	ToolDeleteModel:         "POST /models/delete/:name",
 	ToolEditModelConfig:     "PATCH /api/models/config-json/:name",
+	ToolCancelModelLoad:     "POST /api/models/:id/load-cancel",
 	ToolReloadModels:        "POST /models/reload",
 	ToolLoadModel:           "POST /backend/load",
 	ToolInstallBackend:      "POST /backends/apply",
