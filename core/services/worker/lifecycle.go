@@ -165,7 +165,7 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 			advertiseAddr = net.JoinHostPort(advertiseHost, port)
 		}
 	}
-	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr, ProcessInstance: instance}
+	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr, ProcessInstance: instance, ReportsOperations: true}
 }
 
 // serveUpgrade answers backend.upgrade: force-reinstall a backend. It is its
@@ -448,7 +448,7 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		s.mu.Unlock()
 
 		// Best-effort bounded gRPC Free(), outside the lock. A model.unload
-		// request must not occupy the NATS reply handler forever when a backend
+		// request must not occupy the reply handler forever when a backend
 		// is wedged.
 		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)

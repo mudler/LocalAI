@@ -46,7 +46,7 @@ type LoadCancelService struct {
 	Registry *NodeRegistry
 	// Stopper stops one load operation. It may be nil: the cancel is then
 	// recorded and the worker's own watchdog and the stop window bound the work.
-	Stopper LoadOperationStopper
+	Stopper LoadAttemptStopper
 }
 
 // Cancel cancels the load attempt ref names. It is idempotent: repeating it on
@@ -129,11 +129,13 @@ func (s *LoadCancelService) CancelNodeLoads(ctx context.Context, nodeID string) 
 // confirmed ended, once per reconciler pass, until the worker acknowledges or
 // the stop deadline releases the job.
 func (rc *ReplicaReconciler) retryLoadStops(ctx context.Context) {
-	stopper, ok := rc.unloader.(LoadOperationStopper)
-	if !ok && rc.adapter != nil {
-		stopper, ok = rc.adapter, true
-	}
-	if !ok {
+	var stopper LoadAttemptStopper
+	switch {
+	case rc.unloader != nil:
+		stopper = rc.unloader
+	case rc.adapter != nil:
+		stopper = rc.adapter
+	default:
 		return
 	}
 	jobs, err := rc.registry.ListLoadJobsAwaitingStop(ctx)
@@ -162,12 +164,12 @@ type loadAttemptRegistry interface {
 // shortens the hold. For a legacy worker that does not acknowledge, the hold is
 // the load deadline, because nothing sooner bounds its work. It reports whether
 // the stop was acknowledged.
-func StopLoadAttempt(ctx context.Context, reg loadAttemptRegistry, stopper LoadOperationStopper, ref LoadJobRef, nodeID string, replica int, addr string, legacy bool) bool {
+func StopLoadAttempt(ctx context.Context, reg loadAttemptRegistry, stopper LoadAttemptStopper, ref LoadJobRef, nodeID string, replica int, addr string, legacy bool) bool {
 	acked := false
 	switch {
 	case legacy:
-		if exact, ok := stopper.(ExactModelStopper); ok && addr != "" {
-			reply, err := exact.StopModelReplica(ctx, nodeID, NodeModel{ModelName: ref.TrackingKey, ReplicaIndex: replica, Address: addr}, true)
+		if addr != "" {
+			reply, err := stopper.StopModelReplica(ctx, nodeID, NodeModel{ModelName: ref.TrackingKey, ReplicaIndex: replica, Address: addr}, true)
 			acked = err == nil && reply.Error == "" && reply.Terminated
 		}
 	default:

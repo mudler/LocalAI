@@ -598,6 +598,34 @@ func (f *fakeUnloader) InstallBackend(nodeID, backend, modelID, _, _, _, _ strin
 	return f.installReply, f.installErr
 }
 
+// The load operation verbs of the carrier seam. The default fake is a worker
+// that names operations and acknowledges every stop.
+func (f *fakeUnloader) InstallBackendOp(nodeID, backend, modelID, galleries string, replica int, opID, _ string, _ time.Duration, progress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	reply, err := f.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress)
+	if reply != nil {
+		withOps := *reply
+		withOps.ReportsOperations = true
+		reply = &withOps
+	}
+	return reply, err
+}
+
+func (f *fakeUnloader) StopLoadOperation(_ context.Context, _ string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: req.ProcessKey}, nil
+}
+
+func (f *fakeUnloader) OperationControl(_ string, req workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return &workerctl.OperationReply{Renewed: req.Renew, Completed: req.Complete}, nil
+}
+
+func (f *fakeUnloader) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: replica.ModelName}, nil
+}
+
+func (f *fakeUnloader) UnloadReplica(nodeID string, replica NodeModel) error {
+	return f.UnloadModelOnNode(nodeID, replica.ModelName)
+}
+
 func (f *fakeUnloader) UpgradeBackend(nodeID, backend, _, _, _, _ string, replica int, _ string, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
 	f.mu.Lock()
 	f.upgradeCalls = append(f.upgradeCalls, upgradeCall{nodeID, backend, replica})

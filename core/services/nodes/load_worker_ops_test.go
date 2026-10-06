@@ -55,9 +55,12 @@ func (w *fakeOpWorker) InstallBackendOp(nodeID, backend, modelID, galleries stri
 	w.installs = append(w.installs, workerctl.BackendInstallRequest{ModelID: modelID, ReplicaIndex: int32(replica), OperationID: operationID, DeadlineMs: deadline.Milliseconds()})
 	w.mu.Unlock()
 	reply, err := w.fakeUnloader.InstallBackend(nodeID, backend, modelID, galleries, "", "", "", replica, opID, progress)
-	if reply != nil && !w.legacy {
+	if reply != nil {
 		copy := *reply
-		copy.ProcessInstance = "instance-1"
+		copy.ProcessInstance, copy.ReportsOperations = "", false
+		if !w.legacy {
+			copy.ProcessInstance, copy.ReportsOperations = "instance-1", true
+		}
 		reply = &copy
 	}
 	return reply, err

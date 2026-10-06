@@ -50,6 +50,12 @@ type BackendInstallReply struct {
 	// ProcessInstance identifies this incarnation of the backend process, so a
 	// later stop cannot hit a replacement that took the same port.
 	ProcessInstance string `json:"process_instance,omitempty"`
+	// ReportsOperations is true on a worker that tracks load operations. A reply
+	// without it comes from a worker that predates them: it cannot confirm a
+	// stop, so the controller stops its process by exact address and holds the
+	// model for the load deadline. The capability belongs to the worker, not to
+	// the transport.
+	ReportsOperations bool `json:"reports_operations,omitempty"`
 }
 
 // BackendUpgradeRequest is the payload for a backend.upgrade control request.

@@ -1404,21 +1404,20 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// background and still coalesces other callers via singleflight.
 	// A load owner starts the backend as an operation the worker bounds. The
 	// operation id is the load job generation, so a stop can name exactly this
-	// attempt. A sender without the capability starts a plain install.
+	// attempt.
 	ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
-	installer, canOperate := r.unloader.(LoadOperationInstaller)
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
 		var reply *workerctl.BackendInstallReply
 		var err error
-		if owned && canOperate {
-			reply, err = installer.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
+		if owned {
+			reply, err = r.unloader.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
 		} else {
 			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
 		}
 		if err != nil {
 			return "", err
 		}
-		if owned && canOperate && reply.Success && reply.ProcessInstance == "" {
+		if owned && reply.Success && !reply.ReportsOperations {
 			// A worker that predates operations: it cannot confirm a stop.
 			markLegacyWorker(ctx)
 		}
@@ -2227,7 +2226,7 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 
 			// Unload outside the transaction (NATS call)
 			if r.unloader != nil {
-				if uerr := unloadReplica(r.unloader, lru.NodeID, lru); uerr != nil {
+				if uerr := r.unloader.UnloadReplica(lru.NodeID, lru); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}

@@ -80,24 +80,13 @@ type LoadJobStore interface {
 }
 
 // ReplicaUnloader unloads one replica by the address its row recorded. The
-// eviction and scale-down paths use it when the sender has it: they delete the
-// row first, so the address must travel with the call.
+// eviction and scale-down paths use it: they delete the row first, so the
+// address must travel with the call.
 type ReplicaUnloader interface {
 	UnloadReplica(nodeID string, replica NodeModel) error
 }
 
-// unloadReplica frees the replica's model on its worker. A sender that cannot
-// name the address falls back to the model-name call, which looks the replicas
-// up itself.
-func unloadReplica(sender NodeCommandSender, nodeID string, replica NodeModel) error {
-	if ru, ok := sender.(ReplicaUnloader); ok {
-		return ru.UnloadReplica(nodeID, replica)
-	}
-	return sender.UnloadModelOnNode(nodeID, replica.ModelName)
-}
-
-// LoadOperationInstaller is a NodeCommandSender that can start a backend as a
-// load operation the worker bounds. The router uses it when the sender has it.
+// LoadOperationInstaller starts a backend as a load operation the worker bounds.
 type LoadOperationInstaller interface {
 	InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
 }
@@ -111,6 +100,61 @@ type LoadOperationStopper interface {
 // LoadOperationRenewer renews and completes load operations on a worker node.
 type LoadOperationRenewer interface {
 	OperationControl(nodeID string, req workerctl.OperationRequest) (*workerctl.OperationReply, error)
+}
+
+// LoadAttemptStopper is what stopping a failed or cancelled attempt needs: the
+// operation stop for a worker that names operations, and the exact-address stop
+// for a worker that does not.
+type LoadAttemptStopper interface {
+	LoadOperationStopper
+	ExactModelStopper
+}
+
+// LoadOperationControl is the part of a carrier that bounds, renews and stops
+// remote load work. Every carrier of NodeCommandSender must provide it; there
+// is no degraded mode in which a sender silently lacks it. A worker that cannot
+// name operations is a fact about that worker, reported by its install reply
+// (BackendInstallReply.ReportsOperations), and is handled per node.
+//
+// What a carrier owes the callers:
+//
+//   - Every method is a request and a reply with its own timeout. A call that
+//     gets no reply in time returns an error. It must never block for longer
+//     than its documented bound, because the owner loop and the reconciler call
+//     these from timers.
+//
+//   - OperationControl carries renewals and completions. Callers send a renewal
+//     every 5 seconds for each running load. The worker kills an operation that
+//     goes 90 seconds without one, so a carrier must deliver a renewal within
+//     one cadence (5 s, bounded by the 5 s call timeout) or return an error
+//     promptly. A lost renewal costs nothing until the kill TTL. A completion is
+//     retried by the caller and its loss is not fatal.
+//
+//   - StopLoadOperation is idempotent. It addresses one operation by operation
+//     id, process key, process instance and address, and the worker refuses
+//     unless the ones given match its own records. A repeat after a stop
+//     returns a reply with Terminated set, not an error. A reply with Error set
+//     is the worker's refusal: the worker is present and said no.
+//
+//   - InstallBackendOp is InstallBackend that names the operation and its
+//     longest run as a duration. The deadline is relative so clocks do not
+//     matter.
+//
+//   - UnloadReplica names the replica's address. With no address nothing is
+//     sent: a carrier must never ask a worker to pick a process.
+//
+//   - Errors keep the four conditions apart (see .agents/distributed-seams.md).
+//     ErrNoRoute is a routing fact only: no route from here right now. A
+//     timeout is not ErrNoRoute. An unreachable peer is not a verdict about the
+//     worker. A worker's own answer, including a refusal, is a nil error with
+//     the refusal in the reply. Only the carrier maps its own sentinel onto
+//     ErrNoRoute.
+type LoadOperationControl interface {
+	LoadOperationInstaller
+	LoadOperationStopper
+	LoadOperationRenewer
+	ReplicaUnloader
+	ExactModelStopper
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

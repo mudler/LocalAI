@@ -362,8 +362,8 @@ func provisionAgentWorkerKey(ctx context.Context, authDB *gorm.DB, registry *nod
 // bound the work.
 func loadCancelService(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) *nodes.LoadCancelService {
 	svc := &nodes.LoadCancelService{Registry: registry}
-	if stopper, ok := unloader.(nodes.LoadOperationStopper); ok {
-		svc.Stopper = stopper
+	if unloader != nil {
+		svc.Stopper = unloader
 	}
 	return svc
 }

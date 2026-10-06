@@ -54,7 +54,7 @@ type Client struct {
 	NodeRegistry *nodes.NodeRegistry
 	// LoadStopper stops the remote work of a cancelled load. It is the same
 	// stopper the HTTP endpoint uses, so both paths stop work the same way.
-	LoadStopper   nodes.LoadOperationStopper
+	LoadStopper   nodes.LoadAttemptStopper
 	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the

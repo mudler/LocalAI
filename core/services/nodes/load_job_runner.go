@@ -245,13 +245,12 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 // times, and a loss is not fatal: the worker leaves a backend that already
 // answers READY running when an operation expires.
 func (r *SmartRouter) completeLoadOperation(ctx context.Context, ref LoadJobRef, nodeID string) {
-	renewer, ok := r.unloader.(LoadOperationRenewer)
-	if !ok || nodeID == "" {
+	if r.unloader == nil || nodeID == "" {
 		return
 	}
 	var lastErr error
 	for range 3 {
-		if _, lastErr = renewer.OperationControl(nodeID, workerctl.OperationRequest{Complete: []string{ref.Generation}}); lastErr == nil {
+		if _, lastErr = r.unloader.OperationControl(nodeID, workerctl.OperationRequest{Complete: []string{ref.Generation}}); lastErr == nil {
 			return
 		}
 		select {
@@ -267,21 +266,14 @@ func (r *SmartRouter) completeLoadOperation(ctx context.Context, ref LoadJobRef,
 // path, and records the outcome on the job. Without a node there is nothing to
 // stop yet; the worker's own watchdog bounds any install already in flight.
 func (r *SmartRouter) stopLoadWork(ctx context.Context, ref LoadJobRef, nodeID string, replica int, addr string, legacy bool) {
-	stopper := loadStopper(r.unloader)
-	if stopper == nil || nodeID == "" {
+	if r.unloader == nil || nodeID == "" {
 		return
 	}
 	reg, ok := r.registry.(loadAttemptRegistry)
 	if !ok {
 		return
 	}
-	StopLoadAttempt(ctx, reg, stopper, ref, nodeID, replica, addr, legacy)
-}
-
-// loadStopper returns the sender as a stopper, or nil when it cannot stop.
-func loadStopper(sender NodeCommandSender) LoadOperationStopper {
-	stopper, _ := sender.(LoadOperationStopper)
-	return stopper
+	StopLoadAttempt(ctx, reg, r.unloader, ref, nodeID, replica, addr, legacy)
 }
 
 // finishLoadJob ends a job that succeeded. The NodeModel row (state `loaded`)
@@ -387,7 +379,7 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 // identical outcome — the model loaded — so ordering them would add fairness
 // machinery that changes no result. The local channel is only a hint that wakes
 // same-replica waiters early; the DB is the authority, because a waiter on
-// another replica has no channel to close and NATS broadcasts are
+// another replica has no channel to close and broadcasts are
 // fire-and-forget, so a missed terminal event must not strand it.
 //
 // The waiter is bound to one generation. When the job row is gone, or belongs to
@@ -510,14 +502,13 @@ const loadOpLostAfter = 3
 // heartbeat goroutine, so a slow worker cannot delay the database lease, and at
 // most one is in flight. A failure costs nothing until the worker's kill TTL.
 func (r *SmartRouter) renewLoadOperation(ctx context.Context, ref LoadJobRef, phase *loadPhaseReporter, busy *atomic.Bool, unknown *atomic.Int32, abort context.CancelCauseFunc) {
-	renewer, ok := r.unloader.(LoadOperationRenewer)
 	nodeID, _, _ := phase.placement()
-	if !ok || nodeID == "" || !busy.CompareAndSwap(false, true) {
+	if r.unloader == nil || nodeID == "" || !busy.CompareAndSwap(false, true) {
 		return
 	}
 	go func() {
 		defer busy.Store(false)
-		reply, err := renewer.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{ref.Generation}})
+		reply, err := r.unloader.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{ref.Generation}})
 		switch {
 		case err != nil:
 			xlog.Debug("Failed to renew the load operation", "node", nodeID, "model", ref.TrackingKey, "error", err)

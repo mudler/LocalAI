@@ -40,6 +40,9 @@ type NodeCommandSender interface {
 	// PingNode reports whether the node is still subscribed on the bus. It
 	// returns ErrNoRoute when nothing answers for the node.
 	PingNode(nodeID string) error
+	// LoadOperationControl bounds, renews and stops remote load work. See its
+	// contract.
+	LoadOperationControl
 }
 
 // RemoteUnloaderAdapter implements NodeCommandSender and model.RemoteModelUnloader
