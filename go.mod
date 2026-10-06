@@ -258,7 +258,7 @@ require (
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/mudler/LocalAGI v0.0.0-20260927202351-7e0947d7ebca
-	github.com/mudler/localrecall v0.6.6 // indirect
+	github.com/mudler/localrecall v0.6.7-0.20261006203612-d7c99211a3c7
 	github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
