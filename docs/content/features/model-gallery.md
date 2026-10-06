@@ -101,6 +101,20 @@ These builds support text chat only: the publisher has no verified vision projec
 They use standard GGUF files without MTP decoding.
 See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
 
+## MN-CharThink-12B-Base
+
+Install `mn-charthink-12b-base-q4` for character roleplay with llama.cpp.
+The gallery groups Q4_K_M and Q6_K builds of this 12B Mistral fine-tune.
+To select Q6_K explicitly, run:
+
+```bash
+local-ai models install mn-charthink-12b-base-q4 --variant mn-charthink-12b-base-q6
+```
+
+Both builds use the embedded chat template and a 32,768-token default context.
+The model's `<think>` blocks represent in-character thoughts, memories, and emotional responses.
+See the [publisher's model card](https://huggingface.co/SvalTek/MN-CharThink-12B-Base) for details.
+
 ## Sharp-Spark-X2.5-4B
 
 Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
