@@ -167,6 +167,27 @@ These entries use `stablediffusion-ggml` and include the text encoder, vision pr
 The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
 This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
 
+## Humanizer 12B QAT variants
+
+Humanizer rewrites English and Chinese text through the completions API.
+The gallery includes two smaller builds trained with quantization-aware training (QAT):
+`humanizer-12b-q3-qat` (5.6 GB download) and `humanizer-12b-iq2-qat` (3.9 GB download).
+The Q3 build uses mixed precision; its IQ3_XXS header does not describe every tensor.
+Both use llama.cpp with an 8,192-token context.
+
+Install either build explicitly:
+
+```bash
+local-ai models install humanizer-12b-q4 --variant humanizer-12b-q3-qat
+local-ai models install humanizer-12b-q4 --variant humanizer-12b-iq2-qat
+```
+
+For `/v1/completions`, construct the prompt with the publisher's instruction, draft text, and separator from
+[`prompt_format.json`](https://huggingface.co/jialinyyzz/humanizer-GGUF/blob/fea14b1f728cb5777422d2999e450a6c04e819d9/prompt_format.json).
+The gallery passes this prompt through without chat formatting.
+The publisher reports more factual errors in the smaller builds; check names and numbers in rewritten text.
+See the [model card](https://huggingface.co/jialinyyzz/humanizer-GGUF) for quantization details.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
