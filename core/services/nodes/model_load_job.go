@@ -152,7 +152,7 @@ func (r *NodeRegistry) ownedLoadJob(ctx context.Context, ref LoadJobRef) *gorm.D
 }
 
 // now is the frontend clock. It stamps display fields only. Whether a lease
-// has expired is always decided by the database clock in SQL, so a wrong
+// has expired is always decided by the database clock (dbNow), so a wrong
 // frontend clock cannot expire a live lease or keep a dead one.
 func (r *NodeRegistry) now() time.Time {
 	if r.clock != nil {
@@ -161,20 +161,30 @@ func (r *NodeRegistry) now() time.Time {
 	return time.Now()
 }
 
-func (r *NodeRegistry) leaseSeconds() float64 {
-	if r.leaseTTL > 0 {
-		return r.leaseTTL.Seconds()
+// dbNow is the clock every lease and deadline comparison uses. On PostgreSQL
+// it is the database's own now(). SQLite has no clock of its own to speak of: it
+// serves one process, so that process's clock is the database clock.
+func (r *NodeRegistry) dbNow() clause.Expr {
+	if r.db.Dialector.Name() == "postgres" {
+		return gorm.Expr("now()")
 	}
-	return loadJobLeaseTTL.Seconds()
+	return gorm.Expr("?", time.Now())
 }
 
-// leaseExpr and deadlineExpr compute a deadline from the database clock.
+// dbAfter is a deadline d after dbNow.
+func (r *NodeRegistry) dbAfter(d time.Duration) clause.Expr {
+	if r.db.Dialector.Name() == "postgres" {
+		return gorm.Expr("now() + make_interval(secs => ?)", d.Seconds())
+	}
+	return gorm.Expr("?", time.Now().Add(d))
+}
+
 func (r *NodeRegistry) leaseExpr() clause.Expr {
-	return gorm.Expr("now() + make_interval(secs => ?)", r.leaseSeconds())
-}
-
-func deadlineExpr(d time.Duration) clause.Expr {
-	return gorm.Expr("now() + make_interval(secs => ?)", d.Seconds())
+	ttl := loadJobLeaseTTL
+	if r.leaseTTL > 0 {
+		ttl = r.leaseTTL
+	}
+	return r.dbAfter(ttl)
 }
 
 // activeLoadJob limits a write to an attempt that has not failed. A failed row
@@ -187,19 +197,32 @@ func activeLoadJob(q *gorm.DB) *gorm.DB {
 // one, so every owner write rejects it before it reaches the database.
 func (ref LoadJobRef) owned() bool { return ref.Generation != "" }
 
-// backfillLoadJobGenerations upgrades rows written before the generation and
-// lease columns existed. Each gets a generation of its own. A running row gets
-// an expired lease, because no old binary renews one, and a failed row gets a
-// stop window. Both then follow the same rules as any other row. Rows an old
-// binary writes after this runs keep the empty generation and a missing lease,
-// which ClaimLoadJob reads the same way.
+// backfillLoadJobGenerations gives every row written before the generation
+// column existed a generation of its own. The lease and stop deadline are left
+// empty on purpose. A running row with no lease counts as expired, because no
+// old binary renews one, and a failed row with no stop deadline gets its window
+// the first time a claim or a sweep sees it. Rows an old binary writes after
+// this runs follow the same path.
+//
+// The UUIDs are generated here, not by the database, so the migration runs the
+// same on PostgreSQL and SQLite. Each write names the empty generation it
+// observed, so a row another frontend already upgraded is left alone.
 func backfillLoadJobGenerations(ctx context.Context, db *gorm.DB) error {
-	return db.WithContext(ctx).Exec(`UPDATE model_load_jobs SET
-		generation = CASE WHEN generation IS NULL OR generation = '' THEN gen_random_uuid()::text ELSE generation END,
-		lease_until = CASE WHEN state <> 'failed' AND lease_until IS NULL THEN now() - interval '1 second' ELSE lease_until END,
-		stop_deadline = CASE WHEN state = 'failed' AND stop_deadline IS NULL THEN now() + make_interval(secs => ?) ELSE stop_deadline END
-		WHERE generation IS NULL OR generation = '' OR (state <> 'failed' AND lease_until IS NULL) OR (state = 'failed' AND stop_deadline IS NULL)`,
-		loadJobStopWindow.Seconds()).Error
+	const batch = 100
+	for {
+		var legacy []ModelLoadJob
+		if err := db.WithContext(ctx).Where("generation = ?", "").Limit(batch).Find(&legacy).Error; err != nil {
+			return err
+		}
+		if len(legacy) == 0 {
+			return nil
+		}
+		for _, row := range legacy {
+			if err := ownedLoadJobOn(db.WithContext(ctx), row.Ref()).Update("generation", uuid.NewString()).Error; err != nil {
+				return err
+			}
+		}
+	}
 }
 
 type (
@@ -360,9 +383,9 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 func (r *NodeRegistry) readClaimRow(ctx context.Context, trackingKey string) (claimRow, bool, error) {
 	var row claimRow
 	res := r.db.WithContext(ctx).Raw(`SELECT *,
-		(lease_until IS NULL OR lease_until < now()) AS lease_expired,
-		(stop_deadline IS NOT NULL AND stop_deadline < now()) AS stop_passed
-		FROM model_load_jobs WHERE tracking_key = ?`, trackingKey).Scan(&row)
+		(lease_until IS NULL OR lease_until < ?) AS lease_expired,
+		(stop_deadline IS NOT NULL AND stop_deadline < ?) AS stop_passed
+		FROM model_load_jobs WHERE tracking_key = ?`, r.dbNow(), r.dbNow(), trackingKey).Scan(&row)
 	if res.Error != nil {
 		return row, false, fmt.Errorf("reading model load job: %w", res.Error)
 	}
@@ -383,11 +406,11 @@ func (r *NodeRegistry) rereadOr(ctx context.Context, trackingKey string, fallbac
 func (r *NodeRegistry) expireLoadJob(ctx context.Context, ref LoadJobRef) error {
 	now := r.now()
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).
-		Where("lease_until IS NULL OR lease_until < now()").
+		Where("lease_until IS NULL OR lease_until < ?", r.dbNow()).
 		Updates(map[string]any{
 			"state":         LoadJobStateFailed,
 			"last_error":    "the load owner stopped renewing its lease",
-			"stop_deadline": deadlineExpr(loadJobStopWindow),
+			"stop_deadline": r.dbAfter(loadJobStopWindow),
 			"last_progress": now,
 			"updated_at":    now,
 		}))
@@ -396,7 +419,7 @@ func (r *NodeRegistry) expireLoadJob(ctx context.Context, ref LoadJobRef) error 
 func (r *NodeRegistry) setStopWindow(ctx context.Context, ref LoadJobRef) error {
 	return loadJobResult(r.ownedLoadJob(ctx, ref).
 		Where("state = ? AND stop_deadline IS NULL", LoadJobStateFailed).
-		Update("stop_deadline", deadlineExpr(loadJobStopWindow)))
+		Update("stop_deadline", r.dbAfter(loadJobStopWindow)))
 }
 
 // LoadJobSweep counts what one SweepLoadJobs pass did.
@@ -413,12 +436,12 @@ func (r *NodeRegistry) SweepLoadJobs(ctx context.Context) (LoadJobSweep, error) 
 	var out LoadJobSweep
 	var running, failed []ModelLoadJob
 	if err := r.db.WithContext(ctx).
-		Where("state <> ? AND (lease_until IS NULL OR lease_until < now())", LoadJobStateFailed).
+		Where("state <> ? AND (lease_until IS NULL OR lease_until < ?)", LoadJobStateFailed, r.dbNow()).
 		Find(&running).Error; err != nil {
 		return out, fmt.Errorf("listing expired model load jobs: %w", err)
 	}
 	if err := r.db.WithContext(ctx).
-		Where("state = ? AND (stop_deadline IS NULL OR stop_deadline < now())", LoadJobStateFailed).
+		Where("state = ? AND (stop_deadline IS NULL OR stop_deadline < ?)", LoadJobStateFailed, r.dbNow()).
 		Find(&failed).Error; err != nil {
 		return out, fmt.Errorf("listing releasable model load jobs: %w", err)
 	}
@@ -523,7 +546,7 @@ func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg stri
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
 		"state":         LoadJobStateFailed,
 		"last_error":    msg,
-		"stop_deadline": deadlineExpr(hold),
+		"stop_deadline": r.dbAfter(hold),
 		"last_progress": now,
 		"updated_at":    now,
 	}))
@@ -548,6 +571,6 @@ func (r *NodeRegistry) DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) 
 		return ErrStaleLoadJob
 	}
 	return loadJobResult(r.ownedLoadJob(ctx, ref).
-		Where("state = ? AND stop_deadline < now()", LoadJobStateFailed).
+		Where("state = ? AND stop_deadline < ?", LoadJobStateFailed, r.dbNow()).
 		Delete(&ModelLoadJob{}))
 }
