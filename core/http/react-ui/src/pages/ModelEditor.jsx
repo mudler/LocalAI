@@ -284,6 +284,29 @@ export default function ModelEditor() {
     return null
   }, [isCreateMode, vramEstimate.loading, vramEstimate.vramDisplay])
 
+  // A queued import (config with remote assets) answers with a job id;
+  // the config file exists only once the job finishes, so creation must
+  // not navigate to the editor before that — and a download failure has
+  // to surface here instead of after a premature success toast. A
+  // response without a job id is a synchronous import: config written.
+  const waitForImportJob = async (result) => {
+    const jobId = result?.uuid || result?.ID
+    if (!jobId) return false
+    addToast('Import queued — downloading model assets…', 'info')
+    for (;;) {
+      await new Promise(r => setTimeout(r, 1000))
+      let data
+      try { data = await modelsApi.getJobStatus(jobId) } catch { continue }
+      if (data?.error) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'model asset download failed')
+      }
+      // The raw /models/jobs endpoint reports `processed`, not the
+      // `completed` the /api/models/job shim synthesizes; failed jobs
+      // also set `processed`, but the error branch above runs first.
+      if (data?.completed || data?.processed) return true
+    }
+  }
+
   // Interactive save — uses PATCH (edit mode) or importConfig (create mode)
   const handleInteractiveSave = async () => {
     setSaving(true)
@@ -304,7 +327,8 @@ export default function ModelEditor() {
         const modelName = values['name']
         if (!modelName?.trim()) { addToast('Model name is required', 'error'); setSaving(false); return }
         if (!/^[a-zA-Z0-9_.-]+$/.test(modelName.trim())) { addToast('Invalid model name — use only letters, numbers, hyphens, underscores, and dots', 'error'); setSaving(false); return }
-        await modelsApi.importConfig(JSON.stringify(config), 'application/json')
+        const result = await modelsApi.importConfig(JSON.stringify(config), 'application/json')
+        await waitForImportJob(result)
         addToast('Model created successfully', 'success')
         // replace: the transient create URL shouldn't sit in history, so
         // Back (browser or in-page) skips it and returns to the linking page.
@@ -334,7 +358,8 @@ export default function ModelEditor() {
     try {
       if (isCreateMode) {
         // In create mode, import the YAML as a new config
-        await modelsApi.importConfig(yamlText, 'application/x-yaml')
+        const result = await modelsApi.importConfig(yamlText, 'application/x-yaml')
+        await waitForImportJob(result)
         addToast('Model created successfully', 'success')
         try {
           const parsed = YAML.parse(yamlText)

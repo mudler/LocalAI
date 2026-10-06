@@ -190,6 +190,60 @@ var _ = Describe("ImportModelEndpoint queued imports", func() {
 		Expect(op.GalleryElement.Files[0].SHA256).To(Equal("abc123"))
 	})
 
+	It("enqueues a managed-artifact repo with no file entries so the worker binds it", func() {
+		// The reviewer's case: an hf:// repository on a directory-consuming
+		// backend must reach InstallModel's artifact binding, which only
+		// runs when the op carries no files — a file entry would route the
+		// repository through the single-file downloader instead.
+		rec := post(`{"name": "hfrepo", "backend": "transformers", "parameters": {"model": "hf://sshleifer/tiny-gpt2"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		var resp map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+		Expect(resp).To(HaveKey("uuid"))
+
+		var op galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]
+		Eventually(galleryService.ModelGalleryChannel).Should(Receive(&op))
+		Expect(op.GalleryElement.Files).To(BeEmpty())
+		Expect(op.GalleryElement.ConfigFile).To(ContainSubstring("hf://sshleifer/tiny-gpt2"))
+	})
+
+	It("enqueues a bare owner/repo reference instead of importing it synchronously", func() {
+		rec := post(`{"name": "barerepo", "backend": "transformers", "parameters": {"model": "sshleifer/tiny-gpt2"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(filepath.Join(tempDir, "barerepo.yaml")).ToNot(BeAnExistingFile())
+		var op galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]
+		Eventually(galleryService.ModelGalleryChannel).Should(Receive(&op))
+		Expect(op.GalleryElement.Files).To(BeEmpty())
+	})
+
+	It("enqueues an explicit artifacts config with no file entries", func() {
+		body := `name: artifactual
+backend: transformers
+artifacts:
+- name: model
+  target: model
+  source:
+    type: huggingface
+    repo: sshleifer/tiny-gpt2
+parameters:
+  model: sshleifer/tiny-gpt2
+`
+		req := httptest.NewRequest("POST", "/models/import", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/x-yaml")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		var op galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]
+		Eventually(galleryService.ModelGalleryChannel).Should(Receive(&op))
+		Expect(op.GalleryElement.Files).To(BeEmpty())
+	})
+
+	It("rejects a malformed Hugging Face reference at admission", func() {
+		rec := post(`{"name": "badref", "backend": "transformers", "parameters": {"model": "owner/repo?bad"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid model reference"))
+	})
+
 	It("keeps the synchronous path for configs without remote assets", func() {
 		rec := post(`{"name": "local", "backend": "llama-cpp", "parameters": {"model": "already-here.gguf"}}`)
 		Expect(rec.Code).To(Equal(http.StatusOK))
