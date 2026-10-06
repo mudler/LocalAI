@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/mail"
@@ -732,9 +733,13 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				"role":      k.Role,
 				"createdAt": k.CreatedAt,
 				"lastUsed":  k.LastUsed,
+				"disabled":  k.Disabled,
 			}
 			if k.ExpiresAt != nil {
 				entry["expiresAt"] = k.ExpiresAt
+			}
+			if k.PausedUntil != nil {
+				entry["pausedUntil"] = k.PausedUntil
 			}
 			result = append(result, entry)
 		}
@@ -755,6 +760,40 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "API key revoked"})
+	})
+
+	// PATCH /api/auth/api-keys/:id - pause or resume an API key
+	e.PATCH("/api/auth/api-keys/:id", func(c echo.Context) error {
+		user := auth.GetUser(c)
+		if user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "not authenticated"})
+		}
+
+		var body struct {
+			Disabled    bool    `json:"disabled"`
+			PausedUntil *string `json:"paused_until"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		}
+
+		var pausedUntil *time.Time
+		if body.PausedUntil != nil && *body.PausedUntil != "" {
+			t, err := time.Parse(time.RFC3339, *body.PausedUntil)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid paused_until format, use RFC3339"})
+			}
+			pausedUntil = &t
+		}
+
+		if err := auth.SetAPIKeyPause(db, c.Param("id"), user.ID, body.Disabled, pausedUntil); err != nil {
+			if errors.Is(err, auth.ErrPauseInPast) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "API key not found"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "API key updated"})
 	})
 
 	// Usage endpoints

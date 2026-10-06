@@ -300,7 +300,7 @@ func SubjectCacheInvalidateCollection(name string) string {
 	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
 
-// SyncedMap State Sync (Pub/Sub — broadcast to all frontends)
+// SubjectSyncStateDelta returns the SyncedMap state sync subject (Pub/Sub — broadcast to all frontends).
 //
 // The reusable syncstate.SyncedMap component publishes a {op,key,value} delta on
 // this subject whenever a replica mutates a piece of cross-replica in-memory

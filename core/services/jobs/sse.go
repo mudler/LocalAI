@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// SSEBridge provides an HTTP handler that bridges NATS progress events to SSE.
+// SSEHandler provides an HTTP handler that bridges NATS progress events to SSE.
 // This follows the notetaker pattern: subscribe to NATS, forward to SSE client.
 func (d *Dispatcher) SSEHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
