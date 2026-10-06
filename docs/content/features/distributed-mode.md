@@ -1434,3 +1434,27 @@ whole-operation termination. These same-boot reservations have no reclamation
 or fixed inventory-size bound yet. Controllers must quarantine uncertain work
 rather than infer safe replacement from a timeout, idle process, or empty
 inventory. Request cancellation does not prove remote work has stopped.
+
+### Interrupted cold loads
+
+The controller stops renewing a cold-load attempt when its deadline expires or
+when it observes a changed worker incarnation. A periodic sweep also marks
+expired owner leases as failed, including staging jobs without replica rows or
+new inference requests. These failures remain **uncertain**: a worker restart,
+missing process inventory, or a cancelled RPC does not prove all remote work
+ended. Replica reservations remain quarantined and automatic retry is blocked.
+Verified operator cleanup is required before retrying uncertain work; do not
+clear reservations merely because a worker is temporarily unhealthy.
+
+Valid staging progress extends its existing deadline. Checkpoint loading keeps
+its phase budget even when no bytes are reported. Controller-side outstanding
+cold loads have a per-process admission limit of 64; an uncooperative call keeps
+its admission until it returns. Cancellation cannot forcibly terminate a Go
+call or a remote backend load.
+
+Upgrade all frontends sharing the database before relying on generation-fenced
+publication. Older frontends do not honor these predicates. Legacy workers
+without incarnation reports continue ordinary loading but cannot provide early
+restart detection. Direct backend loads do not have worker-side generation
+admission fencing, so this recovery does not promise safe automatic replacement
+or termination after a restart, including when child processes survive it.

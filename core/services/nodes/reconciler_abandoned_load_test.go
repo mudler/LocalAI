@@ -73,22 +73,22 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		return count > 0
 	}
 
-	It("reclaims a staging row whose load job has stopped heartbeating", func() {
+	It("quarantines a staging row whose load job has stopped heartbeating", func() {
 		seedReplica("abandoned", "staging", time.Hour)
 		seedJob("abandoned", LoadJobStateStaging, 30*time.Minute)
 
 		rc.reclaimAbandonedLoads(context.Background())
 
-		Expect(rowExists("abandoned")).To(BeFalse())
+		Expect(rowExists("abandoned")).To(BeTrue())
 	})
 
-	It("reclaims a jobless row once its node is gone", func() {
+	It("keeps uncertain jobless work on an unhealthy node", func() {
 		seedReplica("orphan", "loading", time.Hour)
 		Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
 		rc.reclaimAbandonedLoads(context.Background())
 
-		Expect(rowExists("orphan")).To(BeFalse())
+		Expect(rowExists("orphan")).To(BeTrue())
 	})
 
 	// Only the request path creates load jobs. The reconciler's own scale-up
@@ -132,7 +132,7 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		Expect(rowExists("serving")).To(BeTrue())
 	})
 
-	It("frees the slot so the model can be scheduled on that node again", func() {
+	It("keeps the slot when failure does not prove termination", func() {
 		seedReplica("wedged", "staging", time.Hour)
 		seedJob("wedged", LoadJobStateFailed, time.Minute)
 
@@ -142,7 +142,7 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		rc.reclaimAbandonedLoads(context.Background())
 
 		idx, err := registry.NextFreeReplicaIndex(context.Background(), node.ID, "wedged", 1)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(idx).To(Equal(0))
+		Expect(err).To(MatchError(ErrNoFreeSlot))
+		_ = idx
 	})
 })

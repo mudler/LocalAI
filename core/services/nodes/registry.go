@@ -22,15 +22,16 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
+	ID                string `gorm:"primaryKey;size:36" json:"id"`
+	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -1089,9 +1090,10 @@ func absDiff(a, b uint64) uint64 {
 
 // HeartbeatUpdate contains optional fields to update on heartbeat.
 type HeartbeatUpdate struct {
-	AvailableVRAM *uint64 `json:"available_vram,omitempty"`
-	TotalVRAM     *uint64 `json:"total_vram,omitempty"`
-	AvailableRAM  *uint64 `json:"available_ram,omitempty"`
+	WorkerIncarnation string  `json:"worker_incarnation,omitempty"`
+	AvailableVRAM     *uint64 `json:"available_vram,omitempty"`
+	TotalVRAM         *uint64 `json:"total_vram,omitempty"`
+	AvailableRAM      *uint64 `json:"available_ram,omitempty"`
 	// AvailableDisk / TotalDisk describe the worker's models filesystem.
 	// Pointers so a worker that cannot read them omits the fields rather than
 	// reporting a zero the scheduler would act on.
@@ -1126,7 +1128,7 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 	// interval out of date. That costs at most one extra or one late write; it
 	// cannot persist a wrong figure, because the write path below re-reads the
 	// ceiling before it caps anything.
-	if r.skipHeartbeatWrite(nodeID, update) {
+	if (update == nil || update.WorkerIncarnation == "") && r.skipHeartbeatWrite(nodeID, update) {
 		return nil
 	}
 
@@ -1136,6 +1138,9 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 
 	var ceiling uint64
 	if update != nil {
+		if update.WorkerIncarnation != "" {
+			updates["worker_incarnation"] = update.WorkerIncarnation
+		}
 		if update.AvailableVRAM != nil {
 			// Cap the reported available against the node's resolved budget
 			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
@@ -1388,6 +1393,9 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 	// both create and update. This prevents overwriting the primary key on
 	// subsequent calls for the same (node, model, replica_index).
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1417,6 +1425,9 @@ func (r *NodeRegistry) setNodeModelLoadInfoRevision(ctx context.Context, nodeID,
 		return err
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1459,6 +1470,9 @@ func (r *NodeRegistry) upsertModelLoadInfoRevision(ctx context.Context, modelNam
 		UpdatedAt:      now,
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}

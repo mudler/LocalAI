@@ -75,18 +75,19 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name            string  `json:"name"`
-	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address         string  `json:"address"`
-	HTTPAddress     string  `json:"http_address,omitempty"`
-	Token           string  `json:"token,omitempty"`
-	TotalVRAM       uint64  `json:"total_vram,omitempty"`
-	AvailableVRAM   uint64  `json:"available_vram,omitempty"`
-	TotalRAM        uint64  `json:"total_ram,omitempty"`
-	AvailableRAM    uint64  `json:"available_ram,omitempty"`
-	CPULogicalCores uint64  `json:"cpu_logical_cores,omitempty"`
-	CPUUsagePercent float64 `json:"cpu_usage_percent,omitempty"`
-	CPULoad1        float64 `json:"cpu_load_1,omitempty"`
+	WorkerIncarnation string  `json:"worker_incarnation,omitempty"`
+	Name              string  `json:"name"`
+	NodeType          string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address           string  `json:"address"`
+	HTTPAddress       string  `json:"http_address,omitempty"`
+	Token             string  `json:"token,omitempty"`
+	TotalVRAM         uint64  `json:"total_vram,omitempty"`
+	AvailableVRAM     uint64  `json:"available_vram,omitempty"`
+	TotalRAM          uint64  `json:"total_ram,omitempty"`
+	AvailableRAM      uint64  `json:"available_ram,omitempty"`
+	CPULogicalCores   uint64  `json:"cpu_logical_cores,omitempty"`
+	CPUUsagePercent   float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1          float64 `json:"cpu_load_1,omitempty"`
 	// TotalDisk / AvailableDisk describe the filesystem backing the worker's
 	// MODELS directory (where staged weights land), not the root filesystem.
 	// Omitted by workers that predate the fields; the scheduler treats
@@ -181,6 +182,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 
 		node := &nodes.BackendNode{
+			WorkerIncarnation:    req.WorkerIncarnation,
 			Name:                 req.Name,
 			NodeType:             nodeType,
 			Address:              req.Address,

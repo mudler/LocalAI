@@ -375,6 +375,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		if lifecycleSettled {
 			return
 		}
+		if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); owned {
+			return
+		}
 		cleanupCtx := context.WithoutCancel(ctx)
 		// An edit may have quarantined this row while staging/loading was in
 		// flight. Its cleanup intent is durable and must not be erased by the
@@ -454,7 +457,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			// minutes past the client timeout, and each retry stacked another
 			// multi-GB loader process on the worker. Reap the replica we just
 			// abandoned before handing the failure back.
-			if loadAbandonedOnWorker(err) {
+			if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); !owned && loadAbandonedOnWorker(err) {
 				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
 			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
@@ -1353,6 +1356,8 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 // Routine load: the worker's fast-path "already running → return current
 // address" is correct here. Upgrades go through
 // DistributedBackendManager.UpgradeBackend on the backend.upgrade subject.
+var installAdmission = make(chan struct{}, 64)
+
 func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNode, backendType, modelID string, replicaIndex int, configRevision string) (string, error) {
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
@@ -1368,6 +1373,13 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// frees the caller promptly. The shared install keeps running in the
 	// background and still coalesces other callers via singleflight.
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
+		select {
+		case installAdmission <- struct{}{}:
+			defer func() { <-installAdmission }()
+		default:
+			return "", fmt.Errorf("install admission exhausted by outstanding attempts")
+		}
+
 		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil, configRevision)
 		if err != nil {
 			return "", err

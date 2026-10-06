@@ -26,54 +26,29 @@ const (
 // answering nothing.
 var preServingStates = []string{"loading", "staging"}
 
-// reclaimAbandonedLoads removes replica rows whose load will never finish.
-//
-// The other reconciler passes and the router's eviction query all filter
-// state = "loaded", and the per-model probe skips rows without an address, so
-// nothing reclaimed a row that never got that far. On a node with one replica
-// slot per model, a single interrupted transfer made the model unschedulable
-// there until an operator intervened: scheduling saw no free slot, and eviction
-// found nothing it was allowed to evict.
-//
-// A row is only reclaimed when something proves the load is not progressing:
-// either a load job that has failed or stopped heartbeating, or, for a row with
-// no job at all, a node that is no longer healthy.
-//
-// The no-job case has to be conservative. Only the request path creates load
-// jobs; the reconciler's own scale-up loads a replica without one. Treating a
-// missing job as proof of abandonment would let this sweeper delete a healthy
-// reconciler-driven transfer the moment it ran past the grace period, which for
-// a multi-gigabyte checkpoint is every time. A healthy node with no job is
-// therefore left alone; when the node is gone, nothing can be progressing and
-// the row is safe to reclaim.
+// reclaimAbandonedLoads projects orphan jobs as failed/uncertain without freeing
+// their replica slots. Worker silence, failure and boot changes do not prove
+// direct backend work ended or prevent a delayed frontend from issuing it.
 func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 	if rc.db == nil {
 		return
 	}
 
-	cutoff := time.Now().Add(-abandonedLoadGrace)
-	var stuck []NodeModel
-	if err := rc.db.WithContext(ctx).
-		Where("state IN ? AND updated_at < ?", preServingStates, cutoff).
-		Find(&stuck).Error; err != nil {
-		xlog.Warn("Reconciler: failed to list replicas stuck before serving", "error", err)
+	// Sweep durable jobs independently of replica rows and new requests.
+	registry := rc.registry
+	jobs, err := registry.ListActiveLoadJobs(ctx)
+	if err != nil {
+		xlog.Warn("Cannot list load recovery jobs", "error", err)
 		return
 	}
-
-	now := time.Now()
-	for _, row := range stuck {
-		if !rc.loadAbandoned(ctx, row, now) {
-			continue
+	service := &LoadRecoveryService{Registry: registry}
+	for _, job := range jobs {
+		if _, err := service.Reconcile(ctx, job.Ref()); err != nil {
+			xlog.Warn("Cannot reconcile load job", "model", job.TrackingKey, "error", err)
 		}
-		if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
-			xlog.Warn("Reconciler: failed to reclaim abandoned load",
-				"node", row.NodeID, "model", row.ModelName, "replica", row.ReplicaIndex,
-				"state", row.State, "error", err)
-			continue
-		}
-		xlog.Warn("Reconciler: reclaimed a replica slot held by a load nobody is driving",
-			"node", row.NodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "state", row.State)
 	}
+	// Do not remove reservations: direct backend work has no admission fence.
+
 }
 
 // loadAbandoned reports whether this row's load has demonstrably stopped.
@@ -88,15 +63,15 @@ func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, n
 	case errors.Is(err, gorm.ErrRecordNotFound), err == nil && job == nil:
 		// No job: only the request path creates them, so this may be a healthy
 		// reconciler-driven load. Reclaim only once its node is gone.
-		return !rc.nodeHealthy(ctx, row.NodeID)
+		return false
 	case err != nil:
 		xlog.Warn("Reconciler: cannot read load job, leaving the replica slot held",
 			"model", row.ModelName, "error", err)
 		return false
 	case job.State == LoadJobStateFailed:
-		return true
+		return job.Generation != "" && job.TerminalUntil != nil && !job.WorkUncertain
 	default:
-		return job.IsOrphaned(now)
+		return false
 	}
 }
 

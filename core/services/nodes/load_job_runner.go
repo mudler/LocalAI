@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -14,6 +15,9 @@ import (
 // only happens when the model was evicted between the job finishing and the
 // waiter re-checking, which is rare and must not become a spin.
 const maxColdLoadRounds = 3
+
+// Uncooperative calls retain admission until they really return.
+var coldLoadAdmission = make(chan struct{}, 64)
 
 // routeViaLoadJob serves a request whose model is not loaded, in distributed
 // mode. The cold load itself becomes a durable job owned by whichever replica
@@ -125,7 +129,7 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref L
 	trackingKey := att.trackingKey
 	// Keep the request's context VALUES (prefix chain and friends) but none of
 	// its cancellation — see newColdLoadContext.
-	parent := context.WithoutCancel(ctx)
+	parent := context.WithValue(context.WithoutCancel(ctx), loadOwnershipKey{}, ref)
 
 	go func() {
 		loadCtx, cancelLoad := r.newColdLoadContext(parent)
@@ -134,9 +138,42 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref L
 		phase := newLoadPhaseReporter()
 		loadCtx = withLoadPhaseReporter(loadCtx, phase)
 
-		stopHeartbeat := r.startLoadJobHeartbeat(parent, ref, phase)
+		stopHeartbeat := r.startLoadJobHeartbeat(loadCtx, ref, phase)
 
-		_, err := r.coldLoad(loadCtx, att, 0)
+		var err error
+		select {
+		case coldLoadAdmission <- struct{}{}:
+			results := make(chan error, 1)
+			go func() { defer func() { <-coldLoadAdmission }(); _, e := r.coldLoad(loadCtx, att, 0); results <- e }()
+			ticker := time.NewTicker(loadJobHeartbeatInterval)
+			defer ticker.Stop()
+		wait:
+			for {
+				select {
+				case err = <-results:
+					break wait
+				case <-loadCtx.Done():
+					err = loadCtx.Err()
+					break wait
+				case <-ticker.C:
+					nodeID, boot := phase.boot()
+					if boot == "" {
+						continue
+					}
+					probeCtx, cancel := context.WithTimeout(loadCtx, 2*time.Second)
+					node, e := r.registry.Get(probeCtx, nodeID)
+					cancel()
+					if e == nil && node != nil && node.WorkerIncarnation != "" && node.WorkerIncarnation != boot {
+						err = fmt.Errorf("worker incarnation changed; surviving remote work uncertain; verified operator cleanup required")
+						cancelLoad()
+						break wait
+					}
+				}
+			}
+		default:
+			err = fmt.Errorf("cold load admission exhausted by outstanding attempts")
+		}
+		cancelLoad()
 
 		stopHeartbeat()
 
@@ -147,7 +184,13 @@ func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref L
 
 		if err != nil {
 			xlog.Error("Cold load job failed", "model", trackingKey, "error", err)
-			if ferr := r.registry.FailLoadJob(bookCtx, ref, err.Error()); ferr != nil {
+			var ferr error
+			if registry, ok := r.registry.(*NodeRegistry); ok {
+				_, ferr = (&LoadRecoveryService{Registry: registry}).Fail(bookCtx, ref, err.Error())
+			} else {
+				ferr = r.registry.FailLoadJob(bookCtx, ref, err.Error())
+			}
+			if ferr != nil {
 				xlog.Warn("Failed to record cold load failure", "model", trackingKey, "error", ferr)
 				return
 			}
@@ -194,6 +237,8 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 		var startedAt time.Time
 		for {
 			select {
+			case <-parent.Done():
+				return
 			case <-done:
 				return
 			case <-ticker.C:
@@ -206,7 +251,7 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 					}
 					u.StartedAt = startedAt
 				}
-				ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), loadJobHeartbeatInterval*5)
+				ctx, cancel := context.WithTimeout(parent, loadJobHeartbeatInterval*5)
 				if err := r.registry.UpdateLoadJob(ctx, ref, u); err != nil {
 					xlog.Debug("Failed to heartbeat cold load job", "model", trackingKey, "error", err)
 				}
@@ -215,9 +260,13 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 		}
 	}()
 
+	var once sync.Once
 	return func() {
-		close(done)
-		<-stopped
+		once.Do(func() { close(done) })
+		select {
+		case <-stopped:
+		case <-time.After(loadJobHeartbeatInterval * 5):
+		}
 	}
 }
 

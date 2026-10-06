@@ -16,6 +16,7 @@ import (
 type loadPhaseReporter struct {
 	mu           sync.Mutex
 	state        string
+	incarnation  string
 	nodeID       string
 	nodeName     string
 	replicaIndex int
@@ -50,6 +51,7 @@ func (p *loadPhaseReporter) set(state string, node *BackendNode, replicaIndex in
 	p.state = state
 	if node != nil {
 		p.nodeID, p.nodeName, p.replicaIndex = node.ID, node.Name, replicaIndex
+		p.incarnation = node.WorkerIncarnation
 	}
 }
 
@@ -61,4 +63,10 @@ func reportLoadPhase(ctx context.Context, state string, node *BackendNode, repli
 	if p, ok := ctx.Value(loadPhaseKey{}).(*loadPhaseReporter); ok {
 		p.set(state, node, replicaIndex)
 	}
+}
+
+func (p *loadPhaseReporter) boot() (string, string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.nodeID, p.incarnation
 }
