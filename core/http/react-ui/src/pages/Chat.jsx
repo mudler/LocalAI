@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
+import Icon from '../components/Icon'
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
 
@@ -131,12 +132,12 @@ function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool
       {regularItems.length > 0 && (
         <div className="chat-message chat-message-assistant">
           <div className="chat-message-avatar">
-            <i className="fas fa-cogs" />
+            <Icon name="settings" />
           </div>
           <div className="chat-activity-group">
             <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
               <span className="chat-activity-summary">{summary}</span>
-              <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+              <Icon name={`chevron-${expanded ? 'up' : 'down'}`} />
             </button>
             {expanded && (
               <div className="chat-activity-details" ref={contentRef}>
@@ -167,7 +168,7 @@ function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool
       {appUIItems.map((item, idx) => (
         <div key={`appui-${idx}`} className="chat-message chat-message-assistant">
           <div className="chat-message-avatar">
-            <i className="fas fa-puzzle-piece" />
+            <Icon name="puzzle" />
           </div>
           <div className="chat-message-bubble">
             <span className="chat-message-model">{item.appUI.toolName}</span>
@@ -221,14 +222,14 @@ function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
   return (
     <div className="chat-message chat-message-assistant">
       <div className="chat-message-avatar">
-        <i className="fas fa-cogs" />
+        <Icon name="settings" />
       </div>
       <div className="chat-activity-group chat-activity-streaming">
         <button className="chat-activity-toggle" onClick={() => setManualCollapse(expanded)}>
           <span className={`chat-activity-summary${!expanded ? ' chat-activity-shimmer' : ''}`}>
             {label}
           </span>
-          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
+          <Icon name={`chevron-${expanded ? 'up' : 'down'}`} />
         </button>
         {expanded && reasoning && (
           <div className="chat-activity-details">
@@ -274,7 +275,7 @@ function UserMessageContent({ content, files }) {
         <div className="chat-message-files">
           {files.map((f, i) => (
             <span key={i} className="chat-file-inline">
-              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : f.type === 'video' ? 'fa-film' : 'fa-file'}`} />
+              <Icon name={f.type === 'image' ? 'image' : f.type === 'audio' ? 'headphones' : f.type === 'video' ? 'video' : 'file'} />
               {f.name}
             </span>
           ))}
@@ -1015,7 +1016,7 @@ export default function Chat() {
               className="chat-header-shield"
               title={t('header.manageModeTooltip')}
             >
-              <i className="fas fa-user-shield" />
+              <Icon name="user-shield" />
             </span>
           )}
           <span className="chat-header-title" title={activeChat.name}>{activeChat.name}</span>
@@ -1035,7 +1036,7 @@ export default function Chat() {
                 aria-pressed={showModelInfo}
                 aria-controls="chat-model-info-panel"
               >
-                <i className="fas fa-circle-info" />
+                <Icon name="info" />
               </button>
             )}
             <button
@@ -1045,7 +1046,7 @@ export default function Chat() {
               title={t('header.chatSettings')}
               aria-pressed={showSettings}
             >
-              <i className="fas fa-sliders-h" />
+              <Icon name="sliders" />
             </button>
           </div>
         </div>
@@ -1063,11 +1064,11 @@ export default function Chat() {
                     onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
                     title={t('header.editConfig')}
                   >
-                    <i className="fas fa-pen-to-square" /> {t('header.editConfig')}
+                    <Icon name="edit" /> {t('header.editConfig')}
                   </button>
                 )}
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title={t('header.close')}>
-                  <i className="fas fa-times" />
+                  <Icon name="close" />
                 </button>
               </div>
             </div>
@@ -1106,7 +1107,7 @@ export default function Chat() {
           <div className="chat-settings-drawer-header">
             <span>{t('settings.title')}</span>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowSettings(false)}>
-              <i className="fas fa-times" />
+              <Icon name="close" />
             </button>
           </div>
           <div className="chat-settings-drawer-body">
@@ -1114,7 +1115,7 @@ export default function Chat() {
               <div className="form-group chat-settings-toggle-row">
                 <div className="chat-settings-toggle-text">
                   <span className="chat-settings-toggle-title">
-                    <i className="fas fa-user-shield" /> {t('settings.manageMode')}
+                    <Icon name="user-shield" /> {t('settings.manageMode')}
                   </span>
                   <span className="chat-settings-toggle-desc">
                     {t('settings.manageModeDesc')}
@@ -1129,7 +1130,7 @@ export default function Chat() {
             <div className="form-group chat-settings-toggle-row">
               <div className="chat-settings-toggle-text">
                 <span className="chat-settings-toggle-title">
-                  <i className="fas fa-compress" /> {t('settings.focusMode')}
+                  <Icon name="minimize" /> {t('settings.focusMode')}
                 </span>
                 <span className="chat-settings-toggle-desc">
                   {t('settings.focusModeDesc')}
@@ -1203,7 +1204,7 @@ export default function Chat() {
                 onClick={() => clearHistory(activeChat.id)}
                 title={t('settings.clearHistory')}
               >
-                <i className="fas fa-eraser" /> {t('settings.clearHistory')}
+                <Icon name="eraser" /> {t('settings.clearHistory')}
               </button>
             </div>
           </div>
@@ -1258,9 +1259,9 @@ export default function Chat() {
                 </div>
               )}
               <div className="chat-empty-hints">
-                <span><i className="fas fa-keyboard" /> {t('empty.hintEnter')}</span>
-                <span><i className="fas fa-level-down-alt" /> {t('empty.hintShiftEnter')}</span>
-                <span><i className="fas fa-paperclip" /> {t('empty.hintAttach')}</span>
+                <span><Icon name="keyboard" /> {t('empty.hintEnter')}</span>
+                <span><Icon name="corner-down-right" /> {t('empty.hintShiftEnter')}</span>
+                <span><Icon name="paperclip" /> {t('empty.hintAttach')}</span>
               </div>
             </div>
           )}
@@ -1288,7 +1289,7 @@ export default function Chat() {
               elements.push(
                 <div key={i} className={`chat-message chat-message-${msg.role}${i === completionGlowIdx ? ' chat-message-new' : ''}`}>
                   <div className="chat-message-avatar">
-                    <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
+                    <Icon name={msg.role === 'user' ? 'user' : 'robot'} />
                   </div>
                   <div className="chat-message-bubble">
                     {/* Both roles are labelled now that neither is a bubble.
@@ -1345,23 +1346,23 @@ export default function Chat() {
                     )}
                     {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
                       <a href="/app/traces?tab=backend" className="chat-error-trace-link">
-                        <i className="fas fa-wave-square" /> {t('errors.viewTraces')}
+                        <Icon name="waveform" /> {t('errors.viewTraces')}
                       </a>
                     )}
                     {editingMessageIndex !== i && (
                       <div className="chat-message-actions">
                         <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
-                          <i className="fas fa-copy" />
+                          <Icon name="copy" />
                         </button>
                         {(msg.role === 'user' || msg.role === 'assistant') &&
                           editableMessageText(msg) !== null && !isStreaming && (
                             <button onClick={() => startMessageEdit(i, msg)} title={t('actions.edit')}>
-                              <i className="fas fa-pen" />
+                              <Icon name="pencil" />
                             </button>
                           )}
                         {msg.role === 'assistant' && !isStreaming && (
                           <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
-                            <i className="fas fa-rotate" />
+                            <Icon name="refresh" />
                           </button>
                         )}
                         {msg.role === 'assistant' && !isStreaming && (
@@ -1369,7 +1370,7 @@ export default function Chat() {
                             onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
                             title={t('actions.branch')}
                           >
-                            <i className="fas fa-code-branch" />
+                            <Icon name="git-branch" />
                           </button>
                         )}
                       </div>
@@ -1391,7 +1392,7 @@ export default function Chat() {
           {isStreaming && streamingContent && (
             <div className="chat-message chat-message-assistant">
               <div className="chat-message-avatar">
-                <i className="fas fa-robot" />
+                <Icon name="robot" />
               </div>
               <div className="chat-message-bubble">
                 {activeChat.model && (
@@ -1403,7 +1404,7 @@ export default function Chat() {
                 </div>
                 {tokensPerSecond !== null && (
                   <div className="chat-streaming-speed">
-                    <i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}
+                    <Icon name="gauge" /> {t('tokens.perSec', { count: tokensPerSecond })}
                   </div>
                 )}
               </div>
@@ -1412,14 +1413,14 @@ export default function Chat() {
           {isStreaming && !streamingContent && !streamingReasoning && streamingToolCalls.length === 0 && (
             <div className="chat-message chat-message-assistant">
               <div className="chat-message-avatar">
-                <i className="fas fa-robot" />
+                <Icon name="robot" />
               </div>
               <div className="chat-message-bubble">
                 <div className="chat-message-content chat-thinking-indicator">
                   {loadProgress ? (
                     <div className="chat-staging-progress">
                       <div className="chat-staging-label">
-                        <i className="fas fa-cloud-arrow-up" /> {loadProgress.label}
+                        <Icon name="cloud-upload" /> {loadProgress.label}
                       </div>
                       {loadProgress.progress > 0 && (
                         <div className="chat-staging-detail">
@@ -1453,7 +1454,7 @@ export default function Chat() {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
-              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
+              <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
             </button>
           )}
         </div>
@@ -1461,15 +1462,15 @@ export default function Chat() {
         {/* Token info bar */}
         {(tokensPerSecond || maxTokensPerSecond || activeChat.tokenUsage?.total > 0) && (
           <div className="chat-token-info">
-            {tokensPerSecond !== null && <span><i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}</span>}
+            {tokensPerSecond !== null && <span><Icon name="gauge" /> {t('tokens.perSec', { count: tokensPerSecond })}</span>}
             {maxTokensPerSecond !== null && !isStreaming && (
               <span className="chat-max-tps-badge">
-                <i className="fas fa-bolt" /> {t('tokens.peak', { count: maxTokensPerSecond })}
+                <Icon name="bolt" /> {t('tokens.peak', { count: maxTokensPerSecond })}
               </span>
             )}
             {activeChat.tokenUsage?.total > 0 && (
               <span>
-                <i className="fas fa-coins" /> {t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total })}
+                <Icon name="coins" /> {t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total })}
               </span>
             )}
           </div>
@@ -1485,11 +1486,11 @@ export default function Chat() {
                   {isImage ? (
                     <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
                   ) : (
-                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
+                    <Icon name={f.type?.startsWith('audio/') ? 'headphones' : f.type?.startsWith('video/') ? 'video' : 'file'} />
                   )}
                   <span className="chat-file-name">{f.name}</span>
                   <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
-                    <i className="fas fa-xmark" />
+                    <Icon name="close" />
                   </button>
                 </span>
               )
@@ -1512,7 +1513,7 @@ export default function Chat() {
                 aria-pressed={canvasMode}
                 title={t('input.canvasTitle')}
               >
-                <i className="fas fa-columns" />
+                <Icon name="columns" />
                 <span className="chat-mode-chip-label">{t('input.canvasLabel')}</span>
                 {canvasMode && artifacts.length > 0 && !canvasOpen && (
                   <span
@@ -1581,7 +1582,7 @@ export default function Chat() {
               onClick={() => fileInputRef.current?.click()}
               title={t('input.attachFile')}
             >
-              <i className="fas fa-paperclip" />
+              <Icon name="paperclip" />
             </button>
             <input
               ref={fileInputRef}
@@ -1604,7 +1605,7 @@ export default function Chat() {
             />
             {isStreaming ? (
               <button className="chat-stop-btn" onClick={stopGeneration} title={t('input.stopGenerating')}>
-                <i className="fas fa-stop" />
+                <Icon name="stop" />
               </button>
             ) : (
               <button
@@ -1615,7 +1616,7 @@ export default function Chat() {
                 aria-label={t('input.send')}
                 title={t('input.send')}
               >
-                <i className="fas fa-paper-plane" aria-hidden="true" />
+                <Icon name="send" />
               </button>
             )}
           </div>

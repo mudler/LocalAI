@@ -8,6 +8,7 @@ import MediaInput from '../components/biometrics/MediaInput'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { audioBufferToWavBlob } from '../hooks/useMediaCapture'
 import { voiceProfilesApi } from '../utils/api'
+import Icon from '../components/Icon'
 
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024
 const REFERENCE_SAMPLE_RATE = 24000
@@ -49,7 +50,7 @@ function ReadinessItem({ ready, warning, children }) {
   const tone = ready ? 'ready' : warning ? 'warning' : 'pending'
   return (
     <li className={`voice-readiness__item voice-readiness__item--${tone}`}>
-      <i className={`fas ${ready ? 'fa-check' : warning ? 'fa-triangle-exclamation' : 'fa-minus'}`} aria-hidden="true" />
+      <Icon name={ready ? 'check' : warning ? 'warning' : 'minus'} />
       <span>{children}</span>
     </li>
   )
@@ -160,9 +161,9 @@ export default function VoiceProfileCreate() {
       />
       <PageHeader
         eyebrow={t('voiceCreate.eyebrow')}
-        title={<><i className="fas fa-microphone-lines" aria-hidden="true" /> {t('voiceCreate.title')}</>}
+        title={<><Icon name="mic" /> {t('voiceCreate.title')}</>}
         supporting={t('voiceCreate.subtitle')}
-        actions={<Link className="btn btn-secondary" to="/app/voice-library"><i className="fas fa-arrow-left" aria-hidden="true" /> {t('voiceCreate.actions.back')}</Link>}
+        actions={<Link className="btn btn-secondary" to="/app/voice-library"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</Link>}
       />
 
       <form className="voice-create-grid" onSubmit={submit}>
@@ -188,8 +189,8 @@ export default function VoiceProfileCreate() {
               <div className="voice-create-preview">
                 <WaveformPlayer src={audio.dataUrl} height={72} label={t('voiceCreate.audio.preview')} />
                 <div className="voice-create-preview__meta">
-                  <span><i className="fas fa-clock" aria-hidden="true" /> {audio.duration.toFixed(1)}s</span>
-                  <span><i className="fas fa-wave-square" aria-hidden="true" /> {Math.round(audio.sampleRate / 1000)} kHz · PCM WAV</span>
+                  <span><Icon name="clock" /> {audio.duration.toFixed(1)}s</span>
+                  <span><Icon name="waveform" /> {Math.round(audio.sampleRate / 1000)} kHz · PCM WAV</span>
                   <span className={durationRecommended ? 'tone-success' : 'tone-warning'}>
                     {durationRecommended ? t('voiceCreate.audio.qualityReady') : t('voiceCreate.audio.qualityHint')}
                   </span>
@@ -210,7 +211,7 @@ export default function VoiceProfileCreate() {
                 <textarea id={`voice-profile-transcript-${index + 2}`} className="textarea" rows={3} maxLength={4000} value={reference.transcript} onChange={(event) => setAdditionalReferences(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transcript: event.target.value } : item))} required />
               </div>
             ))}
-            {additionalReferences.length < 9 && <button type="button" className="btn btn-secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><i className="fas fa-plus" aria-hidden="true" /> {t('voiceCreate.references.add')}</button>}
+            {additionalReferences.length < 9 && <button type="button" className="btn btn-secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><Icon name="plus" /> {t('voiceCreate.references.add')}</button>}
           </section>
 
           <section className="voice-create-section" aria-labelledby="voice-details-heading">
@@ -249,7 +250,7 @@ export default function VoiceProfileCreate() {
             </div>
             <label className="voice-consent-check">
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span className="voice-consent-check__box"><i className="fas fa-check" aria-hidden="true" /></span>
+              <span className="voice-consent-check__box"><Icon name="check" /></span>
               <span><strong>{t('voiceCreate.consent.title')}</strong><small>{t('voiceCreate.consent.body')}</small></span>
             </label>
           </section>
@@ -257,14 +258,14 @@ export default function VoiceProfileCreate() {
           <div className="voice-create-actions">
             <Link className="btn btn-secondary" to="/app/voice-library">{t('voiceCreate.actions.cancel')}</Link>
             <button type="submit" className="btn btn-primary" disabled={!formReady || submitting}>
-              {submitting ? <><LoadingSpinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><i className="fas fa-floppy-disk" aria-hidden="true" /> {t('voiceCreate.actions.save')}</>}
+              {submitting ? <><LoadingSpinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><Icon name="save" /> {t('voiceCreate.actions.save')}</>}
             </button>
           </div>
         </div>
 
         <aside className="voice-readiness" aria-label={t('voiceCreate.readiness.title')}>
           <div className="voice-readiness__header">
-            <span className="voice-readiness__icon"><i className="fas fa-shield-halved" aria-hidden="true" /></span>
+            <span className="voice-readiness__icon"><Icon name="shield" /></span>
             <div><h2>{t('voiceCreate.readiness.title')}</h2><p>{t('voiceCreate.readiness.body')}</p></div>
           </div>
           <ul>
@@ -275,7 +276,7 @@ export default function VoiceProfileCreate() {
             <ReadinessItem ready={readiness.consent}>{t('voiceCreate.readiness.consent')}</ReadinessItem>
           </ul>
           <div className="voice-readiness__privacy">
-            <i className="fas fa-lock" aria-hidden="true" />
+            <Icon name="lock" />
             <p><strong>{t('voiceCreate.privacy.title')}</strong>{t('voiceCreate.privacy.body')}</p>
           </div>
         </aside>

@@ -12,6 +12,7 @@ import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { soundApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 import { useTranslation } from 'react-i18next'
+import Icon from '../components/Icon'
 
 export default function Sound() {
   const { t } = useTranslation('media')
@@ -86,7 +87,7 @@ export default function Sound() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-music" /> {t('sound.title')}</>} />
+        <PageHeader title={<><Icon name="music" /> {t('sound.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -142,7 +143,7 @@ export default function Sound() {
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('sound.actions.generating')}</> : <><i className="fas fa-music" /> {t('sound.actions.generate')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('sound.actions.generating')}</> : <><Icon name="music" /> {t('sound.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -170,7 +171,7 @@ export default function Sound() {
             </div>
           ) : (
             <div className="media-empty">
-              <i className="fas fa-music media-empty__icon" />
+              <Icon name="music" className="media-empty__icon" />
               <p>{t('sound.empty')}</p>
             </div>
           )}

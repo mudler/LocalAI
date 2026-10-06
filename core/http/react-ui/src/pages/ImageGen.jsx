@@ -12,6 +12,7 @@ import Lightbox from '../components/Lightbox'
 import GenerationProgress from '../components/GenerationProgress'
 import { imageApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import Icon from '../components/Icon'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
 
@@ -99,7 +100,7 @@ export default function ImageGen() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-image" /> {t('image.title')}</>} />
+        <PageHeader title={<><Icon name="image" /> {t('image.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -129,7 +130,7 @@ export default function ImageGen() {
           </div>
 
           <div className={`collapsible-header ${showAdvanced ? 'open' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
-            <i className="fas fa-chevron-right" /> {t('image.labels.advanced')}
+            <Icon name="chevron-right" /> {t('image.labels.advanced')}
           </div>
           {showAdvanced && (
             <div className="form-grid-2col">
@@ -139,7 +140,7 @@ export default function ImageGen() {
           )}
 
           <div className={`collapsible-header ${showImageInputs ? 'open' : ''}`} onClick={() => setShowImageInputs(!showImageInputs)}>
-            <i className="fas fa-chevron-right" /> {t('image.labels.imageInputs')}
+            <Icon name="chevron-right" /> {t('image.labels.imageInputs')}
           </div>
           {showImageInputs && (
             <>
@@ -153,7 +154,7 @@ export default function ImageGen() {
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('image.actions.generating')}</> : <><i className="fas fa-wand-magic-sparkles" /> {t('image.actions.generate')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('image.actions.generating')}</> : <><Icon name="sparkles" /> {t('image.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -171,13 +172,13 @@ export default function ImageGen() {
               {displayImages.map((im, i) => (
                 <button type="button" key={i} className="media-result-thumb" onClick={() => setLightboxIdx(i)} title={t('image.actions.view')} aria-label={t('image.actions.view')}>
                   <img src={im.url} alt={im.alt} />
-                  <span className="media-result-thumb__zoom" aria-hidden="true"><i className="fas fa-expand" /></span>
+                  <span className="media-result-thumb__zoom" aria-hidden="true"><Icon name="maximize" /></span>
                 </button>
               ))}
             </div>
           ) : (
             <div className="text-center text-muted">
-              <i className="fas fa-image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
+              <Icon name="image" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>{t('image.empty')}</p>
             </div>
           )}

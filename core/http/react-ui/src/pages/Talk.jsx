@@ -8,15 +8,16 @@ import ClientMCPDropdown from '../components/ClientMCPDropdown'
 import { useMCPClient } from '../hooks/useMCPClient'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import { useAuth } from '../context/AuthContext'
+import Icon from '../components/Icon'
 
 const STATUS_STYLES = {
-  disconnected: { icon: 'fa-solid fa-circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
-  connecting:   { icon: 'fa-solid fa-spinner fa-spin', color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
-  connected:    { icon: 'fa-solid fa-circle', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
-  listening:    { icon: 'fa-solid fa-microphone', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
-  thinking:     { icon: 'fa-solid fa-brain fa-beat', color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
-  speaking:     { icon: 'fa-solid fa-volume-high fa-beat-fade', color: 'var(--color-accent)', bg: 'var(--color-accent-light)' },
-  error:        { icon: 'fa-solid fa-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
+  disconnected: { icon: 'circle', color: 'var(--color-text-secondary)', bg: 'transparent' },
+  connecting:   { icon: 'spinner', spin: true, color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
+  connected:    { icon: 'circle-dot', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
+  listening:    { icon: 'mic', color: 'var(--color-success)', bg: 'var(--color-success-light)' },
+  thinking:     { icon: 'brain', beat: true, color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
+  speaking:     { icon: 'volume', beat: true, color: 'var(--color-accent)', bg: 'var(--color-accent-light)' },
+  error:        { icon: 'alert-circle', color: 'var(--color-error)', bg: 'var(--color-error-light)' },
 }
 
 // upsertEntry merges a streamed transcript fragment into the entry identified
@@ -638,18 +639,18 @@ export default function Talk() {
               border: '1px solid color-mix(in srgb, ' + statusStyle.color + ' 30%, transparent)',
             }}
           >
-            <i className={statusStyle.icon} style={{ color: statusStyle.color }} />
+            <Icon name={statusStyle.icon} spin={statusStyle.spin} className={statusStyle.beat ? 'lai-icon--beat' : undefined} style={{ color: statusStyle.color }} />
             <span className="fw-medium" style={{ color: statusStyle.color }}>{statusText}</span>
             {status === 'error' && (
               <a href="/app/traces?tab=backend" className="chat-error-trace-link ml-auto">
-                <i className="fas fa-wave-square" /> View traces
+                <Icon name="waveform" /> View traces
               </a>
             )}
           </div>
 
           {/* Info note */}
           <div className="talk-hint mb-md">
-            <i className="fas fa-info-circle text-primary mt-xs shrink-0" />
+            <Icon name="info" className="text-primary mt-xs shrink-0" />
             <p className="text-sub m-0">
               <strong className="text-primary">Note:</strong> Select a pipeline model and click Connect.
               Your microphone streams continuously; the server detects speech and responds automatically.
@@ -659,7 +660,7 @@ export default function Talk() {
           {/* Pipeline model selector */}
           <div className="mb-md">
             <label className="form-label text-sm">
-              <i className="fas fa-brain text-primary icon-before" /> Pipeline Model
+              <Icon name="brain" className="text-primary icon-before" /> Pipeline Model
             </label>
             <ModelSelector
               value={selectedModel}
@@ -674,14 +675,14 @@ export default function Talk() {
               searchPlaceholder="Search pipeline models..."
             />
             <button className="btn btn-secondary btn-sm mt-xs" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}>
-              <i className="fas fa-plus icon-before" /> Create Pipeline Model
+              <Icon name="plus" className="icon-before" /> Create Pipeline Model
             </button>
           </div>
 
           {/* Tools (client-side MCP servers, mirroring the chat page) */}
           <div className="mb-md">
             <label className="form-label text-sm">
-              <i className="fas fa-screwdriver-wrench text-primary icon-before" /> Tools
+              <Icon name="wrench" className="text-primary icon-before" /> Tools
             </label>
             <ClientMCPDropdown
               activeServerIds={activeMCPIds}
@@ -699,7 +700,7 @@ export default function Talk() {
                   disabled={isConnected}
                   onChange={(e) => setManageMode(e.target.checked)}
                 />
-                <i className="fas fa-user-shield text-primary" />
+                <Icon name="user-shield" className="text-primary" />
                 Manage Mode
                 <span className="text-secondary text-xs">
                   — let the model query LocalAI (models, backends, system info)
@@ -711,7 +712,7 @@ export default function Talk() {
           {/* Pipeline details */}
           {selectedModelInfo && selectedModelInfo.self_contained && (
             <div className="talk-chip mb-xs">
-              <i className="fas fa-tower-broadcast text-primary" />
+              <Icon name="broadcast" className="text-primary" />
               <span className="text-secondary">Self-contained any-to-any —</span>
               <span className="text-mono cell-clip">
                 {selectedModelInfo.name}
@@ -739,7 +740,7 @@ export default function Talk() {
           {selectedModelInfo && !isConnected && (
             <div className="mb-md">
               <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })}>
-                <i className="fas fa-pen-to-square icon-before" />
+                <Icon name="edit" className="icon-before" />
                 {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>
             </div>
@@ -748,7 +749,7 @@ export default function Talk() {
           {/* Session settings */}
           <details className="talk-details mb-md">
             <summary>
-              <i className="fas fa-sliders text-primary icon-before" />
+              <Icon name="sliders" className="text-primary icon-before" />
               Session Settings
             </summary>
             <div className="talk-details__body">
@@ -794,14 +795,14 @@ export default function Talk() {
               const isToolCall = entry.role === 'tool_call'
               const isToolResult = entry.role === 'tool_result'
               const isUser = entry.role === 'user'
-              const iconClass = isToolCall ? 'fa-solid fa-screwdriver-wrench'
-                              : isToolResult ? 'fa-solid fa-clipboard-list'
-                              : isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'
+              const iconClass = isToolCall ? 'wrench'
+                              : isToolResult ? 'clipboard'
+                              : isUser ? 'user' : 'robot'
               const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
                               : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
               return (
                 <div key={entry.id || i} className="talk-line">
-                  <i className={`${iconClass} talk-line__icon`} style={{ color: iconColor }} />
+                  <Icon name={iconClass} className="talk-line__icon" style={{ color: iconColor }} />
                   <p className={`talk-line__text${(isToolCall || isToolResult) ? ' talk-line__text--tool' : ''}${isToolResult ? ' talk-line__text--result' : ''}`}>{entry.text}</p>
                 </div>
               )
@@ -814,22 +815,22 @@ export default function Talk() {
             <div className="hstack">
               {!isConnected ? (
                 <button className="btn btn-primary" onClick={connect} disabled={modelsLoading || !selectedModel}>
-                  <i className="fas fa-plug icon-before" /> Connect
+                  <Icon name="plug" className="icon-before" /> Connect
                 </button>
               ) : (
                 <>
                   <button className="btn btn--accent" onClick={sendTestTone}>
-                    <i className="fas fa-wave-square icon-before" /> Test Tone
+                    <Icon name="waveform" className="icon-before" /> Test Tone
                   </button>
                   <button className="btn btn-secondary" onClick={toggleDiagnostics}>
-                    <i className="fas fa-chart-line icon-before" /> Diag
+                    <Icon name="chart-line" className="icon-before" /> Diag
                   </button>
                 </>
               )}
             </div>
             {isConnected && (
               <button className="btn btn--error" onClick={disconnect}>
-                <i className="fas fa-plug-circle-xmark icon-before" /> Disconnect
+                <Icon name="plug-off" className="icon-before" /> Disconnect
               </button>
             )}
           </div>
@@ -841,7 +842,7 @@ export default function Talk() {
           {diagVisible && (
             <div className="talk-diag mt-md">
               <h3 className="text-base fw-semibold mb-sm">
-                <i className="fas fa-chart-line text-primary icon-before" />
+                <Icon name="chart-line" className="text-primary icon-before" />
                 Audio Diagnostics
               </h3>
 

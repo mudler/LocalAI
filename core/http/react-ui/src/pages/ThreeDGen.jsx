@@ -18,6 +18,7 @@ import { threeDApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { use3DHistory } from '../hooks/use3DHistory'
 import useObjectUrl from '../hooks/useObjectUrl'
+import Icon from '../components/Icon'
 
 const QUALITIES = ['auto', 'coarse', '512', '1024']
 const BACKGROUNDS = ['auto', 'keep', 'black', 'white']
@@ -206,7 +207,7 @@ export default function ThreeDGen() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-cube" /> {t('threed.title')}</>} />
+        <PageHeader title={<><Icon name="cube" /> {t('threed.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -249,7 +250,7 @@ export default function ThreeDGen() {
             aria-controls="threed-advanced-options"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('threed.labels.advanced')}
+            <Icon name="chevron-right" /> {t('threed.labels.advanced')}
           </button>
           {showAdvanced && (
             <div id="threed-advanced-options" className="form-grid-2col">
@@ -262,7 +263,7 @@ export default function ThreeDGen() {
 
           </>}
           <button type="submit" className="btn btn-primary btn-full" disabled={loading || !model}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('threed.actions.generating')}</> : <><i className="fas fa-cube" /> {t('threed.actions.generate')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('threed.actions.generating')}</> : <><Icon name="cube" /> {t('threed.actions.generate')}</>}
           </button>
         </form>
         <ThreeDHistory
@@ -315,8 +316,8 @@ export default function ThreeDGen() {
                   {remeshLoading
                     ? <><LoadingSpinner size="sm" /> {t('threed.actions.remeshing')}</>
                     : showingRemesh
-                      ? <><i className="fas fa-rotate-left" /> {t('threed.actions.showOriginal')}</>
-                      : <><i className="fas fa-cubes-stacked" /> {t('threed.actions.remesh')}</>}
+                      ? <><Icon name="undo" /> {t('threed.actions.showOriginal')}</>
+                      : <><Icon name="boxes" /> {t('threed.actions.remesh')}</>}
                 </button>
                 {remeshError && <p className="form-error" role="alert">{remeshError}</p>}
                 {showingRemesh && <p className="threed-remesh-ready">{t('threed.remesh.ready')}</p>}
@@ -327,12 +328,12 @@ export default function ThreeDGen() {
                 download={active.name || `3d-${model || 'model'}.glb`}
                 data-testid="glb-download"
               >
-                <i className="fas fa-download" /> {t('threed.actions.download')}
+                <Icon name="download" /> {t('threed.actions.download')}
               </a>
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
-              <i className="fas fa-cube" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
+              <Icon name="cube" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>{t('threed.empty')}</p>
             </div>
           )}

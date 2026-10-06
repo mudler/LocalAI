@@ -12,6 +12,7 @@ import MediaHistory from '../components/MediaHistory'
 import MediaInput from '../components/biometrics/MediaInput'
 import { videoApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import Icon from '../components/Icon'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024', '832x480', '1280x720']
 
@@ -91,7 +92,7 @@ export default function VideoGen() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-video" /> {t('video.title')}</>} />
+        <PageHeader title={<><Icon name="video" /> {t('video.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -131,7 +132,7 @@ export default function VideoGen() {
             aria-controls="video-advanced-options"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('video.labels.advanced')}
+            <Icon name="chevron-right" /> {t('video.labels.advanced')}
           </button>
           {showAdvanced && (
             <div id="video-advanced-options" className="form-grid-3col">
@@ -149,7 +150,7 @@ export default function VideoGen() {
             aria-controls="video-reference-media"
             onClick={() => setShowMediaInputs(!showMediaInputs)}
           >
-            <i className="fas fa-chevron-right" aria-hidden="true" /> {t('video.labels.referenceMedia')}
+            <Icon name="chevron-right" /> {t('video.labels.referenceMedia')}
           </button>
           {showMediaInputs && (
             <div id="video-reference-media">
@@ -168,7 +169,7 @@ export default function VideoGen() {
           )}
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('video.actions.generating')}</> : <><i className="fas fa-video" /> {t('video.actions.generate')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('video.actions.generating')}</> : <><Icon name="video" /> {t('video.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -195,7 +196,7 @@ export default function VideoGen() {
             </div>
           ) : (
             <div className="text-center text-muted">
-              <i className="fas fa-video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
+              <Icon name="video" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-md)', opacity: 0.4 }} />
               <p>{t('video.empty')}</p>
             </div>
           )}

@@ -15,6 +15,7 @@ import { CAP_TTS } from '../utils/capabilities'
 import { modelsApi, voiceProfilesApi } from '../utils/api'
 import { copyToClipboard } from '../utils/clipboard'
 import { renderMarkdown } from '../utils/markdown'
+import Icon from '../components/Icon'
 
 const ROW_BARS = [35, 58, 78, 44, 68, 92, 55, 72, 38, 82, 64, 46, 74, 52, 88, 42, 66, 48]
 
@@ -37,7 +38,7 @@ function VoiceModelSetup({ t, galleryLoading, installableModels, galleryError, i
   return (
     <section className="voice-detail__model-setup" aria-labelledby="voice-model-setup-title">
       <div className="voice-detail__model-setup-heading">
-        <i className="fas fa-cube" aria-hidden="true" />
+        <Icon name="cube" />
         <div>
           <h3 id="voice-model-setup-title">{t('voiceLibrary.modelSetup.title')}</h3>
           <p>{t('voiceLibrary.modelSetup.body')}</p>
@@ -58,7 +59,7 @@ function VoiceModelSetup({ t, galleryLoading, installableModels, galleryError, i
                   <small>{model.backend || t('voiceLibrary.modelSetup.backendUnknown')}</small>
                 </span>
                 <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onInstall(model)}>
-                  <i className={`fas ${busy ? 'fa-spinner fa-spin' : 'fa-download'}`} aria-hidden="true" />{' '}
+                  <Icon name={busy ? 'spinner' : 'download'} spin={Boolean(busy)} />{' '}
                   {t(busy ? 'voiceLibrary.modelSetup.installing' : 'voiceLibrary.modelSetup.install')}
                 </button>
               </li>
@@ -73,7 +74,7 @@ function VoiceModelSetup({ t, galleryLoading, installableModels, galleryError, i
         </p>
       )}
       <p className="voice-detail__capability-note">
-        <i className="fas fa-circle-check" aria-hidden="true" /> {t('voiceLibrary.modelSetup.capabilityNote')}
+        <Icon name="check-circle" /> {t('voiceLibrary.modelSetup.capabilityNote')}
       </p>
     </section>
   )
@@ -194,11 +195,11 @@ JSON` : ''
   return (
     <main className="voice-library-page">
       <PageHeader
-        title={<><i className="fas fa-wave-square" aria-hidden="true" /> {t('voiceLibrary.title')}</>}
+        title={<><Icon name="waveform" /> {t('voiceLibrary.title')}</>}
         supporting={t('voiceLibrary.subtitle')}
         actions={(
           <Link className="btn btn-primary" to="/app/voice-library/new">
-            <i className="fas fa-plus" aria-hidden="true" /> {t('voiceLibrary.actions.create')}
+            <Icon name="plus" /> {t('voiceLibrary.actions.create')}
           </Link>
         )}
       />
@@ -225,7 +226,7 @@ JSON` : ''
           <div className="voice-library-toolbar">
             <label className="voice-library-search">
               <span className="sr-only">{t('voiceLibrary.search.label')}</span>
-              <i className="fas fa-magnifying-glass" aria-hidden="true" />
+              <Icon name="search" />
               <input
                 type="search"
                 value={search}
@@ -249,7 +250,7 @@ JSON` : ''
             {!loading && !error && profiles.length === 0 && (
               <EmptyState
                 className="voice-library-empty"
-                icon="fa-microphone-lines"
+                icon="mic"
                 title={t('voiceLibrary.empty.title')}
                 body={t('voiceLibrary.empty.body')}
                 actions={<Link className="btn btn-primary" to="/app/voice-library/new">{t('voiceLibrary.actions.createFirst')}</Link>}
@@ -258,7 +259,7 @@ JSON` : ''
             {!loading && !error && profiles.length > 0 && filteredProfiles.length === 0 && (
               <EmptyState
                 className="voice-library-empty"
-                icon="fa-filter-circle-xmark"
+                icon="filter-off"
                 title={t('voiceLibrary.noResults.title')}
                 body={t('voiceLibrary.noResults.body')}
                 actions={<button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setLanguage('all') }}>{t('voiceLibrary.actions.clearFilters')}</button>}
@@ -286,7 +287,7 @@ JSON` : ''
                     {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(profile.created_at))}
                   </span>
                 </span>
-                <i className="fas fa-chevron-right voice-row__chevron" aria-hidden="true" />
+                <Icon name="chevron-right" className="voice-row__chevron" />
               </button>
             ))}
           </div>
@@ -296,7 +297,7 @@ JSON` : ''
           {!selected ? (
             <>
               <EmptyState
-                icon="fa-wave-square"
+                icon="waveform"
                 title={t('voiceLibrary.detail.emptyTitle')}
                 body={t('voiceLibrary.detail.emptyBody')}
               />
@@ -347,7 +348,7 @@ JSON` : ''
               </dl>
 
               <div className="voice-detail__consent">
-                <i className="fas fa-shield-halved" aria-hidden="true" />
+                <Icon name="shield" />
                 <div><strong>{t('voiceLibrary.consent.confirmed')}</strong><span>{t('voiceLibrary.consent.confirmedAt', { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(selected.consent_confirmed_at)) })}</span></div>
               </div>
 
@@ -366,7 +367,7 @@ JSON` : ''
               <details className="voice-detail__api">
                 <summary>
                   <span><strong>{t('voiceLibrary.api.title')}</strong><small>{t('voiceLibrary.api.summary')}</small></span>
-                  <i className="fas fa-chevron-down" aria-hidden="true" />
+                  <Icon name="chevron-down" />
                 </summary>
                 <div className="voice-detail__api-body">
                   <p>{t('voiceLibrary.api.body')}</p>
@@ -385,7 +386,7 @@ JSON` : ''
                   <div className="voice-detail__code-heading">
                     <span>{t('voiceLibrary.api.curlExample')}</span>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={copyAPIExample}>
-                      <i className="far fa-copy" aria-hidden="true" /> {t('voiceLibrary.api.copy')}
+                      <Icon name="copy" /> {t('voiceLibrary.api.copy')}
                     </button>
                   </div>
                   <pre><code>{apiExample}</code></pre>
@@ -400,10 +401,10 @@ JSON` : ''
                   disabled={cloningModels.length === 0}
                   onClick={() => navigate(`/app/tts?voice=${encodeURIComponent(selected.id)}`)}
                 >
-                  <i className="fas fa-headphones" aria-hidden="true" /> {t('voiceLibrary.actions.useInTTS')}
+                  <Icon name="headphones" /> {t('voiceLibrary.actions.useInTTS')}
                 </button>
                 <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
-                  <i className="fas fa-trash" aria-hidden="true" /> {t('voiceLibrary.actions.delete')}
+                  <Icon name="trash" /> {t('voiceLibrary.actions.delete')}
                 </button>
               </div>
             </>

@@ -15,6 +15,7 @@ import { useMediaHistory } from '../hooks/useMediaHistory'
 import { useModels } from '../hooks/useModels'
 import { useVoiceProfiles } from '../hooks/useVoiceProfiles'
 import { useAuth } from '../context/AuthContext'
+import Icon from '../components/Icon'
 
 function formatProfileDuration(milliseconds) {
   const seconds = Math.round((milliseconds || 0) / 1000)
@@ -106,7 +107,7 @@ export default function TTS() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-headphones" /> {t('tts.title')}</>} />
+        <PageHeader title={<><Icon name="headphones" /> {t('tts.title')}</>} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
@@ -138,7 +139,7 @@ export default function TTS() {
                   <div className="tts-voice-picker__selection">
                     <span className="tts-voice-picker__avatar">{selectedProfile.name.slice(0, 2).toUpperCase()}</span>
                     <span><strong>{selectedProfile.name}</strong><small>{selectedProfile.language || t('voiceLibrary.metadata.languageUnknown')} · {formatProfileDuration(selectedProfile.audio?.duration_ms)}</small></span>
-                    <i className="fas fa-wave-square" aria-hidden="true" />
+                    <Icon name="waveform" />
                   </div>
                 )}
                 {!profilesLoading && profiles.length === 0 && (
@@ -148,7 +149,7 @@ export default function TTS() {
                   </p>
                 )}
                 {profilesError && <p className="tts-voice-picker__error" role="alert">{profilesError}</p>}
-                {isAdmin && profiles.length > 0 && <Link className="tts-voice-picker__manage" to="/app/voice-library">{t('tts.voiceLibrary.manage')} <i className="fas fa-arrow-right" aria-hidden="true" /></Link>}
+                {isAdmin && profiles.length > 0 && <Link className="tts-voice-picker__manage" to="/app/voice-library">{t('tts.voiceLibrary.manage')} <Icon name="arrow-right" /></Link>}
               </div>
             ) : (
               <>
@@ -186,7 +187,7 @@ export default function TTS() {
             <p className="form-hint">{t('tts.labels.instructionsHint')}</p>
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('tts.actions.generating')}</> : <><i className="fas fa-headphones" /> {t('tts.actions.generate')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('tts.actions.generating')}</> : <><Icon name="headphones" /> {t('tts.actions.generate')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -215,7 +216,7 @@ export default function TTS() {
             </div>
           ) : (
             <div className="media-empty">
-              <i className="fas fa-headphones media-empty__icon" />
+              <Icon name="headphones" className="media-empty__icon" />
               <p>{t('tts.empty')}</p>
             </div>
           )}

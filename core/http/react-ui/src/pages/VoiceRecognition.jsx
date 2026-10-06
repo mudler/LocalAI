@@ -13,12 +13,13 @@ import EnrollmentList from '../components/biometrics/EnrollmentList'
 import EmbeddingInspector from '../components/biometrics/EmbeddingInspector'
 import { CAP_SPEAKER_RECOGNITION } from '../utils/capabilities'
 import { voiceApi } from '../utils/api'
+import Icon from '../components/Icon'
 
 const TABS = [
-  { id: 'analyze', icon: 'fas fa-wave-square',  label: 'Analyze' },
-  { id: 'compare', icon: 'fas fa-people-arrows',    label: 'Compare' },
-  { id: 'enroll',  icon: 'fas fa-id-badge',         label: 'Enrollment' },
-  { id: 'embed',   icon: 'fas fa-code',             label: 'Embedding' },
+  { id: 'analyze', icon: 'waveform',  label: 'Analyze' },
+  { id: 'compare', icon: 'users',    label: 'Compare' },
+  { id: 'enroll',  icon: 'id-card',         label: 'Enrollment' },
+  { id: 'embed',   icon: 'code',             label: 'Embedding' },
 ]
 
 function parseLabels(text) {
@@ -46,7 +47,7 @@ export default function VoiceRecognition() {
     <div className="biometrics-page">
       <header className="biometrics-page__header">
         <div>
-          <h1 className="page-title"><i className="fas fa-microphone-lines" aria-hidden="true" /> Voice Recognition</h1>
+          <h1 className="page-title"><Icon name="mic" /> Voice Recognition</h1>
           <p className="page-subtitle">
             Compare, identify, and analyze speakers — the audio analog to face recognition. Record directly from your microphone or upload a clip.
           </p>
@@ -124,7 +125,7 @@ function AnalyzeTab({ model, addToast }) {
           </div>
         </fieldset>
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !audio}>
-          {loading ? <><LoadingSpinner size="sm" /> Analyzing…</> : <><i className="fas fa-wand-magic-sparkles" /> Analyze</>}
+          {loading ? <><LoadingSpinner size="sm" /> Analyzing…</> : <><Icon name="sparkles" /> Analyze</>}
         </button>
       </aside>
 
@@ -132,7 +133,7 @@ function AnalyzeTab({ model, addToast }) {
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-wave-square"
+          <EmptyState icon="waveform"
             title="Record or upload a clip to analyze"
             body="The backend will segment the audio by speaker turn and infer age, gender, and emotion per segment." />
         )}
@@ -156,7 +157,7 @@ function AnalyzeTab({ model, addToast }) {
                 <div className="biometrics-split__aside" style={{ gridColumn: '1 / -1' }}>
                   <div className="biometrics-summary card">
                     <div className="biometrics-summary__head">
-                      <h3><i className="fas fa-user" /> Segment {focusIdx + 1}
+                      <h3><Icon name="user" /> Segment {focusIdx + 1}
                         <small>· {focus.start.toFixed(2)}s – {focus.end.toFixed(2)}s</small>
                       </h3>
                     </div>
@@ -166,8 +167,8 @@ function AnalyzeTab({ model, addToast }) {
                       {focus.dominant_emotion && <><dt>Emotion</dt><dd>{focus.dominant_emotion}</dd></>}
                     </dl>
                   </div>
-                  <DistributionBars title="Gender" icon="fas fa-venus-mars" distribution={focus.gender} dominant={focus.dominant_gender} />
-                  <DistributionBars title="Emotion" icon="fas fa-face-smile-beam" distribution={focus.emotion} dominant={focus.dominant_emotion} />
+                  <DistributionBars title="Gender" icon="gender" distribution={focus.gender} dominant={focus.dominant_gender} />
+                  <DistributionBars title="Emotion" icon="smile" distribution={focus.emotion} dominant={focus.dominant_emotion} />
                 </div>
               </div>
             )}
@@ -222,7 +223,7 @@ function CompareTab({ model, addToast }) {
         <MediaInput mode="audio" label="First clip" value={audio1} onChange={setAudio1} idPrefix="voice-cmp-1" />
         <MediaInput mode="audio" label="Second clip" value={audio2} onChange={setAudio2} idPrefix="voice-cmp-2" />
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !audio1 || !audio2}>
-          {loading ? <><LoadingSpinner size="sm" /> Comparing…</> : <><i className="fas fa-equals" /> Compare</>}
+          {loading ? <><LoadingSpinner size="sm" /> Comparing…</> : <><Icon name="equals" /> Compare</>}
         </button>
       </aside>
 
@@ -230,7 +231,7 @@ function CompareTab({ model, addToast }) {
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-people-arrows"
+          <EmptyState icon="users"
             title="Drop two clips to compare"
             body="We extract a speaker embedding for each clip and report the cosine distance — a match is declared when the distance is below the threshold." />
         )}
@@ -361,7 +362,7 @@ function EnrollTab({ model, addToast }) {
   return (
     <div className="biometrics-enrollgrid">
       <section className="biometrics-enrollgrid__register card">
-        <h2 className="biometrics-panel__title"><i className="fas fa-user-plus" /> Enroll a voice</h2>
+        <h2 className="biometrics-panel__title"><Icon name="user-plus" /> Enroll a voice</h2>
         <form onSubmit={enroll}>
           <div className="form-group">
             <label className="form-label" htmlFor="voice-enroll-name">Name</label>
@@ -376,14 +377,14 @@ function EnrollTab({ model, addToast }) {
           </div>
           <MediaInput mode="audio" label="Sample clip" value={enrollAudio} onChange={setEnrollAudio} idPrefix="voice-enroll" />
           <button type="submit" className="btn btn-primary btn-full" disabled={enrolling}>
-            {enrolling ? <><LoadingSpinner size="sm" /> Enrolling…</> : <><i className="fas fa-plus" /> Enroll</>}
+            {enrolling ? <><LoadingSpinner size="sm" /> Enrolling…</> : <><Icon name="plus" /> Enroll</>}
           </button>
           {enrollErr && <div className="biometrics-enrollgrid__err"><ErrorWithTraceLink message={enrollErr} /></div>}
         </form>
       </section>
 
       <section className="biometrics-enrollgrid__identify card">
-        <h2 className="biometrics-panel__title"><i className="fas fa-magnifying-glass" /> Identify a speaker</h2>
+        <h2 className="biometrics-panel__title"><Icon name="search" /> Identify a speaker</h2>
         <form onSubmit={identify}>
           <MediaInput mode="audio" label="Probe clip" value={probeAudio} onChange={setProbeAudio} idPrefix="voice-probe" />
           <div className="form-grid-2col">
@@ -399,7 +400,7 @@ function EnrollTab({ model, addToast }) {
             </div>
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={identifying || !probeAudio}>
-            {identifying ? <><LoadingSpinner size="sm" /> Searching…</> : <><i className="fas fa-magnifying-glass" /> Identify</>}
+            {identifying ? <><LoadingSpinner size="sm" /> Searching…</> : <><Icon name="search" /> Identify</>}
           </button>
           {identifyErr && <div className="biometrics-enrollgrid__err"><ErrorWithTraceLink message={identifyErr} /></div>}
           {identifyResult && <MatchesList matches={identifyResult.matches || []} enrolled={enrolled} />}
@@ -408,7 +409,7 @@ function EnrollTab({ model, addToast }) {
 
       <section className="biometrics-enrollgrid__list">
         <div className="biometrics-enroll__head">
-          <h2 className="biometrics-panel__title"><i className="fas fa-id-badge" /> Enrolled <span className="biometrics-enroll__count">{enrolled.length}</span></h2>
+          <h2 className="biometrics-panel__title"><Icon name="id-card" /> Enrolled <span className="biometrics-enroll__count">{enrolled.length}</span></h2>
         </div>
         <EnrollmentList entries={enrolled} onDelete={forget} mode="audio" highlightId={lastEnrolled} />
       </section>
@@ -434,7 +435,7 @@ function MatchesList({ matches, enrolled }) {
             <div className="biometrics-matches__body">
               <div className="biometrics-matches__name">
                 <strong>{m.name || m.id}</strong>
-                {m.match ? <span className="biometrics-matches__badge match"><i className="fas fa-check" /> match</span>
+                {m.match ? <span className="biometrics-matches__badge match"><Icon name="check" /> match</span>
                          : <span className="biometrics-matches__badge miss">below threshold</span>}
               </div>
               {record?.sampleUrl && (
@@ -490,14 +491,14 @@ function EmbedTab({ model, addToast }) {
         </p>
         <MediaInput mode="audio" label="Audio clip" value={audio} onChange={setAudio} idPrefix="voice-embed" />
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !audio}>
-          {loading ? <><LoadingSpinner size="sm" /> Embedding…</> : <><i className="fas fa-code" /> Extract vector</>}
+          {loading ? <><LoadingSpinner size="sm" /> Embedding…</> : <><Icon name="code" /> Extract vector</>}
         </button>
       </aside>
       <section className="biometrics-results">
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-code"
+          <EmptyState icon="code"
             title="Get a speaker embedding"
             body="For developers — retrieve the raw vector for a voice to store, search, or cluster outside of LocalAI." />
         )}
@@ -512,7 +513,7 @@ function EmbedTab({ model, addToast }) {
 function EmptyState({ icon, title, body }) {
   return (
     <div className="biometrics-empty">
-      <i className={icon} aria-hidden="true" />
+      <Icon name={icon} aria-hidden="true" />
       <h3>{title}</h3>
       <p>{body}</p>
     </div>
@@ -522,7 +523,7 @@ function EmptyState({ icon, title, body }) {
 function ResponseDetails({ data }) {
   return (
     <details className="biometrics-response">
-      <summary><i className="fas fa-angle-right" aria-hidden="true" /> Raw response</summary>
+      <summary><Icon name="chevron-right" /> Raw response</summary>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </details>
   )

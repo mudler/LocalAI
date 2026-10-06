@@ -14,6 +14,7 @@ import useObjectUrl from '../hooks/useObjectUrl'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 import MediaHistory from '../components/MediaHistory'
 import { useTranslation } from 'react-i18next'
+import Icon from '../components/Icon'
 
 // AudioTransform — Studio tab for the audio_transform capability. Takes a
 // primary audio file plus an optional reference (loopback for AEC, target
@@ -176,7 +177,7 @@ export default function AudioTransform() {
   return (
     <div className="media-layout">
       <div className="media-controls">
-        <PageHeader title={<><i className="fas fa-wave-square" /> {t('audioTransform.title')}</>} />
+        <PageHeader title={<><Icon name="waveform" /> {t('audioTransform.title')}</>} />
 
         <form onSubmit={handleProcess}>
           <div className="form-group">
@@ -199,7 +200,7 @@ export default function AudioTransform() {
           {referenceFile && (
             <div className="audio-transform-echo">
               <p className="audio-transform-echo__notice" role="note">
-                <i className="fas fa-circle-info" aria-hidden="true" />
+                <Icon name="info" />
                 <span>
                   {t('audioTransform.input.echoNotice')}
                 </span>
@@ -211,8 +212,8 @@ export default function AudioTransform() {
                   onClick={echoActive ? stopEchoTest : startEchoTest}
                 >
                   {echoActive
-                    ? <><i className="fas fa-stop" /> {t('audioTransform.input.stopEchoTest')}</>
-                    : <><i className="fas fa-headphones-alt" /> {t('audioTransform.input.echoTest')}</>}
+                    ? <><Icon name="stop" /> {t('audioTransform.input.stopEchoTest')}</>
+                    : <><Icon name="headphones" /> {t('audioTransform.input.echoTest')}</>}
                 </button>
                 {echoActive && echoCap.recording && (
                   <span className="audio-transform-echo__elapsed">
@@ -242,7 +243,7 @@ export default function AudioTransform() {
           </div>
 
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('audioTransform.actions.processing')}</> : <><i className="fas fa-wand-magic-sparkles" /> {t('audioTransform.actions.transform')}</>}
+            {loading ? <><LoadingSpinner size="sm" /> {t('audioTransform.actions.processing')}</> : <><Icon name="sparkles" /> {t('audioTransform.actions.transform')}</>}
           </button>
         </form>
         <MediaHistory {...historyProps} />
@@ -299,7 +300,7 @@ export default function AudioTransform() {
               )}
               {!audioUrl && !outputUrl && (
                 <div className="media-empty">
-                  <i className="fas fa-wave-square media-empty__icon" />
+                  <Icon name="waveform" className="media-empty__icon" />
                   <p>{t('audioTransform.empty')}</p>
                 </div>
               )}
@@ -380,7 +381,7 @@ function AudioInput({ label, help, file, onChange }) {
             className={`audio-transform-input__tab${tab === 'upload' ? ' active' : ''}`}
             onClick={() => setTab('upload')}
           >
-            <i className="fas fa-upload" /> {t('audioTransform.input.upload')}
+            <Icon name="upload" /> {t('audioTransform.input.upload')}
           </button>
           <button
             type="button"
@@ -389,7 +390,7 @@ function AudioInput({ label, help, file, onChange }) {
             className={`audio-transform-input__tab${tab === 'record' ? ' active' : ''}`}
             onClick={() => setTab('record')}
           >
-            <i className="fas fa-microphone" /> {t('audioTransform.input.record')}
+            <Icon name="mic" /> {t('audioTransform.input.record')}
           </button>
         </div>
 
@@ -403,12 +404,12 @@ function AudioInput({ label, help, file, onChange }) {
           >
             {hasFile ? (
               <div className="audio-transform-drop__file">
-                <i className="fas fa-file-audio" /> {file.name}
+                <Icon name="music" /> {file.name}
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>{t('audioTransform.input.clear')}</button>
               </div>
             ) : (
               <>
-                <i className="fas fa-upload" /> {t('audioTransform.input.uploadDescription')}
+                <Icon name="upload" /> {t('audioTransform.input.uploadDescription')}
                 <label className="audio-transform-drop__pick">
                   <input type="file" accept="audio/*" onChange={onPick} hidden />
                   {t('audioTransform.input.uploadBrowse')}
@@ -422,19 +423,19 @@ function AudioInput({ label, help, file, onChange }) {
           <div className="audio-transform-rec">
             {!cap.supported && (
               <div className="audio-transform-rec__notice">
-                <i className="fas fa-circle-info" /> {t('audioTransform.input.microphoneUnavailable')}
+                <Icon name="info" /> {t('audioTransform.input.microphoneUnavailable')}
               </div>
             )}
             {cap.supported && (
               <>
                 {!cap.recording && !recordPending && (
                   <button type="button" className="btn btn-primary btn-sm" onClick={startRecord}>
-                    <i className="fas fa-circle" style={{ color: 'var(--color-error)' }} /> {t('audioTransform.input.startRecording')}
+                    <Icon name="circle" style={{ color: 'var(--color-error)' }} /> {t('audioTransform.input.startRecording')}
                   </button>
                 )}
                 {cap.recording && (
                   <button type="button" className="btn btn-secondary btn-sm" onClick={stopRecord}>
-                    <i className="fas fa-stop" /> {t('audioTransform.input.stop')} ({cap.elapsed.toFixed(1)}s)
+                    <Icon name="stop" /> {t('audioTransform.input.stop')} ({cap.elapsed.toFixed(1)}s)
                   </button>
                 )}
                 {recordPending && !cap.recording && (
@@ -447,7 +448,7 @@ function AudioInput({ label, help, file, onChange }) {
                 )}
                 {hasFile && !cap.recording && (
                   <div className="audio-transform-drop__file mt-sm">
-                    <i className="fas fa-file-audio" /> {file.name}
+                    <Icon name="music" /> {file.name}
                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange(null)}>{t('audioTransform.input.clear')}</button>
                   </div>
                 )}

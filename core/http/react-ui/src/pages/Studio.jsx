@@ -17,22 +17,23 @@ import { use3DHistory } from '../hooks/use3DHistory'
 import {
   CAP_DIARIZATION, CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
+import Icon from '../components/Icon'
 
 // One table for the six generators: the capability that makes a modality
 // usable, the feature flag that can remove it entirely, and the group it reads
 // under. Studio owns this so the tab strip and the overview cannot disagree
 // about what exists.
 const MODALITIES = [
-  { key: 'diarization', capability: CAP_DIARIZATION, icon: 'fas fa-users', group: 'voice', feature: 'audio_diarization' },
-  { key: 'images', capability: CAP_IMAGE, icon: 'fas fa-image', group: 'create', history: 'image' },
-  { key: 'video', capability: CAP_VIDEO, icon: 'fas fa-video', group: 'create', history: 'video' },
-  { key: 'threed', capability: CAP_3D, icon: 'fas fa-cube', group: 'create', feature: '3d' },
-  { key: 'tts', capability: CAP_TTS, icon: 'fas fa-headphones', group: 'voice', history: 'tts' },
-  { key: 'sound', capability: CAP_SOUND_GENERATION, icon: 'fas fa-music', group: 'voice', history: 'sound' },
-  { key: 'transform', capability: CAP_AUDIO_TRANSFORM, icon: 'fas fa-wave-square', group: 'transform', feature: 'audio_transform' },
+  { key: 'diarization', capability: CAP_DIARIZATION, icon: 'users', group: 'voice', feature: 'audio_diarization' },
+  { key: 'images', capability: CAP_IMAGE, icon: 'image', group: 'create', history: 'image' },
+  { key: 'video', capability: CAP_VIDEO, icon: 'video', group: 'create', history: 'video' },
+  { key: 'threed', capability: CAP_3D, icon: 'cube', group: 'create', feature: '3d' },
+  { key: 'tts', capability: CAP_TTS, icon: 'headphones', group: 'voice', history: 'tts' },
+  { key: 'sound', capability: CAP_SOUND_GENERATION, icon: 'music', group: 'voice', history: 'sound' },
+  { key: 'transform', capability: CAP_AUDIO_TRANSFORM, icon: 'waveform', group: 'transform', feature: 'audio_transform' },
 ]
 
-const OVERVIEW_TAB = { key: 'overview', icon: 'fas fa-compass' }
+const OVERVIEW_TAB = { key: 'overview', icon: 'compass' }
 
 const TAB_COMPONENTS = {
   diarization: Diarization,
@@ -114,7 +115,7 @@ export default function Studio() {
               className={`studio-tab${activeTab === tab.key ? ' studio-tab-active' : ''}`}
               onClick={() => setTab(tab.key)}
             >
-              <i className={tab.icon} />
+              <Icon name={tab.icon} />
               <span>{tab.key === 'overview' ? t('studio.tabs.overview') : t(`studio.tabs.${tab.key}`)}</span>
               {/* Filled means a model on this machine serves the modality.
                   Decorative on its own: the overview states the same thing in

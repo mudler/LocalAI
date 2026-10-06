@@ -12,12 +12,13 @@ import EnrollmentList from '../components/biometrics/EnrollmentList'
 import EmbeddingInspector from '../components/biometrics/EmbeddingInspector'
 import { CAP_FACE_RECOGNITION } from '../utils/capabilities'
 import { faceApi } from '../utils/api'
+import Icon from '../components/Icon'
 
 const TABS = [
-  { id: 'analyze',  icon: 'fas fa-chart-column', label: 'Analyze' },
-  { id: 'compare',  icon: 'fas fa-people-arrows', label: 'Compare' },
-  { id: 'enroll',   icon: 'fas fa-id-card',       label: 'Enrollment' },
-  { id: 'embed',    icon: 'fas fa-code',          label: 'Embedding' },
+  { id: 'analyze',  icon: 'chart-bar', label: 'Analyze' },
+  { id: 'compare',  icon: 'users', label: 'Compare' },
+  { id: 'enroll',   icon: 'id-card',       label: 'Enrollment' },
+  { id: 'embed',    icon: 'code',          label: 'Embedding' },
 ]
 
 const ENROLL_KEY = 'localai_face_enrollments'
@@ -60,7 +61,7 @@ export default function FaceRecognition() {
     <div className="biometrics-page">
       <header className="biometrics-page__header">
         <div>
-          <h1 className="page-title"><i className="fas fa-face-smile" aria-hidden="true" /> Face Recognition</h1>
+          <h1 className="page-title"><Icon name="smile" /> Face Recognition</h1>
           <p className="page-subtitle">Compare, identify, and analyze faces using any face model installed on this LocalAI instance. Samples never leave your machine — they go only to the running backend.</p>
         </div>
         <div className="biometrics-page__model">
@@ -154,7 +155,7 @@ function AnalyzeTab({ model, addToast }) {
         </div>
 
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !img}>
-          {loading ? <><LoadingSpinner size="sm" /> Analyzing…</> : <><i className="fas fa-wand-magic-sparkles" /> Analyze</>}
+          {loading ? <><LoadingSpinner size="sm" /> Analyzing…</> : <><Icon name="sparkles" /> Analyze</>}
         </button>
       </aside>
 
@@ -162,7 +163,7 @@ function AnalyzeTab({ model, addToast }) {
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-face-smile"
+          <EmptyState icon="smile"
             title="Drop a portrait to analyze"
             body="The backend will detect each face and return age, gender, emotion, and race distributions — with an optional liveness check." />
         )}
@@ -189,7 +190,7 @@ function AnalyzeTab({ model, addToast }) {
                   <>
                     <div className="biometrics-summary card">
                       <div className="biometrics-summary__head">
-                        <h3><i className="fas fa-user" /> Face {focusIdx + 1}</h3>
+                        <h3><Icon name="user" /> Face {focusIdx + 1}</h3>
                         {antiSpoofing && <LivenessPill isReal={focus.is_real} score={focus.antispoof_score} />}
                       </div>
                       <dl className="biometrics-summary__grid">
@@ -200,9 +201,9 @@ function AnalyzeTab({ model, addToast }) {
                         {focus.face_confidence != null && <><dt>Detection</dt><dd>{(focus.face_confidence * 100).toFixed(1)}%</dd></>}
                       </dl>
                     </div>
-                    <DistributionBars title="Gender" icon="fas fa-venus-mars" distribution={focus.gender} dominant={focus.dominant_gender} />
-                    <DistributionBars title="Emotion" icon="fas fa-face-smile-beam" distribution={focus.emotion} dominant={focus.dominant_emotion} />
-                    <DistributionBars title="Race" icon="fas fa-globe" distribution={focus.race} dominant={focus.dominant_race} />
+                    <DistributionBars title="Gender" icon="gender" distribution={focus.gender} dominant={focus.dominant_gender} />
+                    <DistributionBars title="Emotion" icon="smile" distribution={focus.emotion} dominant={focus.dominant_emotion} />
+                    <DistributionBars title="Race" icon="globe" distribution={focus.race} dominant={focus.dominant_race} />
                   </>
                 )}
               </div>
@@ -272,7 +273,7 @@ function CompareTab({ model, addToast }) {
         </div>
 
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !img1 || !img2}>
-          {loading ? <><LoadingSpinner size="sm" /> Comparing…</> : <><i className="fas fa-equals" /> Compare</>}
+          {loading ? <><LoadingSpinner size="sm" /> Comparing…</> : <><Icon name="equals" /> Compare</>}
         </button>
       </aside>
 
@@ -280,7 +281,7 @@ function CompareTab({ model, addToast }) {
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-people-arrows"
+          <EmptyState icon="users"
             title="Drop two images to compare"
             body="The backend will extract an embedding for each face and report the cosine distance between them. A match is declared when distance is below the threshold." />
         )}
@@ -420,7 +421,7 @@ function EnrollTab({ model, addToast }) {
   return (
     <div className="biometrics-enrollgrid">
       <section className="biometrics-enrollgrid__register card">
-        <h2 className="biometrics-panel__title"><i className="fas fa-user-plus" /> Enroll a face</h2>
+        <h2 className="biometrics-panel__title"><Icon name="user-plus" /> Enroll a face</h2>
         <form onSubmit={enroll}>
           <div className="form-group">
             <label className="form-label" htmlFor="face-enroll-name">Name</label>
@@ -435,14 +436,14 @@ function EnrollTab({ model, addToast }) {
           </div>
           <MediaInput mode="image" label="Sample image" value={enrollImg} onChange={setEnrollImg} idPrefix="face-enroll" />
           <button type="submit" className="btn btn-primary btn-full" disabled={enrolling}>
-            {enrolling ? <><LoadingSpinner size="sm" /> Enrolling…</> : <><i className="fas fa-plus" /> Enroll</>}
+            {enrolling ? <><LoadingSpinner size="sm" /> Enrolling…</> : <><Icon name="plus" /> Enroll</>}
           </button>
           {enrollErr && <div className="biometrics-enrollgrid__err"><ErrorWithTraceLink message={enrollErr} /></div>}
         </form>
       </section>
 
       <section className="biometrics-enrollgrid__identify card">
-        <h2 className="biometrics-panel__title"><i className="fas fa-magnifying-glass" /> Identify someone</h2>
+        <h2 className="biometrics-panel__title"><Icon name="search" /> Identify someone</h2>
         <form onSubmit={identify}>
           <MediaInput mode="image" label="Probe image" value={probeImg} onChange={setProbeImg} idPrefix="face-probe" />
           <div className="form-grid-2col">
@@ -458,7 +459,7 @@ function EnrollTab({ model, addToast }) {
             </div>
           </div>
           <button type="submit" className="btn btn-primary btn-full" disabled={identifying || !probeImg}>
-            {identifying ? <><LoadingSpinner size="sm" /> Searching…</> : <><i className="fas fa-magnifying-glass" /> Identify</>}
+            {identifying ? <><LoadingSpinner size="sm" /> Searching…</> : <><Icon name="search" /> Identify</>}
           </button>
           {identifyErr && <div className="biometrics-enrollgrid__err"><ErrorWithTraceLink message={identifyErr} /></div>}
           {identifyResult && <MatchesList matches={identifyResult.matches || []} enrolled={enrolled} />}
@@ -467,7 +468,7 @@ function EnrollTab({ model, addToast }) {
 
       <section className="biometrics-enrollgrid__list">
         <div className="biometrics-enroll__head">
-          <h2 className="biometrics-panel__title"><i className="fas fa-id-card" /> Enrolled <span className="biometrics-enroll__count">{enrolled.length}</span></h2>
+          <h2 className="biometrics-panel__title"><Icon name="id-card" /> Enrolled <span className="biometrics-enroll__count">{enrolled.length}</span></h2>
         </div>
         <EnrollmentList entries={enrolled} onDelete={forget} mode="image" highlightId={lastEnrolled} />
       </section>
@@ -495,7 +496,7 @@ function MatchesList({ matches, enrolled }) {
             <div className="biometrics-matches__body">
               <div className="biometrics-matches__name">
                 <strong>{m.name || m.id}</strong>
-                {m.match ? <span className="biometrics-matches__badge match"><i className="fas fa-check" /> match</span>
+                {m.match ? <span className="biometrics-matches__badge match"><Icon name="check" /> match</span>
                          : <span className="biometrics-matches__badge miss">below threshold</span>}
               </div>
               <div className="biometrics-matches__meter" aria-hidden="true">
@@ -548,14 +549,14 @@ function EmbedTab({ model, addToast }) {
         </p>
         <MediaInput mode="image" label="Image" value={img} onChange={setImg} idPrefix="face-embed" />
         <button type="submit" className="btn btn-primary btn-full" disabled={loading || !img}>
-          {loading ? <><LoadingSpinner size="sm" /> Embedding…</> : <><i className="fas fa-code" /> Extract vector</>}
+          {loading ? <><LoadingSpinner size="sm" /> Embedding…</> : <><Icon name="code" /> Extract vector</>}
         </button>
       </aside>
       <section className="biometrics-results">
         {loading && <div className="biometrics-empty"><LoadingSpinner size="lg" /></div>}
         {error && <ErrorWithTraceLink message={error} />}
         {!loading && !error && !result && (
-          <EmptyState icon="fas fa-code"
+          <EmptyState icon="code"
             title="Get a face embedding"
             body="For developers — retrieve the raw vector for a face to store, search, or cluster outside of LocalAI." />
         )}
@@ -571,11 +572,11 @@ function EmbedTab({ model, addToast }) {
 
 function LivenessPill({ isReal, score }) {
   if (isReal == null) {
-    return <span className="biometrics-pill muted"><i className="fas fa-circle-question" /> Not checked</span>
+    return <span className="biometrics-pill muted"><Icon name="help-circle" /> Not checked</span>
   }
   return (
     <span className={`biometrics-pill ${isReal ? 'good' : 'bad'}`}>
-      <i className={`fas ${isReal ? 'fa-user-shield' : 'fa-mask'}`} />
+      <Icon name={isReal ? 'user-shield' : 'mask'} />
       {isReal ? 'Real' : 'Spoof'}
       {score != null && <small>{(score * 100).toFixed(0)}%</small>}
     </span>
@@ -585,7 +586,7 @@ function LivenessPill({ isReal, score }) {
 function EmptyState({ icon, title, body }) {
   return (
     <div className="biometrics-empty">
-      <i className={icon} aria-hidden="true" />
+      <Icon name={icon} aria-hidden="true" />
       <h3>{title}</h3>
       <p>{body}</p>
     </div>
@@ -595,7 +596,7 @@ function EmptyState({ icon, title, body }) {
 function ResponseDetails({ data }) {
   return (
     <details className="biometrics-response">
-      <summary><i className="fas fa-angle-right" aria-hidden="true" /> Raw response</summary>
+      <summary><Icon name="chevron-right" /> Raw response</summary>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </details>
   )
