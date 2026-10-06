@@ -601,12 +601,32 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// initialInFlight=0: reconciler is pre-loading, not serving a request.
-	// scheduleAndLoad picks both the node and the replica slot internally.
-	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+	// Reconciliation is a load owner too: claim before any remote work and
+	// retain uncertain failures instead of letting retries reuse their slot.
+	job, claimed, err := r.registry.ClaimLoadJob(ctx, modelName, ReplicaID())
 	if err != nil {
 		return nil, err
 	}
+	if !claimed {
+		return nil, fmt.Errorf("model %s already has a load owner or uncertain work", modelName)
+	}
+	ctx = context.WithValue(ctx, loadOwnershipKey{}, job.Ref())
+	phase := newLoadPhaseReporter()
+	ctx = withLoadPhaseReporter(ctx, phase)
+	stopHeartbeat := r.startLoadJobHeartbeat(ctx, job.Ref(), phase)
+	defer stopHeartbeat()
+	// initialInFlight=0: reconciler is pre-loading, not serving a request.
+	// scheduleAndLoad picks both the node and the replica slot internally.
+	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+	bookCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err != nil {
+		if failErr := r.registry.FailLoadJob(bookCtx, job.Ref(), err.Error()); failErr != nil {
+			return nil, fmt.Errorf("%w (recording uncertain load: %v)", err, failErr)
+		}
+		return nil, err
+	}
+	r.finishLoadJob(bookCtx, job.Ref())
 	return result.Node, nil
 }
 
@@ -1219,6 +1239,15 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		if slotErr != nil {
 			return nil, "", 0, fmt.Errorf("no replica slot on %s after eviction: %w", node.Name, slotErr)
 		}
+	}
+
+	// Reserve before install: an install error or delayed reply does not prove
+	// that the worker never started. The durable owner serializes model claims.
+	if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); owned {
+		if err := r.setNodeModelState(ctx, node.ID, modelID, replicaIdx, "staging", "", 0, configRevision, ""); err != nil {
+			return nil, "", 0, err
+		}
+		reportLoadPhase(ctx, LoadJobStateStaging, node, replicaIdx)
 	}
 
 	// Soft-reserve VRAM up front so a second scheduling tick within the same
@@ -2180,7 +2209,14 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 			// Remove inside the same transaction. Target the specific replica row
 			// by ID so we don't accidentally delete sibling replicas of the same
 			// model on the same node.
-			return tx.Where("id = ?", lru.ID).Delete(&NodeModel{}).Error
+			result := removableReplicas(tx).Where("id = ?", lru.ID).Delete(&NodeModel{})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return ErrEvictionBusy
+			}
+			return nil
 		})
 
 		if err == nil {

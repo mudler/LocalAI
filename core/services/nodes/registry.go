@@ -145,6 +145,10 @@ var (
 // gRPC Address (each replica is a separate worker process on its own port),
 // and its own InFlight counter.
 type NodeModel struct {
+	// LoadUncertain survives config changes; probes cannot prove termination.
+	LoadGeneration string `gorm:"column:load_generation;size:36" json:"-"`
+	LoadUncertain  bool   `gorm:"column:load_uncertain;default:false" json:"load_uncertain,omitempty"`
+
 	ID                   string     `gorm:"primaryKey;size:36" json:"id"`
 	NodeID               string     `gorm:"index;size:36" json:"node_id"`
 	ModelName            string     `gorm:"index;size:255" json:"model_name"`
@@ -687,7 +691,7 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		var removedModels []string
 		if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			removedModels = r.nodeModelNames(ctx, tx, existing.ID)
-			return tx.Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error
+			return removableReplicas(tx).Where("node_id = ?", existing.ID).Delete(&NodeModel{}).Error
 		}); err != nil {
 			xlog.Warn("Failed to clear stale model records on re-register", "node", node.Name, "error", err)
 		} else {
@@ -811,7 +815,7 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 	var removedModels []string
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
-		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+		return removableReplicas(tx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
 	}); err != nil {
 		xlog.Warn("Failed to clear model records on offline", "node", nodeID, "error", err)
 	} else {
@@ -930,8 +934,15 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 	var removedModels []string
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
-		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
+		if err := removableReplicas(tx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error; err != nil {
 			return fmt.Errorf("deleting node models for %s: %w", nodeID, err)
+		}
+		var remaining int64
+		if err := tx.Model(&NodeModel{}).Where("node_id = ?", nodeID).Count(&remaining).Error; err != nil {
+			return err
+		}
+		if remaining > 0 {
+			return fmt.Errorf("node has uncertain load reservations; verified cleanup required")
 		}
 		if err := tx.Where("id = ?", nodeID).Delete(&BackendNode{}).Error; err != nil {
 			return fmt.Errorf("deleting node %s: %w", nodeID, err)
@@ -1340,7 +1351,7 @@ func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
 			return err
 		}
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
-		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
+		return removableReplicas(tx).Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
 	}); err != nil {
 		return err
 	}
@@ -1399,11 +1410,34 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
+		// Serialize lookup/create even when no row exists yet. This lock is
+		// transaction-local; no remote call holds it.
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", advisorylock.KeyFromString("replica:"+nodeID+":"+modelName)).Error; err != nil {
+			return err
+		}
+		var existing NodeModel
+		lookup := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).First(&existing).Error
+		ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
+		if lookup != nil && !errors.Is(lookup, gorm.ErrRecordNotFound) {
+			return lookup
+		}
+		if lookup == nil && (existing.LoadUncertain || existing.State == "staging" || existing.State == "loading") {
+			if existing.ConfigRevision != revision || existing.LoadGeneration != ref.Generation {
+				return ErrStaleLoadJob
+			}
+		}
+		if owned && ref.TrackingKey != modelName {
+			return ErrStaleLoadJob
+		}
+		generation := ""
+		if owned {
+			generation = ref.Generation
+		}
 		var nm NodeModel
 		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 			Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
 			Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
-				"config_revision": revision, "effective_options_hash": effectiveOptionsHash}).
+				"config_revision": revision, "effective_options_hash": effectiveOptionsHash, "load_generation": generation, "load_uncertain": state == "staging" || state == "loading" || (existing.LoadUncertain && state != "loaded")}).
 			FirstOrCreate(&nm).Error
 	})
 }
@@ -1635,7 +1669,7 @@ func (r *NodeRegistry) AdvanceModelConfigRevisions(ctx context.Context, transiti
 			if err := tx.Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Find(&transitionQuarantined).Error; err != nil {
 				return err
 			}
-			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
+			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"load_uncertain": gorm.Expr("load_uncertain OR state IN ('loading', 'staging')"), "state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
 				return err
 			}
 			for i := range transitionQuarantined {
@@ -1701,8 +1735,8 @@ func (r *NodeRegistry) ClaimModelCleanupRetries(ctx context.Context, now, leaseU
 // stop inputs prevents cleanup from deleting that replacement.
 func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error) {
 	result := r.db.WithContext(ctx).
-		Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
-			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
+		Scopes(removableReplicas).Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
+		replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
 		Delete(&NodeModel{})
 	if result.Error != nil {
 		return false, result.Error
@@ -1721,19 +1755,30 @@ func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica No
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error; err != nil {
-		return err
+	var removed int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
+		q := removableReplicas(tx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex)
+		if observed, ok := ctx.Value(replicaObservationKey{}).(NodeModel); ok {
+			q = q.Where("id = ? AND updated_at = ? AND address = ? AND config_revision = ? AND load_generation = ?", observed.ID, observed.UpdatedAt, observed.Address, observed.ConfigRevision, observed.LoadGeneration)
+		}
+		result := q.Delete(&NodeModel{})
+		removed = result.RowsAffected
+		return result.Error
+	})
+	if err == nil && removed > 0 {
+		r.fireReplicaRemoved(modelName, nodeID, replicaIndex)
 	}
-	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)
-	return nil
+	return err
 }
 
 // RemoveAllNodeModelReplicas removes every replica of modelName on nodeID.
 // Used by callers (e.g. node deregistration, full backend stop) that genuinely
 // want to clear all replicas, not just one.
 func (r *NodeRegistry) RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error {
-	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ?", nodeID, modelName).
+	if err := removableReplicas(r.db.WithContext(ctx)).Where("node_id = ? AND model_name = ?", nodeID, modelName).
 		Delete(&NodeModel{}).Error; err != nil {
 		return err
 	}
@@ -1971,8 +2016,9 @@ func (r *NodeRegistry) NextFreeReplicaIndex(ctx context.Context, nodeID, modelNa
 		return 0, ErrNoFreeSlot
 	}
 	var taken []int
-	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
-		Where("node_models.node_id = ? AND node_models.model_name = ? AND node_models.state <> ?", nodeID, modelName, "unloading").
+	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+		Where("node_models.node_id = ? AND node_models.model_name = ?", nodeID, modelName).
+		Where("(state <> ? AND (NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_name = node_models.model_name) OR config_revision = (SELECT config_revision FROM model_config_states WHERE model_name = node_models.model_name))) OR load_uncertain = true OR state IN (?, ?)", "unloading", "staging", "loading").
 		Pluck("replica_index", &taken).Error; err != nil {
 		return 0, err
 	}
@@ -2883,3 +2929,12 @@ func (r *NodeRegistry) CountPendingBackendOpsByBackend(ctx context.Context) (map
 	}
 	return out, nil
 }
+
+// removableReplicas is applied to the DELETE itself, not a preceding read.
+// The row marker persists even when a config edit changes state to unloading.
+func removableReplicas(tx *gorm.DB) *gorm.DB {
+	return tx.Where("load_uncertain = false AND state NOT IN (?, ?)", "staging", "loading").Where("NOT EXISTS (SELECT 1 FROM model_load_jobs WHERE tracking_key = node_models.model_name AND (generation = node_models.load_generation OR generation = '') AND (work_uncertain = true OR generation = ''))")
+}
+
+// replicaObservationKey binds asynchronous probes to the row they inspected.
+type replicaObservationKey struct{}

@@ -263,7 +263,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-model", "model-worker", "10.0.0.10:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", Address: "10.0.0.10:50053"})
+			store.addNodeModel("node-model", NodeModel{State: "loaded", NodeID: "node-model", ModelName: "piper-model", Address: "10.0.0.10:50053"})
 
 			// Model backend is dead
 			factory.setClient("10.0.0.10:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})

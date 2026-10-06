@@ -54,7 +54,7 @@ var _ = Describe("Backend client construction carries the node id", func() {
 		hm.perModelHealthCheck = true
 
 		store.addNode(makeTestNode("n1", "worker-1", "10.0.0.1:50051", StatusHealthy, freshTime()))
-		store.addNodeModel("n1", NodeModel{NodeID: "n1", ModelName: "m", Address: "10.0.0.1:50052"})
+		store.addNodeModel("n1", NodeModel{State: "loaded", NodeID: "n1", ModelName: "m", Address: "10.0.0.1:50052"})
 
 		hm.doCheckAll(context.Background())
 

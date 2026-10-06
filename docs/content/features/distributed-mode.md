@@ -1445,6 +1445,12 @@ missing process inventory, or a cancelled RPC does not prove all remote work
 ended. Replica reservations remain quarantined and automatic retry is blocked.
 Verified operator cleanup is required before retrying uncertain work; do not
 clear reservations merely because a worker is temporarily unhealthy.
+Re-registration, offline transitions, and failed health probes preserve these
+reservations, including after a configuration change. Health probes inspect
+serving replicas only. Replica reconciliation claims durable load ownership
+before installing a backend; its failures also block automatic replacement.
+Confirmed, normally loaded replicas remain eligible for ordinary unload.
+Node deregistration refuses to erase unresolved load reservations.
 
 Valid staging progress extends its existing deadline. Checkpoint loading keeps
 its phase budget even when no bytes are reported. Controller-side outstanding

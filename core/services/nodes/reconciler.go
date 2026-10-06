@@ -500,7 +500,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
 		}
-		if err := rc.registry.RemoveNodeModel(ctx, m.NodeID, m.ModelName, m.ReplicaIndex); err != nil {
+		if err := rc.registry.RemoveNodeModel(context.WithValue(ctx, replicaObservationKey{}, m), m.NodeID, m.ModelName, m.ReplicaIndex); err != nil {
 			xlog.Warn("Reconciler: failed to remove unreachable model", "node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
 			continue
 		}
@@ -703,7 +703,7 @@ func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
 					"misses", misses, "threshold", workerMissesBeforeReap)
 				continue
 			}
-			if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
+			if err := rc.registry.RemoveNodeModel(context.WithValue(ctx, replicaObservationKey{}, row), row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
 				xlog.Warn("Reconciler: failed to remove model the worker is not running",
 					"node", nodeID, "model", row.ModelName, "replica", row.ReplicaIndex, "error", err)
 				continue
@@ -1126,7 +1126,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		}
 		// Remove this specific replica row from registry (sibling replicas of
 		// the same model on the same node, if any, are unaffected).
-		if err := rc.registry.RemoveNodeModel(ctx, nm.NodeID, nm.ModelName, nm.ReplicaIndex); err != nil {
+		if err := rc.registry.RemoveNodeModel(context.WithValue(ctx, replicaObservationKey{}, nm), nm.NodeID, nm.ModelName, nm.ReplicaIndex); err != nil {
 			xlog.Warn("Reconciler: failed to remove model record", "node", nm.NodeID, "model", nm.ModelName, "replica", nm.ReplicaIndex, "error", err)
 			continue
 		}

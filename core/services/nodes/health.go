@@ -186,7 +186,7 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if hm.perModelHealthCheck {
 			models, _ := hm.registry.GetNodeModels(ctx, node.ID)
 			for _, m := range models {
-				if m.Address == "" || m.Address == node.Address {
+				if m.State != "loaded" || m.LoadUncertain || m.Address == "" || m.Address == node.Address {
 					continue
 				}
 				mClient := hm.clientFactory.NewClient(node.ID, m.Address, false)
@@ -218,7 +218,7 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				xlog.Warn("Model backend unhealthy after consecutive misses, removing from registry",
 					"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
 					"address", m.Address, "misses", misses)
-				if err := hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex); err != nil {
+				if err := hm.registry.RemoveNodeModel(context.WithValue(ctx, replicaObservationKey{}, m), node.ID, m.ModelName, m.ReplicaIndex); err != nil {
 					xlog.Warn("Failed to remove unhealthy model from registry",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
 					// Leave the miss counter in place so the next tick retries
