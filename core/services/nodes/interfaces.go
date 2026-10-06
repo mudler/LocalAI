@@ -79,6 +79,23 @@ type LoadJobStore interface {
 	ConfirmLoadOp(ctx context.Context, ref LoadJobRef) error
 }
 
+// ReplicaUnloader unloads one replica by the address its row recorded. The
+// eviction and scale-down paths use it when the sender has it: they delete the
+// row first, so the address must travel with the call.
+type ReplicaUnloader interface {
+	UnloadReplica(nodeID string, replica NodeModel) error
+}
+
+// unloadReplica frees the replica's model on its worker. A sender that cannot
+// name the address falls back to the model-name call, which looks the replicas
+// up itself.
+func unloadReplica(sender NodeCommandSender, nodeID string, replica NodeModel) error {
+	if ru, ok := sender.(ReplicaUnloader); ok {
+		return ru.UnloadReplica(nodeID, replica)
+	}
+	return sender.UnloadModelOnNode(nodeID, replica.ModelName)
+}
+
 // LoadOperationInstaller is a NodeCommandSender that can start a backend as a
 // load operation the worker bounds. The router uses it when the sender has it.
 type LoadOperationInstaller interface {

@@ -132,6 +132,11 @@ var ErrStaleLoadJob = errors.New("stale model load job ownership")
 // a lease it can no longer extend.
 var ErrLoadLeaseExpired = errors.New("model load job lease expired")
 
+// ErrLoadOperationLost means the worker no longer knows the load's operation: it
+// restarted, or its watchdog ended it. The work is gone and the load cannot
+// finish.
+var ErrLoadOperationLost = errors.New("the worker lost the load operation")
+
 // loadJobResult turns the outcome of a write on one job row into an error.
 // Zero rows is not a database failure: it is the proof that this attempt lost
 // the job.
@@ -260,6 +265,14 @@ func withLoadPath(ctx context.Context) context.Context {
 // that is not on the load path (routing, health checks, tests) has nothing to
 // fence and passes.
 func requireLoadOwnership(ctx context.Context, tx *gorm.DB) error {
+	return requireLoadOwnershipFor(ctx, tx, false)
+}
+
+// requireLoadOwnershipFor is requireLoadOwnership with a choice about a failed
+// attempt. Publishing needs a live attempt. Removing the attempt's own replica
+// row does not: a cancelled or failed attempt must still clean up after itself,
+// and the generation still stops it from touching a successor's row.
+func requireLoadOwnershipFor(ctx context.Context, tx *gorm.DB, allowFailed bool) error {
 	ref, ok := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
 	if !ok {
 		if ctx.Value(loadPathKey{}) != nil {
@@ -270,7 +283,11 @@ func requireLoadOwnership(ctx context.Context, tx *gorm.DB) error {
 	if !ref.owned() {
 		return ErrStaleLoadJob
 	}
-	return loadJobResult(activeLoadJob(ownedLoadJobOn(tx, ref)).UpdateColumn("generation", ref.Generation))
+	q := ownedLoadJobOn(tx, ref)
+	if !allowFailed {
+		q = activeLoadJob(q)
+	}
+	return loadJobResult(q.UpdateColumn("generation", ref.Generation))
 }
 
 // LoadJobUpdate is a partial update to a running job. Empty node fields are
@@ -288,6 +305,8 @@ type LoadJobUpdate struct {
 	// StartedAt anchors the rate the ETA is derived from. Set by the runner the
 	// first time the transfer reports bytes; zero leaves the stored value alone.
 	StartedAt time.Time
+	// LegacyWorker records that the worker cannot name operations.
+	LegacyWorker bool
 }
 
 // claimRow is a job row together with the database's verdict on its deadlines.
@@ -532,6 +551,9 @@ func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u Load
 	if !u.StartedAt.IsZero() {
 		fields["started_at"] = u.StartedAt
 	}
+	if u.LegacyWorker {
+		fields["legacy_worker"] = true
+	}
 	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(fields))
 }
 
@@ -599,9 +621,31 @@ func (r *NodeRegistry) ConfirmLoadOp(ctx context.Context, ref LoadJobRef) error 
 		return err
 	}
 	// Shorten only: a window already shorter than the report window stays.
-	return r.ownedLoadJob(ctx, ref).
+	if err := r.ownedLoadJob(ctx, ref).
 		Where("state = ? AND stop_deadline > ?", LoadJobStateFailed, r.dbAfter(loadJobFailureReport)).
-		Update("stop_deadline", r.dbAfter(loadJobFailureReport)).Error
+		Update("stop_deadline", r.dbAfter(loadJobFailureReport)).Error; err != nil {
+		return err
+	}
+	return r.removeAttemptReplicas(ctx, ref)
+}
+
+// removeAttemptReplicas removes the replica rows a confirmed-dead attempt left
+// before they reached serving. The owner's own cleanup cannot be relied on: it
+// may be stuck in a call, or gone. The rows carry the attempt's generation, so
+// no other attempt's row is touched.
+func (r *NodeRegistry) removeAttemptReplicas(ctx context.Context, ref LoadJobRef) error {
+	var rows []NodeModel
+	if err := r.db.WithContext(ctx).
+		Where("model_name = ? AND load_generation = ? AND state IN ?", ref.TrackingKey, ref.Generation, preServingStates).
+		Find(&rows).Error; err != nil {
+		return fmt.Errorf("listing the replicas of a dead load attempt: %w", err)
+	}
+	for _, row := range rows {
+		if err := r.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ConfirmNodeLoadOps confirms every failed attempt that ran on nodeID. A new
@@ -669,6 +713,14 @@ const (
 // stopped, and it marks the cancel. Repeating it never extends the window.
 // The returned job is the row as it is after the call (nil for CancelGone).
 func (r *NodeRegistry) CancelLoadJob(ctx context.Context, ref LoadJobRef) (CancelOutcome, *ModelLoadJob, error) {
+	return r.cancelLoadJob(ctx, ref, "cancelled by an administrator", true)
+}
+
+// cancelLoadJob is CancelLoadJob with the recorded cause. byAdmin says whether
+// the cancel is an administrator's request. A node that is removed or drained
+// cancels its loads with a neutral cause and does not claim an administrator
+// asked.
+func (r *NodeRegistry) cancelLoadJob(ctx context.Context, ref LoadJobRef, reason string, byAdmin bool) (CancelOutcome, *ModelLoadJob, error) {
 	now := r.now()
 	var outcome CancelOutcome
 	err := advisorylock.WithLockCtx(ctx, r.db, advisorylock.KeyFromString(loadJobLockPrefix+ref.TrackingKey), func() error {
@@ -689,8 +741,8 @@ func (r *NodeRegistry) CancelLoadJob(ctx context.Context, ref LoadJobRef) (Cance
 		}
 		werr := loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
 			"state":            LoadJobStateFailed,
-			"cancel_requested": true,
-			"last_error":       "cancelled by an administrator",
+			"cancel_requested": byAdmin,
+			"last_error":       reason,
 			"op_confirmed":     false,
 			"stop_deadline":    r.dbAfter(loadJobStopWindow),
 			"last_progress":    now,

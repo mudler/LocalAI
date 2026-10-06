@@ -35,6 +35,9 @@ type fakeOpWorker struct {
 	// exactFails makes them fail like a worker that never heard of the verb.
 	exact      []NodeModel
 	exactFails bool
+	// forgetOps makes the worker answer every renewal with "unknown", as a
+	// worker that restarted and lost its operations does.
+	forgetOps bool
 }
 
 func (w *fakeOpWorker) StopModelReplica(_ context.Context, _ string, replica NodeModel, _ bool) (workerctl.ModelStopReply, error) {
@@ -79,6 +82,9 @@ func (w *fakeOpWorker) OperationControl(_ string, req workerctl.OperationRequest
 	defer w.mu.Unlock()
 	w.renews = append(w.renews, req.Renew...)
 	w.complete = append(w.complete, req.Complete...)
+	if w.forgetOps {
+		return &workerctl.OperationReply{Unknown: req.Renew, Completed: req.Complete}, nil
+	}
 	return &workerctl.OperationReply{Renewed: req.Renew, Completed: req.Complete}, nil
 }
 
@@ -334,5 +340,106 @@ var _ = Describe("Load operations on the worker", func() {
 		release("ops-cancel")
 		close(hold)
 		Expect(route("ops-cancel")).To(Succeed())
+	})
+
+	It("fails a load promptly when the worker no longer knows its operation", func() {
+		// A worker that was killed and restarted has no record of the load. Its
+		// predecessor's backend is gone, so waiting out the load budget buys
+		// nothing.
+		worker.forgetOps = true
+		router.opRenewEvery = 1
+		hold := make(chan struct{})
+		defer close(hold)
+		worker.installHook = func() { <-hold }
+
+		started := time.Now()
+		err := route("ops-lost")
+
+		Expect(err).To(HaveOccurred())
+		Expect(time.Since(started)).To(BeNumerically("<", 30*time.Second), "not the five minute load budget")
+		Eventually(func() bool { j := jobOf("ops-lost"); return j != nil && j.OpConfirmed }, 5*time.Second, 50*time.Millisecond).Should(BeTrue(),
+			"the worker lost the operation, so its work ended")
+		job := jobOf("ops-lost")
+		Expect(job.State).To(Equal(LoadJobStateFailed))
+		Expect(job.LastError).To(ContainSubstring("operation"))
+		Expect(secondsUntil("ops-lost", "stop_deadline")).To(BeNumerically("<=", loadJobFailureReport.Seconds()+3))
+		_, _, _, stops := worker.snapshot()
+		Expect(stops).To(BeEmpty(), "there is nothing left on the worker to stop")
+	})
+
+	Describe("cancelling a load", func() {
+		// The owner can be stuck inside a call that never returns, so the cancel
+		// itself has to clear the attempt's replica rows, not wait for the owner's
+		// cleanup or for a reconciler pass.
+		blockLoad := func() (release func()) {
+			hold := make(chan struct{})
+			backend.loadHook = func(*pb.ModelOptions) { <-hold }
+			var once sync.Once
+			return func() { once.Do(func() { close(hold) }) }
+		}
+		replicaRows := func(model string) int64 {
+			var n int64
+			Expect(db.Model(&NodeModel{}).Where("model_name = ?", model).Count(&n).Error).To(Succeed())
+			return n
+		}
+		startAndPlace := func(model string) *ModelLoadJob {
+			go func() { defer GinkgoRecover(); _ = route(model) }()
+			var job *ModelLoadJob
+			Eventually(func() bool {
+				job = jobOf(model)
+				return job != nil && job.NodeID != "" && replicaRows(model) == 1
+			}, 10*time.Second, 50*time.Millisecond).Should(BeTrue())
+			Eventually(func() string {
+				var nm NodeModel
+				_ = db.First(&nm, "model_name = ?", model).Error
+				return nm.Address
+			}, 10*time.Second, 50*time.Millisecond).ShouldNot(BeEmpty(), "the replica row reaches the backend address")
+			return job
+		}
+
+		It("clears the attempt's replica row at once, so the model loads again after the report window", func() {
+			defer blockLoad()()
+			job := startAndPlace("cancel-rows")
+
+			result, err := (&LoadCancelService{Registry: registry, Stopper: worker}).Cancel(ctx, job.Ref())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.State).To(Equal(LoadCancelStopped))
+
+			Expect(replicaRows("cancel-rows")).To(BeZero(), "a stale loading row holds the slot past the hold")
+			Expect(secondsUntil("cancel-rows", "stop_deadline")).To(BeNumerically("<=", loadJobFailureReport.Seconds()+3))
+		})
+
+		It("stops a legacy worker's backend by exact address, not by an operation id", func() {
+			worker.legacy = true
+			defer blockLoad()()
+			job := startAndPlace("cancel-legacy")
+			Eventually(func() bool { return jobOf("cancel-legacy").LegacyWorker }, 5*time.Second, 50*time.Millisecond).Should(BeTrue())
+
+			result, err := (&LoadCancelService{Registry: registry, Stopper: worker}).Cancel(ctx, job.Ref())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.State).To(Equal(LoadCancelStopped))
+			worker.mu.Lock()
+			defer worker.mu.Unlock()
+			Expect(worker.stops).To(BeEmpty(), "an old worker does not know operations, and answers an empty address with a mismatch")
+			Expect(worker.exact).To(HaveLen(1))
+			Expect(worker.exact[0].Address).To(Equal("10.0.0.1:9001"))
+		})
+
+		It("holds a legacy worker's model for the load deadline when the stop is not acknowledged", func() {
+			worker.legacy = true
+			worker.exactFails = true
+			defer blockLoad()()
+			job := startAndPlace("cancel-legacy-silent")
+			Eventually(func() bool { return jobOf("cancel-legacy-silent").LegacyWorker }, 5*time.Second, 50*time.Millisecond).Should(BeTrue())
+
+			result, err := (&LoadCancelService{Registry: registry, Stopper: worker}).Cancel(ctx, job.Ref())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.State).To(Equal(LoadCancelStopping))
+			Expect(secondsUntil("cancel-legacy-silent", "stop_deadline")).To(BeNumerically("~", loadJobLegacyStopWindow.Seconds(), 5),
+				"the backend may still run, and nothing sooner bounds it")
+			Expect(jobOf("cancel-legacy-silent").OpConfirmed).To(BeFalse())
+		})
 	})
 })

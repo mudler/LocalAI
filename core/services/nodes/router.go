@@ -227,6 +227,8 @@ type SmartRouter struct {
 
 	// leaseTTL overrides loadJobLeaseTTL for the owner's own deadline (tests).
 	leaseTTL time.Duration
+	// opRenewEvery overrides loadOpRenewEvery, in heartbeat ticks (tests).
+	opRenewEvery int
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -2225,7 +2227,7 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 
 			// Unload outside the transaction (NATS call)
 			if r.unloader != nil {
-				if uerr := r.unloader.UnloadModelOnNode(lru.NodeID, lru.ModelName); uerr != nil {
+				if uerr := unloadReplica(r.unloader, lru.NodeID, lru); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}

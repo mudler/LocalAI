@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -50,7 +52,11 @@ type LoadCancelService struct {
 // Cancel cancels the load attempt ref names. It is idempotent: repeating it on
 // a failed attempt retries the stop and never extends the stop window.
 func (s *LoadCancelService) Cancel(ctx context.Context, ref LoadJobRef) (LoadCancelResult, error) {
-	outcome, job, err := s.Registry.CancelLoadJob(ctx, ref)
+	return s.cancel(ctx, ref, "cancelled by an administrator", true)
+}
+
+func (s *LoadCancelService) cancel(ctx context.Context, ref LoadJobRef, reason string, byAdmin bool) (LoadCancelResult, error) {
+	outcome, job, err := s.Registry.cancelLoadJob(ctx, ref, reason, byAdmin)
 	if err != nil {
 		return LoadCancelResult{}, err
 	}
@@ -67,10 +73,8 @@ func (s *LoadCancelService) Cancel(ctx context.Context, ref LoadJobRef) (LoadCan
 
 	// The attempt is failed and cancelled. Stop its remote work.
 	if !job.OpConfirmed && job.NodeID != "" && s.Stopper != nil {
-		if StopOperationAcked(ctx, s.Stopper, job.NodeID, ref, job.ReplicaIndex) {
-			if cerr := s.Registry.ConfirmLoadOp(ctx, ref); cerr != nil && !errors.Is(cerr, ErrStaleLoadJob) {
-				xlog.Warn("Failed to record the stop confirmation", "model", ref.TrackingKey, "error", cerr)
-			}
+		addr := s.Registry.attemptAddress(ctx, job)
+		if StopLoadAttempt(ctx, s.Registry, s.Stopper, ref, job.NodeID, job.ReplicaIndex, addr, job.LegacyWorker) {
 			return LoadCancelResult{State: LoadCancelStopped}, nil
 		}
 	}
@@ -114,7 +118,7 @@ func (s *LoadCancelService) CancelNodeLoads(ctx context.Context, nodeID string) 
 	}
 	var errs []error
 	for _, job := range jobs {
-		if _, err := s.Cancel(ctx, job.Ref()); err != nil && !errors.Is(err, ErrLoadCancelConflict) {
+		if _, err := s.cancel(ctx, job.Ref(), "the worker was removed or is shutting down", false); err != nil && !errors.Is(err, ErrLoadCancelConflict) {
 			errs = append(errs, err)
 		}
 	}
@@ -138,11 +142,80 @@ func (rc *ReplicaReconciler) retryLoadStops(ctx context.Context) {
 		return
 	}
 	for _, job := range jobs {
-		if !StopOperationAcked(ctx, stopper, job.NodeID, job.Ref(), job.ReplicaIndex) {
-			continue
+		StopLoadAttempt(ctx, rc.registry, stopper, job.Ref(), job.NodeID, job.ReplicaIndex, rc.registry.attemptAddress(ctx, &job), job.LegacyWorker)
+	}
+}
+
+// loadAttemptRegistry is what StopLoadAttempt records its outcome on.
+type loadAttemptRegistry interface {
+	ConfirmLoadOp(ctx context.Context, ref LoadJobRef) error
+	SetLegacyStopWindow(ctx context.Context, ref LoadJobRef, window time.Duration) error
+}
+
+// StopLoadAttempt stops the remote work of one failed or cancelled attempt and
+// records the outcome. It is the single place a load's work is stopped.
+//
+// A worker that names operations is sent a stop by operation id, with the
+// address when known. A worker that does not (it reported no process instance)
+// is sent a stop by exact process address and nothing else, and when the address
+// is unknown no stop is claimed. An acknowledged stop confirms the attempt and
+// shortens the hold. For a legacy worker that does not acknowledge, the hold is
+// the load deadline, because nothing sooner bounds its work. It reports whether
+// the stop was acknowledged.
+func StopLoadAttempt(ctx context.Context, reg loadAttemptRegistry, stopper LoadOperationStopper, ref LoadJobRef, nodeID string, replica int, addr string, legacy bool) bool {
+	acked := false
+	switch {
+	case legacy:
+		if exact, ok := stopper.(ExactModelStopper); ok && addr != "" {
+			reply, err := exact.StopModelReplica(ctx, nodeID, NodeModel{ModelName: ref.TrackingKey, ReplicaIndex: replica, Address: addr}, true)
+			acked = err == nil && reply.Error == "" && reply.Terminated
 		}
-		if err := rc.registry.ConfirmLoadOp(ctx, job.Ref()); err != nil && !errors.Is(err, ErrStaleLoadJob) {
-			xlog.Warn("Reconciler: failed to record a stop confirmation", "model", job.TrackingKey, "error", err)
+	default:
+		acked = StopOperationAcked(ctx, stopper, nodeID, ref, replica, addr)
+	}
+	switch {
+	case acked:
+		if err := reg.ConfirmLoadOp(ctx, ref); err != nil && !errors.Is(err, ErrStaleLoadJob) {
+			xlog.Warn("Failed to record the stop confirmation", "model", ref.TrackingKey, "error", err)
+		}
+	case legacy:
+		if err := reg.SetLegacyStopWindow(ctx, ref, loadJobLegacyStopWindow); err != nil && !errors.Is(err, ErrStaleLoadJob) {
+			xlog.Warn("Failed to set the legacy stop window", "model", ref.TrackingKey, "error", err)
 		}
 	}
+	return acked
+}
+
+// StopOperationAcked asks the worker to stop the operation of ref and reports
+// whether it acknowledged: the process is gone, or was never there. An error, a
+// refusal or silence is not an acknowledgement.
+func StopOperationAcked(ctx context.Context, stopper LoadOperationStopper, nodeID string, ref LoadJobRef, replica int, addr string) bool {
+	reply, err := stopper.StopLoadOperation(ctx, nodeID, workerctl.ModelStopRequest{
+		ModelName:       ref.TrackingKey,
+		ProcessKey:      model.BackendProcessKey(ref.TrackingKey, replica),
+		ExpectedAddress: addr,
+		OperationID:     ref.Generation,
+		Force:           true,
+	})
+	if err != nil {
+		xlog.Warn("Stopping the load operation failed", "node", nodeID, "model", ref.TrackingKey, "error", err)
+		return false
+	}
+	if reply.Error != "" || !reply.Terminated {
+		xlog.Warn("The worker did not stop the load operation", "node", nodeID, "model", ref.TrackingKey, "error", reply.Error)
+		return false
+	}
+	return true
+}
+
+// attemptAddress returns the backend address recorded on the attempt's replica
+// row, or "" when the row is gone or never reached a backend.
+func (r *NodeRegistry) attemptAddress(ctx context.Context, job *ModelLoadJob) string {
+	var nm NodeModel
+	if err := r.db.WithContext(ctx).
+		Where("node_id = ? AND model_name = ? AND replica_index = ? AND load_generation = ?", job.NodeID, job.TrackingKey, job.ReplicaIndex, job.Generation).
+		First(&nm).Error; err != nil {
+		return ""
+	}
+	return nm.Address
 }

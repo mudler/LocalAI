@@ -9,7 +9,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/workerctl"
-	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -181,6 +180,10 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 	cause := context.Cause(ownerCtx)
 	lost := errors.Is(cause, ErrStaleLoadJob)
 	leaseExpired := errors.Is(cause, ErrLoadLeaseExpired)
+	opLost := errors.Is(cause, ErrLoadOperationLost)
+	if opLost {
+		err = fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrLoadOperationLost)
+	}
 	if leaseExpired {
 		err = fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrLoadLeaseExpired)
 	}
@@ -196,7 +199,7 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 		// The job was replaced or cancelled, but this attempt's remote work may
 		// still run. Stop it by its operation id. The confirmation shortens the
 		// stop window of a cancelled job.
-		r.stopLoadWork(bookCtx, ref, nodeID, replica)
+		r.stopLoadWork(bookCtx, ref, nodeID, replica, phase.backendAddress(), legacy)
 		return fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrStaleLoadJob)
 	case err != nil:
 		xlog.Error("Cold load job failed", "model", ref.TrackingKey, "error", err)
@@ -216,21 +219,8 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 		case !mayRun:
 			// The backend answered, so the work ended. Stop watching it.
 			r.completeLoadOperation(bookCtx, ref, nodeID)
-		case legacy:
-			// A worker that cannot name operations: stop the one process by its
-			// exact address if the worker serves that verb, never by name. With
-			// no acknowledgement the load RPC deadline is the only bound.
-			if !r.stopLegacyLoad(bookCtx, ref, nodeID, replica, phase.backendAddress()) {
-				if reg, ok := r.registry.(interface {
-					SetLegacyStopWindow(context.Context, LoadJobRef, time.Duration) error
-				}); ok {
-					if serr := reg.SetLegacyStopWindow(bookCtx, ref, loadJobLegacyStopWindow); serr != nil && !errors.Is(serr, ErrStaleLoadJob) {
-						xlog.Warn("Failed to set the legacy stop window", "model", ref.TrackingKey, "error", serr)
-					}
-				}
-			}
 		default:
-			r.stopLoadWork(bookCtx, ref, nodeID, replica)
+			r.stopLoadWork(bookCtx, ref, nodeID, replica, phase.backendAddress(), legacy)
 		}
 		// The row stays until its stop deadline so a request arriving right
 		// now reports this failure instead of starting a duplicate load. The
@@ -249,24 +239,6 @@ func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work fun
 	// so the watchdog stops watching a backend that now serves.
 	r.completeLoadOperation(bookCtx, ref, nodeID)
 	return r.finishLoadJob(bookCtx, ref)
-}
-
-// stopLegacyLoad stops the process of a load on a worker that predates
-// operations, by process key, address and no more. It reports whether the
-// worker acknowledged, and records the confirmation if it did.
-func (r *SmartRouter) stopLegacyLoad(ctx context.Context, ref LoadJobRef, nodeID string, replica int, addr string) bool {
-	stopper, ok := r.unloader.(ExactModelStopper)
-	if !ok || nodeID == "" || addr == "" {
-		return false
-	}
-	reply, err := stopper.StopModelReplica(ctx, nodeID, NodeModel{ModelName: ref.TrackingKey, ReplicaIndex: replica, Address: addr}, true)
-	if err != nil || reply.Error != "" || !reply.Terminated {
-		return false
-	}
-	if cerr := r.registry.ConfirmLoadOp(ctx, ref); cerr != nil && !errors.Is(cerr, ErrStaleLoadJob) {
-		xlog.Warn("Failed to record the stop confirmation", "model", ref.TrackingKey, "error", cerr)
-	}
-	return true
 }
 
 // completeLoadOperation tells the worker the load finished. It retries a few
@@ -292,43 +264,24 @@ func (r *SmartRouter) completeLoadOperation(ctx context.Context, ref LoadJobRef,
 }
 
 // stopLoadWork stops the remote work of one attempt through the single stop
-// path, and records the worker's acknowledgement on the job. Without a node
-// there is nothing to stop yet; the worker's own watchdog bounds any install
-// already in flight.
-func (r *SmartRouter) stopLoadWork(ctx context.Context, ref LoadJobRef, nodeID string, replica int) {
-	if nodeID == "" {
+// path, and records the outcome on the job. Without a node there is nothing to
+// stop yet; the worker's own watchdog bounds any install already in flight.
+func (r *SmartRouter) stopLoadWork(ctx context.Context, ref LoadJobRef, nodeID string, replica int, addr string, legacy bool) {
+	stopper := loadStopper(r.unloader)
+	if stopper == nil || nodeID == "" {
 		return
 	}
-	stopper, ok := r.unloader.(LoadOperationStopper)
+	reg, ok := r.registry.(loadAttemptRegistry)
 	if !ok {
 		return
 	}
-	if StopOperationAcked(ctx, stopper, nodeID, ref, replica) {
-		if err := r.registry.ConfirmLoadOp(ctx, ref); err != nil && !errors.Is(err, ErrStaleLoadJob) {
-			xlog.Warn("Failed to record the stop confirmation", "model", ref.TrackingKey, "error", err)
-		}
-	}
+	StopLoadAttempt(ctx, reg, stopper, ref, nodeID, replica, addr, legacy)
 }
 
-// StopOperationAcked asks the worker to stop the operation of ref and reports
-// whether it acknowledged: the process is gone, or was never there. An error,
-// a refusal or silence is not an acknowledgement.
-func StopOperationAcked(ctx context.Context, stopper LoadOperationStopper, nodeID string, ref LoadJobRef, replica int) bool {
-	reply, err := stopper.StopLoadOperation(ctx, nodeID, workerctl.ModelStopRequest{
-		ModelName:   ref.TrackingKey,
-		ProcessKey:  model.BackendProcessKey(ref.TrackingKey, replica),
-		OperationID: ref.Generation,
-		Force:       true,
-	})
-	if err != nil {
-		xlog.Warn("Stopping the load operation failed", "node", nodeID, "model", ref.TrackingKey, "error", err)
-		return false
-	}
-	if reply.Error != "" || !reply.Terminated {
-		xlog.Warn("The worker did not stop the load operation", "node", nodeID, "model", ref.TrackingKey, "error", reply.Error)
-		return false
-	}
-	return true
+// loadStopper returns the sender as a stopper, or nil when it cannot stop.
+func loadStopper(sender NodeCommandSender) LoadOperationStopper {
+	stopper, _ := sender.(LoadOperationStopper)
+	return stopper
 }
 
 // finishLoadJob ends a job that succeeded. The NodeModel row (state `loaded`)
@@ -357,7 +310,12 @@ func (r *SmartRouter) finishLoadJob(ctx context.Context, ref LoadJobRef) error {
 // per-chunk callbacks, so the row is written at most once per interval.
 func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobRef, phase *loadPhaseReporter, abort context.CancelCauseFunc) func() {
 	var renewing atomic.Bool
+	var unknown atomic.Int32
 	ticks := 0
+	every := r.opRenewEvery
+	if every <= 0 {
+		every = loadOpRenewEvery
+	}
 	trackingKey := ref.TrackingKey
 	done := make(chan struct{})
 	stopped := make(chan struct{})
@@ -379,8 +337,8 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 			case <-ticker.C:
 				u := phase.snapshot()
 				ticks++
-				if ticks%loadOpRenewEvery == 1 {
-					r.renewLoadOperation(parent, ref, phase, &renewing)
+				if ticks%every == 1 || every == 1 {
+					r.renewLoadOperation(parent, ref, phase, &renewing, &unknown, abort)
 				}
 				if st := r.stagingTracker.Get(trackingKey); st != nil {
 					u.BytesSent, u.TotalBytes = st.BytesSent, st.TotalBytes
@@ -544,10 +502,14 @@ func (r *SmartRouter) closeLoadWaiters(key string) {
 // and spares the bus a request per second per load.
 const loadOpRenewEvery = 5
 
+// loadOpLostAfter is how many renewals in a row the worker must answer with
+// "unknown" before the owner gives up on the operation.
+const loadOpLostAfter = 3
+
 // renewLoadOperation extends the worker's lease on the load. It runs off the
 // heartbeat goroutine, so a slow worker cannot delay the database lease, and at
 // most one is in flight. A failure costs nothing until the worker's kill TTL.
-func (r *SmartRouter) renewLoadOperation(ctx context.Context, ref LoadJobRef, phase *loadPhaseReporter, busy *atomic.Bool) {
+func (r *SmartRouter) renewLoadOperation(ctx context.Context, ref LoadJobRef, phase *loadPhaseReporter, busy *atomic.Bool, unknown *atomic.Int32, abort context.CancelCauseFunc) {
 	renewer, ok := r.unloader.(LoadOperationRenewer)
 	nodeID, _, _ := phase.placement()
 	if !ok || nodeID == "" || !busy.CompareAndSwap(false, true) {
@@ -560,7 +522,16 @@ func (r *SmartRouter) renewLoadOperation(ctx context.Context, ref LoadJobRef, ph
 		case err != nil:
 			xlog.Debug("Failed to renew the load operation", "node", nodeID, "model", ref.TrackingKey, "error", err)
 		case len(reply.Unknown) > 0:
-			xlog.Warn("The worker does not know this load operation", "node", nodeID, "model", ref.TrackingKey)
+			// The worker answered and does not know the operation: it
+			// restarted, or its watchdog already ended it. Either way the work
+			// is gone, and nothing will ever finish this load. One miss can be an
+			// install still in flight, so it takes several in a row.
+			if n := unknown.Add(1); n >= loadOpLostAfter {
+				xlog.Warn("The worker no longer knows this load operation; failing the load", "node", nodeID, "model", ref.TrackingKey)
+				abort(ErrLoadOperationLost)
+			}
+		default:
+			unknown.Store(0)
 		}
 	}()
 }

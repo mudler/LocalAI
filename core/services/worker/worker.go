@@ -257,6 +257,13 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}),
 	))
 
+	// A previous worker that was killed left its backends running. Kill them
+	// now, before this worker hands out ports or reports an incarnation.
+	supervisor.ledger = newProcessLedger(filepath.Join(dataDir, "worker-processes.json"))
+	if n := supervisor.ledger.sweepStale(); n > 0 {
+		xlog.Warn("Killed backend process groups left behind by a previous worker", "count", n)
+	}
+
 	// The watchdog stops load operations the controller no longer renews.
 	go supervisor.runOperationWatchdog(shutdownCtx)
 

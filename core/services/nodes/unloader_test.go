@@ -324,6 +324,25 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		})
 	})
 
+	Describe("UnloadReplica", func() {
+		It("sends model.unload naming the replica's address, with no registry lookup", func() {
+			mc.requestReply, _ = json.Marshal(workerctl.ModelUnloadReply{Success: true})
+
+			Expect(adapter.UnloadReplica("node-1", NodeModel{ModelName: "llama", ReplicaIndex: 1, Address: "127.0.0.1:5001"})).To(Succeed())
+
+			Expect(mc.requestCalls).To(HaveLen(1))
+			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeModelUnload("node-1")))
+			var request workerctl.ModelUnloadRequest
+			Expect(json.Unmarshal(mc.requestCalls[0].Data, &request)).To(Succeed())
+			Expect(request).To(Equal(workerctl.ModelUnloadRequest{ModelName: "llama", Address: "127.0.0.1:5001"}))
+		})
+
+		It("sends nothing for a replica that never reached a backend address", func() {
+			Expect(adapter.UnloadReplica("node-1", NodeModel{ModelName: "llama"})).To(Succeed())
+			Expect(mc.requestCalls).To(BeEmpty(), "the worker is never asked to guess a process")
+		})
+	})
+
 	Describe("StopModelReplica", func() {
 		It("requests an acknowledged stop for the exact process", func() {
 			mc.requestReply, _ = json.Marshal(workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: "llama#2"})

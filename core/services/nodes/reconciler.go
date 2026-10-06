@@ -1131,7 +1131,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 			continue
 		}
 		// Unload from worker
-		if err := rc.unloader.UnloadModelOnNode(nm.NodeID, nm.ModelName); err != nil {
+		if err := unloadReplica(rc.unloader, nm.NodeID, nm); err != nil {
 			xlog.Warn("Reconciler: unload failed (model already removed from registry)", "error", err)
 		}
 		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.Target(), "node", nm.NodeID, "replica", nm.ReplicaIndex)

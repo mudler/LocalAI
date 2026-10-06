@@ -590,13 +590,34 @@ func (a *RemoteUnloaderAdapter) dropStoppedReplicaRows(nodeID, op, backendName s
 	}
 }
 
-// UnloadModelOnNode sends a model.unload request to a specific node, one per
-// replica of the model recorded there, each naming the replica's address. The
-// worker calls gRPC Free() on exactly that process. A node with no recorded
-// replica has nothing to free, and no request is sent: the worker never picks a
-// process on its own.
+// UnloadReplica sends model.unload for one replica, naming its address. The
+// worker calls gRPC Free() on exactly that process. A replica with no address
+// never reached a backend, so there is nothing to free and nothing is sent: the
+// worker is never asked to pick a process on its own.
+//
+// Callers that remove the replica row before they unload must pass the row they
+// read first. Looking the address up afterwards finds nothing.
+func (a *RemoteUnloaderAdapter) UnloadReplica(nodeID string, replica NodeModel) error {
+	if replica.Address == "" {
+		return nil
+	}
+	xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex)
+	reply, err := controlRequestJSON[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](a.nats, messaging.SubjectNodeModelUnload(nodeID),
+		workerctl.ModelUnloadRequest{ModelName: replica.ModelName, Address: replica.Address}, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	if !reply.Success {
+		return fmt.Errorf("model.unload on node %s: %s", nodeID, reply.Error)
+	}
+	return nil
+}
+
+// UnloadModelOnNode unloads every replica of the model recorded on the node,
+// each by address. It reads the replicas from the registry, so it only works
+// while their rows still exist. A caller that deletes the rows first uses
+// UnloadReplica with the row it read.
 func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) error {
-	subject := messaging.SubjectNodeModelUnload(nodeID)
 	lister, ok := a.registry.(interface {
 		GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
 	})
@@ -608,17 +629,11 @@ func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) erro
 		return err
 	}
 	for _, replica := range replicas {
-		if replica.ModelName != modelName || replica.Address == "" {
+		if replica.ModelName != modelName {
 			continue
 		}
-		xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", modelName, "replica", replica.ReplicaIndex)
-		reply, err := controlRequestJSON[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](a.nats, subject,
-			workerctl.ModelUnloadRequest{ModelName: modelName, Address: replica.Address}, 30*time.Second)
-		if err != nil {
+		if err := a.UnloadReplica(nodeID, replica); err != nil {
 			return err
-		}
-		if !reply.Success {
-			return fmt.Errorf("model.unload on node %s: %s", nodeID, reply.Error)
 		}
 	}
 	return nil

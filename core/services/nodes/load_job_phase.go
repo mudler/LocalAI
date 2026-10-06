@@ -45,6 +45,7 @@ func (p *loadPhaseReporter) snapshot() LoadJobUpdate {
 		NodeID:       p.nodeID,
 		NodeName:     p.nodeName,
 		ReplicaIndex: p.replicaIndex,
+		LegacyWorker: p.legacyWorker,
 	}
 }
 

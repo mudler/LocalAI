@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -161,6 +163,8 @@ type backendSupervisor struct {
 	// operations are the loads the watchdog bounds, by operation id. Guarded by
 	// mu. See operations.go.
 	operations map[string]*loadOperation
+	// ledger records started backends for the orphan sweep. nil in tests.
+	ledger *processLedger
 	// opKillTTL, opTick and readyFn are overridden only by tests; zero or nil
 	// means the defaults.
 	opKillTTL time.Duration
@@ -339,6 +343,43 @@ func (s *backendSupervisor) allocatePort(key string) (int, error) {
 		ErrNoFreePort, minPort, maxPort, len(s.processes), len(s.quarantinedPorts))
 }
 
+// allocateFreePort is allocatePort that also checks the port is free on the
+// host. A restarted worker can be handed a port that an orphan of its
+// predecessor still holds. The readiness poll would connect to that orphan and
+// report a backend that is not the one it started, so a busy port is set aside
+// and the next one is tried. Callers must hold s.mu.
+func (s *backendSupervisor) allocateFreePort(key string) (int, error) {
+	var busy []int
+	defer func() {
+		for _, p := range busy {
+			// Back to the allocator after the quarantine, once nothing holds it.
+			s.releasePort(p)
+		}
+	}()
+	for range 64 {
+		port, err := s.allocatePort(key)
+		if err != nil {
+			return 0, err
+		}
+		if portIsFree(port) {
+			return port, nil
+		}
+		xlog.Warn("A gRPC port is already in use on this host; skipping it", "backend", key, "port", port)
+		busy = append(busy, port)
+	}
+	return 0, fmt.Errorf("%w: every port tried was already in use", ErrNoFreePort)
+}
+
+// portIsFree reports whether nothing listens on port on this host.
+func portIsFree(port int) bool {
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return false
+	}
+	_ = lis.Close()
+	return true
+}
+
 // sweepAffinity drops claims whose window has lapsed, so their ports become
 // ordinary free ports again. Swept lazily on allocation for the same reason as
 // sweepQuarantine: the only observer is allocation itself, so a timer goroutine
@@ -480,7 +521,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		s.reapDeadProcess(backend, bp)
 	}
 
-	port, err := s.allocatePort(backend)
+	port, err := s.allocateFreePort(backend)
 	if err != nil {
 		s.mu.Unlock()
 		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
@@ -516,6 +557,9 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		backendDirID: dirInfo,
 		instance:     uuid.NewString(),
 	}
+	if pid, convErr := strconv.Atoi(proc.CurrentPID()); convErr == nil {
+		s.ledger.add(backend, pid)
+	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
 	// Capture reference before unlocking for race-safe health check.
@@ -540,6 +584,12 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		time.Sleep(readinessPollInterval)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		ok, healthErr := client.HealthCheck(ctx)
+		// An answer only counts when the process this worker started is still
+		// alive. A child that lost the bind to an orphan exits at once, and the
+		// orphan's answer is not its own.
+		if ok && !proc.IsAlive() {
+			ok = false
+		}
 		if ok {
 			cancel()
 			// Verify the process wasn't stopped/replaced while health-checking.
@@ -618,6 +668,7 @@ func (s *backendSupervisor) markBackendServing(key string, bp *backendProcess) b
 func (s *backendSupervisor) reapDeadProcess(key string, bp *backendProcess) {
 	xlog.Warn("Backend process died unexpectedly, restarting", "backend", key)
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	if bp == nil {
 		return
 	}
@@ -639,6 +690,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		return
 	}
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
@@ -899,6 +951,7 @@ func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force
 	}
 
 	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force, "backendName", bp.backendName)
+	s.ml.NoteIntentionalStop(bp.proc)
 	stopErr := bp.proc.Stop()
 	if stopErr != nil {
 		xlog.Error("Error stopping backend process", "backend", key, "error", stopErr)
@@ -964,6 +1017,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 		}
 	}
 
+	s.ml.NoteIntentionalStop(bp.proc)
 	stopErr := bp.proc.Stop()
 	if stopErr == nil {
 		<-bp.proc.Done()
@@ -1017,6 +1071,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)

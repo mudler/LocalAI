@@ -26,6 +26,10 @@ type ModelLoadingError struct {
 	RetryAfter time.Duration
 }
 
+// RetryLater marks the error as an answer to retry, not a fault. The model
+// loader logs it quietly.
+func (e *ModelLoadingError) RetryLater() bool { return true }
+
 func (e *ModelLoadingError) Error() string {
 	if e.Status.State == LoadJobStateFailed {
 		// A model held by a failed attempt: report the real cause. The caller

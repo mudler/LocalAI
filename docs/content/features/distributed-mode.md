@@ -168,7 +168,8 @@ The frontend owns the job row, but the real work runs in a backend process on a 
 - The install request carries the operation id and the longest the load may run, as a duration, so a worker clock that is wrong changes nothing. The backend starts in its own process group.
 - The frontend renews the operation every few seconds and completes it when the load finishes. The worker kills the whole process group when no renewal arrives for 90 seconds, or when the deadline passes. A backend that already reports `READY` is never killed: a lost completion message must not destroy a model that serves.
 - A stop names the operation, the process key and, when known, the address and process instance. The worker refuses unless they all match its own records. There is no fallback to "any running backend". A stop for a load that already finished leaves the serving model alone.
-- A restarted worker reports a new incarnation on its next heartbeat. That proves every operation of the previous process ended, so the failed loads on that node are confirmed at once.
+- A worker that is killed cannot stop its backends. It records each backend's process group in a small file under its data directory, and the next worker kills every group listed there before it serves (Linux; the start time of the leader guards against a recycled pid). A new incarnation, reported on the next heartbeat, then confirms the failed loads on that node. The worker also skips a gRPC port that something already listens on, and a readiness answer only counts while the worker's own backend process is alive.
+- If the worker answers a renewal with "unknown operation" three times in a row, the frontend fails the load at once instead of waiting for the load budget. The worker lost the operation, so the work is gone.
 
 When a load fails after remote work may have started (a timeout, a cancel, a lost lease), the owner stops the operation immediately. An acknowledged stop shortens the hold to the 15 second report window. A silent worker keeps the hold at the stop window (2.5 minutes), and the reconciler retries the stop on every pass until the worker answers or the window ends. Nothing needs manual cleanup.
 
@@ -197,13 +198,13 @@ A model held by a failed job answers `503` with `Retry-After` set to the seconds
 | `404` | Unknown model, or the server is not distributed |
 | `409` | A different attempt is current. The body carries its `current_job_id`. |
 
-The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The `cancel_model_load` tool of the assistant calls the same service.
+The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The replica rows of a cancelled attempt are removed as soon as the worker confirms the stop. The `cancel_model_load` tool of the assistant calls the same service.
 
 `load-status` also reports `job_id`, `lease_expires_in`, `cancel_requested`, `last_error`, `stopping`, `stop_deadline` and `retry_after`. A database error is a `503`, never an empty answer.
 
 #### Rolling upgrades
 
-Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop is sent by exact process address, never by model name. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
+Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
 ### NATS JWT authentication (recommended for production)
 

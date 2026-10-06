@@ -368,6 +368,10 @@ type ModelLoadJob struct {
 	// forward with every heartbeat. A running job whose lease is missing or in
 	// the past has no live owner.
 	LeaseUntil *time.Time `json:"-"`
+	// LegacyWorker is true when the load runs on a worker that cannot name
+	// operations. Its stop is by exact address, and its hold is the load
+	// deadline.
+	LegacyWorker bool `gorm:"not null;default:false" json:"-"`
 	// OpConfirmed is true once the remote work of a failed job is known to have
 	// ended: the owner saw the backend answer, the worker acknowledged a stop, or
 	// the worker restarted. It shortens the stop window.
@@ -1760,7 +1764,7 @@ func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName st
 	// A load owner removes its own replica row inside the fence, so a stale
 	// owner cannot delete the row of the attempt that replaced it.
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := requireLoadOwnership(ctx, tx); err != nil {
+		if err := requireLoadOwnershipFor(ctx, tx, true); err != nil {
 			return err
 		}
 		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
