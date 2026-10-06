@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -184,12 +185,12 @@ func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner st
 	if s.jobs == nil {
 		s.jobs = map[string]*ModelLoadJob{}
 	}
-	if existing, ok := s.jobs[trackingKey]; ok && !existing.IsOrphaned(time.Now()) {
+	if existing, ok := s.jobs[trackingKey]; ok && !existing.reclaimable(time.Now()) {
 		cp := *existing
 		return &cp, false, nil
 	}
 	now := time.Now()
-	job := &ModelLoadJob{TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
+	job := &ModelLoadJob{TrackingKey: trackingKey, Generation: uuid.NewString(), State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
 	s.jobs[trackingKey] = job
 	cp := *job
 	return &cp, true, nil
@@ -206,12 +207,22 @@ func (s *fakeLoadJobStore) GetLoadJob(_ context.Context, trackingKey string) (*M
 	return &cp, nil
 }
 
-func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, u LoadJobUpdate) error {
+// owned returns the row ref still names, or nil when the attempt lost it.
+// Callers hold s.mu.
+func (s *fakeLoadJobStore) owned(ref LoadJobRef) *ModelLoadJob {
+	job, ok := s.jobs[ref.TrackingKey]
+	if !ok || !ref.owned() || job.Generation != ref.Generation {
+		return nil
+	}
+	return job
+}
+
+func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, ref LoadJobRef, u LoadJobUpdate) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	job, ok := s.jobs[trackingKey]
-	if !ok {
-		return nil
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
 	}
 	if u.State != "" {
 		job.State = u.State
@@ -232,21 +243,38 @@ func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, 
 	return nil
 }
 
-func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, trackingKey, msg string) error {
+func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, ref LoadJobRef, msg string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if job, ok := s.jobs[trackingKey]; ok {
-		job.State = LoadJobStateFailed
-		job.LastError = msg
-		job.LastProgress = time.Now()
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
 	}
+	job.State = LoadJobStateFailed
+	job.LastError = msg
+	job.LastProgress = time.Now()
 	return nil
 }
 
-func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, trackingKey string) error {
+func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, ref LoadJobRef) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.jobs, trackingKey)
+	job := s.owned(ref)
+	if job == nil || job.State == LoadJobStateFailed {
+		return ErrStaleLoadJob
+	}
+	delete(s.jobs, ref.TrackingKey)
+	return nil
+}
+
+func (s *fakeLoadJobStore) DeleteFailedLoadJob(_ context.Context, ref LoadJobRef) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job := s.owned(ref)
+	if job == nil || job.State != LoadJobStateFailed || time.Since(job.LastProgress) < loadJobFailureGrace {
+		return ErrStaleLoadJob
+	}
+	delete(s.jobs, ref.TrackingKey)
 	return nil
 }
 

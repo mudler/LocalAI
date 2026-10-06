@@ -74,7 +74,7 @@ var _ = Describe("ModelLoadJob", func() {
 			// The whole point of the split: a claim is a decision that takes
 			// milliseconds, so a concurrent request never waits behind the
 			// minutes-long load the owner is running.
-			_, claimed, err := registry.ClaimLoadJob(ctx, "slow-model", "replica-a")
+			slow, claimed, err := registry.ClaimLoadJob(ctx, "slow-model", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(claimed).To(BeTrue())
 
@@ -85,7 +85,7 @@ var _ = Describe("ModelLoadJob", func() {
 				close(running)
 				// Stand in for a multi-GB staging run owned by replica-a.
 				time.Sleep(2 * time.Second)
-				Expect(registry.DeleteLoadJob(ctx, "slow-model")).To(Succeed())
+				Expect(registry.DeleteLoadJob(ctx, slow.Ref())).To(Succeed())
 				close(done)
 			}()
 			<-running
@@ -134,11 +134,11 @@ var _ = Describe("ModelLoadJob", func() {
 		})
 
 		It("records progress and clears the row on completion", func() {
-			_, _, err := registry.ClaimLoadJob(ctx, "m1", "replica-a")
+			m1Job, _, err := registry.ClaimLoadJob(ctx, "m1", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
 
 			started := time.Now()
-			Expect(registry.UpdateLoadJob(ctx, "m1", LoadJobUpdate{
+			Expect(registry.UpdateLoadJob(ctx, m1Job.Ref(), LoadJobUpdate{
 				State: LoadJobStateStaging, NodeID: "node-1", NodeName: "nvidia-thor",
 				ReplicaIndex: 2, BytesSent: 500, TotalBytes: 1000, FileIndex: 1, TotalFiles: 1,
 				StartedAt: started,
@@ -151,16 +151,16 @@ var _ = Describe("ModelLoadJob", func() {
 			Expect(job.ReplicaIndex).To(Equal(2))
 			Expect(job.Progress()).To(BeNumerically("~", 50, 0.01))
 
-			Expect(registry.DeleteLoadJob(ctx, "m1")).To(Succeed())
+			Expect(registry.DeleteLoadJob(ctx, m1Job.Ref())).To(Succeed())
 			job, err = registry.GetLoadJob(ctx, "m1")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(job).To(BeNil())
 		})
 
 		It("keeps the placement across a byte-less heartbeat", func() {
-			_, _, err := registry.ClaimLoadJob(ctx, "m2", "replica-a")
+			m2Job, _, err := registry.ClaimLoadJob(ctx, "m2", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.UpdateLoadJob(ctx, "m2", LoadJobUpdate{
+			Expect(registry.UpdateLoadJob(ctx, m2Job.Ref(), LoadJobUpdate{
 				State: LoadJobStateStaging, NodeID: "node-1", NodeName: "nvidia-thor",
 			})).To(Succeed())
 
@@ -170,7 +170,7 @@ var _ = Describe("ModelLoadJob", func() {
 			// A checkpoint load moves no bytes for minutes; the heartbeat must
 			// still tick, and must not erase where the model is loading.
 			time.Sleep(10 * time.Millisecond)
-			Expect(registry.UpdateLoadJob(ctx, "m2", LoadJobUpdate{State: LoadJobStateLoading})).To(Succeed())
+			Expect(registry.UpdateLoadJob(ctx, m2Job.Ref(), LoadJobUpdate{State: LoadJobStateLoading})).To(Succeed())
 
 			after, err := registry.GetLoadJob(ctx, "m2")
 			Expect(err).ToNot(HaveOccurred())
@@ -180,9 +180,9 @@ var _ = Describe("ModelLoadJob", func() {
 		})
 
 		It("records the failure cause for waiters to read", func() {
-			_, _, err := registry.ClaimLoadJob(ctx, "m3", "replica-a")
+			m3Job, _, err := registry.ClaimLoadJob(ctx, "m3", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, "m3", "no available nodes")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, m3Job.Ref(), "no available nodes")).To(Succeed())
 
 			job, err := registry.GetLoadJob(ctx, "m3")
 			Expect(err).ToNot(HaveOccurred())
@@ -191,9 +191,9 @@ var _ = Describe("ModelLoadJob", func() {
 		})
 
 		It("hands a request arriving inside the failure grace the real error", func() {
-			_, _, err := registry.ClaimLoadJob(ctx, "m4", "replica-a")
+			m4Job, _, err := registry.ClaimLoadJob(ctx, "m4", "replica-a")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(registry.FailLoadJob(ctx, "m4", "worker out of VRAM")).To(Succeed())
+			Expect(registry.FailLoadJob(ctx, m4Job.Ref(), "worker out of VRAM")).To(Succeed())
 
 			job, claimed, err := registry.ClaimLoadJob(ctx, "m4", "replica-b")
 			Expect(err).ToNot(HaveOccurred())

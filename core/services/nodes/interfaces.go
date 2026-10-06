@@ -72,9 +72,10 @@ type ModelRouter interface {
 type LoadJobStore interface {
 	ClaimLoadJob(ctx context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error)
 	GetLoadJob(ctx context.Context, trackingKey string) (*ModelLoadJob, error)
-	UpdateLoadJob(ctx context.Context, trackingKey string, u LoadJobUpdate) error
-	FailLoadJob(ctx context.Context, trackingKey, msg string) error
-	DeleteLoadJob(ctx context.Context, trackingKey string) error
+	UpdateLoadJob(ctx context.Context, ref LoadJobRef, u LoadJobUpdate) error
+	FailLoadJob(ctx context.Context, ref LoadJobRef, msg string) error
+	DeleteLoadJob(ctx context.Context, ref LoadJobRef) error
+	DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) error
 }
 
 // ConcurrencyConflictResolver returns the names of configured models that

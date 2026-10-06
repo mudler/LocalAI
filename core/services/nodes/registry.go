@@ -88,17 +88,17 @@ type BackendNode struct {
 	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
-	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	VRAMBudgetManuallySet bool `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
 	// Version is the LocalAI build version reported by the worker at
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
-	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 const (
@@ -329,7 +329,12 @@ type PendingBackendOp struct {
 // record of what is loaded, and keeping finished jobs would create a second
 // source of truth about it.
 type ModelLoadJob struct {
-	TrackingKey  string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	TrackingKey string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	// Generation names one attempt to load the model. It is immutable for the
+	// life of the row, and every write of the row is conditional on it, so an
+	// owner that lost the job cannot change its successor. The empty string
+	// marks a row an older binary wrote; see backfillLoadJobGenerations.
+	Generation   string `gorm:"size:36;not null;default:''" json:"-"`
 	State        string `gorm:"size:16;not null;index" json:"state"`
 	OwnerReplica string `gorm:"size:64" json:"owner_replica"`
 	NodeID       string `gorm:"size:36" json:"node_id"`
@@ -495,6 +500,14 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
+	}
+
+	// Rows written before the generation column existed get one, so they follow
+	// the same reclaim rules as any other job.
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return backfillLoadJobGenerations(context.Background(), db)
+	}); err != nil {
+		return nil, fmt.Errorf("backfilling load job generations: %w", err)
 	}
 
 	// Rules written before scheduling rules could be keyed by an alias have no
@@ -1382,6 +1395,9 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 	// both create and update. This prevents overwriting the primary key on
 	// subsequent calls for the same (node, model, replica_index).
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1411,6 +1427,9 @@ func (r *NodeRegistry) setNodeModelLoadInfoRevision(ctx context.Context, nodeID,
 		return err
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1453,6 +1472,9 @@ func (r *NodeRegistry) upsertModelLoadInfoRevision(ctx context.Context, modelNam
 		UpdatedAt:      now,
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1701,8 +1723,15 @@ func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica No
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error; err != nil {
+	// A load owner removes its own replica row inside the fence, so a stale
+	// owner cannot delete the row of the attempt that replaced it.
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
+		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+			Delete(&NodeModel{}).Error
+	}); err != nil {
 		return err
 	}
 	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)

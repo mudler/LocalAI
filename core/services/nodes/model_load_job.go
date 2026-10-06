@@ -72,6 +72,18 @@ func (j *ModelLoadJob) IsOrphaned(now time.Time) bool {
 	return now.Sub(j.LastProgress) > loadJobOrphanWindow
 }
 
+// reclaimable reports whether a new owner may replace this row. A running job
+// is replaceable once its owner stops heartbeating. A failed job is replaceable
+// once its grace window ends: the window keeps waiters that arrive right after
+// the failure from starting a duplicate load, and it is read from the row, so a
+// restarted frontend releases the model the same way as the one that failed it.
+func (j *ModelLoadJob) reclaimable(now time.Time) bool {
+	if j.State == LoadJobStateFailed {
+		return now.Sub(j.LastProgress) >= loadJobFailureGrace
+	}
+	return j.IsOrphaned(now)
+}
+
 // Progress returns overall completion as a percentage, or 0 when the job has
 // not reported enough to compute one.
 func (j *ModelLoadJob) Progress() float64 {
@@ -105,6 +117,106 @@ func (j *ModelLoadJob) ETA(now time.Time) (time.Duration, bool) {
 		return 0, false
 	}
 	return time.Duration(float64(j.TotalBytes-j.BytesSent)/rate) * time.Second, true
+}
+
+// LoadJobRef names one attempt to load a model. TrackingKey alone is not
+// enough: a replica may delete a job and another may claim the same model, and
+// a slow writer from the first attempt must not act on the second.
+type LoadJobRef struct{ TrackingKey, Generation string }
+
+// Ref returns the attempt this row records.
+func (j *ModelLoadJob) Ref() LoadJobRef { return LoadJobRef{j.TrackingKey, j.Generation} }
+
+// ErrStaleLoadJob means the attempt no longer owns its job: the row is gone,
+// failed, or now belongs to another generation. An owner that sees it must stop.
+var ErrStaleLoadJob = errors.New("stale model load job ownership")
+
+// loadJobResult turns the outcome of a write on one job row into an error.
+// Zero rows is not a database failure: it is the proof that this attempt lost
+// the job.
+func loadJobResult(res *gorm.DB) error {
+	if res.Error != nil {
+		return fmt.Errorf("writing model load job: %w", res.Error)
+	}
+	if res.RowsAffected != 1 {
+		return ErrStaleLoadJob
+	}
+	return nil
+}
+
+// ownedLoadJobOn is the only place a query on model_load_jobs starts. Every
+// update and delete of a job goes through it, so every write carries the
+// generation predicate.
+func ownedLoadJobOn(db *gorm.DB, ref LoadJobRef) *gorm.DB {
+	return db.Model(&ModelLoadJob{}).
+		Where("tracking_key = ? AND generation = ?", ref.TrackingKey, ref.Generation)
+}
+
+func (r *NodeRegistry) ownedLoadJob(ctx context.Context, ref LoadJobRef) *gorm.DB {
+	return ownedLoadJobOn(r.db.WithContext(ctx), ref)
+}
+
+// activeLoadJob limits a write to an attempt that has not failed. A failed row
+// only changes through its own grace-gated release.
+func activeLoadJob(q *gorm.DB) *gorm.DB {
+	return q.Where("state <> ?", LoadJobStateFailed)
+}
+
+// A ref with no generation names a legacy row. Nothing that runs today can own
+// one, so every owner write rejects it before it reaches the database.
+func (ref LoadJobRef) owned() bool { return ref.Generation != "" }
+
+// backfillLoadJobGenerations gives every row written before the generation
+// column existed a generation of its own. A legacy row then follows the same
+// rules as any other: it is a waiter's target while its owner heartbeats, and
+// it is reclaimed once the heartbeat stops. Rows an old binary writes after
+// this runs keep the empty default and follow the same path in ClaimLoadJob.
+func backfillLoadJobGenerations(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Exec(
+		`UPDATE model_load_jobs SET generation = gen_random_uuid()::text
+		 WHERE generation IS NULL OR generation = ''`).Error
+}
+
+type (
+	loadOwnershipKey struct{}
+	loadPathKey      struct{}
+)
+
+// ErrLoadOwnershipMissing means a write on the load path carried no generation.
+// The write is refused: a load that cannot say which attempt it belongs to must
+// not publish anything.
+var ErrLoadOwnershipMissing = errors.New("load path write without load job ownership")
+
+// withLoadOwnership attaches the attempt a load runs for. Registry writes made
+// with the returned context are fenced on that attempt.
+func withLoadOwnership(ctx context.Context, ref LoadJobRef) context.Context {
+	return context.WithValue(ctx, loadOwnershipKey{}, ref)
+}
+
+// withLoadPath marks a context as running a distributed cold load. On that path
+// a missing ownership value is a bug, not a caller that has nothing to fence.
+func withLoadPath(ctx context.Context) context.Context {
+	return context.WithValue(ctx, loadPathKey{}, true)
+}
+
+// requireLoadOwnership checks, inside the transaction that publishes a replica,
+// that the attempt still owns its job. The no-op update holds the job row lock
+// until the publish commits, so the owner cannot lose the job between the check
+// and the write. A load-path context with no ownership fails closed. A context
+// that is not on the load path (routing, health checks, tests) has nothing to
+// fence and passes.
+func requireLoadOwnership(ctx context.Context, tx *gorm.DB) error {
+	ref, ok := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
+	if !ok {
+		if ctx.Value(loadPathKey{}) != nil {
+			return ErrLoadOwnershipMissing
+		}
+		return nil
+	}
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
+	return loadJobResult(activeLoadJob(ownedLoadJobOn(tx, ref)).UpdateColumn("generation", ref.Generation))
 }
 
 // LoadJobUpdate is a partial update to a running job. Empty node fields are
@@ -145,16 +257,17 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 		err := r.db.WithContext(ctx).First(&existing, "tracking_key = ?", trackingKey).Error
 		switch {
 		case err == nil:
-			if !existing.IsOrphaned(time.Now()) {
+			if !existing.reclaimable(time.Now()) {
 				job, claimed = &existing, false
 				return nil
 			}
-			// The owning replica died mid-load. Without this a crashed frontend
-			// would wedge the model permanently: every later request would find
-			// a job row that nobody is running and wait for a load that will
-			// never progress.
-			if err := r.db.WithContext(ctx).Delete(&ModelLoadJob{}, "tracking_key = ?", trackingKey).Error; err != nil {
-				return fmt.Errorf("deleting orphaned model load job: %w", err)
+			// The owner is gone (a crashed frontend, or a failed load whose
+			// grace window is over). Without this the model stays wedged:
+			// every later request would wait for a load nobody runs. The
+			// delete names the generation it observed, so a row another
+			// writer replaced meanwhile is not removed.
+			if err := r.ownedLoadJob(ctx, existing.Ref()).Delete(&ModelLoadJob{}).Error; err != nil {
+				return fmt.Errorf("deleting reclaimable model load job: %w", err)
 			}
 		case errors.Is(err, gorm.ErrRecordNotFound):
 		default:
@@ -164,6 +277,7 @@ func (r *NodeRegistry) ClaimLoadJob(ctx context.Context, trackingKey, owner stri
 		now := time.Now()
 		fresh := &ModelLoadJob{
 			TrackingKey:  trackingKey,
+			Generation:   uuid.NewString(),
 			State:        LoadJobStatePending,
 			OwnerReplica: owner,
 			CreatedAt:    now,
@@ -208,8 +322,12 @@ func (r *NodeRegistry) ListActiveLoadJobs(ctx context.Context) ([]ModelLoadJob, 
 
 // UpdateLoadJob applies a phase transition or heartbeat. LastProgress is always
 // touched: it is the liveness signal the orphan check reads, and it must tick
-// even during phases that move no bytes at all.
-func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, trackingKey string, u LoadJobUpdate) error {
+// even during phases that move no bytes at all. It returns ErrStaleLoadJob when
+// the attempt no longer owns the job, which is the owner's signal to stop.
+func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, ref LoadJobRef, u LoadJobUpdate) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
 	now := time.Now()
 	fields := map[string]any{
 		"last_progress": now,
@@ -232,40 +350,45 @@ func (r *NodeRegistry) UpdateLoadJob(ctx context.Context, trackingKey string, u 
 	if !u.StartedAt.IsZero() {
 		fields["started_at"] = u.StartedAt
 	}
-	res := r.db.WithContext(ctx).Model(&ModelLoadJob{}).
-		Where("tracking_key = ?", trackingKey).Updates(fields)
-	if res.Error != nil {
-		return fmt.Errorf("updating model load job: %w", res.Error)
-	}
-	return nil
+	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(fields))
 }
 
-// FailLoadJob records the real failure on the job row so every waiter — local
-// or on another replica — reports the same cause instead of an anonymous
-// timeout. The row is deleted after loadJobFailureGrace by the runner.
-func (r *NodeRegistry) FailLoadJob(ctx context.Context, trackingKey, msg string) error {
+// FailLoadJob records the real failure on the job row so every waiter, local
+// or on another replica, reports the same cause instead of an anonymous
+// timeout. The row stays for loadJobFailureGrace, then the next claim replaces
+// it or DeleteFailedLoadJob removes it.
+func (r *NodeRegistry) FailLoadJob(ctx context.Context, ref LoadJobRef, msg string) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
 	now := time.Now()
-	res := r.db.WithContext(ctx).Model(&ModelLoadJob{}).
-		Where("tracking_key = ?", trackingKey).
-		Updates(map[string]any{
-			"state":         LoadJobStateFailed,
-			"last_error":    msg,
-			"last_progress": now,
-			"updated_at":    now,
-		})
-	if res.Error != nil {
-		return fmt.Errorf("failing model load job: %w", res.Error)
-	}
-	return nil
+	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Updates(map[string]any{
+		"state":         LoadJobStateFailed,
+		"last_error":    msg,
+		"last_progress": now,
+		"updated_at":    now,
+	}))
 }
 
-// DeleteLoadJob removes a terminal job row. Success deletes immediately (the
-// NodeModel row is the record of a loaded model); failures delete after their
-// grace window.
-func (r *NodeRegistry) DeleteLoadJob(ctx context.Context, trackingKey string) error {
-	if err := r.db.WithContext(ctx).
-		Delete(&ModelLoadJob{}, "tracking_key = ?", trackingKey).Error; err != nil {
-		return fmt.Errorf("deleting model load job: %w", err)
+// DeleteLoadJob removes the job of an attempt that succeeded. The NodeModel row
+// is the record of a loaded model. A failed job is not removed here: it leaves
+// through DeleteFailedLoadJob or the next claim, so a late success from a
+// stale owner cannot erase the failure its waiters need to read.
+func (r *NodeRegistry) DeleteLoadJob(ctx context.Context, ref LoadJobRef) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
 	}
-	return nil
+	return loadJobResult(activeLoadJob(r.ownedLoadJob(ctx, ref)).Delete(&ModelLoadJob{}))
+}
+
+// DeleteFailedLoadJob removes a failed job once its grace window is over. It
+// keeps the table tidy when nobody retries; the next claim does not need it.
+func (r *NodeRegistry) DeleteFailedLoadJob(ctx context.Context, ref LoadJobRef) error {
+	if !ref.owned() {
+		return ErrStaleLoadJob
+	}
+	cutoff := time.Now().Add(-loadJobFailureGrace)
+	return loadJobResult(r.ownedLoadJob(ctx, ref).
+		Where("state = ? AND last_progress <= ?", LoadJobStateFailed, cutoff).
+		Delete(&ModelLoadJob{}))
 }

@@ -222,7 +222,7 @@ type SmartRouter struct {
 	// identical outcome, so they share one wait instead of queueing. See
 	// load_job_runner.go.
 	loadWaitersMu sync.Mutex
-	loadWaiters   map[string]chan struct{}
+	loadWaiters   map[string]*loadWaiter
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -278,7 +278,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
-		loadWaiters:          map[string]chan struct{}{},
+		loadWaiters:          map[string]*loadWaiter{},
 	}
 }
 
@@ -349,6 +349,12 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 // processKey, port, and the registry row all agree.
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
 	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
+
+	// With a database every cold load runs under a job row. Mark the path so a
+	// registry write that lost its ownership value is refused, not waved through.
+	if r.db != nil {
+		ctx = withLoadPath(ctx)
+	}
 
 	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 	if err != nil {
@@ -598,13 +604,33 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// initialInFlight=0: reconciler is pre-loading, not serving a request.
-	// scheduleAndLoad picks both the node and the replica slot internally.
-	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+	// The reconciler is a load owner like a request is. It claims the job
+	// before any remote work, so a request for the same model waits for this
+	// load instead of scheduling a second copy, and a stale owner is stopped
+	// by the same loop.
+	job, claimed, err := r.registry.ClaimLoadJob(ctx, modelName, ReplicaID())
+	if err != nil {
+		return nil, fmt.Errorf("claiming the load of model %s: %w", modelName, err)
+	}
+	if !claimed {
+		return nil, fmt.Errorf("model %s is already being loaded by another owner", modelName)
+	}
+
+	var node *BackendNode
+	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
+		// initialInFlight=0: reconciler is pre-loading, not serving a request.
+		// scheduleAndLoad picks both the node and the replica slot internally.
+		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+		if err != nil {
+			return err
+		}
+		node = result.Node
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return result.Node, nil
+	return node, nil
 }
 
 // RouteResult contains the routing decision.

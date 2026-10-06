@@ -124,6 +124,9 @@ So the load does **not** run on the request. The first request for an unloaded m
 - It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
+- A failed job stays for 15 seconds so every waiter reads the same cause. After that, the next request for the model starts a new attempt. No manual cleanup is needed, and the release does not depend on the frontend that failed the job still running.
+- Each attempt has its own generation. If another replica reclaims a job because its owner stopped heartbeating, the old owner notices at its next heartbeat and stops its load. Its late writes to the job and to the replica table are rejected.
+- If the job table cannot be read, a cold load fails instead of running without a job. Models that are already loaded keep serving, because routing to a loaded replica does not read the job table.
 
 When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
 

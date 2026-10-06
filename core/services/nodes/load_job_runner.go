@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,19 +39,13 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 	}
 
 	for range maxColdLoadRounds {
-		// Register interest BEFORE claiming, so a job that finishes immediately
-		// cannot close the channel before this waiter exists.
-		waiter := r.loadWaiterChan(att.trackingKey)
-
 		job, claimed, err := r.registry.ClaimLoadJob(ctx, att.trackingKey, ReplicaID())
 		if err != nil {
-			// A broken job table must not make the model unroutable: fall back
-			// to loading inline, which is what every release before this did.
-			xlog.Warn("Claiming the model load job failed; loading inline instead",
-				"model", att.trackingKey, "error", err)
-			loadCtx, cancelLoad := r.newColdLoadContext(context.WithoutCancel(ctx))
-			defer cancelLoad()
-			return r.coldLoad(loadCtx, att, 1)
+			// Without the job row nothing fences this load, so a load without
+			// it would publish replicas nobody can cancel. Fail the request.
+			// Models that are already loaded keep serving: the warm path
+			// does not read the job table.
+			return nil, fmt.Errorf("claiming the load of model %s: %w", att.trackingKey, err)
 		}
 
 		switch {
@@ -60,10 +55,10 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 			// the lock. Without it the claim would schedule a second copy of a
 			// model that is already up.
 			if result := r.tryWarmPath(ctx, att); result != nil {
-				r.finishLoadJob(ctx, att.trackingKey)
+				_ = r.finishLoadJob(ctx, job.Ref()) // already logged; the warm result stands
 				return result, nil
 			}
-			r.startLoadJob(ctx, att)
+			r.startLoadJob(ctx, att, job.Ref())
 		case job != nil && job.State == LoadJobStateFailed:
 			// Inside the failure grace window: report the real cause rather
 			// than silently starting a fresh load of a model that just failed.
@@ -73,7 +68,12 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 				"model", att.trackingKey, "state", job.State, "node", job.NodeName, "owner", job.OwnerReplica)
 		}
 
-		if err := r.waitForLoadJob(waitCtx, att.trackingKey, waiter); err != nil {
+		// The waiter is keyed by the generation it waits for, so the end of an
+		// older attempt can never wake it. A job that ended before this
+		// registration is caught by the authority check inside waitForLoadJob.
+		ref := job.Ref()
+		waiter := r.loadWaiterChan(loadWaiterKey(ref))
+		if err := r.waitForLoadJob(waitCtx, ref, waiter); err != nil {
 			// The caller's own context is still live, so it was the wait budget
 			// that ran out, not the client giving up: answer with progress.
 			if ctx.Err() == nil && waitCtx.Err() != nil {
@@ -127,61 +127,94 @@ func (r *SmartRouter) loadingAnswer(ctx context.Context, trackingKey string, bud
 // request that triggered it. The job is owned by its record, not by that
 // request: the client may disconnect, be retried onto another replica, or time
 // out, and the transfer keeps going.
-func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt) {
-	trackingKey := att.trackingKey
+func (r *SmartRouter) startLoadJob(ctx context.Context, att *routeAttempt, ref LoadJobRef) {
 	// Keep the request's context VALUES (prefix chain and friends) but none of
 	// its cancellation — see newColdLoadContext.
 	parent := context.WithoutCancel(ctx)
 
 	go func() {
-		loadCtx, cancelLoad := r.newColdLoadContext(parent)
-		defer cancelLoad()
-
-		phase := newLoadPhaseReporter()
-		loadCtx = withLoadPhaseReporter(loadCtx, phase)
-
-		stopHeartbeat := r.startLoadJobHeartbeat(parent, trackingKey, phase)
-
-		_, err := r.coldLoad(loadCtx, att, 0)
-
-		stopHeartbeat()
-
-		// Bookkeeping must survive the load context, which may be exactly what
-		// just expired.
-		bookCtx, cancelBook := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
-		defer cancelBook()
-
-		if err != nil {
-			xlog.Error("Cold load job failed", "model", trackingKey, "error", err)
-			if ferr := r.registry.FailLoadJob(bookCtx, trackingKey, err.Error()); ferr != nil {
-				xlog.Warn("Failed to record cold load failure", "model", trackingKey, "error", ferr)
-			}
-			r.closeLoadWaiters(trackingKey)
-			// Keep the row briefly so a request arriving right now reports this
-			// failure instead of starting a duplicate load. Deleting it
-			// immediately turns a failure into a retry storm.
-			time.AfterFunc(loadJobFailureGrace, func() {
-				delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-				defer cancel()
-				if derr := r.registry.DeleteLoadJob(delCtx, trackingKey); derr != nil {
-					xlog.Warn("Failed to clear failed cold load job", "model", trackingKey, "error", derr)
-				}
-			})
-			return
-		}
-
-		r.finishLoadJob(bookCtx, trackingKey)
+		// runLoadOwner books the outcome and logs it; there is no caller left
+		// to return the error to.
+		_ = r.runLoadOwner(parent, ref, func(ownerCtx context.Context) error {
+			loadCtx, cancelLoad := r.newColdLoadContext(ownerCtx)
+			defer cancelLoad()
+			_, err := r.coldLoad(loadCtx, att, 0)
+			return err
+		})
 	}()
+}
+
+// runLoadOwner is the one loop that owns a claimed load, for the request path
+// and the reconciler path alike. It runs work under the job's generation,
+// heartbeats the row, and ends with a conditional fail or delete.
+//
+// The heartbeat doubles as the ownership check: when it finds the job gone or
+// held by another generation, the work context is cancelled. An owner that lost
+// its job stops, and its late writes find zero rows. The stale error is
+// returned to the caller instead of being swallowed, so the caller can tell a
+// lost job from a failed load.
+func (r *SmartRouter) runLoadOwner(ctx context.Context, ref LoadJobRef, work func(context.Context) error) error {
+	ownerCtx, cancel := context.WithCancelCause(withLoadOwnership(ctx, ref))
+	defer cancel(nil)
+
+	phase := newLoadPhaseReporter()
+	ownerCtx = withLoadPhaseReporter(ownerCtx, phase)
+
+	stopHeartbeat := r.startLoadJobHeartbeat(ownerCtx, ref, phase, cancel)
+	err := work(ownerCtx)
+	stopHeartbeat()
+
+	lost := errors.Is(context.Cause(ownerCtx), ErrStaleLoadJob)
+	// Bookkeeping must survive the owner context, which may be exactly what
+	// just ended.
+	bookCtx, cancelBook := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancelBook()
+
+	switch {
+	case lost:
+		xlog.Warn("Cold load stopped: its job now belongs to another attempt", "model", ref.TrackingKey)
+		r.closeLoadWaiters(loadWaiterKey(ref))
+		return fmt.Errorf("loading model %s: %w", ref.TrackingKey, ErrStaleLoadJob)
+	case err != nil:
+		xlog.Error("Cold load job failed", "model", ref.TrackingKey, "error", err)
+		if ferr := r.registry.FailLoadJob(bookCtx, ref, err.Error()); ferr != nil {
+			if errors.Is(ferr, ErrStaleLoadJob) {
+				r.closeLoadWaiters(loadWaiterKey(ref))
+				return fmt.Errorf("loading model %s: %w (load error: %v)", ref.TrackingKey, ErrStaleLoadJob, err)
+			}
+			xlog.Warn("Failed to record cold load failure", "model", ref.TrackingKey, "error", ferr)
+		}
+		r.closeLoadWaiters(loadWaiterKey(ref))
+		// Keep the row for the grace window so a request arriving right now
+		// reports this failure instead of starting a duplicate load. The
+		// timer only tidies the table: a restart loses it, and the next
+		// claim replaces a failed row past its grace window without it.
+		time.AfterFunc(loadJobFailureGrace+time.Second, func() {
+			delCtx, cancelDel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancelDel()
+			if derr := r.registry.DeleteFailedLoadJob(delCtx, ref); derr != nil && !errors.Is(derr, ErrStaleLoadJob) {
+				xlog.Warn("Failed to clear failed cold load job", "model", ref.TrackingKey, "error", derr)
+			}
+		})
+		return err
+	}
+	return r.finishLoadJob(bookCtx, ref)
 }
 
 // finishLoadJob ends a job that succeeded. The NodeModel row (state `loaded`)
 // is the record from here, so the job row is dropped BEFORE waiters are woken:
-// they re-run the warm path and must not find a job that is really done.
-func (r *SmartRouter) finishLoadJob(ctx context.Context, trackingKey string) {
-	if err := r.registry.DeleteLoadJob(ctx, trackingKey); err != nil {
-		xlog.Warn("Failed to clear completed cold load job", "model", trackingKey, "error", err)
+// they re-run the warm path and must not find a job that is really done. A
+// stale ref deletes nothing and wakes only its own generation's waiters.
+func (r *SmartRouter) finishLoadJob(ctx context.Context, ref LoadJobRef) error {
+	err := r.registry.DeleteLoadJob(ctx, ref)
+	if err != nil {
+		xlog.Warn("Failed to clear completed cold load job", "model", ref.TrackingKey, "error", err)
 	}
-	r.closeLoadWaiters(trackingKey)
+	r.closeLoadWaiters(loadWaiterKey(ref))
+	if errors.Is(err, ErrStaleLoadJob) {
+		return fmt.Errorf("loading model %s: %w", ref.TrackingKey, err)
+	}
+	return nil
 }
 
 // startLoadJobHeartbeat keeps the job row's liveness and progress fresh while
@@ -192,7 +225,8 @@ func (r *SmartRouter) finishLoadJob(ctx context.Context, trackingKey string) {
 // row when bytes moved would look orphaned and be reclaimed mid-load. Byte
 // progress is copied in from the staging tracker, which already debounces the
 // per-chunk callbacks, so the row is written at most once per interval.
-func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey string, phase *loadPhaseReporter) func() {
+func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobRef, phase *loadPhaseReporter, abort context.CancelCauseFunc) func() {
+	trackingKey := ref.TrackingKey
 	done := make(chan struct{})
 	stopped := make(chan struct{})
 
@@ -205,6 +239,8 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey 
 			select {
 			case <-done:
 				return
+			case <-parent.Done():
+				return
 			case <-ticker.C:
 				u := phase.snapshot()
 				if st := r.stagingTracker.Get(trackingKey); st != nil {
@@ -216,10 +252,18 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey 
 					u.StartedAt = startedAt
 				}
 				ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), loadJobHeartbeatInterval*5)
-				if err := r.registry.UpdateLoadJob(ctx, trackingKey, u); err != nil {
+				err := r.registry.UpdateLoadJob(ctx, ref, u)
+				cancel()
+				if errors.Is(err, ErrStaleLoadJob) {
+					// Zero rows: the job is gone or another generation holds
+					// it. Stop the work instead of finishing a load nobody
+					// owns.
+					abort(ErrStaleLoadJob)
+					return
+				}
+				if err != nil {
 					xlog.Debug("Failed to heartbeat cold load job", "model", trackingKey, "error", err)
 				}
-				cancel()
 			}
 		}
 	}()
@@ -230,70 +274,119 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, trackingKey 
 	}
 }
 
-// waitForLoadJob blocks until the cold load of trackingKey reaches a terminal
-// state, the job's failure is known, or the caller gives up.
+// waitForLoadJob blocks until the cold load of ref reaches a terminal state,
+// the job's failure is known, or the caller gives up.
 //
 // Waiters share one broadcast rather than an ordered queue: they all want the
 // identical outcome — the model loaded — so ordering them would add fairness
-// machinery that changes no result. The local channel wakes same-replica
-// waiters instantly; the DB poll is the authority, because a waiter on another
-// replica has no channel to close and NATS broadcasts are fire-and-forget, so a
-// missed terminal event must not strand it.
-func (r *SmartRouter) waitForLoadJob(ctx context.Context, trackingKey string, waiter <-chan struct{}) error {
+// machinery that changes no result. The local channel is only a hint that wakes
+// same-replica waiters early; the DB is the authority, because a waiter on
+// another replica has no channel to close and NATS broadcasts are
+// fire-and-forget, so a missed terminal event must not strand it.
+//
+// The waiter is bound to one generation. When the job row is gone, or belongs to
+// another generation, the attempt it waited for is over: the caller re-runs the
+// warm path and, if the model is still missing, claims again.
+func (r *SmartRouter) waitForLoadJob(ctx context.Context, ref LoadJobRef, waiter <-chan struct{}) error {
+	defer r.releaseLoadWaiter(loadWaiterKey(ref), waiter)
+
+	// The registration may have come after the job ended; ask the authority
+	// before sleeping on the hint.
+	if done, err := r.checkLoadWait(ctx, ref); done {
+		return err
+	}
+
 	ticker := time.NewTicker(loadJobPollInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-waiter:
-			return nil
+			waiter = nil // closed: do not spin on it
+			if done, err := r.checkLoadWait(ctx, ref); done {
+				return err
+			}
 		case <-ctx.Done():
 			// The client gave up. The job is unaffected: it is owned by the job
 			// record, not by this request.
 			return ctx.Err()
 		case <-ticker.C:
-			job, err := r.registry.GetLoadJob(ctx, trackingKey)
-			if err != nil {
-				xlog.Debug("Polling the model load job failed", "model", trackingKey, "error", err)
-				continue
-			}
-			if job == nil {
-				// Terminal: either it succeeded, or it was reaped. Either way
-				// the caller re-checks the warm path.
-				return nil
-			}
-			if job.State == LoadJobStateFailed {
-				return fmt.Errorf("loading model %s: %s", trackingKey, job.LastError)
+			if done, err := r.checkLoadWait(ctx, ref); done {
+				return err
 			}
 		}
 	}
 }
 
-// loadWaiterChan returns the broadcast channel for trackingKey, creating it on
-// first use. Same shape as advisorylock.localLocks: N local requests share one
-// wait and wake together.
-func (r *SmartRouter) loadWaiterChan(trackingKey string) <-chan struct{} {
+// checkLoadWait reads the job row and reports whether the wait is over.
+func (r *SmartRouter) checkLoadWait(ctx context.Context, ref LoadJobRef) (bool, error) {
+	job, err := r.registry.GetLoadJob(ctx, ref.TrackingKey)
+	if err != nil {
+		xlog.Debug("Polling the model load job failed", "model", ref.TrackingKey, "error", err)
+		return false, nil
+	}
+	if job == nil || job.Generation != ref.Generation {
+		// Terminal: it succeeded, was reaped, or was replaced. Either way the
+		// caller re-checks the warm path.
+		return true, nil
+	}
+	if job.State == LoadJobStateFailed {
+		return true, fmt.Errorf("loading model %s: %s", ref.TrackingKey, job.LastError)
+	}
+	return false, nil
+}
+
+// loadWaiter is the shared wake-up channel for one generation, with a count of
+// the requests registered on it.
+type loadWaiter struct {
+	ch   chan struct{}
+	refs int
+}
+
+// loadWaiterKey keys waiters by generation, not by model, so a late finish of
+// one attempt cannot wake the waiters of the next.
+func loadWaiterKey(ref LoadJobRef) string { return ref.TrackingKey + "\x00" + ref.Generation }
+
+// loadWaiterChan registers a waiter and returns the broadcast channel for key,
+// creating it on first use. Same shape as advisorylock.localLocks: N local
+// requests share one wait and wake together.
+func (r *SmartRouter) loadWaiterChan(key string) <-chan struct{} {
 	r.loadWaitersMu.Lock()
 	defer r.loadWaitersMu.Unlock()
 	if r.loadWaiters == nil {
-		r.loadWaiters = map[string]chan struct{}{}
+		r.loadWaiters = map[string]*loadWaiter{}
 	}
-	ch, ok := r.loadWaiters[trackingKey]
+	w, ok := r.loadWaiters[key]
 	if !ok {
-		ch = make(chan struct{})
-		r.loadWaiters[trackingKey] = ch
+		w = &loadWaiter{ch: make(chan struct{})}
+		r.loadWaiters[key] = w
 	}
-	return ch
+	w.refs++
+	return w.ch
 }
 
-// closeLoadWaiters wakes every local waiter on trackingKey. A waiter that
-// registers after this sees a fresh channel and falls back to the DB poll.
-func (r *SmartRouter) closeLoadWaiters(trackingKey string) {
+// releaseLoadWaiter drops one registration. Without it a waiter that gives up
+// before the job ends would leave its entry in the map for ever. The channel
+// identity check keeps a late release from deleting a newer registration.
+func (r *SmartRouter) releaseLoadWaiter(key string, ch <-chan struct{}) {
 	r.loadWaitersMu.Lock()
-	ch, ok := r.loadWaiters[trackingKey]
-	delete(r.loadWaiters, trackingKey)
+	defer r.loadWaitersMu.Unlock()
+	if w := r.loadWaiters[key]; w != nil && w.ch == ch {
+		w.refs--
+		if w.refs <= 0 {
+			delete(r.loadWaiters, key)
+		}
+	}
+}
+
+// closeLoadWaiters wakes every local waiter on key. A waiter that registers
+// after this sees a fresh channel and falls back to the DB check.
+func (r *SmartRouter) closeLoadWaiters(key string) {
+	r.loadWaitersMu.Lock()
+	w, ok := r.loadWaiters[key]
+	delete(r.loadWaiters, key)
 	r.loadWaitersMu.Unlock()
 	if ok {
-		close(ch)
+		close(w.ch)
 	}
 }
