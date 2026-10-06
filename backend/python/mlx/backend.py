@@ -164,6 +164,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Create sampler and optional logits processors (penalties)
             sampler = make_sampler(**sampler_params)
             logits_processors = make_logits_processors(**logits_params) if logits_params else None
+            if not cache_is_trimmable and remaining_tokens:
+                logits_processors = self._prepend_logits_history(
+                    logits_processors, cache_key[:len(cache_key) - len(remaining_tokens)]
+                )
 
             # Use stream_generate to collect text + track tokens for cache key
             generated_text = []
@@ -329,6 +333,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Create sampler and optional logits processors (penalties)
             sampler = make_sampler(**sampler_params)
             logits_processors = make_logits_processors(**logits_params) if logits_params else None
+            if not cache_is_trimmable and remaining_tokens:
+                logits_processors = self._prepend_logits_history(
+                    logits_processors, cache_key[:len(cache_key) - len(remaining_tokens)]
+                )
 
             accumulated = []
             last_response = None
@@ -391,6 +399,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     self.lru_cache.insert_cache(self.model_key, cache_key, prompt_cache)
                 except Exception as e:
                     print(f"Error inserting cache: {e}", file=sys.stderr)
+
+    @staticmethod
+    def _prepend_logits_history(processors, prefix_tokens):
+        if not processors or not prefix_tokens:
+            return processors
+        # stream_generate sees only the uncached suffix, but penalties must
+        # include the prefix evaluated separately, on both cold and warm calls.
+        prefix = mx.array(prefix_tokens)
+        return [
+            lambda tokens, logits, processor=processor: processor(
+                mx.concatenate([prefix, tokens]), logits
+            )
+            for processor in processors
+        ]
 
     def _prepare_generation_cache(self, request, tokens):
         fresh_cache = make_prompt_cache(self.model, self.max_kv_size)

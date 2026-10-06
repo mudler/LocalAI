@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Exercise the real MLX RPC paths without requiring MLX or a model download."""
 import asyncio
+from collections import Counter
 import importlib.util
 import json
 from pathlib import Path
@@ -37,7 +38,7 @@ def load_backend():
         "mlx_lm.sample_utils": types.SimpleNamespace(make_logits_processors=lambda **kw: None, make_sampler=lambda **kw: None),
         "mlx_lm.models.cache": types.SimpleNamespace(make_prompt_cache=lambda *args: [Cache()], can_trim_prompt_cache=lambda cache: False, trim_prompt_cache=None),
         "mlx": types.ModuleType("mlx"),
-        "mlx.core": types.SimpleNamespace(array=Array, eval=lambda *args: None),
+        "mlx.core": types.SimpleNamespace(array=Array, concatenate=lambda arrays: Array(token for array in arrays for token in array.tokens), eval=lambda *args: None),
     }
     spec = importlib.util.spec_from_file_location("hybrid_cache_backend", Path(__file__).with_name("backend.py"))
     module = importlib.util.module_from_spec(spec)
@@ -74,6 +75,7 @@ class TestHybridCache(unittest.TestCase):
         self.model_inputs = []
         self.generation_inputs = []
         self.batch_sizes = []
+        self.processor_results = []
         self.fail_generation = False
         self.fail_prefill = False
         self.context = types.SimpleNamespace(set_code=lambda code: setattr(self, "error", code), set_details=lambda value: None)
@@ -94,6 +96,11 @@ class TestHybridCache(unittest.TestCase):
             model(prompt, cache=prompt_cache)
             if self.fail_generation:
                 raise RuntimeError("generation failed")
+            for history in (list(prompt), list(prompt) + ["OUTPUT"]):
+                logits = {token: 12.0 for token in self.generation_inputs[-1] + ["OUTPUT"]}
+                for processor in kwargs.get("logits_processors") or []:
+                    logits = processor(Array(history), logits)
+                self.processor_results.append(logits)
             yield types.SimpleNamespace(text="ok", token="OUTPUT", prompt_tokens=len(prompt), generation_tokens=1)
 
         self.generator = patch.object(backend, "stream_generate", generate)
@@ -152,6 +159,50 @@ class TestHybridCache(unittest.TestCase):
                 self.run_request(request, streaming)
                 expected = len(self.service._get_tokens_from_prompt(self.service._prepare_prompt(request)))
                 self.assertEqual(self.replies[-1].prompt_tokens, expected)
+
+    def test_penalties_include_full_history_on_cold_and_warm_requests(self):
+        histories = []
+
+        def make_processors(**params):
+            def repetition(history, logits):
+                histories.append(("repetition", history.tokens))
+                return {token: score / params["repetition_penalty"] if token in history.tokens else score
+                        for token, score in logits.items()}
+
+            def presence(history, logits):
+                histories.append(("presence", history.tokens))
+                return {token: score - params["presence_penalty"] if token in history.tokens else score
+                        for token, score in logits.items()}
+
+            def frequency(history, logits):
+                histories.append(("frequency", history.tokens))
+                counts = Counter(history.tokens)
+                return {token: score - params["frequency_penalty"] * counts[token]
+                        for token, score in logits.items()}
+
+            return [repetition, presence, frequency]
+
+        with patch.object(backend, "make_logits_processors", make_processors):
+            for streaming in (False, True):
+                self.service.lru_cache.clear()
+                for user in ("cold", "warm"):
+                    with self.subTest(streaming=streaming, user=user):
+                        histories.clear()
+                        self.processor_results.clear()
+                        request = self.request(user, tools='[{"name":"weather"}]')
+                        request.RepetitionPenalty = 2.0
+                        request.PresencePenalty = 0.5
+                        request.FrequencyPenalty = 0.25
+                        tokens = self.service._get_tokens_from_prompt(self.service._prepare_prompt(request))
+                        self.run_request(request, streaming)
+                        expected_histories = [tokens, tokens + ["OUTPUT"]]
+                        self.assertEqual(histories, [(name, history) for history in expected_histories
+                                                    for name in ("repetition", "presence", "frequency")])
+                        for history, scores in zip(expected_histories, self.processor_results):
+                            counts = Counter(history)
+                            expected = {token: 6.0 - 0.5 - 0.25 * counts[token] if counts[token] else 12.0
+                                        for token in tokens + ["OUTPUT"]}
+                            self.assertEqual(scores, expected)
 
     def test_tool_and_thinking_prefixes_are_part_of_key(self):
         self.run_request(self.request())
