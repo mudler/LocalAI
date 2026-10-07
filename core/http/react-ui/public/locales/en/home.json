@@ -153,7 +153,10 @@
     "heading": "Chat models",
     "noMatch": "No model matches.",
     "warm": "warm",
-    "cold": "not loaded"
+    "cold": "not loaded",
+    "loadedNow": "Loaded now",
+    "installed": "Installed",
+    "vision": "Understands images"
   },
   "slash": {
     "label": "Actions",

@@ -20,6 +20,9 @@ import HomeComposer from '../components/home/HomeComposer'
 // eslint-disable-next-line no-unused-vars
 import HomeModelPicker from '../components/home/HomeModelPicker'
 import { useModels } from '../hooks/useModels'
+import { useModelFit } from '../hooks/useModelFit'
+import { fillStyle, hostMemory, memoryFigure } from '../components/home/memory'
+import { gbLabel, gbNumber } from '../utils/modelLedger'
 import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
 import { messageText } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
@@ -189,7 +192,11 @@ export default function Chat() {
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
   const pickerRef = useRef(null)
-  const { models: chatModels } = useModels(CAP_CHAT)
+  const { models: chatModels, loading: chatModelsLoading } = useModels(CAP_CHAT)
+  const [fitOpenCount, setFitOpenCount] = useState(0)
+  const modelNames = useMemo(() => chatModels.map(m => m.id), [chatModels])
+  const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames, contextSize: activeChat?.contextSize })
+  const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
   const hasThread = (activeChat?.history?.length || 0) > 0
   const slashConfig = useMemo(() => ({
     actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread }),
@@ -904,13 +911,45 @@ export default function Chat() {
     if (!next) setCanvasOpen(false)
   }
 
+  // What a row of the model list says: whether it is loaded, what it can do and,
+  // where the server can estimate it, how it fits this machine. A model with no
+  // estimate gets no fit text.
+  const describeModel = (name, warm) => {
+    const vision = chatModels.find(m => m.id === name)?.capabilities?.includes('FLAG_VISION')
+    const reading = modelFit.reading(name)
+    let fit = null
+    if (warm) fit = { tone: 'ok', text: t('picker.readyNow') }
+    else if (reading?.fit) {
+      const f = reading.fit
+      fit = f.state === 'fits'
+        ? { tone: 'ok', text: t('picker.fits', { amount: gbNumber(f.amount) }) }
+        : f.state === 'spill'
+          ? { tone: 'warn', text: t('picker.spill', { amount: gbNumber(f.amount) }) }
+          : { tone: 'err', text: t('picker.over', { amount: gbNumber(f.amount) }) }
+    }
+    return { vision: !!vision, size: reading?.bytes ? gbLabel(reading.bytes) : null, fit }
+  }
+  const memory = hostMemory(modelFit.resources)
+  const memoryNumbers = memory ? memoryFigure(memory.used, memory.total) : null
   const picker = (
     <HomeModelPicker
       ref={pickerRef}
       value={activeChat.model}
       onChange={(model) => updateChatSettings(activeChat.id, { model })}
       capability={CAP_CHAT}
+      models={chatModels}
+      loading={chatModelsLoading}
       loadedIds={loadedIds}
+      grouped
+      describe={describeModel}
+      onOpen={onPickerOpen}
+      footer={memoryNumbers && (
+        <div className="home-menu__foot" data-testid="chat-model-memory">
+          <span>{memory.isGpu ? t('picker.gpuMemory') : t('picker.memory')}</span>
+          <span className="cx-ctx__bar" aria-hidden="true"><i style={fillStyle(memory.pct)} /></span>
+          <span>{t('picker.memoryUsed', { used: memoryNumbers.used, total: memoryNumbers.total, unit: memoryNumbers.unit })}</span>
+        </div>
+      )}
     />
   )
 

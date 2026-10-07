@@ -1,4 +1,5 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+// eslint-disable-next-line no-unused-vars
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useModels } from '../../hooks/useModels'
 import { readLastModel, writeLastModel } from '../../utils/lastModel'
@@ -9,14 +10,26 @@ const FILTER_FROM = 8
 
 // The model chip on the Home command bar and its listbox. A model is "warm"
 // when the server reports it loaded (the same /system list the status strip
-// reads), "cold" otherwise. Nothing about load time or fit is shown: the API
-// does not report either for an installed model.
+// reads), "cold" otherwise. Nothing about load time is shown: the API does not
+// report it for an installed model.
+//
+// Chat uses the same chip and adds, all optional:
+//   models, loading   the page already holds the list, so no second fetch
+//   grouped           "Loaded now" and "Installed" instead of one list
+//   describe(name)    { vision, size, fit: { tone, text } } for a row
+//   onOpen            called when the list opens (to read memory and sizes)
+//   footer            a node under the list (the memory bar)
 const HomeModelPicker = forwardRef(function HomeModelPicker(
-  { value, onChange, capability, loadedIds, disabled = false, placeholder },
+  {
+    value, onChange, capability, loadedIds, disabled = false, placeholder,
+    models: givenModels, loading: givenLoading, grouped = false, describe, onOpen, footer,
+  },
   ref,
 ) {
   const { t } = useTranslation('home')
-  const { models, loading } = useModels(capability)
+  const own = useModels(capability, { enabled: !givenModels })
+  const models = givenModels || own.models
+  const loading = givenModels ? !!givenLoading : own.loading
   const names = useMemo(() => models.map(m => m.id), [models])
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -36,10 +49,13 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
     }
   }, [names, value, onChange, capability])
 
+  // Loaded models first when the list is grouped; each group keeps its order.
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? names.filter(n => n.toLowerCase().includes(q)) : names
-  }, [names, query])
+    const found = q ? names.filter(n => n.toLowerCase().includes(q)) : names
+    if (!grouped) return found
+    return [...found.filter(n => loadedIds?.has(n)), ...found.filter(n => !loadedIds?.has(n))]
+  }, [names, query, grouped, loadedIds])
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false)
@@ -52,7 +68,8 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
     setActive(Math.max(0, names.indexOf(value)))
     setQuery('')
     setOpen(true)
-  }, [disabled, names, value])
+    onOpen?.()
+  }, [disabled, names, value, onOpen])
 
   useImperativeHandle(ref, () => ({ open: openMenu, focus: () => chipRef.current?.focus() }), [openMenu])
 
@@ -143,30 +160,59 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
             tabIndex={-1}
             aria-activedescendant={activeId}
           >
-            <li className="home-menu__head" role="presentation">{t('picker.heading')}</li>
+            {!grouped && <li className="home-menu__head" role="presentation">{t('picker.heading')}</li>}
             {shown.length === 0 && <li className="home-menu__empty" role="presentation">{t('picker.noMatch')}</li>}
             {shown.map((name, i) => {
               const warm = isWarm(name)
+              const info = describe ? describe(name, warm) : null
+              const first = grouped && (i === 0 || isWarm(shown[i - 1]) !== warm)
               return (
-                <li
-                  key={name}
-                  id={`home-model-opt-${i}`}
-                  role="option"
-                  aria-selected={name === value}
-                  data-active={i === active}
-                  className="home-menu__item"
-                  onMouseMove={() => setActive(i)}
-                  onClick={() => pick(name)}
-                >
-                  <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
-                  <code>{name}</code>
-                  {name === value
-                    ? <Icon name="check" className="home-menu__check" />
-                    : <small>{warm ? t('picker.warm') : t('picker.cold')}</small>}
-                </li>
+                <Fragment key={name}>
+                  {first && (
+                    <li className="home-menu__head" role="presentation">
+                      {warm ? t('picker.loadedNow') : t('picker.installed')}
+                    </li>
+                  )}
+                  <li
+                    id={`home-model-opt-${i}`}
+                    role="option"
+                    aria-selected={name === value}
+                    data-active={i === active}
+                    className={`home-menu__item${info ? ' home-menu__item--rich' : ''}`}
+                    onMouseMove={() => setActive(i)}
+                    onClick={() => pick(name)}
+                  >
+                    <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
+                    {info ? (
+                      <>
+                        <span className="home-menu__main">
+                          <code>{name}</code>
+                          {(info.size || info.vision) && (
+                            <small className="home-menu__caps">
+                              {info.size && <span>{info.size}</span>}
+                              {info.vision && <Icon name="eye" title={t('picker.vision')} />}
+                            </small>
+                          )}
+                        </span>
+                        <span className="home-menu__state" data-tone={info.fit?.tone}>
+                          <b>{name === value ? <Icon name="check" className="home-menu__check" /> : null}{warm ? t('picker.warm') : t('picker.cold')}</b>
+                          {info.fit && <small>{info.fit.text}</small>}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <code>{name}</code>
+                        {name === value
+                          ? <Icon name="check" className="home-menu__check" />
+                          : <small>{warm ? t('picker.warm') : t('picker.cold')}</small>}
+                      </>
+                    )}
+                  </li>
+                </Fragment>
               )
             })}
           </ul>
+          {footer}
         </div>
       )}
     </div>

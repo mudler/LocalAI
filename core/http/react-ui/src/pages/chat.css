@@ -622,7 +622,8 @@
 .cx-hdr { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
 .cx-icobtn--lg { width: 36px; height: 36px; font-size: 18px; }
 .cx-icobtn[aria-pressed="true"] { background: var(--dk-hover); color: var(--dk-text); }
-.cx-hdr .action-menu__trigger { width: 36px; height: 36px; }
+.cx-hdr .action-menu__trigger { width: 36px; height: 36px; color: var(--color-text-secondary); }
+.cx-hdr .action-menu__trigger:hover { color: var(--dk-text); }
 
 /* ---- Conversations menu (Ctrl K) ---------------------------------------------- */
 .cx-veil { position: fixed; inset: 0; z-index: 950; background: var(--dk-scrim); }
@@ -730,3 +731,20 @@
 .cx-keys__row dd { margin: 0; display: flex; align-items: center; gap: 4px; flex: none; }
 .cx-keys__note { margin-left: 6px; color: var(--dk-muted); font-size: 12px; }
 .cx-keys__foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+/* ---- Model list rows: loaded state, what it can do, how it fits ---------------- */
+.home-menu__item--rich { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+.home-menu__item--rich .home-dot { margin-top: 6px; }
+.home-menu__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.home-menu__item .home-menu__caps { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; }
+.home-menu__caps .lai-icon { width: 14px; height: 14px; }
+.home-menu__state { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: auto; text-align: right; white-space: nowrap; }
+.home-menu__state b { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.home-menu__item .home-menu__state small { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--dk-muted); }
+.home-menu__item .home-menu__state[data-tone="ok"] small { color: var(--dk-ok-text); }
+.home-menu__item .home-menu__state[data-tone="warn"] small { color: var(--dk-warn-text); }
+.home-menu__item .home-menu__state[data-tone="err"] small { color: var(--dk-error-text); }
+.home-menu__foot { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 8px 10px 4px; border-top: 1px solid var(--dk-edge); color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; }
+.home-menu__foot .cx-ctx__bar { flex: 1; width: auto; }
+.cx-dock .home-menu--models { min-width: min(460px, calc(100vw - 48px)); }
+.cx-dock .home-menu__list { max-height: min(380px, 52vh); }

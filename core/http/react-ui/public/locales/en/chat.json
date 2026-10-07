@@ -239,5 +239,14 @@
     "moveMessages": "Move between messages",
     "onMessage": "On a message: copy, edit, regenerate, branch",
     "close": "Close"
+  },
+  "picker": {
+    "readyNow": "ready now",
+    "fits": "{{amount}} GB free",
+    "spill": "{{amount}} GB runs on the CPU",
+    "over": "{{amount}} GB more than this machine has",
+    "memory": "Memory",
+    "gpuMemory": "GPU memory",
+    "memoryUsed": "{{used}} of {{total}} {{unit}} used"
   }
 }
