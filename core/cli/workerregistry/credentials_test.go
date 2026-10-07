@@ -130,7 +130,6 @@ var _ = Describe("CredentialManager", func() {
 			Expect(res.Carrier).To(Equal("tunnel"))
 			Expect(f.count()).To(Equal(1))
 			Expect(m.TunnelToken()).To(Equal("token-1"))
-			Expect(m.Carrier()).To(Equal("tunnel"))
 			Expect(m.HasCredentials()).To(BeFalse(), "a tunnel worker holds no NATS credentials")
 		})
 

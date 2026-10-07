@@ -56,7 +56,6 @@ type CredentialManager struct {
 	jwt         string
 	seed        string
 	nodeID      string
-	carrier     string
 	tunnelToken string
 }
 
@@ -92,21 +91,12 @@ func (m *CredentialManager) store(res *RegisterResponse) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nodeID = res.ID
-	m.carrier = res.Carrier
 	if res.NatsJWT != "" && res.NatsUserSeed != "" {
 		m.jwt, m.seed = res.NatsJWT, res.NatsUserSeed
 	}
 	if res.TunnelToken != "" {
 		m.tunnelToken = res.TunnelToken
 	}
-}
-
-// Carrier returns the carrier that the last registration named. It is empty for
-// a frontend that predates the field, and that is a frontend with NATS.
-func (m *CredentialManager) Carrier() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.carrier
 }
 
 // TunnelToken returns the token of the node for the tunnel, or an empty string
