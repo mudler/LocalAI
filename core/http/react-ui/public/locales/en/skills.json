@@ -1,6 +1,6 @@
 {
   "title": "Skills",
-  "subtitle": "Manage agent skills (reusable instructions and resources)",
+  "subtitle": "Your library of instructions. Anything here can be tried, edited and added to an agent when you want it used.",
   "unavailable": {
     "subtitle": "Skills service is not available or the index is rebuilding. Try again in a moment.",
     "retry": "Retry"
@@ -10,7 +10,7 @@
     "createSkill": "Create skill",
     "import": "Import",
     "importing": "Importing...",
-    "gitRepos": "Git Repos",
+    "gitRepos": "Git repositories",
     "edit": "Edit",
     "delete": "Delete",
     "export": "Export",
@@ -22,7 +22,8 @@
     "disable": "Disable"
   },
   "search": {
-    "placeholder": "Search skills..."
+    "placeholder": "Search skills",
+    "label": "Search skills"
   },
   "git": {
     "title": "Git repositories",
@@ -30,7 +31,8 @@
     "urlPlaceholder": "https://github.com/user/repo or git@github.com:user/repo.git",
     "noRepos": "No Git repos configured. Add one above.",
     "disabled": "Disabled",
-    "removeRepo": "Remove repo"
+    "removeRepo": "Remove repo",
+    "urlLabel": "Repository URL"
   },
   "card": {
     "noDescription": "No description",
@@ -40,13 +42,16 @@
     "exportTitle": "Export as .tar.gz"
   },
   "empty": {
-    "title": "No skills found",
-    "text": "Create a skill or import one to get started.",
+    "title": "Skills are instructions an agent can follow",
+    "text": "Write one once, then add it to the agents that should follow it. A skill that nobody uses stays in the library.",
+    "stepWrite": "Write a skill, or import one from a .tar.gz file or a Git repository.",
+    "stepTry": "Try it: pick a context and see what it would add to a prompt.",
+    "stepAdd": "Add it to an agent when you want it used.",
     "noPersonal": "You have no skills yet."
   },
   "sections": {
     "yourSkills": "Your Skills",
-    "otherUsersSkills": "Other Users' Skills"
+    "otherUsersSkills": "Other users' skills"
   },
   "deleteDialog": {
     "title": "Delete Skill",
@@ -75,5 +80,44 @@
     "toggleFailed": "Toggle failed",
     "removed": "Repo removed",
     "removeFailed": "Remove failed"
+  },
+  "filters": {
+    "label": "Show",
+    "all": "All",
+    "used": "Used",
+    "unused": "Not used yet"
+  },
+  "list": {
+    "label": "Skills",
+    "none": "No skill matches."
+  },
+  "pane": {
+    "back": "All skills",
+    "pick": "Pick a skill to see what it says and who uses it.",
+    "tabs": "Skill sections",
+    "tab": {
+      "overview": "Overview",
+      "instructions": "Instructions",
+      "files": "Files"
+    },
+    "description": "Description",
+    "allowedTools": "Allowed tools",
+    "compatibility": "Compatibility",
+    "license": "License",
+    "licenseFact": "License {{license}}",
+    "tokens": "About {{count}} tokens",
+    "tokensTitle": "Estimate: characters divided by four",
+    "tokensExplain": "In prompt mode an agent that uses this skill carries about {{count}} tokens in every message. This is an estimate: characters divided by four.",
+    "noContent": "This skill has no instructions.",
+    "filesLoading": "Loading files...",
+    "filesFailed": "The files could not be listed.",
+    "filesNone": "This skill has no scripts, references or assets.",
+    "files": {
+      "scripts": "Scripts",
+      "references": "References",
+      "assets": "Assets"
+    },
+    "startsWith": "Starts with",
+    "showAll": "Show all instructions"
   }
 }

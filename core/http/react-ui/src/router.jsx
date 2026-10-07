@@ -108,7 +108,6 @@ const AgentPage = page(null, () => import('./pages/AgentPage'))
 const AgentRun = page(null, () => import('./pages/AgentRun'))
 const AgentStatus = page(null, () => import('./pages/AgentStatus'))
 const Collections = page('collections', () => import('./pages/Collections'))
-const CollectionDetails = page(null, () => import('./pages/CollectionDetails'))
 const Skills = page('skills', () => import('./pages/Skills'))
 const SkillEdit = page(null, () => import('./pages/SkillEdit'))
 const AgentJobs = page('agent-jobs', () => import('./pages/AgentJobs'))
@@ -206,6 +205,7 @@ const appChildren = [
       { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
       { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
       { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+      { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
       { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
@@ -223,7 +223,6 @@ const appChildren = [
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/runs/:id', element: <Feature feature="agents"><AgentRun /></Feature> },
   { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChatRedirect /></Feature> },
-  { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
   { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
