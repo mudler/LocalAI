@@ -1,103 +1,111 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { Link, useParams, useNavigate, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { agentJobsApi } from '../utils/api'
+import { copyToClipboard } from '../utils/clipboard'
+import { isActive, jobDurationMs } from '../utils/agentJobs'
+import { firstLine, formatDuration } from '../utils/agentRuns'
+// eslint-disable-next-line no-unused-vars
+import { JobMark, GappedPrompt } from '../components/agents/JobBits'
+import { dayWhen } from '../utils/agentJobText'
+// eslint-disable-next-line no-unused-vars
+import { Chip } from '../components/agents/AgentBits'
+// eslint-disable-next-line no-unused-vars
+import Prose from '../components/agents/Prose'
+// eslint-disable-next-line no-unused-vars
 import LoadingSpinner from '../components/LoadingSpinner'
-import PageHeader from '../components/PageHeader'
 import Icon from '../components/Icon'
+import './chat.css'
+import './agents.css'
+import './agent-jobs.css'
 
-const traceColors = {
-  reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 30%, transparent)', icon: 'brain', color: 'var(--color-primary)' },
-  tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 12%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 32%, transparent)', icon: 'wrench', color: 'var(--color-accent)' },
-  tool_result: { bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)', border: 'color-mix(in srgb, var(--color-success) 30%, transparent)', icon: 'check', color: 'var(--color-success)' },
-  status: { bg: 'color-mix(in srgb, var(--color-warning) 10%, transparent)', border: 'color-mix(in srgb, var(--color-warning) 30%, transparent)', icon: 'info', color: 'var(--color-warning)' },
-  stream_reasoning: { bg: 'color-mix(in srgb, var(--color-primary) 6%, transparent)', border: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', icon: 'lightbulb', color: 'var(--color-primary)' },
-  stream_content: { bg: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: 'color-mix(in srgb, var(--color-info) 25%, transparent)', icon: 'pencil', color: 'var(--color-info)' },
-  stream_tool_call: { bg: 'color-mix(in srgb, var(--color-data-3) 7%, transparent)', border: 'color-mix(in srgb, var(--color-data-3) 20%, transparent)', icon: 'bolt', color: 'var(--color-accent)' },
+const TRACE_ICON = {
+  reasoning: 'brain', tool_call: 'wrench', tool_result: 'check', status: 'info',
+  stream_reasoning: 'lightbulb', stream_content: 'pencil', stream_tool_call: 'bolt',
 }
 
-function TraceCard({ trace, index }) {
-  const [expanded, setExpanded] = useState(true)
-  const style = traceColors[trace.type] || traceColors.status
+function clock(ts) {
+  const d = new Date(ts)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
 
+// One entry of what the server recorded: a row that opens into what it holds.
+// eslint-disable-next-line no-unused-vars
+function TraceRow({ trace, index }) {
+  const { t } = useTranslation('agents')
+  const [open, setOpen] = useState(false)
+  const args = trace.arguments == null ? '' : (typeof trace.arguments === 'string' ? trace.arguments : JSON.stringify(trace.arguments, null, 2))
+  const title = trace.tool_name || t(`jobs.job.traceType.${trace.type}`, { defaultValue: trace.type || '?' })
+  const sub = trace.tool_name ? t(`jobs.job.traceType.${trace.type}`, { defaultValue: trace.type || '' }) : firstLine(trace.content, 110)
+  const has = !!(trace.content || args)
   return (
-    <div className="ajd-trace mb-sm" style={{ background: style.bg, border: `1px solid ${style.border}` }}>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="ajd-trace__toggle"
-      >
-        <div className="hstack">
-          <span className="ajd-trace__index">
-            {index + 1}
-          </span>
-          <Icon name={style.icon} className="text-base" style={{ color: style.color }} />
-          <span className="badge text-xs" style={{ background: style.border, color: style.color }}>
-            {trace.type || 'unknown'}
-          </span>
-          {trace.tool_name && (
-            <span className="text-mono text-xs text-secondary">
-              {trace.tool_name}
-            </span>
-          )}
-          {trace.timestamp && (
-            <span className="text-meta">
-              {new Date(trace.timestamp).toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-        <Icon name={`chevron-${expanded ? 'up' : 'down'}`} className="text-meta" />
+    <li className="aj-trace" data-open={open || undefined} data-type={trace.type}>
+      <button type="button" className="aj-trace__head" aria-expanded={open} disabled={!has} onClick={() => setOpen(v => !v)}>
+        <span className="aj-trace__icon" aria-hidden="true"><Icon name={TRACE_ICON[trace.type] || 'info'} /></span>
+        <span className="aj-trace__what">
+          <span className="aj-trace__title">{trace.tool_name ? <code>{title}</code> : title}</span>
+          {sub && <small>{sub}</small>}
+        </span>
+        <span className="ag-time">{clock(trace.timestamp)}</span>
+        <Icon name="chevron-right" className="aj-trace__chev" />
+        <span className="dk-sr-only">{index + 1}</span>
       </button>
-      {expanded && (
-        <div className="ajd-trace__body">
-          {trace.content && (
-            <pre className="ajd-pre">
-              {trace.content}
-            </pre>
-          )}
-          {trace.arguments && (
-            <div className="mt-xs">
-              <span className="text-meta fw-semibold">Arguments:</span>
-              <pre className="ajd-pre ajd-pre--nested">
-                {typeof trace.arguments === 'string' ? trace.arguments : JSON.stringify(trace.arguments, null, 2)}
-              </pre>
-            </div>
+      {open && (
+        <div className="aj-trace__body">
+          {trace.content && <pre className="ag-pre">{trace.content}</pre>}
+          {args && (
+            <>
+              <span className="ag-eyebrow">{t('jobs.job.arguments')}</span>
+              <pre className="ag-pre">{args}</pre>
+            </>
           )}
         </div>
       )}
-    </div>
+    </li>
   )
 }
 
 export default function AgentJobDetails() {
   const { id } = useParams()
+  return <JobDocument key={id} id={id} />
+}
+
+// eslint-disable-next-line no-unused-vars
+function JobDocument({ id }) {
+  const { t } = useTranslation('agents')
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const [job, setJob] = useState(null)
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [again, setAgain] = useState(false)
   const intervalRef = useRef(null)
+  const taskRef = useRef(null)
 
   useEffect(() => {
-    if (!id) return
+    if (!id) return undefined
 
     const fetchJob = async () => {
       try {
         const data = await agentJobsApi.getJob(id)
         setJob(data)
 
-        // Fetch associated task data
-        if (data?.task_id && !task) {
+        // The task the job belongs to, for its name and prompt.
+        if (data?.task_id && !taskRef.current) {
+          taskRef.current = true
           agentJobsApi.getTask(data.task_id).then(setTask).catch(() => {})
         }
 
-        // Stop polling when job is done
-        if (data && data.status !== 'running' && data.status !== 'pending') {
+        // Stop polling when the job is done
+        if (data && !isActive(data)) {
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
           }
         }
       } catch (err) {
-        addToast(`Failed to load job: ${err.message}`, 'error')
+        addToast(t('jobs.job.loadFailed', { message: err.message }), 'error')
       } finally {
         setLoading(false)
       }
@@ -106,256 +114,167 @@ export default function AgentJobDetails() {
     fetchJob()
     intervalRef.current = setInterval(fetchJob, 2000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [id, addToast])
+  }, [id, addToast, t])
 
-  const handleCancel = async () => {
+  const cancel = async () => {
     try {
       await agentJobsApi.cancelJob(id)
-      addToast('Job cancelled', 'success')
+      addToast(t('jobs.job.cancelled'), 'success')
     } catch (err) {
-      addToast(`Cancel failed: ${err.message}`, 'error')
+      addToast(t('jobs.job.cancelFailed', { message: err.message }), 'error')
     }
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
-
-  const statusBadge = (status) => {
-    const map = {
-      pending: { cls: 'badge-warning', icon: 'clock' },
-      running: { cls: 'badge-info', icon: 'spinner', spin: true },
-      completed: { cls: 'badge-success', icon: 'check' },
-      failed: { cls: 'badge-error', icon: 'close' },
-      cancelled: { cls: '', icon: 'ban' },
+  const runAgain = async () => {
+    setAgain(true)
+    try {
+      const res = await agentJobsApi.rerunJob(job)
+      addToast(t('jobs.job.again'), 'success')
+      if (res?.job_id) navigate(`/app/agent-jobs/jobs/${res.job_id}`)
+    } catch (err) {
+      addToast(t('jobs.job.againFailed', { message: err.message }), 'error')
+    } finally {
+      setAgain(false)
     }
-    const m = map[status] || { cls: '', icon: 'help-circle' }
+  }
+
+  const copyLink = async () => {
+    const ok = await copyToClipboard(`${window.location.origin}${window.location.pathname}`)
+    addToast(t(ok ? 'jobs.job.linkCopied' : 'jobs.job.linkNotCopied'), ok ? 'success' : 'error', 2000)
+  }
+
+  if (loading) return <div className="page page--medium loading-center"><LoadingSpinner size="lg" /></div>
+  if (!job) {
     return (
-      <span className={`badge ${m.cls} badge--md`}>
-        <Icon name={m.icon} spin={m.spin} className="icon-before" /> {status || 'unknown'}
-      </span>
+      <div className="page page--medium ag-page aj-page">
+        <div className="ag-home">
+          <Link className="ag-back" to="/app/agent-jobs"><Icon name="arrow-left" /> {t('jobs.job.back')}</Link>
+          <div className="ag-empty" data-testid="job-missing">
+            <h1 className="ag-title">{t('jobs.job.notFoundTitle')}</h1>
+            <p>{t('jobs.job.notFoundText')}</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
-  // Render the prompt with parameters substituted
-  const renderPrompt = () => {
-    if (!task?.prompt || !job?.parameters) return null
-    let rendered = task.prompt
-    Object.entries(job.parameters).forEach(([key, value]) => {
-      rendered = rendered.replace(new RegExp(`\\{\\{\\s*\\.${key}\\s*\\}\\}`, 'g'), value)
-    })
-    return rendered
-  }
-
-  if (loading) return <div className="page page--narrow loading-center"><LoadingSpinner size="lg" /></div>
-  if (!job) return (
-    <div className="page page--narrow">
-      <div className="empty-state">
-        <div className="empty-state-icon"><Icon name="search" /></div>
-        <h2 className="empty-state-title">Job not found</h2>
-        <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}><Icon name="arrow-left" /> Back</button>
-      </div>
-    </div>
-  )
-
-  const renderedPrompt = renderPrompt()
+  const active = isActive(job)
+  const failed = job.status === 'failed'
+  const took = jobDurationMs(job)
+  const params = job.parameters && typeof job.parameters === 'object' ? job.parameters : {}
+  const paramCount = Object.keys(params).length
   const traces = Array.isArray(job.traces) ? job.traces : []
+  const taskName = task?.name || job.task_id
+  const title = taskName ? t('jobs.job.title', { task: taskName, when: dayWhen(job.created_at) }) : t('jobs.job.titleUnknown', { id: job.id.slice(0, 8) })
+  const who = job.triggered_by || 'manual'
+  const media = [['images', job.images], ['videos', job.videos], ['audios', job.audios], ['files', job.files]].filter(([, list]) => list?.length)
+  const resultText = typeof job.result === 'string' ? job.result : job.result ? JSON.stringify(job.result, null, 2) : ''
+  const errorText = typeof job.error === 'string' ? job.error : job.error ? JSON.stringify(job.error, null, 2) : ''
 
   return (
-    <div className="page page--narrow">
-      <PageHeader
-        title="Job Details"
-        supporting="Live status and reasoning traces"
-        actions={
-          <div className="hstack">
-            <button className="btn btn-secondary" onClick={() => navigate('/app/agent-jobs')}>
-              <Icon name="arrow-left" /> Back
-            </button>
-            {(job.status === 'running' || job.status === 'pending') && (
-              <button className="btn btn-danger" onClick={handleCancel}>
-                <Icon name="ban" /> Cancel
-              </button>
-            )}
-          </div>
-        }
-      />
-
-      {/* Status Card */}
-      <div className="card mb-md">
-        <div className="hstack hstack--between mb-md">
-          <h3 className="fw-semibold">
-            <Icon name="info" className="text-primary icon-before" />
-            Job Status
-          </h3>
-          {statusBadge(job.status)}
-        </div>
-        <div className="grid-3">
-          <div>
-            <span className="form-label">Job ID</span>
-            <p className="cell-mono wrap-anywhere">{job.id}</p>
-          </div>
-          <div>
-            <span className="form-label">Task</span>
-            <p>
-              {job.task_id ? (
-                <a onClick={() => navigate(`/app/agent-jobs/tasks/${job.task_id}`)} className="link-plain">
-                  {job.task_id}
-                </a>
-              ) : '-'}
-            </p>
-          </div>
-          <div>
-            <span className="form-label">Triggered By</span>
-            <p className="text-base">{job.triggered_by || 'manual'}</p>
-          </div>
-          <div>
-            <span className="form-label">Created</span>
-            <p className="text-sub">{formatDate(job.created_at)}</p>
-          </div>
-          <div>
-            <span className="form-label">Started</span>
-            <p className="text-sub">{formatDate(job.started_at)}</p>
-          </div>
-          <div>
-            <span className="form-label">Completed</span>
-            <p className="text-sub">{formatDate(job.completed_at)}</p>
+    <div className="page page--medium ag-page aj-page" data-testid="job-page" data-status={job.status}>
+      <article className="aj-doc">
+        <div className="ag-bar">
+          <Link className="ag-back" to="/app/agent-jobs"><Icon name="arrow-left" /> {t('jobs.job.back')}</Link>
+          <div className="ag-bar__acts">
+            {active
+              ? <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={cancel}><Icon name="ban" /> {t('jobs.job.cancel')}</button>
+              : <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={again || !job.task_id} onClick={runAgain}><Icon name="refresh" /> {t('jobs.job.runAgain')}</button>}
+            {job.task_id && <Link className="dk-btn dk-btn--ghost dk-btn--sm" to={`/app/agent-jobs/tasks/${job.task_id}`}><Icon name="edit" /> {t('jobs.job.openTask')}</Link>}
           </div>
         </div>
-      </div>
 
-      {/* Prompt Template */}
-      {task?.prompt && (
-        <div className="card mb-md">
-          <h3 className="group-label group-label--tight">
-            <Icon name="file-text" className="text-accent icon-before" />
-            Agent Prompt Template
-          </h3>
-          <pre className="ajd-code">
-            {task.prompt}
-          </pre>
-        </div>
-      )}
-
-      {/* Cron Parameters */}
-      {job.triggered_by === 'cron' && job.cron_parameters && Object.keys(job.cron_parameters).length > 0 && (
-        <div className="card mb-md">
-          <h3 className="group-label group-label--tight">
-            <Icon name="clock" className="text-warning icon-before" />
-            Cron Parameters
-          </h3>
-          <div className="hstack hstack--xs">
-            {Object.entries(job.cron_parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info text-mono text-xs">
-                {k}={v}
-              </span>
-            ))}
+        <header>
+          <h1 className="ag-doc__title">{title}</h1>
+          <div className="ag-doc__meta">
+            <JobMark status={job.status} />
+            <span>{t('jobs.job.startedBy', { who: t(`jobs.trigger.${who}`, { defaultValue: who }) })}</span>
+            {took != null && <span>{t('jobs.job.tookFor', { time: formatDuration(took) })}</span>}
+            <span className="ag-mono">{job.id}</span>
           </div>
-        </div>
-      )}
-
-      {/* Job Parameters */}
-      {job.parameters && Object.keys(job.parameters).length > 0 && (
-        <div className="card mb-md">
-          <h3 className="group-label group-label--tight">
-            <Icon name="sliders" className="text-primary icon-before" />
-            Job Parameters
-          </h3>
-          <div className="hstack hstack--xs">
-            {Object.entries(job.parameters).map(([k, v]) => (
-              <span key={k} className="badge badge-info text-mono text-xs">
-                {k}={v}
-              </span>
-            ))}
+          <div className="ag-doc__chips">
+            <span className="ag-addr">
+              <span className="ag-addr__text">{window.location.pathname}</span>
+              <button type="button" className="ag-btn-quiet" onClick={copyLink}>{t('jobs.job.copyLink')}</button>
+            </span>
+            {task?.model && <Chip mono title={t('jobs.task.model')}>{task.model}</Chip>}
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* Rendered Prompt */}
-      {renderedPrompt && renderedPrompt !== task?.prompt && (
-        <div className="card mb-md">
-          <h3 className="group-label group-label--tight">
-            <Icon name="spell-check" className="text-success icon-before" />
-            Rendered Prompt
-          </h3>
-          <pre className="ajd-code ajd-code--tall">
-            {renderedPrompt}
-          </pre>
-        </div>
-      )}
+        <section className="ag-sec" aria-labelledby="aj-j-task">
+          <div className="ag-sec__head"><h2 id="aj-j-task">{t('jobs.job.task')}</h2></div>
+          {task?.prompt ? (
+            <>
+              <GappedPrompt prompt={task.prompt} params={params} />
+              <p className="ag-note">{paramCount > 0 ? t('jobs.job.taskNoteParams', { count: paramCount }) : t('jobs.job.taskNote')}</p>
+            </>
+          ) : (
+            <p className="ag-note">{t('jobs.job.taskUnknown')}</p>
+          )}
+          {paramCount > 0 && !task?.prompt && (
+            <div className="ag-chips">
+              {Object.entries(params).map(([k, v]) => <span key={k} className="ag-chip ag-chip--mono"><span className="ag-chip__text">{k}={String(v)}</span></span>)}
+            </div>
+          )}
+        </section>
 
-      {/* Result */}
-      {job.result && (
-        <div className="card mb-md">
-          <h3 className="group-label group-label--tight">
-            <Icon name="check-circle" className="text-success icon-before" />
-            Result
-          </h3>
-          <pre className="ajd-code ajd-code--taller">
-            {typeof job.result === 'string' ? job.result : JSON.stringify(job.result, null, 2)}
-          </pre>
-        </div>
-      )}
+        <section className="ag-sec" aria-labelledby="aj-j-out">
+          <div className="ag-sec__head"><h2 id="aj-j-out">{t('jobs.job.outcome')}</h2></div>
+          {job.status === 'completed' && (resultText ? <Prose text={resultText} /> : <p className="ag-sec__text">{t('jobs.job.outcomeNone')}</p>)}
+          {failed && (
+            <div className="ag-fail" role="alert" data-testid="job-failed">
+              <h3><Icon name="warning" /> {t('jobs.job.failTitle')}</h3>
+              <p>{t('jobs.job.failText')}</p>
+              <p className="ag-fail__why">{errorText || t('jobs.job.failNoMessage')}</p>
+              <div className="ag-fail__acts">
+                <button type="button" className="dk-btn dk-btn--primary" disabled={again || !job.task_id} onClick={runAgain}><Icon name="refresh" /> {t('jobs.job.runAgainNow')}</button>
+                {job.task_id && <Link className="ag-link" to={`/app/agent-jobs/tasks/${job.task_id}`}>{t('jobs.job.openTask')}</Link>}
+              </div>
+            </div>
+          )}
+          {active && (
+            <div className="ag-working" data-testid="job-working">
+              <Icon name="spinner" spin />
+              <span>{job.status === 'pending' ? t('jobs.job.outcomeWaiting') : t('jobs.job.outcomeWorking')}</span>
+            </div>
+          )}
+          {job.status === 'cancelled' && <p className="ag-sec__text">{t('jobs.job.outcomeCancelled')}</p>}
+        </section>
 
-      {/* Error */}
-      {job.error && (
-        <div className="card mb-md" style={{ borderColor: 'var(--color-error)' }}>
-          <h3 className="fw-semibold text-error mb-sm">
-            <Icon name="warning" className="icon-before" />
-            Error
-          </h3>
-          <pre className="ajd-code ajd-code--error">
-            {typeof job.error === 'string' ? job.error : JSON.stringify(job.error, null, 2)}
-          </pre>
-        </div>
-      )}
+        {media.length > 0 && (
+          <section className="ag-sec" aria-labelledby="aj-j-media">
+            <div className="ag-sec__head"><h2 id="aj-j-media">{t('jobs.job.media')}</h2></div>
+            <div className="ag-chips">
+              {media.map(([kind, list]) => <span key={kind} className="ag-chip"><span className="ag-chip__text">{`${list.length} ${t(`jobs.run.${kind}`).toLowerCase()}`}</span></span>)}
+            </div>
+          </section>
+        )}
 
-      {/* Execution Traces */}
-      {traces.length > 0 && (
-        <div className="card mb-md">
-          <h3 className="group-label">
-            <Icon name="waveform" className="text-accent icon-before" />
-            Execution Traces ({traces.length} steps)
-          </h3>
-          {traces.map((trace, i) => (
-            <TraceCard key={i} trace={trace} index={i} />
-          ))}
-        </div>
-      )}
-
-      {/* Running indicator */}
-      {(job.status === 'running' || job.status === 'pending') && (
-        <div className="ajd-polling">
-          <Icon name="spinner" spin className="icon-before" />
-          Polling for updates every 2 seconds...
-        </div>
-      )}
-
-      {/* Webhook Status */}
-      {(job.webhook_sent !== undefined || job.webhook_error) && (
-        <div className="card">
-          <h3 className="group-label">
-            <Icon name="globe" className="text-primary icon-before" />
-            Webhook Status
-          </h3>
-          <div className="ajd-webhook">
+        {(job.webhook_sent || job.webhook_error) && (
+          <section className="ag-sec" aria-labelledby="aj-j-del">
+            <div className="ag-sec__head"><h2 id="aj-j-del">{t('jobs.job.delivery')}</h2></div>
             {job.webhook_sent ? (
-              <>
-                <span className="badge badge-success"><Icon name="check" /> Delivered</span>
-                {job.webhook_sent_at && (
-                  <span className="text-meta">
-                    at {formatDate(job.webhook_sent_at)}
-                  </span>
-                )}
-              </>
-            ) : job.webhook_error ? (
-              <>
-                <span className="badge badge-error"><Icon name="close" /> Failed</span>
-                <span className="text-xs text-error">{job.webhook_error}</span>
-              </>
+              <p className="aj-note aj-note--ok" data-testid="job-webhook"><Icon name="check" /> {job.webhook_sent_at ? t('jobs.job.deliverySentAt', { when: dayWhen(job.webhook_sent_at) }) : t('jobs.job.deliverySent')}</p>
             ) : (
-              <span className="badge badge-warning"><Icon name="clock" /> Pending</span>
+              <p className="aj-note aj-note--warn" data-testid="job-webhook"><Icon name="warning" /> {t('jobs.job.deliveryFailed', { message: job.webhook_error })}</p>
             )}
-          </div>
-        </div>
-      )}
+          </section>
+        )}
+
+        <section className="ag-sec" aria-labelledby="aj-j-steps">
+          <div className="ag-sec__head"><h2 id="aj-j-steps">{t('jobs.job.trace')}</h2></div>
+          {traces.length === 0 ? (
+            <p className="ag-note">{t('jobs.job.noTrace')}</p>
+          ) : (
+            <>
+              <p className="ag-note">{t('jobs.job.traceNote', { count: traces.length })}</p>
+              <ol className="aj-traces" data-testid="job-traces">
+                {traces.map((trace, i) => <TraceRow key={i} trace={trace} index={i} />)}
+              </ol>
+            </>
+          )}
+        </section>
+      </article>
     </div>
   )
 }

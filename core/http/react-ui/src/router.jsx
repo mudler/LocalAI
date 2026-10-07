@@ -207,6 +207,7 @@ const appChildren = [
       { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
       { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
+      { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
       { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
       { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
       { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
@@ -226,7 +227,6 @@ const appChildren = [
   { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'agent-jobs/tasks/new', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-  { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
 
