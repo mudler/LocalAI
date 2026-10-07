@@ -1,0 +1,227 @@
+import { test, expect } from './coverage-fixtures.js'
+import { mockJobs } from './jobs-fixtures.js'
+
+test.describe('A task', () => {
+  test('shows what it is: model, schedule in words, runs, prompt with its gaps', async ({ page }) => {
+    await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/t1')
+    const facts = page.getByTestId('task-facts')
+    await expect(page.getByRole('heading', { name: 'daily-digest' })).toBeVisible()
+    await expect(facts).toContainText('qwen3-8b-instruct')
+    await expect(facts).toContainText('Every day at 07:00')
+    await expect(facts).toContainText('0 7 * * *')
+    await expect(facts).toContainText('1 webhook')
+    await expect(facts.getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    const runs = page.getByTestId('task-runs')
+    await expect(runs.locator('a')).toHaveCount(2)
+    await expect(runs.locator('a').first()).toContainText('read_page: timeout after 20 s')
+    await expect(runs.locator('a').first()).toContainText('Started by the schedule, took 1 min 06 s')
+    const gaps = page.locator('.aj-prompt .aj-gap')
+    await expect(gaps).toHaveCount(3)
+    await expect(gaps.first()).toHaveText('local inference')
+    await expect(page.getByText('Audience: engineers who run models on their own hardware.')).toBeVisible()
+    await expect(page.getByText('Times follow the clock of the machine that runs LocalAI.')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="jobs"]')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('a task with no schedule says it runs when started; the API examples stay one click away', async ({ page }) => {
+    await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/t4')
+    await expect(page.getByText('This task has no schedule.')).toBeVisible()
+    await expect(page.getByTestId('task-facts').getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByText('This task has not run yet.')).toBeVisible()
+    await page.getByText('Use it from the API').click()
+    await expect(page.getByText(/api\/agent\/tasks\/ad-hoc-research\/execute/).first()).toBeVisible()
+  })
+
+  test('the switch saves the task; Run now opens the dialog; a run row opens the job', async ({ page }) => {
+    const { seen } = await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/t1')
+    await page.getByTestId('task-facts').getByRole('switch').click()
+    await expect(page.getByText('daily-digest is off')).toBeVisible()
+    expect(seen.puts[0].body.enabled).toBe(false)
+    await page.getByRole('button', { name: 'Run now' }).click()
+    await expect(page.getByTestId('run-task-dialog')).toContainText('Run daily-digest now')
+    await page.keyboard.press('Escape')
+    await page.getByTestId('task-runs').locator('a').first().click()
+    await expect(page).toHaveURL(/\/app\/agent-jobs\/jobs\/job-fail-0001$/)
+  })
+
+  test('a task that does not exist says so', async ({ page }) => {
+    await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/nope')
+    await expect(page.getByTestId('task-missing')).toContainText('Task not found')
+  })
+})
+
+test.describe('Edit a task', () => {
+  async function edit(page, options) {
+    const mocked = await mockJobs(page, options)
+    await page.goto('/app/agent-jobs/tasks/t1/edit')
+    await expect(page.getByTestId('task-edit')).toBeVisible()
+    return mocked
+  }
+
+  test('sections fold, with a ready mark and a one-line summary', async ({ page }) => {
+    await edit(page)
+    const basics = page.locator('[data-section="basics"]')
+    await expect(basics.locator('.ag-fold__sum')).toHaveText('daily-digest, qwen3-8b-instruct')
+    await expect(basics.locator('.ag-ready')).toHaveAttribute('data-state', 'ready')
+    await expect(basics.locator('.ag-fold__button')).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('[data-section="schedule"] .ag-fold__sum')).toHaveText('Every day at 07:00, 0 7 * * *')
+    await expect(page.locator('[data-section="webhooks"] .ag-fold__sum')).toHaveText('1 webhook')
+    await expect(page.locator('[data-section="media"] .ag-fold__sum')).toHaveText('None')
+    await basics.locator('.ag-fold__button').click()
+    await expect(page.getByLabel('Task name')).toHaveValue('daily-digest')
+  })
+
+  test('the prompt lists the parameters it uses', async ({ page }) => {
+    await edit(page)
+    await expect(page.getByTestId('prompt-params')).toContainText('{{.topic}}')
+    await expect(page.getByTestId('prompt-params').locator('.aj-gap')).toHaveCount(3)
+    await page.getByLabel('Prompt template').fill('Plain prompt')
+    await expect(page.getByTestId('prompt-params')).toContainText('No parameters in the prompt.')
+  })
+
+  test('the schedule is said in words, with presets that write the cron expression', async ({ page }) => {
+    await edit(page)
+    const words = page.getByTestId('schedule-words')
+    await expect(words).toContainText('Every day at 07:00.')
+    await expect(page.locator('[data-preset="daily"]')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByLabel('Time')).toHaveValue('07:00')
+    await page.getByLabel('Time').fill('18:30')
+    await expect(words).toContainText('Every day at 18:30.')
+    await page.locator('[data-preset="weekdays"]').click()
+    await expect(words).toContainText('Weekdays at 18:30.')
+    await page.locator('[data-preset="hourly"]').click()
+    await expect(words).toContainText('Every hour.')
+    await expect(page.getByLabel('Time')).toHaveCount(0)
+    await page.locator('[data-preset="none"]').click()
+    await expect(words).toHaveCount(0)
+    await expect(page.getByLabel('Parameters, one key=value per line')).toHaveCount(0)
+    await page.locator('[data-preset="custom"]').click()
+    await page.getByLabel('Cron expression').fill('*/15 * * * *')
+    await expect(words).toContainText('Every 15 minutes.')
+    await page.getByLabel('Cron expression').fill('0,30 9-17 * * 1-5')
+    await expect(words).toContainText('Custom schedule.')
+  })
+
+  test('a cron expression that is not valid says why and blocks the save', async ({ page }) => {
+    const { seen } = await edit(page)
+    await page.locator('[data-preset="custom"]').click()
+    await page.getByLabel('Cron expression').fill('* * * *')
+    await expect(page.getByRole('alert').filter({ hasText: 'Use five fields' })).toContainText('You wrote 4.')
+    await expect(page.getByLabel('Cron expression')).toHaveAttribute('aria-invalid', 'true')
+    await expect(page.locator('[data-section="schedule"] .ag-ready')).toHaveAttribute('data-state', 'needs')
+    await page.getByLabel('Cron expression').fill('61 * * * *')
+    await expect(page.getByRole('alert').filter({ hasText: 'minute field' })).toBeVisible()
+    await page.getByRole('button', { name: 'Save task' }).first().click()
+    await expect(page.getByText('Fix the schedule first')).toBeVisible()
+    expect(seen.puts).toEqual([])
+  })
+
+  test('warns when a scheduled prompt has a gap the schedule does not fill', async ({ page }) => {
+    await edit(page)
+    await expect(page.getByTestId('schedule-gaps')).toHaveCount(0)
+    await page.getByLabel('Parameters, one key=value per line').fill('topic=news')
+    await expect(page.getByTestId('schedule-gaps')).toContainText('{{.format}}, {{.items}}')
+  })
+
+  test('saves the task as the API takes it: parameters as a map, headers as objects', async ({ page }) => {
+    const { seen } = await edit(page)
+    await page.getByLabel('Time').fill('08:15')
+    await page.getByLabel('Parameters, one key=value per line').fill('topic=chips\nformat=prose\nitems=5')
+    await page.locator('[data-section="webhooks"] .ag-fold__button').click()
+    await expect(page.getByLabel('Headers (JSON)')).toHaveValue('{"X-Token":"abc"}')
+    await page.getByRole('button', { name: 'Save task' }).first().click()
+    await expect(page.getByText('Task updated')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/agent-jobs$/)
+    expect(seen.puts).toHaveLength(1)
+    const { id, body } = seen.puts[0]
+    expect(id).toBe('t1')
+    expect(body.cron).toBe('15 8 * * *')
+    expect(body.cron_parameters).toEqual({ topic: 'chips', format: 'prose', items: '5' })
+    expect(body.webhooks[0].headers).toEqual({ 'X-Token': 'abc' })
+    expect(body.webhooks[0].url).toBe('https://hooks.example.org/digest')
+    expect(body.enabled).toBe(true)
+  })
+
+  test('a webhook header that is not JSON stops the save and names the webhook', async ({ page }) => {
+    const { seen } = await edit(page)
+    await page.locator('[data-section="webhooks"] .ag-fold__button').click()
+    await page.getByLabel('Headers (JSON)').fill('{oops')
+    await page.getByRole('button', { name: 'Save task' }).first().click()
+    await expect(page.getByText('Headers must be valid JSON: Webhooks 1')).toBeVisible()
+    expect(seen.puts).toEqual([])
+  })
+
+  test('the preview shows the prompt as a scheduled run sends it, and what changed', async ({ page }) => {
+    await edit(page)
+    await page.getByLabel('Time').fill('08:00')
+    await page.getByTestId('task-preview-open').click()
+    const sheet = page.getByTestId('task-preview')
+    await expect(sheet.getByTestId('task-preview-prompt')).toContainText('Summarise overnight news about local inference in bullet points format. Keep it to 8 items.')
+    await sheet.getByRole('tab', { name: /Changes/ }).click()
+    const changes = sheet.getByTestId('task-preview-changes')
+    await expect(changes.locator('[data-key="cron"]')).toContainText('0 7 * * *')
+    await expect(changes.locator('[data-key="cron"]')).toContainText('0 8 * * *')
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+  })
+
+  test('leaving with unsaved changes asks first', async ({ page }) => {
+    await edit(page)
+    await page.getByLabel('Time').fill('09:00')
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+  })
+
+  test('media sources and webhooks add and remove', async ({ page }) => {
+    await edit(page, { tasks: undefined })
+    await page.locator('[data-section="media"] .ag-fold__button').click()
+    await page.getByRole('button', { name: 'Add source' }).click()
+    await expect(page.getByTestId('media-source')).toHaveCount(1)
+    await page.getByLabel('URL').fill('https://example.org/clip.mp4')
+    await page.getByLabel('Type').selectOption('video')
+    await expect(page.locator('[data-section="media"] .ag-fold__sum')).toHaveText('1 source')
+    await page.getByRole('button', { name: 'Remove source' }).click()
+    await expect(page.getByTestId('media-source')).toHaveCount(0)
+  })
+})
+
+test.describe('Create a task', () => {
+  test('starts with sections that need a name, and creates the task', async ({ page }) => {
+    const { seen } = await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/new')
+    await expect(page.getByRole('heading', { name: 'New task' })).toBeVisible()
+    await expect(page.locator('[data-section="basics"] .ag-ready')).toHaveAttribute('data-state', 'needs')
+    await expect(page.locator('[data-section="basics"] .ag-fold__sum')).toHaveText('Needs a name')
+    await page.getByRole('button', { name: 'Create task' }).first().click()
+    await expect(page.getByText('Task name is required')).toBeVisible()
+    expect(seen.posts).toEqual([])
+    await page.getByLabel('Task name').fill('nightly')
+    await page.getByLabel('Prompt template').fill('Check {{.thing}}.')
+    await page.locator('[data-preset="weekdays"]').click()
+    await expect(page.getByTestId('schedule-words')).toContainText('Weekdays at 09:00.')
+    await page.getByRole('button', { name: 'Create task' }).first().click()
+    await expect(page.getByText('Task created')).toBeVisible()
+    expect(seen.posts).toHaveLength(1)
+    expect(seen.posts[0].name).toBe('nightly')
+    expect(seen.posts[0].cron).toBe('0 9 * * 1-5')
+    expect(seen.posts[0].enabled).toBe(true)
+    expect(seen.posts[0].model).toBe('qwen3-8b-instruct')
+  })
+})
+
+test.describe('The task form on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('fits the width', async ({ page }) => {
+    await mockJobs(page)
+    await page.goto('/app/agent-jobs/tasks/t1/edit')
+    await expect(page.getByTestId('task-edit')).toBeVisible()
+    await expect(page.locator('[data-preset="daily"]')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+})
