@@ -381,6 +381,36 @@ var _ = Describe("Registry", func() {
 			Expect(id).To(Equal("replica-a"))
 		})
 
+		// The whole path: a peer reaps this replica, the membership loop registers
+		// it again, and the loop asks the registry of tunnels to claim the held
+		// sockets again. A replica that re-registers and does not do this serves
+		// a worker that the table says nobody holds.
+		It("claims the held tunnels again when the membership loop registers a reaped replica again", func() {
+			membership := cluster.NewMembership(clusterR, "replica-a", "test")
+			membership.SetReclaimer(registry)
+			Expect(membership.Start(ctx)).To(Succeed())
+			DeferCleanup(membership.Stop)
+
+			frontend, _ := sessionPair(tunnel.LaneInference)
+			_, err := registry.Attach(ctx, "w1", tunnel.LaneInference, frontend)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(db.Model(&cluster.Instance{}).Where("id = ?", "replica-a").
+				Update("last_seen", gorm.Expr("now() - interval '1 hour'")).Error).To(Succeed())
+			instances, cleared, err := clusterR.ReapStale(ctx, "replica-b", cluster.InstanceLiveness)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(instances).To(Equal(int64(1)))
+			Expect(cleared).To(Equal(int64(1)))
+			_, err = owner("w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+
+			Eventually(func() string {
+				id, _ := owner("w1")
+				return id
+			}, 3*cluster.InstanceHeartbeat, 250*time.Millisecond).Should(Equal("replica-a"),
+				"the replica registered again and left its held tunnel unclaimed")
+		})
+
 		It("lets the Detach of the attachment release the claim that Reclaim wrote", func() {
 			frontend, _ := sessionPair(tunnel.LaneInference)
 			token, err := registry.Attach(ctx, "w1", tunnel.LaneInference, frontend)
