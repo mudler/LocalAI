@@ -122,6 +122,17 @@ func newNodeSelfServiceTestApp(db *gorm.DB, appConfig *config.ApplicationConfig,
 	return e
 }
 
+// newClusterTestApp uses the real cluster route registration, with no registry,
+// so a request that the global auth middleware lets through reaches a handler
+// that answers 503 and one that it stops gets 401.
+func newClusterTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
+	e := echo.New()
+	e.Use(auth.Middleware(db, appConfig))
+	routes.RegisterClusterRoutes(e, nil, nil)
+	e.GET("/api/cluster/other", ok)
+	return e
+}
+
 // newAdminTestApp creates an Echo app with admin-protected routes.
 func newAdminTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()

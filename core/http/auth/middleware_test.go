@@ -442,6 +442,20 @@ var _ = Describe("Auth Middleware", func() {
 			}
 		})
 
+		It("delegates the tunnel dial to its own credential check, and only that path", func() {
+			app = newClusterTestApp(db, appConfig)
+
+			// A bearer token that is no API key and no session. The middleware
+			// lets the dial through, and the handler (which has no registry here)
+			// answers 503. If the middleware stopped it, the answer would be 401.
+			dial := doRequest(app, http.MethodGet, "/api/cluster/connect?id=w1", withBearerToken("own-tunnel-token"))
+			Expect(dial.Code).To(Equal(http.StatusServiceUnavailable))
+
+			// Another route under the same prefix is not delegated.
+			other := doRequest(app, http.MethodGet, "/api/cluster/other", withBearerToken("own-tunnel-token"))
+			Expect(other.Code).To(Equal(http.StatusUnauthorized))
+		})
+
 		It("lets downstream node auth reject missing and invalid registration tokens", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)

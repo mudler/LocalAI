@@ -80,8 +80,19 @@ func isPublicRoute(method, path string) bool {
 	return false
 }
 
+// ClusterConnectPath is the route that a worker dials to open its tunnel. The
+// handler checks the own tunnel credential of the node, which is not a user,
+// a session or an API key, so the global middleware lets the request through.
+//
+// It is one exact path and not the prefix /api/cluster/, so that a route that is
+// added under that prefix later is covered by the global middleware unless its
+// author decides otherwise. The path is written out here because this package
+// must not import the tunnel package. The spec of the connect endpoint compares
+// it with tunnel.ConnectPath.
+const ClusterConnectPath = "/api/cluster/connect"
+
 // usesAlternativeAuthentication identifies requests whose credentials are
 // validated by route-group middleware instead of the global auth middleware.
 func usesAlternativeAuthentication(path string) bool {
-	return strings.HasPrefix(path, "/api/node/")
+	return strings.HasPrefix(path, "/api/node/") || path == ClusterConnectPath
 }

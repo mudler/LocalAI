@@ -34,6 +34,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	"github.com/mudler/xlog"
 )
@@ -562,16 +563,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
 	var workerHTTPDial nodes.WorkerNetDialerFor
+	var tunnels *tunnel.Registry
+	var registerOpts []localai.RegisterOption
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
 		workerHTTPDial = d.WorkerHTTPDial
+		tunnels = d.Tunnels
+		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
-	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg, registerOpts...)
+	routes.RegisterClusterRoutes(e, registry, tunnels)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

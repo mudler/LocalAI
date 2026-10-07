@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -66,6 +67,15 @@ type DistributedServices struct {
 	// Membership keeps the row of this replica in the instances table and
 	// sweeps the rows of replicas that stopped answering.
 	Membership *cluster.Membership
+
+	// Carriers reads the row that names the active carrier. The registration
+	// of a worker answers from it.
+	Carriers *cluster.CarrierStore
+
+	// Tunnels holds the sessions that workers opened to this replica. It is
+	// empty while the cluster runs on NATS: the connect route is registered on
+	// every replica and refuses every worker that has no tunnel credential.
+	Tunnels *tunnel.Registry
 
 	// active names the carrier set the holders forward to.
 	active *atomic.Pointer[carrier.Set]
@@ -545,10 +555,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, err
 	}
+	tunnels := tunnel.NewRegistry(cluster.NewRegistry(authDB), cfg.Distributed.InstanceID)
+	// If a peer sweeps this replica while it stalls, the claims of the tunnels
+	// that it still holds are written again when it registers again.
+	membership.SetReclaimer(tunnels)
 
 	success = true
 	return &DistributedServices{
 		Membership:   membership,
+		Carriers:     carrierStore,
+		Tunnels:      tunnels,
 		Broadcaster:  broadcaster,
 		WorkQueue:    workQueue,
 		AgentControl: carrier.NewAgents(active),
