@@ -269,6 +269,15 @@ curl http://localhost:8080/api/agents/skills
 
 If a skill you expect is missing, confirm LocalAI was started with `LOCALAI_AGENT_POOL_ENABLE_SKILLS=true`.
 
+### The Skills and Memory libraries
+
+The **Skills** and **Memory** pages work as libraries. A skill or a collection exists on its own and needs no agent. Each row says who uses it, read from the saved configuration of your agents: "Used by research-assistant +2", or a quiet "Not used yet". An agent uses a skill when `enable_skills` is on and the skill is in `selected_skills` (an empty selection means every skill). An agent reads the one collection that carries its own name, when `enable_kb` is on. Chat does not read skills or collections, so it is never listed as a user.
+
+- **Add to...** on a skill opens a menu of agents. Each row shows an estimate of what the skill adds to every message: the characters of its content divided by four. With `skills_mode` set to `tools` the content is read only when the model asks, so nothing is added up front. Removing the last selected skill from an agent switches skills off for it, because an empty selection would mean every skill. Removing a skill or a collection from an agent can be undone for a few seconds.
+- **Add to...** on a collection offers only the agent with the same name, and turns its knowledge base on.
+- On a collection, **Try a question** searches that collection alone and shows the passages that come back with their scores (`POST /api/agents/collections/{name}/search`, with `max_results`). **Add source** uploads a file or adds a URL with a refresh interval in minutes. A failed upload shows the message the server returned, and can be retried.
+- **Simulate a message** shows what a context would load. Pick a collection on its own, or one of your agents: you see the skills the agent has on, an estimate of the tokens it adds around the message, and the passages that its own collection returns for that message. Nothing is sent to a model, so no answer is shown. A skill or collection that is not added anywhere can be tried in the sheet for that test only, and is never saved.
+
 ## API Endpoints
 
 All agent endpoints are grouped under `/api/agents/`:
