@@ -54,6 +54,14 @@ Open an agent from the Agents page to see its model, tools, memory, skills and i
 
 The server keeps no run history. Runs are recorded in the browser that watched them, up to 50 per agent, and the record holds task text, step text and answers. A run link opens only in the browser that recorded it, **Clear run record** on the agent page removes the record, and the last 14 runs of each agent appear as a strip on the Agents page. A run still marked as working five minutes after its last event reads as stopped. Durations are measured by the browser between sending the task and receiving the answer. The page does not show tokens or per-step timings from the server, and it has no Stop or approval control, because the agent API has neither; **Pause** on the agent stops it taking new work.
 
+### Jobs and scheduled tasks
+
+The **Jobs** tab lists tasks: a prompt a model runs for you, on a schedule or whenever you start it. The page opens with one sentence about the last 7 days, built from the jobs the server returned (how many ran, how many finished, failed, were cancelled or are still going, and which task failed last time). Each task shows its model, its schedule in plain words with the cron expression under it, its last 14 jobs and an enabled switch; **Run now** asks for the values the prompt uses (`{{.name}}` gaps) and any media to attach, and the menu holds Edit and Delete. Delete waits 30 seconds with an Undo button, and nothing is deleted on the server until that time ends.
+
+The run history is grouped by day, with one sentence for each job (the first line of its result, or its error). A row opens to show the error or the start of the result and one next action, **Run again** for a finished job or **Cancel** for one that is still going. Run again starts a new job with the same parameters and media, because the API has no retry call. A job opens as a document: the task as that run sent it, the outcome, whether the webhook was delivered, and the steps the server recorded.
+
+The task form takes a schedule as presets (hourly, daily, weekdays) with a time, or as a custom cron expression of five fields (minute, hour, day, month, weekday) or an `@hourly` style shortcut. The form checks the expression and says what it means in words. Times follow the clock of the machine that runs LocalAI, which the browser cannot read, so the page shows no next run. The page also shows no tokens, because the jobs API returns none, and durations come from the job's own start and end times.
+
 ### Importing an Agent
 
 You can import agent configurations from JSON files:
