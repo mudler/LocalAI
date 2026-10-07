@@ -1213,6 +1213,17 @@ the slot, and the model filling it can change without rewriting the rule. The
 WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
 the model each one resolves to.
 
+Each frontend resolves the alias from its own copy of the model configs, and a
+frontend that has not yet reloaded a repointed alias still resolves it the old
+way (see [Model configs across frontends](#model-configs-across-frontends)).
+The rule's stored target therefore follows the alias only through frontends
+whose copy of the alias config matches the
+[configuration revision](#model-configuration-revisions) the cluster accepted.
+A frontend that is behind uses the stored target for the replica reconciler and
+does not write it, so two frontends cannot overwrite the rule's target against
+each other, and a frontend that is behind cannot reload the model the alias
+used to point at.
+
 Two constraints follow from replicas being shared. A single load of `llama3`
 serves both `production` and any request that names `llama3` directly, so only
 one rule can decide where it runs: a rule whose target is already governed by

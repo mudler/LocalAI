@@ -44,3 +44,17 @@ var _ = Describe("MergeDirectorySnapshot", func() {
 		Expect(cfg.DefinedOutside(GinkgoT().TempDir())).To(BeFalse())
 	})
 })
+
+var _ = Describe("ModelConfigLoader.ConfigRevisionOf", func() {
+	It("returns the stamped revision of a loaded config and the deletion revision of an absent one", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "present.yaml"), []byte("name: present\nbackend: llama-cpp\n"), 0644)).To(Succeed())
+		loader := config.NewModelConfigLoader(dir)
+		Expect(loader.LoadModelConfigsFromPath(dir)).To(Succeed())
+
+		revision, err := loader.RevisionForPath("present", dir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(loader.ConfigRevisionOf("present")).To(Equal(revision))
+		Expect(loader.ConfigRevisionOf("absent")).To(Equal(config.DeletedModelConfigRevision("absent")))
+	})
+})

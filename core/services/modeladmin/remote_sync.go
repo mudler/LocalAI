@@ -2,7 +2,6 @@ package modeladmin
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"sort"
 
@@ -128,5 +127,5 @@ func changedConfigNames(current, snapshot map[string]config.ModelConfig, named s
 // model. It lets every frontend derive the same authoritative state regardless
 // of which reordered cache-invalidation event woke it up.
 func DeletedModelConfigRevision(modelName string) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte("deleted\x00"+modelName)))
+	return config.DeletedModelConfigRevision(modelName)
 }
