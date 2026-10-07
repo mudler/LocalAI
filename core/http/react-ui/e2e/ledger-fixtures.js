@@ -94,6 +94,7 @@ export function buildGallery() {
         sizeBytes: Math.round(size),
         sizeDisplay: `${(size / GB).toFixed(2)} GB`,
         estimates,
+        ...(hasKv ? { modelMaxContext: 131072 } : {}),
       },
     }
   })
@@ -327,5 +328,107 @@ export async function mockLedger(page, options = {}) {
   await page.route('**/models/toggle-pinned/**', route => route.fulfill({ json: {} }))
   await page.route('**/api/models/job/*', route => route.fulfill({ json: { processed: true } }))
   await page.route('**/api/recommended*', route => route.fulfill({ json: { models: [] } }))
+  return state
+}
+
+// ---- the model page and the Placement section ----
+
+// Two cards: 24 GB and 12 GB, with the first partly used by another program.
+PROFILES.twogpu = {
+  type: 'gpu',
+  available: true,
+  gpus: [
+    { index: 0, name: 'RTX 4090', vendor: 'nvidia', total_vram: 24 * GB, used_vram: 2.6 * GB, free_vram: 21.4 * GB, usage_percent: 10.8 },
+    { index: 1, name: 'RTX 3060', vendor: 'nvidia', total_vram: 12 * GB, used_vram: 0.4 * GB, free_vram: 11.6 * GB, usage_percent: 3.3 },
+  ],
+  ram: { total: 64 * GB, used: 16 * GB, free: 48 * GB, available: 48 * GB, usage_percent: 25 },
+  aggregate: { total_memory: 36 * GB, used_memory: 3 * GB, free_memory: 33 * GB, usage_percent: 8, gpu_count: 2 },
+  disk: DISK,
+  storage_size: 107.6 * GB,
+}
+
+export const EDITOR_METADATA = {
+  sections: [
+    { id: 'general', label: 'General', icon: 'settings', order: 0 },
+    { id: 'llm', label: 'LLM', icon: 'cpu', order: 10 },
+  ],
+  fields: [
+    { path: 'name', yaml_key: 'name', go_type: 'string', ui_type: 'string', section: 'general', label: 'Model Name', description: 'Unique identifier for this model', component: 'input', order: 0 },
+    { path: 'backend', yaml_key: 'backend', go_type: 'string', ui_type: 'string', section: 'general', label: 'Backend', description: 'Inference backend to use', component: 'input', order: 10 },
+    { path: 'context_size', yaml_key: 'context_size', go_type: '*int', ui_type: 'int', section: 'llm', label: 'Context Size', description: 'Maximum context window in tokens', component: 'number', vram_impact: true, order: 10 },
+    { path: 'gpu_layers', yaml_key: 'gpu_layers', go_type: '*int', ui_type: 'int', section: 'llm', label: 'GPU Layers', description: 'Number of layers to offload to GPU (-1 = all)', component: 'number', vram_impact: true, order: 11 },
+  ],
+}
+
+export const CONFIGS = {
+  'qwen3-14b-instruct': 'name: qwen3-14b-instruct\nbackend: llama-cpp\nparameters:\n  model: qwen3-14b-instruct.gguf\ncontext_size: 8192\n',
+  'qwen3-8b-instruct': 'name: qwen3-8b-instruct\nbackend: llama-cpp\nparameters:\n  model: qwen3-8b-instruct.gguf\ncontext_size: 8192\ngpu_layers: 99999999\n',
+  'llama-3.3-70b-instruct-iq2': 'name: llama-3.3-70b-instruct-iq2\nbackend: llama-cpp\nparameters:\n  model: llama-3.3-70b.gguf\ncontext_size: 8192\ngpu_layers: 20\n',
+  'gemma-3-12b-it': 'name: gemma-3-12b-it\nbackend: llama-cpp\nparameters:\n  model: gemma-3-12b-it.gguf\ncontext_size: 16384\ngpu_layers: 0\n',
+}
+
+// What the estimate endpoint would say for a gallery model at a context size
+// and layer count, following the server's own arithmetic: the context term is
+// linear, and a partial offload scales only the weights.
+export function vramFor(entry, ctx, layers, layerCount = 40) {
+  const e = entry.estimate.estimates
+  const slope = (e[262144].vramBytes - e[8192].vramBytes) / (262144 - 8192)
+  const kv = slope * ctx
+  const weights = entry.estimate.sizeBytes * 1.05 + 0.4 * GB
+  const share = layers != null && layers > 0 && layers < layerCount ? layers / layerCount : 1
+  return Math.round(weights * share + kv)
+}
+
+// Stub the endpoints the Placement section and the model page's Configuration
+// tab read and write, on top of mockLedger.
+//
+//   estimate    'ok', 'unavailable' (200 with only a message, as the server
+//               answers for a model with no weight files), 'error' (500) or
+//               'slow' (answers after a pause).
+//   layerCount  when set, the estimate also reports block_count.
+//   configs     the YAML each installed model's edit endpoint returns.
+export async function mockPlacement(page, options = {}) {
+  const { estimate = 'ok', layerCount = 0, configs = CONFIGS, gallery = GALLERY, slowMs = 1500, modelLayers = 40, metadata = EDITOR_METADATA } = options
+  const state = { estimateCalls: [], patches: [], edits: [], configs: { ...configs }, estimate }
+  await page.route('**/api/models/vram-estimate', async route => {
+    const body = route.request().postDataJSON()
+    state.estimateCalls.push(body)
+    if (state.estimate === 'slow') await new Promise(r => setTimeout(r, slowMs))
+    if (state.estimate === 'error') return route.fulfill({ status: 500, json: { error: 'estimate failed' } })
+    const entry = gallery.find(e => e.name === body.model)
+    if (state.estimate === 'unavailable' || !entry) return route.fulfill({ json: { message: 'no weight files found for estimation' } })
+    const vram = vramFor(entry, body.context_size || 8192, body.gpu_layers ?? null, modelLayers)
+    return route.fulfill({
+      json: {
+        size_bytes: entry.estimate.sizeBytes,
+        size_display: entry.estimate.sizeDisplay,
+        context_length: body.context_size || 8192,
+        vram_bytes: vram,
+        vram_display: `${(vram / GB).toFixed(2)} GB`,
+        model_max_context: 131072,
+        ...(layerCount ? { block_count: layerCount } : {}),
+      },
+    })
+  })
+  await page.route('**/api/models/config-metadata*', route => route.fulfill({ json: metadata }))
+  await page.route('**/api/models/edit/*', route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop())
+    if (route.request().method() === 'POST') {
+      state.edits.push({ name, body: route.request().postData() })
+      return route.fulfill({ json: { success: true } })
+    }
+    return state.configs[name] !== undefined
+      ? route.fulfill({ json: { config: state.configs[name], name } })
+      : route.fulfill({ status: 404, json: { error: 'not found' } })
+  })
+  await page.route('**/api/models/config-json/*', route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop())
+    if (route.request().method() === 'PATCH') {
+      state.patches.push({ name, patch: route.request().postDataJSON() })
+      return route.fulfill({ json: { success: true } })
+    }
+    return route.fulfill({ json: {} })
+  })
+  await page.route('**/api/models/config-metadata/autocomplete/*', route => route.fulfill({ json: { values: [] } }))
   return state
 }

@@ -453,7 +453,25 @@ test.describe('Models ledger - phone', () => {
     expect(button.height).toBeGreaterThanOrEqual(30)
   })
 
-  test('a selected row is the page, and the close button gives the table back', async ({ page }) => {
+  // On a phone there is no inspector beside the table, so a tap on a row opens
+  // the model's own page. Back gives the table back, with focus on the arrow of
+  // the row that was opened.
+  test('a tapped row is the page, and Back gives the table back', async ({ page }) => {
+    await open(page)
+    const r = row(page, 'qwen3-4b-instruct')
+    await r.locator('.ledger-name').click()
+    await expect(page.getByTestId('model-page')).toBeVisible()
+    await expect(page.getByTestId('model-page-name')).toHaveText('qwen3-4b-instruct')
+    await expect(r).toBeHidden()
+    await page.getByTestId('model-page-back').click()
+    await expect(r).toBeVisible()
+    await expect(r.locator('[data-row-open]')).toBeFocused()
+  })
+
+  // Between a phone and a desk the inspector still takes the page when a row is
+  // selected, and its close button gives the table back.
+  test('on a narrow window a selected row is the inspector page, and the close button gives the table back', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 900 })
     await open(page)
     const r = row(page, 'qwen3-4b-instruct')
     await r.click()

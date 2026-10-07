@@ -273,7 +273,7 @@ test.describe('Models lifecycle', () => {
   })
 
   test('narrow detail Back restores focus to the originating model', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 800 })
+    await page.setViewportSize({ width: 800, height: 800 })
     await page.goto('/app/models?view=installed')
 
     const model = page.locator('[data-entity="beta"]')
@@ -285,5 +285,20 @@ test.describe('Models lifecycle', () => {
 
     await expect(model).toBeVisible()
     await expect(model).toBeFocused()
+  })
+
+  test('on a phone a tapped model opens its page and Back restores focus to its arrow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/app/models?view=installed')
+
+    const model = page.locator('[data-entity="beta"]')
+    await model.click()
+    await expect(page.locator('[data-testid="model-page-name"]')).toHaveText('beta')
+    await expect(model).not.toBeVisible()
+
+    await page.locator('[data-testid="model-page-back"]').click()
+
+    await expect(model).toBeVisible()
+    await expect(model.locator('[data-row-open]')).toBeFocused()
   })
 })
