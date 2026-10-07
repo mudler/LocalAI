@@ -1,0 +1,145 @@
+{
+  "title": "Talk",
+  "subtitle": "realtime voice",
+  "stage": "Voice session",
+  "picker": {
+    "title": "Voice pipeline: listen, think, speak",
+    "heading": "Pipeline models",
+    "label": "Pipeline model",
+    "none": "No pipeline",
+    "defaultVoice": "default voice",
+    "auto": "auto"
+  },
+  "view": {
+    "idle": {
+      "title": "Ready",
+      "body": "Start a session and talk. The microphone is only used while a session is open.",
+      "note": "Your microphone streams while the session runs. The server notices when you stop talking and answers on its own."
+    },
+    "connecting": {
+      "title": "Connecting",
+      "body": "Setting up the call. The model is not listening yet."
+    },
+    "listening": {
+      "title": "Listening",
+      "body": "Say what you need. I answer when you stop.",
+      "hearing": "Hearing you speak."
+    },
+    "interrupted": {
+      "title": "Interrupted",
+      "body": "I stopped. Go ahead, I am listening."
+    },
+    "thinking": {
+      "title": "Thinking",
+      "body": "Working out a reply."
+    },
+    "speaking": {
+      "title": "Speaking",
+      "body": "Speak over me at any time to interrupt."
+    },
+    "blocked": {
+      "title": "Microphone blocked",
+      "body": "The browser did not give this page the microphone.",
+      "cardTitle": "Allow the microphone",
+      "card": "Click the lock icon in the address bar, set Microphone to Allow, then try again. Nothing was recorded."
+    },
+    "lost": {
+      "title": "Connection lost",
+      "body": "The link to the server dropped.",
+      "cardTitle": "The session ended",
+      "card": "The WebRTC link failed. The conversation so far stays in the transcript."
+    },
+    "error": {
+      "title": "The session stopped",
+      "body": "Something went wrong while setting up or running the call."
+    },
+    "nopipe": {
+      "title": "Talk needs a pipeline model",
+      "body": "A pipeline model joins a speech-to-text model, a chat model and a text-to-speech model into one voice assistant. None is configured yet. Create one, or find the models in the gallery first.",
+      "create": "Create a pipeline model",
+      "gallery": "Browse the gallery"
+    }
+  },
+  "detail": {
+    "tool": "Running {{name}}.",
+    "processing": "Working out a reply.",
+    "generating": "Writing the reply.",
+    "server": "The server reported an error: {{message}}",
+    "insecure": "Microphone access needs HTTPS or localhost.",
+    "noMic": "No microphone was found.",
+    "failed": "The call could not be set up: {{message}}",
+    "unknown": "unknown error"
+  },
+  "controls": {
+    "start": "Start session",
+    "end": "End session",
+    "testTone": "Test tone",
+    "diagnostics": "Diagnostics",
+    "viewTraces": "View traces",
+    "retry": {
+      "blocked": "Try again",
+      "lost": "Reconnect",
+      "error": "Try again"
+    }
+  },
+  "transcript": {
+    "title": "Transcript",
+    "copy": "Copy",
+    "empty": "What you say and what the model answers appears here as it happens. It is not saved.",
+    "emptyNoPipeline": "Nothing to show yet.",
+    "user": "You",
+    "assistant": "Reply",
+    "tool_call": "Tool",
+    "tool_result": "Result",
+    "interrupted": "Reply interrupted",
+    "toneRequested": "Test tone requested"
+  },
+  "settings": {
+    "title": "Session settings",
+    "desc": "Applies when the session starts.",
+    "close": "Close",
+    "voiceLanguage": "Voice and language",
+    "voice": "Voice",
+    "voicePlaceholder": "Voice name (leave blank for the model default)",
+    "language": "Transcription language",
+    "languagePlaceholder": "Language code, for example en (blank detects it)",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "System instructions for the model",
+    "instructionsHelp": "Sent as the session instructions. Keep them short: replies are spoken.",
+    "tools": "Tools",
+    "manage": "Manage mode",
+    "manageDesc": "Let the model query LocalAI: models, backends and system info.",
+    "manageLocked": "Fixed while a session is open. End the session to change it.",
+    "pipeline": "{{name}} in detail",
+    "selfContained": "Self-contained any-to-any model: it handles voice detection, transcription, the language model and speech by itself.",
+    "editConfig": "Edit model config",
+    "editPipeline": "Edit pipeline",
+    "slot": {
+      "vad": "Voice detection",
+      "transcription": "Transcription",
+      "llm": "Language model",
+      "tts": "Speech"
+    }
+  },
+  "diag": {
+    "title": "Audio diagnostics",
+    "waveform": "Waveform",
+    "spectrum": "Spectrum (FFT)",
+    "waiting": "Waiting for stats...",
+    "peakFreq": "Peak frequency",
+    "thd": "THD",
+    "rms": "RMS level",
+    "sampleRate": "Sample rate",
+    "packetsRecv": "Packets received",
+    "packetsLost": "Packets lost",
+    "jitter": "Jitter",
+    "concealed": "Concealed samples"
+  },
+  "toasts": {
+    "selectModel": "Select a pipeline model first.",
+    "modelsFailed": "Failed to load realtime models: {{message}}",
+    "viewTraces": "View traces",
+    "copied": "Transcript copied",
+    "copyFailed": "Could not copy to the clipboard"
+  }
+}

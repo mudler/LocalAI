@@ -19,10 +19,13 @@ const FILTER_FROM = 8
 //   describe(name)    { vision, size, fit: { tone, text } } for a row
 //   onOpen            called when the list opens (to read memory and sizes)
 //   footer            a node under the list (the memory bar)
+//   showWarm          false for a list whose names are not loadable models (Talk's pipelines)
+//   labels            { title, heading, label, none } to replace the chat wording
 const HomeModelPicker = forwardRef(function HomeModelPicker(
   {
     value, onChange, capability, loadedIds, disabled = false, placeholder,
     models: givenModels, loading: givenLoading, grouped = false, describe, onOpen, footer,
+    showWarm = true, labels,
   },
   ref,
 ) {
@@ -111,7 +114,7 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   }
 
   const isWarm = (name) => loadedIds?.has(name)
-  const label = value || placeholder || (loading ? t('picker.loading') : t('picker.none'))
+  const label = value || placeholder || (loading ? t('picker.loading') : (labels?.none || t('picker.none')))
   const activeId = shown[active] ? `home-model-opt-${active}` : undefined
 
   return (
@@ -124,13 +127,13 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
         aria-expanded={open}
         aria-controls="home-model-menu"
         disabled={disabled}
-        title={t('picker.title')}
+        title={labels?.title || t('picker.title')}
         data-testid="home-model-chip"
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={(e) => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); openMenu() } }}
       >
         <Icon name="cube" />
-        <span className={`home-dot${value && isWarm(value) ? '' : ' home-dot--cold'}`} aria-hidden="true" />
+        {showWarm && <span className={`home-dot${value && isWarm(value) ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
         <span className="home-chip__text">{label}</span>
         <Icon name="chevron-down" className="home-chip__caret" />
       </button>
@@ -156,11 +159,11 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
             id="home-model-list"
             className="home-menu__list"
             role="listbox"
-            aria-label={t('picker.label')}
+            aria-label={labels?.label || t('picker.label')}
             tabIndex={-1}
             aria-activedescendant={activeId}
           >
-            {!grouped && <li className="home-menu__head" role="presentation">{t('picker.heading')}</li>}
+            {!grouped && <li className="home-menu__head" role="presentation">{labels?.heading || t('picker.heading')}</li>}
             {shown.length === 0 && <li className="home-menu__empty" role="presentation">{t('picker.noMatch')}</li>}
             {shown.map((name, i) => {
               const warm = isWarm(name)
@@ -182,7 +185,7 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
                     onMouseMove={() => setActive(i)}
                     onClick={() => pick(name)}
                   >
-                    <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
+                    {showWarm && <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />}
                     {info ? (
                       <>
                         <span className="home-menu__main">
@@ -204,7 +207,7 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
                         <code>{name}</code>
                         {name === value
                           ? <Icon name="check" className="home-menu__check" />
-                          : <small>{warm ? t('picker.warm') : t('picker.cold')}</small>}
+                          : (showWarm && <small>{warm ? t('picker.warm') : t('picker.cold')}</small>)}
                       </>
                     )}
                   </li>
