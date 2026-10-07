@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -88,58 +89,47 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	registrationBody := cfg.registrationBody()
 	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
 
-	// Resolve how to connect to NATS. Static env credentials cannot be re-minted,
-	// so register once and use them directly. Otherwise the credential manager
-	// (re)registers to obtain credentials — waiting through admin approval — and
-	// refreshes them before the minted JWT expires, so the connection survives
-	// expiry via a transparent reconnect.
+	// Register, and learn from the answer which carrier the cluster runs on.
+	//
+	// Static NATS credentials from the environment cannot be minted again, so
+	// the worker registers once and uses them as they are. Otherwise the
+	// credential manager registers, waits through admin approval, and for NATS
+	// it refreshes the credentials before the minted JWT expires, so that the
+	// connection survives the expiry through a reconnect that the client does by
+	// itself. For the tunnel it holds the token of the node.
 	var (
-		nodeID      string
-		connectNats func() (*messaging.Client, error)
-	)
-	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
-		nid, _, _, _, regErr := regClient.RegisterWithRetry(shutdownCtx, registrationBody, 10)
-		if regErr != nil {
-			return fmt.Errorf("failed to register with frontend: %w", regErr)
-		}
-		nodeID = nid
-		connectNats = func() (*messaging.Client, error) {
-			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsAuthRequired(), natsTLS)
-		}
-	} else {
-		credMgr := workerregistry.NewNATSCredentialManager(
+		res     *workerregistry.RegisterResponse
+		credMgr = workerregistry.NewCredentialManager(
 			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 				return regClient.RegisterFull(ctx, registrationBody)
 			},
 			cfg.NatsAuthRequired(),
 		)
-		res, regErr := credMgr.Acquire(shutdownCtx)
-		if regErr != nil {
-			return fmt.Errorf("failed to register with frontend: %w", regErr)
-		}
-		nodeID = res.ID
-		connectNats = func() (*messaging.Client, error) {
-			var opts []messaging.Option
-			if credMgr.HasCredentials() {
-				opts = append(opts, messaging.WithUserJWTProvider(credMgr.Provider()))
-			}
-			if natsTLS.Enabled() {
-				opts = append(opts, messaging.WithTLS(natsTLS))
-			}
-			client, cerr := messaging.New(cfg.NatsURL, opts...)
-			if cerr == nil && credMgr.HasCredentials() {
-				go func() {
-					if err := credMgr.RefreshLoop(shutdownCtx); err != nil {
-						xlog.Error("NATS credential refresh permanently failed; shutting down worker", "error", err)
-						shutdownCancel()
-					}
-				}()
-			}
-			return client, cerr
-		}
+		staticNATS = cfg.NatsJWT != "" || cfg.NatsUserSeed != ""
+		regErr     error
+	)
+	if staticNATS {
+		res, regErr = regClient.RegisterFullWithRetry(shutdownCtx, registrationBody, 10)
+	} else {
+		res, regErr = credMgr.Acquire(shutdownCtx)
+	}
+	if regErr != nil {
+		return fmt.Errorf("failed to register with frontend: %w", regErr)
+	}
+	nodeID := res.ID
+	onTunnel, err := carrierOf(res.Carrier, cfg)
+	if err != nil {
+		return err
+	}
+	// The token comes from the credential manager, which is updated by every
+	// registration. With static NATS credentials there is no manager, and a
+	// frontend that answers with the tunnel gives the token once.
+	tunnelToken := credMgr.TunnelToken
+	if staticNATS {
+		tunnelToken = func() string { return res.TunnelToken }
 	}
 
-	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo)
+	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo, "carrier", cmp.Or(res.Carrier, "nats"))
 	heartbeatInterval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil && cfg.HeartbeatInterval != "" {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cfg.HeartbeatInterval, "error", err)
@@ -148,7 +138,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Start HTTP file transfer server. (Empty-token enforcement is handled at
 	// the top of Run so the worker fails before registering.)
-	httpAddr := cfg.resolveHTTPAddr()
+	bindHost := cfg.bindHost(onTunnel)
+	httpAddr := cfg.resolveHTTPAddr(bindHost)
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
@@ -181,16 +172,49 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
 
-	// Connect to NATS
-	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
-	natsClient, err := connectNats()
-	if err != nil {
-		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("connecting to NATS: %w", err)
+	// Attach to the carrier that the frontend named. The link is what the
+	// heartbeat and the readiness probe look at: a worker whose link is down
+	// still sends its HTTP heartbeat, and the registry would show a node that
+	// looks healthy and cannot be reached.
+	var (
+		link        carrierLink
+		natsClient  *messaging.Client
+		linkProbe   func() error
+		linkDownMsg string
+	)
+	if onTunnel {
+		t, terr := StartTunnel(shutdownCtx, TunnelConfig{
+			FrontendURL: cfg.RegisterTo,
+			NodeID:      nodeID,
+			Token:       tunnelToken,
+			// Built by tunnelServices and not inline, so that the routing table,
+			// which is the security boundary of the tunnel, can be reached from a
+			// spec without starting a worker.
+			Services: tunnelServices(cfg, httpAddr),
+		})
+		if terr != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("starting the worker tunnel: %w", terr)
+		}
+		defer func() {
+			if err := t.Close(); err != nil {
+				xlog.Warn("Closing the worker tunnel failed", "error", err)
+			}
+		}()
+		link, linkProbe, linkDownMsg = t, nodes.TunnelReadiness(t), "tunnel disconnected"
+	} else {
+		xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
+		var cerr error
+		natsClient, cerr = connectNatsFor(shutdownCtx, shutdownCancel, cfg, credMgr, staticNATS, natsTLS)
+		if cerr != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("connecting to NATS: %w", cerr)
+		}
+		defer natsClient.Close()
+		link, linkProbe, linkDownMsg = natsLink{natsClient}, nodes.NATSReadiness(natsClient), "NATS disconnected"
 	}
-	defer natsClient.Close()
 
-	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
+	// Start heartbeat goroutine (after the carrier is attached so the check works)
 	go func() {
 		ticker := time.NewTicker(heartbeatInterval)
 		defer ticker.Stop()
@@ -199,8 +223,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 			case <-shutdownCtx.Done():
 				return
 			case <-ticker.C:
-				if !natsClient.IsConnected() {
-					xlog.Warn("Skipping heartbeat: NATS disconnected")
+				if !link.Connected() {
+					xlog.Warn("Skipping heartbeat: " + linkDownMsg)
 					continue
 				}
 				body := cfg.heartbeatBody()
@@ -237,17 +261,18 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		nextPort:     basePort,
 		minPort:      basePort,
 		maxPort:      cfg.effectiveMaxPort(basePort),
+		bindHost:     bindHost,
 	}
 
 	// Arm the readiness gate now that the worker can actually receive work.
-	// NATS is already connected at this point, so a worker that is up but cut
-	// off from the bus reports 503 instead of a meaningless 200 (#10987).
+	// The carrier is already attached at this point, so a worker that is up but
+	// cut off from it reports 503 instead of a meaningless 200 (#10987).
 	//
-	// Readiness also covers the data path: a worker whose NATS link is fine
-	// but whose backend processes have died is up and useless, and the
-	// scheduler cannot tell the difference from the bus alone.
+	// Readiness also covers the data path: a worker whose link is fine but whose
+	// backend processes have died is up and useless, and the scheduler cannot
+	// tell the difference from the link alone.
 	readiness.Set(nodes.CompositeReadiness(
-		nodes.NATSReadiness(natsClient),
+		linkProbe,
 		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
 			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
 			if err != nil {
@@ -267,18 +292,24 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// The watchdog stops load operations the controller no longer renews.
 	go supervisor.runOperationWatchdog(shutdownCtx)
 
-	control := newNATSControlServer(natsClient, nodeID)
-	if err := supervisor.registerLifecycleVerbs(control); err != nil {
-		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
-	}
-
-	// Serve the file staging verbs only when S3 is configured
-	if cfg.StorageURL != "" {
-		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
+	if natsClient != nil {
+		control := newNATSControlServer(natsClient, nodeID)
+		if err := supervisor.registerLifecycleVerbs(control); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("subscribing to file staging subjects: %w", err)
+			return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
 		}
+
+		// Serve the file staging verbs only when S3 is configured
+		if cfg.StorageURL != "" {
+			if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
+				nodes.ShutdownFileTransferServer(httpServer)
+				return fmt.Errorf("subscribing to file staging subjects: %w", err)
+			}
+		}
+	} else {
+		// The tunnel carries streams to the backends and to the file-transfer
+		// server of this worker. The lifecycle verbs have no route on it yet.
+		xlog.Warn("This worker is attached to the tunnel and serves no lifecycle verbs on it: backends are not installed or stopped by the frontend")
 	}
 
 	xlog.Info("Worker ready, waiting for backend.install events")
@@ -299,4 +330,41 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
+}
+
+// carrierLink is the connection of a worker to the carrier it is attached to.
+type carrierLink interface {
+	Connected() bool
+}
+
+// natsLink adapts a NATS client to carrierLink.
+type natsLink struct{ c *messaging.Client }
+
+func (l natsLink) Connected() bool { return l.c.IsConnected() }
+
+// carrierOf maps the carrier that the frontend named to the one this worker
+// attaches to, and reports whether it is the tunnel.
+//
+// A frontend that predates carriers names none, and the cluster runs on NATS.
+// Then the worker needs a NATS URL, and without one it stops with a message that
+// says so. The check is here and not in the flag, because the flag cannot know
+// the carrier: for a cluster on the tunnel the URL is not needed.
+func carrierOf(named string, cfg *Config) (onTunnel bool, err error) {
+	switch named {
+	case "tunnel":
+		if cfg.NatsURL != "" {
+			xlog.Info("The cluster runs on the tunnel, so the NATS URL of this worker is not used")
+		}
+		return true, nil
+	case "", "nats":
+		if cfg.NatsURL == "" {
+			if named == "" {
+				return false, errors.New("the frontend does not name a carrier, so the cluster runs on NATS, and this worker has no NATS URL: set LOCALAI_NATS_URL")
+			}
+			return false, errors.New("the cluster runs on NATS and this worker has no NATS URL: set LOCALAI_NATS_URL")
+		}
+		return false, nil
+	default:
+		return false, fmt.Errorf("the frontend names the carrier %q, which this worker does not know: upgrade the worker", named)
+	}
 }

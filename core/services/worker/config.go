@@ -9,7 +9,10 @@ package worker
 // Workers are backend-agnostic — they wait for backend.install NATS events
 // from the SmartRouter to install and start the required backend.
 //
-// NATS is required. The worker acts as a process supervisor:
+// The carrier is not a setting of the worker. The frontend names it in the answer
+// to the registration. With NATS the worker needs the URL of the server. With the
+// tunnel it needs nothing but the URL of the frontend. The worker acts as a
+// process supervisor:
 // - Receives backend.install → installs backend from gallery, starts gRPC process, replies success
 // - Receives backend.stop → stops the gRPC process
 // - Receives stop → full shutdown (deregister + exit)
@@ -75,8 +78,8 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
-	// NATS (required)
-	NatsURL         string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
+	// NATS. The URL is needed only when the cluster runs on NATS.
+	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed when the cluster runs on NATS; a cluster on the tunnel does not use it" group:"distributed"`
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`
 	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user signing seed override (normally from registration nats_user_seed)" group:"distributed"`
 	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed from registration or env" group:"distributed"`

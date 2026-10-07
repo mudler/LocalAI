@@ -57,13 +57,43 @@ var _ = Describe("Worker address resolution", func() {
 		DescribeTable("returns the correct address",
 			func(httpAddr, addr, serve, want string) {
 				cfg := &Config{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
-				Expect(cfg.resolveHTTPAddr()).To(Equal(want))
+				Expect(cfg.resolveHTTPAddr("0.0.0.0")).To(Equal(want))
 			},
 			Entry("HTTPAddr takes priority", "0.0.0.0:8080", "", "", "0.0.0.0:8080"),
 			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "0.0.0.0:59999"),
 			Entry("derives from ServeAddr port minus 1", "", "", "0.0.0.0:50051", "0.0.0.0:50050"),
 			Entry("default when nothing set", "", "", "", "0.0.0.0:50050"),
 		)
+	})
+
+	Describe("the bind host", func() {
+		DescribeTable("is loopback only for a worker on the tunnel with no routable address",
+			func(tunnel bool, addr, advertise, want string) {
+				cfg := &Config{Addr: addr, AdvertiseAddr: advertise}
+				Expect(cfg.bindHost(tunnel)).To(Equal(want))
+			},
+			Entry("tunnel, no address", true, "", "", "127.0.0.1"),
+			Entry("tunnel, --addr", true, "worker1:50051", "", "0.0.0.0"),
+			Entry("tunnel, --advertise-addr", true, "", "worker1:50051", "0.0.0.0"),
+			Entry("NATS, no address: binds as it always did", false, "", "", "0.0.0.0"),
+			Entry("NATS, --addr", false, "worker1:50051", "", "0.0.0.0"),
+		)
+
+		It("puts the host in front of the port of the file-transfer server", func() {
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			Expect(cfg.resolveHTTPAddr("127.0.0.1")).To(Equal("127.0.0.1:50050"))
+		})
+
+		It("keeps an address that the operator set for the file-transfer server", func() {
+			cfg := &Config{HTTPAddr: "10.0.0.5:9000"}
+			Expect(cfg.resolveHTTPAddr("127.0.0.1")).To(Equal("10.0.0.5:9000"))
+		})
+
+		It("says in the registration if the address can be reached", func() {
+			Expect((&Config{}).registrationBody()["routable"]).To(BeFalse())
+			Expect((&Config{Addr: "w:50051"}).registrationBody()["routable"]).To(BeTrue())
+			Expect((&Config{AdvertiseAddr: "w:50051"}).registrationBody()["routable"]).To(BeTrue())
+		})
 	})
 
 	Describe("advertiseHTTPAddr", func() {
