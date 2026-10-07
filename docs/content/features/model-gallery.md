@@ -39,6 +39,29 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## InSight-doc-8B
+
+[InSight-doc-8B](https://huggingface.co/InSight-doc/InSight-doc-8B) is a Qwen3-VL
+fine-tune for document visual question answering. The gallery provides Q4_K_M
+and Q8_0 GGUF builds for llama.cpp, each with the F16 vision projector and a
+32,768-token context. Both use the embedded chat template.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install insight-doc-8b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install insight-doc-8b-q4 --variant insight-doc-8b-q8
+```
+
+Supply document pages as images. The gallery installs the model weights and
+projector; reproducing the publisher's agentic results also requires its
+external agent loop and `image_zoom_in_tool`.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

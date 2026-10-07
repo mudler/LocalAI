@@ -22833,6 +22833,98 @@
     - filename: mmproj/mmproj-Huihui-Qwen3-VL-30B-A3B-F16.gguf
       sha256: 4bfd655851a5609b29201154e0bd4fe5f9274073766b8ab35b3a8acba0dd77a7
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/mmproj-F16.gguf
+- name: insight-doc-8b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/InSight-doc/InSight-doc-8B
+    - https://huggingface.co/mradermacher/InSight-doc-8B-GGUF
+  license: apache-2.0
+  description: |
+    InSight-doc-8B is a Qwen3-VL-8B-Instruct fine-tune for document visual
+    question answering. This Q4_K_M build includes the F16 vision projector.
+    Reproducing the publisher's agentic results requires the external
+    InSight-doc agent loop and image_zoom_in_tool.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - chat
+    - cpu
+    - gpu
+  last_checked: "2026-10-07"
+  variants:
+    - model: insight-doc-8b-q8
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    mmproj: InSight-doc-8B.mmproj-f16.gguf
+    parameters:
+      model: InSight-doc-8B.Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      repeat_penalty: 1
+      presence_penalty: 1.5
+  files:
+    - filename: InSight-doc-8B.Q4_K_M.gguf
+      sha256: 24b5df6f06bbb65eb0af5d4d20a281ce92912bc591bbef9f82e05e1ac0ceff2d
+      uri: https://huggingface.co/mradermacher/InSight-doc-8B-GGUF/resolve/fb986456eeccb4216fd97c6d4fd8dc94cc0d28f7/InSight-doc-8B.Q4_K_M.gguf
+    - filename: InSight-doc-8B.mmproj-f16.gguf
+      sha256: 28e76b53f1fe810e42bff07c88c4e6d9e049958515127ba969c21e196b0fe07d
+      uri: https://huggingface.co/mradermacher/InSight-doc-8B-GGUF/resolve/fb986456eeccb4216fd97c6d4fd8dc94cc0d28f7/InSight-doc-8B.mmproj-f16.gguf
+- name: insight-doc-8b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/InSight-doc/InSight-doc-8B
+    - https://huggingface.co/mradermacher/InSight-doc-8B-GGUF
+  license: apache-2.0
+  description: |
+    InSight-doc-8B is a Qwen3-VL-8B-Instruct fine-tune for document visual
+    question answering. This Q8_0 build includes the F16 vision projector.
+    Reproducing the publisher's agentic results requires the external
+    InSight-doc agent loop and image_zoom_in_tool.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - chat
+    - cpu
+    - gpu
+  last_checked: "2026-10-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    mmproj: InSight-doc-8B.mmproj-f16.gguf
+    parameters:
+      model: InSight-doc-8B.Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      repeat_penalty: 1
+      presence_penalty: 1.5
+  files:
+    - filename: InSight-doc-8B.Q8_0.gguf
+      sha256: 2382e36543a065c3a7be8e928ced99ada3a895f5ad12dd0e68f8c9aa40b683c8
+      uri: https://huggingface.co/mradermacher/InSight-doc-8B-GGUF/resolve/fb986456eeccb4216fd97c6d4fd8dc94cc0d28f7/InSight-doc-8B.Q8_0.gguf
+    - filename: InSight-doc-8B.mmproj-f16.gguf
+      sha256: 28e76b53f1fe810e42bff07c88c4e6d9e049958515127ba969c21e196b0fe07d
+      uri: https://huggingface.co/mradermacher/InSight-doc-8B-GGUF/resolve/fb986456eeccb4216fd97c6d4fd8dc94cc0d28f7/InSight-doc-8B.mmproj-f16.gguf
 - name: qwen3-vl-8b-instruct
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
