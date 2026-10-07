@@ -347,6 +347,9 @@
         "paramCount_one": "{{count}} parameter",
         "paramCount_other": "{{count}} parameters"
       },
+      "threed": {
+        "whyImage": "Add a picture first"
+      },
       "choose": "Choose",
       "replace": "Replace",
       "dropHint": "or drop it here"

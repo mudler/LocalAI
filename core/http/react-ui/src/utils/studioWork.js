@@ -136,7 +136,7 @@ export function toWorkItem(type, entry) {
   const outputs = results.filter(r => r && r.url && (!r.kind || r.kind === 'output'))
   const input = results.find(r => r && r.url && r.kind === 'input')
   const title = type === 'threed'
-    ? (entry.label || entry.name || '')
+    ? (entry.label || entry.inputs?.prompt?.data || entry.name || '')
     : (entry.prompt || '')
   return {
     id: String(entry.id),

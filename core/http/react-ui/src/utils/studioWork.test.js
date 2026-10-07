@@ -253,3 +253,11 @@ test('a waveform placeholder is repeatable and bounded', () => {
   assert.ok(a.every(h => h > 0 && h <= 1))
   assert.equal(waveBars('x', 10).length, 10)
 })
+
+test('a 3D result is titled by the label, else the motion prompt, else the file name', () => {
+  const base = { id: 'm1', createdAt: 1, model: 'trellis', params: {}, name: 'out.glb' }
+  const title = (extra) => collectWork({}, [{ ...base, ...extra }])[0].title
+  assert.equal(title({ label: 'A vase' }), 'A vase')
+  assert.equal(title({ inputs: { prompt: { type: 'text', data: 'Walk forward and wave' } } }), 'Walk forward and wave')
+  assert.equal(title({}), 'out.glb')
+})
