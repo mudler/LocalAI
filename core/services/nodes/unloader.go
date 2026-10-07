@@ -89,6 +89,7 @@ var (
 	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
 	_ ExactModelStopper                = (*RemoteUnloaderAdapter)(nil)
+	_ NodeControl                      = (*RemoteUnloaderAdapter)(nil)
 )
 
 const exactModelStopTimeout = 10 * time.Second
@@ -373,13 +374,13 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 	return reply, err
 }
 
-// installWithForceFallback is the rolling-update fallback used by
+// InstallBackendForce is the rolling-update fallback used by
 // DistributedBackendManager.UpgradeBackend when backend.upgrade returns
 // ErrNoRoute (the worker is on a pre-2026-05-08 build that
 // doesn't subscribe to the new subject). It re-fires the legacy
 // backend.install with Force=true. Drop this once every worker is on
 // 2026-05-08 or newer.
-func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (a *RemoteUnloaderAdapter) InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	subject := messaging.SubjectNodeBackendInstall(nodeID)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 type ExactModelStopper interface {
@@ -157,6 +158,31 @@ type LoadOperationControl interface {
 	ExactModelStopper
 }
 
+// NodeControl is every control verb the frontend sends to workers, whatever
+// carries it. The router, the reconciler, the backend and model managers and
+// the model loader take it instead of a concrete sender, so a carrier is
+// replaced in one place. A carrier implements all of it; the part beyond
+// NodeCommandSender is the lookups and fan-outs built on those verbs.
+//
+// The model loader reads the three unload interfaces through type assertions
+// (see pkg/model), which is why each one is named here: a value that lacks one
+// compiles and silently loses that behaviour.
+type NodeControl interface {
+	NodeCommandSender
+	NodeProcessLister
+	model.RemoteModelUnloader
+	model.RemoteModelContextUnloader
+	model.RemoteModelPresenceChecker
+
+	// InstallTimeout is the longest an install request waits for its reply.
+	InstallTimeout() time.Duration
+	// DeleteModelFiles asks every node that holds the model to delete its files.
+	DeleteModelFiles(modelName string) error
+	// InstallBackendForce is the rolling-update fallback for UpgradeBackend on
+	// a worker that does not serve backend upgrades: an install with Force set.
+	InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error)
+}
+
 // ConcurrencyConflictResolver returns the names of configured models that
 // share at least one concurrency group with the given model. It is satisfied
 // by *config.ModelConfigLoader and lets the SmartRouter make group-aware
@@ -245,6 +271,13 @@ func (f *tokenClientFactory) NewClient(_, address string, parallel bool) grpc.Ba
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
 	return grpc.NewClient(address, parallel, nil, false)
+}
+
+// NewTokenClientFactory returns the direct BackendClientFactory: it dials the
+// address it is handed and sends token as a bearer credential when it is not
+// empty.
+func NewTokenClientFactory(token string) BackendClientFactory {
+	return &tokenClientFactory{token: token}
 }
 
 // WorkerNetDialerFor returns the dial function that reaches one worker's own
