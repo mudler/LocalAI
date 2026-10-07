@@ -164,7 +164,7 @@ var _ = Describe("Reaping dead replicas", func() {
 
 		Expect(reg.Deregister(ctx, "leaving")).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 		Expect(live[0].ID).To(Equal("staying"))
@@ -280,13 +280,13 @@ var _ = Describe("Reaping dead replicas", func() {
 		membership := cluster.NewMembership(reg, "me", "v1")
 		Expect(membership.Start(ctx)).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 
 		membership.Stop()
 
-		live, err = reg.Live(ctx, time.Minute)
+		live, err = liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(BeEmpty(), "a replica that shut down cleanly left its row behind for peers to dial")
 	})
@@ -343,9 +343,9 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
 
-		// Rows, not live rows: an aged-out replica drops out of Live
+		// Rows, not live rows: an aged-out replica drops out of the live set
 		// immediately, and what the sweeper adds is deleting it. Asserting on
-		// Live here would pass with no sweeper at all.
+		// the live set here would pass with no sweeper at all.
 		rows := func() int64 {
 			var n int64
 			if err := db.Model(&cluster.Instance{}).Count(&n).Error; err != nil {
@@ -356,7 +356,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(rows()).To(Equal(int64(2)), "the stale row is still in the table until a sweep deletes it")
 
 		Eventually(rows, 3*cluster.InstanceHeartbeat, time.Second).Should(Equal(int64(1)))
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 		Expect(live[0].ID).To(Equal("me"), "the sweeper deleted the wrong row")

@@ -415,7 +415,7 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // The protection goes one way: another replica can still reap a replica that
 // stalls for long enough.
 //
-// It needs PostgreSQL, like Live, and the interval is measured on the clock of
+// It needs PostgreSQL, like the reads of liveness, and the interval is measured on the clock of
 // the database.
 func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, cleared int64, err error) {
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

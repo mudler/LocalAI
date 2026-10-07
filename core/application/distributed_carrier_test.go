@@ -126,12 +126,8 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		It("registers every replica in the instances table and removes it on shutdown", func() {
 			live := func() []string {
 				GinkgoHelper()
-				instances, err := cluster.NewRegistry(db).Live(context.Background(), cluster.InstanceLiveness)
-				Expect(err).ToNot(HaveOccurred())
-				ids := make([]string, 0, len(instances))
-				for _, in := range instances {
-					ids = append(ids, in.ID)
-				}
+				var ids []string
+				Expect(db.Raw(cluster.LiveInstanceIDsSQL+" ORDER BY id", cluster.InstanceLiveness.Seconds()).Scan(&ids).Error).To(Succeed())
 				return ids
 			}
 

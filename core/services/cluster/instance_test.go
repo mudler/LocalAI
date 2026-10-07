@@ -38,7 +38,7 @@ var _ = Describe("Instance registry", func() {
 	It("registers an instance and reads it back", func() {
 		Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 		Expect(live[0].ID).To(Equal("inst-a"))
@@ -57,7 +57,7 @@ var _ = Describe("Instance registry", func() {
 		Expect(reg.Register(ctx, "inst-a", "v1", 0, "")).To(Succeed())
 		Expect(reg.Register(ctx, "inst-a", "v2", 0, "")).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Hour)
+		live, err := liveInstances(ctx, db, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 		Expect(live[0].Version).To(Equal("v2"))
@@ -69,7 +69,7 @@ var _ = Describe("Instance registry", func() {
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "stale").
 			Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(BeEmpty())
 	})
@@ -91,14 +91,14 @@ var _ = Describe("Instance registry", func() {
 			Update("last_seen", gorm.Expr("now() - interval '10 minutes'")).Error).To(Succeed())
 		Expect(reg.Heartbeat(ctx, "revive")).To(Succeed())
 
-		live, err := reg.Live(ctx, time.Minute)
+		live, err := liveInstances(ctx, db, time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(HaveLen(1))
 	})
 
 	It("heartbeating an unknown instance is an error and not a silent insert", func() {
 		Expect(reg.Heartbeat(ctx, "ghost")).To(MatchError(cluster.ErrInstanceNotFound))
-		live, err := reg.Live(ctx, time.Hour)
+		live, err := liveInstances(ctx, db, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(live).To(BeEmpty())
 	})
@@ -137,7 +137,7 @@ var _ = Describe("Instance registry", func() {
 
 			Expect(reg.ReportReady(ctx, "inst-a", 2, "")).To(Succeed())
 
-			live, err := reg.Live(ctx, time.Minute)
+			live, err := liveInstances(ctx, db, time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(live).To(HaveLen(1))
 		})

@@ -44,8 +44,8 @@ func NewRegistry(db *gorm.DB) *Registry {
 }
 
 // Register records this replica and refreshes its LastSeen. It upserts on the
-// primary key and does not delete and insert, so a concurrent Live never sees a
-// live replica as missing. The readiness columns are written too, so a replica
+// primary key and does not delete and insert, so a concurrent reader of the
+// live set never sees a live replica as missing. The readiness columns are written too, so a replica
 // that registers again after it was swept does not lose what it reported.
 func (r *Registry) Register(ctx context.Context, id, version string, readyEpoch int64, readyReason string) error {
 	// The database stamps last_seen and not this process. Liveness is compared
@@ -113,8 +113,8 @@ func (r *Registry) ReportReady(ctx context.Context, id string, epoch int64, reas
 
 // instanceIsLive is the one predicate that decides whether a replica is alive.
 // Its single bind parameter is the window in seconds. Every reader of that fact
-// is written with it: Live lists the rows it selects, Owner refuses an owner
-// that it rejects, and ReapStale deletes its negation. Two spellings of one
+// is written with it: LiveInstanceIDsSQL lists the ids it selects, Owner
+// refuses an owner that it rejects, and ReapStale deletes its negation. Two spellings of one
 // fact drift apart, and the drift looks like a relay to a replica that one
 // query calls dead and another calls alive.
 //
@@ -138,15 +138,3 @@ const instanceIsLive = `instances.last_seen > now() - make_interval(secs => ?)`
 // It is built from instanceIsLive and does not restate it, so the deployment
 // has one spelling of "alive".
 const LiveInstanceIDsSQL = `SELECT instances.id FROM instances WHERE ` + instanceIsLive
-
-// Live returns the instances whose LastSeen is newer than now minus within.
-func (r *Registry) Live(ctx context.Context, within time.Duration) ([]Instance, error) {
-	var out []Instance
-	if err := r.db.WithContext(ctx).
-		Where(instanceIsLive, within.Seconds()).
-		Order("id").
-		Find(&out).Error; err != nil {
-		return nil, fmt.Errorf("listing live instances: %w", err)
-	}
-	return out, nil
-}
