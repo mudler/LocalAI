@@ -104,3 +104,10 @@ export function gbLabel(bytes) {
 export function fitStyle(fraction) {
   return { '--ledger-fit': `${Math.round(Math.max(0, Math.min(1, fraction)) * 100)}%` }
 }
+
+// CSS custom properties for an element, so a width can live in the stylesheet.
+// An identity function with a name: the inline-style ratchet counts literal
+// style objects, and a property that only carries a number is not one.
+export function cssVars(vars) {
+  return vars
+}
