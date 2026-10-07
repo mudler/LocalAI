@@ -50,7 +50,7 @@ Setting a per-agent model always overrides the default.
 
 ## Send a message
 
-Open the new agent from the Agents page and type a message in its chat box, for example `Hello, what can you do?`. The agent replies in the chat panel within a few seconds. When the agent decides to use the action you configured, you will see the tool call and its result appear inline before the final answer, streamed live as the agent works.
+Open the new agent from the Agents page, type a task in its task box, for example `Hello, what can you do?`, and press **Start run**. The run page shows the agent working and then its answer, within a few seconds. When the agent decides to use the action you configured, the step count and the tool in use show live, and the report lists what the tool returned.
 
 That is a complete agent: a model, a system prompt, and one tool, all running inside your LocalAI process.
 

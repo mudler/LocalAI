@@ -43,7 +43,16 @@ LOCALAI_DISABLE_AGENTS=true
 1. Navigate to the **Agents** page in the web UI
 2. Click **Create Agent** or import one from the [Agent Hub](https://agenthub.localai.io)
 3. Configure the agent's name, model, system prompt, and actions
-4. Save and start chatting
+4. Open **Preview** to read the configuration that will be saved and, when editing, what differs from the saved agent. Secret values are hidden in the preview.
+5. Save, then give the agent a task from its page
+
+The form folds into sections. Each section shows a mark when it is ready and one line that says what it holds. **Start from** offers a few starting points. **Draft** asks the model you chose to write a name, a description and instructions from one sentence; it is optional, nothing is saved until you save, and the draft may be wrong.
+
+### Running a task
+
+Open an agent from the Agents page to see its model, tools, memory, skills and instructions, and a box to give it a task. A task starts a **run** with its own address, `/app/agents/<name>/runs/<id>`. While the agent works the page shows the thread: the steps folded into one line ("Worked 26 s, 5 steps"), the tool in use and the answer as it arrives. About a second and a half after the agent answers, the page settles into a report: the task, the outcome, the evidence (what each tool returned) and the steps. Follow-ups sit under the outcome and carry the earlier turns. Wide tables and code open wider on demand.
+
+The server keeps no run history. Runs are recorded in the browser that watched them, up to 50 per agent, and the record holds task text, step text and answers. A run link opens only in the browser that recorded it, **Clear run record** on the agent page removes the record, and the last 14 runs of each agent appear as a strip on the Agents page. A run still marked as working five minutes after its last event reads as stopped. Durations are measured by the browser between sending the task and receiving the answer. The page does not show tokens or per-step timings from the server, and it has no Stop or approval control, because the agent API has neither; **Pause** on the agent stops it taking new work.
 
 ### Importing an Agent
 
@@ -388,7 +397,7 @@ curl -X POST http://localhost:8080/api/agents/my-agent/chat \
   }'
 ```
 
-The web UI does this for you: each conversation in the agent chat sends only its own visible turns. **New Chat** and switching conversations therefore continue from that conversation alone, and **Clear** starts the conversation over without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
+The web UI does this for you: a run sends only its own turns as history, so a follow-up sees the task and the answers before it, and a new run starts without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
 
 Listen to real-time events via SSE:
 
