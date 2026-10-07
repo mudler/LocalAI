@@ -206,6 +206,12 @@ The call is idempotent. A repeat retries the stop and never extends the hold. A 
 
 Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
+### Broadcast size limit
+
+A broadcast is a message that goes to every frontend replica, such as a job progress event or a gallery update. Every carrier now refuses a broadcast with a payload above 8 MiB. The call fails with `ErrPayloadTooLarge`, and nothing is sent. The limit is the same for every carrier, so a deployment keeps its behavior when the carrier changes.
+
+This matters only if your NATS server sets `max_payload` above 8 MiB. The default of the NATS server is 1 MiB, and a message above the server limit was always refused. Keep `max_payload` at 8 MiB or lower.
+
 ### NATS JWT authentication (recommended for production)
 
 By default, NATS connections are anonymous: any client that can reach port `4222` may publish control-plane subjects such as `nodes.<id>.backend.install`. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
