@@ -33,10 +33,29 @@ func applyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, models
 	if err := authoritative.LoadModelConfigsFromPathStrict(modelsPath, opts...); err != nil {
 		return err
 	}
-	current := configsByName(cl.GetAllModelsConfigs())
+	currentConfigs := cl.GetAllModelsConfigs()
+	current := make(map[string]config.ModelConfig, len(currentConfigs))
+	outside := map[string]struct{}{}
+	for _, cfg := range currentConfigs {
+		// A config read from outside the models directory (--config-file) is
+		// invisible to the snapshot. Treating it as removed would drop it and
+		// publish a deletion revision for a model that still exists.
+		if cfg.DefinedOutside(modelsPath) {
+			outside[cfg.Name] = struct{}{}
+			continue
+		}
+		current[cfg.Name] = cfg
+	}
 	snapshotConfigs := authoritative.GetAllModelsConfigs()
 	snapshot := configsByName(snapshotConfigs)
-	changed, err := changedConfigNames(current, snapshot, evt.Element)
+	for name := range outside {
+		delete(snapshot, name)
+	}
+	named := evt.Element
+	if _, isOutside := outside[named]; isOutside {
+		named = ""
+	}
+	changed, err := changedConfigNames(current, snapshot, named)
 	if err != nil {
 		return err
 	}
@@ -63,7 +82,7 @@ func applyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, models
 			}
 		}
 	}
-	cl.ReplaceModelConfigs(snapshotConfigs)
+	cl.ReplaceModelConfigs(config.MergeDirectorySnapshot(currentConfigs, snapshotConfigs, modelsPath))
 	return nil
 }
 

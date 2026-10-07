@@ -183,7 +183,7 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 	if err != nil {
 		return err
 	}
-	cl.ReplaceModelConfigs(authoritative.GetAllModelsConfigs())
+	cl.ReplaceModelConfigs(config.MergeDirectorySnapshot(cl.GetAllModelsConfigs(), authoritative.GetAllModelsConfigs(), systemState.Model.ModelsPath))
 
 	// Lifecycle publication is the irreversible boundary. File mutation,
 	// authoritative parsing and loader replacement have all completed, so no
