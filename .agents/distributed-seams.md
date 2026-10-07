@@ -3,9 +3,13 @@
 Distributed mode talks to other processes through a few interfaces. Code above
 them must not name NATS, and a new transport is a new implementation of them.
 Today every seam has one carrier: NATS, or a direct dial for the gRPC and HTTP
-connections to a worker. Only the carrier files import `nats.go`
-(`core/services/messaging/client.go`, `tls.go` and
-`core/services/nodes/control_nats.go`).
+connections to a worker. Only the carrier files import the NATS libraries
+(`core/services/messaging/client.go`, `tls.go`,
+`core/services/nodes/control_nats.go` and `pkg/natsauth`). A spec in
+`core/services/carrier` fails when any other non-test file imports
+`github.com/nats-io/*`; it reads the import lines of every Go file, so a build
+constraint does not hide one. A new carrier adds its library and its files to
+that spec.
 
 | Seam | Interface | Lives in | Today |
 |---|---|---|---|
@@ -20,6 +24,42 @@ connections to a worker. Only the carrier files import `nats.go`
 Request and reply payloads of the control verbs live in
 `core/services/workerctl`, so the frontend half, the worker half and any
 carrier share one wire format without importing each other.
+
+## Holders and the carrier row
+
+Code above the seams does not hold a carrier. It holds a forwarding holder from
+`core/services/carrier`, one per seam: `Broadcaster`, `WorkQueue`, `Commands`
+(`nodes.NodeControl`), `Files`, `Clients`, `NewWorkerDialer` and `Agents`. Each
+call loads an `atomic.Pointer[carrier.Set]` once and calls the same method on
+that set. A `carrier.Set` is the implementation of every seam for one carrier.
+Build a set completely and call `Validate` before you store it. The holders take
+no lock and allocate nothing, and a call that is already running is never moved.
+`carrier.NewNATSSet` is the one place that builds the NATS set.
+
+`NodeControl` is the whole control surface a carrier gives the frontend:
+`NodeCommandSender`, the process lister, the three unload interfaces the model
+loader reads by type assertion, and the install timeout, model file deletion and
+forced install that the managers and the reconciler call. Take it, not a
+concrete sender. The `Files` holder implements `RequestFileReleaser` because
+`FileStagingClient` looks for it, and `carrier.FileCarrier` makes every set
+provide it.
+
+`carrier.Broadcaster` also keeps a registry of every subscription, because a
+subscription lives on one carrier. A swap is `Listen(next)` (each handler now
+listens on both carriers), then a store of `next` in the pointer (publishes go
+to `next`), then `Release(old)`. No message is published on two carriers.
+`NotifyReconnect` runs the reconnect hooks that `syncstate` and the failover
+sync register, because messages across the flip are not ordered.
+
+The active carrier is one row of table `cluster_carrier`
+(`cluster.CarrierStore`). Each transition is a compare-and-set on its epoch. At
+startup a replica reads the row, or inserts it if it is absent, and builds the
+set the row names. A replica whose row names a carrier it does not implement
+fails to start. It never falls back to another carrier.
+
+A NATS URL that points at a server which is not up does not stop the start:
+`messaging.New` retries on a failed connect, so a frontend can start before its
+broker. A URL it cannot parse does.
 
 ## Queues
 
@@ -151,10 +191,8 @@ other seams against a real server, also through Docker.
 - `clientFor` returns no error; a carrier with no dialer for a node needs that
   path.
 - The agent worker still uses NATS directly for its connection and for agent
-  events (`agents.NewEventBridge`).
-- `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a
-  `Prober`, `NewReplicaReconciler` builds its own `tokenClientFactory`, so a
-  carrier that dials through another factory must add the field.
+  events. `agents.NewEventBridge` takes a `Broadcaster`, so the frontend's
+  bridge goes through the holder.
 - The backend-logs proxy (`proxyHTTPToWorker`) starts from
   `httpclient.HardenedTransport()`, which keeps
   `Proxy: http.ProxyFromEnvironment`. With `HTTP_PROXY` set, a dialer that
@@ -168,7 +206,7 @@ other seams against a real server, also through Docker.
   publishes on `events` (`handleMCPCIJob` does this).
 - Not additive: the agent-run consumer (`NATSDispatcher.runDelivery`) ignores
   the per-delivery `events` publisher and publishes through the process-wide
-  `EventBridge`, which is built on the NATS client. A second carrier must
+  `EventBridge`, which is bound to one `Broadcaster`. A second carrier must
   change `NATSDispatcher` and `EventBridge`, for example by binding
   `handleJob`'s publishes to `events` through a bridge view that shares the
   cancel registry.
