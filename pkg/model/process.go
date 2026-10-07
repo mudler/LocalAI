@@ -399,9 +399,33 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		}
 		runtime.cleanupScratch()
 		close(runtime.diagnosticsDone)
+		if !intentional {
+			ml.forgetExitedProcess(id, grpcControlProcess)
+		}
 	}()
 
 	return grpcControlProcess, nil
+}
+
+// forgetExitedProcess drops the model store entry of a backend that exited on
+// its own, so it is no longer reported as loaded. It shares the lifecycle lock
+// with loading and shutdown and matches the process identity, so a late exit
+// notification cannot remove a replacement loaded under the same id.
+func (ml *ModelLoader) forgetExitedProcess(id string, p *process.Process) {
+	release := ml.operations.acquire(id, true)
+	defer release()
+	ml.mu.Lock()
+	store := ml.store
+	hooks := append([]ModelUnloadHook(nil), ml.onUnloadHooks...)
+	ml.mu.Unlock()
+	if m, ok := store.Get(id); !ok || m.Process() != p {
+		return
+	}
+	for _, hook := range hooks {
+		hook(id)
+	}
+	store.Delete(id)
+	ml.cleanupProcessRuntime(p)
 }
 
 func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
