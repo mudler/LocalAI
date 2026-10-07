@@ -10,9 +10,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -335,7 +337,7 @@ var _ = Describe("Worker tunnel client", func() {
 			frontend = newFakeFrontend(false)
 			start(func(c *TunnelConfig) {
 				c.Services[tunnel.StreamTagGRPC] = func(context.Context, string) (net.Conn, error) {
-					return nil, errors.New("connection refused")
+					return nil, &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}
 				}
 			})
 			_, err := open(session(), tunnel.StreamTagGRPC, "127.0.0.1:1")
@@ -412,6 +414,42 @@ var _ = Describe("Worker tunnel client", func() {
 			})
 			_, err := open(session(), tunnel.StreamTagGRPC, "127.0.0.1:41000")
 			Expect(err).To(MatchError(tunnel.ErrStreamNotServed))
+		})
+
+		DescribeTable("classifies the errno of a failed local dial",
+			func(errno syscall.Errno, wantEvidence bool) {
+				frontend = newFakeFrontend(false)
+				start(func(c *TunnelConfig) {
+					c.Services[tunnel.StreamTagGRPC] = func(context.Context, string) (net.Conn, error) {
+						return nil, &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", errno)}
+					}
+				})
+				_, err := open(session(), tunnel.StreamTagGRPC, "127.0.0.1:41000")
+				if wantEvidence {
+					Expect(err).To(MatchError(tunnel.ErrStreamTargetUnavailable))
+				} else {
+					Expect(err).To(MatchError(tunnel.ErrStreamNotServed))
+				}
+				Expect(tunnel.IsWorkerAnswer(err)).To(Equal(wantEvidence))
+			},
+			// The target did not answer: the backend is gone or not there.
+			Entry("connection refused", syscall.ECONNREFUSED, true),
+			Entry("host unreachable", syscall.EHOSTUNREACH, true),
+			Entry("network unreachable", syscall.ENETUNREACH, true),
+			Entry("connection reset", syscall.ECONNRESET, true),
+			// This process or this host ran short of something. The target was
+			// never asked, so nothing is learned about it.
+			Entry("too many open files in this process", syscall.EMFILE, false),
+			Entry("too many open files on this host", syscall.ENFILE, false),
+			Entry("no buffer space", syscall.ENOBUFS, false),
+			Entry("out of memory", syscall.ENOMEM, false),
+			Entry("no local port or address left", syscall.EADDRNOTAVAIL, false),
+			Entry("permission denied by a local rule", syscall.EACCES, false),
+			Entry("operation not permitted", syscall.EPERM, false),
+		)
+
+		It("learns nothing from an error that it does not recognise", func() {
+			Expect(classifyServiceFailure(errors.New("something new went wrong"))).To(MatchError(tunnel.ErrStreamNotServed))
 		})
 
 		DescribeTable("keeps a classification that the local service already made",

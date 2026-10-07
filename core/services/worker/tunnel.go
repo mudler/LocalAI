@@ -563,31 +563,25 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 // cannot work. The second reported as the first makes it give up on a backend
 // that is starting.
 //
-// The default is "unavailable", and that is on purpose, because the frontend
-// acts on that code. A dial to the process that failed is the nearest thing to
-// evidence that the worker can produce. The direction of a wrong classification
-// decides which mistake is made. A wrong eviction is active: it deletes rows
-// and shuts down a model that is loaded. A wrong retention is passive, is
-// limited to one slot of one replica, and clears at a restart or an eviction.
-// Because of this, the exceptions below are a deny list of causes that are not
-// the target answering, and not an allow list of causes that are. A deny list
-// that misses a cause fails loudly. An allow list that misses one fails
-// silently, for ever.
+// The default is "this worker learned nothing", and "unavailable" is an allow
+// list. The frontend acts on "unavailable": it counts as evidence that can remove
+// the rows of a model. A wrong removal is active. It deletes rows and shuts down
+// a model that is loaded. A wrong retention is passive, is limited to one slot of
+// one replica, and clears at a restart or an eviction. Because of this, only an
+// error that says the target did not answer counts. A dial can also fail for a
+// reason in this process or on this host: no file descriptors (EMFILE, ENFILE),
+// no buffers or memory (ENOBUFS, ENOMEM), no local port (EADDRNOTAVAIL), or a
+// local rule (EACCES, EPERM). The target was never asked in those cases, and a
+// reading of them as "the backend is gone" would remove a healthy model when
+// this worker is short of descriptors. An error that nobody classified is the
+// same: it can be silent for ever, and that is the cheaper mistake.
 //
-// The causes that are exempt:
-//
-//   - The end of the context. It is the context of the session, and it ends
-//     while stream goroutines are running, so this worker is closing its
-//     tunnel and will connect again.
-//   - The own deadline of this process (os.ErrDeadlineExceeded).
-//   - Anything else that says of itself that it is a timeout. On a dial this
-//     includes ETIMEDOUT and EAGAIN. EAGAIN is this worker running out of a
-//     resource, and that is not about the target. ETIMEDOUT from connect(2) is
-//     an observation of the target, but it is "the handshake did not finish",
-//     which is a listener that is blocked or full and not one that is absent.
-//     An eviction of a backend that is overloaded is what this design must
-//     prevent. ECONNREFUSED, the shape of a process that is gone, is not a
-//     timeout and still gives "unavailable".
+// The errors that mean the target did not answer are in targetUnreachable. The
+// end of the context, the own deadline of this process and anything that says of
+// itself that it is a timeout are never among them. The context ends while
+// stream goroutines run, because this worker is closing its tunnel. A timeout of
+// connect(2) means that the handshake did not finish, which is a listener that is
+// blocked or full and not one that is absent.
 //
 // It must never give the unknown-tag refusal: a tag that the worker serves does
 // not stop being served because one dial failed.
@@ -598,7 +592,22 @@ func classifyServiceFailure(err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || reportsTimeout(err) {
 		return fmt.Errorf("%w: %v", tunnel.ErrStreamNotServed, err)
 	}
-	return fmt.Errorf("%w: %v", tunnel.ErrStreamTargetUnavailable, err)
+	if targetUnreachable(err) {
+		return fmt.Errorf("%w: %v", tunnel.ErrStreamTargetUnavailable, err)
+	}
+	return fmt.Errorf("%w: %v", tunnel.ErrStreamNotServed, err)
+}
+
+// targetUnreachable reports whether err says that the dial reached the network
+// stack and the target did not answer: nothing listens, or the route is gone, or
+// the peer reset the connection.
+func targetUnreachable(err error) bool {
+	for _, errno := range unreachableErrnos {
+		if errors.Is(err, errno) {
+			return true
+		}
+	}
+	return false
 }
 
 // reportsTimeout reports whether err says of itself that it is a timeout.
