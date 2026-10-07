@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
@@ -16,6 +16,7 @@ import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
 import useFailoverChains from '../hooks/useFailoverChains'
 import { backendControlApi, modelsApi, nodesApi, systemApi } from '../utils/api'
+import { formatBytes } from '../utils/format'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import {
@@ -110,6 +111,24 @@ export default function InstalledModels({
   const { operations } = useOperations()
   const { byName: failoverChains } = useFailoverChains()
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
+  // Admin-only storage report; a 403 for non-admins just hides the size
+  // information, it never breaks the page.
+  const [storage, setStorage] = useState(null)
+  const storageByName = useMemo(() => {
+    const map = {}
+    for (const m of storage?.models || []) map[m.name] = m
+    return map
+  }, [storage])
+  const storageSummary = useMemo(() => {
+    if (!storage) return null
+    let shared = 0
+    let missing = 0
+    for (const f of storage.files || []) {
+      if (f.missing) missing++
+      else if ((f.models || []).length > 1) shared += f.size_bytes
+    }
+    return { total: storage.total_bytes, shared, missing }
+  }, [storage])
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)
   const [pendingActions, setPendingActions] = useState(() => new Set())
@@ -142,6 +161,7 @@ export default function InstalledModels({
   useEffect(() => {
     fetchLoadedModels()
     fetchAliases()
+    modelsApi.getStorage().then(setStorage).catch(() => setStorage(null))
     nodesApi.list().then(() => setDistributedMode(true)).catch(() => setDistributedMode(false))
   }, [fetchAliases, fetchLoadedModels])
 
@@ -363,6 +383,16 @@ export default function InstalledModels({
             tone: running ? 'ok' : undefined,
           },
           { label: t('lifecycle.detail.backend'), value: selectedModel.backend || t('lifecycle.detail.auto') },
+          storageByName[selectedModel.id]
+            ? { label: t('lifecycle.detail.size'), value: formatBytes(storageByName[selectedModel.id].size_bytes) }
+            : null,
+          storageByName[selectedModel.id]?.missing?.length
+            ? {
+                label: t('lifecycle.detail.missingFiles'),
+                value: t('lifecycle.detail.missingCount', { count: storageByName[selectedModel.id].missing.length }),
+                tone: 'warn',
+              }
+            : null,
           selectedModel.pinned
             ? { label: t('lifecycle.detail.pinned'), value: t('lifecycle.detail.yes'), tone: 'warn' }
             : null,
@@ -468,6 +498,9 @@ export default function InstalledModels({
         <InstalledModelDetail
           model={selectedModel}
           enriched={enriched}
+          storage={storageByName[selectedModel.id]}
+          storageFiles={(storage?.files || []).filter(f => (f.models || []).includes(selectedModel.id))}
+          onSelectModel={onSelect}
           distributedMode={distributedMode}
           t={t}
         />
@@ -480,6 +513,9 @@ export default function InstalledModels({
         <h2 className="zero-pane__title">{t('lifecycle.installed.summary', { count: models.length })}</h2>
         <p className="zero-pane__text">{t('lifecycle.installed.summaryHint')}</p>
       </div>
+      {storage?.files?.length > 0 && (
+        <StorageFilesTable files={storage.files} onSelectModel={onSelect} t={t} />
+      )}
     </div>
   )
 
@@ -508,6 +544,19 @@ export default function InstalledModels({
       {actionErrors.models && (
         <div className="attention-callout attention-callout--error" role="alert">
           <span><i className="fas fa-circle-exclamation icon-before" aria-hidden="true" />{actionErrors.models}</span>
+        </div>
+      )}
+
+      {storageSummary && (
+        <div className="text-meta" data-testid="installed-models-storage-summary">
+          <i className="fas fa-hard-drive icon-before" aria-hidden="true" />
+          {t('lifecycle.installed.storageSummary', {
+            total: formatBytes(storageSummary.total),
+            shared: formatBytes(storageSummary.shared),
+          })}
+          {storageSummary.missing > 0 && (
+            <span className="text-warning"> · {t('lifecycle.installed.storageMissing', { count: storageSummary.missing })}</span>
+          )}
         </div>
       )}
 
@@ -571,7 +620,7 @@ export default function InstalledModels({
   )
 }
 
-function InstalledModelDetail({ model, enriched, distributedMode, t }) {
+function InstalledModelDetail({ model, enriched, storage, storageFiles = [], onSelectModel, distributedMode, t }) {
   const description = enriched?.description
   const license = enriched?.license
   const tags = Array.isArray(enriched?.tags) ? enriched.tags : []
@@ -638,7 +687,122 @@ function InstalledModelDetail({ model, enriched, distributedMode, t }) {
           <dt>{t('lifecycle.detail.files')}</dt>
           <dd className="cell-muted">{t('lifecycle.detail.fileCount', { count: files.length })}</dd>
         </>)}
+
+        {storage && (<>
+          <dt>{t('lifecycle.detail.size')}</dt>
+          <dd>
+            {formatBytes(storage.size_bytes)}
+            {storage.shared_bytes > 0 && (
+              <span className="cell-muted"> · {t('lifecycle.detail.sharedBytes', { size: formatBytes(storage.shared_bytes) })}</span>
+            )}
+          </dd>
+        </>)}
+        {storageFiles.length > 0 && (<>
+          <dt>{t('lifecycle.detail.storageFiles')}</dt>
+          <dd>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('storage.columns.file')}</th>
+                    <th>{t('storage.columns.size')}</th>
+                    <th>{t('storage.columns.status')}</th>
+                    <th>{t('storage.columns.models')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storageFiles.map(f => (
+                    <tr key={f.path}>
+                      <td className="cell-mono">{f.path}</td>
+                      <td>{f.missing ? '—' : formatBytes(f.size_bytes)}</td>
+                      <td>
+                        <div className="badge-row">
+                          {f.missing && <span className="badge badge-warning">{t('storage.status.missing')}</span>}
+                          {!f.missing && (f.models || []).length > 1 && (
+                            <span className="badge badge-info">{t('storage.status.shared', { count: f.models.length })}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="badge-row">
+                          {(f.models || []).filter(m => m !== model.id).map(m => (
+                            <button key={m} type="button" className="badge badge-info" onClick={() => onSelectModel(m)}>{m}</button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </dd>
+        </>)}
       </dl>
+    </div>
+  )
+}
+
+// The file-centric half of the storage report, shown while no model is
+// selected — the one place the cross-model missing-file overview lives.
+// Clicking a referencing model selects it in the rail.
+function StorageFilesTable({ files, onSelectModel, t }) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const visible = q
+    ? files.filter(f =>
+        f.path.toLowerCase().includes(q) ||
+        (f.models || []).some(m => m.toLowerCase().includes(q)))
+    : files
+
+  return (
+    <div>
+      <div className="hstack hstack--xs mb-md">
+        <input
+          type="search"
+          className="form-control"
+          placeholder={t('storage.searchPlaceholder')}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+      </div>
+      <div className="table-container">
+        <table className="table" data-testid="model-storage-table">
+          <thead>
+            <tr>
+              <th>{t('storage.columns.file')}</th>
+              <th>{t('storage.columns.size')}</th>
+              <th>{t('storage.columns.status')}</th>
+              <th>{t('storage.columns.models')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map(f => (
+              <tr key={f.path}>
+                <td className="cell-mono">{f.path}</td>
+                <td>{f.missing ? '—' : formatBytes(f.size_bytes)}</td>
+                <td>
+                  <div className="badge-row">
+                    {f.missing && <span className="badge badge-warning">{t('storage.status.missing')}</span>}
+                    {!f.missing && (f.models || []).length > 1 && (
+                      <span className="badge badge-info">{t('storage.status.shared', { count: f.models.length })}</span>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  <div className="badge-row">
+                    {(f.models || []).map(m => (
+                      <button key={m} type="button" className="badge badge-info" onClick={() => onSelectModel(m)}>{m}</button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {visible.length === 0 && (
+              <tr><td colSpan={4} className="cell-muted">{t('storage.empty')}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
