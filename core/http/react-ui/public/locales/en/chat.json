@@ -4,7 +4,10 @@
     "tool": "Tool",
     "result": "Result",
     "toolResult": "{{name}} result",
-    "thinking": "Thinking..."
+    "thinking": "Thinking...",
+    "toolCall": "Tool call",
+    "toolCalls_one": "{{count}} tool call",
+    "toolCalls_other": "{{count}} tool calls"
   },
   "header": {
     "manageModeTooltip": "This chat can install models, edit configs and manage backends by talking to LocalAI.",
@@ -137,6 +140,16 @@
     "deleteAllTitle": "Delete all conversations"
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "assistant": "Assistant",
+    "system": "System",
+    "attachedImage": "Attached image {{n}}",
+    "openImage": "Open image {{n}}"
+  },
+  "error": {
+    "title": "The reply failed",
+    "kept": "What was written so far is kept above.",
+    "retry": "Retry",
+    "detail": "Technical detail"
   }
 }

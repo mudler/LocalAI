@@ -12,16 +12,20 @@ import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { readAttachmentText } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
-import MCPAppFrame from '../components/MCPAppFrame'
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
+import { useLoadedModels } from '../hooks/useLoadedModels'
 import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
+import Lightbox from '../components/Lightbox'
+import ChatMessage, { ActivityRow, StreamingTurn } from '../components/chat/ChatMessage'
+import { editableMessageText, withEditedMessageText, isActivityRole } from '../components/chat/chatText'
+import './chat.css'
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
 
@@ -64,240 +68,6 @@ function downloadChatAsMarkdown(chat) {
   URL.revokeObjectURL(url)
 }
 
-function formatToolContent(raw) {
-  try {
-    const data = JSON.parse(raw)
-    const name = data.name || 'unknown'
-    let params = data.arguments || data.input || data.result || data.parameters || {}
-    if (typeof params === 'string') {
-      try { params = JSON.parse(params) } catch (_) { /* keep as string */ }
-    }
-    const entries = typeof params === 'object' && params !== null ? Object.entries(params) : []
-    return { name, entries, fallback: null }
-  } catch (_e) {
-    return { name: null, entries: [], fallback: raw }
-  }
-}
-
-function ToolParams({ entries, fallback }) {
-  if (fallback) {
-    return <span className="chat-activity-item-text">{fallback}</span>
-  }
-  if (entries.length === 0) return null
-  return (
-    <div className="chat-activity-params">
-      {entries.map(([k, v]) => {
-        const val = typeof v === 'string' ? v : JSON.stringify(v, null, 2)
-        const isLong = val.length > 120
-        return (
-          <div key={k} className="chat-activity-param">
-            <span className="chat-activity-param-key">{k}:</span>
-            <span className={`chat-activity-param-val${isLong ? ' chat-activity-param-val-long' : ''}`}>{val}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool }) {
-  const { t } = useTranslation('chat')
-  const [expanded, setExpanded] = useState(false)
-  const contentRef = useRef(null)
-
-  useEffect(() => {
-    if (expanded && contentRef.current) highlightAll(contentRef.current)
-  }, [expanded])
-
-  if (!items || items.length === 0) return null
-
-  // Separate out tool_result items that have appUI — they render outside the collapsed group
-  const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
-  const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
-
-  const labels = regularItems.map(item => {
-    if (item.role === 'thinking' || item.role === 'reasoning') return t('activity.thought')
-    if (item.role === 'tool_call') {
-      try { return JSON.parse(item.content)?.name || t('activity.tool') } catch (_e) { return t('activity.tool') }
-    }
-    if (item.role === 'tool_result') {
-      try { return t('activity.toolResult', { name: JSON.parse(item.content)?.name || t('activity.tool') }) } catch (_e) { return t('activity.result') }
-    }
-    return item.role
-  })
-  const summary = labels.join(' → ')
-
-  return (
-    <>
-      {regularItems.length > 0 && (
-        <div className="chat-message chat-message-assistant">
-          <div className="chat-message-avatar">
-            <Icon name="settings" />
-          </div>
-          <div className="chat-activity-group">
-            <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
-              <span className="chat-activity-summary">{summary}</span>
-              <Icon name={`chevron-${expanded ? 'up' : 'down'}`} />
-            </button>
-            {expanded && (
-              <div className="chat-activity-details" ref={contentRef}>
-                {regularItems.map((item, idx) => {
-                  if (item.role === 'thinking' || item.role === 'reasoning') {
-                    return (
-                      <div key={idx} className="chat-activity-item chat-activity-thinking">
-                        <span className="chat-activity-item-label">{t('activity.thought')}</span>
-                        <div className="chat-activity-item-content"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
-                      </div>
-                    )
-                  }
-                  const isCall = item.role === 'tool_call'
-                  const parsed = formatToolContent(item.content)
-                  return (
-                    <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
-                      <span className="chat-activity-item-label">{labels[idx]}</span>
-                      <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {appUIItems.map((item, idx) => (
-        <div key={`appui-${idx}`} className="chat-message chat-message-assistant">
-          <div className="chat-message-avatar">
-            <Icon name="puzzle" />
-          </div>
-          <div className="chat-message-bubble">
-            <span className="chat-message-model">{item.appUI.toolName}</span>
-            <MCPAppFrame
-              toolName={item.appUI.toolName}
-              toolInput={item.appUI.toolInput}
-              toolResult={item.appUI.toolResult}
-              mcpClient={getClientForTool?.(item.appUI.toolName) || null}
-              toolDefinition={item.appUI.toolDefinition}
-              appHtml={item.appUI.html}
-              resourceMeta={item.appUI.meta}
-            />
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}
-
-function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
-  const { t } = useTranslation('chat')
-  const hasContent = reasoning || (toolCalls && toolCalls.length > 0)
-  if (!hasContent) return null
-
-  const contentRef = useRef(null)
-  const [manualCollapse, setManualCollapse] = useState(null)
-
-  // Auto-expand while thinking or tool-calling, auto-collapse when response starts
-  const autoExpanded = (reasoning || (toolCalls && toolCalls.length > 0)) && !hasResponse
-  const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
-
-  // Scroll to bottom of thinking content as it streams
-  useEffect(() => {
-    if (expanded && contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight
-    }
-  }, [reasoning, expanded])
-
-  // Reset manual override when streaming state changes significantly
-  useEffect(() => {
-    setManualCollapse(null)
-  }, [hasResponse])
-
-  const lastTool = toolCalls && toolCalls.length > 0 ? toolCalls[toolCalls.length - 1] : null
-  const label = reasoning
-    ? t('activity.thinking')
-    : lastTool
-      ? (lastTool.type === 'tool_call' ? lastTool.name : t('activity.toolResult', { name: lastTool.name }))
-      : ''
-
-  return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-message-avatar">
-        <Icon name="settings" />
-      </div>
-      <div className="chat-activity-group chat-activity-streaming">
-        <button className="chat-activity-toggle" onClick={() => setManualCollapse(expanded)}>
-          <span className={`chat-activity-summary${!expanded ? ' chat-activity-shimmer' : ''}`}>
-            {label}
-          </span>
-          <Icon name={`chevron-${expanded ? 'up' : 'down'}`} />
-        </button>
-        {expanded && reasoning && (
-          <div className="chat-activity-details">
-            <div className="chat-activity-item chat-activity-thinking">
-              <div className="chat-activity-item-content chat-activity-live" ref={contentRef}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(reasoning) }} />
-            </div>
-          </div>
-        )}
-        {expanded && toolCalls && toolCalls.length > 0 && (
-          <div className="chat-activity-details">
-            {toolCalls.map((tc, idx) => {
-              if (tc.type === 'tool_result') {
-                return (
-                  <div key={idx} className="chat-activity-item chat-activity-tool-result">
-                    <span className="chat-activity-item-label">{t('activity.toolResult', { name: tc.name })}</span>
-                    <div className="chat-activity-item-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(tc.result || '') }} />
-                  </div>
-                )
-              }
-              const parsed = formatToolContent(JSON.stringify(tc, null, 2))
-              return (
-                <div key={idx} className="chat-activity-item chat-activity-tool-call">
-                  <span className="chat-activity-item-label">{tc.name || tc.type}</span>
-                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function UserMessageContent({ content, files }) {
-  const text = typeof content === 'string' ? content : content?.[0]?.text || ''
-  return (
-    <>
-      <div className="wrap-anywhere">{text}</div>
-      {files && files.length > 0 && (
-        <div className="chat-message-files">
-          {files.map((f, i) => (
-            <span key={i} className="chat-file-inline">
-              <Icon name={f.type === 'image' ? 'image' : f.type === 'audio' ? 'headphones' : f.type === 'video' ? 'video' : 'file'} />
-              {f.name}
-            </span>
-          ))}
-        </div>
-      )}
-      {Array.isArray(content) && content.filter(c => c.type === 'image_url').map((img, i) => (
-        <img key={i} src={img.image_url.url} alt="attached" className="chat-inline-image" />
-      ))}
-      {Array.isArray(content) && content.filter(c => c.type === 'video_url').map((vid, i) => (
-        <video key={i} src={vid.video_url.url} controls className="chat-inline-video" />
-      ))}
-    </>
-  )
-}
-
-function editableMessageText(message) {
-  if (typeof message.content === 'string') return message.content
-  if (!Array.isArray(message.content)) return null
-  const textBlock = message.content.find(block => block?.type === 'text')
-  return typeof textBlock?.text === 'string' ? textBlock.text : null
-}
-
 // formatLoadEta renders the server's remaining-seconds estimate. The server
 // omits it entirely until its observed transfer rate is meaningful, so anything
 // arriving here is worth showing.
@@ -307,17 +77,6 @@ function formatLoadEta(seconds) {
   const minutes = Math.round(seconds / 60)
   if (minutes < 60) return `${minutes} min`
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-}
-
-function withEditedMessageText(message, text) {
-  if (typeof message.content === 'string') return { ...message, content: text }
-  const textIndex = message.content.findIndex(block => block?.type === 'text')
-  return {
-    ...message,
-    content: message.content.map((block, index) =>
-      index === textIndex ? { ...block, text } : block
-    ),
-  }
 }
 
 export default function Chat() {
@@ -389,10 +148,11 @@ export default function Chat() {
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
   const [confirmDialog, setConfirmDialog] = useState(null)
-  const [completionGlowIdx, setCompletionGlowIdx] = useState(-1)
+  const [lightbox, setLightbox] = useState(null)
   const [editingMessageIndex, setEditingMessageIndex] = useState(null)
   const [messageEditDraft, setMessageEditDraft] = useState('')
-  const prevStreamingRef = useRef(false)
+  const pendingArtifactRef = useRef(null)
+  const { ids: loadedIds } = useLoadedModels()
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
     getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
@@ -427,6 +187,7 @@ export default function Chat() {
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
     [activeChat?.history, canvasMode]
   )
+  const modelWarm = !!activeChat?.model && loadedIds.has(activeChat.model)
 
   const prevArtifactCountRef = useRef(0)
   useEffect(() => {
@@ -434,24 +195,13 @@ export default function Chat() {
   }, [activeChat?.id])
   useEffect(() => {
     if (artifacts.length > prevArtifactCountRef.current && artifacts.length > 0) {
-      setSelectedArtifactId(artifacts[artifacts.length - 1].id)
+      // A block opened from its own Canvas button is the one to show.
+      setSelectedArtifactId(pendingArtifactRef.current || artifacts[artifacts.length - 1].id)
+      pendingArtifactRef.current = null
       if (!canvasOpen) setCanvasOpen(true)
     }
     prevArtifactCountRef.current = artifacts.length
   }, [artifacts])
-
-  // Completion glow: when streaming finishes, briefly highlight last assistant message
-  useEffect(() => {
-    if (prevStreamingRef.current && !isStreaming && activeChat?.history?.length > 0) {
-      const lastIdx = activeChat.history.length - 1
-      if (activeChat.history[lastIdx]?.role === 'assistant') {
-        setCompletionGlowIdx(lastIdx)
-        const timer = setTimeout(() => setCompletionGlowIdx(-1), 600)
-        return () => clearTimeout(timer)
-      }
-    }
-    prevStreamingRef.current = isStreaming
-  }, [isStreaming, activeChat?.history?.length])
 
   // Check MCP availability and fetch model config (admin-only endpoint)
   useEffect(() => {
@@ -783,16 +533,17 @@ export default function Chat() {
     const el = messagesRef.current
     if (!el) return
     let obs
+    const labels = { copyLabel: t('actions.copy'), canvasLabel: canvasMode ? undefined : t('input.canvasLabel') }
     const run = () => {
       obs?.disconnect()
       highlightAll(el)
-      enhanceCodeBlocks(el)
+      enhanceCodeBlocks(el, labels)
       obs?.observe(el, { childList: true, subtree: true })
     }
     obs = new MutationObserver(run)
     run()
     return () => obs.disconnect()
-  }, [activeChat?.id])
+  }, [activeChat?.id, canvasMode, t])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
@@ -806,11 +557,26 @@ export default function Chat() {
     autoGrowTextarea()
   }, [input, autoGrowTextarea])
 
-  // Event delegation for artifact cards
+  // Event delegation for artifact cards and the Canvas button on a code block.
   useEffect(() => {
     const el = messagesRef.current
-    if (!el || !canvasMode) return
+    if (!el) return
     const handler = (e) => {
+      const canvasBtn = e.target.closest('.code-canvas-btn')
+      if (canvasBtn) {
+        const text = canvasBtn.closest('.code-block')?.querySelector('pre code')?.textContent || ''
+        const at = Number(canvasBtn.closest('[data-index]')?.dataset.index)
+        const all = extractCodeArtifacts(activeChat?.history, 'role', 'assistant')
+        const same = (a) => a.code.trim() === text.trim()
+        const match = all.find(a => a.messageIndex === at && same(a)) || all.find(same)
+        if (!match) return
+        pendingArtifactRef.current = match.id
+        setSelectedArtifactId(match.id)
+        setCanvasMode(true)
+        setCanvasOpen(true)
+        return
+      }
+      if (!canvasMode) return
       const openBtn = e.target.closest('.artifact-card-open')
       const downloadBtn = e.target.closest('.artifact-card-download')
       const card = e.target.closest('.artifact-card')
@@ -839,7 +605,7 @@ export default function Chat() {
     }
     el.addEventListener('click', handler)
     return () => el.removeEventListener('click', handler)
-  }, [canvasMode, artifacts])
+  }, [canvasMode, artifacts, activeChat?.history])
 
   const handleFileChange = useCallback(async (e) => {
     const newFiles = []
@@ -970,6 +736,52 @@ export default function Chat() {
     addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
   }
 
+  // The thread as rows: a run of reasoning and tool entries folds into the
+  // assistant message that follows it, or stands alone when none does yet.
+  const history = activeChat?.history
+  const rows = useMemo(() => {
+    const out = []
+    let buf = []
+    ;(history || []).forEach((msg, i) => {
+      if (isActivityRole(msg.role)) { buf.push(msg); return }
+      if (buf.length > 0 && msg.role !== 'assistant') {
+        out.push({ kind: 'activity', key: i, items: buf })
+        buf = []
+      }
+      out.push({ kind: 'msg', index: i, msg, activity: buf.length > 0 ? buf : null })
+      buf = []
+    })
+    if (buf.length > 0) out.push({ kind: 'activity', key: 'end', items: buf })
+    return out
+  }, [history])
+
+  // The message component is memoised, so it gets one stable set of actions
+  // that always call the latest handlers.
+  const actionsRef = useRef(null)
+  actionsRef.current = {
+    copyMessage, startMessageEdit, saveMessageEdit, cancelMessageEdit,
+    handleRegenerate, forkChat, addToast, t, activeChat,
+  }
+  const messageActions = useMemo(() => ({
+    copy: (content) => actionsRef.current.copyMessage(content),
+    startEdit: (index, message) => actionsRef.current.startMessageEdit(index, message),
+    saveEdit: () => actionsRef.current.saveMessageEdit(),
+    cancelEdit: () => actionsRef.current.cancelMessageEdit(),
+    regenerate: (index) => actionsRef.current.handleRegenerate(index),
+    branch: (index) => {
+      const a = actionsRef.current
+      a.forkChat(a.activeChat.id, index + 1)
+      a.addToast(a.t('toasts.forked'), 'success', 2000)
+    },
+    focusRelative: (index, delta) => {
+      const els = Array.from(messagesRef.current?.querySelectorAll('[data-testid="chat-message"]') || [])
+      const at = els.findIndex(el => Number(el.dataset.index) === index)
+      const next = els[at + delta]
+      if (next) { next.focus(); next.scrollIntoView({ block: 'nearest' }) }
+    },
+  }), [])
+  const openImage = useCallback((images, index) => setLightbox({ images, index }), [])
+
   const contextPercent = getContextUsagePercent()
 
   // Recent chats for the empty state — exclude the current chat and any
@@ -989,15 +801,15 @@ export default function Chat() {
   if (!activeChat) return null
 
   const layoutClasses = [
-    'chat-layout',
-    isInConversation ? 'chat--has-messages' : '',
+    'cx-page',
+    isInConversation ? 'cx-page--live' : '',
     focusActive ? 'chat--focus' : '',
   ].filter(Boolean).join(' ')
 
   return (
     <div className={layoutClasses}>
-      {/* Chat main area */}
-      <div className="chat-main">
+      {/* Conversation column */}
+      <div className="cx-conv">
         {/* Header */}
         <div className="chat-header">
           <ChatsMenu
@@ -1213,8 +1025,8 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="chat-messages" ref={messagesRef}>
+        {/* Thread */}
+        <div className="cx-body" ref={messagesRef}>
           {activeChat.history.length === 0 && !isStreaming && (
             <div className="chat-empty-state">
               <h2 className="chat-empty-title">{activeChat.localaiAssistant ? t('empty.manageTitle') : t('empty.startTitle')}</h2>
@@ -1268,199 +1080,74 @@ export default function Chat() {
               </div>
             </div>
           )}
-          {(() => {
-            const elements = []
-            let activityBuf = []
-            const flushActivity = (key) => {
-              if (activityBuf.length > 0) {
-                elements.push(
-                  <ActivityGroup key={`ag-${key}`} items={[...activityBuf]}
-                    updateChatSettings={updateChatSettings} activeChat={activeChat}
-                    getClientForTool={getClientForTool} />
-                )
-                activityBuf = []
-              }
-            }
-            activeChat.history.forEach((msg, i) => {
-              const isActivity = msg.role === 'thinking' || msg.role === 'reasoning' ||
-                msg.role === 'tool_call' || msg.role === 'tool_result'
-              if (isActivity) {
-                activityBuf.push(msg)
-                return
-              }
-              flushActivity(i)
-              elements.push(
-                <div key={i} className={`chat-message chat-message-${msg.role}${i === completionGlowIdx ? ' chat-message-new' : ''}`}>
-                  <div className="chat-message-avatar">
-                    <Icon name={msg.role === 'user' ? 'user' : 'robot'} />
-                  </div>
-                  <div className="chat-message-bubble">
-                    {/* Both roles are labelled now that neither is a bubble.
-                        A transcript needs to say who is speaking; a bubble said
-                        it by shape and side. */}
-                    {msg.role === 'assistant' && activeChat.model && (
-                      <span className="chat-message-model">{activeChat.model}</span>
-                    )}
-                    {msg.role === 'user' && (
-                      <span className="chat-message-model">{t('message.you')}</span>
-                    )}
-                    {editingMessageIndex === i ? (
-                      <div className="chat-message-edit">
-                        <textarea
-                          autoFocus
-                          className="chat-message-edit-input"
-                          value={messageEditDraft}
-                          onChange={(event) => setMessageEditDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Escape') cancelMessageEdit()
-                          }}
-                          aria-label={t('actions.editMessage')}
-                        />
-                        <div className="chat-message-edit-actions">
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={saveMessageEdit}
-                            disabled={!messageEditDraft.trim()}
-                          >
-                            {t('actions.save')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={cancelMessageEdit}
-                          >
-                            {t('actions.cancel')}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="chat-message-content">
-                        {msg.role === 'user' ? (
-                          <UserMessageContent content={msg.content} files={msg.files} />
-                        ) : (
-                          <div dangerouslySetInnerHTML={{
-                            __html: canvasMode
-                              ? renderMarkdownWithArtifacts(typeof msg.content === 'string' ? msg.content : '', i)
-                              : renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
-                          }} />
-                        )}
-                      </div>
-                    )}
-                    {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
-                      <a href="/app/traces?tab=backend" className="chat-error-trace-link">
-                        <Icon name="waveform" /> {t('errors.viewTraces')}
-                      </a>
-                    )}
-                    {editingMessageIndex !== i && (
-                      <div className="chat-message-actions">
-                        <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
-                          <Icon name="copy" />
-                        </button>
-                        {(msg.role === 'user' || msg.role === 'assistant') &&
-                          editableMessageText(msg) !== null && !isStreaming && (
-                            <button onClick={() => startMessageEdit(i, msg)} title={t('actions.edit')}>
-                              <Icon name="pencil" />
-                            </button>
-                          )}
-                        {msg.role === 'assistant' && !isStreaming && (
-                          <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
-                            <Icon name="refresh" />
-                          </button>
-                        )}
-                        {msg.role === 'assistant' && !isStreaming && (
-                          <button
-                            onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
-                            title={t('actions.branch')}
-                          >
-                            <Icon name="git-branch" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-            flushActivity('end')
-            return elements
-          })()}
+          <div className="cx-thread" data-testid="chat-thread">
+            {rows.map((row) => (row.kind === 'activity' ? (
+              <ActivityRow key={`a${row.key}`} id={`cx-act-${row.key}`} items={row.items} getClientForTool={getClientForTool} />
+            ) : (
+              <ChatMessage
+                key={row.index}
+                msg={row.msg}
+                index={row.index}
+                isLast={row.index === activeChat.history.length - 1}
+                model={activeChat.model}
+                warm={modelWarm}
+                canvasMode={canvasMode}
+                busy={isStreaming}
+                editing={editingMessageIndex === row.index}
+                draft={editingMessageIndex === row.index ? messageEditDraft : ''}
+                onDraft={setMessageEditDraft}
+                activityItems={row.activity}
+                getClientForTool={row.activity ? getClientForTool : undefined}
+                actions={messageActions}
+                onOpenImage={openImage}
+              />
+            )))}
 
-          {/* Streaming activity (thinking + tools) */}
-          {isStreaming && (streamingReasoning || streamingToolCalls.length > 0) && (
-            <StreamingActivity reasoning={streamingReasoning} toolCalls={streamingToolCalls} hasResponse={!!streamingContent} />
-          )}
-
-          {/* Streaming message */}
-          {isStreaming && streamingContent && (
-            <div className="chat-message chat-message-assistant">
-              <div className="chat-message-avatar">
-                <Icon name="robot" />
-              </div>
-              <div className="chat-message-bubble">
-                {activeChat.model && (
-                  <span className="chat-message-model">{activeChat.model}</span>
-                )}
-                <div className="chat-message-content">
-                  <span dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }} />
-                  <span className="chat-streaming-cursor" />
-                </div>
-                {tokensPerSecond !== null && (
-                  <div className="chat-streaming-speed">
-                    <Icon name="gauge" /> {t('tokens.perSec', { count: tokensPerSecond })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {isStreaming && !streamingContent && !streamingReasoning && streamingToolCalls.length === 0 && (
-            <div className="chat-message chat-message-assistant">
-              <div className="chat-message-avatar">
-                <Icon name="robot" />
-              </div>
-              <div className="chat-message-bubble">
-                <div className="chat-message-content chat-thinking-indicator">
-                  {loadProgress ? (
-                    <div className="chat-staging-progress">
-                      <div className="chat-staging-label">
-                        <Icon name="cloud-upload" /> {loadProgress.label}
-                      </div>
-                      {loadProgress.progress > 0 && (
-                        <div className="chat-staging-detail">
-                          <div className="chat-staging-bar-container">
-                            <div className="chat-staging-bar" style={{ width: `${loadProgress.progress}%` }} />
-                          </div>
-                          <span className="chat-staging-pct">{Math.round(loadProgress.progress)}%</span>
-                        </div>
-                      )}
-                      {loadProgress.detail && (
-                        <div className="chat-staging-file">{loadProgress.detail}</div>
-                      )}
+            {isStreaming && (
+              <StreamingTurn
+                model={activeChat.model}
+                warm={modelWarm}
+                content={streamingContent}
+                reasoning={streamingReasoning}
+                toolCalls={streamingToolCalls}
+                waiting={loadProgress ? (
+                  <div className="chat-staging-progress">
+                    <div className="chat-staging-label">
+                      <Icon name="cloud-upload" /> {loadProgress.label}
                     </div>
-                  ) : (
-                    <span className="chat-thinking-dots">
-                      <span /><span /><span />
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+                    {loadProgress.progress > 0 && (
+                      <div className="chat-staging-detail">
+                        <div className="chat-staging-bar-container">
+                          <div className="chat-staging-bar" style={{ width: `${loadProgress.progress}%` }} />
+                        </div>
+                        <span className="chat-staging-pct">{Math.round(loadProgress.progress)}%</span>
+                      </div>
+                    )}
+                    {loadProgress.detail && (
+                      <div className="chat-staging-file">{loadProgress.detail}</div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="chat-thinking-dots"><span /><span /><span /></span>
+                )}
+              />
+            )}
+          </div>
           <div ref={messagesEndRef} />
-          {scrolledUp && (
-            <button
-              type="button"
-              className="chat-jump-latest"
-              onClick={() => {
-                stickToBottomRef.current = true
-                setScrolledUp(false)
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
-            </button>
-          )}
         </div>
+        {scrolledUp && (
+          <button
+            type="button"
+            className="chat-jump-latest"
+            onClick={() => {
+              stickToBottomRef.current = true
+              setScrolledUp(false)
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }}
+          >
+            <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
+          </button>
+        )}
 
         {/* Token info bar */}
         {(tokensPerSecond || maxTokensPerSecond || activeChat.tokenUsage?.total > 0) && (
@@ -1631,6 +1318,14 @@ export default function Chat() {
           selectedId={selectedArtifactId}
           onSelect={setSelectedArtifactId}
           onClose={() => setCanvasOpen(false)}
+        />
+      )}
+      {lightbox && (
+        <Lightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onIndex={(index) => setLightbox(prev => ({ ...prev, index }))}
+          onClose={() => setLightbox(null)}
         />
       )}
       <ConfirmDialog
