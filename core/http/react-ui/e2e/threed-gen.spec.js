@@ -305,7 +305,7 @@ test.describe('3D generation', () => {
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 15_000 })
 
     await page.locator('.studio-tab[data-tab="overview"]').click()
-    await expect(page.getByTestId('studio-recent')).toContainText('trellis-test-model')
+    await expect(page.locator('[data-testid="work-tile"][data-type="threed"]')).toContainText('trellis-test-model')
   })
 
   test('deleting a history entry removes it', async ({ page }) => {

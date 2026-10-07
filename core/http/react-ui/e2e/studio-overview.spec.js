@@ -5,10 +5,12 @@ import { test, expect } from './coverage-fixtures.js'
 // Studio was a tab strip over six generators that opened on Images and told you
 // nothing about what this machine could actually run. The tests are about that:
 // what the strip reports before you click, and the difference between a
-// modality that is switched off and one that merely has no model.
+// modality that is switched off and one that merely has no model. The front
+// page is now a composer with a chip per type, so "a lane" reads "a chip":
+// a type with a model is solid, a type without one is dashed.
 
 const OVERVIEW = '[data-testid="studio-overview"]'
-const MODALITY = '[data-testid="studio-modality"]'
+const CHIP = (key) => `.studio-types .studio-type[data-type="${key}"]`
 const tabFor = (page, key) => page.locator(`.studio-tab[data-tab="${key}"]`)
 
 const model = (id, ...capabilities) => ({ id, capabilities })
@@ -61,21 +63,25 @@ test.describe('Studio overview', () => {
   test('a modality with no model offers a way to install one', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')
-    const video = page.locator(`${MODALITY}[data-modality="video"]`)
+    const video = page.locator(CHIP('video'))
     await expect(video).toBeVisible()
-    // The point of the lane: not a dead tab, a route to fixing it.
-    await expect(video.locator('a[href*="/app/models"]')).toBeVisible()
+    // Dashed, because nothing serves it. Picking it is how you learn what it needs.
+    await expect(video).toHaveAttribute('data-missing', 'true')
+    await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
+    await video.click()
+    await expect(page.locator('[data-testid="studio-install-note"]')).toBeVisible()
   })
 
   test('a modality with a model names it instead of offering an install', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')
-    const images = page.locator(`${MODALITY}[data-modality="images"]`)
-    await expect(images).toContainText('flux.1-schnell')
-    await expect(images.locator('a[href*="/app/models"]')).toHaveCount(0)
+    const images = page.locator(CHIP('images'))
+    await expect(images).not.toHaveAttribute('data-missing', 'true')
+    await expect(page.locator('[data-testid="studio-model"]')).toHaveValue('flux.1-schnell')
+    await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
   })
 
-  test('a disabled feature gets no tab and no lane at all', async ({ page }) => {
+  test('a disabled feature gets no tab and no chip at all', async ({ page }) => {
     // Switched off is a different thing from "no model installed", and
     // conflating them is how someone ends up staring at a control that cannot
     // work. 3d is a permission rather than an /api/features entry, and
@@ -91,7 +97,7 @@ test.describe('Studio overview', () => {
     await page.goto('/app/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
     await expect(tabFor(page, 'threed')).toHaveCount(0)
-    await expect(page.locator(`${MODALITY}[data-modality="threed"]`)).toHaveCount(0)
+    await expect(page.locator(CHIP('threed'))).toHaveCount(0)
   })
 
   test('asks the capabilities endpoint once, not once per modality', async ({ page }) => {
@@ -112,29 +118,32 @@ test.describe('Studio overview', () => {
     await mockCapabilities(page, { data: [] })
     await page.goto('/app/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
-    await expect(page.locator(MODALITY).first()).toBeVisible()
+    await expect(page.locator('.studio-types .studio-type').first()).toBeVisible()
+    await expect(page.locator('.studio-types .studio-type[data-missing="true"]')).toHaveCount(7)
     await expect(page.locator('.studio-tab__dot--on')).toHaveCount(0)
   })
 
-  test('recent outputs surface what was generated earlier', async ({ page }) => {
+  test('earlier results surface in Your work', async ({ page }) => {
     await mockCapabilities(page)
-    // History is localStorage, written by each generator. The overview is the
+    // History is localStorage, written by each generator. The front page is the
     // first place it is read across modalities rather than within one.
     await page.addInitScript(() => {
       localStorage.setItem('localai_image_history', JSON.stringify([
-        { id: 'i1', createdAt: Date.now(), model: 'flux.1-schnell', prompt: 'a brass orrery', elapsedMs: 6100 },
+        { id: 'i1', createdAt: Date.now(), model: 'flux.1-schnell', prompt: 'a brass orrery', results: [] },
       ]))
     })
     await page.goto('/app/studio')
-    const shelf = page.locator('[data-testid="studio-recent"]')
-    await expect(shelf).toBeVisible()
-    await expect(shelf).toContainText('flux.1-schnell')
+    const tile = page.locator('[data-testid="work-tile"]')
+    await expect(tile).toHaveCount(1)
+    await expect(tile).toContainText('flux.1-schnell')
+    await expect(tile).toContainText('a brass orrery')
   })
 
-  test('no history means no empty shelf', async ({ page }) => {
+  test('no history means no tiles, and an empty state that says what happens next', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')
-    await expect(page.locator('[data-testid="studio-recent"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="work-tile"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="studio-work-empty"]')).toContainText('Nothing here yet')
   })
 
   test('the overview is reachable back from a generator tab', async ({ page }) => {
