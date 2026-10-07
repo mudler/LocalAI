@@ -220,8 +220,12 @@ replica has built a carrier (`ReadyEpoch`) and the reason when it could not
 (`ReadyReason`). Table `node_connections` records which live replica holds the
 connection of a worker. `Registry.Claim` takes a new epoch from a sequence for
 every claim, and `Release` needs both the owner and the epoch, so a replica that
-lost a worker cannot clear the claim of the one that won it. Compare epochs for
-equality and not for order. `Registry.Presence` tells a worker that is
+lost a worker cannot clear the claim of the one that won it. Epochs are unique, and
+they are not ordered: a claim that inserts after a `Release` can draw a number
+that is lower than one already issued. Compare epochs for equality (`==`,
+`!=`) and never for order. A spec (`core/services/cluster/epoch_order_test.go`)
+fails on a `<`, `>`, `<=` or `>=` with an operand named like an epoch in code
+under `core/services`. `Registry.Presence` tells a worker that is
 reconnecting from one that is gone only when the departure is older than the
 grace, and nothing but `PresenceGone` may be read as absence.
 

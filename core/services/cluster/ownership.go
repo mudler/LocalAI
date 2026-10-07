@@ -151,7 +151,8 @@ func ensureEpochSequence(ctx context.Context, db *gorm.DB) error {
 // treat it as a version number. The sequence value on the insert path is drawn
 // while the tuple is built, before the row lock, so a claim that inserts after
 // a Release can be handed a number lower than one already issued elsewhere.
-// Compare epochs for equality only; never compare them for order.
+// Compare epochs for equality only; never compare them for order. A spec
+// (epoch_order_test.go) fails on a < or > of an epoch in code outside the specs.
 //
 // Uniqueness is all the fence needs: Release matches owner and epoch exactly,
 // so a stale claim's token cannot match a live claim's row whichever way the
@@ -232,6 +233,10 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 // two statements the owner can die, and the caller would act on an owner the
 // second read would have rejected. The join makes the two facts one snapshot.
 //
+// The epoch that it returns is the fence token of the claim. Compare it for
+// equality with the epoch of another read or of a Claim; never for order. See
+// Claim.
+//
 // The window is InstanceLiveness rather than a parameter, which is the window
 // the membership loop sweeps with. A caller free to pick its own could keep
 // relaying to a replica the sweeper has already declared dead, or give up on
@@ -294,6 +299,10 @@ func departure() map[string]any {
 // be recorded. Deleting it made a worker re-homing between replicas look like
 // one that had never connected, so nothing above could tell a two-second blip
 // from a worker that is gone.
+//
+// The epoch is matched for equality, and it must stay so: epochs are unique and
+// not ordered (see Claim), so "the newer claim" is not a question that two
+// epochs can answer.
 //
 // Both ownerID and epoch are in the WHERE so a replica that has only just
 // noticed its dead socket cannot touch the claim a later reconnect established
