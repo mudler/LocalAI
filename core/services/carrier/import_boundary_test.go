@@ -27,17 +27,43 @@ import (
 // Test files are exempt. They start servers and mint credentials with the
 // library on purpose.
 
-const natsLibraries = "github.com/nats-io/"
+// boundary is one library or package that only the files of its carrier may
+// import.
+type boundary struct {
+	// name says what the import is, for the failure message.
+	name string
+	// prefix is the import path prefix.
+	prefix string
+	// allowlist is every non-test file or package directory allowed to import
+	// the prefix, as a slash path from the module root. Add to it only for a
+	// file that is part of the carrier.
+	allowlist []string
+}
 
-// natsAllowlist is every non-test file or package directory allowed to import
-// natsLibraries, as a slash path from the module root. Add to it only for a
-// file that is part of the NATS carrier. A new carrier library gets its own
-// list in the slice that adds the carrier.
+const (
+	natsLibraries = "github.com/nats-io/"
+	pgxLibraries  = "github.com/jackc/pgx"
+	pgbusPackage  = "github.com/mudler/LocalAI/core/services/pgbus"
+)
+
+// natsAllowlist is the NATS carrier.
 var natsAllowlist = []string{
 	"core/services/messaging/client.go",
 	"core/services/messaging/tls.go",
 	"core/services/nodes/control_nats.go",
 	"pkg/natsauth/", // credential minting and decoding for the NATS carrier
+}
+
+// boundaries lists what each carrier owns. A new carrier library gets its own
+// row in the change that adds the carrier.
+var boundaries = []boundary{
+	{name: "NATS", prefix: natsLibraries, allowlist: natsAllowlist},
+	// The LISTEN connection is a pgx connection and cannot come from a pool, so
+	// the package of the broadcast carrier is the only one that opens it.
+	{name: "the PostgreSQL driver", prefix: pgxLibraries, allowlist: []string{"core/services/pgbus/"}},
+	// The package of the broadcast carrier is built in one place, and the code
+	// above the seams reaches it only through the holders.
+	{name: "the pgbus package", prefix: pgbusPackage, allowlist: []string{"core/services/carrier/pgbus.go"}},
 }
 
 // importers returns the slash paths, from root, of the non-test Go files that
@@ -112,29 +138,31 @@ func moduleRoot() string {
 	}
 }
 
-var _ = Describe("Import boundary of the NATS libraries", func() {
-	It("lets only the files of the NATS carrier import them", func() {
-		files, err := importers(moduleRoot(), natsLibraries)
-		Expect(err).ToNot(HaveOccurred())
+var _ = Describe("Import boundary of the carrier libraries", func() {
+	for _, bd := range boundaries {
+		It("lets only the files of the carrier import "+bd.name, func() {
+			files, err := importers(moduleRoot(), bd.prefix)
+			Expect(err).ToNot(HaveOccurred())
 
-		var stray []string
-		for _, f := range files {
-			if !allowed(f, natsAllowlist) {
-				stray = append(stray, f)
+			var stray []string
+			for _, f := range files {
+				if !allowed(f, bd.allowlist) {
+					stray = append(stray, f)
+				}
 			}
-		}
-		Expect(stray).To(BeEmpty(), "these files import %s but are not in natsAllowlist; code above the seams must use messaging and nodes interfaces", natsLibraries)
-	})
+			Expect(stray).To(BeEmpty(), "these files import %s but are not in the allowlist; code above the seams must use messaging and nodes interfaces", bd.prefix)
+		})
 
-	It("keeps the allowlist honest: every entry still imports the libraries", func() {
-		files, err := importers(moduleRoot(), natsLibraries)
-		Expect(err).ToNot(HaveOccurred())
+		It("keeps the allowlist of "+bd.name+" honest: every entry still imports it", func() {
+			files, err := importers(moduleRoot(), bd.prefix)
+			Expect(err).ToNot(HaveOccurred())
 
-		for _, a := range natsAllowlist {
-			used := slices.ContainsFunc(files, func(f string) bool { return allowed(f, []string{a}) })
-			Expect(used).To(BeTrue(), "%s no longer imports %s; remove it from natsAllowlist", a, natsLibraries)
-		}
-	})
+			for _, a := range bd.allowlist {
+				used := slices.ContainsFunc(files, func(f string) bool { return allowed(f, []string{a}) })
+				Expect(used).To(BeTrue(), "%s no longer imports %s; remove it from the allowlist", a, bd.prefix)
+			}
+		})
+	}
 
 	Describe("the scan", func() {
 		var root string

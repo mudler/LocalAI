@@ -2,14 +2,16 @@
 
 Distributed mode talks to other processes through a few interfaces. Code above
 them must not name NATS, and a new transport is a new implementation of them.
-Today every seam has one carrier: NATS, or a direct dial for the gRPC and HTTP
-connections to a worker. Only the carrier files import the NATS libraries
-(`core/services/messaging/client.go`, `tls.go`,
-`core/services/nodes/control_nats.go` and `pkg/natsauth`). A spec in
-`core/services/carrier` fails when any other non-test file imports
-`github.com/nats-io/*`; it reads the import lines of every Go file, so a build
-constraint does not hide one. A new carrier adds its library and its files to
-that spec.
+Today the fan-out seam has two carriers: NATS, and `core/services/pgbus`, which
+uses PostgreSQL LISTEN and NOTIFY. Every other seam has one: NATS, or a direct
+dial for the gRPC and HTTP connections to a worker. Only the carrier files import
+the NATS libraries (`core/services/messaging/client.go`, `tls.go`,
+`core/services/nodes/control_nats.go` and `pkg/natsauth`). Only the pgbus package
+imports `github.com/jackc/pgx`, and only `core/services/carrier/pgbus.go` imports
+the pgbus package. A spec in `core/services/carrier` fails when any other
+non-test file imports one of them; it reads the import lines of every Go file, so
+a build constraint does not hide one. A new carrier adds its library and its
+files to that spec.
 
 | Seam | Interface | Lives in | Today |
 |---|---|---|---|
@@ -50,6 +52,12 @@ listens on both carriers), then a store of `next` in the pointer (publishes go
 to `next`), then `Release(old)`. No message is published on two carriers.
 `NotifyReconnect` runs the reconnect hooks that `syncstate` and the failover
 sync register, because messages across the flip are not ordered.
+
+`carrier.NewPgbusFanout` builds the fan-out member of a set for the pgbus
+carrier. It opens the LISTEN connection when it is called and not before, so a
+deployment on NATS holds no LISTEN session until a change of carrier asks for
+one, and `Close` frees it. The set still needs the other members from the other
+parts of that carrier before `Validate` accepts it.
 
 The active carrier is one row of table `cluster_carrier`
 (`cluster.CarrierStore`). Each transition is a compare-and-set on its epoch. At
@@ -133,16 +141,37 @@ pool is keyed by host and port and two workers can report the same address.
 
 ## Rules a carrier must keep
 
+- Payload: a broadcast above `messaging.MaxBroadcastBytes` is refused with
+  `messaging.ErrPayloadTooLarge` by every carrier.
 - Subjects: one closed set of roots, the `broadcastRoots` and `controlRoots`
   maps in `core/services/messaging/subject_rules.go`. Add a root there, with a
   row in the roots table in `subject_rules_test.go`, not in a carrier.
   `messaging.ValidateSubject` refuses anything else with
-  `messaging.ErrUnservedSubject`.
+  `messaging.ErrUnservedSubject`. A carrier with no request and reply, such as
+  pgbus, uses `messaging.ValidateBroadcastSubject`, which refuses the control
+  roots with the same error. `messagingtest.BroadcastRootSubjects` has one
+  subject for each broadcast root, and a spec keeps it equal to the rules.
 - Wildcards: only a whole single token `*`, never the root. `>` is refused with
   `messaging.ErrUnsupportedWildcard`.
 - Delivery is at-most-once. Anything that must survive a gap belongs in a table.
 - A subscriber that is reconnecting misses messages. Do not read silence as
   evidence about a node.
+
+## The cluster registry
+
+`core/services/cluster` holds the facts that all replicas share through the
+database. Table `instances` has one row for each live frontend replica
+(`Registry`, kept fresh by `Membership`, which every replica runs). The
+database clock stamps `last_seen`, and `instanceIsLive` is the one predicate
+for "alive". The row also holds the epoch of the carrier row for which the
+replica has built a carrier (`ReadyEpoch`) and the reason when it could not
+(`ReadyReason`). Table `node_connections` records which live replica holds the
+connection of a worker. `Registry.Claim` takes a new epoch from a sequence for
+every claim, and `Release` needs both the owner and the epoch, so a replica that
+lost a worker cannot clear the claim of the one that won it. Compare epochs for
+equality and not for order. `Registry.Presence` tells a worker that is
+reconnecting from one that is gone only when the departure is older than the
+grace, and nothing but `PresenceGone` may be read as absence.
 
 ## Four conditions that are never reported as each other
 
