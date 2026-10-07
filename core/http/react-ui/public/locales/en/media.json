@@ -332,6 +332,21 @@
         "generated": "Sound generated",
         "noCaption": "Please enter caption or lyrics"
       },
+      "transform": {
+        "noModel": "Please select a model",
+        "noAudio": "Please choose an audio file",
+        "done": "Audio transformed",
+        "inputGone": "The audio that run used is no longer on the server. Add it again to run it.",
+        "loadReference": "Load a reference first",
+        "noMic": "This browser does not expose the microphone",
+        "recorded": "Recorded the microphone with the reference echo. Press Transform to test echo cancellation.",
+        "echoFailed": "Echo test failed: {{message}}",
+        "recording": "recording {{seconds}} s",
+        "whyAudio": "Add an audio file first",
+        "waiting": "Your audio, waiting to be transformed",
+        "paramCount_one": "{{count}} parameter",
+        "paramCount_other": "{{count}} parameters"
+      },
       "choose": "Choose",
       "replace": "Replace",
       "dropHint": "or drop it here"

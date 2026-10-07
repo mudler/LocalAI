@@ -1,21 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
+// eslint-disable-next-line no-unused-vars
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
-import ModelSelector from '../components/ModelSelector'
-import PageHeader from '../components/PageHeader'
 import { CAP_AUDIO_TRANSFORM } from '../utils/capabilities'
-import LoadingSpinner from '../components/LoadingSpinner'
-import ErrorWithTraceLink from '../components/ErrorWithTraceLink'
+// eslint-disable-next-line no-unused-vars
 import WaveformPlayer from '../components/audio/WaveformPlayer'
+// eslint-disable-next-line no-unused-vars
 import Spectrogram from '../components/audio/Spectrogram'
 import { audioTransformApi } from '../utils/api'
 import { useMediaCapture } from '../hooks/useMediaCapture'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useMediaHistory } from '../hooks/useMediaHistory'
 import { useStudioHandoff, useHandoffSource, blobToFile } from '../hooks/useStudioHandoff'
+import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import HandoffNote from '../components/studio/HandoffNote'
-import MediaHistory from '../components/MediaHistory'
+import {
+  // eslint-disable-next-line no-unused-vars
+  Workspace, ComposeCard, ModelChip, Field, Fold, RunArea, JobCard, FailedCard, ResultCard, ViewCard, ResultsStrip, EmptyRun,
+} from '../components/studio/Workspace'
+import { foldSummary, useWorkspace } from '../hooks/useWorkspace'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 
@@ -39,12 +43,15 @@ export default function AudioTransform() {
   const [referenceFile, setReferenceFile] = useState(null)
   const [outputUrl, setOutputUrl] = useState(null)
   const [paramsText, setParamsText] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   // What was actually sent, so the panel records rather than predicts.
   const [lastRequest, setLastRequest] = useState(null)
 
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('audio-transform')
+  const ws = useWorkspace({ type: 'transform', entries: historyProps.entries })
+  const [lastId, setLastId] = useState(null)
   const wantsSource = handoff.edge === 'transform' || handoff.edge === 'take'
   const source = useHandoffSource(handoff, wantsSource)
   useEffect(() => {
@@ -69,6 +76,9 @@ export default function AudioTransform() {
     return () => { if (outputUrl) URL.revokeObjectURL(outputUrl) }
   }, [outputUrl])
 
+  const activeEntry = selectedEntry || (lastId ? historyProps.entries.find(e => e.id === lastId) : null) || null
+  const item = ws.itemById(activeEntry?.id)
+
   const parseParams = () => {
     const out = {}
     for (const raw of paramsText.split('\n')) {
@@ -83,13 +93,13 @@ export default function AudioTransform() {
     return out
   }
 
-  const handleProcess = async (e) => {
-    e.preventDefault()
-    if (!model) { addToast('Please select a model', 'warning'); return }
-    if (!audioFile) { addToast('Please choose an audio file', 'warning'); return }
+  const run = async () => {
+    if (!model) { addToast(t('studio.workspace.transform.noModel'), 'warning'); return }
+    if (!audioFile) { addToast(t('studio.workspace.transform.noAudio'), 'warning'); return }
 
     setLoading(true)
     setError(null)
+    setLastId(null)
     if (outputUrl) { URL.revokeObjectURL(outputUrl); setOutputUrl(null) }
 
     // The audio itself is multipart, not JSON, so the panel records the fields
@@ -106,13 +116,13 @@ export default function AudioTransform() {
       })
       const url = URL.createObjectURL(blob)
       setOutputUrl(url)
-      addToast('Audio transformed', 'success')
+      addToast(t('studio.workspace.transform.done'), 'success')
       if (serverUrl) {
         // Save the persisted (input, reference, output) triple so a click
         // in the History panel can later replay all three players. The
         // server held onto the converted 16 kHz mono inputs — saving raw
         // upload bytes in localStorage would blow past quota in a few runs.
-        addEntry({
+        setLastId(addEntry({
           prompt: describeRun(audioFile, referenceFile),
           model,
           params: parseParams(),
@@ -123,13 +133,43 @@ export default function AudioTransform() {
           ].filter(Boolean),
           parentId: handoff.from || undefined,
           edge: handoff.edge || undefined,
-        })
+        }))
       }
       selectEntry(null)
+      ws.end()
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Re-run with edits: the model and the parameters go back into the form, and
+  // so do the audio and reference the server kept for that run.
+  const rerun = async (it) => {
+    const entry = historyProps.entries.find(e => e.id === it.id)
+    if (!entry) return
+    const next = {
+      model: entry.model || model,
+      params: Object.entries(entry.params || {}).map(([k, v]) => `${k}=${v}`).join('\n'),
+    }
+    setModel(next.model)
+    setParamsText(next.params)
+    if (next.params) setShowAdvanced(true)
+    selectEntry(null)
+    ws.begin(next)
+    const fetchFile = async (url, fallback) => {
+      const res = await fetch(url.startsWith('http') || url.startsWith('blob:') ? url : apiUrl(url))
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return blobToFile(await res.blob(), url.split('?')[0].split('/').pop() || fallback)
+    }
+    const input = entry.results?.find(r => r.kind === 'input')
+    const reference = entry.results?.find(r => r.kind === 'reference')
+    try {
+      if (input) setAudioFile(await fetchFile(input.url, 'audio.wav'))
+      setReferenceFile(reference ? await fetchFile(reference.url, 'reference.wav') : null)
+    } catch {
+      addToast(t('studio.workspace.transform.inputGone'), 'warning')
     }
   }
 
@@ -145,11 +185,11 @@ export default function AudioTransform() {
 
   const startEchoTest = async () => {
     if (!referenceUrl) {
-      addToast('Load a reference first', 'warning')
+      addToast(t('studio.workspace.transform.loadReference'), 'warning')
       return
     }
     if (!echoCap.supported) {
-      addToast('Browser does not expose getUserMedia', 'warning')
+      addToast(t('studio.workspace.transform.noMic'), 'warning')
       return
     }
     try {
@@ -172,10 +212,10 @@ export default function AudioTransform() {
       echoCap.stop()
       const file = new File([result.blob], 'mic-echo-test.wav', { type: 'audio/wav' })
       setAudioFile(file)
-      addToast('Recorded (mic + reference echo). Click Transform to test AEC.', 'success')
+      addToast(t('studio.workspace.transform.recorded'), 'success')
     } catch (err) {
       detachEchoEndedListener()
-      addToast(`Echo test failed: ${err?.message || err}`, 'error')
+      addToast(t('studio.workspace.transform.echoFailed', { message: err?.message || String(err) }), 'error')
     }
   }
 
@@ -188,18 +228,52 @@ export default function AudioTransform() {
     echoCap.stop()
   }
 
+  const labels = { model: t('studio.workspace.fields.model'), params: t('studio.workspace.fields.params') }
+  const changes = ws.changes({ model, params: paramsText }, labels)
+  const changed = new Set(changes.map(c => c.field))
+
+  const installed = ws.installed.byType.transform
+  const noModel = !ws.installed.loading && !ws.installed.error && installed.length === 0
+  const why = noModel ? t('studio.composer.whyModel', { type: t('studio.tabs.transform') })
+    : !audioFile ? t('studio.workspace.transform.whyAudio') : ''
+  const paramCount = Object.keys(parseParams()).length
+
   return (
-    <div className="media-layout">
-      <div className="media-controls">
-        <PageHeader title={<><Icon name="waveform" /> {t('audioTransform.title')}</>} />
-        <HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setAudioFile(null)} />
-
-        <form onSubmit={handleProcess}>
-          <div className="form-group">
-            <label className="form-label">{t('audioTransform.labels.model')}</label>
-            <ModelSelector value={model} onChange={setModel} capability={CAP_AUDIO_TRANSFORM} />
-          </div>
-
+    <Workspace type="transform">
+      <ComposeCard
+        ws={ws}
+        icon="waveform"
+        title={t('audioTransform.title')}
+        lede={t('studio.workspace.lede.transform')}
+        onSubmit={(e) => { e.preventDefault(); run() }}
+        handoff={<HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setAudioFile(null)} />}
+        model={model}
+        noModel={noModel ? { type: 'transform', label: t('studio.tabs.transform'), onChanged: ws.installed.refetch } : null}
+        options={<ModelChip value={model} onChange={setModel} capability={CAP_AUDIO_TRANSFORM} changed={changed.has('model')} />}
+        fold={
+          <Fold
+            label={t('audioTransform.labels.advancedParameters')}
+            summary={foldSummary(paramCount ? [t('studio.workspace.transform.paramCount', { count: paramCount })] : [], [t('audioTransform.labels.advancedParametersHelp')])}
+            open={showAdvanced}
+            onToggle={() => setShowAdvanced(v => !v)}
+            id="transform-advanced-options"
+          >
+            <Field label={t('audioTransform.labels.advancedParameters')} htmlFor="transform-params" changed={changed.has('params')} hint={t('audioTransform.labels.advancedParametersHelp')}>
+              <textarea
+                id="transform-params"
+                className="textarea"
+                value={paramsText}
+                onChange={(e) => setParamsText(e.target.value)}
+                placeholder={t('audioTransform.labels.advancedParametersPlaceholder')}
+                rows={4}
+              />
+            </Field>
+          </Fold>
+        }
+        changes={changes}
+        submit={{ label: t('audioTransform.actions.transform'), busyLabel: t('audioTransform.actions.processing'), busy: loading, disabled: !model || !audioFile || noModel, why }}
+      >
+        <div className="ws-inputs">
           <AudioInput
             label={t('audioTransform.labels.audio')}
             file={audioFile}
@@ -211,119 +285,116 @@ export default function AudioTransform() {
             file={referenceFile}
             onChange={setReferenceFile}
           />
+        </div>
 
-          {referenceFile && (
-            <div className="audio-transform-echo">
-              <p className="audio-transform-echo__notice" role="note">
-                <Icon name="info" />
-                <span>
-                  {t('audioTransform.input.echoNotice')}
+        {referenceFile && (
+          <div className="audio-transform-echo">
+            <p className="audio-transform-echo__notice" role="note">
+              <Icon name="info" />
+              <span>
+                {t('audioTransform.input.echoNotice')}
+              </span>
+            </p>
+            <div className="audio-transform-echo__row">
+              <button
+                type="button"
+                className={`dk-btn ${echoActive ? 'dk-btn--secondary' : 'dk-btn--primary'} dk-btn--sm`}
+                onClick={echoActive ? stopEchoTest : startEchoTest}
+              >
+                {echoActive
+                  ? <><Icon name="stop" /> {t('audioTransform.input.stopEchoTest')}</>
+                  : <><Icon name="headphones" /> {t('audioTransform.input.echoTest')}</>}
+              </button>
+              {echoActive && echoCap.recording && (
+                <span className="audio-transform-echo__elapsed">
+                  {t('studio.workspace.transform.recording', { seconds: echoCap.elapsed.toFixed(1) })}
                 </span>
-              </p>
-              <div className="audio-transform-echo__row">
-                <button
-                  type="button"
-                  className={`btn ${echoActive ? 'btn-secondary' : 'btn-primary'} btn-sm`}
-                  onClick={echoActive ? stopEchoTest : startEchoTest}
-                >
-                  {echoActive
-                    ? <><Icon name="stop" /> {t('audioTransform.input.stopEchoTest')}</>
-                    : <><Icon name="headphones" /> {t('audioTransform.input.echoTest')}</>}
-                </button>
-                {echoActive && echoCap.recording && (
-                  <span className="audio-transform-echo__elapsed">
-                    recording {echoCap.elapsed.toFixed(1)}s
-                  </span>
-                )}
-              </div>
-              {/* Hidden player for the reference clip during the echo test.
-                  Hidden because the user already has the WaveformPlayer in
-                  the preview pane — this is just the audible source. */}
-              <audio ref={echoAudioRef} src={referenceUrl} preload="auto" hidden />
+              )}
             </div>
-          )}
-
-          <div className="form-group">
-            <label className="form-label">
-              {t('audioTransform.labels.advancedParameters')}
-              <span className="form-help"> &mdash; {t('audioTransform.labels.advancedParametersHelp')}</span>
-            </label>
-            <textarea
-              className="textarea"
-              value={paramsText}
-              onChange={(e) => setParamsText(e.target.value)}
-              placeholder={t('audioTransform.labels.advancedParametersPlaceholder')}
-              rows={4}
-            />
+            {/* Hidden player for the reference clip during the echo test.
+                Hidden because the user already has the WaveformPlayer in
+                the preview pane — this is just the audible source. */}
+            <audio ref={echoAudioRef} src={referenceUrl} preload="auto" hidden />
           </div>
+        )}
+      </ComposeCard>
 
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? <><LoadingSpinner size="sm" /> {t('audioTransform.actions.processing')}</> : <><Icon name="sparkles" /> {t('audioTransform.actions.transform')}</>}
-          </button>
-        </form>
-        <MediaHistory {...historyProps} />
-      </div>
-
-      <div className="media-preview">
-        <RequestPanel endpoint="/v1/audio/transform" body={lastRequest} />
-        <div className="media-result">
-          {error ? (
-            <ErrorWithTraceLink message={error} />
-          ) : selectedEntry ? (
-            <div className="audio-transform-stack">
+      <RunArea>
+        {loading ? (
+          <JobCard label={t('audioTransform.actions.processing')} detail={[model, audioFile?.name].filter(Boolean).join(' · ')} />
+        ) : error ? (
+          <FailedCard message={error} onRetry={run} />
+        ) : selectedEntry ? (
+          <ResultCard
+            ws={ws}
+            item={item}
+            title={selectedEntry.prompt}
+            meta={[selectedEntry.model]}
+            download={{ href: selectedEntry.results.find(r => r.kind === 'output')?.url, name: `audio-transform-${selectedEntry.model || 'output'}.wav` }}
+            onRerun={rerun}
+          >
+            <div className="ws-audio audio-transform-stack">
               {selectedEntry.results.map((r) => (
                 <WaveformPlayer
                   key={r.kind || r.url}
                   src={r.url}
-                  label={resultLabel(r, t)}
+                  label={resultLabel(r)}
                   height={r.kind === 'output' ? 120 : 96}
                   dimmed={r.kind === 'reference'}
-                  download={r.kind === 'output' ? `audio-transform-${selectedEntry.model || 'output'}.wav` : undefined}
                 />
               ))}
-              <div className="result-quote">{selectedEntry.prompt}</div>
             </div>
-          ) : (
-            <div className="audio-transform-stack">
-              {audioUrl && (
-                <div className="audio-spectrogram-pair">
-                  <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
-                  {outputUrl ? (
-                    <Spectrogram src={outputUrl} label={t('audioTransform.result.outputSpectrum')} testId="spectrogram-output" />
-                  ) : (
-                    <div className="audio-spectrogram">
-                      <div className="audio-spectrogram__label">{t('audioTransform.result.outputSpectrum')}</div>
-                      <div
-                        className="audio-spectrogram__canvas-wrap audio-spectrogram__canvas-wrap--empty"
-                        style={{ height: 140 }}
-                      >
-                        <span className="audio-spectrogram__hint">{t('audioTransform.result.outputSpectrumHint')}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+          </ResultCard>
+        ) : outputUrl ? (
+          <ResultCard
+            ws={ws}
+            item={item}
+            title={describeRun(audioFile, referenceFile)}
+            meta={[item?.model || model]}
+            download={{ href: outputUrl, name: `audio-transform-${model || 'output'}-${new Date().toISOString().slice(0, 10)}.wav` }}
+            onRerun={rerun}
+          >
+            <div className="ws-audio audio-transform-stack">
+              <div className="audio-spectrogram-pair">
+                <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
+                <Spectrogram src={outputUrl} label={t('audioTransform.result.outputSpectrum')} testId="spectrogram-output" />
+              </div>
               <WaveformPlayer src={audioUrl} label={t('audioTransform.result.audio')} height={96} />
               <WaveformPlayer src={referenceUrl} label={t('audioTransform.result.reference')} height={96} dimmed={!referenceFile} />
-              {outputUrl && (
-                <WaveformPlayer
-                  src={outputUrl}
-                  label={t('audioTransform.result.output')}
-                  height={120}
-                  download={`audio-transform-${model || 'output'}-${new Date().toISOString().slice(0, 10)}.wav`}
-                />
-              )}
-              {!audioUrl && !outputUrl && (
-                <div className="media-empty">
-                  <Icon name="waveform" className="media-empty__icon" />
-                  <p>{t('audioTransform.empty')}</p>
-                </div>
-              )}
+              <WaveformPlayer src={outputUrl} label={t('audioTransform.result.output')} height={120} />
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </ResultCard>
+        ) : audioUrl ? (
+          <ViewCard title={t('audioTransform.result.audio')} sub={t('studio.workspace.transform.waiting')}>
+            <div className="ws-audio audio-transform-stack">
+              <div className="audio-spectrogram-pair">
+                <Spectrogram src={audioUrl} label={t('audioTransform.result.inputSpectrum')} testId="spectrogram-input" />
+                <div className="audio-spectrogram">
+                  <div className="audio-spectrogram__label">{t('audioTransform.result.outputSpectrum')}</div>
+                  <div className="audio-spectrogram__canvas-wrap audio-spectrogram__canvas-wrap--empty">
+                    <span className="audio-spectrogram__hint">{t('audioTransform.result.outputSpectrumHint')}</span>
+                  </div>
+                </div>
+              </div>
+              <WaveformPlayer src={audioUrl} label={t('audioTransform.result.audio')} height={96} />
+              <WaveformPlayer src={referenceUrl} label={t('audioTransform.result.reference')} height={96} dimmed={!referenceFile} />
+            </div>
+          </ViewCard>
+        ) : (
+          <EmptyRun icon="waveform" text={t('audioTransform.empty')} />
+        )}
+        <RequestPanel endpoint="/v1/audio/transform" body={lastRequest} />
+      </RunArea>
+
+      <ResultsStrip
+        ws={ws}
+        selectedId={historyProps.selectedId}
+        activeId={activeEntry?.id}
+        onSelect={historyProps.onSelect}
+        onDelete={historyProps.onDelete}
+        onClear={historyProps.onClearAll}
+      />
+    </Workspace>
   )
 }
 
@@ -347,6 +418,7 @@ function resultLabel(r) {
 // mic-record tab. Emits a single File via onChange (recordings are wrapped
 // as `File([blob], 'recording-XXX.wav', { type: 'audio/wav' })` so callers
 // can treat them identically to uploaded files).
+// eslint-disable-next-line no-unused-vars
 function AudioInput({ label, help, file, onChange }) {
   const { t } = useTranslation('media')
   const [tab, setTab] = useState('upload') // 'upload' | 'record'
