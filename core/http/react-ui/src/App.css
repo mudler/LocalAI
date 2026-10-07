@@ -1644,19 +1644,6 @@ button.card:active {
 .log-tail__line--error {
   color: var(--color-error);
 }
-
-/* Result quote (TTS / Sound prompt echo) */
-.result-quote {
-  padding: var(--spacing-md);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-style: italic;
-  text-align: center;
-  line-height: var(--leading-normal);
-}
-
 /* Data table — used by Quantize jobs list, Traces, etc. */
 .data-table {
   width: 100%;
@@ -1867,42 +1854,6 @@ button.card:active {
   accent-color: var(--color-primary);
   cursor: pointer;
 }
-
-/* Audio result wrapper (TTS/Sound) */
-.audio-result {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--spacing-md);
-  width: 100%;
-  max-width: 480px;
-}
-.audio-result__player {
-  width: 100%;
-}
-.audio-result__actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  justify-content: center;
-}
-
-/* Media empty state */
-.media-empty {
-  text-align: center;
-  color: var(--color-text-muted);
-  padding: var(--spacing-xl) var(--spacing-md);
-}
-.media-empty__icon {
-  display: block;
-  font-size: 2.75rem;
-  margin-bottom: var(--spacing-md);
-  opacity: 0.35;
-}
-.media-empty p {
-  font-size: var(--text-sm);
-  margin: 0;
-}
-
 /* Buttons — flat. Hover swaps the surface, press scales to .97, focus is a
    2px ring with a 2px offset. Danger is a tinted wash, never a solid fill. */
 .btn {
@@ -5415,113 +5366,6 @@ button.collapsible-header:focus-visible {
   padding: 0;
   font-size: 0.625rem;
 }
-
-/* Two-column layout for media generation pages */
-.media-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-xl);
-  max-width: var(--page-max-default);
-  margin: 0 auto;
-  width: 100%;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .media-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* The workbench control column. A hairline field stack rather than a shadowed
-   card of boxed groups: the panel is the page's left half, not an object
-   floating on it, and the same treatment covers all six generators because they
-   share this class. */
-.media-controls {
-  background: transparent;
-  border: 0;
-  border-top: 1px solid var(--color-border-default);
-  border-radius: 0;
-  padding: 0;
-  box-shadow: none;
-  position: sticky;
-  top: var(--spacing-lg);
-}
-
-/* Each control is a row on the stack, separated by the same hairline the lanes
-   use, so a form and a list read as the same system. */
-.media-controls .form-group {
-  margin-bottom: 0;
-  padding: var(--spacing-sm) 0;
-  border-bottom: 1px solid var(--color-border-default);
-}
-
-/* Uppercase micro-label, matching the eyebrow treatment used elsewhere: it
-   names the field without competing with the value. */
-.media-controls .form-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-/* The submit row closes the stack, so it carries no divider of its own. */
-.media-controls .form-group:last-of-type,
-.media-controls > form > .btn-full:last-child {
-  border-bottom: 0;
-}
-.media-controls .form-grid-2col,
-.media-controls .form-grid-3col {
-  margin-bottom: var(--spacing-md);
-}
-.media-controls .form-grid-2col .form-group,
-.media-controls .form-grid-3col .form-group {
-  margin-bottom: 0;
-}
-
-.media-controls .page-header {
-  margin-bottom: var(--spacing-lg);
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-divider);
-}
-
-.media-controls .page-title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.media-controls .page-title .lai-icon {
-  color: var(--color-accent);
-}
-
-.media-preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.media-result {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  min-height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.media-result img,
-.media-result video {
-  max-width: 100%;
-  border-radius: var(--radius-md);
-}
-
 .threed-remesh-controls {
   display: flex;
   flex-direction: column;
@@ -5650,40 +5494,6 @@ button.collapsible-header:focus-visible {
 .lightbox__nav:hover { border-color: var(--color-primary-border); color: var(--color-primary); }
 .lightbox__nav--prev { left: var(--spacing-lg); }
 .lightbox__nav--next { right: var(--spacing-lg); }
-
-/* Generation progress: shimmer placeholder tiles + elapsed time. */
-.gen-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-lg);
-  width: 100%;
-}
-.gen-progress__tiles {
-  display: grid;
-  gap: var(--spacing-sm);
-  width: 100%;
-  max-width: 520px;
-}
-.gen-progress__tiles--n1 { grid-template-columns: 1fr; }
-.gen-progress__tiles--n2,
-.gen-progress__tiles--n3,
-.gen-progress__tiles--n4 { grid-template-columns: repeat(2, 1fr); }
-.gen-progress__tile {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  height: auto;
-  border-radius: var(--radius-md);
-}
-.gen-progress__status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-}
-.gen-progress__time { color: var(--color-text-muted); }
-
 /* Talk voice visualizer: status-tinted frequency bars. */
 .voice-viz {
   display: block;
@@ -5698,141 +5508,6 @@ button.collapsible-header:focus-visible {
 .voice-viz--listening { --viz-color: var(--color-success); }
 .voice-viz--speaking { --viz-color: var(--color-accent); }
 .voice-viz--error { --viz-color: var(--color-error); }
-
-/* Media generation history */
-.media-history {
-  margin-top: var(--spacing-md);
-}
-
-.media-history-clear-btn {
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  border-radius: var(--radius-sm);
-  transition: color var(--duration-fast);
-}
-
-.media-history-clear-btn:hover {
-  color: var(--color-danger);
-}
-
-.media-history-list {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: var(--spacing-xs) 0;
-}
-
-.media-history-empty {
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-  padding: var(--spacing-md);
-}
-
-.media-history-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  transition: background var(--duration-fast), transform var(--duration-fast);
-  margin-bottom: 2px;
-}
-
-.media-history-item:hover {
-  background: var(--color-primary-light);
-  transform: translateX(2px);
-}
-
-.media-history-item.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-}
-
-.media-history-item-thumb {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-}
-
-.media-history-item-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.media-history-item-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.media-history-item-top {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.media-history-item-prompt {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-  font-size: 0.8125rem;
-}
-
-.media-history-item-time {
-  font-size: 0.625rem;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.media-history-item-model {
-  font-size: 0.6875rem;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.3;
-}
-
-.media-history-item-delete {
-  opacity: 0;
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px;
-  font-size: 0.75rem;
-  transition: opacity var(--duration-fast);
-}
-
-.media-history-item:hover .media-history-item-delete {
-  opacity: 1;
-}
-
-.media-history-item-delete:hover {
-  color: var(--color-danger);
-}
-
 /* ============================================================
    Responsive
    ------------------------------------------------------------
@@ -5879,8 +5554,6 @@ button.collapsible-header:focus-visible {
     width: 100%;
     max-width: 100%;
   }
-  .media-layout { grid-template-columns: 1fr; }
-  .media-controls { position: static; }
   .page { padding: var(--spacing-md); }
 
   /* The desktop collapse chevron is desktop-only — tablets auto-rail,
@@ -9797,47 +9470,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .voice-detail__api-body > .voice-detail__api-note { margin-top: var(--spacing-sm); color: var(--color-text-tertiary); }
 .voice-detail__actions { display: flex; align-items: center; gap: var(--spacing-sm); margin-top: auto; padding-top: var(--spacing-xl); }
 .voice-detail__actions .btn-danger { margin-left: auto; }
-
-/* Compact profile picker inside the existing TTS control column. */
-.tts-voice-label-row { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-sm); }
-.tts-voice-label-row .badge { margin-bottom: var(--spacing-xs); }
-.tts-voice-picker { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-.tts-voice-picker__selection {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  color: var(--color-text-primary);
-  background: var(--color-primary-light);
-  border: 1px solid var(--color-primary-border);
-  border-radius: var(--radius-md);
-}
-.tts-voice-picker__avatar {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  color: var(--color-primary-text);
-  background: var(--color-primary);
-  border-radius: var(--radius-full);
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  font-weight: var(--font-weight-semibold);
-}
-.tts-voice-picker__selection > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; }
-.tts-voice-picker__selection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); }
-.tts-voice-picker__selection small { color: var(--color-text-secondary); font-size: var(--text-xs); }
-.tts-voice-picker__selection > .lai-icon { color: var(--color-primary); }
-.tts-voice-picker__hint,
-.tts-voice-picker__error { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-normal); }
-.tts-voice-picker__error { color: var(--color-error); }
-.tts-voice-picker__hint a,
-.tts-voice-picker__manage { color: var(--color-primary); font-weight: var(--font-weight-medium); text-decoration: none; }
-.tts-voice-picker__manage { display: inline-flex; align-items: center; gap: 5px; width: fit-content; font-size: var(--text-xs); }
-.tts-voice-picker__manage .lai-icon { font-size: 0.65em; transition: transform var(--duration-fast) var(--ease-default); }
-.tts-voice-picker__manage:hover .lai-icon { transform: translateX(2px); }
-
 /* Full-page creation flow: the content form and a quiet sticky readiness rail. */
 .voice-create-page { max-width: 1180px; padding-top: var(--spacing-xl); }
 .voice-create-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--spacing-lg); align-items: start; }
