@@ -22,6 +22,12 @@ import HomeModelPicker from '../components/home/HomeModelPicker'
 import { useModels } from '../hooks/useModels'
 import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
 import { messageText } from '../components/chat/chatText'
+// eslint-disable-next-line no-unused-vars
+import ChatHeader from '../components/chat/ChatHeader'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsDialog from '../components/chat/ShortcutsDialog'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -162,6 +168,10 @@ export default function Chat() {
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [lightbox, setLightbox] = useState(null)
+  const [renaming, setRenaming] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const pendingDeleteRef = useRef(null)
   const [editingMessageIndex, setEditingMessageIndex] = useState(null)
   const [messageEditDraft, setMessageEditDraft] = useState('')
   const pendingArtifactRef = useRef(null)
@@ -789,6 +799,46 @@ export default function Chat() {
     return out
   }, [history])
 
+  // Deleting a chat is final when its undo time ends. Until then the chat stays
+  // in storage and only its row is hidden; if it was the open one, the next
+  // chat opens in its place.
+  const deleteRef = useRef(deleteChat)
+  deleteRef.current = deleteChat
+  const commitDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current
+    if (!pending) return
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    deleteRef.current(pending.id)
+  }, [])
+  const commitRef = useRef(commitDelete)
+  commitRef.current = commitDelete
+  useEffect(() => () => commitRef.current(), [])
+
+  const visibleChats = useMemo(
+    () => chats.filter(c => c.id !== pendingDelete?.id),
+    [chats, pendingDelete],
+  )
+
+  const requestDelete = (chat) => {
+    commitDelete()
+    const wasActive = chat.id === activeChatId
+    if (wasActive) {
+      const next = chats.find(c => c.id !== chat.id)
+      if (next) switchChat(next.id)
+    }
+    const pending = { id: chat.id, name: chat.name, wasActive }
+    pendingDeleteRef.current = pending
+    setPendingDelete(pending)
+  }
+
+  const undoDelete = () => {
+    const pending = pendingDeleteRef.current
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    if (pending?.wasActive) switchChat(pending.id)
+  }
+
   // The message component is memoised, so it gets one stable set of actions
   // that always call the latest handlers.
   const actionsRef = useRef(null)
@@ -930,6 +980,17 @@ export default function Chat() {
     </span>
   )
 
+  const moreItems = [
+    { key: 'rename', icon: 'pencil', label: t('menu.rename'), onClick: () => setRenaming(true) },
+    { key: 'duplicate', icon: 'copy', label: t('menu.duplicate'), onClick: () => { if (forkChat(activeChat.id)) addToast(t('toasts.forked'), 'success', 2000) } },
+    { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChatAsMarkdown(activeChat) },
+    { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => downloadChatAsMarkdown(activeChat) },
+    { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(activeChat.model && isAdmin), onClick: () => setShowModelInfo(v => !v) },
+    { key: 'keys', icon: 'keyboard', label: t('shortcuts.title'), onClick: () => setShowShortcuts(true) },
+    { divider: true },
+    { key: 'clear', icon: 'trash', label: t('clearDialog.confirm'), danger: true, hidden: !hasThread, onClick: promptClear },
+  ]
+
   const runSlash = (id) => {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
@@ -948,55 +1009,35 @@ export default function Chat() {
     <div className={layoutClasses}>
       {/* Conversation column */}
       <div className="cx-conv">
-        {/* Header */}
-        <div className="chat-header">
-          <ChatsMenu
-            ref={chatsMenuRef}
-            chats={chats}
-            activeChatId={activeChatId}
-            streamingChatId={streamingChatId}
-            onSelect={switchChat}
-            onNew={() => addChat(activeChat.model)}
-            onDelete={deleteChat}
-            onDeleteAll={promptDeleteAll}
-            onRename={renameChat}
-            onExport={(chat) => downloadChatAsMarkdown(chat)}
-            onCopyChat={(chat) => copyChatAsMarkdown(chat)}
-            onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
-          />
-          {activeChat.localaiAssistant && (
-            <span
-              className="chat-header-shield"
-              title={t('header.manageModeTooltip')}
-            >
-              <Icon name="user-shield" />
-            </span>
+        <ChatHeader
+          historyMenu={(
+            <ChatsMenu
+              ref={chatsMenuRef}
+              chats={visibleChats}
+              activeChatId={activeChatId}
+              streamingChatId={streamingChatId}
+              onSelect={switchChat}
+              onNew={() => addChat(activeChat.model)}
+              onDelete={requestDelete}
+              onDeleteAll={promptDeleteAll}
+              onRename={renameChat}
+              onExport={(chat) => downloadChatAsMarkdown(chat)}
+              onCopyChat={(chat) => copyChatAsMarkdown(chat)}
+              onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
+            />
           )}
-          <span className="chat-header-title" title={activeChat.name}>{activeChat.name}</span>
-          <div className="chat-header-actions">
-            {activeChat.model && isAdmin && (
-              <button
-                type="button"
-                className={`btn btn-secondary btn-sm${showModelInfo ? ' active' : ''}`}
-                onClick={() => setShowModelInfo(prev => !prev)}
-                title={t('header.modelInfo')}
-                aria-pressed={showModelInfo}
-                aria-controls="chat-model-info-panel"
-              >
-                <Icon name="info" />
-              </button>
-            )}
-            <button
-              type="button"
-              className={`btn btn-secondary btn-sm${showSettings ? ' active' : ''}`}
-              onClick={() => setShowSettings(!showSettings)}
-              title={t('header.chatSettings')}
-              aria-pressed={showSettings}
-            >
-              <Icon name="sliders" />
-            </button>
-          </div>
-        </div>
+          manageMode={!!activeChat.localaiAssistant}
+          name={activeChat.name}
+          onRename={(name) => renameChat(activeChat.id, name)}
+          renaming={renaming}
+          setRenaming={setRenaming}
+          contextPercent={contextPercent}
+          contextTokens={activeChat.tokenUsage?.total || 0}
+          contextSize={activeChat.contextSize}
+          onSettings={() => setShowSettings(v => !v)}
+          settingsOpen={showSettings}
+          moreItems={moreItems}
+        />
 
         {/* Model info panel */}
         {showModelInfo && modelInfo && (
@@ -1028,23 +1069,6 @@ export default function Chat() {
               {modelInfo.template?.chat_message && <div className="chat-model-info-row"><span>{t('modelInfo.chatTemplate')}</span><span>{t('modelInfo.yes')}</span></div>}
               {modelInfo.gpu_layers > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.gpuLayers')}</span><span>{modelInfo.gpu_layers}</span></div>}
             </div>
-          </div>
-        )}
-
-        {/* Context window progress bar */}
-        {contextPercent !== null && (
-          <div className="chat-context-bar">
-            <div className="chat-context-progress"
-              style={{
-                width: `${contextPercent}%`,
-                background: contextPercent > 90 ? 'var(--color-error)' : contextPercent > 70 ? 'var(--color-warning)' : 'var(--color-primary)',
-              }}
-            />
-            <span className="chat-context-label">
-              {activeChat.tokenUsage.total > 0
-                ? t('context.labelWithTokens', { percent: Math.round(contextPercent), tokens: activeChat.tokenUsage.total })
-                : t('context.label', { percent: Math.round(contextPercent) })}
-            </span>
           </div>
         )}
 
@@ -1342,6 +1366,18 @@ export default function Chat() {
           index={lightbox.index}
           onIndex={(index) => setLightbox(prev => ({ ...prev, index }))}
           onClose={() => setLightbox(null)}
+        />
+      )}
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind={false} />}
+      {pendingDelete && (
+        <HomeUndoToast
+          key={pendingDelete.id}
+          message={t('menu.deleted', { title: pendingDelete.name })}
+          onUndo={undoDelete}
+          onExpire={commitDelete}
+          undoLabel={t('menu.undo')}
+          dismissLabel={t('menu.dismiss')}
+          testId="chat-undo-toast"
         />
       )}
       <ConfirmDialog

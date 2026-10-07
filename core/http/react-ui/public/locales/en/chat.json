@@ -15,7 +15,10 @@
     "chatSettings": "Chat settings",
     "modelInfoTitle": "Model Info: {{model}}",
     "editConfig": "Edit config",
-    "close": "Close"
+    "close": "Close",
+    "chatName": "Chat name",
+    "find": "Find in chat",
+    "more": "More"
   },
   "modelInfo": {
     "backend": "Backend",
@@ -30,7 +33,9 @@
   },
   "context": {
     "label": "Context: {{percent}}%",
-    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)"
+    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)",
+    "title": "Context",
+    "ofSize": "{{percent}}% of {{size}} tokens"
   },
   "settings": {
     "title": "Chat Settings",
@@ -142,7 +147,24 @@
     "deleteChat": "Delete chat",
     "newChat": "New chat",
     "clearAll": "Clear all",
-    "deleteAllTitle": "Delete all conversations"
+    "deleteAllTitle": "Delete all conversations",
+    "title": "Conversations",
+    "noModel": "No model",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
+    },
+    "keys": {
+      "move": "move",
+      "open": "open",
+      "rename": "rename",
+      "delete": "delete"
+    },
+    "deleted": "Deleted \"{{title}}\"",
+    "undo": "Undo",
+    "dismiss": "Dismiss"
   },
   "message": {
     "you": "You",
@@ -203,5 +225,19 @@
       "label": "Clear conversation",
       "desc": "Remove every message in this chat"
     }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "conversations": "Open your conversations",
+    "find": "Search this chat",
+    "actions": "Actions",
+    "send": "Send",
+    "newline": "New line",
+    "editLast": "Edit your last message",
+    "inEmptyBox": "in an empty box",
+    "stop": "Stop the reply",
+    "moveMessages": "Move between messages",
+    "onMessage": "On a message: copy, edit, regenerate, branch",
+    "close": "Close"
   }
 }
