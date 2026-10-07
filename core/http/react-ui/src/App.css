@@ -6481,6 +6481,8 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-secondary);
   font-size: 12px;
 }
+.home-file-tag__thumb { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
+.home-file-tag__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-file-tag button {
   display: inline-grid;
   place-items: center;

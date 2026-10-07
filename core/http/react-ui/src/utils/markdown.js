@@ -83,9 +83,11 @@ export function highlightAll(element) {
 // options.copyLabel puts a word next to the copy icon, and options.canvasLabel
 // adds a second button that asks the page to open the block in its canvas. The
 // page owns what that button does: it listens for clicks on .code-canvas-btn.
+// options.selector limits which blocks count (the chat page leaves out the
+// plain output boxes of tool results).
 export function enhanceCodeBlocks(element, options = {}) {
   if (!element) return
-  const { copyLabel, canvasLabel } = options
+  const { copyLabel, canvasLabel, selector = 'pre:not([data-enhanced])' } = options
   const withLabel = (btn, icon, label) => {
     btn.innerHTML = iconHtml(icon)
     if (!label) return
@@ -93,7 +95,7 @@ export function enhanceCodeBlocks(element, options = {}) {
     span.textContent = label
     btn.appendChild(span)
   }
-  element.querySelectorAll('pre:not([data-enhanced])').forEach((pre) => {
+  element.querySelectorAll(selector).forEach((pre) => {
     pre.setAttribute('data-enhanced', '1')
     const code = pre.querySelector('code')
     const langMatch = code && code.className.match(/language-(\w+)/)

@@ -3,18 +3,29 @@ import { useParams, useOutletContext, useNavigate, useLocation } from 'react-rou
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
-import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
+// eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
+// eslint-disable-next-line no-unused-vars
 import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { readAttachmentText } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
+// eslint-disable-next-line no-unused-vars
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
+// eslint-disable-next-line no-unused-vars
+import HomeComposer from '../components/home/HomeComposer'
+// eslint-disable-next-line no-unused-vars
+import HomeModelPicker from '../components/home/HomeModelPicker'
+import { useModels } from '../hooks/useModels'
+import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
+import { messageText } from '../components/chat/chatText'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
+// eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
+// eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
@@ -22,7 +33,9 @@ import { useLoadedModels } from '../hooks/useLoadedModels'
 import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
 import Lightbox from '../components/Lightbox'
+// eslint-disable-next-line no-unused-vars
 import ChatMessage, { ActivityRow, StreamingTurn } from '../components/chat/ChatMessage'
 import { editableMessageText, withEditedMessageText, isActivityRole } from '../components/chat/chatText'
 import './chat.css'
@@ -165,6 +178,16 @@ export default function Chat() {
   const stickToBottomRef = useRef(true)
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
+  const pickerRef = useRef(null)
+  const { models: chatModels } = useModels(CAP_CHAT)
+  const hasThread = (activeChat?.history?.length || 0) > 0
+  const slashConfig = useMemo(() => ({
+    actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread }),
+    groups: CHAT_SLASH_GROUPS,
+    label: (a) => t(`slash.${a.id}.label`),
+    desc: (a) => t(`slash.${a.id}.desc`),
+    groupLabel: (g) => t(`slash.group.${g}`),
+  }), [isAdmin, chatModels.length, hasThread, t])
 
   // Focus mode: once a conversation has at least one message we slim the
   // surrounding chrome (collapse the global app rail, fade non-essential
@@ -504,8 +527,13 @@ export default function Chat() {
     }
   }, [focusActive])
 
-  // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc exits focus
-  // mode while it is engaged (without closing any open dialogs first).
+  // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc stops a reply that
+  // is streaming and exits focus mode while it is engaged (neither fires while a
+  // menu or dialog is open: those take their own Esc first).
+  const streamingRef = useRef(false)
+  streamingRef.current = isStreaming
+  const stopRef = useRef(stopGeneration)
+  stopRef.current = stopGeneration
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -514,6 +542,8 @@ export default function Chat() {
         chatsMenuRef.current?.toggle()
         return
       }
+      const overlay = document.querySelector('.home-menu, .chats-menu-popover, .cx-menu, .dk-cmdlist, [role="dialog"]')
+      if (e.key === 'Escape' && streamingRef.current && !overlay) stopRef.current()
       if (e.key === 'Escape' && focusActive) {
         // Don't fight the chats menu / settings drawer / dialogs — they
         // each handle their own Esc and stop propagation when open.
@@ -533,7 +563,11 @@ export default function Chat() {
     const el = messagesRef.current
     if (!el) return
     let obs
-    const labels = { copyLabel: t('actions.copy'), canvasLabel: canvasMode ? undefined : t('input.canvasLabel') }
+    const labels = {
+      copyLabel: t('actions.copy'),
+      canvasLabel: canvasMode ? undefined : t('input.canvasLabel'),
+      selector: '.cx-prose pre:not([data-enhanced])',
+    }
     const run = () => {
       obs?.disconnect()
       highlightAll(el)
@@ -607,9 +641,11 @@ export default function Chat() {
     return () => el.removeEventListener('click', handler)
   }, [canvasMode, artifacts, activeChat?.history])
 
-  const handleFileChange = useCallback(async (e) => {
+  // Files from any of the three attach buttons. Text and PDF files carry their
+  // extracted text with them; a file that cannot be read is skipped with a toast.
+  const attachFiles = useCallback(async (_kind, list) => {
     const newFiles = []
-    for (const file of e.target.files) {
+    for (const file of list) {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
@@ -623,7 +659,6 @@ export default function Chat() {
       newFiles.push(entry)
     }
     setFiles(prev => [...prev, ...newFiles])
-    e.target.value = ''
   }, [addToast, t])
 
   const handlePaste = useCallback(async (e) => {
@@ -648,6 +683,7 @@ export default function Chat() {
   }, [])
 
   const handleSend = useCallback(async () => {
+    if (isStreaming) return
     const msg = input.trim()
     if (!msg && files.length === 0) return
     if (!activeChat?.model) {
@@ -677,7 +713,7 @@ export default function Chat() {
       },
     } : {}
     await sendMessage(msg, files, mcpOptions)
-  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
+  }, [isStreaming, input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
   const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
@@ -704,21 +740,19 @@ export default function Chat() {
     await sendMessage(userContent, userFiles, { baseHistory, prebuiltContent: true })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
-  const handleKeyDown = (e) => {
-    // Only Enter (no modifiers, no IME composition) sends.
-    // Shift+Enter, Ctrl+Enter, Meta+Enter, Alt+Enter all fall through to default textarea behavior (newline).
-    if (
-      e.key === 'Enter' &&
-      !e.shiftKey &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey &&
-      !e.nativeEvent?.isComposing &&
-      e.keyCode !== 229
-    ) {
-      e.preventDefault()
-      handleSend()
+  // Up in an empty box edits your last message, as in most chat apps.
+  const onComposerKey = (e) => {
+    if (e.key !== 'ArrowUp' || input || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false
+    if (isStreaming || !activeChat) return false
+    for (let i = activeChat.history.length - 1; i >= 0; i--) {
+      const msg = activeChat.history[i]
+      if (msg.role === 'user' && editableMessageText(msg) !== null) {
+        e.preventDefault()
+        startMessageEdit(i, msg)
+        return true
+      }
     }
+    return false
   }
 
   const copyMessage = async (content) => {
@@ -798,6 +832,14 @@ export default function Chat() {
     onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
   })
 
+  const promptClear = () => setConfirmDialog({
+    title: t('clearDialog.title'),
+    message: t('clearDialog.message'),
+    confirmLabel: t('clearDialog.confirm'),
+    danger: true,
+    onConfirm: () => { setConfirmDialog(null); clearHistory(activeChat.id) },
+  })
+
   if (!activeChat) return null
 
   const layoutClasses = [
@@ -805,6 +847,102 @@ export default function Chat() {
     isInConversation ? 'cx-page--live' : '',
     focusActive ? 'chat--focus' : '',
   ].filter(Boolean).join(' ')
+
+  const toggleCanvasMode = () => {
+    const next = !canvasMode
+    setCanvasMode(next)
+    if (!next) setCanvasOpen(false)
+  }
+
+  const picker = (
+    <HomeModelPicker
+      ref={pickerRef}
+      value={activeChat.model}
+      onChange={(model) => updateChatSettings(activeChat.id, { model })}
+      capability={CAP_CHAT}
+      loadedIds={loadedIds}
+    />
+  )
+
+  const mcp = (
+    <UnifiedMCPDropdown
+      serverMCPAvailable={mcpAvailable}
+      mcpServerList={mcpServerList}
+      mcpServersLoading={mcpServersLoading}
+      serverListError={mcpServerListError}
+      selectedServers={activeChat.mcpServers || []}
+      onToggleServer={toggleMcpServer}
+      onSelectAllServers={() => {
+        const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
+        const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
+        updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
+      }}
+      onFetchServers={fetchMcpServers}
+      clientMCPActiveIds={activeChat.clientMCPServers || []}
+      onClientToggle={handleClientMCPToggle}
+      onClientAdded={handleClientMCPServerAdded}
+      onClientRemoved={handleClientMCPServerRemoved}
+      connectionStatuses={connectionStatuses}
+      getConnectedTools={getConnectedTools}
+      promptsAvailable={mcpAvailable}
+      mcpPromptList={mcpPromptList}
+      mcpPromptsLoading={mcpPromptsLoading}
+      onFetchPrompts={fetchMcpPrompts}
+      onSelectPrompt={handleSelectPrompt}
+      promptArgsDialog={mcpPromptArgsDialog}
+      promptArgsValues={mcpPromptArgsValues}
+      onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
+      onPromptArgsSubmit={handleExpandPromptWithArgs}
+      onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
+      resourcesAvailable={mcpAvailable}
+      mcpResourceList={mcpResourceList}
+      mcpResourcesLoading={mcpResourcesLoading}
+      onFetchResources={fetchMcpResources}
+      selectedResources={activeChat.mcpResources || []}
+      onToggleResource={toggleMcpResource}
+    />
+  )
+
+  const canvasChip = (
+    <span className="cx-chipset">
+      <button
+        type="button"
+        className="home-chip cx-chip-toggle"
+        aria-pressed={canvasMode}
+        onClick={toggleCanvasMode}
+        title={t('input.canvasTitle')}
+        data-testid="chat-canvas-chip"
+      >
+        <Icon name="columns" />
+        <span className="home-chip__text">{t('input.canvasLabel')}</span>
+      </button>
+      {canvasMode && artifacts.length > 0 && !canvasOpen && (
+        <button
+          type="button"
+          className="home-chip cx-chip-count"
+          title={t('input.openCanvas')}
+          aria-label={t('input.openCanvas')}
+          onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
+        >
+          {artifacts.length}
+        </button>
+      )}
+    </span>
+  )
+
+  const runSlash = (id) => {
+    switch (id) {
+      case 'model': pickerRef.current?.open(); break
+      case 'new': addChat(activeChat.model); break
+      case 'chats': chatsMenuRef.current?.open(); break
+      case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
+      case 'canvas': toggleCanvasMode(); break
+      case 'settings': setShowSettings(true); break
+      case 'export': downloadChatAsMarkdown(activeChat); break
+      case 'clear': promptClear(); break
+      default: break
+    }
+  }
 
   return (
     <div className={layoutClasses}>
@@ -835,12 +973,6 @@ export default function Chat() {
             </span>
           )}
           <span className="chat-header-title" title={activeChat.name}>{activeChat.name}</span>
-          <ModelSelector
-            value={activeChat.model}
-            onChange={(model) => updateChatSettings(activeChat.id, { model })}
-            capability={CAP_CHAT}
-            style={{ flex: '1 1 0', minWidth: 120 }}
-          />
           <div className="chat-header-actions">
             {activeChat.model && isAdmin && (
               <button
@@ -1149,166 +1281,50 @@ export default function Chat() {
           </button>
         )}
 
-        {/* Token info bar */}
-        {(tokensPerSecond || maxTokensPerSecond || activeChat.tokenUsage?.total > 0) && (
-          <div className="chat-token-info">
-            {tokensPerSecond !== null && <span><Icon name="gauge" /> {t('tokens.perSec', { count: tokensPerSecond })}</span>}
-            {maxTokensPerSecond !== null && !isStreaming && (
-              <span className="chat-max-tps-badge">
-                <Icon name="bolt" /> {t('tokens.peak', { count: maxTokensPerSecond })}
-              </span>
-            )}
-            {activeChat.tokenUsage?.total > 0 && (
-              <span>
-                <Icon name="coins" /> {t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total })}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* File badges */}
-        {files.length > 0 && (
-          <div className="chat-files">
-            {files.map((f, i) => {
-              const isImage = f.type?.startsWith('image/') && f.base64
-              return (
-                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
-                  {isImage ? (
-                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
-                  ) : (
-                    <Icon name={f.type?.startsWith('audio/') ? 'headphones' : f.type?.startsWith('video/') ? 'video' : 'file'} />
-                  )}
-                  <span className="chat-file-name">{f.name}</span>
-                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
-                    <Icon name="close" />
-                  </button>
-                </span>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Input area */}
-        <div className="chat-input-area">
-          <div className="chat-input-wrapper">
-            <div className="chat-input-modes">
-              <button
-                type="button"
-                className={`chat-mode-chip${canvasMode ? ' chat-mode-chip-on' : ''}`}
-                onClick={() => {
-                  const next = !canvasMode
-                  setCanvasMode(next)
-                  if (!next) setCanvasOpen(false)
-                }}
-                aria-pressed={canvasMode}
-                title={t('input.canvasTitle')}
-              >
-                <Icon name="columns" />
-                <span className="chat-mode-chip-label">{t('input.canvasLabel')}</span>
-                {canvasMode && artifacts.length > 0 && !canvasOpen && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="chat-mode-chip-count"
-                    title={t('input.openCanvas')}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedArtifactId(artifacts[0]?.id)
-                      setCanvasOpen(true)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSelectedArtifactId(artifacts[0]?.id)
-                        setCanvasOpen(true)
-                      }
-                    }}
-                  >
-                    {artifacts.length}
-                  </span>
-                )}
-              </button>
-              <UnifiedMCPDropdown
-                serverMCPAvailable={mcpAvailable}
-                mcpServerList={mcpServerList}
-                mcpServersLoading={mcpServersLoading}
-                serverListError={mcpServerListError}
-                selectedServers={activeChat.mcpServers || []}
-                onToggleServer={toggleMcpServer}
-                onSelectAllServers={() => {
-                  const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
-                  const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
-                  updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
-                }}
-                onFetchServers={fetchMcpServers}
-                clientMCPActiveIds={activeChat.clientMCPServers || []}
-                onClientToggle={handleClientMCPToggle}
-                onClientAdded={handleClientMCPServerAdded}
-                onClientRemoved={handleClientMCPServerRemoved}
-                connectionStatuses={connectionStatuses}
-                getConnectedTools={getConnectedTools}
-                promptsAvailable={mcpAvailable}
-                mcpPromptList={mcpPromptList}
-                mcpPromptsLoading={mcpPromptsLoading}
-                onFetchPrompts={fetchMcpPrompts}
-                onSelectPrompt={handleSelectPrompt}
-                promptArgsDialog={mcpPromptArgsDialog}
-                promptArgsValues={mcpPromptArgsValues}
-                onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
-                onPromptArgsSubmit={handleExpandPromptWithArgs}
-                onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
-                resourcesAvailable={mcpAvailable}
-                mcpResourceList={mcpResourceList}
-                mcpResourcesLoading={mcpResourcesLoading}
-                onFetchResources={fetchMcpResources}
-                selectedResources={activeChat.mcpResources || []}
-                onToggleResource={toggleMcpResource}
-              />
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm chat-attach-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title={t('input.attachFile')}
-            >
-              <Icon name="paperclip" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <textarea
-              ref={textareaRef}
-              className="chat-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+        {/* Dock: the Home command bar under the thread */}
+        <div className="cx-dock">
+          <div className="cx-dock__in">
+            <HomeComposer
+              message={input}
+              onMessage={setInput}
+              onSubmit={handleSend}
+              canSend={!!activeChat.model && (input.trim().length > 0 || files.length > 0)}
+              sendTitle={activeChat.model ? t('input.send') : t('input.selectModelFirst')}
+              textareaRef={textareaRef}
+              picker={picker}
+              mcp={mcp}
+              chips={canvasChip}
+              files={files}
+              onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
+              onAttach={attachFiles}
+              placeholder={activeChat.model ? t('input.placeholderModel', { model: activeChat.model }) : t('input.placeholderNoModel')}
+              slash={slashConfig}
+              onRunAction={runSlash}
+              streaming={isStreaming}
+              onStop={stopGeneration}
+              stopTitle={t('input.stopGenerating')}
               onPaste={handlePaste}
-              placeholder={t('input.placeholder')}
+              onKeyDownExtra={onComposerKey}
+              fileAccept="video/*,application/pdf,.txt,.md,.csv,.json"
               rows={1}
-              disabled={isStreaming}
+              strictEnter
+              testId="chat-composer"
+              textareaTestId="chat-input"
+              sendId="chat-submit-btn"
+              sendTestId="chat-send"
             />
-            {isStreaming ? (
-              <button className="chat-stop-btn" onClick={stopGeneration} title={t('input.stopGenerating')}>
-                <Icon name="stop" />
-              </button>
-            ) : (
-              <button
-                id="chat-submit-btn"
-                className="chat-send-btn"
-                onClick={handleSend}
-                disabled={!input.trim() && files.length === 0}
-                aria-label={t('input.send')}
-                title={t('input.send')}
-              >
-                <Icon name="send" />
-              </button>
-            )}
+            <div className="cx-foot" data-testid="chat-foot">
+              <span>
+                {isStreaming
+                  ? (tokensPerSecond !== null ? `${t('tokens.perSec', { count: tokensPerSecond })} · ${t('tokens.generating')}` : t('tokens.generating'))
+                  : (maxTokensPerSecond !== null ? t('tokens.peak', { count: maxTokensPerSecond }) : '')}
+              </span>
+              <span className="cx-foot__tokens">
+                {activeChat.tokenUsage?.total > 0 && (activeChat.contextSize
+                  ? t('tokens.ofContext', { used: activeChat.tokenUsage.total, size: activeChat.contextSize })
+                  : t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total }))}
+              </span>
+            </div>
           </div>
         </div>
       </div>

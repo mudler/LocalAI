@@ -43,7 +43,8 @@
     "slashHint": "Type <kbd>/</kbd> for actions",
     "enterHint": "Enter to send, Shift+Enter for a new line",
     "send": "Send",
-    "removeFile": "Remove {{name}}"
+    "removeFile": "Remove {{name}}",
+    "stop": "Stop"
   },
   "quickLinks": {
     "manageByChat": "Manage by chat",

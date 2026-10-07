@@ -62,7 +62,7 @@ function summarise(items, t) {
 }
 
 // eslint-disable-next-line no-unused-vars
-function FoldFrame({ summary, open, live, onToggle, icon, children, id }) {
+function FoldFrame({ summary, open, live, shimmer, onToggle, icon, children, id }) {
   const bodyId = `${id}-body`
   return (
     <div className="cx-fold" data-open={open || undefined} data-live={live || undefined} data-testid="chat-activity">
@@ -74,7 +74,7 @@ function FoldFrame({ summary, open, live, onToggle, icon, children, id }) {
         onClick={onToggle}
       >
         <Icon name={icon} />
-        <span className={live && !open ? 'cx-shimmer' : undefined}>{summary}</span>
+        <span className={shimmer && !open ? 'cx-shimmer' : undefined}>{summary}</span>
         <Icon name="chevron-right" className="cx-fold__chev" />
       </button>
       {open && <div className="cx-fold__body" id={bodyId}>{children}</div>}
@@ -172,7 +172,7 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
 
   const lastTool = hasTools ? toolCalls[toolCalls.length - 1] : null
   const label = reasoning
-    ? t('activity.thinking')
+    ? (hasResponse ? t('activity.thought') : t('activity.thinking'))
     : (lastTool.type === 'tool_call' ? lastTool.name : t('activity.toolResult', { name: lastTool.name }))
 
   return (
@@ -182,6 +182,7 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
       summary={label}
       open={expanded}
       live
+      shimmer={!hasResponse}
       onToggle={() => setManualCollapse(expanded)}
     >
       <ol className="cx-steps">

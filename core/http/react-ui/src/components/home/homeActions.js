@@ -32,10 +32,10 @@ export function availableActions(ctx) {
 
 // `query` is what follows the slash, lowercase. A command matches when its name
 // starts with the query or its label contains it. Order stays grouped.
-export function filterActions(actions, query, labelOf) {
+export function filterActions(actions, query, labelOf, groups = SLASH_GROUPS) {
   const q = query.trim()
   const matched = q
     ? actions.filter(a => a.cmd.slice(1).startsWith(q) || labelOf(a).toLowerCase().includes(q))
     : actions
-  return SLASH_GROUPS.flatMap(g => matched.filter(a => a.group === g))
+  return groups.flatMap(g => matched.filter(a => a.group === g))
 }

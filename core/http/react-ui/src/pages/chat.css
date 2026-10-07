@@ -70,7 +70,7 @@
   overflow-wrap: anywhere;
 }
 .cx-text { white-space: pre-wrap; }
-.cx-atts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.cx-atts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
 .cx-atts:last-child { margin-bottom: 0; }
 .cx-thumb {
   display: block;
@@ -166,7 +166,8 @@
 .cx-hit[data-cur] { background: var(--dk-warn); color: var(--dk-on-warn); box-shadow: 0 0 0 2px var(--dk-warn); }
 
 /* The caret at the end of a reply that is still arriving. */
-.cx-prose--live > :last-child::after {
+.cx-prose--live > p:last-child::after,
+.cx-prose--live > :is(ul, ol):last-child > li:last-child::after {
   content: "";
   display: inline-block;
   width: 7px;
@@ -177,7 +178,8 @@
   background: var(--color-text-secondary);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .cx-prose--live > :last-child::after { animation: cxCaret 1s steps(2, jump-none) infinite; }
+  .cx-prose--live > p:last-child::after,
+.cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 1s steps(2, jump-none) infinite; }
 }
 @keyframes cxCaret { to { opacity: 0; } }
 
@@ -491,3 +493,56 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ---- The dock: the Home command bar under the thread ------------------------ */
+.cx-dock { flex: none; padding: 6px 24px 10px; }
+.cx-dock__in { max-width: 760px; margin: 0 auto; position: relative; }
+.cx-dock .home-cmd__top { flex-wrap: wrap; padding-bottom: 8px; }
+.cx-dock .home-cmd__foot { padding-top: 8px; }
+.cx-dock .home-textarea { min-height: 56px; max-height: 220px; font-size: 15.5px; }
+/* The dock sits at the bottom of the page, so its menus open upward. */
+.cx-dock .home-menu,
+.cx-dock .chat-mcp-dropdown-menu { top: auto; bottom: calc(100% + 8px); }
+.cx-dock .dk-cmdlist.home-slash { top: auto; bottom: calc(100% + 6px); }
+.cx-chipset { display: inline-flex; gap: 4px; }
+.home-chip[aria-pressed="true"] {
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  box-shadow: inset 0 0 0 1px var(--dk-accent-text);
+}
+.home-chip[aria-pressed="true"] .lai-icon { color: var(--dk-accent-text); }
+.cx-chip-count { padding: 0 9px; color: var(--dk-accent-text); font-size: 12px; }
+.home-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  margin-left: auto;
+  padding: 0 10px 0 14px;
+  border: 0;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-control-edge);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dk-dur-1) var(--dk-ease-out), transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.home-stop-btn:hover { background: var(--dk-hover); }
+.home-stop-btn:active { transform: scale(var(--dk-press-scale)); }
+.home-stop-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.cx-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 26px;
+  padding: 8px 6px 0;
+  color: var(--dk-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.cx-foot__tokens { margin-left: auto; white-space: nowrap; }
