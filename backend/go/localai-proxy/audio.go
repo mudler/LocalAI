@@ -293,6 +293,9 @@ func (p *LocalAIProxy) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 	if req.GetIncludeText() {
 		f.Set("include_text", "true")
 	}
+	if req.GetIncludeSounds() {
+		f.Set("include_sounds", "true")
+	}
 
 	var resp struct {
 		Duration    float64 `json:"duration"`
@@ -306,6 +309,14 @@ func (p *LocalAIProxy) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 			End     float32 `json:"end"`
 			Text    string  `json:"text"`
 		} `json:"segments"`
+		// A pointer tells an absent field (the upstream did not report sound
+		// events) from an empty list (it ran and heard nothing).
+		Sounds *[]struct {
+			Start      float32 `json:"start"`
+			End        float32 `json:"end"`
+			Label      string  `json:"label"`
+			Confidence float32 `json:"confidence"`
+		} `json:"sounds"`
 	}
 	if err := p.postForm(context.Background(), "/v1/audio/diarization",
 		multipartForm{fields: f, files: []formFile{{field: "file", path: req.GetDst()}}}, &resp); err != nil {
@@ -324,8 +335,15 @@ func (p *LocalAIProxy) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, erro
 			Id: s.ID, Start: s.Start, End: s.End, Speaker: speaker, Text: s.Text,
 		})
 	}
+	var sounds []*pb.DiarizeSound
+	if resp.Sounds != nil {
+		for _, s := range *resp.Sounds {
+			sounds = append(sounds, &pb.DiarizeSound{Start: s.Start, End: s.End, Label: s.Label, Confidence: s.Confidence})
+		}
+	}
 	return pb.DiarizeResponse{
 		Segments: segments, NumSpeakers: resp.NumSpeakers, Duration: float32(resp.Duration), Language: resp.Language,
+		Sounds: sounds, SoundsIncluded: resp.Sounds != nil,
 	}, nil
 }
 

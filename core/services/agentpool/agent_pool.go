@@ -73,6 +73,7 @@ type distributedBridge struct {
 	agentStore  *agents.AgentStore      // PostgreSQL agent config store
 	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
+	bus         messaging.Broadcaster   // Fan-out bus for collection events (distributed mode)
 }
 
 // userManager handles per-user services, storage, and auth.
@@ -125,6 +126,8 @@ type AgentPoolOptions struct {
 	WorkQueue   messaging.WorkQueue
 	EventBridge AgentEventBridge
 	AgentStore  *agents.AgentStore
+	// Bus carries collection events between frontends (nil in standalone).
+	Bus messaging.Broadcaster
 }
 
 func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolOptions) (*AgentPoolService, error) {
@@ -147,6 +150,9 @@ func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolO
 		}
 		if o.AgentStore != nil {
 			svc.distributed.agentStore = o.AgentStore
+		}
+		if o.Bus != nil {
+			svc.distributed.bus = o.Bus
 		}
 	}
 	return svc, nil
@@ -233,8 +239,9 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	}
 	fileAssets := filepath.Join(stateDir, "assets")
 
-	collectionsBackend, _ := collections.NewInProcessBackend(s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets))
-	s.collectionsBackend = collectionsBackend
+	collectionsCfg := s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets)
+	collectionsBackend, collectionsState := collections.NewInProcessBackend(collectionsCfg)
+	s.collectionsBackend = s.shareCollections(collectionsBackend, collectionsState, collectionsCfg)
 
 	// User-scoped storage
 	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
@@ -1200,4 +1207,20 @@ func (s *AgentPoolService) buildSkillProvider() agents.SkillContentProvider {
 	return func(userID string) ([]agents.SkillInfo, error) {
 		return s.loadSkillsForUser(userID)
 	}
+}
+
+// shareCollections makes the frontends agree on the list of collections.
+//
+// The in-process backend keeps the collections a frontend opened in memory.
+// With several frontends that cache is per replica, so a collection created
+// through one frontend would be unknown to the others. With the PostgreSQL
+// vector engine the database is the shared registry, and the backend is
+// wrapped so that it asks the database. With any other engine there is no
+// shared registry, and the backend is returned unchanged.
+func (s *AgentPoolService) shareCollections(backend collections.Backend, state *collections.State, cfg *collections.Config) collections.Backend {
+	if cfg.VectorEngine != "postgres" || cfg.DatabaseURL == "" {
+		xlog.Warn("Distributed mode without the postgres vector engine: each frontend keeps its own list of collections", "vectorEngine", cfg.VectorEngine)
+		return backend
+	}
+	return newSharedCollections(backend, state, postgresCollectionRegistry{databaseURL: cfg.DatabaseURL}, s.distributed.bus)
 }

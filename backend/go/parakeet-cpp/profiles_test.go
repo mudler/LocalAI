@@ -18,6 +18,16 @@ var _ = Describe("profile capability", func() {
 		_, err := p.Diarize(&pb.DiarizeRequest{IncludeSpeakerProfiles: true})
 		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
 	})
+
+	It("answers FailedPrecondition, not Unimplemented, when every model was freed", func() {
+		// A freed backend holds no contexts. The answer must let LocalAI
+		// drop the stale replica and reload it; Unimplemented never heals.
+		restore := diarizeStubs()
+		defer restore()
+		p := &ParakeetCpp{}
+		_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(1), IncludeSpeakerProfiles: true})
+		Expect(status.Code(err)).To(Equal(codes.FailedPrecondition))
+	})
 })
 var _ = Describe("profile export transport", func() {
 	It("exports with no registry and copies trusted metadata without freeing borrowed identity", func() {

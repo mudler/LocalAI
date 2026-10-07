@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -35,6 +36,9 @@ type DiarizationRequest struct {
 	MinDurationOff         float32
 	IncludeText            bool
 	IncludeSpeakerProfiles bool
+	// IncludeSounds asks for closed sound events (needs a sound companion on
+	// the model). A backend that cannot produce them must reject the request.
+	IncludeSounds bool
 	// KnownVoices are registered voices a speaker-identifying backend may use
 	// to name the speakers. Empty for every other backend and model.
 	KnownVoices []voicerecognition.KnownVoice
@@ -59,6 +63,7 @@ func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *prot
 		MinDurationOff:         r.MinDurationOff,
 		IncludeText:            r.IncludeText,
 		IncludeSpeakerProfiles: r.IncludeSpeakerProfiles,
+		IncludeSounds:          r.IncludeSounds,
 		KnownVoices:            known,
 	}
 }
@@ -96,6 +101,12 @@ func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.Mod
 	r, err := m.Diarize(ctx, req.toProto(threads, modelConfig.Model))
 	if err != nil {
 		return nil, err
+	}
+	// A backend that ignores include_sounds returns no sounds_included mark.
+	// Reject here rather than hand the client an empty list it would read as
+	// "nothing was heard".
+	if req.IncludeSounds && !r.GetSoundsIncluded() {
+		return nil, grpcerrors.SoundEventsUnsupported(modelConfig.Backend, "the backend did not report sound events for this model")
 	}
 	out := diarizationResultFromProto(r)
 	if req.IncludeSpeakerProfiles {
@@ -170,6 +181,21 @@ func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationRes
 			Name:      s.Name,
 			NameScore: s.NameScore,
 		})
+	}
+
+	if r.GetSoundsIncluded() {
+		out.Sounds = make([]schema.DiarizationSound, 0, len(r.Sounds))
+		for _, s := range r.Sounds {
+			if s == nil {
+				continue
+			}
+			out.Sounds = append(out.Sounds, schema.DiarizationSound{
+				Start:      float64(s.Start),
+				End:        float64(s.End),
+				Label:      s.Label,
+				Confidence: s.Confidence,
+			})
+		}
 	}
 
 	out.NumSpeakers = len(order)

@@ -189,6 +189,7 @@ type JsonSchema struct {
 type OpenAIRequest struct {
 	IncludeSpeakerProfiles bool `json:"include_speaker_profiles,omitempty"`
 	IncludeText            bool `json:"include_text,omitempty"`
+	IncludeSounds          bool `json:"include_sounds,omitempty"`
 	PredictionOptions
 
 	Context context.Context    `json:"-"`

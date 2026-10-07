@@ -42,6 +42,7 @@ Content-Type: multipart/form-data
 | `min_duration_off` | float | merge gaps shorter than this many seconds |
 | `language` | string | only meaningful for backends that bundle ASR (e.g. vibevoice) |
 | `include_text` | bool | when the backend can emit per-segment transcript for free, populate it |
+| `include_sounds` | bool | add the closed sound events of the clip as `sounds`. Needs a model with a sound companion; see [Sound events](#sound-events). Default `false` |
 | `response_format` | string | `json` (default), `verbose_json`, or `rttm` |
 
 ### Response - `json` (default)
@@ -102,6 +103,44 @@ With a parakeet-cpp model that has a `speaker_model:` (or a `speaker_component:`
   ]
 }
 ```
+
+### Sound events
+
+With `include_sounds=true` the response gains a `sounds` array: the sound events (AudioSet labels such as `Dog`, `Applause`, `Cough`) found anywhere in the clip, in the same call that returns the speakers, the text and the voice prints. Each item is `{start, end, label, confidence}`: `start` and `end` are in seconds from the start of the audio, and `confidence` is the peak score the tagger reached while the event lasted (0 to 1). Items are sorted by `start`. Both `json` and `verbose_json` carry the array; `rttm` has no place for it and returns 400.
+
+```bash
+curl http://localhost:8080/v1/audio/diarization \
+  -F model=parakeet-cpp-multilingual-diarization-speakers-sounds \
+  -F file=@meeting.wav \
+  -F include_text=true -F include_speaker_profiles=true -F include_sounds=true \
+  -F response_format=verbose_json
+```
+
+```json
+{
+  "task": "diarize",
+  "duration": 31.2,
+  "language": "en",
+  "num_speakers": 2,
+  "segments": [
+    {"id": 0, "speaker": "SPEAKER_00", "label": "0", "start": 0.0, "end": 6.4, "text": "Good morning, everyone."},
+    {"id": 1, "speaker": "SPEAKER_01", "label": "1", "start": 6.8, "end": 11.2, "text": "Morning."}
+  ],
+  "speakers": [
+    {"id": "SPEAKER_00", "label": "0", "total_speech_duration": 6.4, "segment_count": 1},
+    {"id": "SPEAKER_01", "label": "1", "total_speech_duration": 4.4, "segment_count": 1}
+  ],
+  "speaker_profiles": {"version": 1, "encoder": {"identity": "sha256:...", "dimension": 256}, "speakers": ["..."]},
+  "sounds": [
+    {"start": 5.5, "end": 6.75, "label": "Cough", "confidence": 0.91},
+    {"start": 12.0, "end": 14.5, "label": "Applause", "confidence": 0.68}
+  ]
+}
+```
+
+An empty `sounds` array means the sound model ran and found no event. The field is absent when `include_sounds` is not set. The events come from the same sound stream, with the same on and off thresholds, that a [realtime session]({{% relref "openai-realtime" %}}) runs, so a clip gives the same events offline and live. The thresholds are not request fields.
+
+The model needs a sound companion, a `sound_model:` option pointing at a CED GGUF (the gallery entry `parakeet-cpp-multilingual-diarization-speakers-sounds` has one). Without it the request fails with HTTP 501 and a message that starts with the stable code `include_sounds_unsupported`; the same happens for a backend that cannot report sound events. LocalAI never answers with an empty list in place of that error. The speaker segments, text and voice prints are independent of the sound model and cost nothing extra when `include_sounds` is off.
 
 ### Response - `rttm`
 
@@ -191,10 +230,13 @@ Choose an existing gallery entry for the output you need:
 | Speaker turns only | `parakeet-cpp-nemotron-3-diarization` | Default options |
 | Speaker turns and transcript | `parakeet-cpp-nemotron-3-diarization-asr` | `include_text=true`, `response_format=verbose_json` |
 | Speaker turns, transcript, and identification | `parakeet-cpp-nemotron-3-diarization-asr-speakers` | Same transcript options; explicitly enroll voices for names |
+| Multilingual transcript, speakers, voice prints and sound events in one call | `parakeet-cpp-multilingual-diarization-speakers-sounds` | `include_text=true`, `include_speaker_profiles=true`, `include_sounds=true`, `response_format=verbose_json` |
 
 The complete `-asr-speakers` entry downloads Nemotron-3-Diarization, Parakeet TDT+CTC 110M ASR, and the WeSpeaker ResNet34 speaker encoder.
 It configures both `asr_model` and `speaker_model`; no custom gallery configuration is needed.
 See [Remember speakers in the Web UI](#remember-speakers-in-the-web-ui) for installation and enrollment.
+
+The `parakeet-cpp-multilingual-diarization-speakers-sounds` entry downloads Parakeet TDT 0.6B v3 (25 European languages), Nemotron-3-Diarization, the WeSpeaker ResNet34 speaker encoder and CED-Tiny, and sets `diarization_model`, `speaker_model` and `sound_model`. It answers the whole request above from one model name. See [Sound events](#sound-events).
 
 The entries `parakeet-cpp-bundle-small` and `parakeet-cpp-bundle-standard` hold Nemotron-3-Diarization, an ASR model and the WeSpeaker speaker encoder in one file (`diar_component:diar` and `speaker_component:voice`), so one install serves the transcript and the identification options above. See [Bundle GGUF files]({{% relref "audio-to-text" %}}#bundle-gguf-files-several-models-in-one-file).
 
