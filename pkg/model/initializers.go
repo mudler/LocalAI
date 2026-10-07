@@ -352,7 +352,14 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
 			xlog.Debug("cleanup stop after failed load", "error", stopErr, "model", o.modelID)
 		}
-		xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
+		// A model held by a failed distributed load, or still loading, is an
+		// answer to retry later, not a fault of this request.
+		var retry interface{ RetryLater() bool }
+		if errors.As(err, &retry) && retry.RetryLater() {
+			xlog.Info("Model is not available yet", "modelID", o.modelID, "reason", err)
+		} else {
+			xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
+		}
 		return nil, err
 	}
 

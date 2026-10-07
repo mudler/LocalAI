@@ -194,6 +194,14 @@ func SubjectNodeModelStop(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.stop"
 }
 
+// SubjectNodeModelOp renews and completes the load operations a worker is
+// watching. Request-reply, answered with a workerctl.OperationReply. A worker
+// that predates it never answers, and the controller then treats the node as
+// legacy.
+func SubjectNodeModelOp(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.op"
+}
+
 // SubjectNodeBackendDelete tells a worker node to delete a backend (stop + remove files).
 // Uses NATS request-reply.
 func SubjectNodeBackendDelete(nodeID string) string {

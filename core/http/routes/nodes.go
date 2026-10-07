@@ -47,7 +47,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	node := e.Group("/api/node", readyMw, tokenAuthMw)
 	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg))
 	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry))
-	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry))
+	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
 	node.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
@@ -82,8 +82,8 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 
 	admin.GET("/:id", localai.GetNodeEndpoint(registry))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
-	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry))
-	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry))
+	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader))
+	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry, unloader))
 	admin.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
 

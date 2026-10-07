@@ -436,3 +436,13 @@ type FailoverChainInfo struct {
 	Pinned  string               `json:"pinned,omitempty"`
 	Targets []FailoverTargetInfo `json:"targets"`
 }
+
+// LoadCancelResult is what a cancel of a distributed load did. State is
+// "stopped" (the worker confirmed), "stopping" (recorded, stop pending; the model
+// is released after RetryAfter seconds regardless) or "gone".
+type LoadCancelResult struct {
+	Model      string `json:"model"`
+	JobID      string `json:"job_id"`
+	State      string `json:"state"`
+	RetryAfter int    `json:"retry_after,omitempty"`
+}

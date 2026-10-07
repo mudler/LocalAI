@@ -47,6 +47,9 @@ func (s *backendSupervisor) registerLifecycleVerbs(srv controlServer) error {
 			return srv.handle(verbModelStop, unary(decodeJSON[workerctl.ModelStopRequest], refuseModelStop, s.stopModelExactCtx))
 		},
 		func() error {
+			return srv.handle(verbModelOp, unary(decodeJSON[workerctl.OperationRequest], refuseModelOp, s.serveOperations))
+		},
+		func() error {
 			return srv.handle(verbModelDelete, unary(decodeJSON[workerctl.ModelDeleteRequest], refuseModelDelete, s.deleteModel))
 		},
 		func() error { return srv.handle(verbNodeStop, noReply(s.signalNodeStop)) },
@@ -98,6 +101,11 @@ func refuseModelStop(err error) workerctl.ModelStopReply {
 	return workerctl.ModelStopReply{Error: fmt.Sprintf("invalid request: %v", err)}
 }
 
+func refuseModelOp(err error) workerctl.OperationReply {
+	xlog.Warn("Ignoring malformed control request", "verb", verbModelOp, "error", err)
+	return workerctl.OperationReply{}
+}
+
 func refuseModelDelete(err error) workerctl.ModelDeleteReply {
 	xlog.Warn("Ignoring malformed control request", "verb", verbModelDelete, "error", err)
 	return workerctl.ModelDeleteReply{Success: false, Error: "invalid request"}
@@ -130,10 +138,19 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 	if install == nil {
 		install = s.installBackend
 	}
+	// The load is an operation the watchdog bounds, from the moment the request
+	// arrives: a controller that stops renewing it cannot leave a backend
+	// running for ever.
+	op := s.beginOperation(req)
 	addr, err := install(req, req.Force, downloadCb)
 	if err != nil {
 		xlog.Error("Failed to install backend via NATS", "error", err)
 		return workerctl.BackendInstallReply{Success: false, Error: err.Error()}
+	}
+	instance := s.attachOperation(op)
+	if s.operationExpired(op) {
+		// The watchdog killed the backend while the install was still running.
+		return workerctl.BackendInstallReply{Success: false, Error: "load operation expired during install"}
 	}
 
 	advertiseAddr := addr
@@ -148,7 +165,7 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 			advertiseAddr = net.JoinHostPort(advertiseHost, port)
 		}
 	}
-	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr}
+	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr, ProcessInstance: instance, ReportsOperations: true}
 }
 
 // serveUpgrade answers backend.upgrade: force-reinstall a backend. It is its
@@ -395,20 +412,63 @@ func (s *backendSupervisor) unloadTargets(req workerctl.ModelUnloadRequest) []st
 
 // unloadModel answers model.unload: call gRPC Free() to release GPU memory
 // without killing the backend process.
+//
+// The target is the address in the request, or else every replica of the model
+// the request names (see unloadTargets). There is no fallback to "any running
+// backend": a request that names nothing running frees nothing. The supervisor
+// lock is held only to snapshot each target and to verify it again afterwards,
+// never across the Free() call.
 func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.ModelUnloadRequest) workerctl.ModelUnloadReply {
 	xlog.Info("Received NATS model.unload event", "model", req.ModelName)
 
-	for _, targetAddr := range s.unloadTargets(req) {
-		// Best-effort bounded gRPC Free(). A model.unload request must not
-		// occupy the NATS reply handler forever when a backend is wedged.
-		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
-		if err := client.Free(freeCtx); err != nil {
-			xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
-		}
-		cancel()
+	targets := s.unloadTargets(req)
+	if len(targets) == 0 {
+		xlog.Warn("model.unload names no running process; freeing nothing", "model", req.ModelName)
+		return workerctl.ModelUnloadReply{Success: true}
 	}
 
+	var replaced []string
+	for _, addr := range targets {
+		// Snapshot the process at this address under the lock. Nothing there, or
+		// a different incarnation than the caller meant: it is already gone.
+		s.mu.Lock()
+		var target *backendProcess
+		var key string
+		for k, bp := range s.processes {
+			if bp.addr == addr && !bp.stopping {
+				target, key = bp, k
+				break
+			}
+		}
+		if target == nil || (req.ProcessInstance != "" && target.instance != req.ProcessInstance) {
+			s.mu.Unlock()
+			continue
+		}
+		instance := target.instance
+		s.mu.Unlock()
+
+		// Best-effort bounded gRPC Free(), outside the lock. A model.unload
+		// request must not occupy the reply handler forever when a backend
+		// is wedged.
+		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.RegistrationToken)
+		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
+		if err := client.Free(freeCtx); err != nil {
+			xlog.Warn("Free() failed during model.unload", "error", err, "addr", addr)
+		}
+		cancel()
+
+		// The process may have been replaced while Free() ran. Say so instead of
+		// reporting a success for a process that is not the one that was freed.
+		s.mu.Lock()
+		current, ok := s.processes[key]
+		if !ok || current != target || current.instance != instance {
+			replaced = append(replaced, addr)
+		}
+		s.mu.Unlock()
+	}
+	if len(replaced) > 0 {
+		return workerctl.ModelUnloadReply{Success: false, Error: "process was replaced during unload"}
+	}
 	return workerctl.ModelUnloadReply{Success: true}
 }
 

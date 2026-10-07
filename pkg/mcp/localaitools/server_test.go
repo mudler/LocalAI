@@ -149,6 +149,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolUpgradeBackend, map[string]any{"name": "llama-cpp"}, "UpgradeBackend"},
 		{ToolEditModelConfig, map[string]any{"name": "foo", "patch": map[string]any{"context_size": 4096}}, "EditModelConfig"},
 		{ToolReloadModels, struct{}{}, "ReloadModels"},
+		{ToolCancelModelLoad, map[string]any{"model": "test-model", "job_id": "generation"}, "CancelModelLoad"},
 		{ToolLoadModel, map[string]any{"model": "test-model"}, "LoadModel"},
 		{ToolToggleModelState, map[string]any{"name": "foo", "action": "enable"}, "ToggleModelState"},
 		{ToolToggleModelPinned, map[string]any{"name": "foo", "action": "pin"}, "ToggleModelPinned"},

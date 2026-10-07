@@ -22,15 +22,18 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	// WorkerIncarnation identifies the worker process that last reported. A new
+	// value is proof that every load operation of the previous process ended.
+	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
+	ID                string `gorm:"primaryKey;size:36" json:"id"`
+	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -88,17 +91,17 @@ type BackendNode struct {
 	// VRAMBudgetManuallySet marks the budget as a UI-set admin override so the
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
-	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	VRAMBudgetManuallySet bool `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
 	// Version is the LocalAI build version reported by the worker at
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
-	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 const (
@@ -160,8 +163,11 @@ type NodeModel struct {
 	CleanupError         string     `gorm:"column:cleanup_error;type:text" json:"cleanup_error,omitempty"`
 	CleanupAttempts      int        `gorm:"column:cleanup_attempts;default:0" json:"cleanup_attempts,omitempty"`
 	CleanupNextRetryAt   *time.Time `gorm:"column:cleanup_next_retry_at" json:"cleanup_next_retry_at,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	// LoadGeneration names the load attempt that created this replica row. A row
+	// still staging or loading whose attempt no longer has a job is abandoned.
+	LoadGeneration string    `gorm:"column:load_generation;size:36;not null;default:''" json:"-"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
@@ -329,7 +335,12 @@ type PendingBackendOp struct {
 // record of what is loaded, and keeping finished jobs would create a second
 // source of truth about it.
 type ModelLoadJob struct {
-	TrackingKey  string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	TrackingKey string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	// Generation names one attempt to load the model. It is immutable for the
+	// life of the row, and every write of the row is conditional on it, so an
+	// owner that lost the job cannot change its successor. The empty string
+	// marks a row an older binary wrote; see backfillLoadJobGenerations.
+	Generation   string `gorm:"size:36;not null;default:''" json:"-"`
 	State        string `gorm:"size:16;not null;index" json:"state"`
 	OwnerReplica string `gorm:"size:64" json:"owner_replica"`
 	NodeID       string `gorm:"size:36" json:"node_id"`
@@ -353,6 +364,23 @@ type ModelLoadJob struct {
 	// minutes, so a reaper keyed on byte movement would reclaim a healthy job
 	// mid-load. Byte progress is measured separately, by load_deadline.go.
 	LastProgress time.Time `gorm:"index" json:"last_progress_at"`
+	// LeaseUntil is the owner's lease, in database time. The owner pushes it
+	// forward with every heartbeat. A running job whose lease is missing or in
+	// the past has no live owner.
+	LeaseUntil *time.Time `json:"-"`
+	// LegacyWorker is true when the load runs on a worker that cannot name
+	// operations. Its stop is by exact address, and its hold is the load
+	// deadline.
+	LegacyWorker bool `gorm:"not null;default:false" json:"-"`
+	// OpConfirmed is true once the remote work of a failed job is known to have
+	// ended: the owner saw the backend answer, the worker acknowledged a stop, or
+	// the worker restarted. It shortens the stop window.
+	OpConfirmed bool `gorm:"not null;default:false" json:"-"`
+	// CancelRequested marks a job an administrator cancelled.
+	CancelRequested bool `gorm:"not null;default:false" json:"-"`
+	// StopDeadline is set when the job fails: the earliest moment the model may
+	// be loaded again. It is database time too.
+	StopDeadline *time.Time `json:"-"`
 }
 
 // Op constants mirror the operation names used by DistributedBackendManager
@@ -366,6 +394,13 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// clock stamps display fields of load jobs. Tests replace it to prove that
+	// the lease never depends on it. nil means time.Now.
+	clock func() time.Time
+	// leaseTTL overrides loadJobLeaseTTL when set (tests).
+	leaseTTL time.Duration
+	// incarnations caches the last worker incarnation seen per node.
+	incarnations sync.Map
 	// replicaRemovedHooks are invoked after a replica row for (modelName, nodeID)
 	// is removed. This is the single chokepoint that lets dependent state be
 	// invalidated no matter which removal path (router eviction, reconciler
@@ -495,6 +530,14 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
+	}
+
+	// Rows written before the generation column existed get one, so they follow
+	// the same reclaim rules as any other job.
+	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return backfillLoadJobGenerations(context.Background(), db)
+	}); err != nil {
+		return nil, fmt.Errorf("backfilling load job generations: %w", err)
 	}
 
 	// Rules written before scheduling rules could be keyed by an alias have no
@@ -1094,6 +1137,8 @@ type HeartbeatUpdate struct {
 	GPUVendor       string   `json:"gpu_vendor,omitempty"`
 	CPUUsagePercent *float64 `json:"cpu_usage_percent,omitempty"`
 	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
+	// WorkerIncarnation is the worker process identity. See BackendNode.
+	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
 }
 
 func clampCPUUsage(usage float64) float64 {
@@ -1382,14 +1427,23 @@ func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelNa
 	// both create and update. This prevents overwriting the primary key on
 	// subsequent calls for the same (node, model, replica_index).
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
+		}
+		assign := map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
+			"config_revision": revision, "effective_options_hash": effectiveOptionsHash}
+		// A row written by a load owner names its attempt, so the reconciler can
+		// tell when that attempt is gone.
+		if ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); owned {
+			assign["load_generation"] = ref.Generation
 		}
 		var nm NodeModel
 		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
 			Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
-			Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
-				"config_revision": revision, "effective_options_hash": effectiveOptionsHash}).
+			Assign(assign).
 			FirstOrCreate(&nm).Error
 	})
 }
@@ -1411,6 +1465,9 @@ func (r *NodeRegistry) setNodeModelLoadInfoRevision(ctx context.Context, nodeID,
 		return err
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1453,6 +1510,9 @@ func (r *NodeRegistry) upsertModelLoadInfoRevision(ctx context.Context, modelNam
 		UpdatedAt:      now,
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnership(ctx, tx); err != nil {
+			return err
+		}
 		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
 			return err
 		}
@@ -1701,8 +1761,15 @@ func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica No
 // to keep the contract explicit (probeLoadedModels and scaleDownIdle iterate
 // per-row and must not orphan healthy siblings).
 func (r *NodeRegistry) RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error {
-	if err := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Delete(&NodeModel{}).Error; err != nil {
+	// A load owner removes its own replica row inside the fence, so a stale
+	// owner cannot delete the row of the attempt that replaced it.
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireLoadOwnershipFor(ctx, tx, true); err != nil {
+			return err
+		}
+		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+			Delete(&NodeModel{}).Error
+	}); err != nil {
 		return err
 	}
 	r.fireReplicaRemoved(modelName, nodeID, replicaIndex)

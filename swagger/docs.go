@@ -1278,9 +1278,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/{id}/load-cancel": {
+            "post": {
+                "description": "Cancels the load attempt named by ` + "`" + `job_id` + "`" + ` and stops its remote work. 200 means the attempt is gone or the worker confirmed the stop. 202 means the cancel is recorded and the stop is pending; the model is released after ` + "`" + `retry_after` + "`" + ` seconds regardless. 409 means a different attempt is current and carries its ` + "`" + `current_job_id` + "`" + `. Repeating the call is safe and does not extend the hold.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Cancel one distributed model load.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The exact attempt to cancel",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stopped, or no such load any more",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Cancel recorded; stop pending",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Unknown model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A different attempt is current",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadCancelResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{id}/load-status": {
             "get": {
-                "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same ` + "`" + `loading` + "`" + ` object the 503 response carries while a model is still staging.",
+                "description": "Returns the live state of a distributed cold load: job id, phase, node, byte progress, ETA, lease freshness, and for a failed attempt the cause, whether the stop is pending and when the model is released. 404 means no load exists for the model. A database error is 503, never an empty answer. This is the same ` + "`" + `loading` + "`" + ` object the 503 response carries while a model is still staging.",
                 "produces": [
                     "application/json"
                 ],
@@ -1306,6 +1383,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No load is running for this model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The job table could not be read",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -6884,6 +6967,34 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelLoadCancelRequest": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadCancelResponse": {
+            "type": "object",
+            "properties": {
+                "current_job_id": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "retry_after": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelLoadRequest": {
             "type": "object",
             "properties": {
@@ -6914,11 +7025,27 @@ const docTemplate = `{
                 "bytes_sent": {
                     "type": "integer"
                 },
+                "cancel_requested": {
+                    "description": "CancelRequested is true when an administrator cancelled the attempt.",
+                    "type": "boolean"
+                },
                 "eta_seconds": {
                     "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
                     "type": "integer"
                 },
                 "file_index": {
+                    "type": "integer"
+                },
+                "job_id": {
+                    "description": "JobID names the load attempt. A cancel must quote it: it is the\nprecondition that keeps a cancel from hitting a replacement attempt.",
+                    "type": "string"
+                },
+                "last_error": {
+                    "description": "LastError is the cause of a failed attempt.",
+                    "type": "string"
+                },
+                "lease_expires_in": {
+                    "description": "LeaseExpiresIn is the seconds left on the owner's lease. It is negative\nwhen the lease already ran out, which means the owner is gone.",
                     "type": "integer"
                 },
                 "model": {
@@ -6930,8 +7057,19 @@ const docTemplate = `{
                 "progress": {
                     "type": "number"
                 },
+                "retry_after": {
+                    "description": "RetryAfter is the seconds until a new load may start, for a failed attempt.",
+                    "type": "integer"
+                },
                 "state": {
                     "type": "string"
+                },
+                "stop_deadline": {
+                    "type": "string"
+                },
+                "stopping": {
+                    "description": "Stopping is true while the remote work of a failed attempt is not yet\nconfirmed ended. StopDeadline is when the model is released regardless.",
+                    "type": "boolean"
                 },
                 "total_bytes": {
                     "type": "integer"

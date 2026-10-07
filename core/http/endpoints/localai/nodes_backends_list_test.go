@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -43,6 +44,25 @@ func (s *stubNodeCommandSender) StopBackend(_, _ string) error { return nil }
 func (s *stubNodeCommandSender) UnloadModelOnNode(_, _ string) error { return nil }
 
 func (s *stubNodeCommandSender) PingNode(_ string) error { return nil }
+
+// The load operation verbs. This stub never reaches them.
+func (s *stubNodeCommandSender) InstallBackendOp(_, _, _, _ string, _ int, _, _ string, _ time.Duration, _ func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	return &workerctl.BackendInstallReply{}, nil
+}
+
+func (s *stubNodeCommandSender) StopLoadOperation(context.Context, string, workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{}, nil
+}
+
+func (s *stubNodeCommandSender) OperationControl(string, workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return &workerctl.OperationReply{}, nil
+}
+
+func (s *stubNodeCommandSender) UnloadReplica(string, nodes.NodeModel) error { return nil }
+
+func (s *stubNodeCommandSender) StopModelReplica(context.Context, string, nodes.NodeModel, bool) (workerctl.ModelStopReply, error) {
+	return workerctl.ModelStopReply{}, nil
+}
 
 var _ = Describe("ListBackendsOnNodeEndpoint", func() {
 	var registry *nodes.NodeRegistry

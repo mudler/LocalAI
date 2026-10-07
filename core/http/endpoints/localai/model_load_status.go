@@ -18,12 +18,13 @@ import (
 // for a 503 depend on which modality the model happens to be.
 //
 // @Summary Report the progress of an in-flight model load.
-// @Description Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same `loading` object the 503 response carries while a model is still staging.
+// @Description Returns the live state of a distributed cold load: job id, phase, node, byte progress, ETA, lease freshness, and for a failed attempt the cause, whether the stop is pending and when the model is released. 404 means no load exists for the model. A database error is 503, never an empty answer. This is the same `loading` object the 503 response carries while a model is still staging.
 // @Tags models
 // @Produce json
 // @Param id path string true "Model ID"
 // @Success 200 {object} schema.ModelLoadingStatus "Live load progress"
 // @Failure 404 {object} schema.ErrorResponse "No load is running for this model"
+// @Failure 503 {object} schema.ErrorResponse "The job table could not be read"
 // @Router /api/models/{id}/load-status [get]
 func ModelLoadStatusEndpoint(loadJobs func() nodes.LoadJobStore) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -54,8 +55,10 @@ func ModelLoadStatusEndpoint(loadJobs func() nodes.LoadJobStore) echo.HandlerFun
 
 		job, err := store.GetLoadJob(c.Request().Context(), modelID)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, schema.ErrorResponse{
-				Error: &schema.APIError{Message: err.Error(), Code: http.StatusInternalServerError, Type: "server_error"},
+			// Fail closed: a database error must not read as "no load is
+			// running", or a caller would start a second one.
+			return c.JSON(http.StatusServiceUnavailable, schema.ErrorResponse{
+				Error: &schema.APIError{Message: err.Error(), Code: http.StatusServiceUnavailable, Type: "server_error"},
 			})
 		}
 		if job == nil {

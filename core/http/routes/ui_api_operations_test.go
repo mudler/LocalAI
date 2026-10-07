@@ -93,15 +93,15 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		Expect(err).ToNot(HaveOccurred())
 		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
 
-		_, _, err = registry.ClaimLoadJob(context.Background(), "durable-model", "replica-a")
+		durableJob, _, err := registry.ClaimLoadJob(context.Background(), "durable-model", "replica-a")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(registry.UpdateLoadJob(context.Background(), "durable-model", nodes.LoadJobUpdate{
+		Expect(registry.UpdateLoadJob(context.Background(), durableJob.Ref(), nodes.LoadJobUpdate{
 			State: nodes.LoadJobStateStaging, NodeID: "node-1", NodeName: "durable-node",
 			BytesSent: 25, TotalBytes: 100, FileIndex: 1, TotalFiles: 1,
 		})).To(Succeed())
-		_, _, err = registry.ClaimLoadJob(context.Background(), "loading-model", "replica-a")
+		loadingJob, _, err := registry.ClaimLoadJob(context.Background(), "loading-model", "replica-a")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(registry.UpdateLoadJob(context.Background(), "loading-model", nodes.LoadJobUpdate{
+		Expect(registry.UpdateLoadJob(context.Background(), loadingJob.Ref(), nodes.LoadJobUpdate{
 			State: nodes.LoadJobStateLoading,
 		})).To(Succeed())
 
@@ -125,9 +125,9 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 		registry, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
-		_, _, err = registry.ClaimLoadJob(context.Background(), "overlay-model", "replica-a")
+		overlayJob, _, err := registry.ClaimLoadJob(context.Background(), "overlay-model", "replica-a")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(registry.UpdateLoadJob(context.Background(), "overlay-model", nodes.LoadJobUpdate{
+		Expect(registry.UpdateLoadJob(context.Background(), overlayJob.Ref(), nodes.LoadJobUpdate{
 			State: nodes.LoadJobStateStaging, NodeName: "durable-node", BytesSent: 10, TotalBytes: 100,
 		})).To(Succeed())
 		router.StagingTracker().Start("overlay-model", "fresh-node", 1)

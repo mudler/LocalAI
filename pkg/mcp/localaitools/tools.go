@@ -35,6 +35,7 @@ const (
 	ToolDeleteModel        = "delete_model"
 	ToolEditModelConfig    = "edit_model_config"
 	ToolReloadModels       = "reload_models"
+	ToolCancelModelLoad    = "cancel_model_load"
 	ToolLoadModel          = "load_model"
 	ToolInstallBackend     = "install_backend"
 	ToolUpgradeBackend     = "upgrade_backend"
@@ -78,6 +79,7 @@ var mutatingToolNames = []string{
 	ToolDeleteModel,
 	ToolEditModelConfig,
 	ToolReloadModels,
+	ToolCancelModelLoad,
 	ToolLoadModel,
 	ToolInstallBackend,
 	ToolUpgradeBackend,

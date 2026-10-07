@@ -19,6 +19,10 @@ type loadPhaseReporter struct {
 	nodeID       string
 	nodeName     string
 	replicaIndex int
+	// address is the backend's gRPC address, known once the install replied.
+	address string
+	// legacyWorker is set when the node's worker does not track operations.
+	legacyWorker bool
 }
 
 type loadPhaseKey struct{}
@@ -41,6 +45,7 @@ func (p *loadPhaseReporter) snapshot() LoadJobUpdate {
 		NodeID:       p.nodeID,
 		NodeName:     p.nodeName,
 		ReplicaIndex: p.replicaIndex,
+		LegacyWorker: p.legacyWorker,
 	}
 }
 
@@ -60,5 +65,37 @@ func (p *loadPhaseReporter) set(state string, node *BackendNode, replicaIndex in
 func reportLoadPhase(ctx context.Context, state string, node *BackendNode, replicaIndex int) {
 	if p, ok := ctx.Value(loadPhaseKey{}).(*loadPhaseReporter); ok {
 		p.set(state, node, replicaIndex)
+	}
+}
+
+// placement returns where the load runs, once a node was chosen.
+func (p *loadPhaseReporter) placement() (nodeID string, replicaIndex int, legacyWorker bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.nodeID, p.replicaIndex, p.legacyWorker
+}
+
+func (p *loadPhaseReporter) backendAddress() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.address
+}
+
+// reportLoadAddress records the backend address of the load, for a stop of a
+// worker that cannot name operations.
+func reportLoadAddress(ctx context.Context, addr string) {
+	if p, ok := ctx.Value(loadPhaseKey{}).(*loadPhaseReporter); ok {
+		p.mu.Lock()
+		p.address = addr
+		p.mu.Unlock()
+	}
+}
+
+// markLegacyWorker records that the load's worker cannot confirm a stop.
+func markLegacyWorker(ctx context.Context) {
+	if p, ok := ctx.Value(loadPhaseKey{}).(*loadPhaseReporter); ok {
+		p.mu.Lock()
+		p.legacyWorker = true
+		p.mu.Unlock()
 	}
 }
