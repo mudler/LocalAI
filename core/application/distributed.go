@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -23,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
@@ -61,6 +63,10 @@ type DistributedServices struct {
 	// backend-logs proxy, the same way the HTTP file stager does.
 	WorkerHTTPDial nodes.WorkerNetDialerFor
 
+	// Membership keeps the row of this replica in the instances table and
+	// sweeps the rows of replicas that stopped answering.
+	Membership *cluster.Membership
+
 	// active names the carrier set the holders forward to.
 	active *atomic.Pointer[carrier.Set]
 
@@ -74,6 +80,8 @@ func (ds *DistributedServices) Shutdown() {
 		return
 	}
 	ds.shutdownOnce.Do(func() {
+		// First, so the peers see this replica leave before its services stop.
+		ds.Membership.Stop()
 		if ds.Health != nil {
 			ds.Health.Stop()
 		}
@@ -533,8 +541,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
+	membership, err := startMembership(cfg.Context, authDB, cfg.Distributed.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
 	success = true
 	return &DistributedServices{
+		Membership:   membership,
 		Broadcaster:  broadcaster,
 		WorkQueue:    workQueue,
 		AgentControl: carrier.NewAgents(active),
@@ -558,6 +572,26 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		active: active,
 	}, nil
+}
+
+// startMembership creates the cluster tables, then records this replica in the
+// instances table and keeps its row fresh until the Membership is stopped.
+// Every replica does this on every carrier, because the change of carrier needs
+// to know which replicas are alive and ready.
+func startMembership(ctx context.Context, db *gorm.DB, instanceID string) (*cluster.Membership, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := advisorylock.WithLockCtx(ctx, db, advisorylock.KeySchemaMigrate, func() error {
+		return cluster.Migrate(ctx, db)
+	}); err != nil {
+		return nil, fmt.Errorf("migrating cluster tables: %w", err)
+	}
+	membership := cluster.NewMembership(cluster.NewRegistry(db), instanceID, internal.PrintableVersion())
+	if err := membership.Start(ctx); err != nil {
+		return nil, fmt.Errorf("registering this replica: %w", err)
+	}
+	return membership, nil
 }
 
 func isPostgresURL(url string) bool {

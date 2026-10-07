@@ -35,7 +35,7 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Distributed: config.DistributedConfig{
 				Enabled:    true,
 				InstanceID: "replica-a",
-				NatsURL: "nats://127.0.0.1:1",
+				NatsURL:    "nats://127.0.0.1:1",
 			},
 		}
 	})
@@ -121,6 +121,33 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			DeferCleanup(func() { _ = sub.Unsubscribe() })
 			Expect(svc.Broadcaster.Publish("nodes.carrier-spec", "hello")).To(Succeed())
 			Eventually(got).Should(Receive(Equal([]byte(`"hello"`))))
+		})
+
+		It("registers every replica in the instances table and removes it on shutdown", func() {
+			live := func() []string {
+				GinkgoHelper()
+				instances, err := cluster.NewRegistry(db).Live(context.Background(), cluster.InstanceLiveness)
+				Expect(err).ToNot(HaveOccurred())
+				ids := make([]string, 0, len(instances))
+				for _, in := range instances {
+					ids = append(ids, in.ID)
+				}
+				return ids
+			}
+
+			first, err := initDistributed(cfg, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(first.Shutdown)
+			cfg2 := *cfg
+			cfg2.Distributed.InstanceID = "replica-b"
+			cfg2.DataPath = GinkgoT().TempDir()
+			second, err := initDistributed(&cfg2, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(second.Shutdown)
+			Expect(live()).To(ConsistOf("replica-a", "replica-b"))
+
+			first.Shutdown()
+			Expect(live()).To(ConsistOf("replica-b"))
 		})
 
 		It("starts a second replica on the same row without changing it", func() {
