@@ -662,15 +662,18 @@ export default function Chat() {
         const data = JSON.parse(stored)
         localStorage.removeItem('localai_index_chat_data')
 
-        // Two entry shapes from Home:
+        // Three entry shapes from Home:
         //   - "compose-and-send": data.message present → open new chat,
         //     prefill the composer, click submit.
         //   - "open-assistant": no message, just data.localaiAssistant → open
         //     a fresh chat already in admin mode so the wizard can fire.
+        //   - "new-chat": no message, data.newChat only → open an empty chat
+        //     on the chosen model (the /new action on the command bar).
         const hasMessage = !!data.message
         const wantsAssistant = !!data.localaiAssistant
+        const wantsNewChat = !!data.newChat
 
-        if (hasMessage || wantsAssistant) {
+        if (hasMessage || wantsAssistant || wantsNewChat) {
           let targetChat = activeChat
           if (data.newChat) {
             targetChat = addChat(data.model || '', '', data.mcpMode || false)

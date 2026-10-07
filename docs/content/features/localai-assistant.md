@@ -15,7 +15,7 @@ The same MCP server is published as a Go package and can also be served over **s
 
 Open the chat UI as an **admin** user and pick a chat-capable model in the model selector. The header shows a **Manage** toggle - flip it on, and a `Manage mode` badge appears next to the chat title. Starter chips ("What is installed?", "Install a chat model", "Show system status", "Update a backend") help you get going.
 
-The home page also exposes a **Manage by chat** CTA that opens a fresh chat already in Manage mode.
+The home page shows a one-line **Manage LocalAI by chatting** prompt that opens a fresh chat already in Manage mode. You can dismiss it. The same action stays available as `/assistant` in the command bar and in the Library row.
 
 Once on, try:
 

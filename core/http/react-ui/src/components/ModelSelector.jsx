@@ -2,23 +2,7 @@ import { useEffect, useMemo, useCallback } from 'react'
 import { useModels } from '../hooks/useModels'
 import SearchableSelect from './SearchableSelect'
 import { useTranslation } from 'react-i18next'
-
-// Remember the last model the user picked, keyed by capability, so returning to
-// a page (Home chat box, Image, TTS, Talk...) defaults to that model instead of
-// whatever happens to sort first. Only persisted when a capability key exists —
-// `externalOptions` callers pass no capability and get the old first-item
-// behaviour. localStorage access is wrapped because private-browsing modes throw.
-const LAST_MODEL_PREFIX = 'localai_last_model:'
-
-function readLastModel(capability) {
-  if (!capability) return null
-  try { return localStorage.getItem(LAST_MODEL_PREFIX + capability) } catch { return null }
-}
-
-function writeLastModel(capability, model) {
-  if (!capability || !model) return
-  try { localStorage.setItem(LAST_MODEL_PREFIX + capability, model) } catch { /* ignore */ }
-}
+import { readLastModel, writeLastModel } from '../utils/lastModel'
 
 export default function ModelSelector({
   value, onChange, capability, className = '',

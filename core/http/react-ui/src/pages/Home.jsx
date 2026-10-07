@@ -1,41 +1,73 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
-import ModelSelector from '../components/ModelSelector'
 import { CAP_CHAT } from '../utils/capabilities'
+// eslint-disable-next-line no-unused-vars
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
+// eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
+// eslint-disable-next-line no-unused-vars
 import HomeConnect from '../components/HomeConnect'
+// eslint-disable-next-line no-unused-vars
+import HomeComposer from '../components/home/HomeComposer'
+// eslint-disable-next-line no-unused-vars
+import HomeModelPicker from '../components/home/HomeModelPicker'
+// eslint-disable-next-line no-unused-vars
+import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
+// eslint-disable-next-line no-unused-vars
+import HomeResume from '../components/home/HomeResume'
+// eslint-disable-next-line no-unused-vars
+import HomeFirstRun from '../components/home/HomeFirstRun'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
+import { useOperations } from '../hooks/useOperations'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
 import { readAttachmentText } from '../utils/pdf'
-import { API_CONFIG } from '../utils/config'
 import { greetingKey } from '../utils/greeting'
-import StatusPill from '../components/StatusPill'
+import {
+  listConversations, setActiveConversation, removeConversation,
+} from '../utils/homeConversations'
+// eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
-import SectionHeading from '../components/SectionHeading'
-import EmptyState from '../components/EmptyState'
-import StarterModels from '../components/StarterModels'
 import { staggerStyle } from '../hooks/useStagger'
 import Icon from '../components/Icon'
+
+const DOCS_URL = 'https://localai.io'
+const ASSISTANT_TIP_KEY = 'localai_assistant_tip_dismissed'
+// How long a row stays visible while it leaves, before the undo toast takes over.
+const LEAVE_MS = 180
+
+function isTyping(el) {
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+
+function reducedMotion() {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
+}
 
 export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
-  const { t } = useTranslation('home')
+  const { t, i18n } = useTranslation('home')
   const { isAdmin } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
+  const { operations } = useOperations()
   const [configuredModels, setConfiguredModels] = useState(null)
+  const [modelsFailed, setModelsFailed] = useState(false)
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
   const [loadedModels, setLoadedModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
   const [imageFiles, setImageFiles] = useState([])
   const [audioFiles, setAudioFiles] = useState([])
   const [textFiles, setTextFiles] = useState([])
@@ -47,19 +79,27 @@ export default function Home() {
   const [mcpSelectedServers, setMcpSelectedServers] = useState([])
   const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
   const [assistantAvailable, setAssistantAvailable] = useState(false)
-  // Progressive disclosure: the big "Manage by chatting" CTA card is a
-  // first-run affordance. Once the admin has clicked it, we collapse to
-  // a small entry in the quick-links row so the home page doesn't keep
-  // shouting at them about a feature they already know.
+  // Progressive disclosure: the assistant line is a first-run affordance. Once
+  // the admin has used it, or dismissed the line, it moves into the Library row
+  // and the /assistant action.
   const [assistantUsed, setAssistantUsed] = useState(() => {
     try { return localStorage.getItem('localai_assistant_used') === '1' } catch { return false }
+  })
+  const [tipDismissed, setTipDismissed] = useState(() => {
+    try { return localStorage.getItem(ASSISTANT_TIP_KEY) === '1' } catch { return false }
   })
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
   const [clusterData, setClusterData] = useState(null)
-  const imageInputRef = useRef(null)
-  const audioInputRef = useRef(null)
-  const fileInputRef = useRef(null)
+  const [stripOpen, setStripOpen] = useState(false)
+  const [conversations, setConversations] = useState(() => listConversations())
+  const [leavingId, setLeavingId] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const textareaRef = useRef(null)
+  const pickerRef = useRef(null)
+  const stripRef = useRef(null)
+  const pendingRef = useRef(null)
+  const leaveTimer = useRef(null)
 
   // Detect distributed mode + assistant feature availability in one fetch.
   useEffect(() => {
@@ -92,12 +132,24 @@ export default function Home() {
       const isGPU = totalVRAM > 0
       const healthyCount = backendNodes.filter(n => n.status === 'healthy').length
       const totalCount = backendNodes.length
+      const perNode = backendNodes.map(n => {
+        const total = isGPU ? (n.total_vram || 0) : (n.total_ram || 0)
+        const avail = isGPU ? n.available_vram : n.available_ram
+        return {
+          id: n.id || n.name,
+          name: n.name || n.id,
+          total,
+          used: total && avail != null ? total - avail : 0,
+          healthy: n.status === 'healthy',
+        }
+      })
       setClusterData({
         totalMem: isGPU ? totalVRAM : totalRAM,
         usedMem: isGPU ? usedVRAM : usedRAM,
         isGPU,
         healthyCount,
         totalCount,
+        nodes: perNode,
       })
     } catch { setClusterData(null) }
   }, [])
@@ -115,11 +167,15 @@ export default function Home() {
       }
       if (v1Models?.data) {
         setConfiguredModels(v1Models.data)
+        setModelsFailed(false)
       } else if (configuredModelsRef.current === null) {
-        setConfiguredModels([])
+        // Nothing answered and there is nothing to show yet. An empty list
+        // would read as "no models installed" and send a working install to
+        // the first-run steps, so it is an error until a reply arrives.
+        setModelsFailed(true)
       }
-    } catch (_e) {
-      if (configuredModelsRef.current === null) setConfiguredModels([])
+    } catch {
+      if (configuredModelsRef.current === null) setModelsFailed(true)
     }
   }, [])
 
@@ -152,7 +208,10 @@ export default function Home() {
     return () => { cancelled = true }
   }, [selectedModel])
 
-  const allFiles = [...imageFiles, ...audioFiles, ...textFiles]
+  const allFiles = useMemo(
+    () => [...imageFiles, ...audioFiles, ...textFiles],
+    [imageFiles, audioFiles, textFiles],
+  )
 
   const addFiles = useCallback(async (fileList, setter) => {
     const newFiles = []
@@ -171,6 +230,10 @@ export default function Home() {
     }
     setter(prev => [...prev, ...newFiles])
   }, [addToast, t])
+
+  const attach = useCallback((kind, files) => {
+    addFiles(files, kind === 'image' ? setImageFiles : kind === 'audio' ? setAudioFiles : setTextFiles)
+  }, [addFiles])
 
   const removeFile = useCallback((file) => {
     const removeFn = (prev) => prev.filter(f => f !== file)
@@ -221,8 +284,9 @@ export default function Home() {
       newChat: true,
     }
     localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    setSending(true)
     navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
-  }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate])
+  }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate, t])
 
   // Quick-launch: open a fresh chat already in assistant mode without
   // requiring an initial message or model selection. Useful when an admin
@@ -240,10 +304,16 @@ export default function Home() {
     navigate('/app/chat')
   }, [navigate, selectedModel])
 
-  const handleSubmit = (e) => {
-    if (e) e.preventDefault()
-    doSubmit()
-  }
+  // An empty new chat: Chat opens a fresh conversation on the chosen model.
+  const openNewChat = useCallback(() => {
+    localStorage.setItem('localai_index_chat_data', JSON.stringify({ model: selectedModel || '', mcpMode: false, newChat: true }))
+    navigate('/app/chat')
+  }, [navigate, selectedModel])
+
+  const dismissTip = useCallback(() => {
+    try { localStorage.setItem(ASSISTANT_TIP_KEY, '1') } catch { /* ignore */ }
+    setTipDismissed(true)
+  }, [])
 
   const handleStopModel = async (modelName) => {
     setConfirmDialog({
@@ -283,312 +353,142 @@ export default function Home() {
     })
   }
 
-  const modelsLoading = configuredModels === null
-  const hasModels = modelsLoading || configuredModels.length > 0
+  // ----- Conversations -----------------------------------------------------
+
+  const refreshConversations = useCallback(() => setConversations(listConversations()), [])
+
+  // Another tab can write chats, and Chat writes them after a short delay. Read
+  // again when the tab changes or comes back into focus.
+  useEffect(() => {
+    const onStorage = (e) => { if (!e.key || e.key === 'localai_chats_data') refreshConversations() }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', refreshConversations)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', refreshConversations)
+    }
+  }, [refreshConversations])
+
+  // A delete is final when its undo time ends. Until then the chat stays in
+  // storage and only the row is hidden.
+  const commitDelete = useCallback(() => {
+    const id = pendingRef.current
+    if (!id) return
+    pendingRef.current = null
+    removeConversation(id)
+    setPendingDelete(null)
+    refreshConversations()
+  }, [refreshConversations])
+
+  const commitRef = useRef(commitDelete)
+  commitRef.current = commitDelete
+  useEffect(() => () => {
+    clearTimeout(leaveTimer.current)
+    commitRef.current()
+  }, [])
+
+  const requestDelete = useCallback((conv) => {
+    commitDelete()
+    clearTimeout(leaveTimer.current)
+    const hide = () => {
+      pendingRef.current = conv.id
+      setLeavingId(null)
+      setPendingDelete({ id: conv.id, title: conv.title })
+    }
+    if (reducedMotion()) {
+      hide()
+    } else {
+      setLeavingId(conv.id)
+      leaveTimer.current = setTimeout(hide, LEAVE_MS)
+    }
+  }, [commitDelete])
+
+  const undoDelete = useCallback(() => {
+    pendingRef.current = null
+    setPendingDelete(null)
+  }, [])
+
+  const resumeConversation = useCallback((conv) => {
+    commitDelete()
+    if (setActiveConversation(conv.id)) navigate('/app/chat')
+    else refreshConversations()
+  }, [commitDelete, navigate, refreshConversations])
+
+  const visibleConversations = useMemo(
+    () => conversations.filter(c => c.id !== pendingDelete?.id),
+    [conversations, pendingDelete],
+  )
+
+  // ----- Derived state -----------------------------------------------------
+
+  const modelsLoading = configuredModels === null && !modelsFailed
+  const hasModels = configuredModels === null || configuredModels.length > 0
+  const firstRun = configuredModels !== null && configuredModels.length === 0
   const loadedCount = loadedModels.length
+  const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
 
-  // Resource display - folded into the editorial status line.
-  const resType = resources?.type
-  const usagePct = resources?.aggregate?.usage_percent ?? resources?.ram?.usage_percent ?? 0
+  // Staging a model onto a worker is the one load this page can see: the
+  // operations list reports it. An OOM on a single host surfaces in Chat.
+  const stagingOp = operations.find(op => op.taskType === 'staging' && !op.error && !op.isQueued && !op.isDeletion)
+  const failedOp = operations.find(op => op.taskType === 'staging' && op.error)
+  const stripBusy = !!stagingOp || !!failedOp
+  useEffect(() => { if (stripBusy) setStripOpen(true) }, [stripBusy])
 
-  return (
-    <div className="home-page">
-      {hasModels ? (
-        <>
-          {/* Editorial header */}
-          <header className="home-header reveal-stagger">
-            <div style={staggerStyle(0)}>
-              <span className="home-eyebrow">{branding.instanceName}</span>
-              <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
-            </div>
-            {/* Telemetry as figures rather than chips. A chip says a thing is
-                true; a figure says how much, which is what someone opening the
-                page at a glance is actually after. */}
-            <div className="home-status-line" style={staggerStyle(1)}>
-              <span className="home-stat" data-testid="home-stat-loaded">
-                <b className={`home-stat__value${loadedCount > 0 ? ' home-stat__value--ok' : ''}`}>{loadedCount}</b>
-                <span className="home-stat__label">{t('statusLine.loadedLabel')}</span>
-              </span>
-              {distributedMode && clusterData && (
-                <span className="home-stat" data-testid="home-stat-nodes">
-                  <b className="home-stat__value">{clusterData.healthyCount}/{clusterData.totalCount}</b>
-                  <span className="home-stat__label">{t('statusLine.nodesLabel')}</span>
-                </span>
-              )}
-              {!distributedMode && resources && (
-                <span className="home-stat" data-testid="home-stat-resource">
-                  <b className="home-stat__value">{usagePct.toFixed(0)}%</b>
-                  <span className="home-stat__label">
-                    {resType === 'gpu' ? t('resourceGpu') : t('resourceRam')}
-                  </span>
-                </span>
-              )}
-            </div>
-          </header>
+  const slashContext = useMemo(
+    () => ({ isAdmin, assistantAvailable, hasModels: hasModels && !firstRun, loadedCount }),
+    [isAdmin, assistantAvailable, hasModels, firstRun, loadedCount],
+  )
 
-          {/* LocalAI Assistant — prominent CTA on first run. Once the
-              admin has used it, the big card collapses to a small entry in
-              the quick-links row below. */}
-          {isAdmin && assistantAvailable && !assistantUsed && (
-            <button
-              type="button"
-              onClick={openAssistantChat}
-              className="home-assistant-card"
-            >
-              <span className="home-assistant-icon"><Icon name="user-shield" /></span>
-              <span className="home-assistant-text">
-                <span className="home-assistant-title">{t('assistant.title')}</span>
-                <span className="home-assistant-desc">{t('assistant.description')}</span>
-              </span>
-              <span className="home-assistant-cta">
-                {t('assistant.open')} <Icon name="arrow-right" />
-              </span>
-            </button>
-          )}
+  const runAction = useCallback((id) => {
+    switch (id) {
+      case 'model': pickerRef.current?.open(); break
+      case 'new': openNewChat(); break
+      case 'chat': navigate('/app/chat'); break
+      case 'assistant': openAssistantChat(); break
+      case 'gallery': navigate('/app/models'); break
+      case 'installed': navigate('/app/models?view=installed'); break
+      case 'import': navigate('/app/import-model'); break
+      case 'stop':
+        setStripOpen(true)
+        stripRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' })
+        break
+      case 'studio': navigate('/app/studio'); break
+      case 'settings': navigate('/app/settings'); break
+      case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
+      default: break
+    }
+  }, [navigate, openNewChat, openAssistantChat])
 
-          {/* Chat input form */}
-          <div className="home-chat-card">
-            <form onSubmit={handleSubmit}>
-              {/* Model selector + MCP toggle */}
-              <div className="home-model-row">
-                <ModelSelector value={selectedModel} onChange={setSelectedModel} capability={CAP_CHAT} />
-                <UnifiedMCPDropdown
-                  serverMCPAvailable={mcpAvailable}
-                  mcpServerList={mcpServerList}
-                  mcpServersLoading={mcpServersLoading}
-                  serverListError={mcpServerListError}
-                  selectedServers={mcpSelectedServers}
-                  onToggleServer={toggleMcpServer}
-                  onSelectAllServers={() => {
-                    const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
-                    const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
-                    setMcpSelectedServers(allSelected ? [] : allNames)
-                  }}
-                  onFetchServers={fetchMcpServers}
-                  clientMCPActiveIds={clientMCPSelectedIds}
-                  onClientToggle={(id) => setClientMCPSelectedIds(prev =>
-                    prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-                  )}
-                  onClientAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
-                  onClientRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
-                />
-              </div>
+  // "/" from anywhere that is not a text field starts a command.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTyping(document.activeElement)) return
+      const el = textareaRef.current
+      if (!el) return
+      e.preventDefault()
+      setMessage('/')
+      el.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
-              {/* File attachment tags */}
-              {allFiles.length > 0 && (
-                <div className="home-file-tags">
-                  {allFiles.map((f, i) => (
-                    <span key={i} className="home-file-tag">
-                      <Icon name={f.type?.startsWith('image/') ? 'image' : f.type?.startsWith('audio/') ? 'mic' : 'file'} />
-                      {f.name}
-                      <button type="button" onClick={() => removeFile(f)}>
-                        <Icon name="close" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+  const dateLabel = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()),
+    [i18n.language],
+  )
 
-              {/* Input container with inline send */}
-              <div className="home-input-container">
-                <textarea
-                  className="home-textarea"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder={t('input.placeholder')}
-                  rows={3}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      doSubmit()
-                    }
-                  }}
-                />
-                <div className="home-input-footer">
-                  <div className="home-attach-buttons">
-                    <button type="button" className="home-attach-btn" onClick={() => imageInputRef.current?.click()} title={t('input.attachImage')}>
-                      <Icon name="image" />
-                    </button>
-                    <button type="button" className="home-attach-btn" onClick={() => audioInputRef.current?.click()} title={t('input.attachAudio')}>
-                      <Icon name="mic" />
-                    </button>
-                    <button type="button" className="home-attach-btn" onClick={() => fileInputRef.current?.click()} title={t('input.attachFile')}>
-                      <Icon name="file" />
-                    </button>
-                  </div>
-                  <span className="home-input-hint">{t('input.enterToSend')}</span>
-                  <button
-                    type="submit"
-                    className="home-send-btn"
-                    data-empty={!message.trim() && allFiles.length === 0 ? 'true' : undefined}
-                    disabled={!selectedModel}
-                    title={!selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')}
-                  >
-                    <Icon name="arrow-up" />
-                  </button>
-                </div>
-                <input ref={imageInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => addFiles(e.target.files, setImageFiles)} />
-                <input ref={audioInputRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => addFiles(e.target.files, setAudioFiles)} />
-                <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => addFiles(e.target.files, setTextFiles)} />
-              </div>
-            </form>
-          </div>
+  const cluster = distributedMode && clusterData ? clusterData : null
+  const hasInput = message.trim().length > 0 || allFiles.length > 0
+  const canSend = !!selectedModel && hasInput && !sending
+  const sendTitle = !selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')
 
-          {/* Quick links */}
-          <div className="home-quick-links">
-            {isAdmin && (
-              <>
-                {assistantAvailable && assistantUsed && (
-                  <button
-                    className="home-link-btn"
-                    onClick={openAssistantChat}
-                    title={t('assistant.tooltip')}
-                  >
-                    <Icon name="user-shield" /> {t('quickLinks.manageByChat')}
-                  </button>
-                )}
-                <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-                  <Icon name="download" /> {t('quickLinks.browseGallery')}
-                </button>
-                <button className="home-link-btn" onClick={() => navigate('/app/models?view=installed')}>
-                  <Icon name="monitor" /> {t('quickLinks.installedModels')}
-                </button>
-                <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>
-                  <Icon name="upload" /> {t('quickLinks.importModel')}
-                </button>
-              </>
-            )}
-            <a className="home-link-btn home-link-btn--quiet" href="https://localai.io" target="_blank" rel="noopener noreferrer">
-              <Icon name="book" /> {t('quickLinks.documentation')}
-            </a>
-          </div>
+  // ----- Non-admin, nothing installed -------------------------------------
 
-          {/* Jump back in. The quick-links row above is a set of first-run
-              actions; these are the three places someone returns to, stated
-              with what they currently hold rather than as bare labels. */}
-          <section className="home-jump">
-            <div className="lane-head"><h2>{t('jump.heading')}</h2></div>
-            <ul className="lanes lanes--jump reveal-stagger">
-              <li style={staggerStyle(0)}>
-                <button type="button" className="lane" onClick={() => navigate('/app/models')}>
-                  <span className="lane__tag">{t('jump.models')}</span>
-                  <span className="lane__desc">{t('jump.modelsSummary')}</span>
-                  <span className="lane__go" aria-hidden="true">→</span>
-                </button>
-              </li>
-              <li style={staggerStyle(1)}>
-                <button type="button" className="lane" onClick={() => navigate('/app/studio')}>
-                  <span className="lane__tag">{t('jump.create')}</span>
-                  <span className="lane__desc">{t('jump.createSummary')}</span>
-                  <span className="lane__go" aria-hidden="true">→</span>
-                </button>
-              </li>
-              <li style={staggerStyle(2)}>
-                <button type="button" className="lane" onClick={() => navigate('/app/operate')}>
-                  <span className="lane__tag">{t('jump.operate')}</span>
-                  <span className="lane__desc">{t('jump.operateSummary', { models: configuredModels?.length ?? 0 })}</span>
-                  <span className="lane__go" aria-hidden="true">→</span>
-                </button>
-              </li>
-            </ul>
-          </section>
-
-          {/* Loaded models status */}
-          <section className="home-loaded">
-            <SectionHeading>{t('loadedModels.heading')}</SectionHeading>
-            {modelsLoading ? (
-              <Skeleton variant="line" count={2} />
-            ) : loadedCount > 0 ? (
-              <>
-                {/* Lanes: uniform records read in sequence. The id is the
-                    identifier, so it is mono; the state is a pill because it is
-                    a state. /api/system-information carries only the id, so
-                    there is nothing honest to put in a backend or memory column
-                    without a server change. */}
-                <ul className="lanes lanes--resident reveal-stagger">
-                  {[...loadedModels].sort((a, b) => a.id.localeCompare(b.id)).map((m, i) => (
-                    <li key={m.id} className="lane" style={staggerStyle(i)}>
-                      <span className="lane__name lane__name--id">{m.id}</span>
-                      {/* Which engine is serving it — the first thing worth
-                          knowing beside the name. Omitted rather than faked
-                          when the model has no config to read it from. */}
-                      {m.backend
-                        ? <span className="lane__num">{m.backend}</span>
-                        : <span className="lane__num" />}
-                      <StatusPill status="healthy" label={t('loadedModels.serving')} />
-                      <button
-                        type="button"
-                        className="home-loaded-stop"
-                        onClick={() => handleStopModel(m.id)}
-                        title={t('loadedModels.stop')}
-                        aria-label={t('loadedModels.stop')}
-                      >
-                        <Icon name="close" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {loadedCount > 1 && (
-                  <button className="btn btn-secondary btn-sm home-stop-all" onClick={handleStopAll}>
-                    {t('loadedModels.stopAll')}
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className="home-loaded-empty">{t('statusLine.noModelsLoaded')}</p>
-            )}
-          </section>
-        </>
-      ) : isAdmin ? (
-        /* No models installed - compact getting started */
-        <div className="home-wizard">
-          <EmptyState
-            eyebrow={branding.instanceName}
-            icon="rocket"
-            title={t('wizard.getStarted', { name: branding.instanceName })}
-            body={t('wizard.intro')}
-          />
-
-          <div className="home-wizard-steps card">
-            <div className="home-wizard-step">
-              <div className="home-wizard-step-num">1</div>
-              <div>
-                <strong>{t('wizard.steps.step1Title')}</strong>
-                <p>{t('wizard.steps.step1Body')}</p>
-              </div>
-            </div>
-            <div className="home-wizard-step">
-              <div className="home-wizard-step-num">2</div>
-              <div>
-                <strong>{t('wizard.steps.step2Title')}</strong>
-                <p>{t('wizard.steps.step2Body')}</p>
-              </div>
-            </div>
-            <div className="home-wizard-step">
-              <div className="home-wizard-step-num">3</div>
-              <div>
-                <strong>{t('wizard.steps.step3Title')}</strong>
-                <p>{t('wizard.steps.step3Body')}</p>
-              </div>
-            </div>
-          </div>
-
-          <StarterModels addToast={addToast} onInstallStarted={fetchSystemInfo} />
-
-          <div className="home-wizard-actions">
-            <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
-              <Icon name="store" /> {t('wizard.browseGallery')}
-            </button>
-            <button className="btn btn-secondary" onClick={() => navigate('/app/import-model')}>
-              <Icon name="upload" /> {t('wizard.importModel')}
-            </button>
-            <a className="btn btn-secondary" href="https://localai.io/docs/getting-started" target="_blank" rel="noopener noreferrer">
-              <Icon name="book" /> {t('wizard.docs')}
-            </a>
-          </div>
-        </div>
-      ) : (
-        /* No models available (non-admin) */
+  if (firstRun && !isAdmin) {
+    return (
+      <div className="home-page">
         <div className="home-wizard">
           <div className="home-wizard-hero">
             <img src={apiUrl(branding.logoUrl)} alt={branding.instanceName} className="home-logo" />
@@ -596,14 +496,211 @@ export default function Home() {
             <p>{t('wizard.noModelsBody')}</p>
           </div>
           <div className="home-wizard-actions">
-            <a className="btn btn-secondary" href="https://localai.io" target="_blank" rel="noopener noreferrer">
+            <a className="home-secondary" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
               <Icon name="book" /> {t('quickLinks.documentation')}
             </a>
           </div>
         </div>
-      )}
+        <HomeConnect />
+      </div>
+    )
+  }
 
-      <HomeConnect />
+  const showTip = isAdmin && assistantAvailable && !assistantUsed && !tipDismissed && !firstRun
+  const picker = (
+    <HomeModelPicker
+      ref={pickerRef}
+      value={selectedModel}
+      onChange={setSelectedModel}
+      capability={CAP_CHAT}
+      loadedIds={loadedIds}
+      disabled={firstRun}
+      placeholder={firstRun ? t('picker.noneSelected') : undefined}
+    />
+  )
+  const mcp = (
+    <UnifiedMCPDropdown
+      serverMCPAvailable={mcpAvailable}
+      mcpServerList={mcpServerList}
+      mcpServersLoading={mcpServersLoading}
+      serverListError={mcpServerListError}
+      selectedServers={mcpSelectedServers}
+      onToggleServer={toggleMcpServer}
+      onSelectAllServers={() => {
+        const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
+        const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
+        setMcpSelectedServers(allSelected ? [] : allNames)
+      }}
+      onFetchServers={fetchMcpServers}
+      clientMCPActiveIds={clientMCPSelectedIds}
+      onClientToggle={(id) => setClientMCPSelectedIds(prev =>
+        prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+      )}
+      onClientAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
+      onClientRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
+    />
+  )
+
+  return (
+    <div className="home-page">
+      <div className="home-col reveal-stagger">
+        <header className="home-header" style={staggerStyle(0)}>
+          <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
+          <span className="home-date">{dateLabel}</span>
+        </header>
+
+        <div style={staggerStyle(1)}>
+          <HomeComposer
+            message={message}
+            onMessage={setMessage}
+            onSubmit={doSubmit}
+            canSend={canSend}
+            sending={sending}
+            sendTitle={sendTitle}
+            textareaRef={textareaRef}
+            picker={picker}
+            mcp={mcp}
+            files={allFiles}
+            onRemoveFile={removeFile}
+            onAttach={attach}
+            placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            slashContext={slashContext}
+            onRunAction={runAction}
+          />
+        </div>
+
+        <div className="home-below" style={staggerStyle(2)}>
+          {modelsFailed && configuredModels === null && (
+            <div className="home-notice home-notice--error" role="alert" data-testid="home-load-error">
+              <Icon name="alert-circle" />
+              <h3>{t('notice.loadFailedTitle')}</h3>
+              <p>{t('notice.loadFailedBody')}</p>
+              <div className="home-notice__acts">
+                <button type="button" className="home-primary home-primary--sm" onClick={fetchSystemInfo}>{t('notice.retry')}</button>
+              </div>
+            </div>
+          )}
+
+          {failedOp && (
+            <div className="home-notice home-notice--error" role="alert" data-testid="home-staging-error">
+              <Icon name="alert-circle" />
+              <h3>{t('notice.stagingFailedTitle', { name: failedOp.name || failedOp.id })}</h3>
+              <p>{failedOp.nodeName ? t('notice.stagingFailedBodyNode', { node: failedOp.nodeName }) : t('notice.stagingFailedBody')}</p>
+              <div className="home-notice__acts">
+                <button type="button" className="home-secondary home-secondary--sm" onClick={() => navigate('/app/activity')}>{t('notice.openActivity')}</button>
+              </div>
+              <details>
+                <summary>{t('notice.details')}</summary>
+                <pre>{failedOp.error}</pre>
+              </details>
+            </div>
+          )}
+
+          <div ref={stripRef}>
+            {modelsLoading ? (
+              <div className="home-strip home-strip--skeleton" aria-hidden="true" data-testid="home-strip-skeleton">
+                <Skeleton variant="line" width="60%" />
+              </div>
+            ) : firstRun ? (
+              <div className="home-strip home-strip--idle" data-testid="home-strip-idle">
+                <div className="home-strip__head home-strip__head--static">
+                  <span className="home-dot home-dot--cold" aria-hidden="true" />
+                  <span>{t('strip.firstRun')}</span>
+                </div>
+              </div>
+            ) : !modelsFailed || configuredModels !== null ? (
+              <HomeMemoryStrip
+                open={stripOpen}
+                onOpenChange={setStripOpen}
+                models={loadedModels}
+                resources={resources}
+                cluster={cluster}
+                stagingOp={stagingOp}
+                failedOp={failedOp}
+                onStop={handleStopModel}
+                onStopAll={handleStopAll}
+              />
+            ) : null}
+          </div>
+
+          {showTip && (
+            <div className="home-tip" data-testid="home-assistant-tip">
+              <Icon name="sparkles" />
+              <span><b>{t('assistant.title')}.</b> {t('assistant.description')}</span>
+              <button type="button" className="home-link" onClick={openAssistantChat} title={t('assistant.tooltip')}>
+                {t('assistant.open')}
+              </button>
+              <button type="button" className="home-tip__close" onClick={dismissTip} aria-label={t('assistant.dismiss')} title={t('assistant.dismiss')}>
+                <Icon name="close" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {firstRun && (
+          <div className="home-first" style={staggerStyle(3)}>
+            <HomeFirstRun
+              addToast={addToast}
+              onInstallStarted={fetchSystemInfo}
+              onGallery={() => navigate('/app/models')}
+              onImport={() => navigate('/app/import-model')}
+            />
+          </div>
+        )}
+
+        <div style={staggerStyle(4)}>
+          <HomeResume
+            items={visibleConversations}
+            leavingId={leavingId}
+            onResume={resumeConversation}
+            onDelete={requestDelete}
+            emptyHint={(
+              <div className="home-examples" aria-label={t('jump.examples')}>
+                {(isAdmin ? ['/gallery', '/import'] : []).concat(isAdmin && assistantAvailable ? ['/assistant'] : [], ['/studio']).map(c => (
+                  <code key={c}>{c}</code>
+                ))}
+              </div>
+            )}
+          />
+        </div>
+
+        <div className="home-libline" style={staggerStyle(5)} data-testid="home-library">
+          <span>{t('library.label')}</span>
+          {isAdmin && (
+            <>
+              <button type="button" className="home-ghost" onClick={() => navigate('/app/models')}>
+                {t('quickLinks.browseGallery')} <code>/gallery</code>
+              </button>
+              <button type="button" className="home-ghost" onClick={() => navigate('/app/models?view=installed')}>
+                {t('quickLinks.installedModels')}
+                {configuredModels && <code>{configuredModels.length}</code>}
+              </button>
+              <button type="button" className="home-ghost" onClick={() => navigate('/app/import-model')}>
+                {t('quickLinks.importModel')} <code>/import</code>
+              </button>
+              {assistantAvailable && !showTip && (
+                <button type="button" className="home-ghost" onClick={openAssistantChat} title={t('assistant.tooltip')}>
+                  {t('quickLinks.manageByChat')} <code>/assistant</code>
+                </button>
+              )}
+            </>
+          )}
+          <a className="home-ghost" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
+            {t('quickLinks.documentation')} <code>/docs</code>
+          </a>
+        </div>
+
+        <HomeConnect />
+      </div>
+
+      {pendingDelete && (
+        <HomeUndoToast
+          key={pendingDelete.id}
+          message={t('jump.deleted', { title: pendingDelete.title })}
+          onUndo={undoDelete}
+          onExpire={commitDelete}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDialog}
