@@ -44,11 +44,54 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### A model's own page
+
+Every model also has a page of its own at `/app/models/<name>`, so it can be
+linked. Open it with the arrow at the end of a row, a double click on the row,
+or `o` on the selected row. On a phone, a tap on a row opens it. The details
+beside the table stay as the quick look.
+
+The title block names the model and holds the main action: **Install**, with a
+chevron to choose which build to install, or **Load** and **Stop** with a menu
+for an installed model (disable, pin, edit configuration, logs, delete). A strip
+under it answers three questions: whether the model fits this machine, what it
+does, and what installing leaves free on the models disk (or its state, when it
+is installed). The tabs are:
+
+- **Overview**: the description, backend, licence, largest context, tags, links
+  and a memory bar. For an installed model it also shows its state, the pages it
+  opens in, and which agents, agent tasks, failover chains and aliases name it.
+- **Fit and memory**: the verdict in words, a context size selector, the memory
+  bar split into weights and the part that grows with context, and a chart of the
+  memory needed at each context size against the memory this machine offers.
+  When a model has several builds, pick the build to see its own figures.
+- **Variants and files**: the builds with their size and fit, and the files the
+  chosen build downloads. Install any build from its row.
+- **Usage and history**, **Configuration** and **Logs**, for installed models.
+  LocalAI does not record requests, timings, loads or configuration changes for
+  each model, so the usage tab lists what it cannot show yet instead of an empty
+  chart. Configuration holds the [Placement](/advanced/model-configuration/#placement)
+  section. Logs is the backend log viewer of the Operate section.
+
+The page reads the same lists as the table, so it works for a model the gallery
+does not list (it has no variants or files tab) and for a gallery model that is
+not installed (it has no usage, configuration or logs tab). If the gallery cannot
+be reached, an installed model keeps working and Install says why it is off.
+
+Going back with `Esc`, `Backspace` or the **Models** button returns to the list
+with its view, search, filters, selection and scroll as you left them. The
+previous and next buttons step through the rows of the list you came from, in
+the order you saw them.
+
 ### Keyboard
 
 On the Models page, `/` jumps to the search field, the up and down arrows move
 the selection, `Enter` installs the selected model in Explore, `d` switches
-between comfortable and compact rows, and `Esc` closes the details.
+between comfortable and compact rows, `o` opens the selected model's page, and
+`Esc` closes the details.
+
+On a model's page, `1` to `6` switch tabs, `[` and `]` (or `k` and `j`) step to
+the previous and next model of the list, and `Esc` goes back to the list.
 
 ### Disk and cleanup
 

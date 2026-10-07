@@ -1,7 +1,10 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Link, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
+// eslint-disable-next-line no-unused-vars
+import { Link, Outlet, useMatch, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
+import { modelPath } from '../utils/modelWalk'
 import { modelsApi, systemApi } from '../utils/api'
 import { safeHref } from '../utils/url'
 import { useDebouncedCallback } from '../hooks/useDebounce'
@@ -156,10 +159,19 @@ export default function Models() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
   const location = useLocation()
+  // A model's page is a child route: this component stays mounted, hidden, so
+  // the list is exactly as it was when the page closes.
+  const detailOpen = !!useMatch('/app/models/:id')
   const { t } = useTranslation('models')
   const { operations, dismissFailedOp } = useOperations()
   const { resources } = useResources()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [liveParams, setSearchParams] = useSearchParams()
+  // The list's own state lives in its address (view, search, state, selection).
+  // While a model's page is open the address is that page's, so the list keeps
+  // reading the one it had, and is exactly as it was when the page closes.
+  const frozenParams = useRef(liveParams)
+  if (!detailOpen) frozenParams.current = liveParams
+  const searchParams = frozenParams.current
   const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
   const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed'].includes(searchParams.get('state'))
     ? searchParams.get('state')
@@ -343,7 +355,9 @@ export default function Models() {
   // list was in fact already usable. Four leaves room for the interactive
   // request to overtake.
   useEffect(() => {
-    if (models.length === 0) return
+    // A page open over the list has no use for the rows' figures; they are
+    // filled in when the list comes back.
+    if (models.length === 0 || detailOpen) return
     const queue = models
       .map(m => m.name || m.id)
       .filter(id => !estimates[id])
@@ -391,7 +405,7 @@ export default function Models() {
         return next
       })
     }
-  }, [models])
+  }, [models, detailOpen])
 
   const handleSearch = (value) => {
     setSearch(value)
@@ -673,13 +687,69 @@ export default function Models() {
   const hiddenIds = new Set(removal.pending?.ids || [])
   const pendingFree = removal.pending ? removal.pending.items.reduce((sum, item) => sum + (item.size || 0), 0) : 0
 
+  // --- a model's own page ----------------------------------------------------
+  const hostRef = useRef(null)
+  const savedScroll = useRef(null)
+  const lastOpened = useRef(null)
+
+  // The scroll offsets of the list and its table, taken before the page hides
+  // them: a hidden element forgets where it was scrolled to.
+  const rememberScroll = useCallback(() => {
+    const root = hostRef.current
+    if (!root) return
+    savedScroll.current = Array.from(root.querySelectorAll('.models-page, .ledger-wrap')).map(el => [el, el.scrollTop])
+  }, [])
+
+  const openPage = useCallback((name) => {
+    if (!name) return
+    rememberScroll()
+    lastOpened.current = name
+    navigate(modelPath(name), { state: { from: location.pathname + location.search } })
+  }, [navigate, location.pathname, location.search, rememberScroll])
+
+  // On a phone there is no inspector beside the table, so a tap on a row goes
+  // straight to the page. Arrow keys still move the selection.
+  const rowSelect = useCallback((name, options) => {
+    const phone = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
+    if (name && phone && !options?.replace) openPage(name)
+    else selectModel(name, options)
+  }, [openPage, selectModel])
+
+  useLayoutEffect(() => {
+    if (detailOpen) return
+    if (savedScroll.current) {
+      for (const [el, top] of savedScroll.current) el.scrollTop = top
+      savedScroll.current = null
+    }
+    const name = lastOpened.current
+    if (!name) return
+    lastOpened.current = null
+    const frame = window.requestAnimationFrame(() => {
+      hostRef.current?.querySelector(`[data-entity="${CSS.escape(name)}"] [data-row-open]`)?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [detailOpen])
+
   useLedgerKeys({
-    enabled: true,
+    enabled: !detailOpen,
     searchRef,
     onToggleDensity: () => setDensity(d => (d === 'compact' ? 'comfortable' : 'compact')),
     hasSelection: !!selectedName,
     onClose: () => selectModel(null),
+    onOpen: () => openPage(selectedName),
   })
+
+  // The list, and over it, when one is open, a model's page.
+  const withDetail = (list) => (
+    <>
+      <div className="models-host" hidden={detailOpen} ref={hostRef}>{list}</div>
+      {detailOpen && (
+        <Suspense fallback={null}>
+          <Outlet context={{ addToast }} />
+        </Suspense>
+      )}
+    </>
+  )
 
   const headerActions = (
     <div className="view-bar__actions models-bar__actions">
@@ -726,7 +796,7 @@ export default function Models() {
   )
 
   if (activeView === 'installed') {
-    return (
+    return withDetail(
       <div className="page page--wide page--app models-page">
         <div className="view-bar models-bar">
           <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
@@ -741,7 +811,8 @@ export default function Models() {
           onQueryChange={setInstalledQuery}
           onStateChange={setInstalledState}
           onClearFilters={clearInstalledFilters}
-          onSelect={selectModel}
+          onSelect={rowSelect}
+          onOpen={openPage}
           hiddenIds={hiddenIds}
           refreshToken={refreshToken}
           density={density}
@@ -751,7 +822,7 @@ export default function Models() {
           disk={disk}
         />
         {overlays}
-      </div>
+      </div>,
     )
   }
 
@@ -768,7 +839,7 @@ export default function Models() {
         ? t('ledger.basis.gpu', { memory: formatBytes(totalGpuMemory) })
         : t('ledger.basis.ram', { memory: formatBytes(totalGpuMemory) })
 
-  return (
+  return withDetail(
     <div className="page page--wide page--app models-page">
       <div className="view-bar models-bar">
         <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
@@ -967,7 +1038,8 @@ export default function Models() {
               collapsedGroups={collapsedGroups}
               onToggleGroup={toggleGroup}
               selectedName={selectedName}
-              onSelect={selectModel}
+              onSelect={rowSelect}
+              onOpen={openPage}
               onInstall={handleInstall}
               onRetry={handleRetry}
               estimates={estimates}
@@ -1027,6 +1099,7 @@ export default function Models() {
               onRetry={handleRetry}
               installedProfile={installedProfiles[selectedName]}
               onOpen={route => navigate(route)}
+              onOpenPage={openPage}
               onManage={name => setSearchParams(previous => {
                 const next = new URLSearchParams(previous)
                 next.set('view', 'installed')
@@ -1117,7 +1190,7 @@ export default function Models() {
         </aside>
       </div>
       {overlays}
-    </div>
+    </div>,
   )
 }
 
@@ -1565,7 +1638,7 @@ function FitSummary({ fit, hasGpu, ramAvailable, contextLabel, budgetNode, t }) 
 // panel.
 function DiscoverDetail({
   model, estimate, contextSize, onPickContext, budget, ramAvailable, disk, totalGpuMemory, fitsGpu, budgetNode,
-  installing, progress, failed, onInstall, onRetry, installedProfile, onOpen, onManage, onBack,
+  installing, progress, failed, onInstall, onRetry, installedProfile, onOpen, onOpenPage, onManage, onBack,
   expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
 }) {
   const name = model.name || model.id
@@ -1591,8 +1664,18 @@ function DiscoverDetail({
       closeIcon
       warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
       error={failed ? t('ledger.failedInstall', { message: failed.error }) : null}
-      actions={
-          installing ? (
+      actions={(
+        <>
+          <button
+            type="button"
+            className="dk-btn dk-btn--ghost dk-btn--sm"
+            onClick={() => onOpenPage(name)}
+            data-testid="inspector-open-page"
+            aria-keyshortcuts="o"
+          >
+            <Icon name="arrow-right" /> {t('page.openDetails')}
+          </button>
+          {installing ? (
             <div className="inline-install">
               <div className="inline-install__row">
                 <div className="operation-spinner" />
@@ -1626,8 +1709,9 @@ function DiscoverDetail({
             <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} data-testid="discover-install">
               <Icon name="download" /> {t('actions.install')}
             </button>
-          )
-      }
+          )}
+        </>
+      )}
       stats={[
         { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
         { label: t(budget.hasGpu ? 'detail.vramAt' : 'detail.memoryAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },

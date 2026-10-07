@@ -62,11 +62,12 @@ export function useRestoreRowFocus(selectedId, containerRef) {
 }
 
 // Keys that work anywhere on a ledger page: "/" jumps to search, "d" flips the
-// row density, Escape closes the inspector. They stand down while the user is
+// row density, "o" opens the selected model's own page, Escape closes the
+// inspector. They stand down while the user is
 // typing and while a dialog (the cleanup sheet, a confirmation) is open.
-export function useLedgerKeys({ enabled, searchRef, onToggleDensity, hasSelection, onClose }) {
+export function useLedgerKeys({ enabled, searchRef, onToggleDensity, hasSelection, onClose, onOpen }) {
   const latest = useRef({})
-  latest.current = { onToggleDensity, hasSelection, onClose }
+  latest.current = { onToggleDensity, hasSelection, onClose, onOpen }
   useEffect(() => {
     if (!enabled) return undefined
     const onKey = (e) => {
@@ -79,6 +80,8 @@ export function useLedgerKeys({ enabled, searchRef, onToggleDensity, hasSelectio
         searchRef.current?.select()
       } else if (e.key === 'd' || e.key === 'D') {
         latest.current.onToggleDensity()
+      } else if ((e.key === 'o' || e.key === 'O') && latest.current.hasSelection && latest.current.onOpen) {
+        latest.current.onOpen()
       } else if (e.key === 'Escape' && latest.current.hasSelection) {
         latest.current.onClose()
       }

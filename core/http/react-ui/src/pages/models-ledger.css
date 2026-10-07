@@ -747,3 +747,9 @@ tr[data-selected="true"] .ledger-mark {
 @media (max-width: 640px) {
   .ledger-veil ~ .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
 }
+
+/* The arrow at the end of a row: opens the model's own page. */
+.models-host { display: contents; }
+.models-host[hidden] { display: none; }
+.ledger-open { color: var(--dk-muted); }
+.ledger-open:hover { color: var(--dk-text); }

@@ -490,6 +490,205 @@
       "abandoned_other": "You left the page, so {{count}} models were not deleted."
     }
   },
+  "page": {
+    "back": "Models",
+    "openDetails": "Open details",
+    "openFor": "Open details for {{model}}",
+    "loading": "Loading the model",
+    "chooseBuild": "Choose a build",
+    "installBuild": "Install {{build}}",
+    "walk": {
+      "label": "Models in this list",
+      "previous": "Previous model",
+      "next": "Next model",
+      "position": "{{index}} of {{total}}"
+    },
+    "keys": {
+      "walk": "previous and next model",
+      "tabs": "sections",
+      "back": "back to the list"
+    },
+    "tabs": {
+      "label": "Sections of this model",
+      "overview": "Overview",
+      "fit": "Fit and memory",
+      "variants": "Variants and files",
+      "usage": "Usage and history",
+      "config": "Configuration",
+      "logs": "Logs"
+    },
+    "primary": {
+      "running": "Running now",
+      "idle": "Not loaded. It loads on first use.",
+      "disabled": "Turned off. Enable it to use it."
+    },
+    "install": {
+      "title": "Installing {{build}}",
+      "bytes": "{{done}} of {{total}}",
+      "eta": "about {{time}} left",
+      "seconds": "{{count}} s",
+      "minutes": "{{count}} min",
+      "cancel": "Cancel"
+    },
+    "missing": {
+      "title": "No model called {{id}}",
+      "text": "Neither this server nor the gallery has a model with that name. It may have been removed or renamed.",
+      "closest": "Closest matches",
+      "back": "Back to models"
+    },
+    "offline": {
+      "installDisabled": "Needs the gallery",
+      "text": "Install needs a connection. Check it, then retry.",
+      "installedOnly": "Showing what this server knows about the installed model."
+    },
+    "answer": {
+      "label": "At a glance",
+      "fit": "Fit on this machine",
+      "does": "What it does",
+      "install": "Install",
+      "state": "State",
+      "fitLoading": "Reading the estimate...",
+      "fitNone": "No estimate for this model yet.",
+      "opensIn": "Opens in {{useCases}}.",
+      "opensAfter": "Opens in the matching page after install.",
+      "installing": "Installing",
+      "installingPct": "Installing {{percent}}%",
+      "installingNote": "The download continues if you leave this page.",
+      "failed": "Install failed",
+      "notInstalled": "Not installed",
+      "notInstalledNote": "Install it to use it.",
+      "leaves": "Leaves {{amount}} free on the models disk.",
+      "runningNote": "Loaded in memory and ready.",
+      "idleNote": "Installed. It loads on first use, or load it now.",
+      "disabledNote": "Turned off. Enable it to use it."
+    },
+    "overview": {
+      "about": "About",
+      "glance": "Fit at a glance",
+      "status": "Status and use",
+      "maxContext": "Max context",
+      "tokens": "{{size}} tokens"
+    },
+    "usedBy": {
+      "title": "Used by",
+      "loading": "Looking for agents, tasks, chains and aliases...",
+      "none": "No agent, task, failover chain or alias names this model.",
+      "unknown": "Nothing found, but not every lookup could be read, so this may be incomplete.",
+      "partial": "Not every lookup could be read, so this list may be incomplete.",
+      "kind": {
+        "agent": "Agent",
+        "task": "Task",
+        "chain": "Chain",
+        "alias": "Alias"
+      }
+    },
+    "fit": {
+      "fitsGpu": "Fits in GPU",
+      "fitsMemory": "Fits in memory",
+      "spill": "Spills to CPU",
+      "over": "Does not fit",
+      "fitsText": "{{need}} needed of {{free}} usable at {{context}} context. {{spare}} to spare.",
+      "build": "Build",
+      "context": "Context",
+      "weights": "Weights and working memory",
+      "poolGpu": "GPU, {{memory}}",
+      "poolRam": "System memory, {{memory}}",
+      "barAria": "{{pool}}: this model needs {{need}}. The tick marks the {{limit}} this page lets a model use.",
+      "limitNote": "Fit counts up to {{percent}} percent of memory, the same limit as the list.",
+      "chartTitle": "Memory needed by context size ({{build}})",
+      "chartTitleRam": "System memory needed by context size ({{build}})",
+      "limitLabel": "{{memory}} usable {{pool}}",
+      "gpuMemory": "GPU memory",
+      "systemMemory": "system memory",
+      "dataTable": "Data table",
+      "needs": "Needs",
+      "verdict": "Result",
+      "tableFits": "Fits",
+      "tableOver": "Does not fit",
+      "flat": "Memory does not grow with the context size for this model, so there is no chart.",
+      "footnote": "Estimates come from the model file and this machine's memory. A different build or context size changes the bars.",
+      "loading": "Reading the estimate",
+      "noMachine": "This machine's memory could not be read, so there is no verdict.",
+      "unavailableTitle": "No estimate",
+      "unavailableText": "The estimate needs the model's files, and the gallery lists none for this build.",
+      "unavailableInstalled": "The server could not read this model's files. They may be missing, still downloading, or in a format the estimate does not cover."
+    },
+    "variants": {
+      "caption": "Builds of this model with size and fit",
+      "build": "Build",
+      "chosen": "Chosen build",
+      "choose": "Use the {{build}} build",
+      "fit": "Fit",
+      "fitAt": "Fit is shown at {{context}} context",
+      "fitsGpu": "Fits in GPU",
+      "fitsMemory": "Fits in memory",
+      "fitsServer": "Fits",
+      "spill": "+{{amount}} GB on CPU",
+      "over": "{{amount}} GB over",
+      "single": "This model has one build.",
+      "error": "The build list could not be read.",
+      "noFiles": "The gallery lists no files for this build.",
+      "filesCaption": "Files of {{build}}",
+      "source": "Source",
+      "status": "Status",
+      "notDownloaded": "Not downloaded",
+      "onDisk": "On disk",
+      "downloading": "Downloading {{percent}}%"
+    },
+    "usage": {
+      "title": "Usage, last 30 days",
+      "emptyTitle": "Usage history is not recorded yet",
+      "emptyText": "LocalAI does not keep a count of requests, timings or changes for each model, so there is nothing to chart. When the server records them, they appear here.",
+      "missingLabel": "What will appear here",
+      "notRecorded": "Not recorded",
+      "missing": {
+        "requests": {
+          "name": "Requests per day",
+          "why": "The server keeps no per-model request count."
+        },
+        "ttft": {
+          "name": "Time to first token",
+          "why": "The server keeps no per-model timings."
+        },
+        "loads": {
+          "name": "Loads and stops",
+          "why": "The server keeps no history of when a model was loaded."
+        },
+        "changes": {
+          "name": "Configuration changes",
+          "why": "The server keeps no log of edits to a model's file."
+        }
+      },
+      "known": "What the server knows now",
+      "count": {
+        "agent_one": "{{count}} agent",
+        "agent_other": "{{count}} agents",
+        "task_one": "{{count}} task",
+        "task_other": "{{count}} tasks",
+        "chain_one": "{{count}} failover chain",
+        "chain_other": "{{count}} failover chains",
+        "alias_one": "{{count}} alias",
+        "alias_other": "{{count}} aliases"
+      }
+    },
+    "config": {
+      "fullEditor": "Open full editor",
+      "thisModel": "this model",
+      "generated": "Configuration file after saving",
+      "save": "Save changes",
+      "saving": "Saving...",
+      "savedLabel": "Saved",
+      "saved": "Placement saved",
+      "saveFailed": "Save failed: {{message}}",
+      "loading": "Reading the configuration",
+      "loadFailed": "Could not read the configuration: {{message}}",
+      "appliesNext": "This model is loaded. Changes apply the next time it loads."
+    },
+    "logs": {
+      "note": "Output of the backend process",
+      "fullPage": "Open the logs on the node that hosts this model"
+    }
+  },
   "placement": {
     "title": "Placement",
     "runOn": "Run this model on",
@@ -544,47 +743,47 @@
       "kv": "Context (KV cache)"
     },
     "fit": {
-      "fits": {
-        "title": "Fits in GPU",
-        "text": "{{gpu}} on the GPU, of {{free}} usable. This is the fastest setting."
-      },
-      "spill": {
-        "title": "Spills to CPU",
-        "text": "The GPU holds {{gpu}} and about {{cpu}} stays in system memory. Slower than all layers on the GPU."
-      },
-      "trimmed": {
-        "title": "Will not all fit",
-        "text": "All layers need {{allNeed}} but {{free}} is usable. The llama.cpp engine lowers the layer count at load time, so part of the model runs on the CPU, which is slower."
-      },
-      "toomany": {
-        "title": "Too many layers for the GPU",
-        "text": "This needs {{need}} on the GPU, which has {{free}} usable. The llama.cpp engine lowers it at load time unless fit is turned off, and other engines can fail to load. Lower the layers or the context."
-      },
-      "cpu": {
-        "title": "Runs on CPU only",
-        "text": "Uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
-      },
-      "cpu-over": {
-        "title": "Not enough memory",
-        "text": "Needs {{need}} but only {{ramFree}} of system memory is free."
-      },
-      "nogpu": {
-        "title": "No GPU found",
-        "text": "This model runs on the CPU and uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
-      },
-      "nogpu-over": {
-        "title": "Not enough memory",
-        "text": "No GPU found. Needs {{need}} but only {{ramFree}} of system memory is free."
-      },
-      "spill-over": {
-        "title": "Not enough memory",
-        "text": "The GPU holds {{gpu}}, and the other {{cpu}} would stay in system memory, which has {{ramFree}} free."
-      },
-      "trimmed-over": {
-        "title": "Not enough memory",
-        "text": "All layers need {{allNeed}} but {{free}} of GPU memory is usable, and the {{cpu}} left over is more than the {{ramFree}} of system memory that is free."
-      }
+    "fits": {
+      "title": "Fits in GPU",
+      "text": "{{gpu}} on the GPU, of {{free}} usable. This is the fastest setting."
     },
+    "spill": {
+      "title": "Spills to CPU",
+      "text": "The GPU holds {{gpu}} and about {{cpu}} stays in system memory. Slower than all layers on the GPU."
+    },
+    "trimmed": {
+      "title": "Will not all fit",
+      "text": "All layers need {{allNeed}} but {{free}} is usable. The llama.cpp engine lowers the layer count at load time, so part of the model runs on the CPU, which is slower."
+    },
+    "toomany": {
+      "title": "Too many layers for the GPU",
+      "text": "This needs {{need}} on the GPU, which has {{free}} usable. The llama.cpp engine lowers it at load time unless fit is turned off, and other engines can fail to load. Lower the layers or the context."
+    },
+    "cpu": {
+      "title": "Runs on CPU only",
+      "text": "Uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
+    },
+    "cpu-over": {
+      "title": "Not enough memory",
+      "text": "Needs {{need}} but only {{ramFree}} of system memory is free."
+    },
+    "nogpu": {
+      "title": "No GPU found",
+      "text": "This model runs on the CPU and uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
+    },
+    "nogpu-over": {
+      "title": "Not enough memory",
+      "text": "No GPU found. Needs {{need}} but only {{ramFree}} of system memory is free."
+    },
+    "spill-over": {
+      "title": "Not enough memory",
+      "text": "The GPU holds {{gpu}}, and the other {{cpu}} would stay in system memory, which has {{ramFree}} free."
+    },
+    "trimmed-over": {
+      "title": "Not enough memory",
+      "text": "All layers need {{allNeed}} but {{free}} of GPU memory is usable, and the {{cpu}} left over is more than the {{ramFree}} of system memory that is free."
+    }
+  },
     "fitForMe": "Fit it for me",
     "fitApplied": {
       "all": "Set to all layers. Everything fits.",

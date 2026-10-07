@@ -112,6 +112,9 @@ const AgentJobs = page('agent-jobs', () => import('./pages/AgentJobs'))
 const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
 const AgentJobDetails = page(null, () => import('./pages/AgentJobDetails'))
 const ModelEditor = page(null, () => import('./pages/ModelEditor'))
+// Rendered by Models, through its <Outlet/>: the list stays mounted behind it.
+// eslint-disable-next-line no-unused-vars
+const ModelPage = page(null, () => import('./pages/ModelPage'))
 // PipelineEditor removed — the Model Editor with templates handles all model types
 const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
@@ -237,7 +240,14 @@ const appChildren = [
   },
 
   // Canonical resource pages and legacy management compatibility.
-  { path: 'models', element: <Admin><Models /></Admin> },
+  // A model's own page is a child of the list, not a sibling: the list keeps
+  // its filters, its sort and its scroll while the page is open, and Back finds
+  // it as it was.
+  {
+    path: 'models',
+    element: <Admin><Models /></Admin>,
+    children: [{ path: ':id', element: <ModelPage /> }],
+  },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
   { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },

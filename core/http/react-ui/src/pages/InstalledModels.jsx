@@ -9,12 +9,14 @@ import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { rowKeyDown, useRestoreRowFocus } from '../components/models/rowKeys'
 import { gbLabel } from '../utils/modelLedger'
+import { publishWalk } from '../utils/modelWalk'
 import { useModelSizes } from '../hooks/useModelSizes'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
 import useFailoverChains from '../hooks/useFailoverChains'
-import { backendControlApi, modelsApi, nodesApi, systemApi } from '../utils/api'
+import { modelsApi, nodesApi, systemApi } from '../utils/api'
+import { useModelActions } from '../hooks/useModelActions'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import {
@@ -112,6 +114,7 @@ export default function InstalledModels({
   onStateChange,
   onClearFilters,
   onSelect,
+  onOpen,
   hiddenIds,
   refreshToken,
   density,
@@ -130,9 +133,6 @@ export default function InstalledModels({
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)
-  const [pendingActions, setPendingActions] = useState(() => new Set())
-  const [actionErrors, setActionErrors] = useState({})
-  const [confirmDialog, setConfirmDialog] = useState(null)
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' })
   const loadedOnce = useRef(false)
   const bodyRef = useRef(null)
@@ -160,6 +160,17 @@ export default function InstalledModels({
       setAliasTargets({})
     }
   }, [])
+
+  const afterAction = useCallback(async () => {
+    refetch()
+    await fetchLoadedModels()
+  }, [refetch, fetchLoadedModels])
+  const {
+    pendingActions, actionErrors, confirmDialog, setConfirmDialog,
+    load: handleLoad, stop: handleStop, toggleState: handleToggleState,
+    togglePinned: handleTogglePinned, remove, reload: handleReload,
+  } = useModelActions({ addToast, afterAction })
+  const handleDelete = modelName => remove(modelName, () => onSelect(null))
 
   useEffect(() => {
     fetchLoadedModels()
@@ -246,106 +257,6 @@ export default function InstalledModels({
     prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
   ))
 
-  const setPending = (name, pending) => {
-    setPendingActions(previous => {
-      const next = new Set(previous)
-      if (pending) next.add(name)
-      else next.delete(name)
-      return next
-    })
-  }
-
-  const runAction = async (modelName, action, request, successMessage) => {
-    setPending(modelName, true)
-    setActionErrors(previous => ({ ...previous, [modelName]: null }))
-    try {
-      await request()
-      if (successMessage) addToast(successMessage, 'success')
-      refetch()
-      await fetchLoadedModels()
-      return true
-    } catch (err) {
-      setActionErrors(previous => ({
-        ...previous,
-        [modelName]: t('lifecycle.errors.action', { action, model: modelName, message: err.message }),
-      }))
-      return false
-    } finally {
-      setPending(modelName, false)
-    }
-  }
-
-  const handleLoad = modelName => runAction(
-    modelName,
-    t('lifecycle.actionNames.load'),
-    () => backendControlApi.load({ model: modelName }),
-    t('lifecycle.toasts.loaded', { model: modelName }),
-  )
-
-  const handleStop = modelName => {
-    setConfirmDialog({
-      title: t('lifecycle.confirm.stopTitle'),
-      message: t('lifecycle.confirm.stopMessage', { model: modelName }),
-      confirmLabel: t('lifecycle.actions.stop'),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        await runAction(
-          modelName,
-          t('lifecycle.actionNames.stop'),
-          () => backendControlApi.shutdown({ model: modelName }),
-          t('lifecycle.toasts.stopped', { model: modelName }),
-        )
-      },
-    })
-  }
-
-  const handleToggleState = (modelName, disabled) => {
-    const operation = disabled ? 'enable' : 'disable'
-    return runAction(
-      modelName,
-      t(`lifecycle.actionNames.${operation}`),
-      () => modelsApi.toggleState(modelName, operation),
-      t(`lifecycle.toasts.${operation}d`, { model: modelName }),
-    )
-  }
-
-  const handleTogglePinned = (modelName, pinned) => {
-    const operation = pinned ? 'unpin' : 'pin'
-    return runAction(
-      modelName,
-      t(`lifecycle.actionNames.${operation}`),
-      () => modelsApi.togglePinned(modelName, operation),
-      t(`lifecycle.toasts.${operation}ned`, { model: modelName }),
-    )
-  }
-
-  const handleDelete = modelName => {
-    setConfirmDialog({
-      title: t('lifecycle.confirm.deleteTitle'),
-      message: t('lifecycle.confirm.deleteMessage', { model: modelName }),
-      confirmLabel: t('lifecycle.actions.delete'),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        const deleted = await runAction(
-          modelName,
-          t('lifecycle.actionNames.delete'),
-          () => modelsApi.deleteByName(modelName),
-          t('lifecycle.toasts.deleted', { model: modelName }),
-        )
-        if (deleted) onSelect(null)
-      },
-    })
-  }
-
-  const handleReload = () => runAction(
-    'models',
-    t('lifecycle.actionNames.update'),
-    modelsApi.reload,
-    t('lifecycle.toasts.updated'),
-  )
-
   // The same menu on a row and in the inspector, so the two cannot drift.
   const menuFor = model => [
     {
@@ -392,6 +303,9 @@ export default function InstalledModels({
   }, [onSelect])
   useRestoreRowFocus(selectedName, bodyRef)
   const names = visibleModels.map(model => model.id)
+  // What "previous" and "next" on a model's page walk: this list, in this order.
+  const order = names.join('\n')
+  useEffect(() => { publishWalk('installed', order ? order.split('\n') : []) }, [order])
   const tabbable = names.includes(selectedName) ? selectedName : names[0]
 
   const stateOf = model => {
@@ -429,6 +343,17 @@ export default function InstalledModels({
             items={menuFor(model)}
           />
         </span>
+        <button
+          type="button"
+          className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
+          data-row-open
+          data-testid="row-open"
+          aria-label={t('page.openFor', { model: model.id })}
+          title={t('page.openFor', { model: model.id })}
+          onClick={e => { e.stopPropagation(); onOpen?.(model.id) }}
+        >
+          <Icon name="arrow-right" />
+        </button>
       </>
     )
   }
@@ -470,6 +395,15 @@ export default function InstalledModels({
         ]}
         actions={(
           <>
+            <button
+              type="button"
+              className="dk-btn dk-btn--ghost dk-btn--sm"
+              onClick={() => onOpen?.(selectedModel.id)}
+              data-testid="inspector-open-page"
+              aria-keyshortcuts="o"
+            >
+              <Icon name="arrow-right" /> {t('page.openDetails')}
+            </button>
             {!selectedModel.disabled && !running && (
               <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
                 <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
@@ -688,6 +622,7 @@ export default function InstalledModels({
                             aria-current={selected ? 'true' : undefined}
                             tabIndex={model.id === tabbable ? 0 : -1}
                             onClick={() => onSelect(model.id)}
+                            onDoubleClick={() => onOpen?.(model.id)}
                             onKeyDown={e => rowKeyDown(e, { names, current: model.id, move, close: () => onSelect(null) })}
                           >
                             <td className="ledger-mark-cell">

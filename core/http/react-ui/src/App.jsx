@@ -18,10 +18,15 @@ const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 // hub, collapse the key to the hub id so the layout (and its tab bar)
 // persists across tab-to-tab nav instead of remounting and flashing — only
 // the inner page swaps. Normal routes keep their per-path key.
+//
+// A model's own page (/app/models/<id>) is a child of the Models list, which
+// stays mounted behind it so Back finds the list as it was. It shares the
+// list's key for the same reason.
 function pageTransitionKey(pathname) {
   for (const h of hubs) {
     if (hubOwnsPath(h, pathname)) return `hub:${h.id}`
   }
+  if (/^\/app\/models(\/|$)/.test(pathname)) return '/app/models'
   return pathname
 }
 

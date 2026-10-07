@@ -1,8 +1,9 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import Icon from '../Icon'
 import FitCell from './FitCell'
 import { rowKeyDown, useRestoreRowFocus } from './rowKeys'
 import { fitFor, fitStyle, gbLabel } from '../../utils/modelLedger'
+import { publishWalk } from '../../utils/modelWalk'
 import { ENTITY_GROUPS, groupForEntity } from '../../utils/entityGroups'
 
 const GROUP_ORDER = ['text', 'vision', 'audio', 'visual', 'other']
@@ -41,7 +42,7 @@ function SkeletonRows({ count = 8 }) {
 // Arrow keys move it, Enter installs, Esc closes the inspector.
 export default function ExploreTable({
   models, loading, grouped, collapsedGroups, onToggleGroup,
-  selectedName, onSelect, onInstall, onRetry,
+  selectedName, onSelect, onOpen, onInstall, onRetry,
   estimates, pendingEstimates, contextSize, contextLabel, budget, ramAvailable,
   isInstalling, progressOf, failedOp,
   sort, order, onSort, density, t,
@@ -65,6 +66,11 @@ export default function ExploreTable({
     const el = bodyRef.current?.querySelector(`[data-entity="${CSS.escape(name)}"]`)
     el?.focus()
   }, [onSelect])
+
+  // What "previous" and "next" on a model's page walk: the rows on screen, in
+  // the order they are shown, without the ones a collapsed group hides.
+  const walkOrder = names.join('\n')
+  useEffect(() => { publishWalk('explore', walkOrder ? walkOrder.split('\n') : []) }, [walkOrder])
 
   // The row that takes Tab: the selected one, else the first.
   const tabbable = names.includes(selectedName) ? selectedName : names[0]
@@ -91,6 +97,7 @@ export default function ExploreTable({
         aria-current={selected ? 'true' : undefined}
         tabIndex={name === tabbable ? 0 : -1}
         onClick={() => onSelect(name)}
+        onDoubleClick={() => onOpen?.(name)}
         onKeyDown={e => rowKeyDown(e, {
           names,
           current: name,
@@ -116,37 +123,50 @@ export default function ExploreTable({
           <FitCell fit={fit} pending={pendingEstimates?.has(name)} t={t} contextLabel={contextLabel} />
         </td>
         <td className="dk-table-actions ledger-status">
-          {installing ? (
-            <span className="ledger-status__busy" role="status">
-              <span className="operation-spinner" aria-hidden="true" />
-              {progress > 0 ? t('table.installingPct', { percent: Math.round(progress) }) : t('table.installing')}
-              {progress > 0 && (
-                <span className="ledger-progress" aria-hidden="true"><span className="ledger-progress__bar" style={fitStyle(progress / 100)} /></span>
-              )}
-            </span>
-          ) : model.installed ? (
-            <span className="ledger-status__done"><Icon name="check" /> {t('table.installed')}</span>
-          ) : failed ? (
+          <span className="ledger-rowactions">
+            {installing ? (
+              <span className="ledger-status__busy" role="status">
+                <span className="operation-spinner" aria-hidden="true" />
+                {progress > 0 ? t('table.installingPct', { percent: Math.round(progress) }) : t('table.installing')}
+                {progress > 0 && (
+                  <span className="ledger-progress" aria-hidden="true"><span className="ledger-progress__bar" style={fitStyle(progress / 100)} /></span>
+                )}
+              </span>
+            ) : model.installed ? (
+              <span className="ledger-status__done"><Icon name="check" /> {t('table.installed')}</span>
+            ) : failed ? (
+              <button
+                type="button"
+                className="dk-btn dk-btn--secondary dk-btn--sm"
+                data-testid="discover-row-retry"
+                aria-label={t('ledger.retryNamed', { model: name })}
+                onClick={e => { e.stopPropagation(); onRetry(name, failed) }}
+              >
+                <Icon name="refresh" /> {t('ledger.retry')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="dk-btn dk-btn--primary dk-btn--sm"
+                data-testid="discover-row-install"
+                aria-label={t('ledger.installNamed', { model: name })}
+                onClick={e => { e.stopPropagation(); onInstall(name) }}
+              >
+                <Icon name="download" /> {t('actions.install')}
+              </button>
+            )}
             <button
               type="button"
-              className="dk-btn dk-btn--secondary dk-btn--sm"
-              data-testid="discover-row-retry"
-              aria-label={t('ledger.retryNamed', { model: name })}
-              onClick={e => { e.stopPropagation(); onRetry(name, failed) }}
+              className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
+              data-row-open
+              data-testid="row-open"
+              aria-label={t('page.openFor', { model: name })}
+              title={t('page.openFor', { model: name })}
+              onClick={e => { e.stopPropagation(); onOpen?.(name) }}
             >
-              <Icon name="refresh" /> {t('ledger.retry')}
+              <Icon name="arrow-right" />
             </button>
-          ) : (
-            <button
-              type="button"
-              className="dk-btn dk-btn--primary dk-btn--sm"
-              data-testid="discover-row-install"
-              aria-label={t('ledger.installNamed', { model: name })}
-              onClick={e => { e.stopPropagation(); onInstall(name) }}
-            >
-              <Icon name="download" /> {t('actions.install')}
-            </button>
-          )}
+          </span>
         </td>
       </tr>
     )

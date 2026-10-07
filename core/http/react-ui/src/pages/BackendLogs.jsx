@@ -19,7 +19,9 @@ const STREAM_BADGE = {
 }
 
 // Detail view: log lines for a specific model
-function BackendLogsDetail({ modelId }) {
+// `embedded` drops the page chrome (header, page width) so the same viewer sits
+// inside another page, such as a tab of the model page.
+function BackendLogsDetail({ modelId, embedded = false }) {
   const { addToast } = useOutletContext()
   const [searchParams] = useSearchParams()
   const fromTimestamp = searchParams.get('from')
@@ -152,11 +154,13 @@ function BackendLogsDetail({ modelId }) {
   }
 
   return (
-    <div className="page page--wide">
-      <PageHeader
-        title={<><Icon name="terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
-        supporting="Backend process output"
-      />
+    <div className={embedded ? 'logs-embedded' : 'page page--wide'}>
+      {!embedded && (
+        <PageHeader
+          title={<><Icon name="terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
+          supporting="Backend process output"
+        />
+      )}
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -226,7 +230,8 @@ function BackendLogsDetail({ modelId }) {
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)',
             overflow: 'auto',
-            maxHeight: 'calc(100vh - 280px)',
+            maxHeight: embedded ? 'min(520px, calc(100vh - 460px))' : 'calc(100vh - 280px)',
+            minHeight: embedded ? 200 : undefined,
             fontFamily: 'var(--font-mono)',
             fontSize: '0.75rem',
             lineHeight: '1.5',
@@ -432,4 +437,20 @@ export default function BackendLogs() {
       </div>
     </div>
   )
+}
+
+// The log viewer without the page around it, for the model page's Logs tab.
+// In distributed mode the local stream has nothing behind it, so the tab points
+// at the full page, which resolves the node that hosts the model.
+export function BackendLogsPanel({ modelId, fullPageLabel }) {
+  const { enabled: distributedMode, loading } = useDistributedMode()
+  if (loading) return <div className="loading-center"><LoadingSpinner size="lg" /></div>
+  if (distributedMode) {
+    return (
+      <p className="logs-embedded__note">
+        <Link to={`/app/backend-logs/${encodeURIComponent(modelId)}`} className="dk-link">{fullPageLabel}</Link>
+      </p>
+    )
+  }
+  return <BackendLogsDetail modelId={modelId} embedded />
 }
