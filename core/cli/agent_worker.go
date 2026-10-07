@@ -126,7 +126,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Acquire credentials via (re)registration. When the bus requires auth and no
 	// static fallback is configured, wait through admin approval until the
 	// frontend mints credentials rather than starting unauthenticated.
-	credMgr := workerregistry.NewNATSCredentialManager(
+	credMgr := workerregistry.NewCredentialManager(
 		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 			return regClient.RegisterFull(ctx, registrationBody)
 		},

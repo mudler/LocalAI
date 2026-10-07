@@ -63,6 +63,14 @@ type RegisterResponse struct {
 	APIToken     string `json:"api_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
+	// Carrier is the carrier that is active in the cluster: "nats" or "tunnel".
+	// A frontend that predates carriers does not send it, and then the cluster
+	// runs on NATS. CarrierEpoch is the epoch of the carrier row at that time.
+	Carrier      string `json:"carrier,omitempty"`
+	CarrierEpoch int64  `json:"carrier_epoch,omitempty"`
+	// TunnelToken is the own credential of the node for the tunnel. It is sent
+	// once and only when the tunnel is the active carrier.
+	TunnelToken string `json:"tunnel_token,omitempty"`
 }
 
 // RegisterFull sends a single registration request and returns the full
@@ -109,26 +117,40 @@ func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) 
 
 // RegisterWithRetry retries registration with exponential backoff.
 func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+	res, err := c.RegisterFullWithRetry(ctx, body, maxRetries)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
+}
+
+// RegisterFullWithRetry is RegisterWithRetry that returns the whole response.
+func (c *RegistrationClient) RegisterFullWithRetry(ctx context.Context, body map[string]any, maxRetries int) (*RegisterResponse, error) {
+	if maxRetries < 1 {
+		return nil, fmt.Errorf("registering: %d attempts allowed, want at least one", maxRetries)
+	}
 	backoff := 2 * time.Second
 	maxBackoff := 30 * time.Second
 
+	var err error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, natsJWT, natsSeed, err = c.Register(ctx, body)
+		var res *RegisterResponse
+		res, err = c.RegisterFull(ctx, body)
 		if err == nil {
-			return nodeID, apiToken, natsJWT, natsSeed, nil
+			return res, nil
 		}
 		if attempt == maxRetries {
-			return "", "", "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+			return nil, fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		select {
 		case <-ctx.Done():
-			return "", "", "", "", ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, maxBackoff)
 	}
-	return nodeID, apiToken, natsJWT, natsSeed, err
+	return nil, err
 }
 
 // Heartbeat sends a single heartbeat POST with the given body.
