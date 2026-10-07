@@ -45,14 +45,27 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(primaryOperate).toBeVisible({ timeout: 15_000 })
     await expect(primaryOperate).toHaveClass(/active/)
 
-    const rail = page.locator('.console-layout > .console-rail')
-    await expect(rail).toBeVisible()
-    await expect(rail.locator('a.nav-item')).toHaveCount(14)
-    await expect(rail.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
-    await expect(rail.locator('a[href$="/swagger/index.html"]')).toHaveAttribute('target', '_blank')
+    // Distributed mode on: Swarm replaces This machine, and owns the Nodes route.
+    const bar = page.locator('.hub-layout > .hub-bar .dk-hubtabs')
+    await expect(bar).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page')
+    await expect(bar.locator('[data-hub-tab="machine"]')).toHaveCount(0)
+    await expect(bar.locator('a[href$="/swagger/index.html"]')).toHaveAttribute('target', '_blank')
+    const sub = page.locator('.hub-subnav')
+    for (const name of ['Nodes', 'Scheduling', 'P2P']) {
+      await expect(sub.getByRole('link', { name })).toBeVisible()
+    }
+    await expect(sub.getByRole('link', { name: 'Nodes' })).toHaveAttribute('aria-current', 'page')
   })
 
-  test('uses the standard collapsible Operate rail on mobile', async ({ page }) => {
+  test('keeps the Swarm tab on a node detail page', async ({ page }) => {
+    await mockFullOperateNavigation(page)
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto(`/app/nodes/${baseNodes[0].id}`)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('uses the Operate tab bar on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockFullOperateNavigation(page)
     await mockNodes(page, [baseNodes[0]])
@@ -62,12 +75,11 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
     await page.getByRole('button', { name: 'Close menu' }).click()
 
-    const rail = page.locator('.console-layout > .console-rail')
-    await expect(rail).toBeVisible()
-    await expect(rail.locator('.console-rail-groups')).toBeHidden()
-    await rail.getByRole('button', { name: 'Expand Operate navigation' }).click()
-    await expect(rail.locator('.console-rail-groups')).toBeVisible()
-    await expect(rail.locator('a.nav-item')).toHaveCount(14)
+    const bar = page.locator('.hub-layout > .hub-bar .dk-hubtabs')
+    await expect(bar).toBeVisible()
+    expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
+    await bar.locator('[data-hub-tab="settings"]').scrollIntoViewIfNeeded()
+    await expect(bar.locator('[data-hub-tab="settings"]')).toBeInViewport()
   })
 
   test('shows aggregate health, capacity, attention filtering, search, sorting, and grouping', async ({ page }) => {
@@ -317,7 +329,7 @@ test.describe('Nodes fleet dashboard', () => {
     const workbench = page.getByRole('region', { name: 'Fleet workbench' })
     await expect(overview).toBeVisible({ timeout: 15_000 })
     await expect(workbench).toBeVisible()
-    await expect(page.locator('.console-layout > .console-rail')).toBeVisible()
+    await expect(page.locator('.hub-layout > .hub-bar .dk-hubtabs')).toBeVisible()
     await expect(page.locator('.fleet-select-wrap')).toHaveCount(3)
     await expect(page.getByLabel('Filter status')).toHaveCSS('appearance', 'none')
     await expect(page.locator('.fleet-bulkbar')).toHaveCount(0)
@@ -373,7 +385,7 @@ test.describe('Nodes fleet dashboard', () => {
 
     const overview = page.getByRole('region', { name: 'Fleet overview' })
     await expect(overview).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('.console-layout > .console-rail')).toBeVisible()
+    await expect(page.locator('.hub-layout > .hub-bar .dk-hubtabs')).toBeVisible()
     const overviewBox = await overview.boundingBox()
     expect(overviewBox.width).toBeGreaterThan(500)
     const cells = overview.locator('.fleet-overview__cell')

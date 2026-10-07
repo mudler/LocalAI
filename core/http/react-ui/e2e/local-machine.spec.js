@@ -152,9 +152,9 @@ test.describe('This machine (single node)', () => {
     // The preview is not a second search surface.
     await expect(preview.getByRole('searchbox')).toHaveCount(0)
 
-    const rail = page.locator('.console-rail a.nav-item[href="/app/nodes"]')
-    await expect(rail).toContainText('This machine')
-    await expect(rail.locator('.nav-signal')).toContainText('6')
+    const tab = page.locator('.dk-hubtabs a[href="/app/nodes"]')
+    await expect(tab).toContainText('This machine')
+    await expect(tab.locator('.dk-hubtab-count')).toContainText('6')
 
     await preview.getByRole('link', { name: /Open this machine/ }).click()
     await expect(page).toHaveURL(/\/app\/nodes$/)
@@ -172,7 +172,7 @@ test.describe('This machine (distributed)', () => {
 
     await expect(page.getByRole('link', { name: /Running models/ })).toHaveAttribute('href', '/app/nodes', { timeout: 15_000 })
     await expect(page.getByTestId('local-running-models')).toHaveCount(0)
-    await expect(page.locator('.console-rail a.nav-item', { hasText: 'This machine' })).toHaveCount(0)
+    await expect(page.locator('.dk-hubtabs a', { hasText: 'This machine' })).toHaveCount(0)
     expect(systemCalls).toEqual([])
   })
 })

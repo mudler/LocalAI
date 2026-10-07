@@ -67,24 +67,34 @@ test.describe('Operate overview', () => {
     await expect(page.locator(ITEM, { hasText: 'qwen3-8b' })).toBeVisible()
   })
 
-  test('the rail reports backend updates alongside the label', async ({ page }) => {
+  test('the Runtime tab reports backend updates beside the label', async ({ page }) => {
     await mockQuiet(page, { upgrades: ONE_UPGRADE })
     await page.goto('/app/operate')
-    const backends = page.locator('.console-rail a.nav-item[href="/app/backends"]')
-    await expect(backends).toBeVisible()
-    await expect(backends.locator('.nav-signal')).toContainText('1')
+    const runtime = page.locator('.dk-hubtabs [data-hub-tab="runtime"]')
+    await expect(runtime).toBeVisible()
+    await expect(runtime.locator('.dk-hubtab-attn')).toContainText('1')
   })
 
-  test('the rail groups Runtime, Cluster, Observability and Administration', async ({ page }) => {
+  test('the Status tab carries the attention count and nothing else claims one', async ({ page }) => {
+    await mockQuiet(page, { upgrades: ONE_UPGRADE })
+    await page.goto('/app/operate')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="status"] .dk-hubtab-attn')).toContainText('1')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"] .dk-hubtab-attn')).toHaveCount(0)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"] .dk-hubtab-count')).toHaveCount(0)
+  })
+
+  test('the tab bar offers Status, Runtime, Traffic and Settings', async ({ page }) => {
     await mockQuiet(page)
     await page.goto('/app/operate')
-    const rail = page.locator('.console-rail')
-    for (const group of ['Runtime', 'Cluster', 'Observability', 'Administration']) {
-      await expect(rail.locator('.console-group-title', { hasText: group })).toBeVisible()
+    const bar = page.locator('.dk-hubtabs')
+    for (const id of ['status', 'machine', 'runtime', 'traffic', 'settings']) {
+      await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
-    // Six headings for thirteen items was the defect; the old pairs are gone.
-    for (const gone of ['Inference', 'Access']) {
-      await expect(rail.locator('.console-group-title', { hasText: new RegExp(`^${gone}$`) })).toHaveCount(0)
+    // The second row names the routes inside a tab.
+    await page.goto('/app/backends')
+    const sub = page.locator('.hub-subnav')
+    for (const name of ['Backends', 'Activity', 'Failover']) {
+      await expect(sub.getByRole('link', { name })).toBeVisible()
     }
   })
 
@@ -93,15 +103,15 @@ test.describe('Operate overview', () => {
       route.fulfill({ json: { distributed: false, agents: true, mcp: true } }))
     await mockQuiet(page)
     await page.goto('/app/operate')
-    const rail = page.locator('.console-rail')
-    await expect(rail.locator('a.nav-item[href="/app/backends"]')).toBeVisible()
-    // Gating is the thing most likely to break silently when items move group.
-    // The Nodes route stays reachable, but as "This machine" in Runtime: a
-    // single host is not a cluster.
-    await expect(rail.locator('a.nav-item[href="/app/nodes"]')).toHaveCount(1)
-    await expect(rail.locator('a.nav-item[href="/app/nodes"]')).toContainText('This machine')
-    await expect(rail.locator('a.nav-item', { hasText: /^Nodes/ })).toHaveCount(0)
-    await expect(rail.locator('a.nav-item[href="/app/scheduling"]')).toHaveCount(0)
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar.locator('a[href="/app/backends"]')).toBeVisible()
+    // Gating is the thing most likely to break silently when items move.
+    // The Nodes route stays reachable, but as "This machine": a single host is
+    // not a cluster. Swarm only exists in distributed mode.
+    await expect(bar.locator('a[href="/app/nodes"]')).toHaveCount(1)
+    await expect(bar.locator('a[href="/app/nodes"]')).toContainText('This machine')
+    await expect(bar.locator('[data-hub-tab="swarm"]')).toHaveCount(0)
+    await expect(bar.locator('a[href="/app/scheduling"]')).toHaveCount(0)
   })
 
   test('the sidebar keeps its operations badge', async ({ page }) => {

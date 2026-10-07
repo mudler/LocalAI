@@ -28,53 +28,50 @@ test.describe('Navigation', () => {
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/talk"]')).toBeVisible()
   })
 
-  test('Build is a single entry that opens the Build console', async ({ page }) => {
+  test('Build and Operate sit under a Workspace label', async ({ page }) => {
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+  })
+
+  test('Build is a single entry that opens the Build hub', async ({ page }) => {
     await page.goto('/app')
     const build = page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })
     await expect(build).toBeVisible()
     await build.click()
-    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Build' })).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/build$/)
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar.locator('[data-hub-tab="overview"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveClass(/active/)
   })
 
-  test('Operate is a single entry that opens the admin console', async ({ page }) => {
+  test('Operate is a single entry that opens the Operate hub', async ({ page }) => {
     await page.goto('/app')
     const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
     await expect(operate).toBeVisible()
     await operate.click()
-    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Operate' })).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/operate$/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="status"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('Build console groups Automation, Training and Recognition', async ({ page }) => {
+  test('Build hub lists its tools as tabs', async ({ page }) => {
     await page.goto('/app/agents')
-    const rail = page.locator('.console-rail')
-    await expect(rail).toBeVisible()
-    for (const group of ['Automation', 'Training', 'Recognition']) {
-      await expect(rail.locator('.console-group-title', { hasText: group })).toBeVisible()
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar).toBeVisible()
+    for (const id of ['overview', 'agents', 'skills', 'memory', 'jobs', 'fine-tune', 'quantize', 'import', 'voices', 'faces']) {
+      await expect(bar.locator(`[data-hub-tab="${id}"]`)).toBeVisible()
     }
-    // Recognition (Faces/Voices) and Training (Fine-tune/Quantize) live here now.
-    await expect(rail.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
-    await expect(rail.locator('a.nav-item[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('a[href="/app/fine-tune"]')).toBeVisible()
+    await expect(bar.locator('a[href="/app/face"]')).toBeVisible()
+    await expect(bar.locator('[data-hub-tab="agents"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('desktop console rail collapses to accessible icons and persists globally', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 })
-    await page.goto('/app/backends')
-
-    const rail = page.locator('.console-rail')
-    const collapse = rail.getByRole('button', { name: 'Collapse Operate navigation' })
-    await expect(collapse).toBeVisible()
-    await collapse.click()
-    await expect(rail).toHaveClass(/console-rail--collapsed/)
-    await expect(rail).toHaveCSS('width', '60px')
-    await expect(rail.getByRole('link', { name: 'Backends', exact: true })).toHaveClass(/active/)
-    await expect(rail.getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('title', 'Overview')
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('localai_console_rail_collapsed'))).toBe('true')
-
-    await page.goto('/app/agents')
-    const buildRail = page.locator('.console-rail')
-    await expect(buildRail).toHaveClass(/console-rail--collapsed/)
-    await expect(buildRail.getByRole('button', { name: 'Expand Build navigation' })).toBeVisible()
-    await page.reload()
-    await expect(page.locator('.console-rail')).toHaveClass(/console-rail--collapsed/)
+  test('the Build overview lists the tools with a line each', async ({ page }) => {
+    await page.goto('/app/build')
+    const list = page.getByRole('list', { name: 'Build tools' })
+    await expect(list.locator('a[href="/app/agents"]')).toContainText('Create and run agents')
+    await expect(list.locator('a[href="/app/fine-tune"]')).toBeVisible()
   })
+
 })

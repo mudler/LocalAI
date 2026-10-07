@@ -16,7 +16,8 @@
     "create": "Erstellen",
     "recognition": "Erkennung",
     "build": "Entwickeln",
-    "operate": "Betrieb"
+    "operate": "Betrieb",
+    "workspace": "Arbeitsbereich"
   },
   "operate": {
     "inference": "Inference",
@@ -61,7 +62,8 @@
     "activity": "Aktivität",
     "overview": "Übersicht",
     "thisMachine": "Dieser Rechner",
-    "failover": "Failover"
+    "failover": "Failover",
+    "p2p": "P2P"
   },
   "footer": {
     "github": "GitHub",
@@ -72,5 +74,26 @@
   "console": {
     "automation": "Automatisierung",
     "training": "Training"
+  },
+  "hub": {
+    "status": "Status",
+    "runtime": "Runtime",
+    "traffic": "Traffic",
+    "import": "Importieren",
+    "recognition": "Erkennung",
+    "overviewSupporting": "Alles, was du mit deinen Modellen baust, an einem Ort.",
+    "overviewEmpty": "Für dein Konto sind keine Build-Werkzeuge verfügbar.",
+    "toolsLabel": "Build-Werkzeuge",
+    "descriptions": {
+      "agents": "Erstelle und starte Agenten, die deine Modelle und Werkzeuge nutzen.",
+      "skills": "Wiederverwendbare Anweisungen, die Agenten bei Bedarf laden.",
+      "memory": "Dokumentsammlungen, die Agenten durchsuchen können.",
+      "jobs": "Geplante und einmalige Aufgaben, die Agenten für dich ausführen.",
+      "fineTune": "Trainiere ein Modell mit deinen eigenen Daten.",
+      "quantize": "Verkleinere ein Modell, damit es auf kleinerer Hardware läuft.",
+      "import": "Füge ein Modell aus einer Datei, einer URL oder einem Hugging-Face-Repository hinzu.",
+      "voices": "Erkenne Sprecher und verwalte eine Bibliothek von Stimmprofilen.",
+      "faces": "Gesichter erkennen, vergleichen und zuordnen."
+    }
   }
 }

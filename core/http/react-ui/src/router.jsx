@@ -134,9 +134,12 @@ const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
+const BuildOverview = page('build', () => import('./pages/BuildOverview'))
 
-import ConsoleLayout from './components/console/ConsoleLayout'
-import { buildConsole, operateConsole } from './components/console/consoleConfig'
+import HubLayout from './components/hub/HubLayout'
+import { buildHub, operateHub } from './components/hub/hubConfig'
 
 function BrowseRedirect() {
   const { '*': splat } = useParams()
@@ -177,12 +180,12 @@ const appChildren = [
   { path: 'talk', element: <Talk /> },
   { path: 'account', element: <Account /> },
 
-  // Build console — Automation, Training, and Recognition groups share one rail.
-  // Only the section landing pages live under the rail; deep create/edit/chat
-  // flows below render full-width.
+  // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
+  // flows below render full-width, without the bar.
   {
-    element: <ConsoleLayout config={buildConsole} />,
+    element: <HubLayout config={buildHub} />,
     children: [
+      { path: 'build', element: <BuildOverview /> },
       { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
       { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
       { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
@@ -193,9 +196,11 @@ const appChildren = [
       { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
       { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
       { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
+      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
+      { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },
-  // Build deep flows — full-width, no rail.
+  // Build deep flows: full-width, no tab bar.
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
@@ -208,14 +213,14 @@ const appChildren = [
   { path: 'agent-jobs/tasks/:id/edit', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
   { path: 'agent-jobs/jobs/:id', element: <Feature feature="mcp_jobs"><AgentJobDetails /></Feature> },
 
-  // Operate console (admin).
+  // Operate hub (admin): one tab bar over the runtime, cluster, traffic and
+  // settings pages.
   {
-    element: <ConsoleLayout config={operateConsole} />,
+    element: <HubLayout config={operateHub} />,
     children: [
       { path: 'operate', element: <Admin><OperateOverview /></Admin> },
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'activity', element: <Admin><Activity /></Admin> },
-      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
@@ -237,7 +242,6 @@ const appChildren = [
   { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
-  { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   { path: '*', element: <NotFound /> },
 ]
 

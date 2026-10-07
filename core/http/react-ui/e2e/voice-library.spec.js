@@ -122,14 +122,17 @@ test.describe('Personality Library', () => {
     await expect(page.getByText(/Installing omnivoice-cpp/)).toBeVisible()
   })
 
-  test('keeps the Operate rail compact and accessible on small screens', async ({ page }) => {
+  test('keeps the Build tab bar compact and scrollable on small screens', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/app/voice-library')
-    const rail = page.locator('.console-rail')
-    await expect(rail.getByRole('link', { name: 'Backends' })).toBeHidden()
-    await rail.getByRole('button', { name: 'Expand Operate navigation' }).click()
-    await expect(rail.getByRole('link', { name: 'Backends' })).toBeVisible()
-    await expect(rail.getByRole('button', { name: 'Collapse Operate navigation' })).toBeVisible()
+    const bar = page.locator('.dk-hubtabs')
+    await expect(bar).toBeVisible()
+    expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
+    const voices = bar.locator('[data-hub-tab="voices"]')
+    await voices.scrollIntoViewIfNeeded()
+    await expect(voices).toBeInViewport()
+    await expect(voices).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.hub-subnav').getByRole('link', { name: 'Library' })).toHaveAttribute('aria-current', 'page')
   })
 
   test('passes the stable voice URI from the library into TTS', async ({ page }) => {

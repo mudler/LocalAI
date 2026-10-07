@@ -9,18 +9,18 @@ import { useTheme } from './contexts/ThemeContext'
 import { useBranding } from './contexts/BrandingContext'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
-import { consoles, consolePaths } from './components/console/consoleConfig'
+import { hubs, hubOwnsPath } from './components/hub/hubConfig'
 import Icon from './components/Icon'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 
 // The page wrapper is keyed so its transition replays on navigation. Within a
-// console, collapse the key to the console id so the layout (and its rail)
-// persists across item-to-item nav instead of remounting and flashing — only
+// hub, collapse the key to the hub id so the layout (and its tab bar)
+// persists across tab-to-tab nav instead of remounting and flashing — only
 // the inner page swaps. Normal routes keep their per-path key.
 function pageTransitionKey(pathname) {
-  for (const c of consoles) {
-    if (consolePaths(c).some(p => pathname.startsWith(p))) return `console:${c.id}`
+  for (const h of hubs) {
+    if (hubOwnsPath(h, pathname)) return `hub:${h.id}`
   }
   return pathname
 }
@@ -78,7 +78,7 @@ export default function App() {
 
   // Reset scroll to the top on every route change. The default (non-chat)
   // layout uses the document as its scroll container, so without this a new
-  // page opens at the previous page's scroll position - navigating the console
+  // page opens at the previous page's scroll position - navigating a hub
   // rail from a scrolled page would land mid-view instead of at the top.
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -148,8 +148,8 @@ export default function App() {
                 here, inside the App layout. Without it, suspension would bubble
                 up to main.jsx's outer boundary and unmount the sidebar/header
                 on every navigation. RouteFallback shows a delayed loader so the
-                content area isn't blank while a chunk arrives (console pages get
-                their own boundary in ConsoleLayout so the rail stays put). */}
+                content area isn't blank while a chunk arrives (hub pages get
+                their own boundary in HubLayout so the tab bar stays put). */}
             <Suspense fallback={<RouteFallback />}>
               <Outlet context={{ addToast }} />
             </Suspense>

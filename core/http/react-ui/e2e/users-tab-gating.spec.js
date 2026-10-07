@@ -29,11 +29,12 @@ test.describe('Users tab — single-user no-auth mode', () => {
   })
 
   test('console does not list Users entry without auth', async ({ page }) => {
-    // Users lives in the Operate console rail (authOnly gate). With auth off
-    // the rail must not list it. /app/backends is an admin console page,
+    // Users sits in the Settings tab's second row (authOnly gate). With auth
+    // off the row must not list it. /app/settings is an admin page,
     // reachable because no-auth ⇒ isAdmin.
-    await page.goto('/app/backends')
-    const usersLink = page.locator('.console-rail a.nav-item[href="/app/users"]')
+    await page.goto('/app/settings')
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toBeVisible()
+    const usersLink = page.locator('.hub-subnav a[href="/app/users"]')
     await expect(usersLink).toHaveCount(0)
   })
 
@@ -63,10 +64,10 @@ test.describe('Users tab — auth on', () => {
     )
   })
 
-  test('console lists Users entry when auth is on', async ({ page }) => {
-    // With auth on and an admin viewer the console rail lists Users.
-    await page.goto('/app/backends')
-    const usersLink = page.locator('.console-rail a.nav-item[href="/app/users"]')
+  test('the Settings tab lists Users when auth is on', async ({ page }) => {
+    // With auth on and an admin viewer the Settings row lists Users.
+    await page.goto('/app/settings')
+    const usersLink = page.locator('.hub-subnav a[href="/app/users"]')
     await expect(usersLink).toBeVisible()
   })
 })

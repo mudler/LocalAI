@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
-import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
+import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 
@@ -19,9 +19,9 @@ const topItems = [
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
 ]
 
-// Create stays inline (frequent, one-click creative destinations). The Build
-// and Operate tiers are single entries that open a secondary console rail —
-// their items live in console/consoleConfig.js (shared with ConsoleLayout).
+// Create stays inline (frequent, one-click creative destinations). Build and
+// Operate sit under Workspace as single entries; each opens a hub whose tab
+// bar lives in hub/hubConfig.js (shared with HubLayout).
 const sections = [
   {
     id: 'create',
@@ -32,9 +32,11 @@ const sections = [
       { path: '/app/talk', icon: 'phone', labelKey: 'items.talk' },
     ],
   },
+  // Items come from the hubs (hubConfig.js) and carry their own gating.
+  { id: 'workspace', titleKey: 'sections.workspace', hubs: true },
 ]
 
-function NavItem({ item, onClose, collapsed }) {
+function NavItem({ item, onClose, collapsed, active, badge }) {
   const { t } = useTranslation('nav')
   const label = t(item.labelKey)
   // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
@@ -46,7 +48,7 @@ function NavItem({ item, onClose, collapsed }) {
       to={item.path}
       end={item.path === '/app'}
       className={({ isActive }) =>
-        `nav-item ${isActive ? 'active' : ''}`
+        `nav-item ${(active ?? isActive) ? 'active' : ''}`
       }
       onClick={onClose}
       onMouseEnter={preload}
@@ -56,6 +58,7 @@ function NavItem({ item, onClose, collapsed }) {
     >
       <Icon name={item.icon} className="nav-icon" aria-hidden="true" />
       <span className="nav-label">{label}</span>
+      {badge}
     </NavLink>
   )
 }
@@ -121,6 +124,7 @@ export default function Sidebar({ isOpen, onClose }) {
   // Auto-expand section containing the active route
   useEffect(() => {
     for (const section of sections) {
+      if (!section.items) continue
       const match = section.items.some(item => location.pathname.startsWith(item.path))
       if (match && !openSections[section.id]) {
         setOpenSections(prev => {
@@ -160,17 +164,25 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   const visibleTopItems = topItems.filter(filterItem)
-  // Shared shape for the console gating helpers (consoleConfig.js).
+  // Shared shape for the hub gating helpers (hubConfig.js).
   const auth = { isAdmin, authEnabled, hasFeature, features }
 
-  // One badge, on the always-visible sidebar entry. The console rail only
-  // exists while the user is on an Operate route and can be collapsed, so
-  // badging the rail item instead would let the count disappear entirely.
+  // One badge, on the always-visible sidebar entry. The Operate tab bar only
+  // exists while the user is on an Operate route, so badging a tab instead
+  // would let the count disappear entirely.
   const failedOps = operations.filter((op) => op.error).length
   const activeOps = operations.length
 
-  // Inline sections (Create) carry no gating; a plain filterItem pass suffices.
-  const getVisibleSectionItems = (section) => section.items.filter(filterItem)
+  // Create carries no gating beyond filterItem. Workspace lists one entry per
+  // hub the viewer can use; its target is the hub's overview.
+  const getVisibleSectionItems = (section) => {
+    if (!section.hubs) return section.items.filter(filterItem)
+    return hubs.flatMap(hub => {
+      const path = hubEntryPath(hub, auth)
+      if (!path) return []
+      return [{ path, icon: hub.icon, labelKey: hub.titleKey, hub }]
+    })
+  }
 
   return (
     <>
@@ -230,7 +242,18 @@ export default function Sidebar({ isOpen, onClose }) {
                 {showItems && (
                   <div className="sidebar-section-items">
                     {visibleItems.map(item => (
-                      <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
+                      <NavItem
+                        key={item.path}
+                        item={item}
+                        onClose={onClose}
+                        collapsed={collapsed}
+                        active={item.hub ? hubOwnsPath(item.hub, location.pathname) : undefined}
+                        badge={item.hub?.id === 'operate' && activeOps > 0 ? (
+                          <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
+                            {failedOps > 0 ? failedOps : activeOps}
+                          </span>
+                        ) : null}
+                      />
                     ))}
                   </div>
                 )}
@@ -238,35 +261,6 @@ export default function Sidebar({ isOpen, onClose }) {
             )
           })}
 
-          {/* Console tiers (Build, Operate): a single entry that opens a
-              secondary rail. Hidden when the viewer can see none of its items. */}
-          {consoles.map(config => {
-            const target = firstVisiblePath(config, auth)
-            if (!target) return null
-            const active = consolePaths(config).some(p => location.pathname.startsWith(p))
-            const label = t(config.titleKey)
-            return (
-              <div key={config.id} className="sidebar-section">
-                <NavLink
-                  to={target}
-                  className={() => `nav-item ${active ? 'active' : ''}`}
-                  onClick={onClose}
-                  onMouseEnter={() => preloadRoute(target)}
-                  onFocus={() => preloadRoute(target)}
-                  onTouchStart={() => preloadRoute(target)}
-                  title={collapsed ? label : undefined}
-                >
-                  <Icon name={config.icon} className="nav-icon" aria-hidden="true" />
-                  <span className="nav-label">{label}</span>
-                  {config.groups.some(g => g.items.some(i => i.badge === 'operations')) && activeOps > 0 && (
-                    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-                      {failedOps > 0 ? failedOps : activeOps}
-                    </span>
-                  )}
-                </NavLink>
-              </div>
-            )
-          })}
         </nav>
 
         {/* Footer */}

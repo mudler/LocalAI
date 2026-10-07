@@ -73,12 +73,12 @@ test.describe('Usage page — single-user no-auth mode', () => {
     page.usageHits = () => usageHits
   })
 
-  test('Usage entry is visible in the console without auth', async ({ page }) => {
-    // Usage lives in the Operate admin-console rail under Observability. In
-    // no-auth (single-user) mode isAdmin is true, so the console renders and
-    // the Usage rail link is reachable.
+  test('Usage entry is visible in the hub without auth', async ({ page }) => {
+    // Usage sits in the Operate Traffic tab. In no-auth (single-user) mode
+    // isAdmin is true, so the hub renders and the Usage link is reachable.
     await page.goto('/app/usage')
-    await expect(page.locator('.console-rail a.nav-item[href="/app/usage"]')).toBeVisible()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="traffic"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.hub-subnav a[href="/app/usage"]')).toBeVisible()
   })
 
   test('navigating to /app/usage renders the dashboard with local-user data', async ({ page }) => {

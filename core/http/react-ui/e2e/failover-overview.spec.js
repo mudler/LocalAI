@@ -56,15 +56,16 @@ test.describe('Failover overview', () => {
     })
   })
 
-  test('admin sees the Failover entry in the Operate rail', async ({ page }) => {
+  test('admin reaches Failover from the Runtime tab', async ({ page }) => {
     await mockAuth(page)
     await mockFailover(page, [CHAIN_A])
-    await page.goto('/app/operate')
+    await page.goto('/app/backends')
 
-    const rail = page.locator('.console-layout > .console-rail')
-    const link = rail.locator('a.nav-item[href="/app/failover"]')
+    const link = page.locator('.hub-subnav a[href="/app/failover"]')
     await expect(link).toBeVisible({ timeout: 10_000 })
     await expect(link).toContainText('Failover')
+    await link.click()
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).toHaveAttribute('aria-current', 'page')
   })
 
   test('lists chains from GET /api/failover with their live health', async ({ page }) => {

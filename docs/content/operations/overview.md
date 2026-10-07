@@ -52,7 +52,7 @@ so rather than showing three zeroes dressed as telemetry.
 
 The overview also shows the host's current RAM or GPU capacity, utilization,
 and model storage. Loading, unavailable, and empty states are explicit. This
-uses the same 15-second Operate summary poll as the rail and attention data, so
+uses the same 15-second Operate summary poll as the tab badges and attention data, so
 opening the overview does not start a second resource poller.
 
 ## Running now
@@ -85,8 +85,8 @@ per-model readings come from the `process` block of
 readings come from the `cpu` and `disk` fields of `GET /api/resources`.
 
 **Add machines** reveals the command to start LocalAI in distributed mode. Once
-distributed mode is on, the same route becomes the Nodes page and the rail
-entry moves to the Cluster group.
+distributed mode is on, the same route becomes the Nodes page and the **This
+machine** tab gives way to the **Swarm** tab.
 
 Models and backends no longer live under a nested Host page. Use **Models →
 Installed** for model runtime and configuration actions, and **Operate →
@@ -97,15 +97,23 @@ Old `/app/manage` bookmarks remain supported. They redirect with replace
 semantics to the matching Installed Models or Installed Backends view while
 preserving legacy search, filter, selection, variant, and development flags.
 
-## The rail
+## The tab bar
 
-The Operate rail groups its destinations under four headings —
-Runtime, Cluster, Observability and Administration — and shows a live value
-beside several of them: pending backend updates, running operations, healthy
-node count, request volume and error count. Host capacity lives on the overview
-instead of appearing as a separate destination.
+Operate has one row of tabs above the page: **Status** (this overview),
+**This machine**, **Swarm** (only with distributed mode on), **Runtime**,
+**Traffic** and **Settings**. A tab that holds several pages shows a second row
+of links under the bar: Runtime holds Backends, Activity and Failover; Traffic
+holds Usage, Traces and Middleware; Settings holds Settings and Users (with
+authentication on); Swarm holds Nodes, Scheduling and P2P. Every page keeps its
+own URL, and a page such as a node detail keeps its tab highlighted. On a phone
+the bar scrolls sideways. The **API** link at the end of the bar opens the
+API documentation.
 
-Those values are **orientation, not an alarm**. The rail only exists on Operate
-routes and can be collapsed, so anything urgent also appears in Needs attention
-and on the operations badge attached to the sidebar entry, which is always
-visible.
+Several tabs carry a live value: pending backend updates and running operations
+on Runtime, the healthy node count on Swarm, running models on This machine, the
+attention count on Status and the error count on Traffic. Host capacity lives on
+the overview instead of appearing as a separate destination.
+
+Those values are **orientation, not an alarm**. The bar only exists on Operate
+routes, so anything urgent also appears in Needs attention and on the
+operations badge attached to the sidebar entry, which is always visible.

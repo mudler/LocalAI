@@ -11,7 +11,7 @@ import { useDistributedMode } from '../hooks/useDistributedMode'
 // consumer running its own setInterval against the same endpoint was the
 // defect it was created to fix. Four endpoints doing that would be worse.
 //
-// The provider is mounted by ConsoleLayout for the Operate console only, so
+// The provider is mounted by HubLayout for the Operate hub only, so
 // "poll only while the user is in Operate" needs no route check: away from
 // Operate the provider is not mounted and nothing runs.
 //
