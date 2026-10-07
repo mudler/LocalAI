@@ -96,7 +96,14 @@ type BackendNode struct {
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	// Attached lists the carriers that the worker reported it is connected to,
+	// separated by commas, and AttachedEpoch is the epoch of the cluster
+	// carrier row that the worker saw when it reported. During a change of
+	// carrier a worker is attached to both, and the frontends route by this.
+	// Both are empty for a worker that does not report them.
+	Attached      string    `gorm:"column:attached;size:64" json:"attached,omitempty"`
+	AttachedEpoch int64     `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
 	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
 	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
 	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
