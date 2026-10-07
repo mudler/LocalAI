@@ -18,9 +18,12 @@
 //     a hint to go and look.
 //
 // Limits, measured on a four-core database: about 16,000 broadcasts a second of
-// 200 bytes, about 8,000 a second with 20 listeners or with 2 to 8 KiB, and
-// about 1,000 a second of 64 KiB. A broadcast that does not fit in a
-// notification is written to a row and costs a SELECT on every replica.
+// 200 bytes, and about 8,000 a second with 20 listeners or with 2 to 8 KiB. A
+// broadcast that does not fit in a notification is written to a row and costs a
+// SELECT on every replica; a replica reads several rows at the same time. With
+// one reader at a time, a replica lost half of a burst of 64 KiB broadcasts
+// above about 1,000 a second. Above the limits, broadcasts are dropped and
+// counted, and never queued without a bound.
 package pgbus
 
 import (
@@ -434,54 +437,84 @@ func (b *Bus) barrier(stage, op string) {
 	}
 }
 
-// deliver resolves one notification and hands it to the subscribers whose
-// filters match.
-func (b *Bus) deliver(channel, payload string) {
-	b.barrier("enter", "DELIVER")
+// pending is one notification on its way from the listener to the handlers. The
+// resolver decodes it in the order it arrived, and a spilled one is read back by
+// a worker while the next ones are decoded. The dispatcher takes the pending
+// notifications in the same order and waits for each one to be ready.
+type pending struct {
+	channel string
+	n       notification
+	data    []byte
+	// ok is false when the notification must not be delivered.
+	ok    bool
+	ready chan struct{}
+}
 
-	var n notification
-	if err := json.Unmarshal([]byte(payload), &n); err != nil {
+// decode turns a notification as it came off the connection into a pending one.
+// A spilled one is not ready: the caller starts fetch for it.
+func (b *Bus) decode(in inbound) *pending {
+	p := &pending{channel: in.channel, ready: make(chan struct{})}
+	if err := json.Unmarshal([]byte(in.payload), &p.n); err != nil {
 		b.lose(stageResolve)
-		xlog.Error("Broadcast carrier received an undecodable notification", "channel", channel, "error", err)
-		return
+		xlog.Error("Broadcast carrier received an undecodable notification", "channel", in.channel, "error", err)
+		close(p.ready)
+		return p
 	}
-
-	data := []byte(n.Data)
-	if n.SpillID == "" && len(data) == 0 {
+	p.data = []byte(p.n.Data)
+	if p.n.SpillID == "" && len(p.data) == 0 {
 		// Publish cannot produce this, because json.Marshal never returns an
 		// empty encoding. It is possible only if something other than this
 		// carrier notifies on one of its channels. A handler that received nil
 		// would see a message that says nothing, and no message is better.
 		b.lose(stageResolve)
-		xlog.Error("Broadcast carrier received a notification with no payload", "channel", channel, "subject", n.Subject)
+		xlog.Error("Broadcast carrier received a notification with no payload", "channel", in.channel, "subject", p.n.Subject)
+		close(p.ready)
+		return p
+	}
+	p.ok = true
+	if p.n.SpillID == "" {
+		close(p.ready)
+	}
+	return p
+}
+
+// fetch reads the row of a spilled notification and marks it ready.
+func (b *Bus) fetch(p *pending) {
+	defer close(p.ready)
+	resolved, err := b.resolveSpill(p.n.SpillID)
+	if err != nil {
+		// A dropped broadcast and nothing more. A handler that got an empty
+		// message instead would read a carrier failure as a fact about the
+		// deployment.
+		p.ok = false
+		b.lose(stageResolve)
+		xlog.Error("Broadcast carrier could not resolve a spilled message", "subject", p.n.Subject, "id", p.n.SpillID, "error", err)
 		return
 	}
-	if n.SpillID != "" {
-		resolved, err := b.resolveSpill(n.SpillID)
-		if err != nil {
-			// A dropped broadcast and nothing more. A handler that got an empty
-			// message instead would read a carrier failure as a fact about the
-			// deployment.
-			b.lose(stageResolve)
-			xlog.Error("Broadcast carrier could not resolve a spilled message", "subject", n.Subject, "id", n.SpillID, "error", err)
-			return
-		}
-		data = resolved
+	p.data = resolved
+}
+
+// deliver hands a notification that is ready to the subscribers whose filters
+// match.
+func (b *Bus) deliver(p *pending) {
+	b.barrier("enter", "DELIVER")
+	if !p.ok {
+		return
 	}
 
 	b.mu.Lock()
-	targets := make([]*subscription, 0, len(b.subs[channel]))
-	for _, sub := range b.subs[channel] {
+	targets := make([]*subscription, 0, len(b.subs[p.channel]))
+	for _, sub := range b.subs[p.channel] {
 		// The shared matcher decides here and nowhere else. A second spelling is
 		// the drift that the shared function exists to prevent.
-		if messaging.SubjectMatches(sub.filter, n.Subject) {
+		if messaging.SubjectMatches(sub.filter, p.n.Subject) {
 			targets = append(targets, sub)
 		}
 	}
 	b.mu.Unlock()
 
 	for _, sub := range targets {
-		sub.enqueue(n.Subject, data)
+		sub.enqueue(p.n.Subject, p.data)
 	}
 }
 
