@@ -975,7 +975,7 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		}
 		return out
 	}
-	return &pb.DiarizeResponse{
+	resp := &pb.DiarizeResponse{
 		Segments: []*pb.DiarizeSegment{
 			seg(0.0, 1.0, "5", "hello there"),
 			seg(1.0, 2.0, "2", "general kenobi"),
@@ -984,7 +984,16 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 		NumSpeakers: 2,
 		Duration:    3.5,
 		Language:    in.Language,
-	}, nil
+	}
+	// IncludeSounds gates the sound events; the mock always has a sound model.
+	if in.IncludeSounds {
+		resp.SoundsIncluded = true
+		resp.Sounds = []*pb.DiarizeSound{
+			{Start: 0.5, End: 1.25, Label: "Door", Confidence: 0.8},
+			{Start: 2.0, End: 3.0, Label: "Applause", Confidence: 0.6},
+		}
+	}
+	return resp, nil
 }
 
 func (m *MockBackend) AudioEncode(ctx context.Context, in *pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error) {

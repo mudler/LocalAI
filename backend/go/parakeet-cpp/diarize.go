@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -123,6 +124,11 @@ func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error
 			return pb.DiarizeResponse{}, status.Error(codes.Unimplemented, "parakeet-cpp: speaker profiles require a loaded speaker encoder and profile-capable library")
 		}
 	}
+	if req.GetIncludeSounds() {
+		if err := p.checkSoundEventsAvailable(); err != nil {
+			return pb.DiarizeResponse{}, err
+		}
+	}
 	if CppDiarizePCM == nil {
 		return pb.DiarizeResponse{}, status.Error(codes.Unimplemented,
 			"parakeet-cpp: loaded libparakeet.so has no diarization support (parakeet_capi_diarize_pcm missing)")
@@ -190,7 +196,18 @@ func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error
 	segments = applyDurationFilters(segments, req.GetMinDurationOn(), req.GetMinDurationOff())
 	renumberDiarizeSegments(segments)
 
+	var sounds []*pb.DiarizeSound
+	if req.GetIncludeSounds() {
+		events, err := p.diarizeSoundEvents(context.Background(), pcm)
+		if err != nil {
+			return pb.DiarizeResponse{}, err
+		}
+		sounds = diarizeSoundsToProto(events)
+	}
+
 	return pb.DiarizeResponse{
+		Sounds:              sounds,
+		SoundsIncluded:      req.GetIncludeSounds(),
 		SpeakerProfilesJson: profiles,
 		Segments:            segments,
 		NumSpeakers:         distinctDiarizeSpeakers(segments),

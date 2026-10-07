@@ -256,7 +256,9 @@ this, speakers only carry labels such as `SPEAKER_00`.
 2. Install one of the gallery models that loads the same encoder:
    `parakeet-cpp-nemotron-3-diarization-speakers` (diarization),
    `parakeet-cpp-nemotron-3-diarization-asr-speakers` (diarization with
-   `include_text`) or `parakeet-cpp-realtime-scene-speakers` (live
+   `include_text`), `parakeet-cpp-multilingual-diarization-speakers-sounds`
+   (multilingual diarization with `include_text`, voice prints and sound events)
+   or `parakeet-cpp-realtime-scene-speakers` (live
    transcription). Each one adds
    `speaker_model:voice-detect-wespeaker-resnet34.gguf` to a
    parakeet-cpp model config.
