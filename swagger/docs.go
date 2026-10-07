@@ -2909,7 +2909,7 @@ const docTemplate = `{
         },
         "/v1/audio/diarization": {
             "post": {
-                "description": "JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.",
+                "description": "JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles, include_sounds and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.",
                 "consumes": [
                     "multipart/form-data",
                     "application/json"
@@ -2985,6 +2985,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "include per-segment transcript when the backend supports it",
                         "name": "include_text",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "include closed sound events (start, end, label, confidence) when the model has a sound_model companion; otherwise 501 include_sounds_unsupported (JSON formats only)",
+                        "name": "include_sounds",
                         "in": "formData"
                     },
                     {
@@ -5861,6 +5867,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.DiarizationSegment"
                     }
                 },
+                "sounds": {
+                    "description": "Sounds is present only when the request set include_sounds. An empty\nlist then means the model ran and heard no event; omitzero keeps a nil\nlist (not requested) out of the payload while an empty one stays.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DiarizationSound"
+                    }
+                },
                 "speaker_profiles": {
                     "$ref": "#/definitions/schema.SpeakerProfiles"
                 },
@@ -5902,6 +5915,23 @@ const docTemplate = `{
                 },
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.DiarizationSound": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "number"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "number"
                 }
             }
         },
@@ -7526,6 +7556,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/functions.JSONFunctionStructure"
                 },
                 "ignore_eos": {
+                    "type": "boolean"
+                },
+                "include_sounds": {
                     "type": "boolean"
                 },
                 "include_speaker_profiles": {

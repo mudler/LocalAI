@@ -230,7 +230,7 @@ pipeline:
 
 #### Choosing the sound model
 
-Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
+Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. `parakeet-cpp-multilingual-diarization-speakers-sounds` loads the same TDT, Nemotron-3-Diarization and CED-Tiny trio plus the WeSpeaker encoder, and is meant for offline `/v1/audio/diarization` calls with `include_sounds=true` (see [Speaker Diarization]({{% relref "audio-diarization" %}}#sound-events)). Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
 
 | | CED-Tiny | CED-Base |
 |---|---|---|

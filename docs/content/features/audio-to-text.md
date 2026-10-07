@@ -200,7 +200,7 @@ The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classifi
 |---|---|---|
 | `asr_model:<path>` | a diarization model | `include_text` on `/v1/audio/diarization` |
 | `diarization_model:<path>` | an ASR model | a `speaker` on transcript segments (and words), and speaker segments during realtime live transcription |
-| `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
+| `sound_model:<path>` | an ASR or diarization model | sound events during realtime live transcription, `sounds` on `/v1/audio/diarization` with `include_sounds=true`, and `/v1/audio/classification` on the loaded model |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
 | `speaker_model:<path>` | a model with a diarization model | names registered speakers; a bundle can use `speaker_component:<name>` instead (see [Bundle GGUF files](#bundle-gguf-files-several-models-in-one-file)) (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription)) |
 | `speaker_tag:<tag>` | a model with `speaker_component` | extra encoder tag for registered voices that carry only a file-name tag (see [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-from-a-bundle)) |

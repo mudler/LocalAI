@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	grpcpkg "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -41,6 +42,10 @@ type profileHTTPBackend struct {
 	embeds      int
 	unsupported bool
 	values      [][]byte
+	// soundsSupported makes Diarize honour include_sounds with sounds; left
+	// false it behaves like a backend that ignores the field.
+	soundsSupported bool
+	sounds          []*pb.DiarizeSound
 }
 
 func (b *profileHTTPBackend) Status(context.Context) (*pb.StatusResponse, error) {
@@ -52,7 +57,12 @@ func (b *profileHTTPBackend) Status(context.Context) (*pb.StatusResponse, error)
 func (b *profileHTTPBackend) Diarize(_ context.Context, r *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
 	b.last = r
 	raw, _ := json.Marshal(b.profiles)
-	return &pb.DiarizeResponse{Segments: []*pb.DiarizeSegment{{Speaker: "7", Start: 0, End: 3, Text: "Hello"}}, SpeakerProfilesJson: string(raw)}, nil
+	resp := &pb.DiarizeResponse{Segments: []*pb.DiarizeSegment{{Speaker: "7", Start: 0, End: 3, Text: "Hello"}}, SpeakerProfilesJson: string(raw)}
+	if r.IncludeSounds && b.soundsSupported {
+		resp.SoundsIncluded = true
+		resp.Sounds = b.sounds
+	}
+	return resp, nil
 }
 func (b *profileHTTPBackend) VoiceEmbed(context.Context, *pb.VoiceEmbedRequest, ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
 	b.embeds++
@@ -370,5 +380,76 @@ func TestPortableProfilesNeverPersistInAPITraces(t *testing.T) {
 			t.Fatal("ordinary trace not persisted")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestDiarizationSoundsHTTP(t *testing.T) {
+	b := &profileHTTPBackend{profiles: profileFixture(), soundsSupported: true, sounds: []*pb.DiarizeSound{{Start: 1.5, End: 2.25, Label: "Dog", Confidence: 0.75}}}
+	e, _ := profileServer(b, false)
+
+	for _, format := range []string{"json", "verbose_json"} {
+		w := profileJSON(e, "/v1/audio/diarization", map[string]any{"model": "test", "file": "YXVkaW8=", "include_sounds": true, "response_format": format})
+		if w.Code != 200 || !b.last.IncludeSounds {
+			t.Fatal(format, w.Code, w.Body.String())
+		}
+		var got struct {
+			Sounds []schema.DiarizationSound `json:"sounds"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		want := schema.DiarizationSound{Start: 1.5, End: 2.25, Label: "Dog", Confidence: 0.75}
+		if len(got.Sounds) != 1 || got.Sounds[0] != want {
+			t.Fatal(format, w.Body.String())
+		}
+	}
+
+	// Multipart form field.
+	body := &bytes.Buffer{}
+	mw := multipart.NewWriter(body)
+	mw.WriteField("model", "test")
+	mw.WriteField("include_sounds", "true")
+	f, _ := mw.CreateFormFile("file", "sample.wav")
+	f.Write([]byte("audio"))
+	mw.Close()
+	r := httptest.NewRequest("POST", "/v1/audio/diarization", body)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, r)
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"label":"Dog"`)) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+
+	// Not requested: the field is absent and the backend is told so.
+	w = profileJSON(e, "/v1/audio/diarization", map[string]any{"model": "test", "file": "YXVkaW8="})
+	if w.Code != 200 || b.last.IncludeSounds || bytes.Contains(w.Body.Bytes(), []byte(`"sounds"`)) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+
+	// Requested and heard nothing: an empty list, not an absent field.
+	b.sounds = nil
+	w = profileJSON(e, "/v1/audio/diarization", map[string]any{"model": "test", "file": "YXVkaW8=", "include_sounds": true})
+	if w.Code != 200 || !bytes.Contains(w.Body.Bytes(), []byte(`"sounds":[]`)) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+
+	// RTTM cannot carry sounds: rejected before the backend runs.
+	b.last = nil
+	w = profileJSON(e, "/v1/audio/diarization", map[string]any{"model": "test", "file": "YXVkaW8=", "include_sounds": true, "response_format": "rttm"})
+	if w.Code != 400 || b.last != nil {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+func TestDiarizationSoundsUnsupported(t *testing.T) {
+	// A backend that ignores include_sounds ends in a 501 carrying the stable
+	// code, never a 200 with an empty list.
+	e, _ := profileServer(&profileHTTPBackend{profiles: profileFixture()}, false)
+	w := profileJSON(e, "/v1/audio/diarization", map[string]any{"model": "test", "file": "YXVkaW8=", "include_sounds": true})
+	if w.Code != 501 || !bytes.Contains(w.Body.Bytes(), []byte(grpcerrors.SoundEventsUnsupportedCode)) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if bytes.Contains(w.Body.Bytes(), []byte(`"sounds"`)) {
+		t.Fatal("unsupported response carried a sounds field", w.Body.String())
 	}
 }
