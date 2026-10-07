@@ -66,7 +66,9 @@ var _ = Describe("transcription observability", func() {
 	var app *application.Application
 	var handler http.Handler
 	var fixture *observedTranscriptionBackend
+	var requestedModel string
 	BeforeEach(func() {
+		requestedModel = "speech-test"
 		root := GinkgoT().TempDir()
 		var err error
 		app, err = application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithDisableCSRF(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
@@ -75,7 +77,7 @@ var _ = Describe("transcription observability", func() {
 		cfg := config.ModelConfig{Name: "speech-test", Backend: "whisper"}
 		cfg.SetDefaults()
 		cfg.Model = "speech.bin"
-		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{cfg})
+		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{cfg, {Name: "speech-alias", Alias: "speech-test"}})
 		fixture = &observedTranscriptionBackend{}
 		app.ModelLoader().SetModelRouter(func(_ context.Context, id string, _, _, _, _ string, _ *pb.ModelOptions, _ bool) (*model.Model, error) {
 			return model.NewModelWithClient(id, "test://speech", fixture), nil
@@ -87,7 +89,7 @@ var _ = Describe("transcription observability", func() {
 	request := func(route, format string, stream bool) *http.Request {
 		var body bytes.Buffer
 		form := multipart.NewWriter(&body)
-		Expect(form.WriteField("model", "speech-test")).To(Succeed())
+		Expect(form.WriteField("model", requestedModel)).To(Succeed())
 		Expect(form.WriteField("response_format", format)).To(Succeed())
 		if stream {
 			Expect(form.WriteField("stream", "true")).To(Succeed())
@@ -152,6 +154,19 @@ var _ = Describe("transcription observability", func() {
 		Entry("backend error", "/v1/audio/transcriptions", "json", false, true),
 		Entry("SSE error", "/audio/transcriptions", "", true, true),
 	)
+	DescribeTable("attributes alias usage to the requested model", func(stream bool) {
+		requestedModel = "speech-alias"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, request("/v1/audio/transcriptions", "json", stream))
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("hello world"))
+		buckets, err := app.StatsRecorder().Aggregate(context.Background(), billing.AggregateQuery{UserID: app.FallbackUser().ID, Period: "day"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(buckets).To(HaveLen(1))
+		Expect(buckets[0].Model).To(Equal("speech-alias"))
+		Expect(buckets[0].RequestCount).To(Equal(int64(1)))
+		Expect(buckets[0].TotalTokens).To(BeZero())
+	}, Entry("JSON", false), Entry("SSE", true))
 	DescribeTable("does not count responses the client cannot receive", func(stream bool) {
 		rec := &failedTranscriptionWriter{httptest.NewRecorder()}
 		handler.ServeHTTP(rec, request("/v1/audio/transcriptions", "json", stream))

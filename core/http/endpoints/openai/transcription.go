@@ -174,7 +174,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		if stream {
-			return streamTranscription(c, req, ml, *config, appConfig)
+			return streamTranscription(c, req, input.Model, ml, *config, appConfig)
 		}
 
 		tr, err := backend.ModelTranscriptionWithOptions(c.Request().Context(), req, ml, *config, appConfig)
@@ -264,7 +264,7 @@ func validTranscriptionResponseFormat(f schema.TranscriptionResponseFormatType) 
 // `transcript.text.done` with the assembled text, and `[DONE]`. Backends that
 // can't truly stream still produce a single Final event, which we surface as
 // one delta + done.
-func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *model.ModelLoader, config config.ModelConfig, appConfig *config.ApplicationConfig) error {
+func streamTranscription(c echo.Context, req backend.TranscriptionRequest, requestedModel string, ml *model.ModelLoader, config config.ModelConfig, appConfig *config.ApplicationConfig) error {
 	c.Response().Header().Set("Content-Type", "text/event-stream")
 	c.Response().Header().Set("Cache-Control", "no-cache")
 	c.Response().Header().Set("Connection", "keep-alive")
@@ -374,6 +374,6 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 		return err
 	}
 	c.Response().Flush()
-	middleware.StampUsage(c, config.Name, 0, 0)
+	middleware.StampUsage(c, requestedModel, 0, 0)
 	return nil
 }

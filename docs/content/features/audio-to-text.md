@@ -34,7 +34,7 @@ curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/f
 
 When usage statistics are enabled, successful requests to `/v1/audio/transcriptions`
 and `/audio/transcriptions` contribute request counts and elapsed time for the
-selected model. This includes streaming responses. Token counts remain zero
+requested model name, including an alias. This includes streaming responses. Token counts remain zero
 because transcription results do not provide canonical token usage. Failed
 transcriptions, including errors reported within a stream, do not count as
 successful usage.
