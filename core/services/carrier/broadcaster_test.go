@@ -51,83 +51,83 @@ var _ = Describe("Broadcaster holder", func() {
 
 	It("publishes on the carrier the pointer names", func() {
 		got := &received{}
-		_, err := a.bus.Subscribe("nodes.x", got.handler())
+		_, err := a.bus.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
-		_, err = b.bus.Subscribe("nodes.x", got.handler())
+		_, err = b.bus.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(h.Publish("nodes.x", "one")).To(Succeed())
+		Expect(h.Publish("jobs.x", "one")).To(Succeed())
 		Expect(got.all()).To(HaveLen(1))
-		Expect(a.bus.PublishCount("nodes.x")).To(Equal(1))
-		Expect(b.bus.PublishCount("nodes.x")).To(Equal(0))
+		Expect(a.bus.PublishCount("jobs.x")).To(Equal(1))
+		Expect(b.bus.PublishCount("jobs.x")).To(Equal(0))
 
 		cur.Store(b.set)
-		Expect(h.Publish("nodes.x", "two")).To(Succeed())
-		Expect(a.bus.PublishCount("nodes.x")).To(Equal(1))
-		Expect(b.bus.PublishCount("nodes.x")).To(Equal(1))
+		Expect(h.Publish("jobs.x", "two")).To(Succeed())
+		Expect(a.bus.PublishCount("jobs.x")).To(Equal(1))
+		Expect(b.bus.PublishCount("jobs.x")).To(Equal(1))
 	})
 
 	It("delivers a subscription that was made before and after a swap", func() {
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(h.Listen(b.set)).To(Succeed())
 		cur.Store(b.set)
 
 		// A peer that has not flipped yet still publishes on the old carrier.
-		Expect(a.bus.Publish("nodes.x", "from-old")).To(Succeed())
-		Expect(h.Publish("nodes.x", "from-new")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "from-old")).To(Succeed())
+		Expect(h.Publish("jobs.x", "from-new")).To(Succeed())
 
 		Expect(got.all()).To(ConsistOf(`"from-old"`, `"from-new"`))
 	})
 
 	It("listens on both carriers while a target is attached, and publishes on one", func() {
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(h.Listen(b.set)).To(Succeed())
 
-		Expect(a.bus.Publish("nodes.x", "a")).To(Succeed())
-		Expect(b.bus.Publish("nodes.x", "b")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "a")).To(Succeed())
+		Expect(b.bus.Publish("jobs.x", "b")).To(Succeed())
 		Expect(got.all()).To(ConsistOf(`"a"`, `"b"`))
 
-		Expect(h.Publish("nodes.x", "c")).To(Succeed())
-		Expect(a.bus.PublishCount("nodes.x")).To(Equal(2), "the active carrier carries the publish")
-		Expect(b.bus.PublishCount("nodes.x")).To(Equal(1), "the target carrier carries none")
+		Expect(h.Publish("jobs.x", "c")).To(Succeed())
+		Expect(a.bus.PublishCount("jobs.x")).To(Equal(2), "the active carrier carries the publish")
+		Expect(b.bus.PublishCount("jobs.x")).To(Equal(1), "the target carrier carries none")
 	})
 
 	It("subscribes on every attached carrier when a subscription is made during the window", func() {
 		Expect(h.Listen(b.set)).To(Succeed())
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(a.bus.Publish("nodes.x", "a")).To(Succeed())
-		Expect(b.bus.Publish("nodes.x", "b")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "a")).To(Succeed())
+		Expect(b.bus.Publish("jobs.x", "b")).To(Succeed())
 		Expect(got.all()).To(ConsistOf(`"a"`, `"b"`))
 	})
 
 	It("removes a subscription from every carrier when it is unsubscribed", func() {
 		got := &received{}
-		sub, err := h.Subscribe("nodes.x", got.handler())
+		sub, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(h.Listen(b.set)).To(Succeed())
 
 		Expect(sub.Unsubscribe()).To(Succeed())
-		Expect(a.bus.Publish("nodes.x", "a")).To(Succeed())
-		Expect(b.bus.Publish("nodes.x", "b")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "a")).To(Succeed())
+		Expect(b.bus.Publish("jobs.x", "b")).To(Succeed())
 		Expect(got.all()).To(BeEmpty())
 
 		// It stays gone for a carrier attached later.
 		c := newFakeCarrier(cluster.CarrierTunnel, 3)
 		Expect(h.Listen(c.set)).To(Succeed())
-		Expect(c.bus.Publish("nodes.x", "c")).To(Succeed())
+		Expect(c.bus.Publish("jobs.x", "c")).To(Succeed())
 		Expect(got.all()).To(BeEmpty())
 	})
 
 	It("tolerates a second Unsubscribe", func() {
-		sub, err := h.Subscribe("nodes.x", func([]byte) {})
+		sub, err := h.Subscribe("jobs.x", func([]byte) {})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sub.Unsubscribe()).To(Succeed())
 		Expect(sub.Unsubscribe()).To(Succeed())
@@ -135,14 +135,14 @@ var _ = Describe("Broadcaster holder", func() {
 
 	It("drops the old carrier's subscriptions on Release and keeps the new ones", func() {
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(h.Listen(b.set)).To(Succeed())
 		cur.Store(b.set)
 
 		Expect(h.Release(a.set)).To(Succeed())
-		Expect(a.bus.Publish("nodes.x", "late-old")).To(Succeed())
-		Expect(b.bus.Publish("nodes.x", "new")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "late-old")).To(Succeed())
+		Expect(b.bus.Publish("jobs.x", "new")).To(Succeed())
 		Expect(got.all()).To(Equal([]string{`"new"`}))
 	})
 
@@ -152,18 +152,18 @@ var _ = Describe("Broadcaster holder", func() {
 
 	It("treats a second Listen of the same carrier as nothing to do", func() {
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(h.Listen(b.set)).To(Succeed())
 		Expect(h.Listen(b.set)).To(Succeed())
 
-		Expect(b.bus.Publish("nodes.x", "b")).To(Succeed())
+		Expect(b.bus.Publish("jobs.x", "b")).To(Succeed())
 		Expect(got.all()).To(HaveLen(1), "one subscription per carrier, not two")
 	})
 
 	It("leaves nothing behind when a carrier cannot take a subscription", func() {
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).ToNot(HaveOccurred())
 
 		broken := newFakeCarrier(cluster.CarrierTunnel, 3)
@@ -174,7 +174,7 @@ var _ = Describe("Broadcaster holder", func() {
 		Expect(err).To(MatchError(boom))
 
 		// The target is not attached, and a later subscription does not try it.
-		_, err = h.Subscribe("nodes.y", func([]byte) {})
+		_, err = h.Subscribe("jobs.y", func([]byte) {})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(h.Release(broken.set)).To(Succeed(), "releasing an unattached carrier is harmless")
 	})
@@ -186,10 +186,10 @@ var _ = Describe("Broadcaster holder", func() {
 		Expect(h.Listen(refusing.set)).To(Succeed(), "nothing is registered yet, so nothing is refused")
 
 		got := &received{}
-		_, err := h.Subscribe("nodes.x", got.handler())
+		_, err := h.Subscribe("jobs.x", got.handler())
 		Expect(err).To(MatchError(boom))
 
-		Expect(a.bus.Publish("nodes.x", "a")).To(Succeed())
+		Expect(a.bus.Publish("jobs.x", "a")).To(Succeed())
 		Expect(got.all()).To(BeEmpty(), "the half-made subscription was removed")
 	})
 
@@ -247,7 +247,7 @@ var _ = Describe("Broadcaster holder", func() {
 			entered := make(chan struct{}, 1)
 			slow.set.Broadcaster = blockingBroadcaster{Broadcaster: slow.bus, gate: gate, entered: entered}
 
-			_, err := h.Subscribe("nodes.x", func([]byte) {})
+			_, err := h.Subscribe("jobs.x", func([]byte) {})
 			Expect(err).ToNot(HaveOccurred())
 
 			listenDone := make(chan error, 1)
@@ -255,12 +255,12 @@ var _ = Describe("Broadcaster holder", func() {
 			Eventually(entered).Should(Receive())
 
 			published := make(chan error, 1)
-			go func() { published <- h.Publish("nodes.x", "during") }()
+			go func() { published <- h.Publish("jobs.x", "during") }()
 			Eventually(published, time.Second).Should(Receive(BeNil()))
 
 			subscribed := make(chan error, 1)
 			go func() {
-				_, err := h.Subscribe("nodes.z", func([]byte) {})
+				_, err := h.Subscribe("jobs.z", func([]byte) {})
 				subscribed <- err
 			}()
 			Consistently(listenDone, 50*time.Millisecond).ShouldNot(Receive())
@@ -278,12 +278,12 @@ var _ = Describe("Broadcaster holder", func() {
 			cur.Store(stuck.set)
 
 			first := make(chan error, 1)
-			go func() { first <- h.Publish("nodes.x", "old") }()
+			go func() { first <- h.Publish("jobs.x", "old") }()
 			Eventually(entered).Should(Receive())
 
 			cur.Store(b.set)
-			Expect(h.Publish("nodes.x", "new")).To(Succeed())
-			Expect(b.bus.PublishCount("nodes.x")).To(Equal(1))
+			Expect(h.Publish("jobs.x", "new")).To(Succeed())
+			Expect(b.bus.PublishCount("jobs.x")).To(Equal(1))
 
 			close(gate)
 			Eventually(first, time.Second).Should(Receive(BeNil()))
@@ -302,7 +302,7 @@ var _ = Describe("Broadcaster holder", func() {
 				go func() {
 					defer wg.Done()
 					<-start
-					_, err := h.Subscribe("nodes.x", counts[i].handler())
+					_, err := h.Subscribe("jobs.x", counts[i].handler())
 					Expect(err).ToNot(HaveOccurred())
 				}()
 			}
@@ -315,8 +315,8 @@ var _ = Describe("Broadcaster holder", func() {
 			close(start)
 			wg.Wait()
 
-			Expect(a.bus.Publish("nodes.x", "a")).To(Succeed())
-			Expect(b.bus.Publish("nodes.x", "b")).To(Succeed())
+			Expect(a.bus.Publish("jobs.x", "a")).To(Succeed())
+			Expect(b.bus.Publish("jobs.x", "b")).To(Succeed())
 			for i := range counts {
 				Expect(counts[i].all()).To(ConsistOf(`"a"`, `"b"`), "subscription %d", i)
 			}
@@ -334,7 +334,7 @@ var _ = Describe("Broadcaster holder", func() {
 
 			var payload any = "payload"
 			allocs := testing.AllocsPerRun(1000, func() {
-				_ = holder.Publish("nodes.x", payload)
+				_ = holder.Publish("jobs.x", payload)
 			})
 			Expect(allocs).To(BeZero())
 			Expect(quiet.published.Load()).To(BeNumerically(">", 1000))
@@ -393,3 +393,45 @@ func (q *quietBroadcaster) Publish(string, any) error { q.published.Add(1); retu
 func (q *quietBroadcaster) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
 	return nil, nil
 }
+
+var _ = Describe("Broadcaster holder subjects", func() {
+	var (
+		a, b *fakeCarrier
+		cur  atomic.Pointer[carrier.Set]
+		h    *carrier.Broadcaster
+	)
+
+	BeforeEach(func() {
+		a = newFakeCarrier(cluster.CarrierNATS, 1)
+		b = newFakeCarrier(cluster.CarrierTunnel, 2)
+		cur = atomic.Pointer[carrier.Set]{}
+		cur.Store(a.set)
+		h = carrier.NewBroadcaster(&cur)
+	})
+
+	// Control traffic has its own clients and never goes through the holder. A
+	// carrier with no request and reply refuses these roots, so a subscription
+	// that the holder accepted would fail the first Listen onto that carrier,
+	// long after the call that caused it.
+	DescribeTable("refuses a subscription to a control root when it is made",
+		func(subject string) {
+			got := &received{}
+			sub, err := h.Subscribe(subject, got.handler())
+			Expect(err).To(MatchError(messaging.ErrUnservedSubject))
+			Expect(sub).To(BeNil())
+			_ = a.bus.Publish(subject, "x")
+			Expect(got.all()).To(BeEmpty(), "the refused subscription was attached anyway")
+
+			Expect(h.Listen(b.set)).To(Succeed(), "a refused subscription must not stay registered for a later swap")
+		},
+		Entry("nodes", "nodes.x.backend.install"),
+		Entry("mcp", "mcp.tools.execute"),
+		Entry("a subject outside every root", "elsewhere.x"),
+	)
+
+	It("accepts a subscription to a broadcast root", func() {
+		sub, err := h.Subscribe("jobs.x.progress", func([]byte) {})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sub).ToNot(BeNil())
+	})
+})

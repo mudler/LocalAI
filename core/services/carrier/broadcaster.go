@@ -59,7 +59,19 @@ func (b *Broadcaster) Publish(subject string, data any) error {
 
 // Subscribe attaches handler to every set the holder listens on. It fails, and
 // leaves nothing attached, when any of them refuses.
+//
+// The holder carries fan-out and nothing else. It refuses, with
+// messaging.ErrUnservedSubject, a subject outside the broadcast roots: the
+// control roots (request and reply to one node or one agent worker) have their
+// own clients, and a carrier with no request and reply, such as pgbus, cannot
+// serve them. A subscription that the holder accepted here and the target set
+// refused later would fail the Listen of a carrier switch, long after the call
+// that caused it. So a subscription that is accepted is servable by every
+// carrier, and Listen does not fail for the subject.
 func (b *Broadcaster) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	if err := messaging.ValidateBroadcastSubject(subject); err != nil {
+		return nil, err
+	}
 	sub := &subscription{owner: b, subject: subject, handler: handler, inner: map[*Set]messaging.Subscription{}}
 
 	// Read the sets and register in one step, so a concurrent Listen either

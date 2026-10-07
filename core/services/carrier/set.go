@@ -38,6 +38,9 @@ type Set struct {
 	// Epoch is the epoch of the cluster row the set was built for.
 	Epoch int64
 
+	// Broadcaster carries fan-out and nothing else. A subject outside the
+	// broadcast roots (see messaging.ValidateBroadcastSubject) is not served
+	// through it: control traffic uses Commands, Clients and Agents.
 	Broadcaster messaging.Broadcaster
 	// OnReconnect registers a callback the carrier runs after it recovers a
 	// lost connection. It is nil for a carrier with no such event.

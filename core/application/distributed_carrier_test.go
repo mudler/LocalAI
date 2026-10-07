@@ -116,10 +116,10 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			// A message published through the holder reaches a subscriber made
 			// through the same holder, over the real server.
 			got := make(chan []byte, 1)
-			sub, err := svc.Broadcaster.Subscribe("nodes.carrier-spec", func(b []byte) { got <- b })
+			sub, err := svc.Broadcaster.Subscribe("jobs.carrier-spec", func(b []byte) { got <- b })
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(func() { _ = sub.Unsubscribe() })
-			Expect(svc.Broadcaster.Publish("nodes.carrier-spec", "hello")).To(Succeed())
+			Expect(svc.Broadcaster.Publish("jobs.carrier-spec", "hello")).To(Succeed())
 			Eventually(got).Should(Receive(Equal([]byte(`"hello"`))))
 		})
 

@@ -188,6 +188,12 @@ pool is keyed by host and port and two workers can report the same address.
   pgbus, uses `messaging.ValidateBroadcastSubject`, which refuses the control
   roots with the same error. `messagingtest.BroadcastRootSubjects` has one
   subject for each broadcast root, and a spec keeps it equal to the rules.
+- The `carrier.Broadcaster` holder carries fan-out only. Its `Subscribe`
+  refuses a subject outside the broadcast roots with
+  `messaging.ErrUnservedSubject`, so a subscription that it accepted is
+  servable by every carrier and `Listen` never fails for the subject. Control
+  traffic (the `nodes` and `mcp` roots) does not go through the holder: it uses
+  the request and reply clients of the set.
 - Wildcards: only a whole single token `*`, never the root. `>` is refused with
   `messaging.ErrUnsupportedWildcard`.
 - Delivery is at-most-once. Anything that must survive a gap belongs in a table.
