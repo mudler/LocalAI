@@ -3,6 +3,10 @@ package tunnel_test
 import (
 	"context"
 	"io"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/tunnel"
@@ -21,6 +25,27 @@ var _ = Describe("Buffers of the websocket", func() {
 		Expect(d.ReadBufferSize).To(Equal(64 << 10))
 		Expect(d.WriteBufferSize).To(Equal(64 << 10))
 		Expect(d.HandshakeTimeout).To(Equal(3 * time.Second))
+	})
+
+	It("is the only way the files of the tunnel make a websocket", func() {
+		// A literal websocket.Upgrader or websocket.Dialer gets the 4 KiB buffers
+		// of gorilla, and a transfer from the worker to the frontend runs five
+		// times slower than the other direction. The files that open a websocket
+		// of the tunnel must use NewUpgrader and NewDialer.
+		var files []string
+		for _, pattern := range []string{"../../http/endpoints/cluster/*.go", "../worker/tunnel*.go"} {
+			matches, err := filepath.Glob(pattern)
+			Expect(err).ToNot(HaveOccurred())
+			files = append(files, matches...)
+		}
+		files = slices.DeleteFunc(files, func(f string) bool { return strings.HasSuffix(f, "_test.go") })
+		Expect(files).ToNot(BeEmpty(), "the pattern found no file, so it checks nothing")
+		for _, f := range files {
+			src, err := os.ReadFile(f)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(src)).ToNot(ContainSubstring("websocket.Upgrader{"), f)
+			Expect(string(src)).ToNot(ContainSubstring("websocket.Dialer{"), f)
+		}
 	})
 
 	It("keeps the default origin check so that a browser of another origin is refused", func() {
