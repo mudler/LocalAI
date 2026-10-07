@@ -12,8 +12,9 @@ for (const theme of ['light', 'dark']) {
     })
 
     test('split panes are cards with their own edge and a shadow', async ({ page }) => {
-      await page.goto('/app/models?view=installed')
-      const pane = page.locator('.split-view__pane').first()
+      // The Explore inspector is always on the page, whatever the gallery holds.
+      await page.goto('/app/models')
+      const pane = page.locator('.ledger__pane').first()
       await expect(pane).toBeVisible({ timeout: 15_000 })
       const style = await pane.evaluate((el) => {
         const cs = getComputedStyle(el)
@@ -32,20 +33,25 @@ for (const theme of ['light', 'dark']) {
       expect(distance(rgb(style.bg), rgb(style.canvas))).toBeGreaterThan(8)
     })
 
-    test('the selected row has an accent wash and an accent edge', async ({ page }) => {
+    test('the selected row sits on a surface step and shows a check, with no edge rail', async ({ page }) => {
       await page.goto('/app/models?view=installed')
-      const row = page.locator('.entity-rail__item').first()
+      const row = page.locator('tr[data-row]').first()
       await expect(row).toBeVisible({ timeout: 15_000 })
-      const before = await row.evaluate((el) => getComputedStyle(el).backgroundColor)
+      const cell = row.locator('td').nth(1)
+      const before = await cell.evaluate((el) => getComputedStyle(el).backgroundColor)
       await row.click()
-      const on = page.locator('.entity-rail__item--on').first()
-      await expect(on).toBeVisible()
-      const after = await on.evaluate((el) => {
+      await expect(row).toHaveAttribute('data-selected', 'true')
+      const after = await cell.evaluate((el) => {
         const cs = getComputedStyle(el)
-        return { bg: cs.backgroundColor, shadow: cs.boxShadow }
+        return { bg: cs.backgroundColor, shadow: cs.boxShadow, border: cs.borderLeftWidth }
       })
+      // A stronger surface, not a stripe on the edge.
       expect(after.bg).not.toBe(before)
-      expect(after.shadow).toContain('inset')
+      expect(after.shadow).not.toContain('inset')
+      expect(after.border).toBe('0px')
+      // The check mark is the second signal.
+      const mark = await row.locator('.ledger-mark').evaluate((el) => getComputedStyle(el).backgroundColor)
+      expect(mark).not.toBe('rgba(0, 0, 0, 0)')
     })
 
     test('the home send button is quiet when empty and active with text', async ({ page }) => {

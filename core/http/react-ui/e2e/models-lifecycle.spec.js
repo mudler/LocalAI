@@ -111,7 +111,8 @@ test.describe('Models lifecycle', () => {
     await page.goto('/app/models')
 
     const explore = page.getByRole('link', { name: 'Explore', exact: true })
-    const installed = page.getByRole('link', { name: 'Installed', exact: true })
+    // The tab carries the installed count, so its name starts with the label.
+    const installed = page.getByRole('link', { name: /^Installed/ })
     await expect(explore).toHaveAttribute('aria-current', 'page')
     await expect(installed).not.toHaveAttribute('aria-current', 'page')
     await expect(page.locator('[data-testid="discover"]')).toBeVisible()
@@ -137,15 +138,15 @@ test.describe('Models lifecycle', () => {
 
   test('switches to Installed and restores URL state through history', async ({ page }) => {
     await page.goto('/app/models')
-    await page.getByRole('link', { name: 'Installed', exact: true }).click()
+    await page.getByRole('link', { name: /^Installed/ }).click()
 
     await expect(page).toHaveURL(/[?&]view=installed/)
-    await expect(page.getByRole('link', { name: 'Installed', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('link', { name: /^Installed/ })).toHaveAttribute('aria-current', 'page')
     await expect(installedRail(page)).toBeVisible()
 
     const search = page.getByRole('textbox', { name: 'Search installed models' })
     await search.fill('beta')
-    await page.getByRole('tab', { name: /Idle$/ }).click()
+    await page.getByRole('tab', { name: /^Idle/ }).click()
     await page.locator('[data-entity="beta"]').click()
 
     await expect(page).toHaveURL(/[?&]q=beta/)
@@ -156,7 +157,7 @@ test.describe('Models lifecycle', () => {
     await page.goBack()
     await expect(page).not.toHaveURL(/[?&]model=beta/)
     await expect(search).toHaveValue('beta')
-    await expect(page.getByRole('tab', { name: /Idle$/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Idle/ })).toHaveAttribute('aria-selected', 'true')
 
     await page.goForward()
     await expect(page).toHaveURL(/[?&]model=beta/)
@@ -167,7 +168,7 @@ test.describe('Models lifecycle', () => {
     await page.goto('/app/models?view=installed&q=remote&state=distributed&model=remote-model')
 
     await expect(page.getByRole('textbox', { name: 'Search installed models' })).toHaveValue('remote')
-    await expect(page.getByRole('tab', { name: /Distributed$/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Distributed/ })).toHaveAttribute('aria-selected', 'true')
     await expect(installedPane(page)).toContainText('remote-model')
     await expect(installedPane(page)).toContainText('Worker one')
   })
@@ -188,7 +189,8 @@ test.describe('Models lifecycle', () => {
   test('stops a running model with confirmation', async ({ page }) => {
     await page.goto('/app/models?view=installed&model=alpha')
 
-    const stop = page.getByRole('button', { name: 'Stop', exact: true })
+    // The row and the inspector both carry Stop; this drives the inspector's.
+    const stop = installedPane(page).getByRole('button', { name: 'Stop', exact: true })
     await expect(stop).toBeVisible()
     await stop.click()
     await expect(page.getByRole('alertdialog')).toContainText('Stop model alpha?')
@@ -197,7 +199,7 @@ test.describe('Models lifecycle', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Stop', exact: true }).click()
     const request = await requestPromise
     expect(request.postDataJSON()).toEqual({ model: 'alpha' })
-    await expect(page.getByRole('button', { name: 'Load', exact: true })).toBeVisible({ timeout: 3_000 })
+    await expect(installedPane(page).getByRole('button', { name: 'Load', exact: true })).toBeVisible({ timeout: 3_000 })
   })
 
   test('keeps a runtime failure inline with its model', async ({ page }) => {
@@ -208,7 +210,7 @@ test.describe('Models lifecycle', () => {
     }))
     await page.goto('/app/models?view=installed&model=beta')
 
-    await page.getByRole('button', { name: 'Load', exact: true }).click()
+    await installedPane(page).getByRole('button', { name: 'Load', exact: true }).click()
 
     const alert = installedPane(page).getByRole('alert')
     await expect(alert).toContainText('Could not load beta: engine unavailable')
@@ -222,7 +224,7 @@ test.describe('Models lifecycle', () => {
     }))
     await page.goto('/app/models?view=installed&model=beta')
 
-    await page.getByRole('button', { name: 'Actions for beta' }).click()
+    await installedPane(page).getByRole('button', { name: 'Actions for beta' }).click()
     await page.getByRole('menuitem', { name: 'Delete model' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete model' }).click()
 
@@ -237,7 +239,7 @@ test.describe('Models lifecycle', () => {
     }))
     await page.goto('/app/models?view=installed&model=beta')
 
-    await page.getByRole('button', { name: 'Actions for beta' }).click()
+    await installedPane(page).getByRole('button', { name: 'Actions for beta' }).click()
     await page.getByRole('menuitem', { name: 'Delete model' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete model' }).click()
 

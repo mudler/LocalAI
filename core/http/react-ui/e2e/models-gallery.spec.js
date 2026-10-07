@@ -99,21 +99,18 @@ const MOCK_ESTIMATES = {
   },
 };
 
-// The gallery is a rail plus a pane, not a table. These three helpers are the
-// whole of that migration for the specs below: an entry is addressed by the
-// model it carries, and the detail lives in the pane rather than in a cell
-// spanning the row.
+// The gallery is a ledger table beside an inspector. These helpers address a
+// row by the model it carries, and the detail by the inspector it opens in.
 const PANE = '[data-testid="discover-pane"]';
 const railItems = (page) => page.locator('[data-testid="discover-rail-item"]');
 const railItem = (page, name) => page.locator(`[data-entity="${name}"]`);
-// The use-case chips live in a popover now; opening it is idempotent so tests
-// can call this without tracking whether it is already up.
-const openUseCases = async (page) => {
-  const trigger = page.locator(".models-filters__usecase-trigger");
-  if ((await page.locator(".filter-btn").count()) === 0) await trigger.click();
-  await expect(page.locator(".filter-btn").first()).toBeVisible();
-};
-// Rendered means the rail has entries. The old gate waited on a column header.
+// The capability facets are chips in one row, each addressed by its filter key.
+const facet = (page, key) => page.getByTestId(`facet-${key}`);
+const pressed = (locator) => expect(locator).toHaveAttribute("aria-pressed", "true");
+const notPressed = (locator) => expect(locator).toHaveAttribute("aria-pressed", "false");
+// The search field, which the "/" key also focuses.
+const searchBox = (page) => page.getByTestId("models-search");
+// Rendered means the table has rows.
 const railReady = (page) =>
   expect(railItems(page).first()).toBeVisible({ timeout: 10_000 });
 
@@ -133,12 +130,12 @@ test.describe("Models Gallery - Backend Features", () => {
   test("selecting a model names its backend in the pane", async ({ page }) => {
     await railItem(page, "llama-model").click();
     await expect(
-      page.locator(PANE).locator(".badge", { hasText: "llama-cpp" }).first(),
+      page.locator(PANE).locator(".dk-badge", { hasText: "llama-cpp" }).first(),
     ).toBeVisible();
 
     await railItem(page, "whisper-model").click();
     await expect(
-      page.locator(PANE).locator(".badge", { hasText: /^whisper$/ }).first(),
+      page.locator(PANE).locator(".dk-badge", { hasText: /^whisper$/ }).first(),
     ).toBeVisible();
   });
 
@@ -234,40 +231,37 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   test("multi-select toggle: click Chat, TTS, then Chat again", async ({
     page,
   }) => {
-    await openUseCases(page);
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
-    const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
+    const chatBtn = facet(page, "chat");
+    const ttsBtn = facet(page, "tts");
 
     await chatBtn.click();
-    await expect(chatBtn).toHaveClass(/active/);
+    await pressed(chatBtn);
 
     await ttsBtn.click();
-    await expect(chatBtn).toHaveClass(/active/);
-    await expect(ttsBtn).toHaveClass(/active/);
+    await pressed(chatBtn);
+    await pressed(ttsBtn);
 
     // Click Chat again to deselect it
     await chatBtn.click();
-    await expect(chatBtn).not.toHaveClass(/active/);
-    await expect(ttsBtn).toHaveClass(/active/);
+    await notPressed(chatBtn);
+    await pressed(ttsBtn);
   });
 
   test('"All" clears selection', async ({ page }) => {
-    await openUseCases(page);
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
-    const allBtn = page.locator(".filter-btn", { hasText: "All" });
+    const chatBtn = facet(page, "chat");
+    const allBtn = facet(page, "all");
 
     await chatBtn.click();
-    await expect(chatBtn).toHaveClass(/active/);
+    await pressed(chatBtn);
 
     await allBtn.click();
-    await expect(allBtn).toHaveClass(/active/);
-    await expect(chatBtn).not.toHaveClass(/active/);
+    await pressed(allBtn);
+    await notPressed(chatBtn);
   });
 
   test("query param sent correctly with multiple filters", async ({ page }) => {
-    await openUseCases(page);
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
-    const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
+    const chatBtn = facet(page, "chat");
+    const ttsBtn = facet(page, "tts");
 
     // Click Chat and wait for its request to settle
     await chatBtn.click();
@@ -290,7 +284,6 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend greys out unavailable filters", async ({ page }) => {
-    await openUseCases(page);
     // Select llama-cpp backend via dropdown
     await page.locator("button", { hasText: "All Backends" }).click();
     const dropdown = page
@@ -300,9 +293,9 @@ test.describe("Models Gallery - Multi-select Filters", () => {
     await dropdown.locator("text=llama-cpp").click();
 
     // Wait for filter state to update
-    const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
-    const sttBtn = page.locator(".filter-btn", { hasText: "STT" });
-    const imageBtn = page.locator(".filter-btn", { hasText: "Image" });
+    const ttsBtn = facet(page, "tts");
+    const sttBtn = facet(page, "transcript");
+    const imageBtn = facet(page, "image");
 
     // TTS, STT, Image should be disabled for llama-cpp
     await expect(ttsBtn).toBeDisabled();
@@ -310,10 +303,10 @@ test.describe("Models Gallery - Multi-select Filters", () => {
     await expect(imageBtn).toBeDisabled();
 
     // Chat, Embeddings, Vision, NER should remain enabled
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
-    const embBtn = page.locator(".filter-btn", { hasText: "Embeddings" });
-    const visBtn = page.locator(".filter-btn", { hasText: "Vision" });
-    const nerBtn = page.locator(".filter-btn", { hasText: "NER" });
+    const chatBtn = facet(page, "chat");
+    const embBtn = facet(page, "embeddings");
+    const visBtn = facet(page, "vision");
+    const nerBtn = facet(page, "token_classify");
     await expect(chatBtn).toBeEnabled();
     await expect(embBtn).toBeEnabled();
     await expect(visBtn).toBeEnabled();
@@ -321,11 +314,10 @@ test.describe("Models Gallery - Multi-select Filters", () => {
   });
 
   test("backend clears incompatible filters", async ({ page }) => {
-    await openUseCases(page);
     // Select TTS filter first
-    const ttsBtn = page.locator(".filter-btn", { hasText: "TTS" });
+    const ttsBtn = facet(page, "tts");
     await ttsBtn.click();
-    await expect(ttsBtn).toHaveClass(/active/);
+    await pressed(ttsBtn);
 
     // Now select llama-cpp backend (which doesn't support TTS)
     await page.locator("button", { hasText: "All Backends" }).click();
@@ -336,7 +328,7 @@ test.describe("Models Gallery - Multi-select Filters", () => {
     await dropdown.locator("text=llama-cpp").click();
 
     // TTS should be auto-removed from selection
-    await expect(ttsBtn).not.toHaveClass(/active/);
+    await notPressed(ttsBtn);
   });
 });
 
@@ -414,8 +406,12 @@ test.describe("Models Gallery - Empty State", () => {
     await page.route("**/api/models*", (route) => {
       const url = new URL(route.request().url());
       const tag = url.searchParams.get("tag");
+      // Only the gallery's own listing comes back empty. The one-item requests
+      // that count each chip still say the facet matches something, so the chip
+      // stays on screen to be turned off again.
+      const isListing = url.searchParams.get("items") === "30";
       const body =
-        tag === "chat" ? EMPTY_FILTERED_RESPONSE : MOCK_MODELS_RESPONSE;
+        isListing && tag === "chat" ? EMPTY_FILTERED_RESPONSE : MOCK_MODELS_RESPONSE;
 
       route.fulfill({
         contentType: "application/json",
@@ -430,16 +426,15 @@ test.describe("Models Gallery - Empty State", () => {
   test("shows empty state for filtered-out results and clear filters restores the gallery", async ({
     page,
   }) => {
-    await openUseCases(page);
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
-    const allBtn = page.locator(".filter-btn", { hasText: "All" });
+    const chatBtn = facet(page, "chat");
+    const allBtn = facet(page, "all");
 
     await chatBtn.click();
 
-    await expect(page.locator(".empty-state-title")).toHaveText(
+    await expect(page.locator(".dk-empty-title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".empty-state-text")).toHaveText(
+    await expect(page.locator(".dk-empty-text")).toHaveText(
       "No models match your current search or filters.",
     );
 
@@ -449,9 +444,9 @@ test.describe("Models Gallery - Empty State", () => {
 
     await clearBtn.click();
 
-    await expect(allBtn).toHaveClass(/active/);
-    await expect(chatBtn).not.toHaveClass(/active/);
-    await expect(page.locator(".empty-state")).toHaveCount(0);
+    await pressed(allBtn);
+    await notPressed(chatBtn);
+    await expect(page.getByTestId("gallery-empty")).toHaveCount(0);
     await expect(railItem(page, "llama-model")).toBeVisible();
   });
 });
@@ -1171,13 +1166,13 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // produce "no models found", which reads as "that model does not exist";
     // returning the build itself would instead put a row in the listing that
     // the view the user asked for has no place for.
-    await page.locator(".search-bar input").fill("whisper-model");
+    await searchBox(page).fill("whisper-model");
 
     await expect(railItem(page, "llama-model")).toBeVisible();
     await expect(railItem(page, "whisper-model")).toHaveCount(
       0,
     );
-    await expect(page.locator(".empty-state")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty")).toHaveCount(0);
   });
 
   test("the same search returns the build itself with the toggle off", async ({
@@ -1187,7 +1182,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // the individual build, exactly as it does for every client that never
     // sends the parameter.
     await flipCollapse(page);
-    await page.locator(".search-bar input").fill("whisper-model");
+    await searchBox(page).fill("whisper-model");
 
     await expect(railItem(page, "whisper-model")).toBeVisible();
   });
@@ -1198,7 +1193,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // The server decides what an active search means. The page keeps asking
     // for the collapsed listing so that decision lives in one place, and so
     // clearing the box goes straight back to the browsing view.
-    await page.locator(".search-bar input").fill("whisper-model");
+    await searchBox(page).fill("whisper-model");
     await expect.poll(
       () => listingUrls[listingUrls.length - 1].searchParams.get("term"),
     ).toBe("whisper-model");
@@ -1210,14 +1205,14 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clearing the search box returns to the collapsed listing", async ({
     page,
   }) => {
-    await page.locator(".search-bar input").fill("whisper-model");
+    await searchBox(page).fill("whisper-model");
     // The search narrowed to the one surfaced row, so the other browsing rows
     // are gone and their return is what proves the term was dropped.
     await expect(
       railItem(page, "stablediffusion-model"),
     ).toHaveCount(0);
 
-    await page.locator(".search-bar input").fill("");
+    await searchBox(page).fill("");
 
     await expect(
       railItem(page, "stablediffusion-model"),
@@ -1253,10 +1248,10 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // the dead end coming back.
     await expect(collapseToggle(page)).toBeChecked();
 
-    await page.locator(".search-bar input").fill("whisper-model");
+    await searchBox(page).fill("whisper-model");
 
     await expect(railItem(page, "llama-model")).toBeVisible();
-    await expect(page.locator(".empty-state")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty")).toHaveCount(0);
     // Still asked for collapsed: the server decides what a term means.
     await expect
       .poll(() =>
@@ -1270,13 +1265,12 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("the empty state does not blame the collapse for a chip", async ({
     page,
   }) => {
-    await openUseCases(page);
-    await page.locator(".filter-btn", { hasText: "Chat" }).click();
+    await facet(page, "chat").click();
 
-    await expect(page.locator(".empty-state-title")).toHaveText(
+    await expect(page.locator(".dk-empty-title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".empty-state-text")).toHaveText(
+    await expect(page.locator(".dk-empty-text")).toHaveText(
       "No models match your current search or filters.",
     );
     // The chip is applied server-side over every build the gallery holds, and
@@ -1292,8 +1286,8 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   }) => {
     // Same reasoning as the chip: the term is matched against every build, so
     // with one typed the collapse cannot be what emptied the listing.
-    await page.locator(".search-bar input").fill("nothing-matches-this");
-    await expect(page.locator(".empty-state")).toBeVisible();
+    await searchBox(page).fill("nothing-matches-this");
+    await expect(page.getByTestId("gallery-empty")).toBeVisible();
 
     await expect(page.locator(".empty-state-hint")).toHaveCount(0);
   });
@@ -1301,9 +1295,8 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters returns to the collapsed browsing view", async ({
     page,
   }) => {
-    await openUseCases(page);
-    await page.locator(".filter-btn", { hasText: "Chat" }).click();
-    await expect(page.locator(".empty-state")).toBeVisible();
+    await facet(page, "chat").click();
+    await expect(page.getByTestId("gallery-empty")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
@@ -1316,13 +1309,12 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   test("clear filters resets the collapse toggle to its default", async ({
     page,
   }) => {
-    await openUseCases(page);
     // It is a filter like the others, so leaving it behind would make "clear
     // filters" a half-truth.
     await flipCollapse(page);
     await expect(railItem(page, "whisper-model")).toBeVisible();
-    await page.locator(".filter-btn", { hasText: "Chat" }).click();
-    await expect(page.locator(".empty-state")).toBeVisible();
+    await facet(page, "chat").click();
+    await expect(page.getByTestId("gallery-empty")).toBeVisible();
 
     await page.getByRole("button", { name: "Clear filters" }).click();
 
@@ -1333,11 +1325,10 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   });
 
   test("the clear button appears for the toggle alone", async ({ page }) => {
-    await openUseCases(page);
     // Turning the collapse off is a filter change with nothing else set, so
     // the empty state must still offer a way back.
     await flipCollapse(page);
-    await page.locator(".filter-btn", { hasText: "Chat" }).click();
+    await facet(page, "chat").click();
 
     await expect(
       page.getByRole("button", { name: "Clear filters" }),
@@ -1477,9 +1468,9 @@ test.describe("Models Gallery - Markdown descriptions", () => {
   test("the description sits outside the label/value grid on a readable measure", async ({
     page,
   }) => {
-    // Wide enough that the ch-based cap is the thing deciding the width. In a
-    // narrow pane the cap simply does not bind, and the ratio below would pass
-    // or fail on the viewport rather than on the rule being tested.
+    // The inspector is a narrow column, so the cap cannot be seen binding by
+    // width alone. What matters is that the prose is a block of its own with a
+    // measure cap in the stylesheet, and that it never outgrows the inspector.
     await page.setViewportSize({ width: 1800, height: 900 });
     await railItem(page, "headings-model").click();
     const detail = page.locator(PANE);
@@ -1487,18 +1478,21 @@ test.describe("Models Gallery - Markdown descriptions", () => {
     await expect(detail.locator("table td", { hasText: "Description" })).toHaveCount(
       0,
     );
+    await expect(detail.locator("table .detail-prose")).toHaveCount(0);
     await expect(detail.locator(".detail-prose__label")).toHaveText(
       "Description",
     );
-    const proseWidth = await page
+    const measure = await page
       .locator(".detail-prose__body")
-      .evaluate((el) => el.getBoundingClientRect().width);
+      .evaluate((el) => ({
+        width: el.getBoundingClientRect().width,
+        cap: getComputedStyle(el).maxWidth,
+      }));
     const paneWidth = await detail.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    // A measure, not the full pane: the cap is a ch count, so the exact pixel
-    // value moves with the font, but it must stay well inside the pane.
-    expect(proseWidth).toBeLessThan(paneWidth * 0.85);
+    expect(measure.cap).not.toBe("none");
+    expect(measure.width).toBeLessThanOrEqual(paneWidth);
   });
 
   test("a model without a description renders no prose block", async ({
@@ -1542,82 +1536,86 @@ test.describe("Models Gallery - Filter layout structure", () => {
     await railReady(page);
   });
 
-  test("the chip rows contain only use-case chips", async ({ page }) => {
-    await openUseCases(page);
-    // One row per family now, plus the row holding "All" on its own. The
-    // contract is unchanged: a chip row carries chips and nothing else.
-    const chipRows = page.locator(".filter-bar");
-    const rowCount = await chipRows.count();
-    expect(rowCount).toBeGreaterThan(1);
-
-    const childClasses = await chipRows.evaluateAll((rows) =>
-      rows.flatMap((r) => Array.from(r.children).map((c) => c.className)),
+  test("the facet row contains only facet chips", async ({ page }) => {
+    // A chip row carries chips and nothing else: no slider, no toggle, no
+    // select. Each chip is a filter, so each says whether it is pressed.
+    const row = page.locator(".ledger-facets");
+    await expect(row).toBeVisible();
+    // The chips for the other facets arrive with the server's counts.
+    await expect(facet(page, "chat")).toBeVisible({ timeout: 10_000 });
+    const children = await row.evaluate((el) =>
+      Array.from(el.children).map((c) => ({
+        cls: c.className,
+        pressed: c.getAttribute("aria-pressed"),
+        tag: c.tagName,
+      })),
     );
-    expect(childClasses.length).toBeGreaterThan(0);
-    for (const cls of childClasses) {
-      expect(cls).toContain("filter-btn");
+    expect(children.length).toBeGreaterThan(3);
+    for (const c of children) {
+      expect(c.tag).toBe("BUTTON");
+      expect(c.cls).toContain("dk-chip");
+      expect(["true", "false"]).toContain(c.pressed);
     }
-    await expect(chipRows.locator("input[type='range']")).toHaveCount(0);
-    await expect(chipRows.locator(".filter-bar-group__toggle")).toHaveCount(0);
-    await expect(chipRows.getByText("All Backends")).toHaveCount(0);
-
-    // Every family the rail speaks is represented, and none is empty.
-    for (const label of ["Text and reasoning", "Vision", "Speech and audio", "Image and video"]) {
-      await expect(
-        page.locator(".models-filters__usecase-label", { hasText: label }),
-      ).toBeVisible();
-    }
+    await expect(row.locator("input[type='range']")).toHaveCount(0);
+    await expect(row.locator(".filter-bar-group__toggle")).toHaveCount(0);
+    await expect(row.getByText("All Backends")).toHaveCount(0);
+    // "All" leads, and the capabilities the gallery really has follow it.
+    await expect(row.locator("button").first()).toHaveAttribute("data-testid", "facet-all");
+    await expect(facet(page, "chat")).toBeVisible();
+    await expect(facet(page, "transcript")).toBeVisible();
   });
 
-  test("refinements live in their own band, outside the chip row", async ({
+  test("refinements live in their own band, outside the facet row", async ({
     page,
   }) => {
     const refine = page.getByTestId("models-filters-refine");
     await expect(refine).toBeVisible();
-    await expect(refine.locator(".filter-bar")).toHaveCount(0);
+    await expect(refine.locator(".dk-chip")).toHaveCount(0);
     await expect(refine.getByText("Fits in GPU")).toBeVisible();
-    await expect(refine.locator("#models-context-size")).toBeVisible();
-    // The band is a sibling of the chip row, never a descendant.
+    await expect(refine.getByText("One row per model")).toBeVisible();
+    // The band is a sibling of the facet row, never a descendant.
     const nested = await page
-      .locator(".filter-bar")
+      .locator(".ledger-facets")
       .locator('[data-testid="models-filters-refine"]')
       .count();
     expect(nested).toBe(0);
+    // The context length is the length the fit column is computed at, so it
+    // sits with the table it changes.
+    await expect(page.locator(".ledger-bar #models-context-size")).toBeVisible();
   });
 
-  test("the backend select sits above the use-case control it gates", async ({
+  test("the backend select sits above the facet row it gates", async ({
     page,
   }) => {
     const selectBtn = page.locator("button", { hasText: "All Backends" });
     await expect(selectBtn).toBeVisible();
-    const trigger = page.locator(".models-filters__usecase-trigger");
-    await expect(trigger).toBeVisible();
-    // Picking a backend disables the use cases it cannot serve, so it still
-    // reads first even though both are now stacked in the rail column.
+    const row = page.locator(".ledger-facets");
+    await expect(row).toBeVisible();
+    // Picking a backend disables the facets it cannot serve, so it reads first.
     const selectBox = await selectBtn.boundingBox();
-    const triggerBox = await trigger.boundingBox();
-    expect(selectBox.y).toBeLessThan(triggerBox.y);
+    const rowBox = await row.boundingBox();
+    expect(selectBox.y).toBeLessThan(rowBox.y);
   });
 
-  test("refinements stay grouped and on one band at a narrow width", async ({
+  test("the controls stay on screen at a narrow width", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 900, height: 900 });
     const refine = page.getByTestId("models-filters-refine");
     await expect(refine).toBeVisible();
-    const triggerBox = await page.locator(".models-filters__usecase-trigger").boundingBox();
-    const refineBox = await refine.boundingBox();
-    // Below the use-case control, not interleaved with it.
-    expect(refineBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
     await expect(refine.getByText("Fits in GPU")).toBeVisible();
-    await expect(refine.locator("#models-context-size")).toBeVisible();
+    await expect(page.locator("#models-context-size")).toBeVisible();
+    // Nothing pushes the page sideways: the facet row scrolls inside itself.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
   });
 
   test("chips expose pressed state and the context slider is labelled", async ({
     page,
   }) => {
-    await openUseCases(page);
-    const chatBtn = page.locator(".filter-btn", { hasText: "Chat" });
+    const chatBtn = facet(page, "chat");
     await expect(chatBtn).toHaveAttribute("aria-pressed", "false");
     await chatBtn.click();
     await expect(chatBtn).toHaveAttribute("aria-pressed", "true");
@@ -1629,15 +1627,14 @@ test.describe("Models Gallery - Filter layout structure", () => {
   });
 
   test("a keyboard-focused chip shows a focus ring", async ({ page }) => {
-    await openUseCases(page);
-    // The global :focus-visible rule is wrapped in :where(), so it ties with
-    // .filter-btn on specificity and loses on order. Without an explicit rule
-    // the chips would render with no focus indicator at all.
-    await page.locator(".filter-bar-group__search input").click();
-    await page.keyboard.press("Tab"); // backend select
-    await page.keyboard.press("Tab"); // use-case disclosure
-    await page.keyboard.press("Tab"); // first chip
-    const focused = page.locator(".filter-btn:focus-visible");
+    // The shared focus language: a 2px solid outline with a 2px offset. A chip
+    // is reached by Tab from the search field, so the ring must show for
+    // keyboard focus and must not depend on a hover or a click.
+    await searchBox(page).click();
+    let focused = page.locator(".ledger-facet:focus-visible");
+    for (let i = 0; i < 12 && (await focused.count()) === 0; i++) {
+      await page.keyboard.press("Tab");
+    }
     await expect(focused).toHaveCount(1);
     // Settle any transition before reading the computed value.
     await page.waitForTimeout(400);
@@ -1649,7 +1646,6 @@ test.describe("Models Gallery - Filter layout structure", () => {
         offset: cs.outlineOffset,
       };
     });
-    // The shared focus language: a 2px solid outline with a 2px offset.
     expect(ring).toEqual({ style: "solid", width: "2px", offset: "2px" });
   });
 
@@ -1682,7 +1678,7 @@ const MOCK_MULTI_CONTEXT_ESTIMATES = {
   },
 };
 
-test.describe("Models Gallery - Explore split view", () => {
+test.describe("Models Gallery - Explore ledger", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/models*", (route) => {
       route.fulfill({
@@ -1708,12 +1704,15 @@ test.describe("Models Gallery - Explore split view", () => {
     await railReady(page);
   });
 
-  test("the gallery renders no table", async ({ page }) => {
-    // The point of the change, asserted directly: the eight-column table and
-    // the row that expanded underneath it are both gone.
+  test("the gallery is one labelled table with a row per model", async ({ page }) => {
+    // The ledger is a real table: a caption for assistive technology, column
+    // headers, one row per model, and nothing that expands underneath a row.
     await expect(page.locator('[data-testid="discover"]')).toBeVisible();
-    await expect(page.locator("table thead th")).toHaveCount(0);
-    await expect(page.locator('td[colspan="8"]')).toHaveCount(0);
+    const table = page.locator("table.ledger-table");
+    await expect(table.locator("caption")).toContainText("Gallery models");
+    await expect(table.locator("thead th").first()).toBeAttached();
+    await expect(railItems(page)).toHaveCount(4);
+    await expect(page.locator("tr.dk-table-detail")).toHaveCount(0);
   });
 
   test("with nothing selected the pane is the discovery page", async ({
@@ -1748,12 +1747,12 @@ test.describe("Models Gallery - Explore split view", () => {
     await expect(page.locator('[data-testid="discover-back"]')).toBeVisible();
   });
 
-  test("the rail groups while browsing", async ({ page }) => {
+  test("the table groups while browsing", async ({ page }) => {
     await expect(railItems(page).first()).toBeVisible();
     await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
   });
 
-  test("collapsing a group hides its entries and keeps the others", async ({ page }) => {
+  test("collapsing a group hides its rows and keeps the others", async ({ page }) => {
     const group = page.locator('[data-testid^="discover-rail-group-"]').first();
     const before = await railItems(page).count();
     await group.click();
@@ -1761,11 +1760,11 @@ test.describe("Models Gallery - Explore split view", () => {
     expect(await railItems(page).count()).toBeLessThan(before);
   });
 
-  test("a query flattens the rail to results", async ({ page }) => {
+  test("a query flattens the table to results", async ({ page }) => {
     // Once a term is typed the buckets stand between the reader and the answer,
     // so they go. A rule rather than a toggle.
     await expect(page.locator('[data-testid^="discover-rail-group-"]').first()).toBeVisible();
-    await page.locator(".filter-bar-group__search input").fill("llama");
+    await searchBox(page).fill("llama");
     await expect(page.locator('[data-testid^="discover-rail-group-"]')).toHaveCount(0);
     await expect(railItems(page).first()).toBeVisible();
   });
@@ -1818,7 +1817,7 @@ test.describe("Models Gallery - Explore split view", () => {
     await expect(page.locator(".discover__chart")).toHaveCount(0);
   });
 
-  test("the rail moves the selection from the keyboard", async ({ page }) => {
+  test("the table moves the selection from the keyboard", async ({ page }) => {
     await railItem(page, "llama-model").click();
     await expect(page).toHaveURL(/[?&]model=llama-model(&|$)/);
     // Wait for the pane to actually be the detail, not merely for the URL to
