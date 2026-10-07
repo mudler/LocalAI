@@ -667,6 +667,9 @@ func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
+		if d.Nats != nil {
+			opts.Bus = d.Nats
+		}
 	}
 	return opts
 }

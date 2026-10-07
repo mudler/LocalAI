@@ -43,4 +43,24 @@ var _ = Describe("backend process exit diagnostics", func() {
 		loader.cleanupProcessRuntime(process)
 		Eventually(process.StateDir()).ShouldNot(BeADirectory())
 	})
+
+	It("stops listing a model whose backend exited on its own, but keeps a replacement", func() {
+		tmpDir := GinkgoT().TempDir()
+		GinkgoT().Setenv(backendTempDirEnv, filepath.Join(tmpDir, "backend-runtime"))
+		backendPath := filepath.Join(tmpDir, "crashing-backend")
+		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\nsleep 0.3\nexit 42\n"), 0o700)).To(Succeed())
+
+		loader := NewModelLoader(&system.SystemState{Model: system.Model{ModelsPath: tmpDir}})
+		crashed, err := loader.startProcess(backendPath, "crashed", "127.0.0.1:65535", nil)
+		Expect(err).ToNot(HaveOccurred())
+		loader.store.Set("crashed", NewModel("crashed", "127.0.0.1:65535", crashed))
+		replaced, err := loader.startProcess(backendPath, "replaced", "127.0.0.1:65534", nil)
+		Expect(err).ToNot(HaveOccurred())
+		loader.store.Set("replaced", NewModel("replaced", "127.0.0.1:65533", nil))
+
+		Eventually(crashed.Done()).Should(BeClosed())
+		Eventually(replaced.Done()).Should(BeClosed())
+		Eventually(func() bool { _, ok := loader.store.Get("crashed"); return ok }).Should(BeFalse())
+		Consistently(func() bool { _, ok := loader.store.Get("replaced"); return ok }, "300ms").Should(BeTrue())
+	})
 })

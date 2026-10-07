@@ -367,25 +367,38 @@ func (s *backendSupervisor) backendList(_ context.Context, _ workerctl.BackendLi
 	return workerctl.BackendListReply{Backends: infos}
 }
 
+// unloadTargets returns the gRPC addresses a model.unload request must free.
+//
+// The address in the request wins when set. Otherwise the request names a
+// model, and only that model's processes (every replica) are returned. A
+// request that names no running model frees nothing: freeing some other
+// model's process would empty its loaded weights while the control plane
+// still counts it as loaded, and its next request would fail.
+func (s *backendSupervisor) unloadTargets(req workerctl.ModelUnloadRequest) []string {
+	if req.Address != "" {
+		return []string{req.Address}
+	}
+	if req.ModelName == "" {
+		return nil
+	}
+	keys := s.resolveProcessKeys(req.ModelName)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var addrs []string
+	for _, k := range keys {
+		if bp, ok := s.processes[k]; ok && bp.addr != "" {
+			addrs = append(addrs, bp.addr)
+		}
+	}
+	return addrs
+}
+
 // unloadModel answers model.unload: call gRPC Free() to release GPU memory
 // without killing the backend process.
 func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.ModelUnloadRequest) workerctl.ModelUnloadReply {
-	xlog.Info("Received NATS model.unload event")
+	xlog.Info("Received NATS model.unload event", "model", req.ModelName)
 
-	// Find the backend address for this model's backend type
-	// The request includes an Address field if the router knows which process to target
-	targetAddr := req.Address
-	if targetAddr == "" {
-		// Fallback: try all running backends
-		s.mu.Lock()
-		for _, bp := range s.processes {
-			targetAddr = bp.addr
-			break
-		}
-		s.mu.Unlock()
-	}
-
-	if targetAddr != "" {
+	for _, targetAddr := range s.unloadTargets(req) {
 		// Best-effort bounded gRPC Free(). A model.unload request must not
 		// occupy the NATS reply handler forever when a backend is wedged.
 		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)

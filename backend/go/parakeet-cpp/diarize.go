@@ -109,14 +109,19 @@ func unsupportedDiarizeFields(req *pb.DiarizeRequest) []string {
 // turn); otherwise, or when no ASR companion is loaded, segments carry no
 // text (parakeet_capi_diarize_pcm) and no error is raised.
 func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error) {
+	// Check the diarization model first. A backend whose models were freed
+	// holds no diarization context either, and it must answer
+	// FailedPrecondition, which LocalAI reads as a stale replica and reloads.
+	// Unimplemented is final: it would hide the empty backend behind a 501
+	// that every later request repeats.
+	if p.diarCtx == 0 {
+		return pb.DiarizeResponse{}, status.Error(codes.FailedPrecondition,
+			"parakeet-cpp: model is not a diarization model"+p.roleHint(componentDiar, "diar_component"))
+	}
 	if req.GetIncludeSpeakerProfiles() {
 		if CppDiarizeProfilesPCMJSON == nil || CppSpeakerIdentity == nil || CppSpeakerDim == nil || p.spkCtx == 0 {
 			return pb.DiarizeResponse{}, status.Error(codes.Unimplemented, "parakeet-cpp: speaker profiles require a loaded speaker encoder and profile-capable library")
 		}
-	}
-	if p.diarCtx == 0 {
-		return pb.DiarizeResponse{}, status.Error(codes.FailedPrecondition,
-			"parakeet-cpp: model is not a diarization model"+p.roleHint(componentDiar, "diar_component"))
 	}
 	if CppDiarizePCM == nil {
 		return pb.DiarizeResponse{}, status.Error(codes.Unimplemented,
