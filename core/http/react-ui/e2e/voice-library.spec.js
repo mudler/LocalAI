@@ -173,6 +173,8 @@ test.describe('Personality Library', () => {
 
     await page.goto('/app/tts')
     await page.getByPlaceholder('Enter text to synthesize...').fill('Read this sentence.')
+    // Delivery instructions sit in the Advanced fold of the workspace.
+    await page.getByRole('button', { name: /^Instructions/ }).click()
     await page.getByLabel('Instructions').fill('  Speak slowly and warmly.  ')
     await page.getByRole('button', { name: /Generate$/ }).click()
     await expect.poll(() => ttsBodies.length).toBe(1)
