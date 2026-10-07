@@ -10,7 +10,8 @@
       "backToAll": "All installed models",
       "eyebrow": "Installed on this host",
       "summary": "{{count}} models ready to serve.",
-      "summaryHint": "Select a model to inspect its runtime state and controls."
+      "summaryHint": "Select a model to inspect its runtime state and controls.",
+      "filterLabel": "Filter by state"
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
@@ -103,6 +104,7 @@
     "vad": "VAD",
     "ner": "NER",
     "fitsGpu": "Fits in GPU",
+    "fitsMemory": "Fits in memory",
     "collapseVariants": "One row per model",
     "allBackends": "All Backends",
     "searchBackends": "Search backends...",
@@ -154,6 +156,7 @@
     "sha256": "SHA256",
     "backToAll": "All models",
     "vramAt": "VRAM at {{context}}",
+    "memoryAt": "Memory at {{context}}",
     "headroom": "Headroom",
     "headroomOn": "Headroom on {{node}}"
   },
@@ -221,6 +224,7 @@
   },
   "chart": {
     "title": "VRAM by context length",
+    "titleRam": "Memory by context length",
     "available": "{{vram}} available",
     "barTitle": "{{context}} context needs {{vram}}",
     "fitsEverywhere": "Runs at every context length on this host.",
@@ -303,6 +307,187 @@
         "text": "Add a failover chain to route around unhealthy targets automatically.",
         "cta": "Create a failover chain"
       }
+    }
+  },
+  "ledger": {
+    "caption": "Gallery models with size and fit at {{context}} context",
+    "selected": "Selected",
+    "inspector": "Model details",
+    "closeInspector": "Close details",
+    "builds": "Several builds",
+    "retry": "Retry",
+    "retryNamed": "Retry installing {{model}}",
+    "installNamed": "Install {{model}}",
+    "failedInstall": "Install failed: {{message}}",
+    "sizeUnknownTitle": "The gallery does not list this model, so its size on disk is not known",
+    "columns": {
+      "size": "Size",
+      "fit": "Fit at {{context}}"
+    },
+    "density": {
+      "label": "Row density",
+      "comfortable": "Comfortable rows",
+      "compact": "Compact rows"
+    },
+    "basis": {
+      "gpu": "Fit is measured against {{memory}} of GPU memory",
+      "ram": "No GPU found. Fit is measured against {{memory}} of memory",
+      "cluster": "Fit is measured against {{memory}} on {{node}}"
+    },
+    "fit": {
+      "free": "{{amount}} free",
+      "spill": "+{{amount}} on CPU",
+      "over": "{{amount}} over",
+      "noEstimate": "No estimate",
+      "fitsTitle": "Needs {{need}} at {{context}} context. Fits, with {{amount}} to spare.",
+      "spillTitle": "Needs {{need}} at {{context}} context. {{amount}} would run on the CPU.",
+      "overTitle": "Needs {{need}} at {{context}} context. It is {{amount}} more than this host has."
+    },
+    "summary": {
+      "title": "Fit on this machine",
+      "onNode": " on the largest node",
+      "fits": "Needs {{need}} at {{context}} context. It fits, with {{free}} to spare.",
+      "spill": "Needs {{need}} at {{context}} context. {{cpu}} would run on the CPU, which is slower.",
+      "overGpu": "Needs {{need}} at {{context}} context. That is {{over}} more than GPU memory and RAM have free together.",
+      "overRam": "Needs {{need}} at {{context}} context. That is {{over}} more than this host has.",
+      "gpu": "GPU",
+      "ram": "RAM"
+    },
+    "offline": {
+      "title": "Cannot reach the gallery.",
+      "stale": "Showing the last list. Installing needs a connection. ({{message}})",
+      "empty": "{{message}}",
+      "emptyTitle": "No list to show",
+      "emptyText": "The gallery could not be reached. Check the connection, then retry."
+    },
+    "hostOnly": {
+      "gpu": "{{memory}} of GPU memory",
+      "ram": "{{memory}} of memory, no GPU",
+      "none": "This machine"
+    },
+    "emptyGalleryHint": "The gallery has no models. Add a model from its configuration or import one with the buttons above.",
+    "keys": {
+      "search": "search",
+      "move": "move",
+      "install": "install",
+      "density": "density",
+      "close": "close"
+    }
+  },
+  "disk": {
+    "free": "{{amount}} free",
+    "low": "Low disk",
+    "lowShort": "Low disk.",
+    "stripAria": "Models disk: {{free}} free of {{total}}. {{low}} Open the cleanup review.",
+    "leaves": "{{size}} download, leaves {{amount}} free",
+    "notEnough": "{{size}} download. The disk has {{amount}} less than that free.",
+    "freeUp": "Free up space"
+  },
+  "cleanup": {
+    "title": "Disk and cleanup",
+    "desc": "{{free}} free of {{total}}. Models take {{models}}.",
+    "close": "Close",
+    "meterAria": "Disk: {{other}} other files, {{models}} models, {{free}} free",
+    "legend": {
+      "other": "Other",
+      "models": "Models",
+      "frees": "Frees",
+      "free": "Free"
+    },
+    "noUsage": {
+      "title": "Usage history is not recorded yet.",
+      "text": "Models are ranked by what LocalAI can see: whether one is loaded, pinned or used by an agent, task, failover chain or alias, whether another build of it is installed, and whether the gallery can download it again."
+    },
+    "unverified": "Some agents or tasks could not be read, so nothing is marked safe. Try again later.",
+    "count_one": "{{count}} model",
+    "count_other": "{{count}} models",
+    "selectAll": "Select all",
+    "clearGroup": "Clear",
+    "selectModel": "Select {{model}}",
+    "sizeUnknown": "size unknown",
+    "checkingBuilds": "Checking installed builds",
+    "tier": {
+      "safe": {
+        "title": "Safe to remove",
+        "hint": "Another build of the same model is installed, and nothing uses this one."
+      },
+      "probably": {
+        "title": "Probably safe",
+        "hint": "Turned off and unused. The gallery can download them again."
+      },
+      "call": {
+        "title": "Your call",
+        "hint": "Nothing uses these and none is loaded. LocalAI cannot tell when you last used them, so you decide."
+      }
+    },
+    "reason": {
+      "duplicate": "Another build is installed: {{keep}}. LocalAI would pick that one on this host.",
+      "disabledGallery": "Disabled and unused. Can be downloaded again.",
+      "disabledLocal": "Disabled and unused. Not in the gallery, so it cannot be downloaded again.",
+      "idleGallery": "Not loaded and not used by anything. Can be downloaded again.",
+      "idleLocal": "Not loaded and not used by anything. Not in the gallery, so it cannot be downloaded again.",
+      "unverified": "Agents or tasks could not be checked.",
+      "running": "Loaded now.",
+      "pinned": "Pinned.",
+      "usedBy": "Used by {{by}}."
+    },
+    "ref": {
+      "agent": "agent \"{{name}}\"",
+      "task": "task \"{{name}}\"",
+      "chain": "failover chain \"{{name}}\"",
+      "alias": "alias \"{{name}}\""
+    },
+    "protected": {
+      "title": "Protected",
+      "never": "never suggested"
+    },
+    "empty": {
+      "title": "Nothing to free up",
+      "text": "Every installed model is loaded, pinned or in use, or none is installed."
+    },
+    "effect": {
+      "none": "Nothing selected",
+      "couldFree": "{{count}} models could free up to {{amount}}.",
+      "couldFreeUnknown": "{{count}} models could be removed. Their sizes are not known.",
+      "selected_one": "{{count}} model selected",
+      "selected_other": "{{count}} models selected",
+      "frees": "Frees {{freed}}. {{after}} free after, up from {{now}}.",
+      "freesNoDisk": "Frees {{freed}}.",
+      "unknown_one": "{{count}} size is unknown and is not counted.",
+      "unknown_other": "{{count}} sizes are unknown and are not counted.",
+      "pending": "A removal is waiting. Undo it or wait for it to finish first."
+    },
+    "clear": "Clear",
+    "pickSafe_one": "Select the safe one",
+    "pickSafe_other": "Select the {{count}} safe ones",
+    "remove_one": "Remove {{count}} model",
+    "remove_other": "Remove {{count}} models",
+    "confirm": {
+      "title_one": "Remove {{count}} model?",
+      "title_other": "Remove {{count}} models?",
+      "caption": "Models to remove, why, and their size",
+      "effect": "This frees {{freed}}. You will have {{after}} free, up from {{now}}.",
+      "effectNoDisk": "This frees {{freed}}.",
+      "unknownSizes_one": "{{count}} model has no known size and is not counted.",
+      "unknownSizes_other": "{{count}} models have no known size and are not counted.",
+      "none": "Nothing left to remove",
+      "close": "Close",
+      "dropped": "Left out, because they are now in use: {{names}}.",
+      "checked": "Checked just now. No loaded model, pinned model, agent, task, failover chain or alias uses these.",
+      "hold": "Nothing is deleted yet. The files are kept for {{seconds}} seconds so you can undo. After that they are deleted from disk. Downloading them again takes time."
+    },
+    "undo": "Undo",
+    "toasts": {
+      "undoMessage_one": "Removed {{count}} model. {{amount}} is freed when the undo time ends in {{seconds}} s.",
+      "undoMessage_other": "Removed {{count}} models. {{amount}} is freed when the undo time ends in {{seconds}} s.",
+      "removing_one": "Deleting {{count}} model...",
+      "removing_other": "Deleting {{count}} models...",
+      "removed_one": "Deleted {{count}} model.",
+      "removed_other": "Deleted {{count}} models.",
+      "failed": "Could not delete {{model}}: {{message}}",
+      "skipped": "Not deleted, because they were loaded in the meantime: {{models}}",
+      "abandoned_one": "You left the page, so {{count}} model was not deleted.",
+      "abandoned_other": "You left the page, so {{count}} models were not deleted."
     }
   }
 }

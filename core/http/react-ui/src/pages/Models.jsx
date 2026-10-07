@@ -2,32 +2,41 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Link, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
-import { modelsApi } from '../utils/api'
+import { modelsApi, systemApi } from '../utils/api'
 import { safeHref } from '../utils/url'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
+import { useFacetCounts } from '../hooks/useFacetCounts'
+import { useModelRemoval } from '../hooks/useModelRemoval'
+import { rememberSize } from '../hooks/useModelSizes'
 import { modelBudget } from '../utils/modelBudget'
+import { UNDO_MS } from '../utils/cleanupPlan'
+import { diskState, fitFor, fitStyle, leavesFree, gbLabel, gbNumber } from '../utils/modelLedger'
 import SearchableSelect from '../components/SearchableSelect'
-import PageHeader from '../components/PageHeader'
-import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
-import SplitView from '../components/split/SplitView'
-import EntityRail from '../components/split/EntityRail'
+// eslint-disable-next-line no-unused-vars
+import ExploreTable from '../components/models/ExploreTable'
+import FacetBar from '../components/models/FacetBar'
+import DiskStrip from '../components/models/DiskStrip'
+// eslint-disable-next-line no-unused-vars
+import CleanupSheet from '../components/models/CleanupSheet'
+import { useLedgerKeys } from '../components/models/rowKeys'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import InstalledModels, { ModelLifecycleDetailShell, modelUseCases } from './InstalledModels'
 import { formatBytes } from '../utils/format'
-import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
+import { groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 import Icon from '../components/Icon'
+import './models-ledger.css'
 
 
-// The rail groups what it has, so it needs enough rows for the groups to mean
-// something. At nine a page rarely held more than one bucket, so turning one
-// rebuilt the rail's whole structure; at thirty the sections are stable enough
-// to read as structure rather than noise, and there are five times fewer pages.
-const RAIL_PAGE_SIZE = 30
+// The ledger pages through the gallery thirty rows at a time: enough for the
+// groups to mean something, few enough that a page of estimates arrives fast.
+const PAGE_SIZE = 30
 
 // How many estimates to have in flight at once. See the fetch effect: this
 // exists to leave connections free for whatever the user clicks next.
@@ -40,6 +49,7 @@ const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
 const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
 const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
+const DENSITY_STORAGE_KEY = 'localai-models-density'
 // The deduplicated gallery is what a user asking "what can I install" wants, so
 // that is the default. The control exists for the other job: browsing every
 // build the gallery holds, which the collapsed view makes impossible however
@@ -67,6 +77,14 @@ const readCollapseVariantsPreference = () => {
   }
 }
 
+const readDensity = () => {
+  try {
+    return localStorage.getItem(DENSITY_STORAGE_KEY) === 'compact' ? 'compact' : 'comfortable'
+  } catch {
+    return 'comfortable'
+  }
+}
+
 const FILTERS = [
   { key: '', labelKey: 'filters.all', icon: 'layers' },
   { key: 'chat', labelKey: 'filters.llm', icon: 'brain' },
@@ -89,28 +107,22 @@ const FILTERS = [
   { key: 'vad', labelKey: 'filters.vad', icon: 'waveform' },
   { key: 'token_classify', labelKey: 'filters.ner', icon: 'tag' },
 ]
+const FACET_KEYS = FILTERS.map(f => f.key)
 
-// The chips grouped, using the families the rest of the UI already speaks. The
-// unlabelled first section holds "All" on its own, because it is a reset rather
-// than a use case and grouping it under a heading would imply otherwise.
-const FILTER_SECTIONS = [
-  { id: 'all', labelKey: null, keys: [''] },
-  { id: 'text', labelKey: 'groups.text', icon: 'brain', pick: 'chat',
-    blurbKey: 'shelves.pickText',
-    keys: ['chat', 'embeddings', 'rerank', 'token_classify'] },
-  { id: 'vision', labelKey: 'groups.vision', icon: 'eye', pick: 'vision',
-    blurbKey: 'shelves.pickVision',
-    keys: ['vision', 'multimodal', 'detection'] },
-  { id: 'audio', labelKey: 'groups.audio', icon: 'waveform', pick: 'tts',
-    blurbKey: 'shelves.pickAudio',
-    keys: ['tts', 'transcript', 'diarization', 'sound_classification',
-      'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
-  { id: 'visual', labelKey: 'groups.visual', icon: 'image', pick: 'image',
-    blurbKey: 'shelves.pickVisual',
-    keys: ['image', 'video', '3d', '3d_animation'] },
+// The families the discovery pane offers as ways in. Each picks one facet.
+const USE_CASE_LANES = [
+  { id: 'text', labelKey: 'groups.text', icon: 'brain', pick: 'chat', blurbKey: 'shelves.pickText' },
+  { id: 'vision', labelKey: 'groups.vision', icon: 'eye', pick: 'vision', blurbKey: 'shelves.pickVision' },
+  { id: 'audio', labelKey: 'groups.audio', icon: 'waveform', pick: 'tts', blurbKey: 'shelves.pickAudio' },
+  { id: 'visual', labelKey: 'groups.visual', icon: 'image', pick: 'image', blurbKey: 'shelves.pickVisual' },
 ]
 
-function ModelsLifecycleNav({ activeView, searchParams, t }) {
+// CSS custom property for the context slider's filled part.
+function rangeStyle(index) {
+  return { '--dk-fill': `${(index / (CONTEXT_SIZES.length - 1)) * 100}%` }
+}
+
+function ModelsTabs({ activeView, searchParams, installedCount, t }) {
   const hrefFor = view => {
     const next = new URLSearchParams(searchParams)
     if (view === 'installed') next.set('view', 'installed')
@@ -120,20 +132,21 @@ function ModelsLifecycleNav({ activeView, searchParams, t }) {
   }
 
   return (
-    <nav className="tabs mb-md" aria-label={t('lifecycle.navLabel')}>
+    <nav className="dk-hubtabs models-tabs" aria-label={t('lifecycle.navLabel')}>
       <Link
-        className={`tab ${activeView === 'explore' ? 'tab-active' : ''}`}
+        className="dk-hubtab"
         to={hrefFor('explore')}
         aria-current={activeView === 'explore' ? 'page' : undefined}
       >
-        <Icon name="compass" /> {t('lifecycle.views.explore')}
+        <Icon name="compass" /> <span>{t('lifecycle.views.explore')}</span>
       </Link>
       <Link
-        className={`tab ${activeView === 'installed' ? 'tab-active' : ''}`}
+        className="dk-hubtab"
         to={hrefFor('installed')}
         aria-current={activeView === 'installed' ? 'page' : undefined}
       >
-        <Icon name="hard-drive" /> {t('lifecycle.views.installed')}
+        <Icon name="hard-drive" /> <span>{t('lifecycle.views.installed')}</span>
+        {installedCount > 0 && <span className="dk-hubtab-count">{installedCount}</span>}
       </Link>
     </nav>
   )
@@ -144,7 +157,7 @@ export default function Models() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation('models')
-  const { operations } = useOperations()
+  const { operations, dismissFailedOp } = useOperations()
   const { resources } = useResources()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
@@ -153,6 +166,7 @@ export default function Models() {
     : 'all'
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [search, setSearch] = useState(() => searchParams.get('q') || '')
@@ -162,10 +176,9 @@ export default function Models() {
   const [installing, setInstalling] = useState(new Map())
   const [installedProfiles, setInstalledProfiles] = useState({})
   const [expandedFiles, setExpandedFiles] = useState(false)
-  // Which model the pane is showing, or null for the discovery shelves. It
+  // Which model the inspector is showing, or null for the discovery shelves. It
   // lives in the URL so a model is linkable and so Back steps out of the detail
-  // rather than off the page, which is the one thing the expanded row could
-  // never do.
+  // rather than off the page.
   const selectedName = searchParams.get('model')
   const urlSearch = searchParams.get('q') || ''
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
@@ -180,6 +193,12 @@ export default function Models() {
   // rather than silently showing nothing where a size will appear.
   const [pendingEstimates, setPendingEstimates] = useState(() => new Set())
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
+  const [density, setDensity] = useState(readDensity)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  // Bumped when a removal finishes, so the Installed table and the cleanup
+  // sheet read the list again.
+  const [refreshToken, setRefreshToken] = useState(0)
+  const searchRef = useRef(null)
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
   const loadedOnce = useRef(false)
@@ -205,10 +224,6 @@ export default function Models() {
   // because the listing paginates and a client-side narrowing would leave the
   // page count describing the unfiltered set.
   const [collapseVariants, setCollapseVariants] = useState(readCollapseVariantsPreference)
-  // The use-case chips do not fit beside a 320px rail, so they live in a
-  // popover that states the current selection rather than spelling out
-  // nineteen options nobody is reading.
-  const [useCaseOpen, setUseCaseOpen] = useState(false)
   // Rail groups the user has folded away.
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
   // What every "will it fit" verdict on this page is measured against. In
@@ -218,6 +233,9 @@ export default function Models() {
   const budget = modelBudget(resources)
   const totalGpuMemory = budget.totalMemory
   const hasGpu = budget.hasGpu
+  // RAM that could take what the GPU cannot. Absent in a cluster reading.
+  const ramAvailable = resources?.ram?.available ?? resources?.ram?.free ?? null
+  const disk = diskState(resources)
 
   const fetchModels = useCallback(async (params = {}) => {
     try {
@@ -229,7 +247,7 @@ export default function Models() {
       const collapseVal = params.collapseVariants !== undefined ? params.collapseVariants : collapseVariants
       const queryParams = {
         page: params.page || page,
-        items: RAIL_PAGE_SIZE,
+        items: PAGE_SIZE,
       }
       // Omitted entirely when off rather than sent as false, so opting out asks
       // for exactly the listing every other API client gets.
@@ -256,8 +274,10 @@ export default function Models() {
       })
       setStatsLoaded(true)
       setAllBackends(data?.allBackends || [])
+      setLoadError('')
     } catch (err) {
-      addToast(t('errors.loadFailed', { message: err.message }), 'error')
+      // Shown inline, as a banner that stays until a load works, so no toast.
+      setLoadError(err.message || String(err))
     } finally {
       loadedOnce.current = true
       setLoading(false)
@@ -307,7 +327,7 @@ export default function Models() {
       // resolved successfully earlier in this page session.
       .catch(() => {})
     return () => { cancelled = true }
-  }, [activeView, operations.length])
+  }, [activeView, operations.length, refreshToken])
 
   const debouncedFetch = useDebouncedCallback((value) => {
     setPage(1)
@@ -351,6 +371,7 @@ export default function Models() {
           const est = await modelsApi.estimate(id, CONTEXT_SIZES)
           if (!cancelled && est && (est.sizeBytes || est.estimates)) {
             setEstimates(prev => ({ ...prev, [id]: est }))
+            rememberSize(id, est.sizeBytes)
           }
         } catch {
           // An estimate is a nicety. The row names the model and installs it
@@ -471,6 +492,15 @@ export default function Models() {
     }
   }
 
+  // A failed install leaves its operation in the list with the error on it.
+  // Retrying dismisses that record first, so the row does not show the old
+  // failure beside the new attempt.
+  const failedOp = (modelId) => operations.find(op => op.name === modelId && op.error) || null
+  const handleRetry = async (modelId, op) => {
+    if (op?.jobID) await dismissFailedOp(op.jobID)
+    handleInstall(modelId)
+  }
+
   // Clear local installing flags when operations finish (success or error)
   useEffect(() => {
     if (installing.size === 0) return
@@ -527,11 +557,21 @@ export default function Models() {
     }
   }, [collapseVariants])
 
-  const useCaseLabel = filters.length === 0
-    ? t('filters.all')
-    : filters.length === 1
-      ? t(FILTERS.find(f => f.key === filters[0])?.labelKey || 'filters.all')
-      : t('filters.someSelected', { count: filters.length })
+  useEffect(() => {
+    try {
+      localStorage.setItem(DENSITY_STORAGE_KEY, density)
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [density])
+
+  const { counts: facetCounts, stale: facetsStale } = useFacetCounts({
+    keys: FACET_KEYS,
+    term: search.trim(),
+    backend: backendFilter,
+    collapse: collapseVariants,
+    ready: activeView === 'explore' && statsLoaded,
+  })
 
   const visibleModels = models.filter((model) => {
     if (!fitsFilter) return true
@@ -555,7 +595,7 @@ export default function Models() {
     })
   }, [])
 
-  const selectModel = useCallback((name) => {
+  const selectModel = useCallback((name, { replace } = {}) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       if (name) next.set('model', name)
@@ -563,7 +603,8 @@ export default function Models() {
       return next
     // Returning to the shelves replaces the entry rather than pushing one, so
     // Back leaves the gallery instead of bouncing between the two pane states.
-    }, { replace: !name })
+    // So does moving with the arrow keys: a held key must not fill the history.
+    }, { replace: !name || !!replace })
     setExpandedFiles(false)
   }, [setSearchParams])
 
@@ -588,27 +629,110 @@ export default function Models() {
     })
   }, [setSearchParams])
 
+  // One update for both, not two in a row: each call reads the URL as it was
+  // when the page rendered, so the second would put back what the first removed.
+  const clearInstalledFilters = useCallback(() => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      next.delete('q')
+      next.delete('state')
+      return next
+    })
+  }, [setSearchParams])
+
   // The detail pane lists variants, so opening a model is the ask that pays for
   // the describe call. loadVariants is idempotent per name.
   useEffect(() => {
     if (selectedModel?.has_variants) loadVariants(selectedName)
   }, [selectedName, selectedModel, loadVariants])
 
+  // Removal from the cleanup sheet. The delete itself is the call the row menu
+  // uses; this hook only adds the wait before it (see useModelRemoval).
+  const removal = useModelRemoval({
+    deleteModel: id => modelsApi.deleteByName(id),
+    loadRunning: async () => {
+      const ids = new Set()
+      try {
+        const info = await systemApi.info()
+        for (const m of Array.isArray(info?.loaded_models) ? info.loaded_models : []) ids.add(m.id)
+      } catch { /* see useModelRemoval */ }
+      try {
+        const caps = await modelsApi.listCapabilities()
+        for (const m of caps?.data || []) if (!m.disabled && m.loaded_on?.length > 0) ids.add(m.id)
+      } catch { /* see useModelRemoval */ }
+      return ids
+    },
+    onSettled: ({ removed, failed, skipped }) => {
+      setRefreshToken(n => n + 1)
+      if (removed.length > 0) addToast(t('cleanup.toasts.removed', { count: removed.length }), 'success')
+      for (const f of failed) addToast(t('cleanup.toasts.failed', { model: f.id, message: f.message }), 'error')
+      if (skipped.length > 0) addToast(t('cleanup.toasts.skipped', { models: skipped.join(', ') }), 'warning')
+    },
+    onAbandoned: ids => addToast(t('cleanup.toasts.abandoned', { count: ids.length }), 'info'),
+  })
+  const hiddenIds = new Set(removal.pending?.ids || [])
+  const pendingFree = removal.pending ? removal.pending.items.reduce((sum, item) => sum + (item.size || 0), 0) : 0
+
+  useLedgerKeys({
+    enabled: true,
+    searchRef,
+    onToggleDensity: () => setDensity(d => (d === 'compact' ? 'comfortable' : 'compact')),
+    hasSelection: !!selectedName,
+    onClose: () => selectModel(null),
+  })
+
+  const headerActions = (
+    <div className="view-bar__actions models-bar__actions">
+      <DiskStrip disk={disk} open={sheetOpen} onOpen={() => setSheetOpen(true)} />
+      <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
+        <Icon name="plus" /> {t('actions.addModel')}
+      </button>
+      <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/import-model')}>
+        <Icon name="upload" /> {t('actions.importModel')}
+      </button>
+    </div>
+  )
+
+  const overlays = (
+    <>
+      <CleanupSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        disk={disk}
+        hiddenIds={hiddenIds}
+        removalPending={!!removal.pending}
+        refreshToken={refreshToken}
+        onRemove={items => removal.start(items)}
+      />
+      {removal.pending && (
+        <HomeUndoToast
+          key={removal.pending.ids.join('|')}
+          testId="removal-undo-toast"
+          message={removal.pending.phase === 'removing'
+            ? t('cleanup.toasts.removing', { count: removal.pending.ids.length })
+            : t('cleanup.toasts.undoMessage', {
+              count: removal.pending.ids.length,
+              amount: pendingFree > 0 ? gbLabel(pendingFree) : '',
+              seconds: Math.round(UNDO_MS / 1000),
+            })}
+          undoLabel={t('cleanup.undo')}
+          dismissible={false}
+          duration={UNDO_MS}
+          onUndo={removal.undo}
+          onExpire={removal.commit}
+        />
+      )}
+    </>
+  )
+
   if (activeView === 'installed') {
     return (
-      <div className="page page--wide page--app">
-        <div className="view-bar">
+      <div className="page page--wide page--app models-page">
+        <div className="view-bar models-bar">
           <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
-          <div className="view-bar__actions">
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('lifecycle.title')) })}>
-              <Icon name="plus" /> {t('actions.addModel')}
-            </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-              <Icon name="upload" /> {t('actions.importModel')}
-            </button>
-          </div>
+          <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
+          {headerActions}
         </div>
-        <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
         <InstalledModels
           addToast={addToast}
           query={urlSearch}
@@ -616,230 +740,201 @@ export default function Models() {
           selectedName={selectedName}
           onQueryChange={setInstalledQuery}
           onStateChange={setInstalledState}
+          onClearFilters={clearInstalledFilters}
           onSelect={selectModel}
+          hiddenIds={hiddenIds}
+          refreshToken={refreshToken}
+          density={density}
+          onDensity={setDensity}
+          searchRef={searchRef}
+          onOpenCleanup={() => setSheetOpen(true)}
+          disk={disk}
         />
+        {overlays}
       </div>
     )
   }
 
+  const contextIndex = CONTEXT_SIZES.indexOf(contextSize)
+  const contextLabel = CONTEXT_LABELS[contextIndex]
+  const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
+  const firstLoad = loading && !loadedOnce.current
+  const galleryEmpty = statsLoaded && stats.total === 0 && !filtersActive && !loadError
+  const basis = totalGpuMemory <= 0
+    ? null
+    : budget.scope === 'cluster'
+      ? t('ledger.basis.cluster', { memory: formatBytes(totalGpuMemory), node: budget.nodeName })
+      : hasGpu
+        ? t('ledger.basis.gpu', { memory: formatBytes(totalGpuMemory) })
+        : t('ledger.basis.ram', { memory: formatBytes(totalGpuMemory) })
+
   return (
-    <div className="page page--wide page--app">
-      {/* Title only. The two counts used to live here as well, which meant the
-          screen stated "1,247 available" three times: once in this header, once
-          as the rail's "9 of 1,247", and once in the pane's own headline. The
-          rail and the pane are describing what you are looking at; the header
-          was just repeating them from a distance. */}
-      <div className="view-bar">
+    <div className="page page--wide page--app models-page">
+      <div className="view-bar models-bar">
         <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
-        <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
-        <div className="view-bar__actions">
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-            <Icon name="plus" /> {t('actions.addModel')}
-          </button>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
-            <Icon name="upload" /> {t('actions.importModel')}
-          </button>
+        <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
+        {statsLoaded && (
+          <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+        )}
+        {headerActions}
+      </div>
+
+      {/* Filters, in two bands.
+          1. Query scope: free-text search, the backend select, and the
+             refinements that narrow a listing the user is already reading
+             (one row per model, fits in GPU). The backend select comes before
+             the facets because picking a backend disables the facets that
+             backend cannot serve (see isFilterAvailable).
+          2. Facets: the capability chips with counts, and the context length
+             the VRAM estimate is computed at. The estimate is exactly what the
+             fits filter tests against, so the two controls sit together. */}
+      <div className="ledger-controls models-filters">
+        <div className="ledger-controls__row">
+          <div className="dk-input-icon ledger-search" data-testid="models-search-wrap">
+            <Icon name="search" className="dk-icon" />
+            <input
+              ref={searchRef}
+              className="dk-input"
+              data-testid="models-search"
+              type="text"
+              placeholder={t('search.placeholder')}
+              aria-label={t('search.placeholder')}
+              aria-keyshortcuts="/"
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') e.currentTarget.blur() }}
+            />
+            <kbd className="dk-kbd ledger-search__key" aria-hidden="true">/</kbd>
+          </div>
+          {allBackends.length > 0 && (
+            <div className="models-filters__backend">
+              <SearchableSelect
+                value={backendFilter}
+                onChange={(v) => { setBackendFilter(v); setPage(1) }}
+                options={allBackends}
+                placeholder={t('filters.allBackends')}
+                allOption={t('filters.allBackends')}
+                searchPlaceholder={t('filters.searchBackends')}
+              />
+            </div>
+          )}
+          <div className="models-filters__refine ledger-refine" data-testid="models-filters-refine">
+            {/* Leads the band because it decides how many rows the other one
+                refines over, and because unlike fits-in-GPU it is always
+                present: a host with no GPU still browses builds. Turning it
+                off is the only way to page through every build the gallery
+                holds; searching reaches a specific one but cannot enumerate
+                them. */}
+            <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
+              <Toggle
+                checked={collapseVariants}
+                onChange={(v) => { setCollapseVariants(v); setPage(1) }}
+              />
+              <span>{t('filters.collapseVariants')}</span>
+            </label>
+            {totalGpuMemory > 0 && (
+              <label className="filter-bar-group__toggle">
+                <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+                <span>{hasGpu ? t('filters.fitsGpu') : t('filters.fitsMemory')}</span>
+              </label>
+            )}
+          </div>
+          <div className="dk-segmented ledger-density" role="group" aria-label={t('ledger.density.label')}>
+            <button
+              type="button"
+              className="dk-seg"
+              aria-pressed={density === 'comfortable'}
+              aria-label={t('ledger.density.comfortable')}
+              title={t('ledger.density.comfortable')}
+              data-testid="density-comfortable"
+              onClick={() => setDensity('comfortable')}
+            >
+              <Icon name="list" />
+            </button>
+            <button
+              type="button"
+              className="dk-seg"
+              aria-pressed={density === 'compact'}
+              aria-label={t('ledger.density.compact')}
+              title={t('ledger.density.compact')}
+              data-testid="density-compact"
+              onClick={() => setDensity('compact')}
+            >
+              <Icon name="equals" />
+            </button>
+          </div>
+        </div>
+        <div className="ledger-controls__row ledger-controls__row--facets">
+          <FacetBar
+            facets={FILTERS}
+            active={filters}
+            counts={facetCounts}
+            stale={facetsStale}
+            isAvailable={isFilterAvailable}
+            onToggle={toggleFilter}
+            t={t}
+            ariaLabel={t('filters.useCaseLabel')}
+          />
         </div>
       </div>
 
-      <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
+      {loadError && (
+        <div className="ledger-banner ledger-banner--error" role="alert" data-testid="gallery-error">
+          <Icon name="alert-circle" />
+          <span>
+            <strong>{t('ledger.offline.title')}</strong>{' '}
+            {models.length > 0 ? t('ledger.offline.stale', { message: loadError }) : t('ledger.offline.empty', { message: loadError })}
+          </span>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => fetchModels()}>
+            <Icon name="refresh" /> {t('ledger.retry')}
+          </button>
+        </div>
+      )}
 
-      {/* Filters, in three deliberate bands.
-          1. Query scope: free-text search plus the backend select. The backend
-             select leads the taxonomy row rather than trailing it because
-             picking a backend disables the use-cases that backend cannot serve
-             (see isFilterAvailable), so it reads as the gate on what follows.
-          2. Taxonomy: the use-case chips, which wrap freely.
-          3. Refinements: one row per model, fits-in-GPU and context size.
-             All three narrow a listing the user is already reading rather than
-             naming what to look at, which is what separates them from the
-             query scope above. Fits-in-GPU and context size are additionally
-             one control group - the context size is the length the VRAM
-             estimate is computed at, and that estimate is exactly what the
-             fits filter tests against.
-          Each band owns its container, so how many chips happen to wrap at a
-          given width can no longer decide where the other controls land. */}
-
-      {/* The gallery, as a rail to scan and a pane that answers.
-          The pane has two jobs and no third: with nothing selected it is the
-          discovery page, and with a model selected it is that model's detail.
-          This is what replaces the click-to-expand row, which existed only
-          because variants, files and a VRAM estimate never fitted inside a
-          <tr> in the first place. */}
-      {loading && !loadedOnce.current ? (
-        <GalleryLoader />
-      ) : (
-        <SplitView
-          testId="discover"
-          detail={!!selectedModel}
-          rail={
-            <>
-              <div className="filter-bar-group models-filters">
-                <div className="filter-bar-group__row models-filters__query">
-                  <div className="search-bar filter-bar-group__search">
-                    <Icon name="search" className="search-icon" />
-                    <input
-                      className="input"
-                      type="text"
-                      placeholder={t('search.placeholder')}
-                      aria-label={t('search.placeholder')}
-                      value={search}
-                      onChange={(e) => handleSearch(e.target.value)}
-                    />
-                  </div>
-                  {allBackends.length > 0 && (
-                    <div className="models-filters__backend">
-                      <SearchableSelect
-                        value={backendFilter}
-                        onChange={(v) => { setBackendFilter(v); setPage(1) }}
-                        options={allBackends}
-                        placeholder={t('filters.allBackends')}
-                        allOption={t('filters.allBackends')}
-                        searchPlaceholder={t('filters.searchBackends')}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <button
-          type="button"
-          className="models-filters__usecase-trigger"
-          aria-haspopup="dialog"
-          aria-expanded={useCaseOpen}
-          onClick={() => setUseCaseOpen(v => !v)}
-        >
-          <Icon name="layers" />
-          <span>{useCaseLabel}</span>
-          <Icon name={`chevron-${useCaseOpen ? 'up' : 'down'}`} className="models-filters__usecase-caret" />
-        </button>
-
-        {/* An inline disclosure rather than a popover. Picking use cases is
-            multi-select and interleaves with the backend select and the
-            refinements below, and a popover dismisses itself the moment you
-            touch either of those, which turns one decision into three. */}
-        {useCaseOpen && (
-        <div className="models-filters__usecases" role="group" aria-label={t('filters.useCaseLabel')}>
-                  {FILTER_SECTIONS.map(section => {
-            const inSection = FILTERS.filter(f => section.keys.includes(f.key))
-            if (inSection.length === 0) return null
-            return (
-              <div className="models-filters__usecase-group" key={section.id}>
-                {section.labelKey && (
-                  <span className="models-filters__usecase-label">{t(section.labelKey)}</span>
-                )}
-                <div className="filter-bar">
-                  {inSection.map(f => {
-                    const isAll = f.key === ''
-                    const active = isAll ? filters.length === 0 : filters.includes(f.key)
-                    const available = isFilterAvailable(f.key)
-                    return (
-                      <button
-                        key={f.key}
-                        type="button"
-                        className={`filter-btn ${active ? 'active' : ''}`}
-                        disabled={!available}
-                        aria-pressed={active}
-                        title={!available ? t('filters.unavailableForBackend') : undefined}
-                        onClick={() => toggleFilter(f.key)}
-                      >
-                        <Icon name={f.icon} />
-                        {t(f.labelKey)}
-                      </button>
-                    )
-                  })}
-                </div>
+      {/* The gallery, as a table to scan and an inspector that answers.
+          The inspector has two jobs and no third: with nothing selected it is
+          the discovery page, and with a model selected it is that model's
+          quick look. Below the breakpoint the two cannot both survive, so a
+          selected model means the inspector is the page. */}
+      <div className={`ledger${selectedModel ? ' ledger--detail' : ''}`} data-testid="discover">
+        <div className="ledger__table-col">
+          <div className="dk-table-bar ledger-bar">
+            {basis && <span className="ledger-bar__basis" data-testid="fit-basis">{basis}</span>}
+            <div className="models-filters__context">
+              <label htmlFor="models-context-size">{t('filters.contextSize')}</label>
+              <div className="dk-range-wrap">
+                <input
+                  id="models-context-size"
+                  className="dk-range"
+                  type="range"
+                  min={0}
+                  max={CONTEXT_SIZES.length - 1}
+                  value={contextIndex}
+                  style={rangeStyle(contextIndex)}
+                  // The slider steps over an index, so the raw value ("2") is
+                  // meaningless to a screen reader; announce the size instead.
+                  aria-valuetext={contextLabel}
+                  onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
+                />
+                <output className="dk-range-value models-filters__context-value" htmlFor="models-context-size">{contextLabel}</output>
               </div>
-            )
-          })}
-                </div>
-                )}
-
-                <div className="models-filters__refine" data-testid="models-filters-refine">
-                  <span className="models-filters__refine-label">{t('filters.refineLabel')}</span>
-                  {/* Leads the band because it decides how many rows the other two
-                      refine over, and because unlike fits-in-GPU it is always present:
-                      a host with no GPU still browses builds. Turning it off is the
-                      only way to page through every build the gallery holds; searching
-                      reaches a specific one but cannot enumerate them. */}
-                  <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
-                    <Toggle
-                      checked={collapseVariants}
-                      onChange={(v) => { setCollapseVariants(v); setPage(1) }}
-                    />
-                    <Icon name="layers" />
-                    <span>{t('filters.collapseVariants')}</span>
-                  </label>
-                  {totalGpuMemory > 0 && (
-                    <label className="filter-bar-group__toggle">
-                      <Toggle checked={fitsFilter} onChange={setFitsFilter} />
-                      <Icon name="cpu" />
-                      <span>{t('filters.fitsGpu')}</span>
-                    </label>
-                  )}
-                  <div className="models-filters__context">
-                    <label htmlFor="models-context-size">
-                      <Icon name="memory" />
-                      {t('filters.contextSize')}
-                    </label>
-                    <input
-                      id="models-context-size"
-                      type="range"
-                      min={0}
-                      max={CONTEXT_SIZES.length - 1}
-                      value={CONTEXT_SIZES.indexOf(contextSize)}
-                      // The slider steps over an index, so the raw value ("2") is
-                      // meaningless to a screen reader; announce the size instead.
-                      aria-valuetext={CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
-                      onChange={(e) => setContextSize(CONTEXT_SIZES[e.target.value])}
-                    />
-                    <span className="models-filters__context-value">
-                      {CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]}
-                    </span>
-                  </div>
-                </div>
+            </div>
+          </div>
+          {!firstLoad && visibleModels.length === 0 ? (
+            loadError ? (
+              // The list could not be fetched, which is not the same as an empty
+              // gallery. The banner above holds the reason and the way out.
+              <div className="dk-empty ledger-empty" data-testid="gallery-unavailable">
+                <div className="dk-empty-icon"><Icon name="cloud" /></div>
+                <h2 className="dk-empty-title">{t('ledger.offline.emptyTitle')}</h2>
+                <p className="dk-empty-text">{t('ledger.offline.emptyText')}</p>
               </div>
-              {/* Grouped while browsing, flat while searching: once a term is
-                  typed the buckets stand between the reader and the answer. */}
-              <EntityRail
-                items={visibleModels.map(m => railItemFor(m, { estimates, pendingEstimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }))}
-                groups={ENTITY_GROUPS.map(g => ({ id: g.id, label: t(g.labelKey), icon: g.icon }))}
-                grouped={!search.trim()}
-                collapsedGroups={collapsedGroups}
-                onToggleGroup={toggleGroup}
-                busy={loading}
-                selectedId={selectedName}
-                onSelect={selectModel}
-                countLabel={t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}
-                ariaLabel={t('title')}
-                testId="discover-rail"
-                actions={
-                  <div className="entity-rail__sort" role="group" aria-label={t('rail.sortLabel')}>
-                    <SortButton col="name" label={t('table.modelName')} sort={sort} order={order} onSort={handleSort} />
-                    <SortButton col="status" label={t('table.status')} sort={sort} order={order} onSort={handleSort} />
-                  </div>
-                }
-              />
-
-              {totalPages > 1 && (
-                <div className="pagination split-view__pager">
-                  <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
-                    <Icon name="chevron-left" />
-                  </button>
-                  <span className="split-view__pager-label">{page} / {totalPages}</span>
-                  <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
-                    <Icon name="chevron-right" />
-                  </button>
-                </div>
-              )}
-            </>
-          }
-          pane={
-            visibleModels.length === 0 ? (
-    <div className="empty-state">
-              <div className="empty-state-icon"><Icon name="search" /></div>
-              <h2 className="empty-state-title">{t('empty.title')}</h2>
-              <p className="empty-state-text">
-                {search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants ? t('empty.withFilters') : t('empty.noFilters')}
+            ) : (
+            <div className="dk-empty ledger-empty" data-testid="gallery-empty">
+              <div className="dk-empty-icon"><Icon name="search" /></div>
+              <h2 className="dk-empty-title">{t('empty.title')}</h2>
+              <p className="dk-empty-text">
+                {filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
               </p>
               {/* Only the fits filter can leave the collapse to blame. The term,
                   the chips and the backend are applied server-side over every build
@@ -850,109 +945,178 @@ export default function Models() {
                   judges that entry's own size: the build that fits can still be
                   filtered out along with a parent that does not. */}
               {collapseVariants && fitsFilter && (
-                <p className="empty-state-hint">{t('empty.collapsedVariantsHint')}</p>
+                <p className="empty-state-hint dk-empty-text">{t('empty.collapsedVariantsHint')}</p>
               )}
-              {(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants) && (
+              {filtersActive && (
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="dk-btn dk-btn--secondary dk-btn--sm"
                   onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
                 >
                   <Icon name="close" /> {t('search.clearFilters')}
                 </button>
               )}
             </div>
-            ) : selectedModel ? (
-              <DiscoverDetail
-                model={selectedModel}
-                estimate={estimates[selectedName]}
-                contextSize={contextSize}
-                onPickContext={setContextSize}
-                totalGpuMemory={totalGpuMemory}
-                fitsGpu={fitsGpu}
-                budgetNode={budget.scope === 'cluster' ? budget.nodeName : ''}
-                installing={isInstalling(selectedName)}
-                progress={getOperationProgress(selectedName)}
-                onInstall={handleInstall}
-                installedProfile={installedProfiles[selectedName]}
-                onOpen={route => navigate(route)}
-                onManage={name => setSearchParams(previous => {
-                  const next = new URLSearchParams(previous)
-                  next.set('view', 'installed')
-                  next.set('model', name)
-                  return next
-                })}
-                onBack={() => selectModel(null)}
-                expandedFiles={expandedFiles}
-                setExpandedFiles={setExpandedFiles}
-                variantData={selectedModel.has_variants ? variantData[selectedName] : null}
-                variantDetails={variantDetails}
-                onLoadVariantDetail={loadVariantDetail}
-                t={t}
-              />
-            ) : (
-              <div className="zero-pane">
-                <div className="zero-pane__hero">
-                  <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
-                  <h2 className="zero-pane__title">
-                    {/* The resources endpoint reports system RAM when there is
-                        no accelerator, so calling it "GPU memory" was a claim
-                        the data did not support. */}
-                    {totalGpuMemory <= 0
-                      ? t('shelves.heroNoGpu', { count: stats.total })
-                      : budget.scope === 'cluster'
-                        // Naming the node is the point: a cluster figure with
-                        // no owner reads as this machine's, which is the very
-                        // confusion the cluster reading exists to end.
-                        ? t(budget.nodeCount > 1 ? 'shelves.heroWithCluster' : 'shelves.heroWithNode', {
-                          vram: formatBytes(totalGpuMemory), node: budget.nodeName, nodes: budget.nodeCount, count: stats.total,
-                        })
-                        : hasGpu
-                          ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
-                          : t('shelves.heroWithRam', { ram: formatBytes(totalGpuMemory), count: stats.total })}
-                  </h2>
-                  <p className="zero-pane__text">{t('shelves.heroHint')}</p>
-                </div>
-
-                {/* The hardware-fit strip is the curation, and here it finally
-                    gets the width to argue for a model rather than list one.
-                    It keeps its own dismissal and collapse state, so someone
-                    who closed it still lands on the pane below. */}
-                <RecommendedModels addToast={addToast} />
-
-                {/* Somewhere to start when the recommendations are not it.
-                    These set the use-case filter rather than fetching a second
-                    list, so a shelf costs nothing and cannot go stale. */}
-                <div className="zero-pane__shelf">
-                  <div className="zero-pane__shelf-head">
-                    <h3 className="zero-pane__shelf-title">{t('shelves.byUseCase')}</h3>
-                  </div>
-                  {/* Lanes, not tiles. These are a list of ways in, read in
-                      order — a grid of equal cards asks the reader to compare
-                      them, which is not the choice being offered. */}
-                  <ul className="lanes lanes--usecase">
-                    {FILTER_SECTIONS.filter(sec => sec.pick).map(sec => (
-                      <li key={sec.id}>
-                        <button
-                          type="button"
-                          className="lane"
-                          onClick={() => { setFilters([sec.pick]); setPage(1); setUseCaseOpen(false) }}
-                        >
-                          <span className="lane__tag">
-                            <Icon name={sec.icon} /> {t(sec.labelKey)}
-                          </span>
-                          <span className="lane__desc">{t(sec.blurbKey)}</span>
-                          <span className="lane__go" aria-hidden="true">→</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
             )
-          }
-        />
-      )}
+          ) : (
+            <ExploreTable
+              models={visibleModels}
+              loading={firstLoad}
+              // Grouped while browsing, flat while searching: once a term is
+              // typed the buckets stand between the reader and the answer.
+              grouped={!search.trim()}
+              collapsedGroups={collapsedGroups}
+              onToggleGroup={toggleGroup}
+              selectedName={selectedName}
+              onSelect={selectModel}
+              onInstall={handleInstall}
+              onRetry={handleRetry}
+              estimates={estimates}
+              pendingEstimates={pendingEstimates}
+              contextSize={contextSize}
+              contextLabel={contextLabel}
+              budget={budget}
+              ramAvailable={ramAvailable}
+              isInstalling={isInstalling}
+              progressOf={getOperationProgress}
+              failedOp={failedOp}
+              sort={sort}
+              order={order}
+              onSort={handleSort}
+              density={density}
+              t={t}
+            />
+          )}
 
+          {totalPages > 1 && (
+            <div className="pagination split-view__pager ledger-pager">
+              <button className="pagination-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label={t('rail.previousPage')}>
+                <Icon name="chevron-left" />
+              </button>
+              <span className="split-view__pager-label">{page} / {totalPages}</span>
+              <button className="pagination-btn" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label={t('rail.nextPage')}>
+                <Icon name="chevron-right" />
+              </button>
+            </div>
+          )}
+          <p className="ledger-keys dk-hide-phone" aria-hidden="true">
+            <span><kbd className="dk-kbd">/</kbd> {t('ledger.keys.search')}</span>
+            <span><kbd className="dk-kbd">&uarr;</kbd><kbd className="dk-kbd">&darr;</kbd> {t('ledger.keys.move')}</span>
+            <span><kbd className="dk-kbd">&crarr;</kbd> {t('ledger.keys.install')}</span>
+            <span><kbd className="dk-kbd">d</kbd> {t('ledger.keys.density')}</span>
+            <span><kbd className="dk-kbd">esc</kbd> {t('ledger.keys.close')}</span>
+          </p>
+        </div>
+
+        <aside className="ledger__pane" data-testid="discover-pane" aria-label={t('ledger.inspector')}>
+          {selectedModel ? (
+            <DiscoverDetail
+              model={selectedModel}
+              estimate={estimates[selectedName]}
+              contextSize={contextSize}
+              onPickContext={setContextSize}
+              budget={budget}
+              ramAvailable={ramAvailable}
+              disk={disk}
+              totalGpuMemory={totalGpuMemory}
+              fitsGpu={fitsGpu}
+              budgetNode={budget.scope === 'cluster' ? budget.nodeName : ''}
+              installing={isInstalling(selectedName)}
+              progress={getOperationProgress(selectedName)}
+              failed={failedOp(selectedName)}
+              onInstall={handleInstall}
+              onRetry={handleRetry}
+              installedProfile={installedProfiles[selectedName]}
+              onOpen={route => navigate(route)}
+              onManage={name => setSearchParams(previous => {
+                const next = new URLSearchParams(previous)
+                next.set('view', 'installed')
+                next.set('model', name)
+                return next
+              })}
+              onBack={() => selectModel(null)}
+              expandedFiles={expandedFiles}
+              setExpandedFiles={setExpandedFiles}
+              variantData={selectedModel.has_variants ? variantData[selectedName] : null}
+              variantDetails={variantDetails}
+              onLoadVariantDetail={loadVariantDetail}
+              t={t}
+            />
+          ) : (
+            <div className="zero-pane">
+              <div className="zero-pane__hero">
+                <span className="zero-pane__eyebrow">{t('shelves.hostLabel')}</span>
+                {!statsLoaded && !loadError ? (
+                  <span className="dk-skeleton dk-skeleton--title" aria-hidden="true" />
+                ) : (
+                <h2 className="zero-pane__title">
+                  {/* The resources endpoint reports system RAM when there is
+                      no accelerator, so calling it "GPU memory" was a claim
+                      the data did not support. Without a list there is no
+                      count to state, so the line is the machine alone. */}
+                  {!statsLoaded
+                    ? (totalGpuMemory <= 0
+                      ? t('ledger.hostOnly.none')
+                      : t(hasGpu ? 'ledger.hostOnly.gpu' : 'ledger.hostOnly.ram', { memory: formatBytes(totalGpuMemory) }))
+                    : totalGpuMemory <= 0
+                    ? t('shelves.heroNoGpu', { count: stats.total })
+                    : budget.scope === 'cluster'
+                      // Naming the node is the point: a cluster figure with
+                      // no owner reads as this machine's, which is the very
+                      // confusion the cluster reading exists to end.
+                      ? t(budget.nodeCount > 1 ? 'shelves.heroWithCluster' : 'shelves.heroWithNode', {
+                        vram: formatBytes(totalGpuMemory), node: budget.nodeName, nodes: budget.nodeCount, count: stats.total,
+                      })
+                      : hasGpu
+                        ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
+                        : t('shelves.heroWithRam', { ram: formatBytes(totalGpuMemory), count: stats.total })}
+                </h2>
+                )}
+                {galleryEmpty
+                  ? <p className="zero-pane__text">{t('ledger.emptyGalleryHint')}</p>
+                  : statsLoaded && <p className="zero-pane__text">{t('shelves.heroHint')}</p>}
+              </div>
+
+              {/* The hardware-fit strip is the curation, and here it finally
+                  gets the width to argue for a model rather than list one.
+                  It keeps its own dismissal and collapse state, so someone
+                  who closed it still lands on the pane below. */}
+              {!galleryEmpty && <RecommendedModels addToast={addToast} />}
+
+              {/* Somewhere to start when the recommendations are not it.
+                  These set the use-case filter rather than fetching a second
+                  list, so a shelf costs nothing and cannot go stale. */}
+              {!galleryEmpty && statsLoaded && (
+              <div className="zero-pane__shelf">
+                <div className="zero-pane__shelf-head">
+                  <h3 className="zero-pane__shelf-title">{t('shelves.byUseCase')}</h3>
+                </div>
+                {/* Lanes, not tiles. These are a list of ways in, read in
+                    order — a grid of equal cards asks the reader to compare
+                    them, which is not the choice being offered. */}
+                <ul className="lanes lanes--usecase">
+                  {USE_CASE_LANES.map(lane => (
+                    <li key={lane.id}>
+                      <button
+                        type="button"
+                        className="lane"
+                        onClick={() => { setFilters([lane.pick]); setPage(1) }}
+                      >
+                        <span className="lane__tag">
+                          <Icon name={lane.icon} /> {t(lane.labelKey)}
+                        </span>
+                        <span className="lane__desc">{t(lane.blurbKey)}</span>
+                        <span className="lane__go" aria-hidden="true">→</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              )}
+            </div>
+          )}
+        </aside>
+      </div>
+      {overlays}
     </div>
   )
 }
@@ -979,10 +1143,8 @@ function DetailRow({ label, children }) {
   if (!children) return null
   return (
     <tr>
-      <td style={{ fontWeight: 500, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', verticalAlign: 'top', padding: '6px 12px 6px 0' }}>
-        {label}
-      </td>
-      <td style={{ fontSize: '0.8125rem', padding: '6px 0' }}>{children}</td>
+      <th scope="row" className="ledger-detail__label">{label}</th>
+      <td className="ledger-detail__value">{children}</td>
     </tr>
   )
 }
@@ -1020,11 +1182,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
   // keyboard does not drop the user back at the top of the document.
   const infoRefs = useRef({})
   return (
-    <div style={{
-      padding: 'var(--spacing-md) var(--spacing-lg)',
-      background: nested ? 'transparent' : 'var(--color-bg-primary)',
-      borderTop: nested ? 'none' : '1px solid var(--color-border-subtle)',
-    }}>
+    <div className={`ledger-detail${nested ? ' ledger-detail--nested' : ''}`}>
       {model.description && (
         // Prose sits outside the label/value table: an eight-line value cell
         // in a grid of one-line ones breaks the rhythm exactly where the eye
@@ -1037,18 +1195,18 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           />
         </div>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table className="ledger-detail__table">
         <tbody>
           <DetailRow label={t('detail.gallery')}>
             {model.gallery && (
-              <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+              <span className="dk-badge">
                 {typeof model.gallery === 'string' ? model.gallery : model.gallery.name || '—'}
               </span>
             )}
           </DetailRow>
           <DetailRow label={t('detail.backend')}>
             {model.backend && (
-              <span className="badge badge-info" style={{ fontSize: '0.6875rem' }}>
+              <span className="dk-badge">
                 {model.backend}
               </span>
             )}
@@ -1058,10 +1216,10 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           <DetailRow label={t('detail.vram')}>
             {vramDisplay && vramDisplay !== '0 B' ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+              <span className="ledger-detail__vram">
                 {vramDisplay}
                 {fit !== null && (
-                  <span style={{ fontSize: '0.75rem', color: fit ? 'var(--color-success)' : 'var(--color-error)' }}>
+                  <span className={`ledger-detail__fit ledger-detail__fit--${fit ? 'ok' : 'bad'}`}>
                     <Icon name="cpu" /> {fit ? t('detail.fitsGpu') : t('detail.mayNotFitGpu')}
                   </span>
                 )}
@@ -1070,8 +1228,8 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           {variantData?.loading && (
             <DetailRow label={t('variants.title')}>
-              <span style={{ color: 'var(--color-text-muted)' }}>
-                <Icon name="spinner" spin style={{ marginRight: 6 }} />{t('variants.loading')}
+              <span className="ledger-detail__muted">
+                <Icon name="spinner" spin className="icon-before" />{t('variants.loading')}
               </span>
             </DetailRow>
           )}
@@ -1203,19 +1361,19 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           <DetailRow label={t('detail.tags')}>
             {model.tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+              <div className="ledger-detail__tags">
                 {model.tags.map(tag => (
-                  <span key={tag} className="badge badge-info" style={{ fontSize: '0.6875rem' }}>{tag}</span>
+                  <span key={tag} className="dk-badge">{tag}</span>
                 ))}
               </div>
             )}
           </DetailRow>
           <DetailRow label={t('detail.links')}>
             {model.urls?.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div className="ledger-detail__links">
                 {model.urls.map((url, i) => (
-                  <a key={i} href={safeHref(url)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', wordBreak: 'break-all' }}>
-                    <Icon name="external-link" style={{ marginRight: 4, fontSize: '0.6875rem' }} />{url}
+                  <a key={i} className="dk-link" href={safeHref(url)} target="_blank" rel="noopener noreferrer">
+                    <Icon name="external-link" className="icon-before" />{url}
                   </a>
                 ))}
               </div>
@@ -1223,7 +1381,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           {model.trustRemoteCode && (
             <DetailRow label={t('detail.warning')}>
-              <span className="badge badge-error" style={{ fontSize: '0.6875rem' }}>
+              <span className="dk-badge dk-badge--error">
                 <Icon name="alert-circle" /> {t('detail.requiresTrustRemoteCode')}
               </span>
             </DetailRow>
@@ -1232,29 +1390,29 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
             <DetailRow label={t('detail.files')}>
               <div>
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="dk-btn dk-btn--secondary dk-btn--sm"
+                  aria-expanded={expandedFiles}
                   onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}
-                  style={{ marginBottom: expandedFiles ? 'var(--spacing-sm)' : 0 }}
                 >
-                  <Icon name={`chevron-${expandedFiles ? 'down' : 'right'}`} style={{ fontSize: '0.5rem', marginRight: 4 }} />
+                  <Icon name={`chevron-${expandedFiles ? 'down' : 'right'}`} />
                   {t('detail.fileCount', { count: files.length })}
                 </button>
                 {expandedFiles && (
-                  <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <div className="dk-table-wrap ledger-files">
+                    <table className="dk-table dk-table--compact">
                       <thead>
-                        <tr style={{ background: 'var(--color-bg-tertiary)' }}>
-                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>{t('detail.filename')}</th>
-                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>{t('detail.uri')}</th>
-                          <th style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', textAlign: 'left', fontWeight: 500 }}>{t('detail.sha256')}</th>
+                        <tr>
+                          <th scope="col">{t('detail.filename')}</th>
+                          <th scope="col">{t('detail.uri')}</th>
+                          <th scope="col">{t('detail.sha256')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {files.map((f, i) => (
-                          <tr key={i} style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
-                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)' }}>{f.filename || '—'}</td>
-                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', wordBreak: 'break-all', maxWidth: 300 }}>{f.uri || '—'}</td>
-                            <td style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                          <tr key={i}>
+                            <td className="dk-table-id">{f.filename || '—'}</td>
+                            <td className="ledger-files__uri">{f.uri || '—'}</td>
+                            <td className="dk-table-id">
                               {f.sha256 ? f.sha256.substring(0, 16) + '...' : '—'}
                             </td>
                           </tr>
@@ -1272,67 +1430,6 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
   )
 }
 
-// railItemFor maps a gallery entry onto the shape EntityRail speaks. Keeping
-// the vocabulary translation here, rather than teaching the rail about models,
-// is what lets Models and Backends reuse the same component without two
-// slightly different rails growing out of it.
-//
-// The rail line gets exactly one fact beyond the name, and it is spent on
-// whether the thing will run here. Descriptions belong in the pane; two lines
-// is the budget and the second one is worth more as an answer than as prose.
-function railItemFor(model, { estimates, pendingEstimates, contextSize, fitsGpu, isInstalling, getOperationProgress, t }) {
-  const name = model.name || model.id
-  const est = estimates[name]
-  const sizeDisplay = est?.sizeDisplay
-  const vramBytes = est?.estimates?.[String(contextSize)]?.vramBytes
-  const fit = fitsGpu(vramBytes)
-  const hasSize = sizeDisplay && sizeDisplay !== '0 B'
-  const installing = isInstalling(name)
-  const progress = getOperationProgress(name)
-
-  let meta = model.backend || ''
-  let metaTone
-  if (installing) {
-    meta = progress > 0 ? t('rail.downloadingPct', { percent: Math.round(progress) }) : t('table.installing')
-    metaTone = 'busy'
-  } else if (model.installed) {
-    meta = t('table.installed')
-    metaTone = 'ok'
-  } else if (hasSize && fit === false) {
-    meta = t('rail.tooLarge', { size: sizeDisplay })
-    metaTone = 'bad'
-  } else if (hasSize && fit === true) {
-    meta = t('rail.fitsSize', { size: sizeDisplay })
-  } else if (hasSize) {
-    meta = sizeDisplay
-  } else if (pendingEstimates?.has(name)) {
-    // Say the size is coming rather than leaving the line to fill in silently.
-    // The row is usable now; only the "will it fit" answer is still on its way.
-    meta = t('rail.sizing')
-    metaTone = 'pending'
-  }
-
-  return { id: name, name, icon: groupForEntity(model).icon, meta, metaTone, groupId: groupForEntity(model).id }
-}
-
-// SortButton is the home sorting found after the column headers went. It sits
-// in the rail rather than the filter band above, because it orders this list
-// and nothing else on the page.
-function SortButton({ col, label, sort, order, onSort }) {
-  const active = sort === col
-  return (
-    <button
-      type="button"
-      className={`entity-rail__sort-btn${active ? ' active' : ''}`}
-      aria-pressed={active}
-      onClick={() => onSort(col)}
-    >
-      {label}
-      {active && <Icon name={`arrow-${order === 'asc' ? 'up' : 'down'}`} />}
-    </button>
-  )
-}
-
 // VramByContext plots the estimate the fits filter actually tests against, at
 // every context length the page asks the server for.
 //
@@ -1341,7 +1438,7 @@ function SortButton({ col, label, sort, order, onSort }) {
 // 32k context" - which is a shape, not a number. The limit line is what makes
 // the bars mean anything, so a host with no GPU gets no chart at all rather
 // than a chart with nothing to compare against.
-function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t }) {
+function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, hasGpu = true, t }) {
   if (!(totalGpuMemory > 0)) return null
   const points = CONTEXT_SIZES
     .map((ctx, i) => ({ ctx, label: CONTEXT_LABELS[i], bytes: estimate?.estimates?.[String(ctx)]?.vramBytes || 0 }))
@@ -1374,14 +1471,12 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
 
   return (
     <div className="discover__chart">
-      <span className="discover__chart-title">{t('chart.title')}</span>
+      <span className="discover__chart-title">{t(hasGpu ? 'chart.title' : 'chart.titleRam')}</span>
       <div className="discover__chart-plot">
         <div
           className="discover__chart-limit"
           style={{ '--discover-limit': `${(limit / max) * track}px` }}
-        >
-          <span className="discover__chart-limit-label">{t('chart.available', { vram: formatBytes(totalGpuMemory) })}</span>
-        </div>
+        />
         {points.map(p => {
           const unfit = p.bytes > limit
           return (
@@ -1413,6 +1508,9 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
           <span key={p.ctx} className={p.ctx === contextSize ? 'discover__chart-axis-on' : undefined}>{p.label}</span>
         ))}
       </div>
+      {/* The dashed line's name sits under the plot, not on it, where it would
+          cover the bars it is meant to be read against. */}
+      <span className="discover__chart-limit-label">{t('chart.available', { vram: formatBytes(totalGpuMemory) })}</span>
       <p className={`discover__chart-verdict discover__chart-verdict--${verdictClass}`}>
         <Icon name="cpu" /> {verdict}
       </p>
@@ -1420,22 +1518,66 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
   )
 }
 
-// DiscoverDetail is the pane with a model selected. It owns the part a table
-// row could not hold - the headline numbers, the VRAM curve and the actions -
-// and hands the rest to ModelDetail, which already knows how to render an
-// entry's fields and is shared with the per-variant panel.
+// FitSummary says in a sentence what the memory bars below it show. The words
+// carry the verdict; the bars and their colour repeat it.
+function FitSummary({ fit, hasGpu, ramAvailable, contextLabel, budgetNode, t }) {
+  if (!fit) return null
+  const gb = bytes => gbLabel(bytes)
+  const sentence = fit.state === 'fits'
+    ? t('ledger.summary.fits', { need: gb(fit.need), free: gb(fit.amount), context: contextLabel })
+    : fit.state === 'spill'
+      ? t('ledger.summary.spill', { need: gb(fit.need), cpu: gb(fit.amount), context: contextLabel })
+      : hasGpu
+        ? t('ledger.summary.overGpu', { need: gb(fit.need), over: gb(fit.amount), context: contextLabel })
+        : t('ledger.summary.overRam', { need: gb(fit.need), over: gb(fit.amount), context: contextLabel })
+  const gpuUsed = Math.min(fit.need, fit.limit)
+  const cpuPart = fit.state === 'fits' ? 0 : Math.min(fit.need - fit.limit, ramAvailable || 0)
+  const where = budgetNode ? t('ledger.summary.onNode', { node: budgetNode }) : ''
+  return (
+    <section className="ledger-fitblock" data-fit={fit.state} data-testid="fit-summary" aria-labelledby="fit-summary-h">
+      <h3 className="detail-pane__label" id="fit-summary-h">{t('ledger.summary.title')}{where}</h3>
+      <p className="ledger-fitblock__words">
+        <Icon name={fit.state === 'fits' ? 'check-circle' : fit.state === 'spill' ? 'alert-circle' : 'close-circle'} />
+        <span>{sentence}</span>
+      </p>
+      <div className="ledger-fitblock__rows">
+        <div className="ledger-fitblock__row">
+          <span className="ledger-fitblock__dev">{hasGpu ? t('ledger.summary.gpu') : t('ledger.summary.ram')}</span>
+          <span className="ledger-fit__bar" aria-hidden="true"><span className="ledger-fit__fill" style={fitStyle(gpuUsed / fit.total)} /></span>
+          <span className="ledger-fitblock__fig">{gbNumber(gpuUsed)} / {gbNumber(fit.total)} GB</span>
+        </div>
+        {hasGpu && ramAvailable > 0 && fit.state !== 'fits' && (
+          <div className="ledger-fitblock__row">
+            <span className="ledger-fitblock__dev">{t('ledger.summary.ram')}</span>
+            <span className="ledger-fit__bar" aria-hidden="true"><span className="ledger-fit__fill" style={fitStyle(cpuPart / ramAvailable)} /></span>
+            <span className="ledger-fitblock__fig">{gbNumber(cpuPart)} / {gbNumber(ramAvailable)} GB</span>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// DiscoverDetail is the inspector with a model selected. It owns the part a
+// table row could not hold - the headline numbers, the fit summary, the VRAM
+// curve and the actions - and hands the rest to ModelDetail, which already
+// knows how to render an entry's fields and is shared with the per-variant
+// panel.
 function DiscoverDetail({
-  model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu, budgetNode,
-  installing, progress, onInstall, installedProfile, onOpen, onManage, onBack,
+  model, estimate, contextSize, onPickContext, budget, ramAvailable, disk, totalGpuMemory, fitsGpu, budgetNode,
+  installing, progress, failed, onInstall, onRetry, installedProfile, onOpen, onManage, onBack,
   expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
 }) {
   const name = model.name || model.id
   const sizeDisplay = estimate?.sizeDisplay
   const vramBytes = estimate?.estimates?.[String(contextSize)]?.vramBytes
   const fit = fitsGpu(vramBytes)
+  const ledgerFit = fitFor(vramBytes, budget, ramAvailable)
   const contextLabel = CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
   const openUseCase = modelUseCases(installedProfile).find(useCase => useCase.route)
+  const leaves = leavesFree(disk, estimate?.sizeBytes)
+  const canInstall = !installing && !model.installed
 
   return (
     <ModelLifecycleDetailShell
@@ -1445,8 +1587,10 @@ function DiscoverDetail({
       lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
       ledeTitle={model.description ? stripMarkdown(model.description) : null}
       onBack={onBack}
-      backLabel={t('detail.backToAll')}
+      backLabel={t('ledger.closeInspector')}
+      closeIcon
       warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
+      error={failed ? t('ledger.failedInstall', { message: failed.error }) : null}
       actions={
           installing ? (
             <div className="inline-install">
@@ -1457,32 +1601,36 @@ function DiscoverDetail({
                 </span>
               </div>
               {progress > 0 && (
-                <div className="operation-bar-container discover__progress">
-                  <div className="operation-bar" style={{ width: `${progress}%` }} />
+                <div className="ledger-progress ledger-progress--wide" aria-hidden="true">
+                  <span className="ledger-progress__bar" style={fitStyle(progress / 100)} />
                 </div>
               )}
             </div>
           ) : model.installed ? (
             <>
               {openUseCase && (
-                <button className="btn btn-primary btn-sm" onClick={() => onOpen(openUseCase.route(name))}>
+                <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onOpen(openUseCase.route(name))}>
                   <Icon name="external-link" />
                   {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
                 </button>
               )}
-              <button className="btn btn-secondary btn-sm" onClick={() => onManage(name)}>
+              <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onManage(name)}>
                 <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
               </button>
             </>
+          ) : failed ? (
+            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onRetry(name, failed)} data-testid="discover-install">
+              <Icon name="refresh" /> {t('ledger.retry')}
+            </button>
           ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => onInstall(name)} data-testid="discover-install">
+            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} data-testid="discover-install">
               <Icon name="download" /> {t('actions.install')}
             </button>
           )
       }
       stats={[
         { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
-        { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
+        { label: t(budget.hasGpu ? 'detail.vramAt' : 'detail.memoryAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
         {
           // Headroom is headroom somewhere. On a distributed controller that
           // somewhere is a worker, and an unqualified figure reads as this
@@ -1494,12 +1642,29 @@ function DiscoverDetail({
         },
       ]}
     >
+      {canInstall && leaves !== null && (
+        <p className={`ledger-leaves${leaves < 0 ? ' ledger-leaves--short' : ''}`} data-testid="leaves-free">
+          {leaves < 0
+            ? t('disk.notEnough', { amount: gbLabel(-leaves), size: gbLabel(estimate.sizeBytes) })
+            : t('disk.leaves', { size: gbLabel(estimate.sizeBytes), amount: gbLabel(leaves) })}
+        </p>
+      )}
+
+      <FitSummary
+        fit={ledgerFit}
+        hasGpu={budget.hasGpu}
+        ramAvailable={ramAvailable}
+        contextLabel={contextLabel}
+        budgetNode={budgetNode}
+        t={t}
+      />
 
       <VramByContext
         estimate={estimate}
         contextSize={contextSize}
         onPickContext={onPickContext}
         totalGpuMemory={totalGpuMemory}
+        hasGpu={budget.hasGpu}
         t={t}
       />
 

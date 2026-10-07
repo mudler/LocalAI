@@ -28,16 +28,57 @@ GPT and text generation models might have a license which is not permissive for 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
 lifecycle and has two views:
 
-- **Explore** browses configured galleries, compares hardware fit and variants,
-  and installs models. This is the default view.
-- **Installed** lists local model configurations and their running, idle,
-  disabled, pinned, and distributed state. Select a model to load or stop it,
-  edit its configuration, open a supported use case, inspect backend logs, or
-  remove it.
+- **Explore** browses configured galleries and installs models. It is one
+  dense table: each row shows the model's size, a bar for the memory it needs at
+  the chosen context length, and the headroom in words ("3.7 free", "+1.5 on
+  CPU", "0.9 over"). Capability chips show how many models each one matches.
+  Select a row to open the details beside the table: the fit on this machine,
+  VRAM by context length, variants, files, links, tags and licence. This is the
+  default view.
+- **Installed** lists local model configurations in the same table, with their
+  running, idle, disabled, pinned, and distributed state. Load or stop a model
+  from its row, or select it to edit its configuration, open a supported use
+  case, inspect backend logs, or remove it.
 
-Both views use the same model selection and store the view, search, filter, and
-selection in the URL. Installing from Explore does not move you away from the
-catalog; the entry updates in place when the operation finishes.
+Both views store the view, search, filter, and selection in the URL. Installing
+from Explore does not move you away from the catalog; the entry updates in place
+when the operation finishes.
+
+### Keyboard
+
+On the Models page, `/` jumps to the search field, the up and down arrows move
+the selection, `Enter` installs the selected model in Explore, `d` switches
+between comfortable and compact rows, and `Esc` closes the details.
+
+### Disk and cleanup
+
+When the server reports the disk that holds the models directory, a strip in the
+page header shows how much of it is free. It turns amber when less than 10
+percent, or less than 20 GB, is free. In Explore, the details of a model say how
+much disk an install leaves free. The strip is hidden when the disk cannot be
+read, and on a distributed controller, where the models live on the workers.
+
+Select the strip to open the cleanup review. LocalAI does not record when a
+model was last used or how often, so the review says so and ranks installed
+models only by what it can see:
+
+- **Safe to remove**: another build of the same gallery model is installed, and
+  the build LocalAI would pick on this host is the one that stays.
+- **Probably safe**: disabled, unused, and available in the gallery to download
+  again.
+- **Your call**: not loaded and not used by anything, but with nothing more
+  known. A model that is not in the gallery cannot be downloaded again, and the
+  review says so.
+- **Protected**: loaded, pinned, or named by an agent, an agent task, a failover
+  chain or an alias. These are never suggested. If an agent or task cannot be
+  read, nothing is marked safe.
+
+Sizes are the sizes of the files the gallery lists, so a model that is not in the
+gallery shows no size and is not counted in what a removal frees. Before you
+confirm, the review checks again and lists what will go, why, and how much it
+frees. Removal then waits 30 seconds, during which you can undo it; the delete
+request is sent only when that time ends. If you leave the page during the wait,
+nothing is deleted.
 
 ## Cyber-Ornith 1.5 9B
 
@@ -171,9 +212,9 @@ This removal does not delete previously installed models. Remove that configurat
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
 
-- **Where they appear**: In the model gallery table (Size / VRAM column), in the model detail modal, and after starting an import from URI (in the success message).
+- **Where they appear**: In the model gallery table (Size and Fit columns), in the details beside it, and after starting an import from URI (in the success message).
 - **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used.
-- **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
+- **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
 ## Useful Links and resources

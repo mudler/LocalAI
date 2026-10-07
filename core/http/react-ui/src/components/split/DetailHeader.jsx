@@ -6,12 +6,26 @@ import Icon from '../Icon'
 // the URL on all three surfaces, so leaving the detail is a real navigation
 // rather than a second click on the thing you just opened.
 export default function DetailHeader({
-  icon, name, lede, ledeTitle, actions, onBack, backLabel, warning,
+  icon, name, lede, ledeTitle, actions, onBack, backLabel, warning, closeIcon = false,
   testId = 'detail',
 }) {
   return (
     <>
-      {onBack && (
+      {onBack && closeIcon && (
+        // A close button on the corner, for an inspector beside a table: the
+        // table stays on screen, so the control reads as dismissing, not leaving.
+        <button
+          type="button"
+          className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm detail-pane__close"
+          onClick={onBack}
+          data-testid={`${testId}-back`}
+          aria-label={backLabel}
+          title={backLabel}
+        >
+          <Icon name="close" />
+        </button>
+      )}
+      {onBack && !closeIcon && (
         <button type="button" className="detail-pane__back" onClick={onBack} data-testid={`${testId}-back`}>
           <Icon name="arrow-left" /> {backLabel}
         </button>

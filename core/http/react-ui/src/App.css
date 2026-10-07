@@ -2468,68 +2468,6 @@ select.input {
   user-select: none;
   white-space: nowrap;
 }
-/* Models gallery filter block. Three bands (query / taxonomy / refinements)
-   stacked by .filter-bar-group. The refinements live in their own band so the
-   chip row's wrap height can never displace them. */
-.models-filters__query {
-  flex-wrap: nowrap;
-  gap: var(--spacing-sm);
-}
-.models-filters__backend {
-  flex: 0 0 auto;
-  min-width: 0;
-}
-/* .filter-bar carries its own bottom margin for standalone use; inside the
-   group the parent's gap owns the rhythm. */
-.models-filters > .filter-bar {
-  margin-bottom: 0;
-}
-.models-filters__refine {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm) var(--spacing-lg);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-border-subtle);
-}
-/* Both refinements read as one secondary group: same size, same colour and the
-   same icon-then-label rhythm as .filter-bar-group__toggle. */
-.models-filters__context {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-.models-filters__context > label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.models-filters__context input[type='range'] {
-  width: 140px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-.models-filters__context-value {
-  font-weight: var(--font-weight-medium);
-  min-width: 3em;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 768px) {
-  /* Search and backend select each take a full row rather than squeezing the
-     input below a usable width. */
-  .models-filters__query {
-    flex-wrap: wrap;
-  }
-  .models-filters__backend {
-    flex: 1 1 100%;
-  }
-}
-
 .filter-btn__count {
   display: inline-flex;
   align-items: center;
@@ -13312,8 +13250,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 
 .detail-pane__actions { display: flex; gap: var(--spacing-xs); align-items: center; flex: none; }
 
-.discover__progress { flex: none; width: 120px; margin-top: 4px; }
-
 .detail-pane__warning {
   display: flex;
   align-items: center;
@@ -13520,53 +13456,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .empty-state--page .empty-state-icon { font-size: 2rem; }
 .empty-state--page .empty-state-text { text-wrap: balance; }
 
-/* The filter band moved into the rail column, so it stacks instead of laying
-   out three horizontal bands across the page. It sits there because it narrows
-   the rail and nothing else: one column to say what you want, one to show what
-   you got. */
-.split-view__rail-col .models-filters {
-  margin-bottom: 0;
-}
-
-.split-view__rail-col .models-filters__query,
-.split-view__rail-col .models-filters__refine {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--spacing-xs);
-}
-
-.split-view__rail-col .models-filters__backend { width: 100%; }
-
-/* Nineteen chips do not fit beside a 360px rail. The trigger states the
-   selection and the popover carries the full set, which also stops the chip
-   row and the rail competing to be the same control. */
-.models-filters__usecase-trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  width: 100%;
-  min-height: var(--control-h);
-  padding: 0 var(--spacing-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--text-base);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  text-align: left;
-}
-
-.models-filters__usecase-trigger:hover { border-color: var(--color-border-strong); }
-.models-filters__usecase-caret { margin-left: auto; font-size: 0.625rem; color: var(--color-text-muted); }
-
-.models-filters__usecases {
-  margin: 0;
-  padding: var(--spacing-xs) 0 0;
-  max-height: 46vh;
-  overflow-y: auto;
-}
-
 
 /* ==========================================================================
    Full-height view: the split fills the window instead of sitting in a
@@ -13643,62 +13532,11 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   overflow-y: auto;
 }
 
-/* Grouped chips. Four families and a reset, rather than nineteen in a row. */
-.models-filters__usecase-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.models-filters__usecase-group + .models-filters__usecase-group {
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-border-divider);
-}
-
-.models-filters__usecase-label {
-  font-family: var(--font-mono);
-  font-weight: var(--font-weight-bold);
-  font-size: var(--text-xs);
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.models-filters__usecases .filter-bar { margin: 0; }
-
-/* The refinements read as a section with a name, not three controls left where
-   they landed when the band became a column. */
-.split-view__rail-col .models-filters__refine {
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-border-divider);
-  gap: 6px;
-}
-
-.models-filters__refine-label {
-  font-family: var(--font-mono);
-  font-weight: var(--font-weight-bold);
-  font-size: var(--text-xs);
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
 .split-view__rail-col .filter-bar-group__toggle {
   justify-content: flex-start;
   width: 100%;
   padding: var(--spacing-xs) 0;
 }
-
-.split-view__rail-col .models-filters__context {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  width: 100%;
-}
-
-.split-view__rail-col .models-filters__context input[type='range'] { flex: 1; min-width: 0; }
 
 @media (max-width: 900px) {
   /* Stacked, the view cannot be height-constrained without trapping the list

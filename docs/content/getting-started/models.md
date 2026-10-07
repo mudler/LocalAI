@@ -35,10 +35,13 @@ For more details, refer to the [Gallery Documentation]({{% relref "features/mode
 
 The same Models page owns the complete lifecycle. Switch to **Installed** to
 search local configurations, filter them by running, idle, disabled, pinned,
-or distributed state, and open a model's runtime controls. Load, stop, edit,
-pin, disable, inspect backend logs, and remove actions stay with the selected
-model. The current view, search, filter, and selection are stored in the URL so
-links and browser history preserve your place.
+or distributed state, and open a model's runtime controls. Load and stop are on
+each row; edit, pin, disable, backend logs, and remove are in the row menu and in
+the details of the selected model. The current view, search, filter, and
+selection are stored in the URL so links and browser history preserve your place.
+The disk strip in the page header shows the free space on the models disk and
+opens a review of what can be removed to free more (see
+[Model gallery]({{% relref "features/model-gallery" %}})).
 
 ### Via CLI
 
