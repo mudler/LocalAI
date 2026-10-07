@@ -75,11 +75,11 @@ function previewOf(chat) {
   return ''
 }
 
-// Chats that hold at least one message, newest first.
-export function listConversations() {
-  const data = readStore()
-  if (!data) return []
-  return data.chats
+// The rows of the "Jump back in" list for a set of chats: the ones that hold at
+// least one message, newest first. Home reads them from storage; Chat passes
+// the chats it has in memory, which are newer than storage by a moment.
+export function conversationsFromChats(chats) {
+  return (chats || [])
     .filter(c => c && c.id && Array.isArray(c.history) && c.history.some(m => m.role === 'user' || m.role === 'assistant'))
     .map(c => ({
       id: c.id,
@@ -91,6 +91,12 @@ export function listConversations() {
       updatedAt: c.updatedAt || c.createdAt || 0,
     }))
     .sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+// Chats that hold at least one message, newest first.
+export function listConversations() {
+  const data = readStore()
+  return data ? conversationsFromChats(data.chats) : []
 }
 
 function startOfDay(ts) {

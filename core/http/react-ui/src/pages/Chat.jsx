@@ -32,6 +32,11 @@ import ShortcutsDialog from '../components/chat/ShortcutsDialog'
 import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
 // eslint-disable-next-line no-unused-vars
 import FindBar from '../components/chat/FindBar'
+// eslint-disable-next-line no-unused-vars
+import LoadCard from '../components/chat/LoadCard'
+// eslint-disable-next-line no-unused-vars
+import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
+import { conversationsFromChats } from '../utils/homeConversations'
 import { applyFind, clearFind } from '../components/chat/findInThread'
 // eslint-disable-next-line no-unused-vars
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -43,7 +48,6 @@ import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
-import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
@@ -54,18 +58,6 @@ import { editableMessageText, withEditedMessageText, isActivityRole } from '../c
 import './chat.css'
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
-
-function getLastMessagePreview(chat) {
-  if (!chat.history || chat.history.length === 0) return ''
-  for (let i = chat.history.length - 1; i >= 0; i--) {
-    const msg = chat.history[i]
-    if (msg.role === 'user' || msg.role === 'assistant') {
-      const text = typeof msg.content === 'string' ? msg.content : msg.content?.[0]?.text || ''
-      return text.slice(0, 40).replace(/\n/g, ' ')
-    }
-  }
-  return ''
-}
 
 function serializeChatAsMarkdown(chat) {
   let md = `# ${chat.name}\n\n`
@@ -140,6 +132,8 @@ export default function Chat() {
           + (modelLoading.node ? ` ${t('streaming.onNode', { node: modelLoading.node })}` : ''),
         progress: modelLoading.progress || 0,
         detail: eta ? t('streaming.eta', { value: eta }) : '',
+        sent: modelLoading.bytes_sent || 0,
+        total: modelLoading.total_bytes || 0,
       }
     }
     if (stagingOp) {
@@ -916,12 +910,6 @@ export default function Chat() {
 
   const contextPercent = getContextUsagePercent()
 
-  // Recent chats for the empty state — exclude the current chat and any
-  // empty placeholders, keep the four most recently updated.
-  const recentChats = chats
-    .filter(c => c.id !== activeChatId && (c.history?.length || 0) > 0)
-    .slice(0, 4)
-
   const promptDeleteAll = () => setConfirmDialog({
     title: t('deleteAllDialog.title'),
     message: t('deleteAllDialog.message'),
@@ -953,6 +941,12 @@ export default function Chat() {
     isInConversation ? 'cx-page--live' : '',
     focusActive ? 'chat--focus' : '',
   ].filter(Boolean).join(' ')
+
+  const isEmpty = activeChat.history.length === 0 && !isStreaming
+  const noModel = !activeChat.model && !chatModelsLoading && chatModels.length === 0
+  const conversations = isEmpty
+    ? conversationsFromChats(visibleChats.filter(c => c.id !== activeChatId))
+    : []
 
   const toggleCanvasMode = () => {
     const next = !canvasMode
@@ -1097,7 +1091,7 @@ export default function Chat() {
   return (
     <div className={layoutClasses}>
       {/* Conversation column */}
-      <div className="cx-conv">
+      <div className="cx-conv" data-empty={isEmpty || undefined}>
         <ChatHeader
           historyMenu={(
             <ChatsMenu
@@ -1145,60 +1139,8 @@ export default function Chat() {
         {/* Thread */}
         <div className="cx-stage">
         <div className="cx-body" ref={messagesRef}>
-          {activeChat.history.length === 0 && !isStreaming && (
-            <div className="chat-empty-state">
-              <h2 className="chat-empty-title">{activeChat.localaiAssistant ? t('empty.manageTitle') : t('empty.startTitle')}</h2>
-              <p className="chat-empty-text">
-                {activeChat.localaiAssistant
-                  ? t('empty.manageText')
-                  : (activeChat.model ? t('empty.readyText', { model: activeChat.model }) : t('empty.selectModelText'))}
-              </p>
-              <div className="chat-empty-suggestions">
-                {(activeChat.localaiAssistant
-                  ? t('empty.suggestionsManage', { returnObjects: true })
-                  : t('empty.suggestionsChat', { returnObjects: true })
-                ).map((prompt) => (
-                  <button
-                    key={prompt}
-                    className="chat-empty-suggestion"
-                    onClick={() => { setInput(prompt); textareaRef.current?.focus() }}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-              {recentChats.length > 0 && (
-                <div className="chat-recent-strip">
-                  <div className="chat-recent-strip-label">
-                    {t('empty.recent')} <kbd className="chat-recent-strip-kbd">⌘K</kbd>
-                  </div>
-                  <div className="chat-recent-strip-list">
-                    {recentChats.map(chat => (
-                      <button
-                        key={chat.id}
-                        type="button"
-                        className="chat-recent-strip-item"
-                        onClick={() => switchChat(chat.id)}
-                        title={chat.name}
-                      >
-                        <span className="chat-recent-strip-item-name">{chat.name}</span>
-                        <span className="chat-recent-strip-item-preview">
-                          {getLastMessagePreview(chat) || t('empty.noMessages')}
-                        </span>
-                        <span className="chat-recent-strip-item-time">{relativeTime(chat.updatedAt)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="chat-empty-hints">
-                <span><Icon name="keyboard" /> {t('empty.hintEnter')}</span>
-                <span><Icon name="corner-down-right" /> {t('empty.hintShiftEnter')}</span>
-                <span><Icon name="paperclip" /> {t('empty.hintAttach')}</span>
-              </div>
-            </div>
-          )}
-          <div className="cx-thread" data-testid="chat-thread">
+          {isEmpty && <EmptyHead name={activeChat.name} manage={!!activeChat.localaiAssistant} />}
+          <div className="cx-thread" data-testid="chat-thread" hidden={isEmpty}>
             {rows.map((row) => (row.kind === 'activity' ? (
               <ActivityRow key={`a${row.key}`} id={`cx-act-${row.key}`} items={row.items} getClientForTool={getClientForTool} />
             ) : (
@@ -1228,25 +1170,10 @@ export default function Chat() {
                 content={streamingContent}
                 reasoning={streamingReasoning}
                 toolCalls={streamingToolCalls}
-                waiting={loadProgress ? (
-                  <div className="chat-staging-progress">
-                    <div className="chat-staging-label">
-                      <Icon name="cloud-upload" /> {loadProgress.label}
-                    </div>
-                    {loadProgress.progress > 0 && (
-                      <div className="chat-staging-detail">
-                        <div className="chat-staging-bar-container">
-                          <div className="chat-staging-bar" style={{ width: `${loadProgress.progress}%` }} />
-                        </div>
-                        <span className="chat-staging-pct">{Math.round(loadProgress.progress)}%</span>
-                      </div>
-                    )}
-                    {loadProgress.detail && (
-                      <div className="chat-staging-file">{loadProgress.detail}</div>
-                    )}
-                  </div>
+                waiting={(loadProgress || !modelWarm) ? (
+                  <LoadCard model={activeChat.model} progress={loadProgress} />
                 ) : (
-                  <span className="chat-thinking-dots"><span /><span /><span /></span>
+                  <span className="cx-dots" aria-label={t('streaming.waiting')}><span /><span /><span /></span>
                 )}
               />
             )}
@@ -1285,7 +1212,7 @@ export default function Chat() {
               files={files}
               onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
               onAttach={attachFiles}
-              placeholder={activeChat.model ? t('input.placeholderModel', { model: activeChat.model }) : t('input.placeholderNoModel')}
+              placeholder={activeChat.model ? t('input.placeholderModel', { model: activeChat.model }) : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))}
               slash={slashConfig}
               onRunAction={runSlash}
               streaming={isStreaming}
@@ -1302,10 +1229,12 @@ export default function Chat() {
               sendTestId="chat-send"
             />
             <div className="cx-foot" data-testid="chat-foot">
-              <span>
+              <span data-warn={(!isStreaming && contextPercent !== null && contextPercent > 90) || undefined}>
                 {isStreaming
                   ? (tokensPerSecond !== null ? `${t('tokens.perSec', { count: tokensPerSecond })} · ${t('tokens.generating')}` : t('tokens.generating'))
-                  : (maxTokensPerSecond !== null ? t('tokens.peak', { count: maxTokensPerSecond }) : '')}
+                  : (contextPercent !== null && contextPercent > 90
+                    ? t('context.nearlyFull')
+                    : (maxTokensPerSecond !== null ? t('tokens.peak', { count: maxTokensPerSecond }) : ''))}
               </span>
               <span className="cx-foot__tokens">
                 {activeChat.tokenUsage?.total > 0 && (activeChat.contextSize
@@ -1315,6 +1244,25 @@ export default function Chat() {
             </div>
           </div>
         </div>
+        {isEmpty && (
+          <div className="cx-under" data-testid="chat-under">
+            <EmptyUnder
+              noModel={noModel}
+              isAdmin={isAdmin}
+              addToast={addToast}
+              onInstallStarted={() => setFitOpenCount(n => n)}
+              manage={!!activeChat.localaiAssistant}
+              model={activeChat.model}
+              warm={modelWarm}
+              starters={t(activeChat.localaiAssistant ? 'empty.suggestionsManage' : 'empty.suggestionsChat', { returnObjects: true })}
+              onStarter={(prompt) => { setInput(prompt); textareaRef.current?.focus() }}
+              conversations={conversations}
+              leavingId={null}
+              onResume={(conv) => switchChat(conv.id)}
+              onDelete={(conv) => { const chat = chats.find(c => c.id === conv.id); if (chat) requestDelete(chat) }}
+            />
+          </div>
+        )}
       </div>
       {canvasOpen && artifacts.length > 0 && (
         <CanvasPanel

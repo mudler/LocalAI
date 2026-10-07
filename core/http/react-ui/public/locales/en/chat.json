@@ -35,7 +35,8 @@
     "label": "Context: {{percent}}%",
     "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)",
     "title": "Context",
-    "ofSize": "{{percent}}% of {{size}} tokens"
+    "ofSize": "{{percent}}% of {{size}} tokens",
+    "nearlyFull": "The context is nearly full. Start a new chat or raise the size in settings."
   },
   "settings": {
     "title": "Chat Settings",
@@ -85,7 +86,12 @@
     "noMessages": "No messages yet",
     "hintEnter": "Enter to send",
     "hintShiftEnter": "Shift+Enter for newline",
-    "hintAttach": "Attach files"
+    "hintAttach": "Attach files",
+    "title": "What are we working on?",
+    "try": "Try",
+    "warmReady": "{{model}} is loaded and ready.",
+    "coldReady": "{{model}} is not loaded yet. The first reply loads it.",
+    "hintKeys": "Enter sends, Shift+Enter adds a line. Press Ctrl K for all chats."
   },
   "errors": {
     "viewTraces": "View traces for details"
@@ -110,7 +116,8 @@
       "installing": "Installing the backend...",
       "staging": "Staging model files...",
       "loading": "Loading the model..."
-    }
+    },
+    "waiting": "Waiting for the reply"
   },
   "tokens": {
     "perSec": "{{count}} tok/s",
@@ -129,7 +136,8 @@
     "openCanvas": "Open canvas panel",
     "placeholderModel": "Message {{model}}...",
     "placeholderNoModel": "Install a model to start chatting",
-    "selectModelFirst": "Select a model first"
+    "selectModelFirst": "Select a model first",
+    "placeholderPick": "Pick a model to start"
   },
   "deleteAllDialog": {
     "title": "Delete All Chats",
@@ -282,5 +290,18 @@
     "preview": "Preview",
     "download": "Download",
     "htmlPreview": "HTML preview"
+  },
+  "load": {
+    "title": "Loading",
+    "bytes": "{{sent}} of {{total}}",
+    "queued": "Your message is queued and sends when the model is ready. Stop cancels it.",
+    "cold": "This model is not loaded yet, so the first reply takes longer. Your message sends as soon as it is ready."
+  },
+  "noModel": {
+    "title": "Chat needs a language model",
+    "body": "Install one to start chatting. What you type here stays while it installs.",
+    "bodyMember": "No chat model is installed on this server yet. Ask an administrator to install one.",
+    "gallery": "Browse the gallery",
+    "import": "Import a model"
   }
 }
