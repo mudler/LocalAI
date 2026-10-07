@@ -39,6 +39,25 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## POCKET-Darwin-180B
+
+[POCKET-Darwin-180B](https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF)
+is a text-only reasoning model based on Qwen3.8-Flash-Next. Install its
+UD-Q4_K_XL build with:
+
+```bash
+local-ai models install pocket-darwin-180b-q4
+```
+
+The entry downloads all four GGUF shards, about 111.3 GB in total, and uses
+`llama-cpp`. Allow additional memory for inference; download size is not a
+runtime memory estimate. This build has no vision encoder.
+
+The default context is 8192 tokens. Sampling uses temperature 1.0, top-p 0.95,
+and top-k 20. Allow at least 2048 output tokens for reasoning. The publisher
+provides one GGUF quantization, so this entry has no alternate variants.
+The weights use the [Qwen Community License 1.0](https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/blob/71f3b4d3a68af20812af27b2e611501ab43baf1e/LICENSE).
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
