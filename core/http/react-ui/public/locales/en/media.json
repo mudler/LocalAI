@@ -327,6 +327,11 @@
         "noFavourites": "No favourites yet. Star a result to keep it here."
       },
       "auto": "Auto",
+      "sound": {
+        "more": "More options",
+        "generated": "Sound generated",
+        "noCaption": "Please enter caption or lyrics"
+      },
       "choose": "Choose",
       "replace": "Replace",
       "dropHint": "or drop it here"
