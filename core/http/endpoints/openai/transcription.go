@@ -195,7 +195,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		switch responseFormat {
 		case schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText, schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt:
-			return c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
+			err = c.String(http.StatusOK, schema.TranscriptionResponse(tr, responseFormat))
 		case schema.TranscriptionResponseFormatJson:
 			tr.Segments = nil
 			tr.Words = nil
@@ -236,10 +236,16 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 					Words:   segWords,
 				})
 			}
-			return c.JSON(http.StatusOK, trs)
+			err = c.JSON(http.StatusOK, trs)
 		default:
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format")
 		}
+		if err == nil {
+			// Transcription exposes no canonical token counts, but successful
+			// requests still contribute model usage and elapsed time.
+			middleware.StampUsage(c, input.Model, 0, 0)
+		}
+		return err
 	}
 }
 
@@ -278,14 +284,17 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 
 	var assembled strings.Builder
 	var finalResult *schema.TranscriptionResult
+	var writeErr error
 
 	err := backend.ModelTranscriptionStream(c.Request().Context(), req, ml, config, appConfig, func(chunk backend.TranscriptionStreamChunk) {
 		if chunk.Delta != "" {
 			assembled.WriteString(chunk.Delta)
-			_ = writeEvent(map[string]any{
-				"type":  "transcript.text.delta",
-				"delta": chunk.Delta,
-			})
+			if writeErr == nil {
+				writeErr = writeEvent(map[string]any{
+					"type":  "transcript.text.delta",
+					"delta": chunk.Delta,
+				})
+			}
 		}
 		if chunk.Final != nil {
 			finalResult = chunk.Final
@@ -304,6 +313,9 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 		c.Response().Flush()
 		return nil
 	}
+	if writeErr != nil {
+		return writeErr
+	}
 
 	// Build the final event. Prefer the backend-provided final result; if the
 	// backend only emitted deltas, synthesize the result from what we collected.
@@ -315,10 +327,12 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	// If the backend never produced a delta but did return a final text, emit
 	// it as a single delta so clients always see at least one delta event.
 	if assembled.Len() == 0 && finalResult.Text != "" {
-		_ = writeEvent(map[string]any{
+		if err := writeEvent(map[string]any{
 			"type":  "transcript.text.delta",
 			"delta": finalResult.Text,
-		})
+		}); err != nil {
+			return err
+		}
 	}
 	// done carries the assembled text plus, when the backend produced them,
 	// per-segment timings, audio duration, and detected language. The OpenAI
@@ -353,8 +367,13 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 		}
 		doneEvent["segments"] = segs
 	}
-	_ = writeEvent(doneEvent)
-	_, _ = fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+	if err := writeEvent(doneEvent); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n"); err != nil {
+		return err
+	}
 	c.Response().Flush()
+	middleware.StampUsage(c, config.Name, 0, 0)
 	return nil
 }
