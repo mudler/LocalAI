@@ -44,6 +44,7 @@ const (
 	natsLibraries = "github.com/nats-io/"
 	pgxLibraries  = "github.com/jackc/pgx"
 	pgbusPackage  = "github.com/mudler/LocalAI/core/services/pgbus"
+	yamuxLibrary  = "github.com/libp2p/go-yamux/"
 )
 
 // natsAllowlist is the NATS carrier.
@@ -64,6 +65,10 @@ var boundaries = []boundary{
 	// The package of the broadcast carrier is built in one place, and the code
 	// above the seams reaches it only through the holders.
 	{name: "the pgbus package", prefix: pgbusPackage, allowlist: []string{"core/services/carrier/pgbus.go"}},
+	// The multiplexer of the tunnel carrier. The connect endpoint and the
+	// worker hold a tunnel session, but they reach it through the types of the
+	// tunnel package.
+	{name: "yamux", prefix: yamuxLibrary, allowlist: []string{"core/services/tunnel/"}},
 }
 
 // importers returns the slash paths, from root, of the non-test Go files that
