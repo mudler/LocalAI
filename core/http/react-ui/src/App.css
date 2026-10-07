@@ -14019,18 +14019,6 @@ button.lane:hover {
   box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
-/* Room for the description to sit on one line at a comfortable width instead
-   of wrapping into a narrow column beside empty space. */
-.lanes--modality .lane { grid-template-columns: 6rem minmax(0, 1fr) minmax(0, 14rem) 5rem auto; }
-.lanes--takes .lane { grid-template-columns: minmax(0, 1fr) auto; }
-
-.studio-modality--empty { cursor: default; }
-.studio-modality__install { color: var(--color-primary); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
-.studio-modality__state { color: var(--color-success); font-size: 0.8125rem; font-weight: 600; }
-
-.studio-running__meter { height: 4px; border-radius: 2px; background: var(--color-bg-tertiary); overflow: hidden; width: 8rem; }
-.studio-running__meter i { display: block; height: 100%; background: var(--color-primary); }
-
 .studio-overview__heading { display: flex; align-items: baseline; gap: var(--spacing-sm); }
 .studio-overview__count {
   margin-left: auto;

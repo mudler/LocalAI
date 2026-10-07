@@ -11,9 +11,6 @@ import Diarization from './Diarization'
 import StudioOverview from './StudioOverview'
 import { useAuth } from '../context/AuthContext'
 import { useModels } from '../hooks/useModels'
-import { useOperations } from '../hooks/useOperations'
-import { readAllMediaHistory } from '../hooks/useMediaHistory'
-import { use3DHistory } from '../hooks/use3DHistory'
 import {
   CAP_DIARIZATION, CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
@@ -25,11 +22,11 @@ import Icon from '../components/Icon'
 // about what exists.
 const MODALITIES = [
   { key: 'diarization', capability: CAP_DIARIZATION, icon: 'users', group: 'voice', feature: 'audio_diarization' },
-  { key: 'images', capability: CAP_IMAGE, icon: 'image', group: 'create', history: 'image' },
-  { key: 'video', capability: CAP_VIDEO, icon: 'video', group: 'create', history: 'video' },
+  { key: 'images', capability: CAP_IMAGE, icon: 'image', group: 'create' },
+  { key: 'video', capability: CAP_VIDEO, icon: 'video', group: 'create' },
   { key: 'threed', capability: CAP_3D, icon: 'cube', group: 'create', feature: '3d' },
-  { key: 'tts', capability: CAP_TTS, icon: 'headphones', group: 'voice', history: 'tts' },
-  { key: 'sound', capability: CAP_SOUND_GENERATION, icon: 'music', group: 'voice', history: 'sound' },
+  { key: 'tts', capability: CAP_TTS, icon: 'headphones', group: 'voice' },
+  { key: 'sound', capability: CAP_SOUND_GENERATION, icon: 'music', group: 'voice' },
   { key: 'transform', capability: CAP_AUDIO_TRANSFORM, icon: 'waveform', group: 'transform', feature: 'audio_transform' },
 ]
 
@@ -51,12 +48,11 @@ export default function Studio() {
   const navigate = useNavigate()
   const { tab: pathTab } = useParams()
   const [searchParams] = useSearchParams()
-  const { operations } = useOperations()
 
   // Once, unfiltered. useModels(capability) fetches the whole list and filters
   // in the browser, so a hook per modality would be six identical requests to
   // /api/models/capabilities on every mount.
-  const { models } = useModels()
+  const { models, loading: modelsLoading, error: modelsError, refetch: refetchModels } = useModels()
 
   // A modality whose feature is off is not listed at all. That is a different
   // thing from having no model, and the two must not look alike.
@@ -65,20 +61,13 @@ export default function Studio() {
     [hasFeature],
   )
 
-  // Read once and share. 3D is deliberately separate: its history is IndexedDB
-  // (the entries carry GLB blobs), so it arrives asynchronously and cannot come
-  // from the same synchronous read as the other five.
-  const history = useMemo(() => readAllMediaHistory(), [])
-  const { entries: threeDEntries } = use3DHistory()
-
   const modalities = useMemo(() => available.map(m => ({
     ...m,
     installed: models
       .filter(model => model.capabilities?.includes(m.capability) ||
         (m.key === 'threed' && model.capabilities?.includes(CAP_3D_ANIMATION)))
       .map(model => model.id),
-    typical: typicalCost(m.key === 'threed' ? threeDEntries : history[m.history]),
-  })), [available, models, history, threeDEntries])
+  })), [available, models])
 
   const tabs = [OVERVIEW_TAB, ...available]
 
@@ -131,38 +120,11 @@ export default function Studio() {
       ) : (
         <StudioOverview
           modalities={modalities}
-          recent={recentAcross(available, history, threeDEntries)}
-          running={operations.filter(isGeneration)}
-          onPick={setTab}
+          modelsLoading={modelsLoading}
+          modelsError={modelsError}
+          refetchModels={refetchModels}
         />
       )}
     </div>
   )
-}
-
-// Median rather than mean: one cold first run on a model that was still loading
-// would otherwise set the expectation for every run after it.
-function typicalCost(entries) {
-  const times = (entries || []).map(e => e.elapsedMs).filter(ms => ms > 0).sort((a, b) => a - b)
-  if (times.length === 0) return null
-  const median = times[Math.floor(times.length / 2)]
-  return `~${(median / 1000).toFixed(median < 10_000 ? 1 : 0)}s`
-}
-
-function recentAcross(available, history, threeDEntries) {
-  const fromLocalStorage = available
-    .filter(m => m.history)
-    .flatMap(m => (history[m.history] || []).map(e => ({ ...e, modality: m.key })))
-  const from3D = available.some(m => m.key === 'threed')
-    ? (threeDEntries || []).map(e => ({ ...e, modality: 'threed' }))
-    : []
-  return [...fromLocalStorage, ...from3D]
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-    .slice(0, 6)
-}
-
-// Media generation only. A backend install is an operation too, and it belongs
-// on Activity rather than in a page about making things.
-function isGeneration(op) {
-  return ['image', 'video', 'tts', 'sound', 'transform', '3d'].includes(op.type)
 }
