@@ -88,8 +88,8 @@ test.describe('reduced motion', () => {
     // coverage `page` fixture, so set it on the page directly.)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/app') // Home renders .reveal-stagger children
-    // .home-status-line is staggerStyle(1) -> 60ms delay without the fix.
-    const child = page.locator('.home-status-line').first()
+    // .home-below is staggerStyle(2) -> 120ms delay without the fix.
+    const child = page.locator('.home-below').first()
     await expect(child).toBeVisible({ timeout: 15_000 })
     const delay = await child.evaluate(el => getComputedStyle(el).animationDelay)
     // Under reduced motion the per-child delay must be ~0 (not 60ms+).
