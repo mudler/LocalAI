@@ -670,8 +670,8 @@ func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
-		if d.Nats != nil {
-			opts.Bus = d.Nats
+		if d.Broadcaster != nil {
+			opts.Bus = d.Broadcaster
 		}
 	}
 	return opts
@@ -723,7 +723,7 @@ func (a *Application) StartAgentPool() {
 	}
 	// Keep per-user agent tasks consistent across replicas (nil in standalone).
 	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
+		usm.SetJobSyncNATS(d.Broadcaster)
 	}
 	aps.SetUserServicesManager(usm)
 

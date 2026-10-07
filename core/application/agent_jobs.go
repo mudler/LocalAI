@@ -38,7 +38,7 @@ func (a *Application) RestartAgentJobService() error {
 			agentJobService.SetDistributedJobStore(d.JobStore)
 		}
 		// Keep agent tasks consistent across replicas (same client the dispatcher uses).
-		agentJobService.SetTaskSyncNATS(d.Nats)
+		agentJobService.SetTaskSyncNATS(d.Broadcaster)
 	}
 
 	// Start the service

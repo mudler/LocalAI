@@ -7,12 +7,15 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/carrier"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -27,8 +30,15 @@ import (
 )
 
 // DistributedServices holds all services initialized for distributed mode.
+//
+// The seams that cross a process boundary are holders over the active carrier
+// set: they take the carrier through an atomic pointer, so a later change of
+// carrier does not touch the code that holds them. Only Shutdown reaches the
+// set itself.
 type DistributedServices struct {
-	Nats         *messaging.Client
+	// Broadcaster is the fan-out seam. Code that only publishes and subscribes
+	// takes this, never the connection of a carrier.
+	Broadcaster  messaging.Broadcaster
 	WorkQueue    messaging.WorkQueue
 	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
@@ -44,12 +54,15 @@ type DistributedServices struct {
 	FileMgr      *storage.FileManager
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
-	Unloader     *nodes.RemoteUnloaderAdapter
+	Unloader     nodes.NodeControl
 	ModelCleanup *nodes.ModelCleanupService
 
 	// WorkerHTTPDial reaches a worker's own HTTP server for the admin
 	// backend-logs proxy, the same way the HTTP file stager does.
 	WorkerHTTPDial nodes.WorkerNetDialerFor
+
+	// active names the carrier set the holders forward to.
+	active *atomic.Pointer[carrier.Set]
 
 	shutdownOnce sync.Once
 }
@@ -70,10 +83,12 @@ func (ds *DistributedServices) Shutdown() {
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		// AgentBridge has no Close method — its NATS subscriptions are cleaned up
-		// when the NATS client is closed below.
-		if ds.Nats != nil {
-			ds.Nats.Close()
+		// AgentBridge has no Close method: its subscriptions are cleaned up
+		// when the carrier is closed below.
+		if ds.active != nil {
+			if set := ds.active.Load(); set != nil && set.Close != nil {
+				set.Close()
+			}
 		}
 		xlog.Info("Distributed services shut down")
 	})
@@ -112,7 +127,35 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 
-	// Connect to NATS
+	if authDB == nil {
+		return nil, fmt.Errorf("distributed mode requires auth database to be initialized first")
+	}
+
+	// The cluster carrier row says which transport the whole cluster uses.
+	// The first replica to start writes it; later replicas, and every restart,
+	// follow it. Validate above has already refused a missing NATS URL, so a
+	// replica that seeds the row seeds NATS.
+	carrierStore, err := cluster.NewCarrierStore(authDB)
+	if err != nil {
+		return nil, fmt.Errorf("initializing cluster carrier state: %w", err)
+	}
+	carrierRow, seeded, err := carrierStore.Seed(context.Background(), cluster.CarrierNATS, cfg.Distributed.InstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("reading cluster carrier state: %w", err)
+	}
+	if seeded {
+		xlog.Info("Cluster carrier seeded", "carrier", carrierRow.Active, "epoch", carrierRow.Epoch)
+	}
+	if carrierRow.Active != cluster.CarrierNATS {
+		// No silent fallback to the carrier this replica has flags for: a
+		// cluster that has moved to another carrier would split in two.
+		return nil, fmt.Errorf("the cluster carrier is %q (epoch %d, set by %s), and this build runs the %q carrier only",
+			carrierRow.Active, carrierRow.Epoch, carrierRow.ChangedBy, cluster.CarrierNATS)
+	}
+
+	// Connect to NATS. A URL or credential the client cannot use stops the
+	// start. A server that is not up yet does not: the client keeps retrying,
+	// so a frontend can start before its broker.
 	natsAuth := cfg.Distributed.NatsAuthConfig()
 	if natsAuth.RequireAuth && (natsAuth.ServiceUserJWT == "" || natsAuth.ServiceUserSeed == "") {
 		return nil, fmt.Errorf("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
@@ -162,10 +205,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 
 	// Initialize node registry (requires the auth DB which is PostgreSQL)
-	if authDB == nil {
-		return nil, fmt.Errorf("distributed mode requires auth database to be initialized first")
-	}
-
 	registry, err := nodes.NewNodeRegistry(authDB)
 	if err != nil {
 		return nil, fmt.Errorf("initializing node registry: %w", err)
@@ -207,6 +246,53 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		xlog.Info("Applied declarative model scheduling config", "models", len(schedConfigs))
 	}
 
+	// Initialize file manager with local cache
+	cacheDir := cfg.DataPath + "/cache"
+	fileMgr, err := storage.NewFileManager(store, cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("initializing file manager: %w", err)
+	}
+	xlog.Info("File manager initialized", "cacheDir", cacheDir)
+
+	// Build the NATS carrier set and put it behind the holders. Everything
+	// below takes a holder, not the connection.
+	natsSet, err := carrier.NewNATSSet(carrier.NATSOptions{
+		Client:         natsClient,
+		Epoch:          carrierRow.Epoch,
+		Registry:       registry,
+		InstallTimeout: cfg.Distributed.BackendInstallTimeoutOrDefault(),
+		UpgradeTimeout: cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
+		Token:          cfg.Distributed.RegistrationToken,
+		S3Staging:      cfg.Distributed.StorageURL != "",
+		FileManager:    fileMgr,
+		HTTPAddrFor: func(nodeID string) (string, error) {
+			node, err := registry.Get(context.Background(), nodeID)
+			if err != nil {
+				return "", err
+			}
+			if node.HTTPAddress == "" {
+				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
+			}
+			return node.HTTPAddress, nil
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("building the %s carrier: %w", cluster.CarrierNATS, err)
+	}
+	active := &atomic.Pointer[carrier.Set]{}
+	active.Store(natsSet)
+	broadcaster := carrier.NewBroadcaster(active)
+	workQueue := carrier.NewWorkQueue(active)
+	clientFactory := carrier.NewClients(active)
+	fileStager := carrier.NewFiles(active)
+	remoteUnloader := carrier.NewCommands(active)
+	workerHTTPDial := carrier.NewWorkerDialer(active)
+	if cfg.Distributed.StorageURL != "" {
+		xlog.Info("File stager initialized (S3+NATS)")
+	} else {
+		xlog.Info("File stager initialized (HTTP direct transfer)")
+	}
+
 	// Collect SmartRouter option values; the router itself is created after all
 	// dependencies (including FileStager and Unloader) are ready.
 	var routerAuthToken string
@@ -223,6 +309,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
 		routerAuthToken,
 		!cfg.Distributed.DisablePerModelHealthCheck,
+		clientFactory,
 	)
 
 	// Initialize job store
@@ -232,10 +319,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed job store initialized")
 
-	workQueue := messaging.NewNATSWorkQueue(natsClient)
-
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID)
+	dispatcher := jobs.NewDispatcher(jobStore, workQueue, broadcaster, authDB, cfg.Distributed.InstanceID)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
@@ -245,7 +330,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("Distributed agent store initialized")
 
 	// Initialize agent event bridge
-	agentBridge := agents.NewEventBridge(natsClient, agentStore, cfg.Distributed.InstanceID)
+	agentBridge := agents.NewEventBridge(broadcaster, agentStore, cfg.Distributed.InstanceID)
 
 	// Start observable persister — captures observable_update events from workers
 	// (which have no DB access) and persists them to PostgreSQL.
@@ -260,41 +345,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, fmt.Errorf("initializing distributed stores: %w", err)
 	}
-
-	// Initialize file manager with local cache
-	cacheDir := cfg.DataPath + "/cache"
-	fileMgr, err := storage.NewFileManager(store, cacheDir)
-	if err != nil {
-		return nil, fmt.Errorf("initializing file manager: %w", err)
-	}
-	xlog.Info("File manager initialized", "cacheDir", cacheDir)
-
-	// Create FileStager for distributed file transfer
-	workerHTTPDial := nodes.DirectWorkerNetDialer()
-	var fileStager nodes.FileStager
-	if cfg.Distributed.StorageURL != "" {
-		fileStager = nodes.NewS3NATSFileStager(fileMgr, natsClient)
-		xlog.Info("File stager initialized (S3+NATS)")
-	} else {
-		fileStager = nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-			node, err := registry.Get(context.Background(), nodeID)
-			if err != nil {
-				return "", err
-			}
-			if node.HTTPAddress == "" {
-				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
-			}
-			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken, workerHTTPDial)
-		xlog.Info("File stager initialized (HTTP direct transfer)")
-	}
-	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
-	remoteUnloader := nodes.NewRemoteUnloaderAdapter(
-		registry,
-		natsClient,
-		cfg.Distributed.BackendInstallTimeoutOrDefault(),
-		cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
-	)
 
 	// Prefix-cache-aware routing. Enabled by default; an operator can opt out
 	// with --distributed-prefix-cache=false, which leaves prefixProvider and
@@ -315,8 +365,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			return nil, fmt.Errorf("invalid prefix-cache configuration: %w", err)
 		}
 		idx := prefixcache.NewIndex(prefixCfg)
-		prefixSync := prefixcache.NewSync(idx, natsClient)
-		pressure = prefixcache.NewSyncedPressure(prefixCfg.PressureWindow, natsClient)
+		prefixSync := prefixcache.NewSync(idx, broadcaster)
+		pressure = prefixcache.NewSyncedPressure(prefixCfg.PressureWindow, broadcaster)
 		prefixProvider = prefixSync
 
 		// Invalidate the prefix-cache index whenever a replica row is removed.
@@ -342,17 +392,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// Apply peers' observations/invalidations to the same Sync. ApplyObserve
 		// and ApplyInvalidate update only the local index and do not re-publish,
 		// so there is no broadcast loop.
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheObserve, func(ev messaging.PrefixCacheObserveEvent) {
+		if _, err := messaging.SubscribeJSON(broadcaster, messaging.SubjectPrefixCacheObserve, func(ev messaging.PrefixCacheObserveEvent) {
 			prefixSync.ApplyObserve(ev, time.Now())
 		}); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheObserve, err)
 		}
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheInvalidate, func(ev messaging.PrefixCacheInvalidateEvent) {
+		if _, err := messaging.SubscribeJSON(broadcaster, messaging.SubjectPrefixCacheInvalidate, func(ev messaging.PrefixCacheInvalidateEvent) {
 			prefixSync.ApplyInvalidate(ev)
 		}); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
 		}
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
+		if _, err := messaging.SubscribeJSON(broadcaster, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
 			pressure.ApplyPressure(ev, time.Now())
 		}); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCachePressure, err)
@@ -362,7 +412,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// their real KV state without coupling to router internals. Routing stays
 		// on the guessed provider until a backend producer is available.
 		reportedIndex := prefixcache.NewReportedIndex()
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheResidency, reportedIndex.Apply); err != nil {
+		if _, err := messaging.SubscribeJSON(broadcaster, messaging.SubjectPrefixCacheResidency, reportedIndex.Apply); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheResidency, err)
 		}
 
@@ -407,6 +457,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Unloader:         remoteUnloader,
 		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
+		ClientFactory:    clientFactory,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
 		DB:               authDB,
@@ -454,8 +505,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			"knob", config.FlagDiskHeadroomCheck, "env", "LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK")
 	}
 
-	router.StagingTracker().SetPublisher(natsClient)
-	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+	router.StagingTracker().SetPublisher(broadcaster)
+	if _, err := router.StagingTracker().SubscribeBroadcasts(broadcaster); err != nil {
 		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
 	}
 
@@ -468,6 +519,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Scheduler:         router,
 		Unloader:          remoteUnloader,
 		Adapter:           remoteUnloader,
+		ClientFactory:     clientFactory,
 		RegistrationToken: cfg.Distributed.RegistrationToken,
 		DB:                authDB,
 		Interval:          30 * time.Second,
@@ -483,9 +535,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	success = true
 	return &DistributedServices{
-		Nats:         natsClient,
+		Broadcaster:  broadcaster,
 		WorkQueue:    workQueue,
-		AgentControl: nodes.NewNATSAgentControl(natsClient),
+		AgentControl: carrier.NewAgents(active),
 		Store:        store,
 		Registry:     registry,
 		Router:       router,
@@ -503,6 +555,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ModelCleanup: modelCleanup,
 
 		WorkerHTTPDial: workerHTTPDial,
+
+		active: active,
 	}, nil
 }
 

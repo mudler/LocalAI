@@ -342,14 +342,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
 			// Keep agent tasks consistent across replicas (jobs already sync via the
 			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
+			application.agentJobService.SetTaskSyncNATS(distSvc.Broadcaster)
 		}
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
 
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
+			application.galleryService.SetNATSClient(distSvc.Broadcaster)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {

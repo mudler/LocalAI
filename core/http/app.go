@@ -500,7 +500,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		// happened to admit, and a load-balanced UI poll alternates between
 		// "operation visible" and "operation gone" between replicas.
 		if d := application.Distributed(); d != nil {
-			opcache.SetMessagingClient(d.Nats)
+			opcache.SetMessagingClient(d.Broadcaster)
 			if d.DistStores != nil && d.DistStores.Gallery != nil {
 				opcache.SetGalleryStore(d.DistStores.Gallery)
 			}
@@ -518,10 +518,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// In distributed mode pass the shared NATS client + PostgreSQL store so
 	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
 	// mutations and hydrates from the DB); standalone passes nil for both.
-	var ftNats messaging.MessagingClient
+	var ftNats messaging.Broadcaster
 	var ftStore *distributed.FineTuneStore
 	if d := application.Distributed(); d != nil {
-		ftNats = d.Nats
+		ftNats = d.Broadcaster
 		if d.DistStores != nil && d.DistStores.FineTune != nil {
 			ftStore = d.DistStores.FineTune
 		}
@@ -540,10 +540,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// In distributed mode pass the shared NATS client + PostgreSQL store so
 	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
 	// mutations and hydrates from the DB); standalone passes nil for both.
-	var quantNats messaging.MessagingClient
+	var quantNats messaging.Broadcaster
 	var quantStore *distributed.QuantStore
 	if d := application.Distributed(); d != nil {
-		quantNats = d.Nats
+		quantNats = d.Broadcaster
 		if d.DistStores != nil && d.DistStores.Quant != nil {
 			quantStore = d.DistStores.Quant
 		}
