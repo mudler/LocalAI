@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -423,5 +424,74 @@ var _ = Describe("Reporting readiness through the membership loop", func() {
 
 		epoch, _ := readiness("never-registered")
 		Expect(epoch).To(BeZero())
+	})
+})
+
+// countingReclaimer records how often the loop asks it to claim again.
+type countingReclaimer struct {
+	mu    sync.Mutex
+	calls int
+	n     int
+}
+
+func (c *countingReclaimer) Reclaim(context.Context) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.calls++
+	return c.n, nil
+}
+
+func (c *countingReclaimer) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls
+}
+
+var _ = Describe("Claiming connections again after a sweep", func() {
+	var (
+		db  *gorm.DB
+		reg *cluster.Registry
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		db = testutil.SetupTestDB()
+		ctx = context.Background()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		reg = cluster.NewRegistry(db)
+	})
+
+	instanceRows := func(id string) func() int64 {
+		return func() int64 {
+			var n int64
+			Expect(db.Model(&cluster.Instance{}).Where("id = ?", id).Count(&n).Error).To(Succeed())
+			return n
+		}
+	}
+
+	It("asks the holder once the row of the replica is back", func() {
+		membership := cluster.NewMembership(reg, "me", "v1")
+		reclaimer := &countingReclaimer{n: 2}
+		membership.SetReclaimer(reclaimer)
+		Expect(membership.Start(ctx)).To(Succeed())
+		DeferCleanup(membership.Stop)
+		Consistently(reclaimer.count, 2*time.Second).Should(BeZero(), "a normal heartbeat must not claim anything")
+
+		// A peer swept the row while this process stalled.
+		Expect(reg.Deregister(ctx, "me")).To(Succeed())
+
+		Eventually(instanceRows("me"), 3*cluster.InstanceHeartbeat, 250*time.Millisecond).Should(Equal(int64(1)))
+		Eventually(reclaimer.count, time.Second, 50*time.Millisecond).Should(Equal(1))
+	})
+
+	It("works with no holder and with a nil membership", func() {
+		var nilMembership *cluster.Membership
+		nilMembership.SetReclaimer(&countingReclaimer{})
+
+		membership := cluster.NewMembership(reg, "me", "v1")
+		Expect(membership.Start(ctx)).To(Succeed())
+		DeferCleanup(membership.Stop)
+		Expect(reg.Deregister(ctx, "me")).To(Succeed())
+		Eventually(instanceRows("me"), 3*cluster.InstanceHeartbeat, 250*time.Millisecond).Should(Equal(int64(1)))
 	})
 })

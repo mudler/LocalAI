@@ -66,6 +66,14 @@ func DepartedRetentionFor(grace time.Duration) time.Duration {
 	return DepartedRetention
 }
 
+// Reclaimer writes the claims of the worker connections that this replica still
+// holds. The registry of tunnels is one. The interface keeps this package a
+// leaf: it cannot import the package that holds the sockets.
+type Reclaimer interface {
+	// Reclaim returns how many connections it claimed again.
+	Reclaim(ctx context.Context) (int, error)
+}
+
 // Membership publishes this replica in the instances table and removes the
 // replicas that have stopped answering.
 //
@@ -94,6 +102,7 @@ type Membership struct {
 	retention   time.Duration
 	readyEpoch  int64
 	readyReason string
+	reclaimer   Reclaimer
 }
 
 // NewMembership returns the membership loop for one replica.
@@ -123,6 +132,23 @@ func (m *Membership) SetReconnectGrace(grace time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.retention = DepartedRetentionFor(grace)
+}
+
+// SetReclaimer gives the loop the holder of the worker connections of this
+// replica. After a sweep deleted the row of this replica, the loop registers it
+// again and asks the holder to claim its connections again. Without this, the
+// sockets are held here while the table says that nobody holds them.
+//
+// It is a setter and not an argument of NewMembership because the holder is
+// built after the loop. It is safe to call while the loop runs, and on a nil
+// receiver.
+func (m *Membership) SetReclaimer(r Reclaimer) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.reclaimer = r
 }
 
 // ReportReady records in the instances table that this replica has built the
@@ -228,7 +254,13 @@ func (m *Membership) tick(ctx context.Context) {
 		// row has to be rebuilt.
 		xlog.Warn("Cluster instance row was reaped, registering again", "id", m.id)
 		if err := m.register(ctx); err != nil {
+			// The connections are not claimed again in this case. A claim
+			// written now would name an instance row that does not exist, and
+			// the next sweep would delete it as an orphan. The sweep below
+			// still runs, because it removes other replicas.
 			xlog.Error("Registering the cluster instance again failed", "id", m.id, "error", err)
+		} else {
+			m.reclaim(ctx)
 		}
 	} else if err != nil {
 		xlog.Warn("Cluster instance heartbeat failed", "id", m.id, "error", err)
@@ -258,6 +290,27 @@ func (m *Membership) tick(ctx context.Context) {
 	}
 	if purged > 0 {
 		xlog.Info("Purged worker connections whose departure aged out", "connections", purged, "retention", retention)
+	}
+}
+
+// reclaim claims the connections of this replica again, after the sweep that
+// recorded them as departed. The registration that came before it rebuilt the
+// instance row only. The lock is not held during the database work.
+func (m *Membership) reclaim(ctx context.Context) {
+	m.mu.Lock()
+	reclaimer := m.reclaimer
+	m.mu.Unlock()
+	if reclaimer == nil {
+		return
+	}
+	n, err := reclaimer.Reclaim(ctx)
+	if err != nil {
+		// The loop goes on. The next heartbeat fails in the same way while the
+		// row is missing, so the claim is tried again.
+		xlog.Error("Claiming worker connections again after this replica was reaped failed", "id", m.id, "error", err)
+	}
+	if n > 0 {
+		xlog.Info("Claimed worker connections again after this replica was reaped", "id", m.id, "connections", n)
 	}
 }
 
