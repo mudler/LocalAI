@@ -5,7 +5,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/messaging/messagingtest"
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -14,15 +13,16 @@ import (
 // the carriers do: first as it is built, then after its carrier was swapped.
 var _ = Describe("Broadcaster holder conformance", func() {
 	Describe("on the carrier it was built over", func() {
-		messagingtest.RunBroadcasterConformance(func() (messaging.Broadcaster, func()) {
+		messagingtest.RunBroadcasterConformance(func() messagingtest.Carrier {
 			var cur atomic.Pointer[carrier.Set]
 			cur.Store(newFakeCarrier(cluster.CarrierNATS, 1).set)
-			return carrier.NewBroadcaster(&cur), func() {}
+			h := carrier.NewBroadcaster(&cur)
+			return messagingtest.Carrier{Bus: h, Peer: h, ServesControlRoots: true}
 		})
 	})
 
 	Describe("after the carrier was swapped", func() {
-		messagingtest.RunBroadcasterConformance(func() (messaging.Broadcaster, func()) {
+		messagingtest.RunBroadcasterConformance(func() messagingtest.Carrier {
 			var cur atomic.Pointer[carrier.Set]
 			first := newFakeCarrier(cluster.CarrierNATS, 1).set
 			next := newFakeCarrier(cluster.CarrierTunnel, 2).set
@@ -35,7 +35,7 @@ var _ = Describe("Broadcaster holder conformance", func() {
 			if err := h.Release(first); err != nil {
 				Fail(err.Error())
 			}
-			return h, func() {}
+			return messagingtest.Carrier{Bus: h, Peer: h, ServesControlRoots: true}
 		})
 	})
 })
