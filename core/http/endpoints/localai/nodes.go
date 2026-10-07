@@ -2,6 +2,7 @@ package localai
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
@@ -114,12 +116,64 @@ type RegisterNodeRequest struct {
 	Version string `json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
 	Commit string `json:"commit,omitempty"`
+	// Routable says if the address of the worker can be reached from the
+	// frontends. A worker started with an address sends true. A worker that has
+	// none sends false: it holds an outbound tunnel and nothing dials it. A
+	// worker that predates the field sends nothing, and that means true.
+	Routable *bool `json:"routable,omitempty"`
+}
+
+// CarrierReader reads the row that names the carrier of the cluster.
+// *cluster.CarrierStore is one.
+type CarrierReader interface {
+	Get(ctx context.Context) (cluster.CarrierRow, error)
+}
+
+type registerOptions struct {
+	carriers CarrierReader
+}
+
+// RegisterOption changes how a registration or an approval answers.
+type RegisterOption func(*registerOptions)
+
+// WithCarrierReader makes the answer name the active carrier and its epoch, and
+// hand over the credential for that carrier. Without it the answer is the one of
+// a deployment that has only NATS.
+func WithCarrierReader(r CarrierReader) RegisterOption {
+	return func(o *registerOptions) { o.carriers = r }
+}
+
+func newRegisterOptions(opts []RegisterOption) registerOptions {
+	var o registerOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+// activeCarrier returns the row of the carrier. The second result is false when
+// there is no reader or the read failed. The caller then answers as a
+// deployment with only NATS does. A failed read is logged and does not fail the
+// registration: registration is how a worker joins the cluster, and a worker
+// that is refused for a problem it cannot fix would not join at all.
+func (o registerOptions) activeCarrier(ctx context.Context) (cluster.CarrierRow, bool) {
+	if o.carriers == nil {
+		return cluster.CarrierRow{}, false
+	}
+	row, err := o.carriers.Get(ctx)
+	if err != nil {
+		xlog.Warn("Reading the cluster carrier for a registration failed; answering as for NATS", "error", err)
+		return cluster.CarrierRow{}, false
+	}
+	return row, true
 }
 
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
-func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
+	var openRegistrationWarning sync.Once
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
 		if err := c.Bind(&req); err != nil {
@@ -148,11 +202,23 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 				fmt.Sprintf("invalid node_type %q; must be %q or %q", nodeType, nodes.NodeTypeBackend, nodes.NodeTypeAgent)))
 		}
 
-		// Backend workers require address; agent workers don't serve gRPC
+		ctx := c.Request().Context()
+		carrierRow, haveCarrier := opts.activeCarrier(ctx)
+		tunnelActive := haveCarrier && carrierRow.Active == cluster.CarrierTunnel
+		// A worker that said that its address cannot be reached holds an
+		// outbound tunnel and nothing dials it. Its address is dropped and not
+		// stored: a dialable-looking endpoint that nothing may dial misleads.
+		tunnelOnly := tunnelActive && req.Routable != nil && !*req.Routable
+		if tunnelOnly {
+			req.Address, req.HTTPAddress = "", ""
+		}
+
+		// Backend workers require address on NATS, which dials it. Agent workers
+		// don't serve gRPC. With the tunnel active the address is optional.
 		if req.Name == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "name is required"))
 		}
-		if nodeType == nodes.NodeTypeBackend && req.Address == "" {
+		if nodeType == nodes.NodeTypeBackend && req.Address == "" && !tunnelActive {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "address is required for backend workers"))
 		}
 		if len(req.Name) > 255 {
@@ -204,10 +270,16 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			Commit:               req.Commit,
 		}
 
-		ctx := c.Request().Context()
 		if err := registry.Register(ctx, node, autoApprove); err != nil {
 			xlog.Error("Failed to register node", "name", req.Name, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
+		}
+		if tunnelOnly {
+			// Register keeps a column when the new value is empty, so a node that
+			// had addresses from an earlier registration still has them.
+			if err := registry.ClearAddresses(ctx, node.ID); err != nil {
+				xlog.Warn("Failed to clear the addresses of a tunnel-only node", "node", node.Name, "error", err)
+			}
 		}
 
 		// Merge worker-supplied labels into the node's existing label set,
@@ -257,7 +329,14 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
-		attachNatsJWT(response, node, natsCfg)
+		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier)
+		if tunnelActive && expectedToken == "" && autoApprove {
+			openRegistrationWarning.Do(func() {
+				xlog.Warn("Worker registration is open: there is no registration token and new nodes are approved at once, " +
+					"so anyone who can reach this frontend can register a node, get a tunnel to it, and receive the requests that are sent to workers. " +
+					"Set a registration token or turn off automatic approval.")
+			})
+		}
 
 		return c.JSON(http.StatusCreated, response)
 	}
@@ -265,7 +344,8 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
 // For agent workers, it also provisions an API key so they can call the inference API.
-func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -295,10 +375,86 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 			}
 		}
 
-		attachNatsJWT(response, node, natsCfg)
+		// A node that waited for approval already holds its tunnel credential,
+		// which was minted when it registered and is inert until now. Only the
+		// NATS credential is minted at approval, and only when NATS is active.
+		if row, haveCarrier := opts.activeCarrier(ctx); !haveCarrier || row.Active != cluster.CarrierTunnel {
+			attachNatsJWT(response, node, natsCfg)
+		}
 
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+// attachCarrierCredential names the active carrier in the answer and adds the
+// credential for it: the tunnel token when the tunnel is active, the NATS user
+// JWT otherwise. A deployment with no carrier row is a deployment with NATS and
+// gets the answer that it always had.
+func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool) {
+	if haveCarrier {
+		response["carrier"] = row.Active
+		response["carrier_epoch"] = row.Epoch
+	}
+	if haveCarrier && row.Active == cluster.CarrierTunnel {
+		attachTunnelToken(ctx, response, registry, node)
+		return
+	}
+	attachNatsJWT(response, node, natsCfg)
+}
+
+// attachTunnelToken mints a new tunnel credential for the node, stores only its
+// hash and puts the secret in the response.
+//
+// Every registration mints a new one, so a second process that registers under
+// the same node name makes the next dial of the first process fail. The worker
+// reads the token each time it dials.
+//
+// A node that waits for approval gets one too. That differs from the API key of
+// an agent worker, which is not given before approval because it works at once.
+// The tunnel credential does not: the connect endpoint reads the status of the
+// node at every dial and refuses a pending node with 403. A worker that
+// registers once, and gets no credential until it is approved, could not
+// connect when the approval came, because an approval does not make it register
+// again.
+//
+// Only a backend or agent node holds a credential. For any other type the
+// column is cleared and not left alone. The connect endpoint does not look at
+// the type of the node. It refuses a node with an empty hash, so a cleared
+// column is what keeps such a node out. Register skips an empty value, so a
+// node that registered again as another type would keep a credential that its
+// type is not entitled to.
+//
+// A failure to mint or to store is logged and the answer goes out without the
+// token. Registration is how a worker joins the cluster, and a tunnel problem
+// must not become a node that cannot join. The worker sees no tunnel_token,
+// says so, and tries at its next registration.
+func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
+	if node == nil {
+		return
+	}
+	if !tunnelEligible(node.NodeType) {
+		if err := registry.SetTunnelTokenHash(ctx, node.ID, ""); err != nil {
+			xlog.Error("Failed to clear the tunnel credential of a node whose type holds none",
+				"node", node.Name, "type", node.NodeType, "error", err)
+		}
+		return
+	}
+	// crypto/rand.Text has at least 128 bits of randomness and no error.
+	secret := rand.Text()
+	sum := sha256.Sum256([]byte(secret))
+	if err := registry.SetTunnelTokenHash(ctx, node.ID, hex.EncodeToString(sum[:])); err != nil {
+		xlog.Error("Failed to store a tunnel credential for node", "node", node.Name, "error", err)
+		return
+	}
+	response["tunnel_token"] = secret
+}
+
+// tunnelEligible reports whether a node of this type holds a tunnel credential.
+// The minting and the clearing both use it, so they cannot disagree: if only one
+// were widened, a type would get a credential and never lose it, or lose it at
+// every registration.
+func tunnelEligible(nodeType string) bool {
+	return nodeType == nodes.NodeTypeBackend || nodeType == nodes.NodeTypeAgent
 }
 
 // attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.

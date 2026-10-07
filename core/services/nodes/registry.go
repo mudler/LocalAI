@@ -32,6 +32,17 @@ type BackendNode struct {
 	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
 	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
 	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	// TunnelTokenHash is the SHA-256 of the own credential of this node for the
+	// tunnel: the token that it presents at GET /api/cluster/connect. It is not
+	// the registration token. Registration mints a new random secret for each
+	// node, returns it once and stores only this hash, so a registration token
+	// that leaked does not open a tunnel for every node whose ID can be read.
+	//
+	// Empty means that no tunnel credential was minted for the node. A node that
+	// registered before the column existed looks like this, and it cannot open a
+	// tunnel until it registers again. The column cannot be filled in, because
+	// the secret exists only in the response that minted it.
+	TunnelTokenHash string `gorm:"size:64" json:"-"`
 	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
 	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
@@ -1338,6 +1349,34 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 		InFlightCount: inFlight.Total,
 		Labels:        labels,
 	}, nil
+}
+
+// SetTunnelTokenHash stores the hash of the tunnel credential of a node. An
+// empty hash clears it. It writes the one column on its own because Register
+// updates from a struct, and a struct update skips an empty value, so it could
+// not clear a credential.
+func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Update("tunnel_token_hash", hash)
+	if res.Error != nil {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// ClearAddresses removes the addresses of a node. A worker that holds only a
+// tunnel advertises none, and Register does not clear a column when the new
+// value is empty, so a node that registered with addresses before would keep
+// them.
+func (r *NodeRegistry) ClearAddresses(ctx context.Context, nodeID string) error {
+	err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"address": "", "http_address": ""}).Error
+	if err != nil {
+		return fmt.Errorf("clearing the addresses of node %s: %w", nodeID, err)
+	}
+	return nil
 }
 
 // GetByName returns a single node by name.
