@@ -44,7 +44,7 @@ var _ = Describe("multipart transcription traces", func() {
 			Expect(err).NotTo(HaveOccurred())
 			reader, err := f.Open()
 			Expect(err).NotTo(HaveOccurred())
-			defer reader.Close()
+			defer func() { Expect(reader.Close()).To(Succeed()) }()
 			audio, err := io.ReadAll(reader)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(audio)).To(Equal("private upload"))
