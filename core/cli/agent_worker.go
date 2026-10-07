@@ -38,7 +38,7 @@ import (
 //	localai agent-worker --nats-url nats://... --register-to http://localai:8080
 type AgentWorkerCMD struct {
 	// NATS (required)
-	NatsURL string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
+	NatsURL string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed while the cluster runs on NATS" group:"distributed"`
 
 	// Registration (required)
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
@@ -86,6 +86,23 @@ func validateAgentSubject(subject string) error {
 			subject, messaging.SubjectAgentExecute, err)
 	}
 	return nil
+}
+
+// checkAgentCarrier checks that the carrier which the frontend named is one that
+// this agent worker can use. It serves its agent runs over NATS only. The flag of
+// the NATS URL cannot be required, because the carrier is known only after the
+// registration, so the check is here. A frontend that names no carrier predates
+// carriers and runs on NATS.
+func checkAgentCarrier(carrier, natsURL string) error {
+	switch carrier {
+	case "", "nats":
+		if natsURL == "" {
+			return fmt.Errorf("the cluster runs on NATS and this agent worker has no NATS URL: set LOCALAI_NATS_URL")
+		}
+		return nil
+	default:
+		return fmt.Errorf("the cluster carrier is %q, which this agent worker cannot use: it serves agent runs over NATS only", carrier)
+	}
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
@@ -138,6 +155,10 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	nodeID := res.ID
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
+
+	if err := checkAgentCarrier(res.Carrier, cmd.NatsURL); err != nil {
+		return err
+	}
 
 	// Use provisioned API token if none was set
 	if cmd.APIToken == "" {

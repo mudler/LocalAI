@@ -29,3 +29,20 @@ var _ = Describe("validateAgentSubject", func() {
 		Expect(err.Error()).To(ContainSubstring("LOCALAI_AGENT_SUBJECT"))
 	})
 })
+
+var _ = Describe("checkAgentCarrier", func() {
+	It("accepts NATS with a URL, named or not named", func() {
+		Expect(checkAgentCarrier("nats", "nats://n:4222")).To(Succeed())
+		Expect(checkAgentCarrier("", "nats://n:4222")).To(Succeed())
+	})
+
+	It("asks for the URL when the cluster runs on NATS and there is none", func() {
+		Expect(checkAgentCarrier("nats", "")).To(MatchError(ContainSubstring("LOCALAI_NATS_URL")))
+		Expect(checkAgentCarrier("", "")).To(MatchError(ContainSubstring("LOCALAI_NATS_URL")))
+	})
+
+	It("says that it cannot use the tunnel, with or without a URL", func() {
+		Expect(checkAgentCarrier("tunnel", "")).To(MatchError(ContainSubstring("cannot use")))
+		Expect(checkAgentCarrier("tunnel", "nats://n:4222")).To(MatchError(ContainSubstring("cannot use")))
+	})
+})
