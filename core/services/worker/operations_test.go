@@ -99,7 +99,7 @@ var _ = Describe("Load operation watchdog", func() {
 		// The controller goes silent.
 		Eventually(func() bool { return grandAlive(grandchild) }, 15*time.Second, 100*time.Millisecond).Should(BeFalse(),
 			"the grandchild is in the group and must die with it")
-		Eventually(func() bool { return pidAlive(proc.CurrentPID()) }, 5*time.Second, 100*time.Millisecond).Should(BeFalse())
+		Eventually(proc.Done(), 15*time.Second, 100*time.Millisecond).Should(BeClosed(), "the leader is reaped once it is killed")
 		Eventually(func() int { s.mu.Lock(); defer s.mu.Unlock(); return len(s.processes) }, 5*time.Second).Should(BeZero())
 	})
 

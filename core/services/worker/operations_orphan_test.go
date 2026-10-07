@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,9 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	}
 
 	It("are killed, group and grandchild, when the next worker starts", func() {
+		if runtime.GOOS != "linux" {
+			Skip("the orphan sweep identifies a process by the start time in /proc, which only Linux has; elsewhere it kills nothing")
+		}
 		proc, grandchild := startGroupProcess()
 		killGroupAtEnd(grandchild)
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
@@ -43,6 +47,9 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 	})
 
 	It("kills a group whose leader already exited but whose grandchild lives on", func() {
+		if runtime.GOOS != "linux" {
+			Skip("the orphan sweep identifies a process by the start time in /proc, which only Linux has; elsewhere it kills nothing")
+		}
 		proc, grandchild := startGroupProcess()
 		killGroupAtEnd(grandchild)
 		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
@@ -83,6 +90,20 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		ledger := newProcessLedger(path)
 		ledger.add("model#0", pid)
 		ledger.remove("model#0")
+
+		Expect(newProcessLedger(path).sweepStale()).To(BeZero())
+		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
+	})
+
+	It("never kills an entry recorded without a start time", func() {
+		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		Expect(other.Run()).To(Succeed())
+		DeferCleanup(func() { _ = other.Stop() })
+		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
+		pid, _ := strconv.Atoi(other.CurrentPID())
+		ledger := newProcessLedger(path)
+		ledger.add("model#0", pid)
+		ledger.forgetStartTimeForTest("model#0") // as on a system with no /proc
 
 		Expect(newProcessLedger(path).sweepStale()).To(BeZero())
 		Expect(pidAlive(other.CurrentPID())).To(BeTrue())

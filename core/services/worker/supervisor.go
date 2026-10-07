@@ -370,8 +370,16 @@ func (s *backendSupervisor) allocateFreePort(key string) (int, error) {
 	return 0, fmt.Errorf("%w: every port tried was already in use", ErrNoFreePort)
 }
 
-// portIsFree reports whether nothing listens on port on this host.
+// portIsFree reports whether nothing listens on port on this host. Two checks,
+// because neither is enough everywhere. A connect to loopback finds a listener
+// bound to a specific address, which a bind of the wildcard address can miss on
+// BSD and macOS (the listener sets SO_REUSEADDR). A bind of the wildcard address
+// finds one that does not answer a connect.
 func portIsFree(port int) bool {
+	if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 200*time.Millisecond); err == nil {
+		_ = conn.Close()
+		return false
+	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return false

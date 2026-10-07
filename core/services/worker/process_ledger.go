@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/mudler/xlog"
 )
@@ -88,17 +87,21 @@ func (l *processLedger) sweepStale() int {
 		if e.PID <= 0 {
 			continue
 		}
+		// Without the leader's start time at the time it was recorded, there is no
+		// way to tell the process apart from an unrelated one that reused the pid
+		// (the start time is only readable on Linux). Such an entry is never
+		// killed.
+		if e.StartTime == "" {
+			continue
+		}
 		// The leader still exists with another start time: its pid was reused by
 		// an unrelated process. A group that lost its leader cannot be reused (the
 		// kernel keeps the pid while the group lives), so a missing leader is
 		// ours.
-		if now := procStartTime(e.PID); now != "" && e.StartTime != "" && now != e.StartTime {
+		if now := procStartTime(e.PID); now != "" && now != e.StartTime {
 			continue
 		}
-		if e.StartTime == "" && procStartTime(e.PID) != "" {
-			continue // cannot tell whose it is
-		}
-		if err := syscall.Kill(-e.PID, syscall.SIGKILL); err == nil {
+		if err := killProcessGroup(e.PID); err == nil {
 			killed++
 			xlog.Warn("Killed a backend process group left behind by a previous worker", "processKey", e.Key, "pid", e.PID)
 		}
@@ -118,6 +121,17 @@ func (l *processLedger) corruptStartTimeForTest(key string) {
 	l.flushLocked()
 }
 
+// forgetStartTimeForTest makes an entry look like one recorded where the start
+// time cannot be read.
+func (l *processLedger) forgetStartTimeForTest(key string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	e := l.entries[key]
+	e.StartTime = ""
+	l.entries[key] = e
+	l.flushLocked()
+}
+
 func (l *processLedger) flushLocked() {
 	list := make([]ledgerEntry, 0, len(l.entries))
 	for _, e := range l.entries {
@@ -125,7 +139,7 @@ func (l *processLedger) flushLocked() {
 	}
 	data, err := json.Marshal(list)
 	if err == nil {
-		err = os.MkdirAll(filepath.Dir(l.path), 0o755)
+		err = os.MkdirAll(filepath.Dir(l.path), 0o750)
 	}
 	if err == nil {
 		tmp := l.path + ".tmp"
