@@ -3,6 +3,7 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -19,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
 )
@@ -234,7 +236,7 @@ func redactSensitiveHeaders(h http.Header) http.Header {
 	return out
 }
 
-// TraceMiddleware intercepts and logs JSON API requests and responses
+// TraceMiddleware logs JSON exchanges and transcription upload metadata.
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	initializeTracing(app.ApplicationConfig().DataPath, app.ApplicationConfig().TracingMaxItems)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -253,18 +255,25 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 
 			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))
-			if ct != "application/json" {
+			multipartTranscription := ct == "multipart/form-data" && (c.Path() == "/v1/audio/transcriptions" || c.Path() == "/audio/transcriptions")
+			if ct != "application/json" && !multipartTranscription {
 				return next(c)
 			}
 
-			body, err := io.ReadAll(c.Request().Body)
-			if err != nil {
-				xlog.Error("Failed to read request body")
-				return err
+			var body []byte
+			if !multipartTranscription {
+				var err error
+				body, err = io.ReadAll(c.Request().Body)
+				if err != nil {
+					xlog.Error("Failed to read request body")
+					return err
+				}
+				c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+			} else {
+				// Leave the upload untouched. Only the endpoint should parse or
+				// spool audio, regardless of the configured trace capture limit.
+				body = []byte(`{"body_omitted":"multipart upload omitted"}`)
 			}
-
-			// Restore the body for downstream handlers
-			c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
 
 			startTime := time.Now()
 
@@ -316,6 +325,17 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			c.Response().Writer = mw
 
 			handlerErr := next(c)
+			if multipartTranscription {
+				metadata := map[string]string{"body_omitted": "multipart upload omitted"}
+				if input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest); ok && input != nil {
+					metadata["model"] = input.Model
+				}
+				body, _ = json.Marshal(metadata)
+				metadataBody, truncated := truncateForTrace(body, maxBodyBytes)
+				exchange.Request.Body = &metadataBody
+				exchange.Request.BodyTruncated = truncated
+				exchange.Request.BodyBytes = len(body)
+			}
 
 			// Restore original writer unconditionally
 			c.Response().Writer = mw.ResponseWriter

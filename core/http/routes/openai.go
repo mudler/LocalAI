@@ -178,6 +178,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	audioHandler := openai.TranscriptEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	audioMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
+		usageMiddleware,
 		traceMiddleware,
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TRANSCRIPT)),
 		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
