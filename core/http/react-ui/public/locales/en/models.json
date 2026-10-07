@@ -10,7 +10,9 @@
       "backToAll": "All installed models",
       "eyebrow": "Installed on this host",
       "summary": "{{count}} models ready to serve.",
-      "summaryHint": "Select a model to inspect its runtime state and controls."
+      "summaryHint": "Select a model to inspect its runtime state and controls.",
+      "storageSummary": "{{total}} on disk \u00b7 {{shared}} shared across models",
+      "storageMissing": "{{count}} missing references"
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
@@ -39,6 +41,10 @@
       "description": "Description", "noDescription": "No gallery description is available for this model.",
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "size": "Size on disk", "sharedBytes": "{{size}} shared with other models",
+      "storageFiles": "Files on disk",
+      "missingFiles": "Missing files",
+      "missingCount": "{{count}} referenced file missing", "missingCount_other": "{{count}} referenced files missing",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
       "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
       "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
@@ -57,6 +63,12 @@
   "title": "Models",
   "subtitle": "Browse and install AI models from the gallery",
   "models": "Models",
+  "storage": {
+    "searchPlaceholder": "Filter by file or model\u2026",
+    "columns": { "file": "File", "size": "Size", "status": "Status", "models": "Used by" },
+    "status": { "missing": "missing", "shared": "shared by {{count}}" },
+    "empty": "No referenced files."
+  },
   "recommended": {
     "title": "Recommended for your hardware",
     "cpuNote": "No GPU detected - small models that stay responsive on CPU.",
