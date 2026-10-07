@@ -626,7 +626,7 @@
 .cx-hdr .action-menu__trigger:hover { color: var(--dk-text); }
 
 /* ---- Conversations menu (Ctrl K) ---------------------------------------------- */
-.cx-veil { position: fixed; inset: 0; z-index: 950; background: var(--dk-scrim); }
+.cx-veil { position: fixed; inset: 0; z-index: var(--dk-z-veil); background: var(--dk-scrim); }
 @media (prefers-reduced-motion: no-preference) {
   .cx-veil { animation: cxFade var(--dk-dur-2) ease-out both; }
   .cx-menu, .cx-keys { animation: cxPop var(--dk-dur-2) var(--dk-ease-spring) both; }
@@ -635,7 +635,7 @@
 @keyframes cxPop { from { opacity: 0; transform: translateX(-50%) scale(.97); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
 .cx-menu, .cx-keys {
   position: fixed;
-  z-index: 960;
+  z-index: var(--dk-z-dialog);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -799,7 +799,6 @@
 .cx-find__count { color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; font-weight: 600; white-space: nowrap; }
 
 /* ---- Settings sheet ----------------------------------------------------------- */
-.cx-sheet-veil { z-index: 950; }
 .cx-sheet { width: min(420px, 100%); background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); font-family: var(--font-sans); }
 .cx-sheet button:focus-visible, .cx-sheet input:focus-visible, .cx-sheet textarea:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .cx-sheet__body { padding-top: 4px; }
@@ -944,6 +943,8 @@
   .cx-foot { padding-top: 6px; }
   .cx-find { width: calc(100% - 24px); margin-bottom: 6px; }
   .cx-menu { top: 56px; }
+  /* A phone has no keyboard to teach: the foot keeps Clear all. */
+  .cx-menu__foot > span { display: none; }
   .cx-conv[data-empty] .cx-body { padding: 3vh 16px 14px; }
   .cx-empty h1 { font-size: 24px; }
   .cx-under { padding: 0 16px 28px; }
@@ -958,7 +959,7 @@
     bottom: 10px;
     min-width: 0;
     max-width: none;
-    z-index: 970;
+    z-index: var(--dk-z-popover);
   }
   .cx-dock .home-menu__list { max-height: min(60vh, 420px); }
 }

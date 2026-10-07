@@ -132,8 +132,13 @@ const ChatsMenu = forwardRef(function ChatsMenu({
 
   const choose = useCallback((id) => { onSelect?.(id); close() }, [onSelect, close])
 
-  const startRename = (chat) => { setEditingId(chat.id); setEditName(chat.name || '') }
+  const cancelledRef = useRef(false)
+  const startRename = (chat) => { cancelledRef.current = false; setEditingId(chat.id); setEditName(chat.name || '') }
+  // Esc cancels. The box also loses focus as it goes away, which would save
+  // it, so Esc leaves a note for that blur to read.
+  const cancelRename = () => { cancelledRef.current = true; setEditingId(null); searchRef.current?.focus() }
   const finishRename = () => {
+    if (cancelledRef.current) { cancelledRef.current = false; return }
     if (editingId && editName.trim()) onRename?.(editingId, editName.trim())
     setEditingId(null)
     searchRef.current?.focus()
@@ -146,7 +151,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
     if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
-      if (editingId) { setEditingId(null); searchRef.current?.focus() } else close()
+      if (editingId) cancelRename(); else close()
       return
     }
     if (e.key === 'Tab') {
@@ -260,7 +265,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
                                 onKeyDown={(e) => {
                                   e.stopPropagation()
                                   if (e.key === 'Enter') { e.preventDefault(); finishRename() }
-                                  if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); searchRef.current?.focus() }
+                                  if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                                 aria-label={t('menu.rename')}

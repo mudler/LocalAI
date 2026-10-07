@@ -14,15 +14,21 @@ export default function ChatHeader({
 }) {
   const { t } = useTranslation('chat')
   const inputRef = useRef(null)
+  const cancelledRef = useRef(false)
 
   // The page owns `renaming`, so the More menu can open the box too.
   useEffect(() => {
     if (!renaming) return
+    cancelledRef.current = false
     inputRef.current?.focus()
     inputRef.current?.select()
   }, [renaming])
 
+  // Esc cancels; the box also loses focus as it goes away, and that blur must
+  // not save what was typed.
   const finish = (save) => {
+    if (!save) cancelledRef.current = true
+    else if (cancelledRef.current) { cancelledRef.current = false; return }
     const next = inputRef.current?.value.trim()
     if (save && next && next !== name) onRename(next)
     setRenaming(false)

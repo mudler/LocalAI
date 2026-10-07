@@ -23,7 +23,7 @@ import { useModelFit } from '../hooks/useModelFit'
 import { fillStyle, hostMemory, memoryFigure } from '../components/home/memory'
 import { gbLabel, gbNumber } from '../utils/modelLedger'
 import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
-import { messageText } from '../components/chat/chatText'
+import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
 // eslint-disable-next-line no-unused-vars
@@ -562,7 +562,17 @@ export default function Chat() {
         setFind(f => ({ ...f, open: true, token: f.token + 1 }))
         return
       }
-      const overlay = document.querySelector('.home-menu, .chats-menu-popover, .cx-menu, .dk-cmdlist, [role="dialog"]')
+      // "/" from anywhere that is not a text field starts a command, as on Home.
+      if (e.key === '/' && !isMod && !e.altKey && !isTyping(document.activeElement) && !document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        const el = textareaRef.current
+        if (el) {
+          e.preventDefault()
+          setInput('/')
+          el.focus()
+        }
+        return
+      }
+      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, [role="dialog"], [role="alertdialog"]')
       if (e.key === 'Escape' && !overlay) {
         const cur = escapeRef.current
         if (cur.streaming) cur.stop()

@@ -28,12 +28,14 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
 
   // All hooks must run unconditionally (no early return above them).
   useEffect(() => {
-    if (codeRef.current && !showPreview && current?.type === 'code') {
+    // Code is highlighted whenever it is what is shown: in the Code view, and for
+    // a language that has no preview at all.
+    if (codeRef.current && (!showPreview || !hasPreview) && current?.type === 'code') {
       codeRef.current.querySelectorAll('pre code').forEach(block => {
         hljs.highlightElement(block)
       })
     }
-  }, [current, showPreview])
+  }, [current, showPreview, hasPreview])
 
   // Drag the left edge to resize; clamp to a sane range; persist on release.
   const startResize = (e) => {

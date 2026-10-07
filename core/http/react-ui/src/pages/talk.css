@@ -175,7 +175,6 @@
 }
 
 /* Session sheet */
-.talk-sheet-veil { z-index: 950; }
 .talk-sheet { width: min(420px, 100%); background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); font-family: var(--font-sans); }
 .talk-sheet button:focus-visible, .talk-sheet input:focus-visible, .talk-sheet textarea:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .talk-sec { padding: 18px 0 6px; border-top: 1px solid var(--dk-edge); }
@@ -226,5 +225,5 @@
   .talk-transcript__body { padding: 0 0 20px; max-height: none; }
   .talk-turn { grid-template-columns: 44px minmax(0, 1fr); }
   .talk-turn p { font-size: 16px; }
-  .talk-chips .home-menu { position: fixed; left: 10px; right: 10px; top: auto; bottom: 10px; min-width: 0; max-width: none; z-index: 970; }
+  .talk-chips .home-menu { position: fixed; left: 10px; right: 10px; top: auto; bottom: 10px; min-width: 0; max-width: none; z-index: var(--dk-z-popover); }
 }

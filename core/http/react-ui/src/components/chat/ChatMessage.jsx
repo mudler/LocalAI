@@ -112,10 +112,20 @@ function ChatMessage({
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       actions.focusRelative(index, e.key === 'ArrowDown' ? 1 : -1)
-    } else if (e.key === 'c') actions.copy(msg.content)
-    else if (e.key === 'e' && canEdit) actions.startEdit(index, msg)
-    else if (e.key === 'r' && isAssistant && !busy) actions.regenerate(index)
-    else if (e.key === 'b' && isAssistant && !busy) actions.branch(index)
+    } else if (e.key === 'c') {
+      e.preventDefault()
+      actions.copy(msg.content)
+    } else if (e.key === 'e' && canEdit) {
+      // The editor takes focus on this key press: keep the letter out of it.
+      e.preventDefault()
+      actions.startEdit(index, msg)
+    } else if (e.key === 'r' && isAssistant && !busy) {
+      e.preventDefault()
+      actions.regenerate(index)
+    } else if (e.key === 'b' && isAssistant && !busy) {
+      e.preventDefault()
+      actions.branch(index)
+    }
   }
 
   return (

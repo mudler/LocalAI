@@ -4876,7 +4876,7 @@ button.collapsible-header:focus-visible {
   inset: 0;
   width: 100% !important;
   max-width: none !important;
-  z-index: 960;
+  z-index: var(--dk-z-veil);
   box-shadow: none;
 }
 .canvas-panel-header {

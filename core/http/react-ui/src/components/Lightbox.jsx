@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import Icon from './Icon'
 
 // Fullscreen image viewer with prev/next, download, and keyboard control
@@ -13,15 +13,21 @@ export default function Lightbox({ images, index, onClose, onIndex }) {
     onIndex(((index + delta) % count + count) % count)
   }, [count, index, onIndex])
 
+  // The key listener is registered once and reads the latest handlers from a
+  // ref. A parent that re-renders on the same key press (the Chat page does on
+  // Esc) would otherwise swap the listener in the middle of the dispatch, and
+  // the new one does not receive the event that is already on its way.
+  const latest = useRef({ onClose, go })
+  latest.current = { onClose, go }
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') go(1)
-      else if (e.key === 'ArrowLeft') go(-1)
+      if (e.key === 'Escape') latest.current.onClose()
+      else if (e.key === 'ArrowRight') latest.current.go(1)
+      else if (e.key === 'ArrowLeft') latest.current.go(-1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, go])
+  }, [])
 
   if (!has) return null
   const img = images[index] || images[0]

@@ -654,7 +654,7 @@ The heading under the orb says what is happening: connecting, listening, thinkin
 
 - **Microphone blocked.** The browser did not give the page the microphone. Allow it in the address bar and press **Try again**.
 - **Connection lost.** The WebRTC link failed during a session. The transcript stays and **Reconnect** starts a new session.
-- **The session stopped.** The server reported an error or the call could not be set up. The reason is shown, with a link to the traces.
+- **Something went wrong.** The server reported an error or the call could not be set up. The reason is shown, with a link to the traces.
 - **Talk needs a pipeline model.** No pipeline model exists yet. The page links to the model editor with the pipeline template and to the gallery.
 
 The transcript shows what you said, the replies and, in Manage mode, the tool calls and results. **Copy** puts it on the clipboard. It is not saved.

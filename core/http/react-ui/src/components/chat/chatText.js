@@ -47,13 +47,6 @@ export function escapeHtml(text) {
   ))
 }
 
-// Whole seconds as the quiet unit the thread uses ("4 s", "2 min").
-export function shortDuration(ms) {
-  const s = Math.max(0, Math.round(ms / 1000))
-  if (s < 60) return `${s} s`
-  return `${Math.round(s / 60)} min`
-}
-
 // True for the roles that fold into the one-line activity summary.
 export function isActivityRole(role) {
   return role === 'thinking' || role === 'reasoning' || role === 'tool_call' || role === 'tool_result'

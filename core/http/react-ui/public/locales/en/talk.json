@@ -50,8 +50,8 @@
       "card": "The WebRTC link failed. The conversation so far stays in the transcript."
     },
     "error": {
-      "title": "The session stopped",
-      "body": "Something went wrong while setting up or running the call."
+      "title": "Something went wrong",
+      "body": "The call could not be set up or the server reported an error."
     },
     "nopipe": {
       "title": "Talk needs a pipeline model",

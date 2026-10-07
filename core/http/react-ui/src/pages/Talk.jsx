@@ -839,9 +839,11 @@ export default function Talk() {
                     <button type="button" className="talk-btn talk-btn--end" onClick={disconnect} data-testid="talk-end">
                       <Icon name="plug-off" /> {t('controls.end')}
                     </button>
-                    <button type="button" className="talk-btn" onClick={sendTestTone} data-testid="talk-test-tone">
-                      <Icon name="waveform" /> {t('controls.testTone')}
-                    </button>
+                    {view !== 'connecting' && (
+                      <button type="button" className="talk-btn" onClick={sendTestTone} data-testid="talk-test-tone">
+                        <Icon name="waveform" /> {t('controls.testTone')}
+                      </button>
+                    )}
                   </>
                 )}
                 {(view === 'error' || view === 'lost') && (
