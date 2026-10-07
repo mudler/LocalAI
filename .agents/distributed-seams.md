@@ -8,7 +8,8 @@ dial for the gRPC and HTTP connections to a worker. Only the carrier files impor
 the NATS libraries (`core/services/messaging/client.go`, `tls.go`,
 `core/services/nodes/control_nats.go` and `pkg/natsauth`). Only the pgbus package
 imports `github.com/jackc/pgx`, and only `core/services/carrier/pgbus.go` imports
-the pgbus package. A spec in `core/services/carrier` fails when any other
+the pgbus package. Only `core/services/tunnel` imports yamux. A spec in
+`core/services/carrier` fails when any other
 non-test file imports one of them; it reads the import lines of every Go file, so
 a build constraint does not hide one. A new carrier adds its library and its
 files to that spec.
@@ -68,6 +69,42 @@ fails to start. It never falls back to another carrier.
 A NATS URL that points at a server which is not up does not stop the start:
 `messaging.New` retries on a failed connect, so a frontend can start before its
 broker. A URL it cannot parse does.
+
+## The worker tunnel
+
+A worker that has no address that others can reach holds one outbound websocket
+to a frontend. `core/services/tunnel` has the wire format (a request frame names
+a tag and a target, and a reply frame always follows), the session, the registry
+of the sessions that a replica holds, and `Splice`. The connect endpoint is
+`GET /api/cluster/connect` (`core/http/endpoints/cluster`) and the client is
+`core/services/worker/tunnel.go`.
+
+- Every websocket of the tunnel comes from `tunnel.NewUpgrader` or
+  `tunnel.NewDialer`. They set 64 KiB buffers. The 4 KiB default of gorilla makes
+  a transfer from the worker five times slower than the other direction. A spec
+  reads the source files and fails on a literal `websocket.Upgrader{` or
+  `websocket.Dialer{`.
+- A worker has two sessions, called lanes. The inference lane carries model
+  calls, control and health, with the yamux windows at their defaults. The bulk
+  lane carries file transfers, with windows of 4 MiB and 32 MiB. The caller
+  chooses the lane in `Registry.Open`. A large transfer on the inference lane
+  delays every small call on it, because yamux queues up to one window ahead of
+  them. `Registry.Open` falls back to the inference lane when a node has no bulk
+  session.
+- The inference lane owns the claim in `node_connections`. The bulk lane is held
+  under that claim, only on the replica that holds the inference lane, and it is
+  closed with it. A bulk dial that reaches another replica gets 409 and the
+  worker dials again.
+- `Splice` passes the end of one direction on with `CloseWrite` and goes on
+  copying the other direction. It closes both streams at once when a direction
+  fails or when a stream cannot half-close.
+- A node has its own tunnel credential. Registration mints it, returns it once,
+  and stores only its SHA-256 (`BackendNode.TunnelTokenHash`). The registration
+  token of the deployment never opens a tunnel. Every registration mints a new
+  credential, so the client reads it at every dial.
+- A refusal of a stream is one of four. `tunnel.IsWorkerAnswer` is true for the
+  three that are evidence about a backend. `ErrStreamNotServed` says that the
+  worker learned nothing, and it must never count as evidence.
 
 ## Queues
 
