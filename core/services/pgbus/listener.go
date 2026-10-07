@@ -38,6 +38,14 @@ const DefaultSpillRetention = 10 * time.Minute
 // connections, with the one for LISTEN.
 const DefaultMaxPublishers = 2 * spillFetchers
 
+// DefaultFetchTimeout bounds the read of one spilled row. The read is one SELECT
+// on the primary key, which ends in a millisecond when the database answers, so
+// a read that takes seconds is a database that does not answer.
+//
+// The dispatcher waits for each notification in the order of arrival, so a read
+// that has no bound holds back the delivery on every subject.
+const DefaultFetchTimeout = 8 * time.Second
+
 // listenPollInterval bounds how long a LISTEN or UNLISTEN waits for the listener
 // goroutine to leave WaitForNotification and run it.
 //

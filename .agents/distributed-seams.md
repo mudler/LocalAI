@@ -199,6 +199,9 @@ pool is keyed by host and port and two workers can report the same address.
   waits for a free slot and never opens another connection, so a burst of
   publishers cannot exhaust `max_connections`. Add the 25 connections of each
   replica to the budget of the database.
+- A read of a spilled row ends after `pgbus.Config.FetchTimeout` (8 seconds by
+  default). The broadcast is dropped and counted with `stage=resolve`, so that
+  one stuck read does not hold back the delivery on every subject.
 
 ## The cluster registry
 

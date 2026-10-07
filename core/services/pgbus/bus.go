@@ -134,6 +134,10 @@ type Config struct {
 	// statement ends, so this bound is also the bound on the connections that
 	// publishing opens. Zero means DefaultMaxPublishers.
 	MaxPublishers int
+	// FetchTimeout bounds the read of one spilled row. A read that takes longer
+	// is dropped and counted, so that it does not hold back the delivery of the
+	// broadcasts behind it. Zero means DefaultFetchTimeout.
+	FetchTimeout time.Duration
 	// Meter receives the counters of the carrier. Nil means the global meter.
 	Meter metric.Meter
 }
@@ -173,6 +177,7 @@ type Bus struct {
 	// publishSlots is the semaphore that bounds the concurrent publishes. See
 	// Config.MaxPublishers.
 	publishSlots chan struct{}
+	fetchTimeout time.Duration
 	cmds         chan listenCmd
 	inbound      chan inbound
 	listenerDone chan struct{}
@@ -254,8 +259,14 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 		publishers = DefaultMaxPublishers
 	}
 
+	fetchTimeout := cfg.FetchTimeout
+	if fetchTimeout <= 0 {
+		fetchTimeout = DefaultFetchTimeout
+	}
+
 	busCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	b := &Bus{
+		fetchTimeout: fetchTimeout,
 		publishSlots: make(chan struct{}, publishers),
 		cfg:          cfg,
 		ctx:          busCtx,
@@ -694,9 +705,13 @@ func (b *Bus) spill(ctx context.Context, subject string, payload []byte) (string
 	return row.ID, nil
 }
 
+// resolveSpill reads the row of a spilled broadcast. The read ends after
+// fetchTimeout, because the dispatcher waits for it in the order of arrival.
 func (b *Bus) resolveSpill(id string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(b.ctx, b.fetchTimeout)
+	defer cancel()
 	var row BusMessage
-	if err := b.cfg.DB.WithContext(b.ctx).Where("id = ?", id).First(&row).Error; err != nil {
+	if err := b.cfg.DB.WithContext(ctx).Where("id = ?", id).First(&row).Error; err != nil {
 		return nil, err
 	}
 	return row.Payload, nil
