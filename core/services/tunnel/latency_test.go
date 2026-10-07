@@ -7,169 +7,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/tunnel"
+	"github.com/mudler/LocalAI/core/services/tunnel/slowlink"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-// slowLink is a TCP proxy that works as one bottleneck link for every
-// connection that goes through it. It has a rate and a delay in each
-// direction, and one queue of 256 KiB for each direction that all connections
-// share. A real link has that shape, and the effect under test depends on it: a
-// probe that has its own connection still waits in the queue behind the bytes
-// of a transfer on another connection. What a probe must not wait for are the
-// bytes that sit in the buffers of its own connection ahead of it.
-type slowLink struct {
-	lis    net.Listener
-	target string
-	rate   float64
-	oneWay time.Duration
-	up     *linkQueue
-	down   *linkQueue
-	quit   chan struct{}
-	wg     sync.WaitGroup
-
-	mu    sync.Mutex
-	conns []net.Conn
-}
-
-type linkItem struct {
-	data []byte
-	dst  net.Conn
-	at   time.Time
-}
-
-// linkQueue is one direction of the link.
-type linkQueue struct {
-	in       chan linkItem
-	delivery chan linkItem
-}
-
-func newSlowLink(target string, bytesPerSecond float64, oneWay time.Duration) *slowLink {
+// newSlowLink starts a link in front of target and closes it after the spec.
+func newSlowLink(target string, bytesPerSecond float64, oneWay time.Duration) *slowlink.Link {
 	GinkgoHelper()
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := slowlink.New(target, bytesPerSecond, oneWay)
 	Expect(err).ToNot(HaveOccurred())
-	l := &slowLink{
-		lis: lis, target: target, rate: bytesPerSecond, oneWay: oneWay,
-		up:   &linkQueue{in: make(chan linkItem, 4), delivery: make(chan linkItem, 4096)},
-		down: &linkQueue{in: make(chan linkItem, 4), delivery: make(chan linkItem, 4096)},
-		quit: make(chan struct{}),
-	}
-	for _, q := range []*linkQueue{l.up, l.down} {
-		l.wg.Add(2)
-		go l.transmit(q)
-		go l.deliver(q)
-	}
-	go l.accept()
-	DeferCleanup(l.close)
+	DeferCleanup(l.Close)
 	return l
-}
-
-func (l *slowLink) addr() string { return l.lis.Addr().String() }
-
-func (l *slowLink) close() {
-	select {
-	case <-l.quit:
-		return
-	default:
-	}
-	close(l.quit)
-	_ = l.lis.Close()
-	l.mu.Lock()
-	for _, c := range l.conns {
-		_ = c.Close()
-	}
-	l.mu.Unlock()
-	l.wg.Wait()
-}
-
-func (l *slowLink) accept() {
-	for {
-		c, err := l.lis.Accept()
-		if err != nil {
-			return
-		}
-		s, err := net.Dial("tcp", l.target)
-		if err != nil {
-			_ = c.Close()
-			continue
-		}
-		l.mu.Lock()
-		l.conns = append(l.conns, c, s)
-		l.mu.Unlock()
-		go l.read(c, s, l.up)
-		go l.read(s, c, l.down)
-	}
-}
-
-// read moves what arrives on src into the queue of a direction. A full queue
-// stops the read, so the socket fills and the sender slows down, as it would
-// on a link with a queue of limited size.
-func (l *slowLink) read(src, dst net.Conn, q *linkQueue) {
-	defer func() { _ = dst.Close() }()
-	for {
-		buf := make([]byte, 64<<10)
-		n, err := src.Read(buf)
-		if n > 0 {
-			select {
-			case q.in <- linkItem{data: buf[:n], dst: dst}:
-			case <-l.quit:
-				return
-			}
-		}
-		if err != nil {
-			return
-		}
-	}
-}
-
-// transmit takes an item out of the queue at the rate of the link.
-func (l *slowLink) transmit(q *linkQueue) {
-	defer l.wg.Done()
-	next := time.Now()
-	for {
-		var item linkItem
-		select {
-		case item = <-q.in:
-		case <-l.quit:
-			return
-		}
-		// A late wake-up must not slow the link: the schedule catches up
-		// instead. Only an idle link starts a new schedule.
-		if now := time.Now(); now.Sub(next) > 5*time.Millisecond {
-			next = now
-		}
-		next = next.Add(time.Duration(float64(len(item.data)) / l.rate * float64(time.Second)))
-		if d := time.Until(next); d > 500*time.Microsecond {
-			time.Sleep(d)
-		}
-		item.at = time.Now().Add(l.oneWay)
-		select {
-		case q.delivery <- item:
-		case <-l.quit:
-			return
-		}
-	}
-}
-
-// deliver writes an item to its connection after the delay of the link. One
-// goroutine for each direction keeps the order of each connection.
-func (l *slowLink) deliver(q *linkQueue) {
-	defer l.wg.Done()
-	for {
-		var item linkItem
-		select {
-		case item = <-q.delivery:
-		case <-l.quit:
-			return
-		}
-		time.Sleep(time.Until(item.at))
-		_, _ = item.dst.Write(item.data)
-	}
 }
 
 // probeStats are the delays of the probes in milliseconds.
@@ -411,7 +264,7 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		link := newSlowLink(front, linkRate, linkOneWay)
 
 		dial := func(kind byte) net.Conn {
-			c, err := net.Dial("tcp", link.addr())
+			c, err := net.Dial("tcp", link.Addr())
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(c.Close)
 			_, err = c.Write([]byte{kind})
@@ -428,7 +281,7 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 	It("measures the probe on the same session as the transfer", func() {
 		f := startLanedFrontend()
 		link := newSlowLink(f.addr, linkRate, linkOneWay)
-		worker := dialThrough(link.addr(), tunnel.LaneInference)
+		worker := dialThrough(link.Addr(), tunnel.LaneInference)
 		var frontend *tunnel.Session
 		Eventually(f.inference).Should(Receive(&frontend))
 		DeferCleanup(func() { _ = frontend.Close() })
@@ -452,8 +305,8 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		// Both sessions go through the same link, as the two websockets of one
 		// worker do.
 		link := newSlowLink(f.addr, linkRate, linkOneWay)
-		inferenceWorker := dialThrough(link.addr(), tunnel.LaneInference)
-		bulkWorker := dialThrough(link.addr(), tunnel.LaneBulk)
+		inferenceWorker := dialThrough(link.Addr(), tunnel.LaneInference)
+		bulkWorker := dialThrough(link.Addr(), tunnel.LaneBulk)
 		var inferenceFrontend, bulkFrontend *tunnel.Session
 		Eventually(f.inference).Should(Receive(&inferenceFrontend))
 		Eventually(f.bulk).Should(Receive(&bulkFrontend))
