@@ -489,5 +489,112 @@
       "abandoned_one": "You left the page, so {{count}} model was not deleted.",
       "abandoned_other": "You left the page, so {{count}} models were not deleted."
     }
+  },
+  "placement": {
+    "title": "Placement",
+    "runOn": "Run this model on",
+    "modes": {
+      "cpu": "CPU only",
+      "auto": "Auto",
+      "custom": "Custom",
+      "autoWrites": "writes nothing"
+    },
+    "autoHint": "gpu_layers stays unset. LocalAI then asks for every layer on the GPU, and the llama.cpp engine lowers that to what fits. Other engines read an unset value as their own default.",
+    "noGpu": "No GPU was found, so this model runs on the CPU.",
+    "noMachine": "This machine's memory could not be read, so there is no memory view.",
+    "layers": "GPU layers",
+    "layersAll": "All",
+    "allLayers": "All layers",
+    "sliderValue": "{{count}} of {{total}} layers on the GPU",
+    "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number, or use All layers, which writes {{all}}.",
+    "context": "Context size",
+    "contextTokens": "Context size in tokens",
+    "contextHint": "Feeds the KV cache in the bars below.",
+    "contextUnset": "Not set. The estimate uses {{context}}.",
+    "split": {
+      "title": "Split across GPUs",
+      "byFree": "Split by free memory",
+      "share": "GPU {{index}} share",
+      "sliderLabel": "Share on the first GPU",
+      "main": "Main GPU",
+      "gpu": "GPU {{index}}"
+    },
+    "memory": "Memory",
+    "weights": "{{size}} of weights on disk. Memory shown for {{context}} context.",
+    "noBars": "Nothing to draw for this choice.",
+    "cluster": "This server schedules models onto other machines, so this machine's devices do not say where the model will run. The estimate is not shown per device.",
+    "estimateLoading": "Reading the estimate",
+    "unavailable": {
+      "title": "Estimate unavailable",
+      "text": "LocalAI could not read the model file, so it cannot say how much memory this setting needs. The file may still be downloading, or it may be in a format the estimate does not cover.",
+      "retry": "Retry estimate"
+    },
+    "bar": {
+      "gpu": "GPU, {{name}}",
+      "gpuNamed": "GPU {{index}}, {{name}}",
+      "ram": "System memory",
+      "freeAfter": "{{amount}} free after",
+      "over": "{{amount}} over",
+      "aria": "{{name}}: {{parts}}, out of {{capacity}}"
+    },
+    "legend": {
+      "other": "Other apps",
+      "model": "This model",
+      "weights": "Weights and working memory",
+      "kv": "Context (KV cache)"
+    },
+    "fit": {
+      "fits": {
+        "title": "Fits in GPU",
+        "text": "{{gpu}} on the GPU, of {{free}} usable. This is the fastest setting."
+      },
+      "spill": {
+        "title": "Spills to CPU",
+        "text": "The GPU holds {{gpu}} and about {{cpu}} stays in system memory. Slower than all layers on the GPU."
+      },
+      "trimmed": {
+        "title": "Will not all fit",
+        "text": "All layers need {{allNeed}} but {{free}} is usable. The llama.cpp engine lowers the layer count at load time, so part of the model runs on the CPU, which is slower."
+      },
+      "toomany": {
+        "title": "Too many layers for the GPU",
+        "text": "This needs {{need}} on the GPU, which has {{free}} usable. The llama.cpp engine lowers it at load time unless fit is turned off, and other engines can fail to load. Lower the layers or the context."
+      },
+      "cpu": {
+        "title": "Runs on CPU only",
+        "text": "Uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
+      },
+      "cpu-over": {
+        "title": "Not enough memory",
+        "text": "Needs {{need}} but only {{ramFree}} of system memory is free."
+      },
+      "nogpu": {
+        "title": "No GPU found",
+        "text": "This model runs on the CPU and uses {{need}} of {{ramFree}} free system memory. Slower than on a GPU."
+      },
+      "nogpu-over": {
+        "title": "Not enough memory",
+        "text": "No GPU found. Needs {{need}} but only {{ramFree}} of system memory is free."
+      },
+      "spill-over": {
+        "title": "Not enough memory",
+        "text": "The GPU holds {{gpu}}, and the other {{cpu}} would stay in system memory, which has {{ramFree}} free."
+      },
+      "trimmed-over": {
+        "title": "Not enough memory",
+        "text": "All layers need {{allNeed}} but {{free}} of GPU memory is usable, and the {{cpu}} left over is more than the {{ramFree}} of system memory that is free."
+      }
+    },
+    "fitForMe": "Fit it for me",
+    "fitApplied": {
+      "all": "Set to all layers. Everything fits.",
+      "layers": "Set to {{count}} layers on the GPU."
+    },
+    "fitFailed": {
+      "none": "Not even one layer fits in {{free}}. Lower the context size, or run on the CPU.",
+      "flat": "The estimate does not change with the layer count for this model, and it needs {{need}} against {{free}} usable. Lower the context size.",
+      "unavailable": "The estimate could not be read, so no layer count could be chosen."
+    },
+    "undo": "Undo"
   }
 }

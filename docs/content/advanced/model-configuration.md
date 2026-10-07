@@ -246,6 +246,48 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `main_gpu` | string | Main GPU identifier for multi-GPU setups |
 | `cuda` | bool | Explicitly enable/disable CUDA |
 
+### Placement
+
+The model page's **Configuration** tab and the model editor have a **Placement**
+section for the keys above. It edits `gpu_layers`, `tensor_split`, `main_gpu`
+and `context_size` and nothing else.
+
+- **CPU only** writes `gpu_layers: 0`.
+- **Auto** leaves `gpu_layers` unset. LocalAI then asks the backend for every
+  layer (`99999999`), and the `llama-cpp` backend lowers that to what fits in the
+  free device memory unless the model turns off `fit_params` (see [GPU auto-fit settings](#gpu-auto-fit-mode)). Other backends read
+  an unset value as their own default.
+- **Custom** writes the number you enter. **All layers** writes `99999999`, the
+  value LocalAI uses when the key is unset. A slider appears when the memory
+  estimate reports the model's layer count (`block_count`); today it does not, so
+  you enter a number.
+- With two or more GPUs, **Split across GPUs** writes `tensor_split` as
+  percentages (for example `65,35`; llama.cpp reads them as proportions) and
+  **Main GPU** writes `main_gpu`. **Split by free memory** sets the shares from
+  the memory each card has free now.
+
+The bars show, for each GPU and for system memory, what other programs use, what
+this model needs (weights and working memory, and the KV cache that grows with
+`context_size`) and what is left. They come from the device list in
+`/api/resources` and from `POST /api/models/vram-estimate`, which returns one
+total for the chosen context size and layer count. The per-device split of that
+total follows `tensor_split`, so it is an approximation. The page says what the
+choice means in words ("Fits in GPU", "Spills to CPU", "Too many layers for the
+GPU") and does not state a speed. A usable limit is 95 percent of the free
+memory.
+
+**Fit it for me** searches for the largest `gpu_layers` whose estimate fits the
+free GPU memory, by asking the estimate endpoint, and **Undo** puts the previous
+value back. It is hidden when the estimate is unavailable (the model file is
+missing, still downloading or in a format the estimate does not cover) and when
+the host has no GPU. A server that schedules models onto other machines shows no
+per-device bars, because the devices listed belong to the controller.
+
+Saving from the model page sends only the keys that changed. A key set back to
+Auto is sent as `null`. The patch endpoint merges values into the file and cannot
+delete a key, so the file then reads `gpu_layers: null`, which LocalAI treats as
+unset. To remove the line itself, edit the YAML.
+
 ### Mixed CPU/GPU inference
 
 The `llama-cpp` backend can run one GGUF model across CPU and GPU, using both system RAM and GPU VRAM.

@@ -12,6 +12,8 @@ import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
 import { ModelFailoverStatus } from '../components/FailoverChainStatus'
+// eslint-disable-next-line no-unused-vars
+import PlacementSection from '../components/models/placement/PlacementSection'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
@@ -84,6 +86,7 @@ function defaultForType(uiType) {
 
 export default function ModelEditor() {
   const { t } = useTranslation('modelEditor')
+  const { t: tModels } = useTranslation('models')
   const { name } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -118,6 +121,9 @@ export default function ModelEditor() {
   const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
   const [tabSwitchWarning, setTabSwitchWarning] = useState(false)
+  // Keys the Placement section unset. A patch only merges what it is given, so
+  // an unset key has to be sent as null for the file to lose it.
+  const [clearedPaths, setClearedPaths] = useState(new Set())
 
   const sectionRefs = useRef({})
 
@@ -173,6 +179,11 @@ export default function ModelEditor() {
   useEffect(() => {
     if (loadedConfig === null) return
     const flat = flattenConfig(loadedConfig, leafPaths)
+    // A key the Placement section set back to Auto is stored as null, which
+    // means unset. It must not come back as a field with a value.
+    for (const key of ['gpu_layers', 'tensor_split', 'main_gpu']) {
+      if (flat[key] === null) delete flat[key]
+    }
     setValues(flat)
     setInitialValues(structuredClone(flat))
     setActiveFieldPaths(new Set(Object.keys(flat)))
@@ -293,6 +304,10 @@ export default function ModelEditor() {
       for (const path of activeFieldPaths) {
         if (path in values) patchFlat[path] = values[path]
       }
+      if (!isCreateMode) {
+        // Only a key the file had needs removing; one that was never there does not.
+        for (const path of clearedPaths) if (path in initialValues && !(path in patchFlat)) patchFlat[path] = null
+      }
       if (patchFlat['router.classifier'] === 'decisions') {
         const available = await modelsApi.listNativeCapabilities()
         if (!available?.data?.some(m => m.id === patchFlat['router.classifier_model'] && m.capabilities?.includes('decisions'))) {
@@ -313,6 +328,7 @@ export default function ModelEditor() {
       } else {
         await modelsApi.patchConfig(name, config)
         setInitialValues(structuredClone(values))
+        setClearedPaths(new Set())
         try {
           const data = await modelsApi.getEditConfig(name)
           const refreshedYaml = data?.config || ''
@@ -426,6 +442,19 @@ export default function ModelEditor() {
     })
   }
 
+  // The Placement section sets a key or, with undefined, unsets it.
+  const handlePlacementChange = (path, val) => {
+    if (val === undefined) {
+      setActiveFieldPaths(prev => { const next = new Set(prev); next.delete(path); return next })
+      setValues(prev => { const next = { ...prev }; delete next[path]; return next })
+      setClearedPaths(prev => new Set(prev).add(path))
+      return
+    }
+    setActiveFieldPaths(prev => new Set(prev).add(path))
+    setClearedPaths(prev => { if (!prev.has(path)) return prev; const next = new Set(prev); next.delete(path); return next })
+    handleFieldChange(path, val)
+  }
+
   const toggleSection = (id) => {
     setCollapsedSections(prev => {
       const next = new Set(prev)
@@ -521,6 +550,7 @@ export default function ModelEditor() {
                   } else {
                     setValues(structuredClone(initialValues))
                     setActiveFieldPaths(new Set(Object.keys(initialValues)))
+                    setClearedPaths(new Set())
                   }
                   setTabSwitchWarning(false)
                   setTab(tab === 'yaml' ? 'interactive' : 'yaml')
@@ -591,6 +621,16 @@ export default function ModelEditor() {
           <div className="set-layout">
             {/* Sidebar — sticks to the top of the viewport as the body scrolls. */}
             <nav className="set-rail">
+              {!isCreateMode && (
+                <button
+                  onClick={() => scrollTo('placement')}
+                  className={`set-rail__item${activeSection === 'placement' ? ' set-rail__item--on' : ''}`}
+                  data-testid="rail-placement"
+                >
+                  <Icon name="cpu" className="set-rail__icon" />
+                  {tModels('placement.title')}
+                </button>
+              )}
               {activeSections.map(s => (
                 <button
                   key={s.id}
@@ -615,6 +655,23 @@ export default function ModelEditor() {
             <div
               className="me-body"
             >
+              {!isCreateMode && (
+                <div ref={el => { sectionRefs.current.placement = el }} className="mb-xl">
+                  <div className="card pad-md" data-testid="editor-placement">
+                    <PlacementSection
+                      model={name}
+                      values={{
+                        gpu_layers: values['gpu_layers'],
+                        tensor_split: values['tensor_split'],
+                        main_gpu: values['main_gpu'],
+                        context_size: values['context_size'],
+                      }}
+                      onChange={handlePlacementChange}
+                    />
+                  </div>
+                </div>
+              )}
+
               {activeSections.length === 0 && (
                 <div className="card loading-center text-center">
                   <Icon name="sliders" className="icon-xl text-muted mb-md" />
