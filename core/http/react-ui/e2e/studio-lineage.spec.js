@@ -118,8 +118,8 @@ test.describe('Lineage view: new take and branch', () => {
     await expect(page).toHaveURL(/\/app\/studio\/images\?/)
     await expect(page).toHaveURL(/from=img-harbour/)
     await expect(page).toHaveURL(/edge=take/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue(/fishing harbour at first light/)
-    await expect(page.locator('.media-controls')).toContainText('flux.1-schnell')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue(/fishing harbour at first light/)
+    await expect(page.locator('[data-testid="ws-compose"]')).toContainText('flux.1-schnell')
   })
 
   test('Branch from here opens a draft with the suggested step, editable words and Open in', async ({ page }) => {
@@ -135,7 +135,7 @@ test.describe('Lineage view: new take and branch', () => {
     await expect(page).toHaveURL(/\/app\/studio\/video\?/)
     await expect(page).toHaveURL(/from=img-harbour/)
     await expect(page).toHaveURL(/edge=animate/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('Gulls crossing the frame')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Gulls crossing the frame')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
   })
 

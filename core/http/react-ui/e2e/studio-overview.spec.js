@@ -40,7 +40,7 @@ test.describe('Studio overview', () => {
     await mockCapabilities(page)
     await page.goto('/app/studio/images')
     await expect(page.locator(OVERVIEW)).toHaveCount(0)
-    await expect(page.locator('.media-layout')).toBeVisible()
+    await expect(page.locator('[data-testid="studio-workspace"]')).toBeVisible()
   })
 
   test('an unrecognised tab falls back to the overview, not to Images', async ({ page }) => {
@@ -159,6 +159,6 @@ test.describe('Studio overview', () => {
     await mockCapabilities(page)
     await page.goto('/app/studio?tab=images')
     await expect(page).toHaveURL(/\/app\/studio\/images$/)
-    await expect(page.locator('.media-layout')).toBeVisible()
+    await expect(page.locator('[data-testid="studio-workspace"]')).toBeVisible()
   })
 })

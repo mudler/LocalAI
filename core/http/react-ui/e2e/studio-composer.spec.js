@@ -216,10 +216,10 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.locator('[data-testid="studio-count"]').selectOption('3')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/images\?/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('A brass orrery on a walnut desk')
-    await expect(page.locator('.media-controls select.input').first()).toHaveValue('768x768')
-    await expect(page.locator('.media-controls input[type="number"]').first()).toHaveValue('3')
-    await expect(page.locator('.media-controls')).toContainText('sd-1.5-lcm')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('A brass orrery on a walnut desk')
+    await expect(page.locator('[data-testid="ws-size"]').first()).toHaveValue('768x768')
+    await expect(page.locator('[data-testid="ws-count"]').first()).toHaveValue('3')
+    await expect(page.locator('[data-testid="ws-compose"]')).toContainText('sd-1.5-lcm')
     // The page started from the hand-off but is still the normal workspace.
     await expect(page.getByRole('button', { name: /generate/i })).toBeVisible()
   })
@@ -232,9 +232,9 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.locator('[data-testid="studio-size"]').selectOption('1280x720')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/video\?/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('Waves rolling onto black sand, drone shot')
-    await expect(page.locator('.media-controls select.input').first()).toHaveValue('1280x720')
-    await expect(page.locator('.media-controls')).toContainText('wan2.1-t2v-1.3b')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Waves rolling onto black sand, drone shot')
+    await expect(page.locator('[data-testid="ws-size"]').first()).toHaveValue('1280x720')
+    await expect(page.locator('[data-testid="ws-compose"]')).toContainText('wan2.1-t2v-1.3b')
   })
 
   test('TTS opens with the words in the text box', async ({ page }) => {
@@ -244,8 +244,8 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await prompt(page).fill('Welcome to the harbour tour.')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/tts\?/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('Welcome to the harbour tour.')
-    await expect(page.locator('.media-controls')).toContainText('kokoro-82m')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Welcome to the harbour tour.')
+    await expect(page.locator('[data-testid="ws-compose"]')).toContainText('kokoro-82m')
   })
 
   test('Sound opens with the description in the simple prompt', async ({ page }) => {
@@ -255,7 +255,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await prompt(page).fill('Wind through pines, no music')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/sound\?/)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('Wind through pines, no music')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('Wind through pines, no music')
   })
 
   test('3D opens with the chosen picture as its input and the page says so', async ({ page }) => {
@@ -271,7 +271,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await expect(note).toHaveAttribute('data-status', 'ready')
     await expect(note).toContainText('ceramic bowls')
     // The picture is in the input control, so a run can start at once.
-    await expect(page.locator('.media-controls img').first()).toBeVisible()
+    await expect(page.locator('[data-testid="ws-compose"] img').first()).toBeVisible()
   })
 
   test('Transform and Diarization open with the chosen recording as their file', async ({ page }) => {
@@ -306,14 +306,14 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await page.goto('/app/studio/video?from=gone&edge=animate')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'missing')
-    await expect(page.locator('.media-controls textarea').first()).toBeVisible()
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toBeVisible()
   })
 
   test('a workspace opened by hand has no hand-off note and an empty form', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio/images')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveCount(0)
-    await expect(page.locator('.media-controls textarea').first()).toHaveValue('')
+    await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('')
   })
 
   test('a result made through a hand-off records which result it came from', async ({ page }) => {
@@ -339,7 +339,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.route('**/v1/images/generations', route => route.fulfill({ json: { data: [{ url: '/generated-images/solo.png' }] } }))
     await stubMedia(page)
     await page.goto('/app/studio/images')
-    await page.locator('.media-controls textarea').first().fill('a lone picture')
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('a lone picture')
     await page.getByRole('button', { name: /generate/i }).click()
     await expect.poll(async () => (await readStore(page, 'localai_image_history'))?.length).toBe(1)
     const saved = (await readStore(page, 'localai_image_history'))[0]
@@ -352,7 +352,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await stubMedia(page)
     await page.route('**/v1/images/generations', route => route.fulfill({ json: { data: [{ url: '/generated-images/long.png' }] } }))
     await page.goto('/app/studio/images')
-    await page.locator('.media-controls textarea').first().fill('x'.repeat(5000))
+    await page.locator('[data-testid="ws-compose"] textarea').first().fill('x'.repeat(5000))
     await page.getByRole('button', { name: /generate/i }).click()
     await expect.poll(async () => (await readStore(page, 'localai_image_history'))?.length).toBe(1)
     expect((await readStore(page, 'localai_image_history'))[0].prompt.length).toBe(2000)
