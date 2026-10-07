@@ -67,9 +67,6 @@
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
     "manageText": "Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.",
-    "startTitle": "Start a conversation",
-    "readyText": "Ready to chat with {{model}}",
-    "selectModelText": "Select a model above to get started",
     "suggestionsManage": [
       "What is installed?",
       "Install a chat model",
@@ -82,11 +79,7 @@
       "Summarize a document",
       "Brainstorm ideas"
     ],
-    "recent": "Recent",
     "noMessages": "No messages yet",
-    "hintEnter": "Enter to send",
-    "hintShiftEnter": "Shift+Enter for newline",
-    "hintAttach": "Attach files",
     "title": "What are we working on?",
     "try": "Try",
     "warmReady": "{{model}} is loaded and ready.",

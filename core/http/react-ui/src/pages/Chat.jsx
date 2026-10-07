@@ -936,12 +936,6 @@ export default function Chat() {
   }
   const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
 
-  const layoutClasses = [
-    'cx-page',
-    isInConversation ? 'cx-page--live' : '',
-    focusActive ? 'chat--focus' : '',
-  ].filter(Boolean).join(' ')
-
   const isEmpty = activeChat.history.length === 0 && !isStreaming
   const noModel = !activeChat.model && !chatModelsLoading && chatModels.length === 0
   const conversations = isEmpty
@@ -1089,7 +1083,7 @@ export default function Chat() {
   }
 
   return (
-    <div className={layoutClasses}>
+    <div className="cx-page">
       {/* Conversation column */}
       <div className="cx-conv" data-empty={isEmpty || undefined}>
         <ChatHeader
