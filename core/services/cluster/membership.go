@@ -208,7 +208,16 @@ func (m *Membership) Stop() {
 		m.stopOnce.Do(func() { close(m.stop) })
 		// Only a started Membership closes done. Waiting on one that never
 		// started would block for ever.
-		<-m.done
+		//
+		// The loop cancels the call in progress when stop closes, so this ends
+		// at once. The bound is for a driver that does not honour the
+		// cancellation: shutdown must not wait for a database for longer than
+		// the deregistration does.
+		select {
+		case <-m.done:
+		case <-time.After(deregisterTimeout):
+			xlog.Warn("The cluster membership loop did not stop in time; deregistering anyway", "id", m.id, "within", deregisterTimeout)
+		}
 	}
 
 	// This is not the context that Start received: that is the context of the
@@ -226,6 +235,18 @@ func (m *Membership) Stop() {
 func (m *Membership) loop(ctx context.Context) {
 	defer close(m.done)
 
+	// The calls of a pass end when Stop is called, and not only when the
+	// application ends.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-m.stop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
 
@@ -241,19 +262,32 @@ func (m *Membership) loop(ctx context.Context) {
 	}
 }
 
+// call returns the context of one database call of a pass. A call that takes
+// longer than the interval is cancelled. Without the bound, a statement that
+// does not return stops the heartbeat, and the peers then reap this replica
+// while it still serves.
+func (m *Membership) call(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, m.interval)
+}
+
 // tick refreshes the row of this replica and sweeps the dead ones.
 //
 // Every replica sweeps and there is no elected sweeper. The deletes are
 // idempotent and cheap, and an elected sweeper is one more process that must be
 // alive for the cluster to notice that another is not.
 func (m *Membership) tick(ctx context.Context) {
-	err := m.reg.Heartbeat(ctx, m.id)
+	hbCtx, cancel := m.call(ctx)
+	err := m.reg.Heartbeat(hbCtx, m.id)
+	cancel()
 	if errors.Is(err, ErrInstanceNotFound) {
 		// Another replica swept this row while this process stalled for long
 		// enough to look dead. Register again and do not only heartbeat: the
 		// row has to be rebuilt.
 		xlog.Warn("Cluster instance row was reaped, registering again", "id", m.id)
-		if err := m.register(ctx); err != nil {
+		regCtx, cancel := m.call(ctx)
+		err := m.register(regCtx)
+		cancel()
+		if err != nil {
 			// The connections are not claimed again in this case. A claim
 			// written now would name an instance row that does not exist, and
 			// the next sweep would delete it as an orphan. The sweep below
@@ -262,13 +296,17 @@ func (m *Membership) tick(ctx context.Context) {
 		} else {
 			m.reclaim(ctx)
 		}
-	} else if err != nil {
+	} else if err != nil && ctx.Err() == nil {
 		xlog.Warn("Cluster instance heartbeat failed", "id", m.id, "error", err)
 	}
 
-	instances, cleared, err := m.reg.ReapStale(ctx, m.id, m.liveness)
+	reapCtx, cancel := m.call(ctx)
+	instances, cleared, err := m.reg.ReapStale(reapCtx, m.id, m.liveness)
+	cancel()
 	if err != nil {
-		xlog.Warn("Reaping stale cluster instances failed", "error", err)
+		if ctx.Err() == nil {
+			xlog.Warn("Reaping stale cluster instances failed", "error", err)
+		}
 		return
 	}
 	if instances > 0 || cleared > 0 {
@@ -283,9 +321,13 @@ func (m *Membership) tick(ctx context.Context) {
 	m.mu.Lock()
 	retention := m.retention
 	m.mu.Unlock()
-	purged, err := m.reg.PurgeDepartedBefore(ctx, retention)
+	purgeCtx, cancel := m.call(ctx)
+	purged, err := m.reg.PurgeDepartedBefore(purgeCtx, retention)
+	cancel()
 	if err != nil {
-		xlog.Warn("Purging departed worker connections failed", "error", err)
+		if ctx.Err() == nil {
+			xlog.Warn("Purging departed worker connections failed", "error", err)
+		}
 		return
 	}
 	if purged > 0 {
@@ -303,6 +345,8 @@ func (m *Membership) reclaim(ctx context.Context) {
 	if reclaimer == nil {
 		return
 	}
+	ctx, cancel := m.call(ctx)
+	defer cancel()
 	n, err := reclaimer.Reclaim(ctx)
 	if err != nil {
 		// The loop goes on. The next heartbeat fails in the same way while the

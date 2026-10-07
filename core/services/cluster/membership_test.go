@@ -495,3 +495,78 @@ var _ = Describe("Claiming connections again after a sweep", func() {
 		Eventually(instanceRows("me"), 3*cluster.InstanceHeartbeat, 250*time.Millisecond).Should(Equal(int64(1)))
 	})
 })
+
+var _ = Describe("A database call of the membership loop that does not return", func() {
+	var (
+		db  *gorm.DB
+		reg *cluster.Registry
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		db = testutil.SetupTestDB()
+		ctx = context.Background()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		reg = cluster.NewRegistry(db)
+	})
+
+	// lockInstances stops every statement on the instances table until the
+	// returned function runs.
+	lockInstances := func() func() {
+		GinkgoHelper()
+		held := db.Begin()
+		Expect(held.Error).ToNot(HaveOccurred())
+		released := false
+		release := func() {
+			if !released {
+				released = true
+				Expect(held.Rollback().Error).ToNot(HaveOccurred())
+			}
+		}
+		DeferCleanup(release)
+		Expect(held.Exec("LOCK TABLE instances IN ACCESS EXCLUSIVE MODE").Error).To(Succeed())
+		return release
+	}
+
+	It("ends the pass within the interval of each call, so a hung statement does not stall the loop for good", func() {
+		membership := cluster.NewMembership(reg, "me", "v1")
+		membership.SetInterval(300 * time.Millisecond)
+		Expect(reg.Register(ctx, "me", "v1", 0, "")).To(Succeed())
+		lockInstances()
+
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			membership.Tick(ctx)
+		}()
+		Eventually(done, 5*time.Second).Should(BeClosed(),
+			"a pass with a hung statement never ended, so the heartbeat of this replica stopped")
+	})
+
+	It("lets Stop return within its bound", func() {
+		membership := cluster.NewMembership(reg, "me", "v1")
+		membership.SetInterval(200 * time.Millisecond)
+		Expect(membership.Start(ctx)).To(Succeed())
+		lockInstances()
+
+		// Wait until a statement of the loop waits for the lock, so that Stop
+		// meets a pass that is in progress.
+		Eventually(func() int64 {
+			var n int64
+			Expect(db.Raw(`SELECT count(*) FROM pg_stat_activity
+				WHERE wait_event_type = 'Lock' AND query LIKE '%instances%'`).Scan(&n).Error).To(Succeed())
+			return n
+		}, 5*time.Second, 50*time.Millisecond).Should(BeNumerically(">", 0))
+
+		stopped := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(stopped)
+			membership.Stop()
+		}()
+		// The bound of the deregistration is 5 seconds, and the wait for the loop
+		// must not add to it.
+		Eventually(stopped, 8*time.Second).Should(BeClosed(), "Stop waited for a statement that does not return")
+	})
+})
