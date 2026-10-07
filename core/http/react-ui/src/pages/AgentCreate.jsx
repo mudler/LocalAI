@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentsApi, skillsApi, chatApi } from '../utils/api'
+import { agentsApi, agentCollectionsApi, skillsApi, chatApi } from '../utils/api'
+import { useLibraryFacts } from '../hooks/useLibraryFacts'
+import { estimateTokens, skillLoadTokens, skillUsers, sumTokens } from '../utils/library'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
 import './agents.css'
+import './library.css'
 // eslint-disable-next-line no-unused-vars
 import SearchableModelSelect from '../components/SearchableModelSelect'
 // eslint-disable-next-line no-unused-vars
@@ -297,7 +301,7 @@ export default function AgentCreate() {
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
-  const { t } = useTranslation('agents')
+  const { t } = useTranslation(['agents', 'library'])
   const [searchParams] = useSearchParams()
   const userId = searchParams.get('user_id') || undefined
   const templateId = searchParams.get('template') || ''
@@ -327,6 +331,15 @@ export default function AgentCreate() {
   const [stdioServers, setStdioServers] = useState([])
   const [availableSkills, setAvailableSkills] = useState([])
   const [selectedSkills, setSelectedSkills] = useState([])
+  // Who else uses a skill, and whether this agent's collection exists, so the
+  // pickers can say "not used yet" without sending anyone to another page.
+  const library = useLibraryFacts()
+  const [collectionNames, setCollectionNames] = useState(null)
+  useEffect(() => {
+    agentCollectionsApi.list(false)
+      .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name))))
+      .catch(() => setCollectionNames(null))
+  }, [])
 
   // Group metadata Fields by tags.section
   const fieldsBySection = useMemo(() => {
@@ -520,6 +533,28 @@ export default function AgentCreate() {
       ))
   }
 
+  // Used by, from the other agents' saved configs. This agent's own choice is
+  // the checkbox, so it is left out.
+  const allSkillNames = availableSkills.map(sk => sk.name)
+  const skillHint = (skill) => {
+    const others = library.status === 'ready'
+      ? skillUsers(library.agents.filter(a => a.name !== (isEdit ? name : form.name)), skill.name, allSkillNames)
+      : null
+    const use = others === null ? '' : (others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(o => o.name).join(', ') }))
+    const cost = form.skills_mode === 'tools' ? t('library:add.toolsMode') : t('library:add.tokens', { count: estimateTokens(skill.content || '') })
+    return [use, cost].filter(Boolean).join(' · ')
+  }
+  const pickedSkills = selectedSkills.length === 0 ? availableSkills : availableSkills.filter(sk => selectedSkills.includes(sk.name))
+  const skillsBudget = form.skills_mode === 'tools'
+    ? t('library:add.toolsMode')
+    : t('library:agentBudget', { count: sumTokens(pickedSkills.map(sk => skillLoadTokens(sk, form))) })
+  const ownName = (isEdit ? name : form.name) || ''
+  const kbNote = collectionNames === null
+    ? t('library:agentKb.reads', { name: ownName || '...' })
+    : collectionNames.includes(ownName)
+      ? t('library:agentKb.exists', { name: ownName })
+      : t('library:agentKb.created', { name: ownName || '...' })
+
   const renderSection = (activeSection) => {
     switch (activeSection) {
       case 'BasicInfo':
@@ -584,11 +619,16 @@ export default function AgentCreate() {
                             {skill.description.length > 80 ? skill.description.slice(0, 80) + '...' : skill.description}
                           </div>
                         )}
+                        <div className="lib-hint" data-testid={`agent-skill-hint-${skill.name}`}>{skillHint(skill)}</div>
                       </div>
                     </label>
                   ))}
                 </div>
+                <p className="lib-hint lib-hint--total" data-testid="agent-skills-budget">{skillsBudget}</p>
               </div>
+            )}
+            {activeSection === 'MemorySettings' && form.enable_kb && (
+              <p className="lib-hint lib-hint--block" data-testid="agent-kb-note">{kbNote}</p>
             )}
           </>
         )
