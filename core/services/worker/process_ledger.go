@@ -46,7 +46,7 @@ func (l *processLedger) add(key string, pid int) {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.entries[key] = ledgerEntry{Key: key, PID: pid, StartTime: procStartTime(pid)}
+	l.entries[key] = ledgerEntry{Key: key, PID: pid, StartTime: readStartTime(pid)}
 	l.flushLocked()
 }
 
@@ -78,6 +78,13 @@ func (l *processLedger) sweepStale() int {
 	if err != nil {
 		return 0
 	}
+	// Where the start time of a process cannot be read at all, no entry can be
+	// told apart from an unrelated process that reused its pid. Nothing is killed.
+	if !startTimesReadable() {
+		l.entries = map[string]ledgerEntry{}
+		l.flushLocked()
+		return 0
+	}
 	var stale []ledgerEntry
 	if err := json.Unmarshal(data, &stale); err != nil {
 		xlog.Warn("Ignoring an unreadable worker process ledger", "path", l.path, "error", err)
@@ -98,7 +105,7 @@ func (l *processLedger) sweepStale() int {
 		// an unrelated process. A group that lost its leader cannot be reused (the
 		// kernel keeps the pid while the group lives), so a missing leader is
 		// ours.
-		if now := procStartTime(e.PID); now != "" && now != e.StartTime {
+		if now := readStartTime(e.PID); now != "" && now != e.StartTime {
 			continue
 		}
 		if err := killProcessGroup(e.PID); err == nil {
@@ -152,9 +159,15 @@ func (l *processLedger) flushLocked() {
 	}
 }
 
+// startTimesReadable reports whether this system can tell a process's start
+// time (Linux, through /proc).
+func startTimesReadable() bool { return readStartTime(os.Getpid()) != "" }
+
 // procStartTime returns a process's start time as the kernel reports it, or ""
 // when it cannot be read: the process is gone, or there is no /proc (the sweep
 // is Linux only; elsewhere an entry is never killed).
+var readStartTime = procStartTime
+
 func procStartTime(pid int) string {
 	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {

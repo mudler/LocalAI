@@ -95,6 +95,24 @@ var _ = Describe("Backends a crashed worker left behind", func() {
 		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
 	})
 
+	It("kills nothing where start times cannot be read, as on macOS", func() {
+		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+		Expect(other.Run()).To(Succeed())
+		DeferCleanup(func() { _ = other.Stop() })
+		path := filepath.Join(GinkgoT().TempDir(), "processes.json")
+		pid, _ := strconv.Atoi(other.CurrentPID())
+		ledger := newProcessLedger(path)
+		ledger.add("model#0", pid) // recorded with a start time, as on Linux
+		ledger.corruptStartTimeForTest("model#0")
+
+		real := readStartTime
+		readStartTime = func(int) string { return "" } // no /proc
+		DeferCleanup(func() { readStartTime = real })
+
+		Expect(ledger.sweepStale()).To(BeZero(), "with no way to tell whose it is, nothing is killed")
+		Expect(pidAlive(other.CurrentPID())).To(BeTrue())
+	})
+
 	It("never kills an entry recorded without a start time", func() {
 		other := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
 		Expect(other.Run()).To(Succeed())
