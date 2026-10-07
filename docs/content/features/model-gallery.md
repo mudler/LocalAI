@@ -180,6 +180,24 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
 
+## Xiaomi-OCR-0
+
+[Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0) is a 0.8B
+vision model for document parsing, questions about document images, and information extraction.
+The gallery provides `xiaomi-ocr-0-q4-k-m` and its `xiaomi-ocr-0-q6-k` variant
+for llama.cpp. Both include the BF16 vision projector and use an 8,192-token context.
+
+Install the Q4_K_M build explicitly:
+
+```bash
+local-ai models install xiaomi-ocr-0-q4-k-m --variant xiaomi-ocr-0-q4-k-m
+```
+
+Open a vision chat, attach a document image, and ask `Extract the text in the image.`
+For tables, ask `Parse the table in the image into OTSL.`
+The same image and text inputs work through `/v1/chat/completions`.
+See the upstream model card for task prompts and examples of structured output.
+
 ## Add other galleries
 
 You can add other galleries by:
