@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/libp2p/go-yamux/v5"
 )
@@ -43,15 +44,29 @@ func Splice(a, b io.ReadWriteCloser) error {
 	first := <-results
 	if first.halfClosed {
 		// The end was passed on. The other direction ends when the peer closes
-		// its side, or it fails when the session dies, and either is its own
-		// result and not an echo of a close by Splice.
-		second := <-results
-		closeErrA := a.Close()
-		closeErrB := b.Close()
-		if second.err != nil {
-			return second.err
+		// its side, and that is its own result and not an echo of a close by
+		// Splice.
+		//
+		// It can also be parked in a read of a stream that nobody will write to
+		// again, because the session under the other stream ended. Nothing wakes
+		// that read, and the streams would stay open for ever. So the end of
+		// either session closes both streams.
+		done := make(chan struct{})
+		defer close(done)
+		select {
+		case second := <-results:
+			closeErrA := a.Close()
+			closeErrB := b.Close()
+			if second.err != nil {
+				return second.err
+			}
+			return firstCloseFailure(closeErrA, closeErrB)
+		case <-watchSessions(done, a, b):
+			_ = a.Close()
+			_ = b.Close()
+			<-results
+			return errSessionEnded
 		}
-		return firstCloseFailure(closeErrA, closeErrB)
 	}
 
 	// Each stream is closed here and nowhere else. A second Close of a yamux
@@ -80,6 +95,39 @@ func firstCloseFailure(errA, errB error) error {
 		return err
 	}
 	return normalizeStreamErr(errB)
+}
+
+// errSessionEnded is the result of a Splice whose session ended while one
+// direction was still open, so the request was cut.
+var errSessionEnded = errors.New("tunnel: the session ended while a stream was half-closed")
+
+// sessionOf is implemented by the streams of a session.
+type sessionOf interface {
+	Session() *yamux.Session
+}
+
+// watchSessions returns a channel that is closed when the session of one of the
+// streams ends. It stops watching when done is closed, so that the goroutines do
+// not outlive the Splice for a session that goes on. A stream that does not
+// belong to a session gives no signal.
+func watchSessions(done <-chan struct{}, streams ...io.ReadWriteCloser) <-chan struct{} {
+	ended := make(chan struct{})
+	var once sync.Once
+	for _, st := range streams {
+		s, ok := st.(sessionOf)
+		if !ok {
+			continue
+		}
+		gone := s.Session().CloseChan()
+		go func() {
+			select {
+			case <-gone:
+				once.Do(func() { close(ended) })
+			case <-done:
+			}
+		}()
+	}
+	return ended
 }
 
 // copyResult is the end of one direction. halfClosed is true when the end was

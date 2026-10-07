@@ -155,7 +155,14 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *tunnel.Registry) echo
 		// worker reads.
 		attachment, err := tunnels.Attach(c.Request().Context(), nodeID, lane, sess)
 		if err != nil {
-			xlog.Error("Attaching a worker tunnel failed", "node", nodeID, "lane", lane, "error", err)
+			if errors.Is(err, tunnel.ErrNotOwner) {
+				// The inference session ended between the check before the
+				// upgrade and here. The worker dials again, and this is not an
+				// error of this replica.
+				xlog.Debug("worker bulk tunnel dial lost the inference session of its node", "node", nodeID)
+			} else {
+				xlog.Error("Attaching a worker tunnel failed", "node", nodeID, "lane", lane, "error", err)
+			}
 			_ = sess.Close()
 			return nil
 		}

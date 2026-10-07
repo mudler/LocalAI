@@ -17,8 +17,14 @@ import (
 // on the worker) with the other end of that stream, and a TCP connection with
 // the other end of that connection.
 func streamAndTCP() (far net.Conn, spliceStream net.Conn, spliceTCP, backend *net.TCPConn) {
+	far, spliceStream, spliceTCP, backend, _, _ = streamAndTCPWithSessions()
+	return
+}
+
+// streamAndTCPWithSessions is streamAndTCP that also returns the two sessions.
+func streamAndTCPWithSessions() (far net.Conn, spliceStream net.Conn, spliceTCP, backend *net.TCPConn, frontend, worker *tunnel.Session) {
 	GinkgoHelper()
-	frontend, worker := sessionPair(tunnel.LaneInference)
+	frontend, worker = sessionPair(tunnel.LaneInference)
 	type accepted struct {
 		c   net.Conn
 		err error
@@ -38,7 +44,7 @@ func streamAndTCP() (far net.Conn, spliceStream net.Conn, spliceTCP, backend *ne
 	Expect(tunnel.ReadStreamReply(got.c)).To(Succeed())
 
 	spliceTCP, backend = tcpPair()
-	return far, got.c, spliceTCP, backend
+	return far, got.c, spliceTCP, backend, frontend, worker
 }
 
 var _ = Describe("Splice", func() {
@@ -114,6 +120,29 @@ var _ = Describe("Splice", func() {
 
 		Expect(far.Close()).To(Succeed())
 		Eventually(done, 5*time.Second).Should(Receive(BeNil()))
+	})
+
+	It("closes both streams when the session ends while a direction is still open", func() {
+		// The frontend ends its side and the backend says nothing more. Then the
+		// session goes away. The read from the stream is at its end and nothing
+		// writes to the stream again, so the read from the backend would stay
+		// parked for ever without the watch on the session.
+		far, stream, local, backend, frontend, _ := streamAndTCPWithSessions()
+		done := make(chan error, 1)
+		go func() { done <- tunnel.Splice(stream, local) }()
+
+		Expect(far.(interface{ CloseWrite() error }).CloseWrite()).To(Succeed())
+		// The backend reads the end of the request. The half-close has passed.
+		_, err := io.ReadAll(backend)
+		Expect(err).ToNot(HaveOccurred())
+		Consistently(done, 200*time.Millisecond).ShouldNot(Receive(), "the other direction is still open")
+
+		Expect(frontend.Close()).To(Succeed())
+
+		Eventually(done, 5*time.Second).Should(Receive(MatchError(ContainSubstring("session ended"))))
+		// The backend sees its connection closed.
+		_, err = backend.Read(make([]byte, 1))
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("closes both streams when one end cannot half-close", func() {
