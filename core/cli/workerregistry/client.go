@@ -105,16 +105,6 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 	return &result, nil
 }
 
-// Register sends a single registration request and returns the node ID and
-// optional credentials (API token for agent workers, NATS JWT when configured).
-func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
-	res, err := c.RegisterFull(ctx, body)
-	if err != nil {
-		return "", "", "", "", err
-	}
-	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
-}
-
 // RegisterWithRetry retries registration with exponential backoff.
 func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
 	res, err := c.RegisterFullWithRetry(ctx, body, maxRetries)
