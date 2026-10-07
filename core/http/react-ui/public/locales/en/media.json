@@ -352,7 +352,17 @@
       },
       "choose": "Choose",
       "replace": "Replace",
-      "dropHint": "or drop it here"
+      "dropHint": "or drop it here",
+      "diarization": {
+        "whyFile": "Choose a recording first",
+        "hint": "Audio or video, or drop it here",
+        "timeline": "Timeline of {{count}} speakers over {{length}}",
+        "segmentCount_one": "{{count}} segment",
+        "segmentCount_other": "{{count}} segments",
+        "talk": "{{seconds}} s of talk, {{percent}}%",
+        "notKept": "The recording and the transcript are not kept, so only the summary of this run is shown. Run it again with the file to see the timeline.",
+        "empty": "Choose a recording to see who spoke and when"
+      }
     }
   },
   "image": {
