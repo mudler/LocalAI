@@ -5,7 +5,7 @@ import Icon from './Icon'
 export default function SearchableSelect({
   value, onChange, options, placeholder = 'Select...',
   allOption, searchPlaceholder = 'Search...',
-  disabled = false, style, className = '',
+  disabled = false, style, className = '', triggerClassName = '',
 }) {
   const { t } = useTranslation('common')
   const [open, setOpen] = useState(false)
@@ -114,12 +114,12 @@ export default function SearchableSelect({
       <button
         ref={buttonRef}
         type="button"
-        className="input"
+        className={triggerClassName || 'input'}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => { if (!disabled) { setOpen(!open); setQuery(''); setFocusIndex(-1) } }}
-        style={{
+        style={triggerClassName ? undefined : {
           width: '100%', padding: 'var(--spacing-xs) var(--spacing-sm)', fontSize: '0.8125rem',
           cursor: disabled ? 'not-allowed' : 'pointer',
           display: 'flex', alignItems: 'center', gap: '6px',
@@ -129,8 +129,8 @@ export default function SearchableSelect({
           opacity: disabled ? 0.5 : 1,
         }}
       >
-        <span style={{ flex: 1, textAlign: 'left' }}>{displayLabel}</span>
-        <Icon name="chevron-down" style={{ fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
+        <span className={triggerClassName ? 'searchable-select__label' : undefined} style={triggerClassName ? undefined : { flex: 1, textAlign: 'left' }}>{displayLabel}</span>
+        <Icon name="chevron-down" className={triggerClassName ? 'searchable-select__chevron' : undefined} style={triggerClassName ? undefined : { fontSize: '0.5rem', color: 'var(--color-text-muted)' }} />
       </button>
       {open && (
         <div style={{

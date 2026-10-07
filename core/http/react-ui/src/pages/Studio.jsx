@@ -15,6 +15,7 @@ import {
   CAP_DIARIZATION, CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
+import '../components/studio/studio.css'
 
 // One table for the six generators: the capability that makes a modality
 // usable, the feature flag that can remove it entirely, and the group it reads
@@ -89,6 +90,11 @@ export default function Studio() {
     const known = modalities.find(m => m.key === tab.key)
     return known?.installed.length > 0 ? 'on' : 'off'
   }
+
+  // On a phone the tab row scrolls sideways; keep the current type in view.
+  useEffect(() => {
+    document.querySelector('.studio-tab-active')?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
+  }, [activeTab])
 
   const ActiveComponent = TAB_COMPONENTS[activeTab]
 

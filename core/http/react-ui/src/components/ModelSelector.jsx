@@ -7,7 +7,7 @@ import { readLastModel, writeLastModel } from '../utils/lastModel'
 export default function ModelSelector({
   value, onChange, capability, className = '',
   options: externalOptions, loading: externalLoading,
-  disabled: externalDisabled, searchPlaceholder, style,
+  disabled: externalDisabled, searchPlaceholder, style, triggerClassName,
 }) {
   const { t } = useTranslation('models')
   // Skip capability fetch when external options are provided (capability will be undefined)
@@ -47,6 +47,7 @@ export default function ModelSelector({
       disabled={isDisabled}
       className={className}
       style={style}
+      triggerClassName={triggerClassName}
     />
   )
 }

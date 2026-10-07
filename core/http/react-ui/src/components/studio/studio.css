@@ -38,6 +38,44 @@
 }
 .studio-link:hover { text-decoration-thickness: 2px; }
 
+/* --- Type tabs ------------------------------------------------------------- */
+
+/* The seven types, as one row above every Studio page. The current one is
+   outlined and lifted onto a card; there is no underline and no rail. */
+.studio-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dk-space-1);
+  padding: var(--dk-space-4) var(--spacing-xl) 0;
+}
+.studio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  height: 38px;
+  padding: 0 var(--dk-space-3);
+  border: 0;
+  border-radius: var(--dk-radius-3);
+  background: transparent;
+  color: var(--dk-muted);
+  font: var(--dk-weight-semibold) var(--dk-text-13) / 1 var(--dk-font-body);
+  cursor: pointer;
+  transition: background-color var(--dk-dur-1) ease, color var(--dk-dur-1) ease, transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.studio-tab:hover { background: var(--dk-hover); color: var(--dk-text); }
+.studio-tab:active { transform: scale(var(--dk-press-scale)); }
+.studio-tab:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.studio-tab .lai-icon { font-size: 16px; }
+.studio-tab-active, .studio-tab-active:hover {
+  background: var(--dk-card);
+  color: var(--dk-text);
+  box-shadow: inset 0 0 0 1.5px var(--dk-text);
+}
+@media (max-width: 720px) {
+  .studio-tabs { flex-wrap: nowrap; overflow-x: auto; padding-left: var(--dk-space-4); padding-right: var(--dk-space-4); scrollbar-width: none; }
+  .studio-tab { flex: none; }
+}
+
 /* --- Composer ------------------------------------------------------------ */
 
 .studio-composer {

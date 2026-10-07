@@ -257,6 +257,79 @@
       "title": "Studio could not read the installed models",
       "body": "The list of models did not load, so Studio cannot say which types are ready. Your work below is not affected.",
       "retry": "Try again"
+    },
+    "workspace": {
+      "sourcesLabel": "Starting points",
+      "lede": {
+        "images": "Text to image, image to image, reference images",
+        "video": "Text to video and image to video",
+        "threed": "One picture in, one 3D object out",
+        "tts": "Text to speech, with a saved voice when the model clones",
+        "sound": "Music and sound from a description",
+        "transform": "Clean up a recording, or change a voice",
+        "diarization": "Find who spoke and when"
+      },
+      "sources": {
+        "startImage": "Start from an image",
+        "endImage": "End image",
+        "chosen": "Chosen file",
+        "audio": "Audio",
+        "reference": "Reference"
+      },
+      "fields": {
+        "prompt": "text",
+        "model": "model",
+        "size": "size",
+        "count": "count",
+        "steps": "steps",
+        "seed": "seed",
+        "negative": "negative prompt",
+        "duration": "duration",
+        "fps": "fps",
+        "frames": "frames",
+        "cfg": "CFG",
+        "quality": "quality",
+        "background": "background",
+        "voice": "voice",
+        "instructions": "delivery",
+        "mode": "mode",
+        "caption": "caption",
+        "lyrics": "lyrics",
+        "bpm": "BPM",
+        "key": "key",
+        "language": "language",
+        "timesignature": "time signature",
+        "instrumental": "instrumental",
+        "think": "think mode",
+        "params": "parameters",
+        "speakers": "speakers",
+        "detail": "detail"
+      },
+      "changedFrom": "Changed from this take:",
+      "edited": "edited",
+      "runAgain": "Run again",
+      "useIn": "Use in",
+      "rerun": "Re-run with edits",
+      "lineage": "Lineage",
+      "download": "Download",
+      "tools": "Result actions",
+      "from": "from",
+      "fromGone": "from a result that is no longer in this browser ({{edge}})",
+      "failed": {
+        "title": "That did not finish",
+        "note": "Your prompt and settings are still here.",
+        "retry": "Try again",
+        "traces": "View traces for details"
+      },
+      "strip": {
+        "title": "Recent results",
+        "allWork": "All work",
+        "noFavourites": "No favourites yet. Star a result to keep it here."
+      },
+      "auto": "Auto",
+      "choose": "Choose",
+      "replace": "Replace",
+      "dropHint": "or drop it here"
     }
   },
   "image": {

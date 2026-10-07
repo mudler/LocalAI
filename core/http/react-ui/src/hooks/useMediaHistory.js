@@ -96,6 +96,7 @@ export function useMediaHistory(mediaType) {
       if (updated.length > MAX_ENTRIES) updated.length = MAX_ENTRIES
       return updated
     })
+    return entry.id
   }, [])
 
   const deleteEntry = useCallback((id) => {

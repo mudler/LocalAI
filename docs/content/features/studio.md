@@ -54,6 +54,21 @@ A step is listed but disabled, with the reason, when the destination page cannot
 
 Arrow keys walk the board, `B` branches and `Esc` closes the draft, then the details, then the view.
 
+## The workspace page
+
+All seven workspaces share one layout, under a row of tabs, one per type:
+
+- **Compose card.** Optional sources as dashed chips (a start image, reference images, an end image, avatar audio), or a drop area where the run cannot start without a file (a recording for Diarization, audio for Transform, a picture for 3D). Then the prompt, with starters while it is empty, a model chip, the essential options as chips (size and count, duration and frame rate, voice, mode), and an **Advanced** fold that names what is inside when it is closed. Below that: the memory the model needs and whether it fits, when the gallery knows it, and one button. When the button cannot run, the reason is next to it. With no model for the type, the install note from the front page shows in the card.
+- **Run area.** While a request is out, a job card shows the model and options and the time that has passed. The server reports no phase and no percentage on these endpoints, so the bar is indeterminate. A failed run shows what the server said, says the prompt and settings are still there, and offers **Try again**. A finished run shows the result in a viewer for its type (picture grid, video player, waveform player, 3D viewer, spectrograms, or a timeline of speakers) with a toolbar:
+  - **Favourite**, the same list the front page keeps.
+  - **Download**.
+  - **Use in** lists where the result can go next. A step is disabled, with the reason, when the destination cannot start from it, or when no model for it is installed it says so.
+  - **Re-run with edits** puts the result's values back in the form. The fields you then change are outlined and listed under **Changed from this take**, and the button reads **Run again**. It is disabled when the original input was not kept (3D, diarization).
+  - **Lineage** opens the lineage view of the front page for this result.
+- **Recent results.** A strip of the results of this type from the same history, with an All and a Favourites filter. Click a tile to show it above, and click it again to go back to the latest.
+
+Diarization lists who spoke when as one lane per speaker, the talk time of each speaker, and the segments with their text when the model returned it. **RTTM**, **SRT** (only when there is text) and **JSON** are built in the browser from the result in hand.
+
 ## What a workspace accepts from the front page
 
 The workspaces read these query parameters, so a link of your own works too: `prompt`, `model`, `size`, `n` (count), `from` (the id of the result it starts from) and `edge` (how). For example `/app/studio/video?prompt=Slow%20push-in&from=<id>&edge=animate`.
