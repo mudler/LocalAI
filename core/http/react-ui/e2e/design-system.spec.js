@@ -99,8 +99,8 @@ test.describe('reduced motion', () => {
 
 test.describe('Shared UI kit theme', () => {
   const canvas = {
-    dark: 'rgb(11, 19, 18)',
-    light: 'rgb(242, 245, 245)',
+    dark: 'rgb(12, 18, 17)',
+    light: 'rgb(243, 245, 244)',
   }
 
   for (const mode of ['dark', 'light']) {

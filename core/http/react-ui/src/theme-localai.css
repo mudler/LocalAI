@@ -1,108 +1,130 @@
 /* LocalAI product theme for the shared UI kit.
-   Palette: ink and teal. Fills every colour role of the kit's theme
-   contract (src/vendor/ui-kit/theme-contract.md) for light and dark.
+   Palette: calm. A muted teal accent on a near-neutral green-grey canvas,
+   desaturated status colours, no glow and no coloured shadows. Fills every
+   role of the kit's theme contract (src/vendor/ui-kit/theme-contract.md)
+   for light and dark, including the six chart series and the grid line.
    One declaration per line, colours as #rrggbb, so the kit's contrast
-   script can read this file. Text pairs need 4.5, control pairs need 3.
-   The light control edge is a little darker than the first palette
-   sketch (#7d8d8b gave 2.90 on the inset surface).
+   script can read this file. Text pairs need 4.5, control and series
+   pairs need 3.
 
    The two dark blocks hold the same values. The app always sets
    data-theme on <html>; the media block only covers a page with no
    attribute, and index.html sets the attribute before first paint. */
 :root {
-  --dk-canvas: #f2f5f5;
-  --dk-inset: #e6ecec;
+  --dk-canvas: #f3f5f4;
+  --dk-inset: #e8edec;
   --dk-card: #ffffff;
-  --dk-hover: #e9efee;
+  --dk-hover: #dde5e3;
   --dk-text: #101c1b;
-  --dk-muted: #566866;
-  --dk-edge: #d9e1e0;
-  --dk-control-edge: #778785;
+  --dk-muted: #4b5c5a;
+  --dk-edge: #d6dedc;
+  --dk-control-edge: #6b7d7a;
   --dk-accent: #0b6663;
   --dk-on-accent: #ffffff;
   --dk-accent-text: #0b6663;
-  --dk-accent-wash: #d9eeec;
-  --dk-ok: #1b6b3a;
+  --dk-accent-wash: #dcebea;
+  --dk-ok: #1a6c41;
   --dk-on-ok: #ffffff;
-  --dk-ok-text: #1b6b3a;
-  --dk-ok-wash: #daf0e1;
+  --dk-ok-text: #1a6c41;
+  --dk-ok-wash: #e0f0e6;
   --dk-warn: #8a5a00;
   --dk-on-warn: #ffffff;
   --dk-warn-text: #8a5a00;
-  --dk-warn-wash: #f7eacb;
+  --dk-warn-wash: #f5e9cf;
   --dk-error: #b3261e;
   --dk-on-error: #ffffff;
   --dk-error-text: #b3261e;
-  --dk-error-wash: #fadfdc;
-  --dk-inverse: #101c1b;
-  --dk-on-inverse: #f2f5f5;
-  --dk-scrim: rgb(10 22 21 / .42);
-  --dk-shadow-tint: 10 28 26;
+  --dk-error-wash: #f7dedb;
+  --dk-inverse: #1b2625;
+  --dk-on-inverse: #e8f0ee;
+  --dk-scrim: rgb(16 28 27 / .38);
+  --dk-shadow-tint: 16 28 27;
   --dk-shadow-k: 1;
+  --dk-series-1: #2690bb;
+  --dk-series-2: #b57537;
+  --dk-series-3: #9c5a8f;
+  --dk-series-4: #82740c;
+  --dk-series-5: #7065ae;
+  --dk-series-6: #4c935a;
+  --dk-grid: #e2e8e6;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --dk-canvas: #0b1312;
-    --dk-inset: #111b1a;
-    --dk-card: #16221f;
-    --dk-hover: #1c2b29;
-    --dk-text: #e7f1f0;
-    --dk-muted: #8ea4a1;
-    --dk-edge: #223230;
-    --dk-control-edge: #6b8582;
-    --dk-accent: #3fc4b9;
-    --dk-on-accent: #03201d;
-    --dk-accent-text: #5ad3c9;
-    --dk-accent-wash: #11302d;
-    --dk-ok: #5fd58d;
-    --dk-on-ok: #052313;
-    --dk-ok-text: #5fd58d;
-    --dk-ok-wash: #12301f;
-    --dk-warn: #e8b04c;
+    --dk-canvas: #0c1211;
+    --dk-inset: #080d0c;
+    --dk-card: #141c1b;
+    --dk-hover: #1f2a29;
+    --dk-text: #e4ecea;
+    --dk-muted: #97a8a5;
+    --dk-edge: #27332f;
+    --dk-control-edge: #6c8480;
+    --dk-accent: #3f9a91;
+    --dk-on-accent: #021512;
+    --dk-accent-text: #74bdb5;
+    --dk-accent-wash: #17302d;
+    --dk-ok: #62ae80;
+    --dk-on-ok: #05180d;
+    --dk-ok-text: #7cc196;
+    --dk-ok-wash: #17291f;
+    --dk-warn: #cfa054;
     --dk-on-warn: #1d1200;
-    --dk-warn-text: #e8b04c;
-    --dk-warn-wash: #33270d;
-    --dk-error: #ff8a80;
+    --dk-warn-text: #dcb56f;
+    --dk-warn-wash: #2b2314;
+    --dk-error: #d9786f;
     --dk-on-error: #2a0504;
-    --dk-error-text: #ff8a80;
-    --dk-error-wash: #3a1816;
-    --dk-inverse: #e7f1f0;
-    --dk-on-inverse: #0b1312;
-    --dk-scrim: rgb(2 8 8 / .62);
+    --dk-error-text: #e8908a;
+    --dk-error-wash: #2e1b19;
+    --dk-inverse: #e4ecea;
+    --dk-on-inverse: #101c1b;
+    --dk-scrim: rgb(2 6 5 / .62);
     --dk-shadow-tint: 0 0 0;
     --dk-shadow-k: 2.5;
+    --dk-series-1: #3ba1cc;
+    --dk-series-2: #c58446;
+    --dk-series-3: #b571a8;
+    --dk-series-4: #9a8c30;
+    --dk-series-5: #887cc8;
+    --dk-series-6: #60a86d;
+    --dk-grid: #222d2b;
   }
 }
 
 :root[data-theme="dark"] {
-  --dk-canvas: #0b1312;
-  --dk-inset: #111b1a;
-  --dk-card: #16221f;
-  --dk-hover: #1c2b29;
-  --dk-text: #e7f1f0;
-  --dk-muted: #8ea4a1;
-  --dk-edge: #223230;
-  --dk-control-edge: #6b8582;
-  --dk-accent: #3fc4b9;
-  --dk-on-accent: #03201d;
-  --dk-accent-text: #5ad3c9;
-  --dk-accent-wash: #11302d;
-  --dk-ok: #5fd58d;
-  --dk-on-ok: #052313;
-  --dk-ok-text: #5fd58d;
-  --dk-ok-wash: #12301f;
-  --dk-warn: #e8b04c;
+  --dk-canvas: #0c1211;
+  --dk-inset: #080d0c;
+  --dk-card: #141c1b;
+  --dk-hover: #1f2a29;
+  --dk-text: #e4ecea;
+  --dk-muted: #97a8a5;
+  --dk-edge: #27332f;
+  --dk-control-edge: #6c8480;
+  --dk-accent: #3f9a91;
+  --dk-on-accent: #021512;
+  --dk-accent-text: #74bdb5;
+  --dk-accent-wash: #17302d;
+  --dk-ok: #62ae80;
+  --dk-on-ok: #05180d;
+  --dk-ok-text: #7cc196;
+  --dk-ok-wash: #17291f;
+  --dk-warn: #cfa054;
   --dk-on-warn: #1d1200;
-  --dk-warn-text: #e8b04c;
-  --dk-warn-wash: #33270d;
-  --dk-error: #ff8a80;
+  --dk-warn-text: #dcb56f;
+  --dk-warn-wash: #2b2314;
+  --dk-error: #d9786f;
   --dk-on-error: #2a0504;
-  --dk-error-text: #ff8a80;
-  --dk-error-wash: #3a1816;
-  --dk-inverse: #e7f1f0;
-  --dk-on-inverse: #0b1312;
-  --dk-scrim: rgb(2 8 8 / .62);
+  --dk-error-text: #e8908a;
+  --dk-error-wash: #2e1b19;
+  --dk-inverse: #e4ecea;
+  --dk-on-inverse: #101c1b;
+  --dk-scrim: rgb(2 6 5 / .62);
   --dk-shadow-tint: 0 0 0;
   --dk-shadow-k: 2.5;
+  --dk-series-1: #3ba1cc;
+  --dk-series-2: #c58446;
+  --dk-series-3: #b571a8;
+  --dk-series-4: #9a8c30;
+  --dk-series-5: #887cc8;
+  --dk-series-6: #60a86d;
+  --dk-grid: #222d2b;
 }

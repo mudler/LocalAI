@@ -14,7 +14,6 @@
   --color-bg-overlay: color-mix(in srgb, var(--dk-canvas) 92%, transparent);
   --color-bg-hover: var(--dk-hover);
 
-  --color-surface-raised: var(--dk-card);
   --color-surface-sunken: var(--dk-inset);
   --color-surface-hover: var(--dk-hover);
   --color-surface-elevated: color-mix(in srgb, var(--dk-card) 88%, var(--dk-text));
@@ -182,27 +181,27 @@
   --bp-tablet: 1024px;
 }
 
-/* Floating surfaces (menus, popovers) sit above cards, so in dark they take
-   the hover tone: a card-coloured menu over a card would vanish. Light keeps
-   the white card, which the float shadow lifts. */
+/* Surface ladder of the calm palette. Floating surfaces (menus, popovers)
+   sit above raised ones, which sit above cards, so in dark each step is a
+   little lighter: a card-coloured menu over a card would vanish. Light keeps
+   the white card, which the float shadow lifts. The strong edge is for a
+   hovered or selected card outline. */
 :root,
 [data-theme="dark"] {
-  --color-surface-float: var(--dk-hover);
+  --color-surface-raised: #1b2524;
+  --color-surface-float: #232f2e;
+  --color-border-emphasis: #3a4a47;
 }
 [data-theme="light"] {
+  --color-surface-raised: var(--dk-card);
   --color-surface-float: var(--dk-card);
+  --color-border-emphasis: color-mix(in srgb, var(--dk-edge) 70%, var(--dk-control-edge));
 }
 
-/* Fixed data hues: no role matches them. Dark values first (also the
-   no-attribute default), light values darkened to read on paper. */
-:root,
-[data-theme="dark"] {
-  --color-data-3: #c3a0e0;
-  --color-data-6: #e59a6a;
-  --color-data-7: #8fb4e8;
-}
-[data-theme="light"] {
-  --color-data-3: #7a4ea0;
-  --color-data-6: #a8552a;
-  --color-data-7: #3f69a8;
+/* Data hues that have no status role come from the theme's chart series,
+   so charts and code highlighting follow the palette in both modes. */
+:root {
+  --color-data-3: var(--dk-series-3);
+  --color-data-6: var(--dk-series-2);
+  --color-data-7: var(--dk-series-1);
 }

@@ -65,7 +65,7 @@ export default function VoiceVisualizer({ audioRef, micStreamRef, status, active
       let data = null
       if (an) { data = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(data) }
 
-      const color = getComputedStyle(canvas).getPropertyValue('--viz-color').trim() || '#4f8cff'
+      const color = getComputedStyle(canvas).getPropertyValue('--viz-color').trim() || '#74bdb5'
       ctx.fillStyle = color
       const slot = w / BARS
       const bw = slot * 0.5

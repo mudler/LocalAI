@@ -2,15 +2,15 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const TOP_N = 7
-// Distinct, accessible-ish series colors that read on both light and dark themes.
+// The theme's six chart series, in their fixed order, then the accent.
 const SERIES_COLORS = [
+  'var(--dk-series-1)',
+  'var(--dk-series-2)',
+  'var(--dk-series-3)',
+  'var(--dk-series-4)',
+  'var(--dk-series-5)',
+  'var(--dk-series-6)',
   'var(--color-primary)',
-  'var(--color-success, #10b981)',
-  'var(--color-warning, #f59e0b)',
-  'var(--color-info, #3b82f6)',
-  'var(--color-error)',
-  '#a855f7',
-  '#ec4899',
 ]
 const OTHER_COLOR = 'var(--color-text-muted, #94a3b8)'
 

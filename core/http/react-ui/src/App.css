@@ -6713,8 +6713,7 @@ button.collapsible-header:focus-visible {
 
 /* Home assistant CTA — a self-explanatory entry point for the in-process
    admin tool surface. Distinct from the chat composer below it; uses the
-   accent token + a subtle gradient so it reads as a primary action without
-   looking AI-slop generative. */
+   accent wash so it reads as a primary action without looking generative. */
 .home-assistant-card {
   display: flex;
   align-items: center;
@@ -7786,7 +7785,7 @@ button.collapsible-header:focus-visible {
   position: absolute;
   border: 2px solid var(--color-accent);
   border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   transition: border-color var(--duration-fast);
 }
@@ -10117,7 +10116,7 @@ button.collapsible-header:focus-visible {
 .node-inspector__scrim { display: none; }
 .node-inspector { animation: node-inspector-in 180ms var(--ease-out, ease-out) both; background: var(--color-bg-primary); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-xl) 0 0 var(--radius-xl); bottom: var(--spacing-md); box-shadow: -18px 0 42px rgba(0, 0, 0, .24); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; position: fixed; right: var(--spacing-md); top: var(--spacing-md); width: 360px; z-index: 80; }
 @keyframes node-inspector-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
-.node-inspector__header { background: linear-gradient(180deg, var(--color-bg-secondary), var(--color-bg-primary)); border-bottom: 1px solid var(--color-border-subtle); padding: 18px 22px 17px; }
+.node-inspector__header { background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-subtle); padding: 18px 22px 17px; }
 .node-inspector__topbar { align-items: center; display: flex; justify-content: space-between; min-height: 30px; }
 .node-inspector__topbar .fleet-kicker { margin: 0; }
 .node-inspector__header h2 { font-size: 1.25rem; letter-spacing: -.025em; line-height: 1.2; margin: 9px 0 0; overflow-wrap: anywhere; }
@@ -13068,7 +13067,7 @@ button.collapsible-header:focus-visible {
 
 .zero-pane__tile--feat {
   border-color: var(--color-primary-border);
-  background: linear-gradient(150deg, var(--color-primary-light), transparent 68%), var(--color-bg-primary);
+  background: color-mix(in srgb, var(--color-primary-light) 45%, var(--color-bg-primary));
 }
 
 .zero-pane__tile-name { font-size: var(--text-sm); font-weight: var(--font-weight-semibold); }
