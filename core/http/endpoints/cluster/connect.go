@@ -212,6 +212,13 @@ func bearerToken(r *http.Request) (string, bool) {
 // node at registration, returned to that worker once and stored as this hash.
 // It is not TokenHash, which hashes the token that the worker registered with.
 // On most deployments that is the shared registration token.
+//
+// The credential stops a caller from claiming a node by its ID alone. It does
+// not stop a holder of the registration token: that token authorises a
+// registration under any node name, and a registration mints a new credential
+// and replaces the old one. This is the same trust as the NATS credentials that
+// registration mints. A worker whose credential was replaced registers again
+// by itself.
 func authorizedWorker(token, storedHash string) bool {
 	if storedHash == "" {
 		return false

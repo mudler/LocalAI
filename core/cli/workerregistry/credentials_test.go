@@ -2,6 +2,7 @@ package workerregistry
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -113,6 +114,44 @@ var _ = Describe("CredentialManager", func() {
 			Expect(err.Error()).To(ContainSubstring("after 5 attempts"))
 			Expect(err.Error()).To(ContainSubstring("pending admin approval"))
 			Expect(f.count()).To(Equal(5))
+		})
+	})
+
+	Describe("Reregister", func() {
+		tunnelRes := func(token string) *RegisterResponse {
+			return &RegisterResponse{ID: "node-1", Status: "healthy", Carrier: "tunnel", TunnelToken: token}
+		}
+
+		It("replaces the tunnel token with the one that the new registration minted", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("token-2")}}}
+			m := NewCredentialManager(f.fn(), false)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).To(Succeed())
+			Expect(m.TunnelToken()).To(Equal("token-2"))
+			Expect(f.count()).To(Equal(2), "one registration and no retry")
+		})
+
+		It("keeps the old token and returns the error when registration fails", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {err: errors.New("frontend down")}}}
+			m := NewCredentialManager(f.fn(), false)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).To(MatchError(ContainSubstring("frontend down")))
+			Expect(m.TunnelToken()).To(Equal("token-1"))
+			Expect(f.count()).To(Equal(2))
+		})
+
+		It("keeps the old token when the answer names the tunnel and mints none", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("")}}}
+			m := NewCredentialManager(f.fn(), false)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).ToNot(Succeed())
+			Expect(m.TunnelToken()).To(Equal("token-1"))
 		})
 	})
 

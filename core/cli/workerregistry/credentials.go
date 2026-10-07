@@ -182,6 +182,24 @@ func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, err
 	return nil, fmt.Errorf("giving up acquiring NATS credentials after %d attempts: %w", m.maxAttempts, lastReason)
 }
 
+// Reregister registers once more and keeps the credentials of the answer. It
+// does not wait and does not retry: the caller owns the backoff. The tunnel
+// client calls it after the frontend refused its credential, which happens when
+// another process registered under the same node name, or when the frontend
+// lost its record of the node. A registration mints a new credential, and the
+// registration token of the deployment authorises it, as it does at startup.
+func (m *CredentialManager) Reregister(ctx context.Context) error {
+	res, err := m.register(ctx)
+	if err != nil {
+		return err
+	}
+	if res.Carrier == carrierTunnel && res.TunnelToken == "" {
+		return fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
+	}
+	m.store(res)
+	return nil
+}
+
 // RefreshLoop re-registers to mint a fresh JWT before the current one expires,
 // updating the credentials returned by Current/Provider so the NATS connection
 // adopts them on its next reconnect. It returns nil when ctx is cancelled or

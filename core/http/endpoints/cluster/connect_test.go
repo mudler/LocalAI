@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
+	"github.com/mudler/LocalAI/core/services/worker"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -330,6 +333,61 @@ var _ = Describe("Connect endpoint", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
+	})
+})
+
+var _ = Describe("A worker whose credential was rotated on the frontend", func() {
+	It("registers again and gets its tunnel back without a restart", func() {
+		ctx := context.Background()
+		db := testutil.SetupTestDB()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		clusterR := cluster.NewRegistry(db)
+		Expect(clusterR.Register(ctx, "replica-a", "test", 0, "")).To(Succeed())
+		nodeReg, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		tunnels := tunnel.NewRegistry(clusterR, "replica-a")
+
+		node := &nodes.BackendNode{Name: "w1", NodeType: nodes.NodeTypeBackend, TokenHash: hashOf("registration")}
+		Expect(nodeReg.Register(ctx, node, true)).To(Succeed())
+		var mu sync.Mutex
+		current := "credential-1"
+		Expect(nodeReg.SetTunnelTokenHash(ctx, node.ID, hashOf(current))).To(Succeed())
+		held := func() string { mu.Lock(); defer mu.Unlock(); return current }
+
+		e := echo.New()
+		e.GET(tunnel.ConnectPath, clusterapi.ConnectHandler(nodeReg, tunnels))
+		srv := httptest.NewServer(e)
+		DeferCleanup(srv.Close)
+
+		// Another process registers under the same name and replaces the
+		// credential on the frontend. This worker still holds credential-1.
+		mu.Lock()
+		current = "credential-2-of-another-process"
+		Expect(nodeReg.SetTunnelTokenHash(ctx, node.ID, hashOf(current))).To(Succeed())
+		mu.Unlock()
+		workerToken := "credential-1"
+		var reregistered atomic.Int32
+		w, err := worker.StartTunnel(ctx, worker.TunnelConfig{
+			FrontendURL: srv.URL,
+			NodeID:      node.ID,
+			Token:       func() string { mu.Lock(); defer mu.Unlock(); return workerToken },
+			Services:    map[string]worker.LocalService{},
+			Reauthorize: func(ctx context.Context) error {
+				// What registration does on the frontend: mint, store the hash,
+				// return the value once.
+				mu.Lock()
+				defer mu.Unlock()
+				reregistered.Add(1)
+				current = "credential-3"
+				workerToken = current
+				return nodeReg.SetTunnelTokenHash(ctx, node.ID, hashOf(current))
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(w.Close)
+		Eventually(reregistered.Load, 20*time.Second).Should(BeNumerically(">=", 1))
+		Eventually(w.Connected, 20*time.Second).Should(BeTrue())
+		Expect(held()).To(Equal("credential-3"))
 	})
 })
 

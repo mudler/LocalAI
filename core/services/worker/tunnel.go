@@ -106,6 +106,15 @@ type TunnelConfig struct {
 	// entry is refused. See accept.
 	Services map[string]LocalService
 
+	// Reauthorize registers the node again, so that Token returns a credential
+	// that the frontend accepts. It is called after a dial that the frontend
+	// refused with 401 or 403, and at most once for each wait of the backoff.
+	// Another process that registers under the same node name, or a frontend that
+	// lost its record of the node, makes the credential of this worker useless,
+	// and only a registration mints a new one. A nil Reauthorize leaves the
+	// worker to retry the credential it has.
+	Reauthorize func(ctx context.Context) error
+
 	// The fields below are for the specs. They are not exported, so that a caller
 	// cannot reach them.
 	sleep         func(ctx context.Context, d time.Duration) error
@@ -125,6 +134,8 @@ type Tunnel struct {
 	token    func() string
 	services map[string]LocalService
 	dialer   *websocket.Dialer
+
+	reauthorize func(ctx context.Context) error
 
 	headerTimeout time.Duration
 	noBulk        bool
@@ -224,6 +235,7 @@ func StartTunnel(ctx context.Context, cfg TunnelConfig) (*Tunnel, error) {
 		token:         cfg.Token,
 		services:      services,
 		dialer:        dialer,
+		reauthorize:   cfg.Reauthorize,
 		headerTimeout: cmp.Or(cfg.headerTimeout, tunnelHeaderTimeout),
 		noBulk:        cfg.noBulk,
 		sleep:         cfg.sleep,
@@ -279,10 +291,45 @@ func (t *Tunnel) run(ctx context.Context) {
 
 		delay := tunnelBackoffDelay(attempt)
 		t.logSessionEnded(err, attempt, delay)
+		t.reauthorizeAfter(ctx, err)
 		if err := t.sleep(ctx, delay); err != nil {
 			return
 		}
 	}
+}
+
+// reauthorizeAfter registers the node again when the frontend refused the
+// credential of the dial.
+//
+// It runs once for each pass of the loop, and the loop waits with a growing
+// backoff after it, so a frontend that keeps refusing is asked no more often
+// than the backoff allows. Two workers that share a node name rotate each
+// other's credential on every registration; the backoff bounds that contest to
+// one registration for each wait and does not end it. The operator fixes the
+// duplicate name.
+func (t *Tunnel) reauthorizeAfter(ctx context.Context, err error) {
+	if t.reauthorize == nil || !refusedCredential(err) {
+		return
+	}
+	if rerr := t.reauthorize(ctx); rerr != nil {
+		if ctx.Err() == nil {
+			xlog.Warn("Registering again after the frontend refused the tunnel credential failed", "node", t.nodeID, "error", rerr)
+		}
+		return
+	}
+	xlog.Info("Registered again after the frontend refused the tunnel credential", "node", t.nodeID)
+}
+
+// refusedCredential reports whether the frontend answered a dial with 401 or
+// 403. Both can be cured by a new registration: 401 is a credential that the
+// frontend does not know, and 403 is a node whose record the registration
+// updates.
+func refusedCredential(err error) bool {
+	var dialErr *tunnelDialError
+	if !errors.As(err, &dialErr) {
+		return false
+	}
+	return dialErr.status == http.StatusUnauthorized || dialErr.status == http.StatusForbidden
 }
 
 // connectAndServe dials the inference lane, serves streams until the session

@@ -59,6 +59,12 @@ type fakeFrontend struct {
 	// bulkStatus, when it is not zero, is the status that a bulk dial gets
 	// instead of an upgrade.
 	bulkStatus atomic.Int32
+	// requiredToken, when it is set, is the only credential that a dial may
+	// present. Any other gets 401, as the connect endpoint answers a node whose
+	// credential was rotated.
+	requiredToken atomic.Pointer[string]
+	// denyStatus, when it is not zero, is the status that every dial gets.
+	denyStatus atomic.Int32
 }
 
 func newFakeFrontend(closeAtOnce bool) *fakeFrontend {
@@ -86,6 +92,14 @@ func newFakeFrontend(closeAtOnce bool) *fakeFrontend {
 			lane:   lane,
 		}:
 		default:
+		}
+		if want := f.requiredToken.Load(); want != nil && strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") != *want {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if status := int(f.denyStatus.Load()); status != 0 {
+			w.WriteHeader(status)
+			return
 		}
 		if status := int(f.bulkStatus.Load()); lane == tunnel.LaneBulk && status != 0 {
 			w.WriteHeader(status)
@@ -552,6 +566,101 @@ var _ = Describe("Worker tunnel client", func() {
 			Expect(first.token).To(Equal("token-1"))
 			Expect(second.token).To(Equal("token-2"))
 			Expect(first.nodeID).To(Equal("node-1"))
+		})
+
+		Describe("after the frontend refused the credential", func() {
+			// The frontend rotates the credential of the node, as it does when a
+			// second process registers under the same name. The worker holds the
+			// old value and must get a new one without a restart.
+			It("registers again and connects with the new credential", func() {
+				frontend = newFakeFrontend(false)
+				current := "rotated-by-another-process"
+				frontend.requiredToken.Store(&current)
+				var token atomic.Pointer[string]
+				stale := "stale"
+				token.Store(&stale)
+				var registrations atomic.Int32
+				start(func(c *TunnelConfig) {
+					c.noBulk = true
+					c.Token = func() string { return *token.Load() }
+					c.Reauthorize = func(context.Context) error {
+						registrations.Add(1)
+						token.Store(&current)
+						return nil
+					}
+					c.sleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
+				})
+				Eventually(frontend.inference, "10s").Should(Receive())
+				Expect(registrations.Load()).To(Equal(int32(1)))
+				Eventually(tun.Connected, "10s").Should(BeTrue())
+			})
+
+			It("registers again once for each wait and never in a tight loop", func() {
+				frontend = newFakeFrontend(false)
+				frontend.denyStatus.Store(http.StatusForbidden)
+				var registrations atomic.Int32
+				// Unbuffered: the loop cannot start a pass until the spec has read the
+				// wait of the last one.
+				waits := make(chan time.Duration)
+				start(func(c *TunnelConfig) {
+					c.noBulk = true
+					c.Reauthorize = func(context.Context) error { registrations.Add(1); return nil }
+					c.sleep = func(ctx context.Context, d time.Duration) error {
+						select {
+						case waits <- d:
+							return nil
+						case <-ctx.Done():
+							return ctx.Err()
+						}
+					}
+				})
+				var d time.Duration
+				for range 5 {
+					Eventually(waits, "10s").Should(Receive(&d))
+					Expect(d).To(BeNumerically(">", 0))
+				}
+				// One registration for each pass, and every pass waits.
+				Expect(int(registrations.Load())).To(BeNumerically("<=", 6))
+				Expect(int(registrations.Load())).To(BeNumerically(">=", 5))
+			})
+
+			It("keeps trying with the backoff when registering again fails", func() {
+				frontend = newFakeFrontend(false)
+				frontend.denyStatus.Store(http.StatusUnauthorized)
+				var registrations atomic.Int32
+				start(func(c *TunnelConfig) {
+					c.noBulk = true
+					c.Reauthorize = func(context.Context) error {
+						registrations.Add(1)
+						return errors.New("frontend down")
+					}
+					c.sleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
+				})
+				Eventually(registrations.Load, "10s").Should(BeNumerically(">=", 3))
+				Expect(tun.Connected()).To(BeFalse())
+			})
+
+			It("does not register again for a refusal that a registration does not cure", func() {
+				frontend = newFakeFrontend(false)
+				frontend.denyStatus.Store(http.StatusServiceUnavailable)
+				var registrations atomic.Int32
+				dials := make(chan struct{}, 64)
+				start(func(c *TunnelConfig) {
+					c.noBulk = true
+					c.Reauthorize = func(context.Context) error { registrations.Add(1); return nil }
+					c.sleep = func(ctx context.Context, _ time.Duration) error {
+						select {
+						case dials <- struct{}{}:
+						default:
+						}
+						return ctx.Err()
+					}
+				})
+				for range 3 {
+					Eventually(dials, "10s").Should(Receive())
+				}
+				Expect(registrations.Load()).To(BeZero())
+			})
 		})
 
 		It("does not dial with no credential, and says so", func() {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -125,8 +126,22 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// registration. With static NATS credentials there is no manager, and a
 	// frontend that answers with the tunnel gives the token once.
 	tunnelToken := credMgr.TunnelToken
+	reauthorize := credMgr.Reregister
 	if staticNATS {
-		tunnelToken = func() string { return res.TunnelToken }
+		var staticToken atomic.Pointer[string]
+		staticToken.Store(&res.TunnelToken)
+		tunnelToken = func() string { return *staticToken.Load() }
+		reauthorize = func(ctx context.Context) error {
+			again, err := regClient.RegisterFull(ctx, registrationBody)
+			if err != nil {
+				return err
+			}
+			if again.TunnelToken == "" {
+				return fmt.Errorf("node %s registered but the tunnel credential was not minted", again.ID)
+			}
+			staticToken.Store(&again.TunnelToken)
+			return nil
+		}
 	}
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo, "carrier", cmp.Or(res.Carrier, "nats"))
@@ -187,6 +202,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 			FrontendURL: cfg.RegisterTo,
 			NodeID:      nodeID,
 			Token:       tunnelToken,
+			// A frontend that refuses the credential is told who this worker is
+			// again, so that a rotated credential does not leave it unreachable.
+			Reauthorize: reauthorize,
 			// Built by tunnelServices and not inline, so that the routing table,
 			// which is the security boundary of the tunnel, can be reached from a
 			// spec without starting a worker.
