@@ -373,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: a1456fc5fc3257c53fa0317b40e9a49f3badb059b69ca6f7f22093325f4c584b
+      sha256: df290f77d9129d2ef936bc700ddc5221dc13ef3a6ac24df7b4e92376b0996fb8
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -925,8 +925,8 @@
       sha256: 3623f4af825ea01d7cd65706c496ac2c11cb585dfa1a27189320b5790a535b00
       uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-Flash-UD-Q6_K_XL-00007-of-00007.gguf
     - filename: llama-cpp/mmproj/GLM-5.3-Flash-UD-Q6_K_XL/mmproj-F16.gguf
-      sha256: 96ccc182997646ad4405385a1987b1ac1e6adccd2669de43c3ea39692699ed27
       uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/mmproj-F16.gguf
+      sha256: 922b809664d6a89cc1e40bfeaa63618000edc6651baf4082ce0718a784adf947
 - name: qwen3.8-27b-uncensored-hauhaucs-aggressive-mtp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -1387,8 +1387,8 @@
       sha256: c6ba510fafc1e12cc0addbc361a329c0c592ab96980098e7e25e107d8faa983e
       uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
     - filename: llama-cpp/mmproj/glm-5.3-flash/mmproj-BF16.gguf
-      sha256: 513c9bfc55898998186543caefc01626fb28e378b92f391018e1c3dd6655b113
       uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-BF16.gguf
+      sha256: 82b7adb44411dbb298b1c689567804e5ed0790d80f308ed8b5b6b8ac0527d2ac
 - !!merge <<: *glm-5-3-flash-q4
   name: glm-5.3-flash-q8
   variants: []
@@ -1427,8 +1427,8 @@
       sha256: a6cb6887c0047653f08c0ab6e564972451d9511322202970f7052e36052aefd6
       uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00008-of-00008.gguf
     - filename: llama-cpp/mmproj/glm-5.3-flash/mmproj-BF16.gguf
-      sha256: 513c9bfc55898998186543caefc01626fb28e378b92f391018e1c3dd6655b113
       uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-BF16.gguf
+      sha256: 82b7adb44411dbb298b1c689567804e5ed0790d80f308ed8b5b6b8ac0527d2ac
 - name: nl2sh-1.5b-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -65621,8 +65621,8 @@
       sha256: 2ebba0ff1e63c1ac3fadd4e83efcea189f47f33ec72c91877af94de6ebe30590
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
     - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+      sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
 - name: swift-1.5-qwen3.8-27b-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -65669,8 +65669,8 @@
       sha256: 0b3b4aa0e367c620756de4f9db77fc18f94fbeb256db208281cbb84c48e2a101
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q8_0.gguf
     - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+      sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
 - name: lfm2.5-2.6b-turbo-brilliance
   variants:
     - model: lfm2.5-2.6b-turbo-brilliance-q6
@@ -65717,7 +65717,7 @@
   files:
     - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
       uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-IQ4_XS.gguf
-      sha256: 9b8f0f2a602dd160cb841da273ee33ecb8ca5386d4bd46f59fbb20191d0303f7
+      sha256: e8f021ecce45785609a39fb7473c1efd7ec7d85d9953c9a829d30e5c27eaf40e
 - name: lfm2.5-2.6b-turbo-brilliance-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -65761,7 +65761,7 @@
   files:
     - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
       uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q6_K.gguf
-      sha256: f55f86ac8f456807834b5f97f8f25c9c057b59ae7741bc546be10c2068416bd6
+      sha256: 6de8144b7b992edd8e18934442a18b3c3207a6886580026aa8d35d4ecb5827d4
 - name: lfm2.5-2.6b-turbo-brilliance-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -65805,7 +65805,7 @@
   files:
     - filename: LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
       uri: https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF/resolve/36fe18b06b8198bf93e5b5055c77b72e186e83db/LFM2.5-2.6B-Q3.8-TBrilliance-NEO-MAX-Q8_0.gguf
-      sha256: 524dbaa84e79279977f62978a12f4d97c76e30a2c3976f7f21ed78e73e4b837e
+      sha256: 063bdad0adcf2c76c33ef252564c97a8b47ab2ff6d004047d36b082f9fc768d7
 - name: qwen-image-2.1-uncensored
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -66747,8 +66747,8 @@
     - model: qwen3.8-27b-humanlike-chat-q8
   files:
     - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
-      sha256: 2dfc33220a03e3e1d6c688d0cce1ffe035a83175fdcb1811b626615e3081933a
       uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+      sha256: 0ce585403ce20cb0a77e2636cd4aeb9b1a48b88487c6b0dbce11e71ac12a6193
 - name: qwen3.8-27b-humanlike-chat-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -66788,8 +66788,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
-      sha256: 1bde57941aa20696c85198fda62948db97eb66a67d9360a7e57e421cba3ae264
       uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+      sha256: 41226a5023819696db229d4ab99cb2bce3a56da6929a8250de5fbeaa6afa2fef
 - name: lensvlm-9b
   variants:
     - model: lensvlm-9b-q8
@@ -68756,8 +68756,8 @@
     mmap: true
   files:
     - filename: humanizer-12b-Q4_K_M.gguf
-      sha256: 5f0fd4bf39401e58c1d4b4a3eda3fc42f64cb9f28d7cd80bcfccca568b215a2f
       uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q4_K_M.gguf
+      sha256: 2229574dec5178629575ee4a153dfee7d9e924ab997d0ad9d2ac622b67e44834
 - name: humanizer-12b-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -68798,8 +68798,8 @@
     mmap: true
   files:
     - filename: humanizer-12b-Q6_K.gguf
-      sha256: bc2259fabf2a03de6894bdca0c65092608e52fefe48ba6b624a51c82c1e522c5
       uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q6_K.gguf
+      sha256: c98f03bb9e71456181f99b0e1d3391e07ce1afc357f9db4c33d6d379b8dd9f0d
 - name: humanizer-12b-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -68840,8 +68840,8 @@
     mmap: true
   files:
     - filename: humanizer-12b-Q8_0.gguf
-      sha256: 74d0e61d62c1c9d472002b9175cc71b9e725d5b5a4236383d89b04bdc29f05b9
       uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q8_0.gguf
+      sha256: 8d7a457b56de6530eaaf0151ccfa7550a4b20dab979737e259da9c63e960e0b0
 - name: index-homura-2b
   variants:
     - model: index-homura-2b-q8
