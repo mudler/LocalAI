@@ -266,6 +266,16 @@ export const agentJobsApi = {
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
+  // Run a finished job's task again with the parameters and media it had. There
+  // is no retry call, so this is a new job.
+  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
+    task_id: job.task_id,
+    parameters: job.parameters || {},
+    ...(job.images?.length ? { images: job.images } : {}),
+    ...(job.videos?.length ? { videos: job.videos } : {}),
+    ...(job.audios?.length ? { audios: job.audios } : {}),
+    ...(job.files?.length ? { files: job.files } : {}),
+  }),
 }
 
 // Image generation
