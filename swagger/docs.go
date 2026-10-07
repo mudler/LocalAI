@@ -1193,6 +1193,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/storage": {
+            "get": {
+                "description": "Per-model disk usage, shared-file relations and missing references under the models path",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Report model storage usage on disk",
+                "responses": {
+                    "200": {
+                        "description": "storage report",
+                        "schema": {
+                            "$ref": "#/definitions/gallery.StorageIndex"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/toggle-pinned/{name}/{action}": {
             "put": {
                 "description": "Pin or unpin a model. Pinned models stay loaded and are excluded from automatic eviction.",
@@ -4804,6 +4824,32 @@ const docTemplate = `{
                 }
             }
         },
+        "gallery.ModelStorage": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missing": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "shared_bytes": {
+                    "type": "integer"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
         "gallery.NodeDriftInfo": {
             "type": "object",
             "properties": {
@@ -4818,6 +4864,54 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "gallery.StorageFile": {
+            "type": "object",
+            "properties": {
+                "missing": {
+                    "type": "boolean"
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "path": {
+                    "description": "Path is relative to the models directory.",
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "gallery.StorageIndex": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "description": "Errors carries per-config failures (malformed YAML, path escapes),\nreported rather than fatal so one broken config cannot blank the\nwhole report.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.StorageFile"
+                    }
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.ModelStorage"
+                    }
+                },
+                "total_bytes": {
+                    "type": "integer"
                 }
             }
         },
