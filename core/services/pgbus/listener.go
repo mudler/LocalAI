@@ -29,6 +29,15 @@ const DefaultQueueDepth = 1024
 // deployment does not collect the outputs of models in this table.
 const DefaultSpillRetention = 10 * time.Minute
 
+// DefaultMaxPublishers is how many Publish calls one replica runs against the
+// database at the same time. Each one holds a pooled connection until its
+// statement ends.
+//
+// It is twice spillFetchers: publishing is one short statement, and a replica
+// that reads spilled rows and publishes at the same time stays within 25
+// connections, with the one for LISTEN.
+const DefaultMaxPublishers = 2 * spillFetchers
+
 // listenPollInterval bounds how long a LISTEN or UNLISTEN waits for the listener
 // goroutine to leave WaitForNotification and run it.
 //

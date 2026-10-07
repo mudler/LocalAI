@@ -24,6 +24,20 @@
 // one reader at a time, a replica lost half of a burst of 64 KiB broadcasts
 // above about 1,000 a second. Above the limits, broadcasts are dropped and
 // counted, and never queued without a bound.
+//
+// # Connections
+//
+// The database is shared, and a stock server accepts 100 connections for all of
+// its clients. One replica of this carrier uses, at most:
+//
+//   - 1 pinned connection for LISTEN;
+//   - spillFetchers (8) connections while it reads spilled rows;
+//   - Config.MaxPublishers (16 by default) connections while it publishes.
+//
+// That is 25 connections for each replica, and the rest of the application
+// comes on top. Publish waits for a free slot when all of them are in use, and
+// does not open another connection. Size max_connections for the replicas times
+// this budget, or lower MaxPublishers.
 package pgbus
 
 import (
@@ -115,6 +129,11 @@ type Config struct {
 	// SweepInterval is how often this carrier deletes the spilled rows that aged
 	// out. Zero means Retention / 2.
 	SweepInterval time.Duration
+	// MaxPublishers bounds how many Publish calls use the database at the same
+	// time on this replica. Each one holds a connection of the pool until its
+	// statement ends, so this bound is also the bound on the connections that
+	// publishing opens. Zero means DefaultMaxPublishers.
+	MaxPublishers int
 	// Meter receives the counters of the carrier. Nil means the global meter.
 	Meter metric.Meter
 }
@@ -151,6 +170,9 @@ type Bus struct {
 	retention time.Duration
 	metrics   *metrics
 
+	// publishSlots is the semaphore that bounds the concurrent publishes. See
+	// Config.MaxPublishers.
+	publishSlots chan struct{}
 	cmds         chan listenCmd
 	inbound      chan inbound
 	listenerDone chan struct{}
@@ -227,8 +249,14 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 		retention = DefaultSpillRetention
 	}
 
+	publishers := cfg.MaxPublishers
+	if publishers <= 0 {
+		publishers = DefaultMaxPublishers
+	}
+
 	busCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	b := &Bus{
+		publishSlots: make(chan struct{}, publishers),
 		cfg:          cfg,
 		ctx:          busCtx,
 		cancel:       cancel,
@@ -306,7 +334,17 @@ func inlineNotification(subject string, data any) ([]byte, json.RawMessage, erro
 
 // Publish fans a message out to every subscriber of the subject on every
 // replica, this one included.
+//
+// It waits for a free publish slot when Config.MaxPublishers calls are already
+// in progress. The wait ends when the carrier is closed.
 func (b *Bus) Publish(subject string, data any) error {
+	return b.PublishContext(b.ctx, subject, data)
+}
+
+// PublishContext is Publish with a context for the wait for a publish slot and
+// for the database statements. When the context ends first, it returns the error
+// of the context and publishes nothing.
+func (b *Bus) PublishContext(ctx context.Context, subject string, data any) error {
 	channel, err := ChannelFor(subject)
 	if err != nil {
 		return err
@@ -318,13 +356,29 @@ func (b *Bus) Publish(subject string, data any) error {
 	if err := messaging.CheckBroadcastSize(subject, len(payload)); err != nil {
 		return err
 	}
+
+	// The slot is taken before the first statement, and it is held until the
+	// last one ends. Without it, a burst of publishers opens a connection for
+	// each of them, and a stock server refuses the ones above its limit.
+	if err := b.acquirePublishSlot(ctx); err != nil {
+		return err
+	}
+	defer func() { <-b.publishSlots }()
+
+	// A context that also ends when the carrier is closed, so a statement does
+	// not outlive Close.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(b.ctx, cancel)
+	defer stop()
+
 	// This is the one size decision in the package. Several subjects exceed the
 	// limit in normal operation (the result of a job carries the whole output of
 	// a model, and a gallery progress event carries one entry for each node), so
 	// the spill is the usual path for them and not an error.
 	path := pathInline
 	if len(encoded) >= maxNotifyPayloadBytes {
-		id, err := b.spill(subject, payload)
+		id, err := b.spill(ctx, subject, payload)
 		if err != nil {
 			return err
 		}
@@ -337,11 +391,29 @@ func (b *Bus) Publish(subject string, data any) error {
 
 	// pg_notify and not a NOTIFY statement, because the channel is a value here
 	// and NOTIFY would need it as an identifier in the text.
-	if err := b.cfg.DB.WithContext(b.ctx).Exec("SELECT pg_notify(?, ?)", channel, string(encoded)).Error; err != nil {
+	if err := b.cfg.DB.WithContext(ctx).Exec("SELECT pg_notify(?, ?)", channel, string(encoded)).Error; err != nil {
 		return fmt.Errorf("pgbus: publishing on %q: %w", subject, err)
 	}
 	b.metrics.publish(path)
 	return nil
+}
+
+// acquirePublishSlot takes one slot of the publish semaphore, or returns the
+// error of the context that ended first.
+func (b *Bus) acquirePublishSlot(ctx context.Context) error {
+	select {
+	case b.publishSlots <- struct{}{}:
+		return nil
+	default:
+	}
+	select {
+	case b.publishSlots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-b.ctx.Done():
+		return errors.New("pgbus: the carrier is closed")
+	}
 }
 
 // Subscribe registers a handler for every subject that matches the filter. The
@@ -614,9 +686,9 @@ func (s *subscription) Unsubscribe() error {
 
 // spill writes a broadcast that does not fit in a notification to a row, and
 // returns the id that the notification carries in its place.
-func (b *Bus) spill(subject string, payload []byte) (string, error) {
+func (b *Bus) spill(ctx context.Context, subject string, payload []byte) (string, error) {
 	row := BusMessage{ID: uuid.New().String(), Subject: subject, Payload: payload}
-	if err := b.cfg.DB.WithContext(b.ctx).Create(&row).Error; err != nil {
+	if err := b.cfg.DB.WithContext(ctx).Create(&row).Error; err != nil {
 		return "", fmt.Errorf("pgbus: spilling a broadcast on %q: %w", subject, err)
 	}
 	return row.ID, nil

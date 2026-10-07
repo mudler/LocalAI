@@ -193,6 +193,12 @@ pool is keyed by host and port and two workers can report the same address.
 - Delivery is at-most-once. Anything that must survive a gap belongs in a table.
 - A subscriber that is reconnecting misses messages. Do not read silence as
   evidence about a node.
+- Database connections of pgbus: one replica uses at most 1 pinned LISTEN
+  connection, `pgbus.spillFetchers` (8) while it reads spilled rows, and
+  `pgbus.Config.MaxPublishers` (16 by default) while it publishes. `Publish`
+  waits for a free slot and never opens another connection, so a burst of
+  publishers cannot exhaust `max_connections`. Add the 25 connections of each
+  replica to the budget of the database.
 
 ## The cluster registry
 
