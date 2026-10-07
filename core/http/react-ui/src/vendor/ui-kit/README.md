@@ -1,6 +1,6 @@
 # Shared UI kit snapshot
 
-Vendored copy of the shared UI kit, version 0.3.0. It holds the base tokens
+Vendored copy of the shared UI kit, version 0.4.0. It holds the base tokens
 (`--dk-*`), the motion layer, the `dk-*` component classes, the outline icon
 sprite and `icons/fa-map.json`, which maps Font Awesome names to icon ids. Do
 not edit these files by hand. To update, take a newer snapshot of the kit and

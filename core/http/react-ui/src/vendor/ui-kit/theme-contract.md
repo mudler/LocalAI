@@ -47,8 +47,47 @@ reads this layout. The two dark blocks must hold the same values.
 | `--dk-scrim` | Dialog veil. Any CSS colour, may have alpha | not checked |
 | `--dk-shadow-tint` | Shadow colour as space-separated channels, for example `20 24 40` | not checked |
 | `--dk-shadow-k` | Shadow strength multiplier. About 1 in light, 2 to 3 in dark | not checked |
+| `--dk-series-1` to `--dk-series-6` | Categorical chart series colours, in fixed order | 3 on canvas and card, each |
+| `--dk-grid` | Chart grid line. Quieter than `--dk-edge` | none |
+
+## Series colours
+
+Six categorical colours for charts. They identify a series and nothing
+else. Rules for a theme:
+
+- Keep the order. Slot 1 is the first series, slot 2 the second. Never cycle
+  and never re-rank: a series keeps its colour when a filter removes
+  another series.
+- Muted, not neon. Keep OKLCH chroma near 0.10 to 0.12. Lower and the hue
+  reads as grey, higher and it glows on the calm palette.
+- Each colour reaches 3:1 on `--dk-canvas` and `--dk-card`. `bin/contrast`
+  checks this.
+- Neighbouring slots must differ for readers with colour-vision
+  deficiency. The sample themes were checked with the dataviz validator:
+  adjacent pairs have a deutan or protan distance of 14.9 or more in
+  OKLab x100, and a normal-vision distance of 15.9 or more, in light and in
+  dark. Hue order of the samples: blue, orange, plum, olive, violet, green.
+  The order puts a warm hue next to a cool one and never two hues of the same
+  family side by side. Tritan distance is lower (about 5), so never rely on colour
+  alone: pair it with a direct label, a legend swatch and a data table.
+- Do not use the status colours (`ok`, `warn`, `error`) as series colours.
+- The set is validated for adjacent pairs only (bars, stacks, lines). It
+  is not validated where any two marks can touch (scatter, a shared colour
+  across small multiples): blue and plum come within 5 to 7 for deutan
+  readers, and olive and orange are close for everyone. Label directly or
+  facet instead of relying on hue there.
+- Light and dark are separate steps of the same hues, not an automatic
+  flip. Dark steps stay at OKLCH lightness 0.67 or below.
+
+`--dk-grid` is the chart grid line. It is decorative and sits between the
+surface and `--dk-edge` in weight.
 
 ## Grammar notes
+
+- Added in 0.4.0: the series roles and `--dk-grid`. Themes written for 0.3.0
+  need these seven roles. The sample themes also moved to a calm palette
+  (muted teal accent, desaturated status colours, no glow); that is a
+  change of values, not of roles.
 
 - Added in 0.2.0: the three `-wash` roles, and the extra checks for
   `muted` on hover and accent-wash, `accent` on inset and `error-text`
