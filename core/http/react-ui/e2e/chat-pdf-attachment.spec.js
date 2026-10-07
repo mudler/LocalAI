@@ -32,7 +32,7 @@ async function openChat(page) {
     })
   })
   await page.goto('/app/chat')
-  await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('button', { name: /test-model/ })).toBeVisible({ timeout: 10_000 })
 }
 
 test.describe('Chat - PDF attachments', () => {
@@ -44,15 +44,15 @@ test.describe('Chat - PDF attachments', () => {
     })
     await openChat(page)
 
-    await page.locator('input[type=file]').setInputFiles({
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
       name: 'report.pdf',
       mimeType: 'application/pdf',
       buffer: buildPdf('Quarterly revenue grew 42 percent'),
     })
-    await expect(page.locator('.chat-file-name', { hasText: 'report.pdf' })).toBeVisible()
+    await expect(page.locator('.home-file-tag', { hasText: 'report.pdf' })).toBeVisible()
 
-    await page.locator('.chat-input').fill('Summarize')
-    await page.locator('.chat-send-btn').click()
+    await page.getByTestId('chat-input').fill('Summarize')
+    await page.getByTestId('chat-send').click()
 
     await expect.poll(() => requestBody).toContain('Quarterly revenue grew 42 percent')
     expect(requestBody).toContain('File: report.pdf')
@@ -62,14 +62,14 @@ test.describe('Chat - PDF attachments', () => {
   test('rejects a PDF that cannot be parsed instead of attaching garbage', async ({ page }) => {
     await openChat(page)
 
-    await page.locator('input[type=file]').setInputFiles({
+    await page.locator('input[type=file][accept*="pdf"]').setInputFiles({
       name: 'broken.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4 this is not a real document'),
     })
 
     await expect(page.getByText('Could not read text from broken.pdf')).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator('.chat-file-name', { hasText: 'broken.pdf' })).toHaveCount(0)
+    await expect(page.locator('.home-file-tag', { hasText: 'broken.pdf' })).toHaveCount(0)
   })
 })
 
