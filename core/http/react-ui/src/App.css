@@ -5740,18 +5740,19 @@ button.collapsible-header:focus-visible {
   }
 }
 
-/* Canvas panel */
+/* Canvas panel: the wide view that opens beside the thread on demand. It is
+   shared by Chat and the Agent chat, so it speaks only kit roles. */
 .canvas-panel {
   position: relative;
-  width: 45%;
-  max-width: 720px;
+  width: 52%;
+  max-width: 820px;
   flex-shrink: 0;
-  border-left: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-primary);
+  background: var(--dk-card);
+  box-shadow: inset 1px 0 0 var(--dk-edge);
   overflow: hidden;
-  animation: canvasSlideIn var(--duration-reveal) var(--ease-reveal) both;
+  animation: canvasSlideIn var(--dk-dur-3) var(--dk-ease-out) both;
 }
 @keyframes canvasSlideIn {
   from { opacity: 0; transform: translateX(24px); }
@@ -5767,114 +5768,156 @@ button.collapsible-header:focus-visible {
   cursor: col-resize;
   z-index: 2;
   background: transparent;
-  transition: background var(--duration-fast) var(--ease-default);
+  transition: background var(--dk-dur-1) var(--dk-ease-out);
 }
 .canvas-resize-handle:hover,
-.canvas-resize-handle:active {
-  background: var(--color-primary-light);
-}
-/* On narrow screens the canvas takes the full width; no edge-drag resize. */
+.canvas-resize-handle:active { background: var(--dk-accent-wash); }
+/* On a narrow window the canvas takes the whole page area; no edge-drag. */
 @media (max-width: 1024px) {
   .canvas-resize-handle { display: none; }
-  .canvas-panel { width: 100% !important; max-width: none !important; }
+  .canvas-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    width: 100% !important;
+    max-width: none !important;
+  }
 }
-.canvas-header-actions { display: inline-flex; gap: var(--spacing-xs); }
+.canvas-header-actions { display: inline-flex; gap: 2px; }
 /* Fullscreen: the canvas covers the viewport. */
 .canvas-panel--fullscreen {
   position: fixed;
   inset: 0;
   width: 100% !important;
   max-width: none !important;
-  z-index: 60;
-  border-left: none;
+  z-index: 960;
+  box-shadow: none;
 }
 .canvas-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
-  gap: var(--spacing-sm);
+  gap: 8px;
+  height: 52px;
+  padding: 0 10px 0 16px;
+  box-shadow: inset 0 -1px 0 var(--dk-edge);
   flex-shrink: 0;
 }
 .canvas-panel-title {
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.canvas-icobtn,
+.canvas-textbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
+}
+.canvas-icobtn { width: 34px; height: 34px; border-radius: var(--dk-radius-1); font-size: 17px; }
+.canvas-textbtn { height: 30px; padding: 0 10px; border-radius: var(--dk-radius-1); font-size: 13px; font-weight: 600; }
+.canvas-icobtn:hover,
+.canvas-textbtn:hover { background: var(--dk-hover); color: var(--dk-text); }
+.canvas-icobtn:focus-visible,
+.canvas-textbtn:focus-visible,
+.canvas-panel-tab:focus-visible,
+.canvas-toggle-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .canvas-panel-tabs {
   overflow-x: auto;
   display: flex;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
+  gap: 2px;
+  padding: 6px 8px;
+  box-shadow: inset 0 -1px 0 var(--dk-edge);
   flex-shrink: 0;
   scrollbar-width: thin;
 }
 .canvas-panel-tab {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border-subtle);
-  background: transparent;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--dk-radius-1);
+  background: none;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 150ms;
+  transition: background var(--dk-dur-1) var(--dk-ease-out);
 }
-.canvas-panel-tab:hover { border-color: var(--color-border-default); }
+.canvas-panel-tab:hover { background: var(--dk-hover); }
 .canvas-panel-tab.active {
-  background: var(--color-primary-light);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: var(--dk-inset);
+  color: var(--dk-text);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .canvas-panel-tab span {
-  max-width: 100px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .canvas-panel-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-subtle);
+  gap: 8px;
+  padding: 6px 12px;
+  box-shadow: inset 0 -1px 0 var(--dk-edge);
   flex-shrink: 0;
 }
 .canvas-toggle-group {
-  display: flex;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .canvas-toggle-btn {
-  padding: 2px 10px;
-  font-size: 0.75rem;
-  border: none;
-  background: transparent;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
   color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 150ms;
 }
 .canvas-toggle-btn.active {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
 }
 .canvas-panel-body {
   flex: 1;
   overflow: auto;
-  padding: var(--spacing-md);
+  padding: 0;
   min-height: 0;
+  background: var(--dk-inset);
 }
 .canvas-panel-body pre {
   margin: 0;
-  font-size: 0.8125rem;
+  padding: 16px 20px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 /* Artifact card (inline in messages) */
@@ -5986,16 +6029,18 @@ button.collapsible-header:focus-visible {
 
 /* Canvas preview types */
 .canvas-preview-iframe {
+  display: block;
   width: 100%;
-  min-height: 600px;
-  height: calc(100vh - 200px);
+  height: 100%;
+  min-height: 320px;
   border: none;
   background: white;
-  border-radius: var(--radius-md);
 }
 .canvas-preview-image {
+  display: block;
   max-width: 100%;
-  border-radius: var(--radius-md);
+  margin: 16px auto;
+  border-radius: var(--dk-radius-2);
 }
 .canvas-preview-svg {
   display: flex;
@@ -6007,7 +6052,8 @@ button.collapsible-header:focus-visible {
   height: auto;
 }
 .canvas-preview-markdown {
-  padding: var(--spacing-sm);
+  padding: 16px 20px;
+  line-height: 1.65;
 }
 .canvas-audio-wrapper {
   display: flex;

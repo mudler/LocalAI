@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { renderMarkdown } from '../utils/markdown'
 import { getArtifactIcon, extensionForLanguage } from '../utils/artifacts'
 import { safeHref } from '../utils/url'
@@ -11,6 +12,7 @@ const WIDTH_KEY = 'localai_canvas_width'
 const MIME_BY_EXT = { html: 'text/html', svg: 'image/svg+xml', json: 'application/json', css: 'text/css' }
 
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
+  const { t } = useTranslation('chat')
   const [showPreview, setShowPreview] = useState(true)
   const [copySuccess, setCopySuccess] = useState(false)
   // Persisted drag-to-resize width (px). null = use the CSS default (45%).
@@ -130,7 +132,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     // Code artifacts
     if (showPreview && hasPreview) {
       if (current.language === 'html') {
-        return <iframe srcDoc={current.code} sandbox="allow-scripts" className="canvas-preview-iframe" title="HTML Preview" />
+        return <iframe srcDoc={current.code} sandbox="allow-scripts" className="canvas-preview-iframe" title={t('canvas.htmlPreview')} />
       }
       if (current.language === 'svg') {
         return <div className="canvas-preview-svg" dangerouslySetInnerHTML={{
@@ -151,8 +153,10 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
   }
 
   return (
-    <div
+    <aside
       className={`canvas-panel${fullscreen ? ' canvas-panel--fullscreen' : ''}`}
+      aria-label={t('canvas.title')}
+      data-testid="canvas-panel"
       ref={panelRef}
       style={!fullscreen && width ? { width: `${width}px`, maxWidth: 'none' } : undefined}
     >
@@ -163,22 +167,23 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
           onDoubleClick={resetWidth}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize canvas (double-click to reset)"
-          title="Drag to resize, double-click to reset"
+          aria-label={t('canvas.resize')}
+          title={t('canvas.resizeHint')}
         />
       )}
       <div className="canvas-panel-header">
-        <span className="canvas-panel-title">{current.title || 'Artifact'}</span>
+        <span className="canvas-panel-title">{current.title || t('canvas.artifact')}</span>
         <div className="canvas-header-actions">
           <button
-            className="btn btn-secondary btn-sm"
+            type="button"
+            className="canvas-icobtn"
             onClick={() => setFullscreen(f => !f)}
-            title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={fullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}
+            aria-label={fullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}
           >
             <Icon name={fullscreen ? 'minimize' : 'maximize'} />
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas" aria-label="Close canvas">
+          <button type="button" className="canvas-icobtn" onClick={onClose} title={t('canvas.close')} aria-label={t('canvas.close')}>
             <Icon name="close" />
           </button>
         </div>
@@ -188,7 +193,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
         <div
           className="canvas-panel-tabs"
           role="tablist"
-          aria-label="Artifacts"
+          aria-label={t('canvas.artifacts')}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
             e.preventDefault()
@@ -219,29 +224,33 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
       <div className="canvas-panel-toolbar">
         <span className="badge badge-sm">{current.type === 'code' ? current.language : current.type}</span>
         {hasPreview && (
-          <div className="canvas-toggle-group">
+          <div className="canvas-toggle-group" role="group" aria-label={t('canvas.view')}>
             <button
+              type="button"
               className={`canvas-toggle-btn${!showPreview ? ' active' : ''}`}
+              aria-pressed={!showPreview}
               onClick={() => setShowPreview(false)}
-            >Code</button>
+            >{t('canvas.code')}</button>
             <button
+              type="button"
               className={`canvas-toggle-btn${showPreview ? ' active' : ''}`}
+              aria-pressed={showPreview}
               onClick={() => setShowPreview(true)}
-            >Preview</button>
+            >{t('canvas.preview')}</button>
           </div>
         )}
         <div className="flex-1" />
-        <button className="btn btn-secondary btn-sm" onClick={handleCopy} title="Copy">
-          <Icon name={copySuccess ? 'check' : 'copy'} />
+        <button type="button" className="canvas-textbtn" onClick={handleCopy} title={t('actions.copy')}>
+          <Icon name={copySuccess ? 'check' : 'copy'} /> <span>{t('actions.copy')}</span>
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={handleDownload} title="Download">
-          <Icon name="download" />
+        <button type="button" className="canvas-textbtn" onClick={handleDownload} title={t('canvas.download')}>
+          <Icon name="download" /> <span>{t('canvas.download')}</span>
         </button>
       </div>
 
       <div className="canvas-panel-body">
         {renderBody()}
       </div>
-    </div>
+    </aside>
   )
 }

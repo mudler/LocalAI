@@ -50,7 +50,18 @@
     "topK": "Top K",
     "contextSize": "Context Size",
     "contextSizePlaceholder": "2048",
-    "clearHistory": "Clear chat history"
+    "clearHistory": "Clear chat history",
+    "appliesNext": "Applies from the next message.",
+    "systemPromptHelp": "Sent before every message in this chat. Leave it empty to use the model's own default.",
+    "sampling": "Sampling",
+    "modelDefault": "model default",
+    "reset": "Reset",
+    "contextWindow": "Context window",
+    "contextUsing": "Using {{used}} of {{size}} tokens ({{percent}}%). The size only drives the meter in the header; it is not sent to the model.",
+    "contextHelp": "Used to show how full the context is. It is not sent to the model.",
+    "behaviour": "Behaviour",
+    "conversation": "This conversation",
+    "clearHelp": "Remove every message. The name, model and settings stay."
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
@@ -248,5 +259,28 @@
     "memory": "Memory",
     "gpuMemory": "GPU memory",
     "memoryUsed": "{{used}} of {{total}} {{unit}} used"
+  },
+  "find": {
+    "placeholder": "Search this chat",
+    "count": "{{current}} of {{total}}",
+    "none": "No matches",
+    "previous": "Previous match",
+    "next": "Next match",
+    "close": "Close search"
+  },
+  "canvas": {
+    "title": "Canvas",
+    "artifact": "Artifact",
+    "artifacts": "Artifacts",
+    "close": "Close canvas",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "resize": "Resize canvas (double-click to reset)",
+    "resizeHint": "Drag to resize, double-click to reset",
+    "view": "View",
+    "code": "Code",
+    "preview": "Preview",
+    "download": "Download",
+    "htmlPreview": "HTML preview"
   }
 }

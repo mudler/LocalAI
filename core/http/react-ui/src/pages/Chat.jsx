@@ -8,7 +8,6 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 // eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
 // eslint-disable-next-line no-unused-vars
-import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { readAttachmentText } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -29,6 +28,11 @@ import { messageText } from '../components/chat/chatText'
 import ChatHeader from '../components/chat/ChatHeader'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsDialog from '../components/chat/ShortcutsDialog'
+// eslint-disable-next-line no-unused-vars
+import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+// eslint-disable-next-line no-unused-vars
+import FindBar from '../components/chat/FindBar'
+import { applyFind, clearFind } from '../components/chat/findInThread'
 // eslint-disable-next-line no-unused-vars
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
@@ -164,7 +168,7 @@ export default function Chat() {
   const [mcpResourceList, setMcpResourceList] = useState([])
   const [mcpResourcesLoading, setMcpResourcesLoading] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
-  const [showModelInfo, setShowModelInfo] = useState(false)
+  const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
@@ -544,13 +548,13 @@ export default function Chat() {
     }
   }, [focusActive])
 
-  // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc stops a reply that
-  // is streaming and exits focus mode while it is engaged (neither fires while a
-  // menu or dialog is open: those take their own Esc first).
-  const streamingRef = useRef(false)
-  streamingRef.current = isStreaming
-  const stopRef = useRef(stopGeneration)
-  stopRef.current = stopGeneration
+  // Global keybindings: Cmd/Ctrl+K opens the chats menu and Cmd/Ctrl+Shift+F
+  // searches this chat. Esc stops a reply that is streaming, else closes the
+  // search, else closes the canvas; it also exits focus mode while that is
+  // engaged. None of that fires while a menu or dialog is open: those take
+  // their own Esc first.
+  const escapeRef = useRef({})
+  escapeRef.current = { streaming: isStreaming, stop: stopGeneration, findOpen: find.open, canvasOpen }
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -559,10 +563,20 @@ export default function Chat() {
         chatsMenuRef.current?.toggle()
         return
       }
+      if (isMod && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+        return
+      }
       const overlay = document.querySelector('.home-menu, .chats-menu-popover, .cx-menu, .dk-cmdlist, [role="dialog"]')
-      if (e.key === 'Escape' && streamingRef.current && !overlay) stopRef.current()
+      if (e.key === 'Escape' && !overlay) {
+        const cur = escapeRef.current
+        if (cur.streaming) cur.stop()
+        else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+        else if (cur.canvasOpen) setCanvasOpen(false)
+      }
       if (e.key === 'Escape' && focusActive) {
-        // Don't fight the chats menu / settings drawer / dialogs — they
+        // Don't fight the chats menu / settings sheet / dialogs: they
         // each handle their own Esc and stop propagation when open.
         setFocusOverride(true)
       }
@@ -570,6 +584,33 @@ export default function Chat() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
+
+  // Find in chat: mark the matches in the thread, then show the current one.
+  // The search is the browser's own, over what this page has loaded.
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    if (!find.open || !find.query) {
+      clearFind(root)
+      setFind(f => (f.count === 0 ? f : { ...f, count: 0 }))
+      return
+    }
+    const marks = applyFind(root, find.query)
+    setFind(f => (f.count === marks.length ? f : { ...f, count: marks.length, index: Math.min(f.index, Math.max(0, marks.length - 1)) }))
+  }, [find.open, find.query, activeChat?.history, canvasMode, isStreaming])
+
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    root.querySelectorAll('mark.cx-hit').forEach((mark, i) => {
+      if (i === find.index) {
+        mark.setAttribute('data-cur', '')
+        mark.scrollIntoView({ block: 'center' })
+      } else {
+        mark.removeAttribute('data-cur')
+      }
+    })
+  }, [find.index, find.count, find.query])
 
   // Highlight code blocks + add per-block copy buttons. A MutationObserver on
   // the messages container is more reliable than render-keyed effects: it fires
@@ -899,6 +940,14 @@ export default function Chat() {
 
   if (!activeChat) return null
 
+  const openFind = () => setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+  const closeFind = () => {
+    clearFind(messagesRef.current)
+    setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+    textareaRef.current?.focus()
+  }
+  const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
+
   const layoutClasses = [
     'cx-page',
     isInConversation ? 'cx-page--live' : '',
@@ -1024,7 +1073,7 @@ export default function Chat() {
     { key: 'duplicate', icon: 'copy', label: t('menu.duplicate'), onClick: () => { if (forkChat(activeChat.id)) addToast(t('toasts.forked'), 'success', 2000) } },
     { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChatAsMarkdown(activeChat) },
     { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => downloadChatAsMarkdown(activeChat) },
-    { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(activeChat.model && isAdmin), onClick: () => setShowModelInfo(v => !v) },
+    { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(activeChat.model && isAdmin), onClick: () => setShowSettings(true) },
     { key: 'keys', icon: 'keyboard', label: t('shortcuts.title'), onClick: () => setShowShortcuts(true) },
     { divider: true },
     { key: 'clear', icon: 'trash', label: t('clearDialog.confirm'), danger: true, hidden: !hasThread, onClick: promptClear },
@@ -1038,6 +1087,7 @@ export default function Chat() {
       case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
       case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
+      case 'find': openFind(); break
       case 'export': downloadChatAsMarkdown(activeChat); break
       case 'clear': promptClear(); break
       default: break
@@ -1073,154 +1123,27 @@ export default function Chat() {
           contextPercent={contextPercent}
           contextTokens={activeChat.tokenUsage?.total || 0}
           contextSize={activeChat.contextSize}
+          onFind={() => openFind()}
+          findOpen={find.open}
           onSettings={() => setShowSettings(v => !v)}
           settingsOpen={showSettings}
           moreItems={moreItems}
         />
 
-        {/* Model info panel */}
-        {showModelInfo && modelInfo && (
-          <div id="chat-model-info-panel" className="chat-model-info-panel">
-            <div className="chat-model-info-header">
-              <span>{t('header.modelInfoTitle', { model: activeChat.model })}</span>
-              <div className="hstack hstack--xs">
-                {isAdmin && activeChat.model && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
-                    title={t('header.editConfig')}
-                  >
-                    <Icon name="edit" /> {t('header.editConfig')}
-                  </button>
-                )}
-                <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title={t('header.close')}>
-                  <Icon name="close" />
-                </button>
-              </div>
-            </div>
-            <div className="chat-model-info-body">
-              {modelInfo.backend && <div className="chat-model-info-row"><span>{t('modelInfo.backend')}</span><span>{modelInfo.backend}</span></div>}
-              {modelInfo.parameters?.model && <div className="chat-model-info-row"><span>{t('modelInfo.modelFile')}</span><span>{modelInfo.parameters.model}</span></div>}
-              {modelInfo.context_size > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.contextSize')}</span><span>{modelInfo.context_size}</span></div>}
-              {modelInfo.threads > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.threads')}</span><span>{modelInfo.threads}</span></div>}
-              {(modelInfo.mcp?.remote || modelInfo.mcp?.stdio) && <div className="chat-model-info-row"><span>{t('modelInfo.mcp')}</span><span className="badge badge-success">{t('modelInfo.configured')}</span></div>}
-              {modelInfo.template?.chat_message && <div className="chat-model-info-row"><span>{t('modelInfo.chatTemplate')}</span><span>{t('modelInfo.yes')}</span></div>}
-              {modelInfo.gpu_layers > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.gpuLayers')}</span><span>{modelInfo.gpu_layers}</span></div>}
-            </div>
-          </div>
+        {find.open && (
+          <FindBar
+            query={find.query}
+            index={find.index}
+            count={find.count}
+            focusToken={find.token}
+            onQuery={(query) => setFind(f => ({ ...f, query, index: 0 }))}
+            onStep={stepFind}
+            onClose={closeFind}
+          />
         )}
 
-        {/* Settings slide-out panel */}
-        <div className={`chat-settings-overlay${showSettings ? ' open' : ''}`} onClick={() => setShowSettings(false)} />
-        <div className={`chat-settings-drawer${showSettings ? ' open' : ''}`}>
-          <div className="chat-settings-drawer-header">
-            <span>{t('settings.title')}</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowSettings(false)}>
-              <Icon name="close" />
-            </button>
-          </div>
-          <div className="chat-settings-drawer-body">
-            {isAdmin && (
-              <div className="form-group chat-settings-toggle-row">
-                <div className="chat-settings-toggle-text">
-                  <span className="chat-settings-toggle-title">
-                    <Icon name="user-shield" /> {t('settings.manageMode')}
-                  </span>
-                  <span className="chat-settings-toggle-desc">
-                    {t('settings.manageModeDesc')}
-                  </span>
-                </div>
-                <Toggle
-                  checked={!!activeChat.localaiAssistant}
-                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
-                />
-              </div>
-            )}
-            <div className="form-group chat-settings-toggle-row">
-              <div className="chat-settings-toggle-text">
-                <span className="chat-settings-toggle-title">
-                  <Icon name="minimize" /> {t('settings.focusMode')}
-                </span>
-                <span className="chat-settings-toggle-desc">
-                  {t('settings.focusModeDesc')}
-                </span>
-              </div>
-              <Toggle
-                checked={focusModeEnabled}
-                onChange={toggleFocusMode}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('settings.systemPrompt')}</label>
-              <textarea
-                className="textarea"
-                value={activeChat.systemPrompt || ''}
-                onChange={(e) => updateChatSettings(activeChat.id, { systemPrompt: e.target.value })}
-                rows={3}
-                placeholder={t('settings.systemPromptPlaceholder')}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.temperature')} {activeChat.temperature !== null ? `(${activeChat.temperature})` : ''}
-              </label>
-              <input
-                type="range" min="0" max="2" step="0.1"
-                value={activeChat.temperature ?? 0.7}
-                onChange={(e) => updateChatSettings(activeChat.id, { temperature: parseFloat(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>0</span><span>2</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.topP')} {activeChat.topP !== null ? `(${activeChat.topP})` : ''}
-              </label>
-              <input
-                type="range" min="0" max="1" step="0.05"
-                value={activeChat.topP ?? 0.9}
-                onChange={(e) => updateChatSettings(activeChat.id, { topP: parseFloat(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>0</span><span>1</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.topK')} {activeChat.topK !== null ? `(${activeChat.topK})` : ''}
-              </label>
-              <input
-                type="range" min="1" max="100" step="1"
-                value={activeChat.topK ?? 40}
-                onChange={(e) => updateChatSettings(activeChat.id, { topK: parseInt(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>1</span><span>100</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('settings.contextSize')}</label>
-              <input
-                type="number"
-                className="input"
-                value={activeChat.contextSize || ''}
-                onChange={(e) => updateChatSettings(activeChat.id, { contextSize: parseInt(e.target.value) || null })}
-                placeholder={t('settings.contextSizePlaceholder')}
-              />
-            </div>
-            <div className="chat-settings-danger-zone">
-              <button
-                type="button"
-                className="chat-settings-danger-btn"
-                onClick={() => clearHistory(activeChat.id)}
-                title={t('settings.clearHistory')}
-              >
-                <Icon name="eraser" /> {t('settings.clearHistory')}
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Thread */}
+        <div className="cx-stage">
         <div className="cx-body" ref={messagesRef}>
           {activeChat.history.length === 0 && !isStreaming && (
             <div className="chat-empty-state">
@@ -1333,7 +1256,8 @@ export default function Chat() {
         {scrolledUp && (
           <button
             type="button"
-            className="chat-jump-latest"
+            className="cx-jump"
+            data-testid="chat-jump-latest"
             onClick={() => {
               stickToBottomRef.current = true
               setScrolledUp(false)
@@ -1343,6 +1267,7 @@ export default function Chat() {
             <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
           </button>
         )}
+        </div>
 
         {/* Dock: the Home command bar under the thread */}
         <div className="cx-dock">
@@ -1407,7 +1332,20 @@ export default function Chat() {
           onClose={() => setLightbox(null)}
         />
       )}
-      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind={false} />}
+      {showSettings && (
+        <ChatSettingsSheet
+          chat={activeChat}
+          isAdmin={isAdmin}
+          onUpdate={(patch) => updateChatSettings(activeChat.id, patch)}
+          focusMode={focusModeEnabled}
+          onFocusMode={toggleFocusMode}
+          modelInfo={modelInfo}
+          onEditConfig={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
+          onClear={() => { setShowSettings(false); promptClear() }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind />}
       {pendingDelete && (
         <HomeUndoToast
           key={pendingDelete.id}
