@@ -1,16 +1,14 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { generateId } from '../utils/format'
+import { MEDIA_STORAGE_KEYS as STORAGE_KEYS, FAVOURITES_KEY, clearAllMediaHistory } from '../utils/mediaHistoryStore'
 
-const STORAGE_KEYS = {
-  image: 'localai_image_history',
-  video: 'localai_video_history',
-  tts: 'localai_tts_history',
-  sound: 'localai_sound_history',
-  'audio-transform': 'localai_audio_transform_history',
-}
+export { FAVOURITES_KEY, clearAllMediaHistory }
 
 const SAVE_DEBOUNCE_MS = 500
 const MAX_ENTRIES = 100
+// A prompt is a sentence or a paragraph. This keeps one runaway paste from
+// filling the quota that every other entry shares.
+const MAX_PROMPT_CHARS = 2000
 
 // Read every store at once, without mounting a hook per media type.
 //
@@ -80,14 +78,17 @@ export function useMediaHistory(mediaType) {
     }
   }, [storageKey])
 
-  const addEntry = useCallback(({ prompt, model, params, results }) => {
+  // parentId and edge link a result to the one it was made from (a hand-off
+  // from another Studio workspace); they are written only when there is one.
+  const addEntry = useCallback(({ prompt, model, params, results, parentId, edge }) => {
     const entry = {
       id: generateId(),
-      prompt,
+      prompt: typeof prompt === 'string' ? prompt.slice(0, MAX_PROMPT_CHARS) : prompt,
       model,
       params: params || {},
       results: results || [],
       createdAt: Date.now(),
+      ...(parentId ? { parentId, edge: edge || 'take' } : {}),
     }
     dirty.current = true
     setEntries(prev => {

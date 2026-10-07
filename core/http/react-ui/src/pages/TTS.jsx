@@ -12,6 +12,7 @@ import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { ttsApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff } from '../hooks/useStudioHandoff'
 import { useModels } from '../hooks/useModels'
 import { useVoiceProfiles } from '../hooks/useVoiceProfiles'
 import { useAuth } from '../context/AuthContext'
@@ -29,10 +30,12 @@ export default function TTS() {
   const { isAdmin } = useAuth()
   const [searchParams] = useSearchParams()
   const requestedVoiceID = searchParams.get('voice') || ''
-  const [model, setModel] = useState(urlModel || '')
+  // Opened from the Studio front page, the form starts from what it sent.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
   const [manualVoice, setManualVoice] = useState('')
   const [voiceProfileID, setVoiceProfileID] = useState(requestedVoiceID)
-  const [text, setText] = useState('')
+  const [text, setText] = useState(handoff.prompt)
   const [instructions, setInstructions] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -94,6 +97,8 @@ export default function TTS() {
             ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
           },
           results: [{ url: serverUrl }],
+          parentId: handoff.from || undefined,
+          edge: handoff.edge || undefined,
         })
       }
       selectEntry(null)

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,9 @@ import Lightbox from '../components/Lightbox'
 import GenerationProgress from '../components/GenerationProgress'
 import { imageApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff, useHandoffSource } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
 import Icon from '../components/Icon'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024']
@@ -20,11 +23,13 @@ export default function ImageGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('media')
-  const [model, setModel] = useState(urlModel || '')
-  const [prompt, setPrompt] = useState('')
+  // Opened from the Studio front page, the form starts from what it sent.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
+  const [prompt, setPrompt] = useState(handoff.prompt)
   const [negativePrompt, setNegativePrompt] = useState('')
-  const [size, setSize] = useState('512x512')
-  const [count, setCount] = useState(1)
+  const [size, setSize] = useState(SIZES.includes(handoff.size) ? handoff.size : '512x512')
+  const [count, setCount] = useState(Math.min(4, handoff.count || 1))
   const [steps, setSteps] = useState('')
   const [seed, setSeed] = useState('')
   const [loading, setLoading] = useState(false)
@@ -37,6 +42,14 @@ export default function ImageGen() {
   const sourceRef = useRef(null)
   const refRef = useRef(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('image')
+  // A variation starts from the picture it was made from, as the source image.
+  const wantsSource = handoff.edge === 'variation'
+  const source = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (source.status !== 'ready') return
+    fileToBase64(source.blob).then(setSourceImage).catch(() => {})
+    setShowImageInputs(true)
+  }, [source])
   const [lightboxIdx, setLightboxIdx] = useState(null)
   // The body of the last request, kept so the panel can show what was actually
   // sent rather than what the form currently holds.
@@ -76,7 +89,7 @@ export default function ImageGen() {
       } else {
         const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
         if (urlResults.length) {
-          addEntry({ prompt: prompt.trim(), model, params: { size, count, steps, seed, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults })
+          addEntry({ prompt: prompt.trim(), model, params: { size, count, steps, seed, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults, parentId: handoff.from || undefined, edge: handoff.edge || undefined })
         }
         selectEntry(null)
       }
@@ -101,6 +114,7 @@ export default function ImageGen() {
     <div className="media-layout">
       <div className="media-controls">
         <PageHeader title={<><Icon name="image" /> {t('image.title')}</>} />
+        <HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setSourceImage(null)} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">

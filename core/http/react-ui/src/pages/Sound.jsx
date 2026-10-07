@@ -11,6 +11,7 @@ import MediaHistory from '../components/MediaHistory'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
 import { soundApi } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff } from '../hooks/useStudioHandoff'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 
@@ -18,9 +19,11 @@ export default function Sound() {
   const { t } = useTranslation('media')
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
-  const [model, setModel] = useState(urlModel || '')
+  // Opened from the Studio front page, the form starts from what it sent.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
   const [mode, setMode] = useState('simple')
-  const [text, setText] = useState('')
+  const [text, setText] = useState(handoff.prompt)
   const [instrumental, setInstrumental] = useState(false)
   const [vocalLanguage, setVocalLanguage] = useState('')
   const [caption, setCaption] = useState('')
@@ -74,7 +77,7 @@ export default function Sound() {
       addToast('Sound generated', 'success')
       const promptText = mode === 'simple' ? text.trim() : (caption.trim() || lyrics.trim())
       if (serverUrl) {
-        addEntry({ prompt: promptText, model, params: { mode }, results: [{ url: serverUrl }] })
+        addEntry({ prompt: promptText, model, params: { mode }, results: [{ url: serverUrl }], parentId: handoff.from || undefined, edge: handoff.edge || undefined })
       }
       selectEntry(null)
     } catch (err) {

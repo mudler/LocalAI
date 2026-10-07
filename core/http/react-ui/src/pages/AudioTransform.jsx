@@ -12,6 +12,9 @@ import { audioTransformApi } from '../utils/api'
 import { useMediaCapture } from '../hooks/useMediaCapture'
 import useObjectUrl from '../hooks/useObjectUrl'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff, useHandoffSource, blobToFile } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
 import MediaHistory from '../components/MediaHistory'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
@@ -29,7 +32,9 @@ export default function AudioTransform() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
 
-  const [model, setModel] = useState(urlModel || '')
+  // Opened from the Studio front page, the audio it was made from is the input.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
   const [audioFile, setAudioFile] = useState(null)
   const [referenceFile, setReferenceFile] = useState(null)
   const [outputUrl, setOutputUrl] = useState(null)
@@ -40,6 +45,13 @@ export default function AudioTransform() {
   const [lastRequest, setLastRequest] = useState(null)
 
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('audio-transform')
+  const wantsSource = handoff.edge === 'transform' || handoff.edge === 'take'
+  const source = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (source.status !== 'ready') return
+    const base = (source.item?.url || '').split('?')[0].split('/').pop() || 'audio.wav'
+    setAudioFile(blobToFile(source.blob, base))
+  }, [source])
 
   // Hidden <audio> element that plays the reference out the speakers while
   // the mic records — the recording captures the user's voice plus the
@@ -109,6 +121,8 @@ export default function AudioTransform() {
             inputUrl ? { kind: 'input', url: inputUrl } : null,
             refServerUrl ? { kind: 'reference', url: refServerUrl } : null,
           ].filter(Boolean),
+          parentId: handoff.from || undefined,
+          edge: handoff.edge || undefined,
         })
       }
       selectEntry(null)
@@ -178,6 +192,7 @@ export default function AudioTransform() {
     <div className="media-layout">
       <div className="media-controls">
         <PageHeader title={<><Icon name="waveform" /> {t('audioTransform.title')}</>} />
+        <HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setAudioFile(null)} />
 
         <form onSubmit={handleProcess}>
           <div className="form-group">

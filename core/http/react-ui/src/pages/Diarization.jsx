@@ -10,6 +10,10 @@ import useObjectUrl from '../hooks/useObjectUrl'
 import { CAP_DIARIZATION } from '../utils/capabilities'
 import { diarizationApi, voiceApi } from '../utils/api'
 import { rememberEnrollment } from '../utils/voiceEnrollments'
+import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff, useHandoffSource, blobToFile } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
 
 export default function Diarization() {
   const { t } = useTranslation('media')
@@ -17,7 +21,9 @@ export default function Diarization() {
   const { model: initialModel } = useParams()
   const { hasFeature } = useAuth()
   const canRemember = hasFeature('voice_recognition')
-  const [model, setModel] = useState(initialModel || '')
+  // Opened from the Studio front page, the audio it was made from is the input.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(initialModel || handoff.model || '')
   const [file, setFile] = useState(null)
   const [optIn, setOptIn] = useState(false)
   const [result, setResult] = useState(null)
@@ -34,6 +40,14 @@ export default function Diarization() {
   const timer = useRef(null)
   const playback = useRef(0)
   const url = useObjectUrl(file)
+  const { addEntry } = useMediaHistory('diarization')
+  const wantsSource = handoff.edge === 'diarize'
+  const source = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (source.status !== 'ready') return
+    const base = (source.item?.url || '').split('?')[0].split('/').pop() || 'audio.wav'
+    setFile(blobToFile(source.blob, base))
+  }, [source])
 
   function stop() {
     playback.current++
@@ -69,6 +83,12 @@ export default function Diarization() {
       if (requested && !data.speaker_profiles) throw new Error(text('missingProfiles'))
       // Keep the actual inference model with this export, not a later selection.
       setResult({ ...data, inferenceModel: model, speaker_profiles: requested ? data.speaker_profiles : undefined })
+      // The front page lists this run. Only the file name, the model and two
+      // counts are kept: not the recording, not the transcript, no voice data.
+      const labels = new Set((data.segments || []).map(s => String(s.label ?? s.speaker)))
+      const speakers = data.speakers?.length || labels.size
+      const seconds = Math.round(Math.max(0, ...(data.segments || []).map(s => Number(s.end) || 0)))
+      addEntry({ prompt: file.name, model, params: { speakers, seconds }, results: [], parentId: handoff.from || undefined, edge: handoff.edge || undefined })
     } catch (err) {
       if (token === generation.current) setError(`${err.message}${requested ? ` ${text('unsupported')}` : ''}`)
     } finally { if (token === generation.current) setBusy(false) }
@@ -115,6 +135,7 @@ export default function Diarization() {
   return (
     <div className="page-pad">
       <PageHeader title={text('title')} supporting={text('subtitle')} />
+      <HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setFile(null)} />
       <form onSubmit={submit} className="card stack">
         <div className="form-group" role="group" aria-label={text('model')}>
           <span className="form-label">{text('model')}</span>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +17,9 @@ import MediaInput from '../components/biometrics/MediaInput'
 import { threeDApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { use3DHistory } from '../hooks/use3DHistory'
+import { useStudioHandoff, useHandoffSource, blobToImageInput } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
 import useObjectUrl from '../hooks/useObjectUrl'
 import Icon from '../components/Icon'
 
@@ -60,7 +63,10 @@ export default function ThreeDGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('media')
-  const [model, setModel] = useState(urlModel || '')
+  // Opened from the Studio front page, a picture it was made from becomes the
+  // conditioning image and the model it chose is selected.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
   const { models, loading: modelsLoading } = useModels()
   const modelNames = useMemo(() => models.filter(item => item.capabilities?.some(cap => cap === CAP_3D || cap === CAP_3D_ANIMATION)).map(item => item.id), [models])
   const selectedModel = models.find(item => item.id === model)
@@ -85,6 +91,12 @@ export default function ThreeDGen() {
   const [remeshState, setRemeshState] = useState(null) // { sourceBlob, blob?, name?, error? }
   const [remeshLoading, setRemeshLoading] = useState(false)
   const { entries, addEntry, deleteEntry, clearAll, selectEntry, selectedId, selectedEntry } = use3DHistory()
+  const wantsSource = handoff.edge === 'to-3d'
+  const handoffSource = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (handoffSource.status !== 'ready') return
+    blobToImageInput(handoffSource.blob).then(setImage).catch(() => {})
+  }, [handoffSource])
 
   const source = selectedEntry
     ? { ...selectedEntry, blob: selectedEntry.glb }
@@ -171,6 +183,9 @@ export default function ThreeDGen() {
         inputThumb,
         glb,
         name,
+        parentId: handoff.from || undefined,
+        edge: handoff.edge || undefined,
+        label: handoffSource.item?.title || undefined,
       })
     } catch (err) {
       setError(err.message)
@@ -208,6 +223,7 @@ export default function ThreeDGen() {
     <div className="media-layout">
       <div className="media-controls">
         <PageHeader title={<><Icon name="cube" /> {t('threed.title')}</>} />
+        <HandoffNote source={handoffSource} handoff={handoff} wanted={wantsSource} onClear={() => setImage(null)} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">

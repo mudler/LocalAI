@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,9 @@ import MediaHistory from '../components/MediaHistory'
 import MediaInput from '../components/biometrics/MediaInput'
 import { videoApi, fileToBase64 } from '../utils/api'
 import { useMediaHistory } from '../hooks/useMediaHistory'
+import { useStudioHandoff, useHandoffSource } from '../hooks/useStudioHandoff'
+// eslint-disable-next-line no-unused-vars
+import HandoffNote from '../components/studio/HandoffNote'
 import Icon from '../components/Icon'
 
 const SIZES = ['256x256', '512x512', '768x768', '1024x1024', '832x480', '1280x720']
@@ -20,10 +23,12 @@ export default function VideoGen() {
   const { model: urlModel } = useParams()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('media')
-  const [model, setModel] = useState(urlModel || '')
-  const [prompt, setPrompt] = useState('')
+  // Opened from the Studio front page, the form starts from what it sent.
+  const handoff = useStudioHandoff()
+  const [model, setModel] = useState(urlModel || handoff.model || '')
+  const [prompt, setPrompt] = useState(handoff.prompt)
   const [negativePrompt, setNegativePrompt] = useState('')
-  const [size, setSize] = useState('512x512')
+  const [size, setSize] = useState(SIZES.includes(handoff.size) ? handoff.size : '512x512')
   const [seconds, setSeconds] = useState('')
   const [fps, setFps] = useState('16')
   const [frames, setFrames] = useState('')
@@ -41,6 +46,13 @@ export default function VideoGen() {
   const [endImage, setEndImage] = useState(null)
   const [audioInput, setAudioInput] = useState(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('video')
+  // Animating a picture starts from it as the start image.
+  const wantsSource = handoff.edge === 'animate'
+  const source = useHandoffSource(handoff, wantsSource)
+  useEffect(() => {
+    if (source.status !== 'ready') return
+    fileToBase64(source.blob).then(setStartImage).catch(() => {})
+  }, [source])
 
   const handleGenerate = async (e) => {
     e.preventDefault()
@@ -74,7 +86,7 @@ export default function VideoGen() {
       } else {
         const urlResults = results.filter(r => r.url && !r.url.startsWith('data:')).map(r => ({ url: r.url }))
         if (urlResults.length) {
-          addEntry({ prompt: prompt.trim(), model, params: { size, fps, seconds, frames, steps, seed, cfgScale, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults })
+          addEntry({ prompt: prompt.trim(), model, params: { size, fps, seconds, frames, steps, seed, cfgScale, negativePrompt: negativePrompt.trim() || undefined }, results: urlResults, parentId: handoff.from || undefined, edge: handoff.edge || undefined })
         }
         selectEntry(null)
       }
@@ -93,6 +105,7 @@ export default function VideoGen() {
     <div className="media-layout">
       <div className="media-controls">
         <PageHeader title={<><Icon name="video" /> {t('video.title')}</>} />
+        <HandoffNote source={source} handoff={handoff} wanted={wantsSource} onClear={() => setStartImage(null)} />
 
         <form onSubmit={handleGenerate}>
           <div className="form-group">
