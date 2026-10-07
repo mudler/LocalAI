@@ -262,7 +262,7 @@ test.describe('Media History - Video Generation', () => {
 
     await page.goto('/app/video')
     await expect(page.getByRole('button', { name: 'test-video-model' })).toBeVisible({ timeout: 10_000 })
-    await page.getByRole('button', { name: 'Reference media' }).click()
+    await page.getByRole('button', { name: 'Avatar audio' }).click()
     await page.getByLabel('Avatar audio', { exact: true }).setInputFiles({
       name: 'speech.wav',
       mimeType: 'audio/wav',
