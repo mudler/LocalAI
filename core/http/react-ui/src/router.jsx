@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom'
 import { routerBasename } from './utils/basePath'
 import App from './App'
 import RequireAdmin from './components/RequireAdmin'
@@ -102,7 +102,10 @@ const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
 const Agents = page('agents', () => import('./pages/Agents'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
-const AgentChat = page(null, () => import('./pages/AgentChat'))
+// eslint-disable-next-line no-unused-vars
+const AgentPage = page(null, () => import('./pages/AgentPage'))
+// eslint-disable-next-line no-unused-vars
+const AgentRun = page(null, () => import('./pages/AgentRun'))
 const AgentStatus = page(null, () => import('./pages/AgentStatus'))
 const Collections = page('collections', () => import('./pages/Collections'))
 const CollectionDetails = page(null, () => import('./pages/CollectionDetails'))
@@ -143,6 +146,15 @@ const BuildOverview = page('build', () => import('./pages/BuildOverview'))
 
 import HubLayout from './components/hub/HubLayout'
 import { buildHub, operateHub } from './components/hub/hubConfig'
+
+// The Agent chat page became the agent's own page and its runs. An old chat
+// link opens the agent page and keeps the user in the query.
+// eslint-disable-next-line no-unused-vars, react-refresh/only-export-components
+function AgentChatRedirect() {
+  const { name } = useParams()
+  const { search } = useLocation()
+  return <Navigate to={`/app/agents/${encodeURIComponent(name)}${search}`} replace />
+}
 
 function BrowseRedirect() {
   const { '*': splat } = useParams()
@@ -190,6 +202,8 @@ const appChildren = [
     children: [
       { path: 'build', element: <BuildOverview /> },
       { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+      { path: 'agents/:name', element: <Feature feature="agents"><AgentPage /></Feature> },
+      { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
       { path: 'skills', element: <Feature feature="skills"><Skills /></Feature> },
       { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
@@ -206,8 +220,8 @@ const appChildren = [
   // Build deep flows: full-width, no tab bar.
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:name/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
-  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChat /></Feature> },
-  { path: 'agents/:name/status', element: <Feature feature="agents"><AgentStatus /></Feature> },
+  { path: 'agents/:name/runs/:id', element: <Feature feature="agents"><AgentRun /></Feature> },
+  { path: 'agents/:name/chat', element: <Feature feature="agents"><AgentChatRedirect /></Feature> },
   { path: 'collections/:name', element: <Feature feature="collections"><CollectionDetails /></Feature> },
   { path: 'skills/new', element: <Feature feature="skills"><SkillEdit /></Feature> },
   { path: 'skills/edit/:name', element: <Feature feature="skills"><SkillEdit /></Feature> },

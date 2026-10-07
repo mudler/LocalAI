@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+// eslint-disable-next-line no-unused-vars
+import { Link, useParams, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
-import PageHeader from '../components/PageHeader'
+import { agentPath } from '../components/agents/AgentBits'
 import Icon, { FaIcon } from '../components/Icon'
+import './agents.css'
 
-function ObservableSummary({ observable }) {
+// The raw record of what an agent did, one entry per action, as the agent
+// reports it. A run's report says what came of a task; this page is for
+// reading the steps behind it.
+
+// The lines an entry shows when folded: what started it, what it called, what
+// came back and what went wrong. Each is a line the agent really reported.
+function summaryLines(observable, t) {
   const creation = observable?.creation || {}
   const completion = observable?.completion || {}
 
@@ -18,11 +27,11 @@ function ObservableSummary({ observable }) {
       creationMsg = messages[messages.length - 1]?.content || ''
     }
   }
-  if (typeof creationMsg === 'object') creationMsg = 'Multimedia message'
+  if (typeof creationMsg === 'object') creationMsg = t('status.multimedia')
 
-  let funcDef = creation?.function_definition?.name ? `Function: ${creation.function_definition.name}` : ''
-  let funcParams = creation?.function_params && Object.keys(creation.function_params).length > 0
-    ? `Params: ${JSON.stringify(creation.function_params)}` : ''
+  const funcDef = creation?.function_definition?.name ? t('status.function', { name: creation.function_definition.name }) : ''
+  const funcParams = creation?.function_params && Object.keys(creation.function_params).length > 0
+    ? t('status.params', { params: JSON.stringify(creation.function_params) }) : ''
 
   let completionMsg = ''
   let toolCallSummary = ''
@@ -42,120 +51,110 @@ function ObservableSummary({ observable }) {
     completionMsg = last?.message?.content || ''
   }
 
-  let actionResult = completion?.action_result ? String(completion.action_result).slice(0, 100) : ''
-  let errorMsg = completion?.error || ''
+  const actionResult = completion?.action_result ? String(completion.action_result).slice(0, 100) : ''
+  const errorMsg = completion?.error || ''
   let filterInfo = ''
   if (completion?.filter_result) {
     const fr = completion.filter_result
-    if (fr.has_triggers && !fr.triggered_by) filterInfo = 'Failed to match triggers'
-    else if (fr.triggered_by) filterInfo = `Triggered by ${fr.triggered_by}`
-    if (fr.failed_by) filterInfo += `${filterInfo ? ', ' : ''}Failed by ${fr.failed_by}`
+    if (fr.has_triggers && !fr.triggered_by) filterInfo = t('status.noTrigger')
+    else if (fr.triggered_by) filterInfo = t('status.triggeredBy', { name: fr.triggered_by })
+    if (fr.failed_by) filterInfo += `${filterInfo ? ', ' : ''}${t('status.failedBy', { name: fr.failed_by })}`
   }
 
   const items = []
-  if (creationMsg) items.push({ icon: 'chat', text: creationMsg, cls: 'creation' })
-  if (funcDef) items.push({ icon: 'code', text: funcDef, cls: 'creation' })
-  if (funcParams) items.push({ icon: 'sliders', text: funcParams, cls: 'creation' })
-  if (toolCallSummary) items.push({ icon: 'wrench', text: toolCallSummary, cls: 'tool-call' })
-  if (completionMsg) items.push({ icon: 'robot', text: completionMsg, cls: 'completion' })
-  if (actionResult) items.push({ icon: 'bolt', text: actionResult, cls: 'tool-call' })
-  if (errorMsg) items.push({ icon: 'warning', text: errorMsg, cls: 'error' })
-  if (filterInfo) items.push({ icon: 'shield', text: filterInfo, cls: 'completion' })
-
-  if (items.length === 0) return null
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
-      {items.map((item, i) => (
-        <div key={i} className={`as-summary-item as-summary-${item.cls}`} title={item.text}>
-          <Icon name={item.icon} />
-          <span>{item.text}</span>
-        </div>
-      ))}
-    </div>
-  )
+  if (creationMsg) items.push({ text: creationMsg })
+  if (funcDef) items.push({ text: funcDef })
+  if (funcParams) items.push({ text: funcParams })
+  if (toolCallSummary) items.push({ text: toolCallSummary })
+  if (completionMsg) items.push({ text: completionMsg })
+  if (actionResult) items.push({ text: actionResult })
+  if (errorMsg) items.push({ text: errorMsg, kind: 'error' })
+  if (filterInfo) items.push({ text: filterInfo })
+  return items
 }
 
-function ObservableCard({ observable, children: childNodes }) {
+// eslint-disable-next-line no-unused-vars
+function ObservableItem({ observable, children }) {
+  const { t } = useTranslation('agents')
   const [expanded, setExpanded] = useState(false)
-  const isComplete = !!observable.completion
+  const done = !!observable.completion
+  const failed = !!observable.completion?.error
   const hasProgress = observable.progress?.length > 0
+  const lines = summaryLines(observable, t)
+  const state = !done ? 'running' : failed ? 'failed' : 'done'
 
   return (
-    <div className="as-card">
-      <div className="as-card-header" onClick={() => setExpanded(!expanded)}>
-        <div className="as-card-title">
-          <div className="as-obs-icon">
-            <FaIcon name={observable.icon || 'robot'} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-              <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{observable.name}</span>
-              <span className="as-id">#{observable.id}</span>
-              {!isComplete && <Icon name="spinner" spin style={{ fontSize: '0.7rem', color: 'var(--color-primary)' }} />}
-            </div>
-            <ObservableSummary observable={observable} />
-          </div>
-        </div>
-        <Icon name={`chevron-${expanded ? 'up' : 'down'}`} style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
-      </div>
+    <div className="ag-obs__item" data-testid="status-observable">
+      <button type="button" className="ag-obs__head" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>
+        <span className="ag-obs__icon"><FaIcon name={observable.icon || 'robot'} /></span>
+        <span>
+          <span className="ag-obs__name">
+            {observable.name}
+            <span className="ag-obs__id">#{observable.id}</span>
+          </span>
+          {lines.length > 0 && (
+            <span className="ag-obs__sum">
+              {lines.slice(0, 2).map((l, i) => <span key={i} data-kind={l.kind} title={l.text}>{l.text}</span>)}
+            </span>
+          )}
+        </span>
+        <span className="ag-state" data-state={state}>
+          <span className={`dk-dot${state === 'running' ? ' dk-dot--accent' : state === 'failed' ? ' dk-dot--error' : ' dk-dot--ok'}`} aria-hidden="true" />
+          {t(`state.${state === 'done' ? 'done' : state}`)}
+        </span>
+        <Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
+      </button>
 
       {expanded && (
-        <div className="as-card-body">
-          {/* Children (nested observables) */}
-          {childNodes && childNodes.length > 0 && (
-            <div style={{ marginBottom: 'var(--spacing-md)' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: 'var(--spacing-xs)' }}>
-                Nested Observables
-              </div>
-              {childNodes}
+        <div className="ag-obs__body">
+          {children && children.length > 0 && (
+            <div>
+              <p className="ag-eyebrow ag-obs__label">{t('status.nested')}</p>
+              {children}
             </div>
           )}
 
-          {/* Progress entries */}
           {hasProgress && (
-            <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-              <div className="as-section-label">Progress ({observable.progress.length})</div>
+            <div>
+              <p className="ag-eyebrow ag-obs__label">{t('status.progress', { count: observable.progress.length })}</p>
               {observable.progress.map((p, i) => (
-                <div key={i} className="as-progress-entry">
-                  {p.action_result && <div><span className="as-tag">Action Result</span> {p.action_result}</div>}
-                  {p.error && <div className="as-error-text"><span className="as-tag as-tag-error">Error</span> {p.error}</div>}
+                <div key={i} className="ag-obs__entry">
+                  {p.action_result && <div><span className="ag-obs__tag">{t('status.actionResult')}</span>{p.action_result}</div>}
+                  {p.error && <div><span className="ag-obs__tag" data-kind="error">{t('status.error')}</span>{p.error}</div>}
                   {p.chat_completion_response?.choices?.length > 0 && (
                     <div>
-                      <span className="as-tag">Response</span>{' '}
+                      <span className="ag-obs__tag">{t('status.response')}</span>
                       {p.chat_completion_response.choices.map((ch, ci) => (
-                        <span key={ci}>{ch.message?.content || '(tool call)'}</span>
+                        <span key={ci}>{ch.message?.content || t('status.toolCall')}</span>
                       ))}
                     </div>
                   )}
                   {p.agent_state && (
-                    <div><span className="as-tag">State</span> {JSON.stringify(p.agent_state)}</div>
+                    <div><span className="ag-obs__tag">{t('status.state')}</span>{JSON.stringify(p.agent_state)}</div>
                   )}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Completion */}
           {observable.completion && (
-            <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-              <div className="as-section-label">Completion</div>
+            <div>
+              <p className="ag-eyebrow ag-obs__label">{t('status.completion')}</p>
               {observable.completion.action_result && (
-                <div className="as-progress-entry"><span className="as-tag">Action Result</span> {observable.completion.action_result}</div>
+                <div className="ag-obs__entry"><span className="ag-obs__tag">{t('status.actionResult')}</span>{observable.completion.action_result}</div>
               )}
               {observable.completion.error && (
-                <div className="as-progress-entry as-error-text"><span className="as-tag as-tag-error">Error</span> {observable.completion.error}</div>
+                <div className="ag-obs__entry"><span className="ag-obs__tag" data-kind="error">{t('status.error')}</span>{observable.completion.error}</div>
               )}
               {observable.completion.filter_result && (
-                <div className="as-progress-entry"><span className="as-tag">Filter</span> {JSON.stringify(observable.completion.filter_result)}</div>
+                <div className="ag-obs__entry"><span className="ag-obs__tag">{t('status.filter')}</span>{JSON.stringify(observable.completion.filter_result)}</div>
               )}
             </div>
           )}
 
-          {/* Raw JSON */}
-          <details className="as-raw">
-            <summary>Raw JSON</summary>
-            <pre className="as-json">{JSON.stringify(observable, null, 2)}</pre>
+          <details>
+            <summary className="ag-muted">{t('status.rawJson')}</summary>
+            <pre className="ag-obs__json">{JSON.stringify(observable, null, 2)}</pre>
           </details>
         </div>
       )}
@@ -179,21 +178,23 @@ function buildTree(observables) {
 
 function renderTree(nodes) {
   return nodes.map(node => (
-    <ObservableCard key={node.id} observable={node}>
+    <ObservableItem key={node.id} observable={node}>
       {node.children.length > 0 ? renderTree(node.children) : null}
-    </ObservableCard>
+    </ObservableItem>
   ))
 }
 
 export default function AgentStatus() {
   const { name } = useParams()
-  const navigate = useNavigate()
+  const { t } = useTranslation('agents')
   const { addToast } = useOutletContext()
   const [searchParams] = useSearchParams()
   const userId = searchParams.get('user_id') || undefined
   const [observables, setObservables] = useState([])
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [live, setLive] = useState(false)
+  const [only, setOnly] = useState('all')
 
   const fetchData = useCallback(async () => {
     try {
@@ -201,7 +202,7 @@ export default function AgentStatus() {
       const history = Array.isArray(obsData) ? obsData : (obsData?.History || [])
       setObservables(history)
     } catch (err) {
-      addToast(`Failed to load observables: ${err.message}`, 'error')
+      addToast(t('status.loadFailed', { message: err.message }), 'error')
     }
     try {
       const statusData = await agentsApi.status(name, userId)
@@ -210,7 +211,7 @@ export default function AgentStatus() {
       // status endpoint may fail if no actions have run yet
     }
     setLoading(false)
-  }, [name, userId, addToast])
+  }, [name, userId, addToast, t])
 
   useEffect(() => {
     fetchData()
@@ -223,6 +224,7 @@ export default function AgentStatus() {
     const url = apiUrl(agentsApi.sseUrl(name, userId))
     const es = new EventSource(url)
 
+    es.onopen = () => setLive(true)
     es.addEventListener('observable_update', (e) => {
       try {
         const data = JSON.parse(e.data)
@@ -245,7 +247,7 @@ export default function AgentStatus() {
       } catch (_) { /* ignore */ }
     })
 
-    es.onerror = () => { /* reconnect handled by browser */ }
+    es.onerror = () => setLive(false) // reconnect is handled by the browser
     return () => es.close()
   }, [name, userId])
 
@@ -253,168 +255,78 @@ export default function AgentStatus() {
     try {
       await agentsApi.clearObservables(name, userId)
       setObservables([])
-      addToast('Observables cleared', 'success')
+      addToast(t('status.cleared'), 'success')
     } catch (err) {
-      addToast(`Failed to clear: ${err.message}`, 'error')
+      addToast(t('status.clearFailed', { message: err.message }), 'error')
     }
   }
 
-  const tree = buildTree(observables)
+  const failedCount = observables.filter(o => o.completion?.error).length
+  const shown = useMemo(
+    () => (only === 'failed' ? observables.filter(o => o.completion?.error) : observables),
+    [observables, only],
+  )
+  const tree = buildTree(shown)
 
   return (
-    <div className="page page--wide">
-      <style>{`
-        .as-card {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          margin-bottom: var(--spacing-sm);
-          overflow: hidden;
-        }
-        .as-card .as-card {
-          border-left: 3px solid var(--color-primary);
-          margin-left: var(--spacing-md);
-        }
-        .as-card-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 10px var(--spacing-md);
-          cursor: pointer;
-          gap: var(--spacing-sm);
-        }
-        .as-card-header:hover { background: var(--color-bg-tertiary); }
-        .as-card-title { display: flex; align-items: flex-start; gap: var(--spacing-sm); flex: 1; min-width: 0; }
-        .as-obs-icon {
-          width: 28px; height: 28px;
-          border-radius: var(--radius-md);
-          background: var(--color-primary-light);
-          color: var(--color-primary);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.75rem; flex-shrink: 0;
-        }
-        .as-id {
-          font-size: 0.6875rem;
-          color: var(--color-text-muted);
-          font-family: var(--font-mono);
-        }
-        .as-summary-item {
-          display: flex; align-items: center; gap: 6px;
-          font-size: 0.75rem; color: var(--color-text-secondary);
-          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .as-summary-item i { font-size: 0.625rem; flex-shrink: 0; }
-        .as-summary-creation i { color: var(--color-primary); }
-        .as-summary-tool-call i { color: var(--color-warning); }
-        .as-summary-completion i { color: var(--color-success); }
-        .as-summary-error i { color: var(--color-error); }
-        .as-card-body {
-          padding: var(--spacing-md);
-          border-top: 1px solid var(--color-border);
-        }
-        .as-section-label {
-          font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-          letter-spacing: 0.04em; color: var(--color-text-muted);
-          margin-bottom: var(--spacing-xs);
-        }
-        .as-progress-entry {
-          font-size: 0.8125rem; color: var(--color-text-primary);
-          padding: 4px 0; border-bottom: 1px solid var(--color-border-subtle);
-          word-break: break-word;
-        }
-        .as-progress-entry:last-child { border-bottom: none; }
-        .as-tag {
-          display: inline-block; padding: 1px 6px; border-radius: var(--radius-sm);
-          font-size: 0.625rem; font-weight: 600; text-transform: uppercase;
-          background: var(--color-bg-tertiary); color: var(--color-text-muted);
-          margin-right: 4px; vertical-align: middle;
-        }
-        .as-tag-error { background: var(--color-error); color: var(--color-text-inverse); }
-        .as-error-text { color: var(--color-error); }
-        .as-raw { margin-top: var(--spacing-sm); }
-        .as-raw summary { font-size: 0.75rem; color: var(--color-text-muted); cursor: pointer; }
-        .as-json {
-          background: var(--color-bg-tertiary); border-radius: var(--radius-sm);
-          padding: var(--spacing-sm); font-family: var(--font-mono);
-          font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap;
-          word-break: break-word; max-height: 300px; overflow-y: auto;
-        }
-        .as-status-grid {
-          display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);
-        }
-        .as-status-item {
-          background: var(--color-bg-secondary); border: 1px solid var(--color-border);
-          border-radius: var(--radius-md); padding: var(--spacing-md);
-        }
-        .as-status-label {
-          font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em;
-          color: var(--color-text-muted); margin-bottom: 4px;
-        }
-        .as-status-value { font-size: 1rem; font-weight: 600; color: var(--color-text-primary); }
-      `}</style>
-
-      <PageHeader
-        title={<><Icon name="chart-bar" style={{ marginRight: 'var(--spacing-xs)' }} />{name} — Status</>}
-        supporting="Agent observables and activity history"
-        actions={
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-            <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-              <Icon name="chat" /> Chat
+    <div className="page page--medium ag-page" data-testid="agent-status">
+      <div className="ag-status">
+        <div className="ag-bar">
+          <Link className="ag-back" to={agentPath(name, userId)}><Icon name="arrow-left" /> {name}</Link>
+          <div className="ag-bar__acts">
+            <span className="ag-state" data-state={live ? 'done' : undefined}>
+              <span className={`dk-dot${live ? ' dk-dot--ok' : ''}`} aria-hidden="true" />
+              {live ? t('status.live') : t('status.notLive')}
+            </span>
+            <button className="btn btn-secondary btn-sm" onClick={fetchData}>
+              <Icon name="refresh" /> {t('status.refresh')}
             </button>
-            <button className="btn btn-secondary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/edit${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-              <Icon name="edit" /> Edit
-            </button>
-            <button className="btn btn-secondary" onClick={fetchData}>
-              <Icon name="refresh" /> Refresh
-            </button>
-            <button className="btn btn-danger" onClick={handleClear} disabled={observables.length === 0}>
-              <Icon name="trash" /> Clear
+            <button className="btn btn-danger btn-sm" onClick={handleClear} disabled={observables.length === 0}>
+              <Icon name="trash" /> {t('status.clear')}
             </button>
           </div>
-        }
-      />
+        </div>
 
-      {/* Status summary */}
-      {status && (
-        <div className="as-status-grid">
-          {status.state && (
-            <div className="as-status-item">
-              <div className="as-status-label">State</div>
-              <div className="as-status-value">{status.state}</div>
-            </div>
-          )}
-          {status.current_task && (
-            <div className="as-status-item">
-              <div className="as-status-label">Current Task</div>
-              <div className="as-status-value" style={{ fontSize: '0.8125rem', fontWeight: 400 }}>{status.current_task}</div>
-            </div>
-          )}
-          <div className="as-status-item">
-            <div className="as-status-label">Observables</div>
-            <div className="as-status-value">{observables.length}</div>
+        <header>
+          <div className="ag-title"><h1>{t('status.title')}</h1></div>
+          <p className="ag-lede">{t('status.lede', { name })}</p>
+        </header>
+
+        <dl className="ag-facts ag-status__facts">
+          <dt>{t('status.stateLabel')}</dt>
+          <dd>{status?.state || <span className="ag-muted">{t('status.unknown')}</span>}</dd>
+          <dt>{t('status.currentTask')}</dt>
+          <dd className="ag-facts__text">{status?.current_task || <span className="ag-muted">{t('chips.none')}</span>}</dd>
+          <dt>{t('status.records')}</dt>
+          <dd className="ag-facts__model">{t('status.recordsValue', { count: observables.length, failed: failedCount })}</dd>
+        </dl>
+
+        {loading ? (
+          <div className="loading-center">
+            <Icon name="spinner" spin className="icon-xl text-primary" />
           </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-          <Icon name="spinner" spin style={{ fontSize: '2rem', color: 'var(--color-primary)' }} />
-        </div>
-      ) : tree.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name="chart-bar" /></div>
-          <h2 className="empty-state-title">No observables yet</h2>
-          <p className="empty-state-text">Send a message to the agent to see its activity here.</p>
-          <button className="btn btn-primary" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/chat${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)}>
-            <Icon name="chat" /> Chat with {name}
-          </button>
-        </div>
-      ) : (
-        <div>
-          {renderTree(tree)}
-        </div>
-      )}
+        ) : observables.length === 0 ? (
+          <div className="ag-empty">
+            <h3>{t('status.emptyTitle')}</h3>
+            <p>{t('status.emptyText')}</p>
+            <Link className="btn btn-primary" to={agentPath(name, userId)}>
+              <Icon name="play" /> {t('status.giveTask', { name })}
+            </Link>
+          </div>
+        ) : (
+          <div>
+            <div className="ag-tools">
+              <div className="dk-segmented" role="group" aria-label={t('status.filterLabel')}>
+                <button type="button" className="dk-seg" aria-pressed={only === 'all'} aria-selected={only === 'all'} onClick={() => setOnly('all')}>{t('status.all')}</button>
+                <button type="button" className="dk-seg" aria-pressed={only === 'failed'} aria-selected={only === 'failed'} onClick={() => setOnly('failed')}>{t('status.failedOnly')}</button>
+              </div>
+            </div>
+            {tree.length === 0
+              ? <p className="ag-note">{t('status.noFailed')}</p>
+              : <div className="ag-obs">{renderTree(tree)}</div>}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

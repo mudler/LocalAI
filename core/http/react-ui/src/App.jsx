@@ -44,7 +44,7 @@ export default function App() {
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
-  const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/chat/)
+  const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/(chat|runs\/[^/]+)\/?$/)
 
   useEffect(() => {
     systemApi.version()
