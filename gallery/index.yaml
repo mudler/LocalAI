@@ -373,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: df290f77d9129d2ef936bc700ddc5221dc13ef3a6ac24df7b4e92376b0996fb8
+      sha256: 2d9f70b069b97bac75e48427496258465ddb6a8e087873f3839a962fd5e9f933
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -67146,7 +67146,7 @@
   files:
     - filename: Sharp-MiniCPM5-2B-Q4_K_S.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q4_K_S.gguf
-      sha256: f30598a08c4d7ee5b9397a5f97ec3b14846332a0b5d07471674505b464b9d1a9
+      sha256: 3b28cb65323bb877543b30eb5980af5876c56b4ab5982d07d21f0e037c8d7d7f
 - name: sharp-minicpm5-2b-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
