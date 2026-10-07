@@ -22770,6 +22770,94 @@
     - filename: mmproj/mmproj-Qwen3-VL-2B-Thinking-F16.gguf
       sha256: 4eabc90a52fe890d6ca1dad92548782eab6edc91f012a365fff95cf027ba529d
       uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/mmproj-F16.gguf
+- name: gui-owl-1.5-2b-instruct
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: gui-owl-1.5-2b-instruct-q8
+  urls:
+    - https://huggingface.co/mPLUG/GUI-Owl-1.5-2B-Instruct
+    - https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF
+  description: |
+    GUI-Owl 1.5 is a Qwen3-VL-based model for interpreting screenshots and
+    planning GUI actions across desktop, mobile, and browser interfaces.
+    This 2B Instruct Q4_K_M GGUF build includes the F16 vision projector
+    and uses the embedded chat template with a 32K-token default context.
+    A separate agent must execute the predicted actions.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-10-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: GUI-Owl-1.5-2B-Instruct.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: GUI-Owl-1.5-2B-Instruct.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF/resolve/a0592aa615540e507a918bc6281fdbfc1b441361/GUI-Owl-1.5-2B-Instruct.Q4_K_M.gguf
+      sha256: 5fd2c77781a14a91128928b5bd313252aab076b44682396af4bb2c99667f5ef5
+    - filename: GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF/resolve/a0592aa615540e507a918bc6281fdbfc1b441361/GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+      sha256: e3e3816edb92e62a51f8754b21f1369d8c0224f5488a878a4ef8284903bcf64a
+- name: gui-owl-1.5-2b-instruct-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mPLUG/GUI-Owl-1.5-2B-Instruct
+    - https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF
+  description: |
+    GUI-Owl 1.5 is a Qwen3-VL-based model for interpreting screenshots and
+    planning GUI actions across desktop, mobile, and browser interfaces.
+    This 2B Instruct Q8_0 GGUF build includes the F16 vision projector
+    and uses the embedded chat template with a 32K-token default context.
+    A separate agent must execute the predicted actions.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-10-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: GUI-Owl-1.5-2B-Instruct.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: GUI-Owl-1.5-2B-Instruct.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF/resolve/a0592aa615540e507a918bc6281fdbfc1b441361/GUI-Owl-1.5-2B-Instruct.Q8_0.gguf
+      sha256: ed0901d94648da2e317dd577e3005914b8a721cb194dac1258557b214c19f5a4
+    - filename: GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF/resolve/a0592aa615540e507a918bc6281fdbfc1b441361/GUI-Owl-1.5-2B-Instruct.mmproj-f16.gguf
+      sha256: e3e3816edb92e62a51f8754b21f1369d8c0224f5488a878a4ef8284903bcf64a
 - name: qwen3-vl-2b-instruct
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:

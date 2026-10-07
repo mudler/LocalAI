@@ -39,6 +39,29 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## GUI-Owl 1.5 2B Instruct
+
+GUI-Owl 1.5 uses Qwen3-VL to interpret screenshots and predict GUI actions.
+The gallery includes Q4_K_M and Q8_0 GGUF builds for llama.cpp, each with an F16 vision projector.
+Both use the embedded chat template and a 32,768-token context by default.
+LocalAI serves the model; a separate agent must execute its predicted actions.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install gui-owl-1.5-2b-instruct
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install gui-owl-1.5-2b-instruct --variant gui-owl-1.5-2b-instruct-q8
+```
+
+Send screenshots as image content in chat requests, as described in [GPT Vision](/features/gpt-vision/).
+See the [model card](https://huggingface.co/mPLUG/GUI-Owl-1.5-2B-Instruct)
+and [GGUF downloads](https://huggingface.co/mradermacher/GUI-Owl-1.5-2B-Instruct-GGUF).
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
