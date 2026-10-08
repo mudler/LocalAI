@@ -5668,53 +5668,27 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   border: 0;
   padding: 0;
 }
-/* Collapsed keeps the strip and its heading, only dropping the cards, so the
-   panel is recoverable in place rather than gone. Tighter block padding is
-   what actually returns vertical space to the gallery. */
-/* The class sets display:grid, which would otherwise beat the UA [hidden] rule. */
-.rec-models-grid[hidden] {
-  display: none;
-}
-@keyframes rec-models-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rec-models-grid {
-    animation: none;
-  }
-  }
-.rec-models-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-primary);
-}
-.rec-models-item-name {
-  font-weight: 500;
-  font-size: 0.8125rem;
-  word-break: break-all;
-}
-.rec-models-item-meta {
-  display: flex;
-  gap: var(--spacing-sm);
-  font-size: 0.75rem;
+.rec-models__head { margin-bottom: var(--spacing-xs); }
+.rec-models__note {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
-.rec-models-item-fit {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.rec-models__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--spacing-sm); overflow: visible; }
+.rec-models__more {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
+.rec-models__more:hover { color: var(--color-text-primary); }
+.rec-models__more:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
 
 /* ──────────────────── Biometrics (face + voice recognition) ──────────────────── */
 
@@ -9685,16 +9659,11 @@ button.lane:hover {
 
 /* Recommended models: ranked candidates, so lanes in fit order rather than a
    grid of equal cards. The leader carries the one amber label on the page. */
-.lanes--recommended .lane {
-  grid-template-columns: minmax(0, 6rem) minmax(0, 1fr) minmax(0, 7rem) minmax(0, 6rem) auto;
-}
+.lanes--recommended .lane { grid-template-columns: minmax(0, 1fr) auto; }
+.lanes--recommended .lane__name { overflow-wrap: anywhere; }
 
 .lane__tag--evidence { color: var(--color-warning); }
 
-@media (max-width: 720px) {
-  .lanes--recommended .lane { grid-template-columns: minmax(0, 1fr) auto; }
-  .lanes--recommended .lane__num { display: none; }
-}
 
 /* ─── Studio: capability dots ─────────────────────────────────────────────
    Filled means a model on this machine serves that modality. aria-hidden,

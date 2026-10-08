@@ -1151,9 +1151,8 @@ export default function Models() {
 
               {/* The hardware-fit strip is the curation, and here it finally
                   gets the width to argue for a model rather than list one.
-                  It keeps its own dismissal and collapse state, so someone
-                  who closed it still lands on the pane below. */}
-              {!galleryEmpty && <RecommendedModels addToast={addToast} />}
+                  Once a model is installed it narrows to the best fit. */}
+              {!galleryEmpty && <RecommendedModels addToast={addToast} installedCount={statsLoaded ? stats.installed : 0} />}
 
               {/* Somewhere to start when the recommendations are not it.
                   These set the use-case filter rather than fetching a second

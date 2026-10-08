@@ -331,6 +331,27 @@ export async function mockLedger(page, options = {}) {
   return state
 }
 
+// The "Best for this machine" shelf sizes candidates at a 4K context, which the
+// gallery estimates above do not carry (they start at 8K). Call this after
+// mockLedger to add that figure, so the shelf has fits to rank. There is no
+// recommendation endpoint: the shelf ranks the chat gallery against
+// /api/resources and /api/models/estimate on the client.
+export async function stubRecommendations(page, gallery = GALLERY) {
+  await page.route('**/api/models/estimate/*', route => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop())
+    const entry = gallery.find(e => e.name === name)
+    if (!entry) return route.fulfill({ status: 404, json: { error: 'model not found' } })
+    const base = entry.estimate.estimates[8192]
+    const vram = Math.round(base.vramBytes * 0.9)
+    return route.fulfill({
+      json: {
+        ...entry.estimate,
+        estimates: { ...entry.estimate.estimates, 4096: { vramBytes: vram, vramDisplay: `${(vram / GB).toFixed(2)} GB` } },
+      },
+    })
+  })
+}
+
 // ---- the model page and the Placement section ----
 
 // Two cards: 24 GB and 12 GB, with the first partly used by another program.
