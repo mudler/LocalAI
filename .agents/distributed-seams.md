@@ -529,6 +529,48 @@ runner, where it fails so a runner without Docker cannot hide the check. The
 end-to-end specs in `tests/e2e/distributed` run the NATS implementations of the
 other seams against a real server, also through Docker.
 
+## Workers follow the carrier
+
+A worker does not choose its carrier. Every heartbeat goes to the frontend over
+HTTP, which exists on both carriers, and the answer carries the active carrier,
+its epoch, the state of a change, the target and the carrier that drains
+(`carrier`, `carrier_epoch`, `carrier_state`, `carrier_target`,
+`carrier_draining`). `worker.Follower` reads it. The backend worker
+(`worker.BackendPlane`) and the agent worker (`agentworker.FollowConfig`) give it
+one `Attacher` for each carrier, so the code that attaches at start is the code
+that attaches later.
+
+- At start the worker registers, learns the active carrier, and attaches to it.
+  It needs no NATS setting: the registration answer hands over the address
+  (`nats.worker_url`, else `nats.url`), the CA as PEM and the per-node JWT. A local
+  `--nats-url`, CA or credential still wins. A frontend that predates carriers
+  names none, and the worker then needs `--nats-url` as before.
+- While a change is prepared the worker registers again with `carrier` set to the
+  target, which returns the credential of that carrier only. A tunnel token
+  replaces the previous one and ends the session of the replica, so a worker that
+  holds the tunnel never asks for one. Only the active carrier, the target of a
+  change and the carrier that drains can be asked for.
+- It waits a random time of up to `LOCALAI_FOLLOW_MAX_DELAY` (ten seconds), then
+  attaches with a wait that grows from one to thirty seconds when the carrier
+  refuses. It keeps the old carrier open, and reports `attached`, `attached_epoch`,
+  `follow_capabilities` and `follow_error` in the heartbeat. That report is the
+  only source of where a worker is attached (`nodes.SwitchWorkers`). A worker that
+  reports nothing predates carrier switching and is on NATS.
+- It closes a carrier when the cluster released it, the carrier it moved to is
+  connected, and no request runs on it (`inflight` in the control servers). It
+  reports first, then closes. Backend processes are not touched. A change that is
+  aborted makes it close the target.
+- A worker that cannot follow keeps the carrier it has, reports why, and tries
+  again. A backend worker cannot follow to NATS without an address that the
+  frontends can dial (`--addr` or `--advertise-addr`; a worker that booted on NATS
+  counts, because its backends listen on every interface), or with a NATS server
+  that asks for a client certificate it does not have. Such a worker is a blocker
+  of the change, and a forced change leaves it where it is.
+- After the cluster has settled, `HealthMonitor.UseCarrier` demotes a worker that
+  reports it is not attached to the active carrier. The change is status only,
+  like the tunnel read, and the worker is promoted when it reports the active
+  carrier.
+
 ## Open items for a second carrier
 
 - `WorkHandler` returns only an error. A carrier whose stream handler must send a
