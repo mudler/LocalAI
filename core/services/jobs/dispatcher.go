@@ -194,8 +194,16 @@ func (d *Dispatcher) Enqueue(jobID, taskID, userID string) error {
 	return d.queue.Enqueue(context.Background(), kind, evt)
 }
 
-// Cancel publishes a cancel event to NATS (broadcast to all instances).
+// Cancel marks the job as cancelled, and then publishes a cancel event to every
+// replica. The mark is what stops a job that still waits in the queue: no replica
+// holds a run to end, and the one that claims the unit reads the status before it
+// dispatches. A job that already has an end state keeps it.
 func (d *Dispatcher) Cancel(jobID string) error {
+	if d.store != nil {
+		if err := d.store.UpdateJobStatus(jobID, "cancelled", "", "cancelled"); err != nil {
+			return fmt.Errorf("marking job %q as cancelled: %w", jobID, err)
+		}
+	}
 	return d.nats.Publish(messaging.SubjectJobCancel(jobID), CancelEvent{
 		JobID: jobID,
 	})

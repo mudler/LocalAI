@@ -1,5 +1,194 @@
 basePath: /
 definitions:
+  cluster.Blocker:
+    properties:
+      forceable:
+        description: Forceable is true when a forced request goes ahead anyway.
+        type: boolean
+      id:
+        type: string
+      kind:
+        type: string
+      reason:
+        type: string
+    type: object
+  cluster.Carrier:
+    enum:
+    - nats
+    - tunnel
+    type: string
+    x-enum-varnames:
+    - CarrierNATS
+    - CarrierTunnel
+  cluster.CarrierRow:
+    properties:
+      active:
+        $ref: '#/definitions/cluster.Carrier'
+      changed_at:
+        description: |-
+          ChangedAt is stamped by the database on every change, and the age of a
+          change is read on that same clock (CarrierStore.DBNow), so that the
+          timeouts of a change need no clock that the replicas agree on.
+        type: string
+      changed_by:
+        type: string
+      draining:
+        $ref: '#/definitions/cluster.Carrier'
+      draining_until:
+        type: string
+      epoch:
+        type: integer
+      force:
+        description: |-
+          Force records that the admin who started the change accepted that a
+          replica which is not ready, or a worker that cannot follow, is left
+          behind. It belongs to one change and is cleared by the next one.
+        type: boolean
+      nats_url:
+        description: |-
+          NATSURL is the address of the NATS server that this change, or the last
+          change to NATS, builds from. The admin starts a change and the replicas
+          build in it, and an edit of the setting in between must not give two
+          replicas two servers, so every replica builds from this copy while a change
+          is under way. It never carries a credential. Empty when the cluster has no
+          NATS address.
+        type: string
+      note:
+        description: |-
+          Note says in a sentence how the last change ended, or why it did. It is
+          for operators.
+        type: string
+      prev_epoch:
+        type: integer
+      state:
+        $ref: '#/definitions/cluster.State'
+      target:
+        $ref: '#/definitions/cluster.Carrier'
+    type: object
+  cluster.InFlight:
+    properties:
+      claimed_claims:
+        type: integer
+      jobs:
+        description: Jobs is the number of jobs that run.
+        type: integer
+      loads:
+        description: Loads is the number of models that are loading.
+        type: integer
+      pending_claims:
+        description: PendingClaims and ClaimedClaims count the rows of the claim queue.
+        type: integer
+    type: object
+  cluster.ReplicaStatus:
+    properties:
+      availability:
+        additionalProperties:
+          type: string
+        description: |-
+          Availability maps each carrier to the reason the replica cannot build it,
+          empty when it can. A carrier it never looked at is absent.
+        type: object
+      availability_age_ns:
+        type: integer
+      id:
+        type: string
+      ready_epoch:
+        type: integer
+      ready_reason:
+        type: string
+      version:
+        type: string
+    type: object
+  cluster.Report:
+    properties:
+      active:
+        $ref: '#/definitions/cluster.Carrier'
+      blockers:
+        items:
+          $ref: '#/definitions/cluster.Blocker'
+        type: array
+      drain_remaining_ns:
+        description: |-
+          DrainRemaining is how long the previous carrier stays attached, when one
+          is draining.
+        type: integer
+      epoch:
+        type: integer
+      in_flight:
+        $ref: '#/definitions/cluster.InFlight'
+      ok:
+        type: boolean
+      replicas:
+        items:
+          $ref: '#/definitions/cluster.ReplicaStatus'
+        type: array
+      row:
+        $ref: '#/definitions/cluster.CarrierRow'
+      state:
+        $ref: '#/definitions/cluster.State'
+      target:
+        $ref: '#/definitions/cluster.Carrier'
+      timings:
+        $ref: '#/definitions/cluster.Timings'
+      warnings:
+        items:
+          type: string
+        type: array
+      workers:
+        items:
+          $ref: '#/definitions/cluster.WorkerStatus'
+        type: array
+    type: object
+  cluster.State:
+    enum:
+    - stable
+    - prepare
+    - commit
+    type: string
+    x-enum-varnames:
+    - StateStable
+    - StatePrepare
+    - StateCommit
+  cluster.Timings:
+    properties:
+      maxDrain:
+        description: |-
+          MaxDrain is how long the previous carrier stays attached after the commit.
+          Work that is still running on it then is failed by the reaper.
+        type: integer
+      prepareTimeout:
+        description: PrepareTimeout is how long prepare waits for every live replica.
+        type: integer
+      transitionWindow:
+        description: |-
+          TransitionWindow is how long commit waits for every live replica to
+          confirm.
+        type: integer
+    type: object
+  cluster.WorkerStatus:
+    properties:
+      attached:
+        items:
+          $ref: '#/definitions/cluster.Carrier'
+        type: array
+      can_follow:
+        description: CanFollow and Reason are set when the report has a target.
+        type: boolean
+      follow:
+        items:
+          $ref: '#/definitions/cluster.Carrier'
+        type: array
+      follow_error:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      reason:
+        type: string
+      type:
+        type: string
+    type: object
   config.Gallery:
     properties:
       artifact_verification:
@@ -272,6 +461,23 @@ definitions:
           type: string
         type: array
     type: object
+  gallery.ModelStorage:
+    properties:
+      files:
+        items:
+          type: string
+        type: array
+      missing:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      shared_bytes:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
   gallery.NodeDriftInfo:
     properties:
       digest:
@@ -282,6 +488,41 @@ definitions:
         type: string
       version:
         type: string
+    type: object
+  gallery.StorageFile:
+    properties:
+      missing:
+        type: boolean
+      models:
+        items:
+          type: string
+        type: array
+      path:
+        description: Path is relative to the models directory.
+        type: string
+      size_bytes:
+        type: integer
+    type: object
+  gallery.StorageIndex:
+    properties:
+      errors:
+        description: |-
+          Errors carries per-config failures (malformed YAML, path escapes),
+          reported rather than fatal so one broken config cannot blank the
+          whole report.
+        items:
+          type: string
+        type: array
+      files:
+        items:
+          $ref: '#/definitions/gallery.StorageFile'
+        type: array
+      models:
+        items:
+          $ref: '#/definitions/gallery.ModelStorage'
+        type: array
+      total_bytes:
+        type: integer
     type: object
   gallery.UpgradeInfo:
     properties:
@@ -406,6 +647,94 @@ definitions:
       logo_horizontal_url:
         type: string
       logo_url:
+        type: string
+    type: object
+  localai.CarrierStatusResponse:
+    properties:
+      active:
+        $ref: '#/definitions/cluster.Carrier'
+      blockers:
+        items:
+          $ref: '#/definitions/cluster.Blocker'
+        type: array
+      drain_remaining_ns:
+        description: |-
+          DrainRemaining is how long the previous carrier stays attached, when one
+          is draining.
+        type: integer
+      epoch:
+        type: integer
+      in_flight:
+        $ref: '#/definitions/cluster.InFlight'
+      ok:
+        type: boolean
+      replicas:
+        items:
+          $ref: '#/definitions/cluster.ReplicaStatus'
+        type: array
+      row:
+        $ref: '#/definitions/cluster.CarrierRow'
+      settings:
+        $ref: '#/definitions/localai.ClusterSettingsView'
+      state:
+        $ref: '#/definitions/cluster.State'
+      target:
+        $ref: '#/definitions/cluster.Carrier'
+      timings:
+        $ref: '#/definitions/cluster.Timings'
+      warnings:
+        items:
+          type: string
+        type: array
+      workers:
+        items:
+          $ref: '#/definitions/cluster.WorkerStatus'
+        type: array
+    type: object
+  localai.CarrierSwitchRequest:
+    properties:
+      abort:
+        type: boolean
+      dry_run:
+        type: boolean
+      force:
+        type: boolean
+      target:
+        type: string
+    type: object
+  localai.ClusterSettingsRequest:
+    properties:
+      max_drain:
+        type: string
+      nats_url:
+        type: string
+      nats_worker_url:
+        type: string
+      prepare_timeout:
+        type: string
+      transition_window:
+        type: string
+    type: object
+  localai.ClusterSettingsView:
+    properties:
+      max_drain:
+        description: MaxDrain is how long the previous carrier stays attached after
+          a commit (a Go duration).
+        type: string
+      nats_url:
+        description: NATSURL is the NATS address that the frontends use.
+        type: string
+      nats_worker_url:
+        description: NATSWorkerURL is the NATS address that workers are told to use.
+          Empty means NATSURL.
+        type: string
+      prepare_timeout:
+        description: PrepareTimeout is how long a change waits for every replica to
+          be ready (a Go duration).
+        type: string
+      transition_window:
+        description: TransitionWindow is how long a replica may take to confirm a
+          commit (a Go duration).
         type: string
     type: object
   localai.FailoverChainsResponse:
@@ -4092,6 +4421,141 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/cluster/carrier:
+    get:
+      description: Returns the active carrier (nats or tunnel), the epoch, the state
+        of a change (stable, prepare or commit), the live replicas with their readiness,
+        the workers and whether each could follow a change to the other carrier, the
+        work in flight, and the cluster settings. Admin only. Answers 503 when distributed
+        mode is off.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.CarrierStatusResponse'
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Report the transport of a distributed cluster
+      tags:
+      - Nodes
+    post:
+      description: Takes a target (nats or tunnel) with dry_run and force, or abort.
+        A dry run returns the preflight report and changes nothing. A request starts
+        the change and returns 202 with the epoch to watch. A request that a blocker
+        stops returns 422 with the blockers; force accepts the blockers that are forceable.
+        A change already under way returns 409, and only abort is accepted then. Admin
+        only.
+      parameters:
+      - description: target, dry_run, force or abort
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.CarrierSwitchRequest'
+      responses:
+        "200":
+          description: Dry run report, or the row after an abort
+          schema:
+            $ref: '#/definitions/cluster.Report'
+        "202":
+          description: 'Change started: state, active, target, epoch, force, warnings,
+            row'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad body or target
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: A change is under way, or there is nothing to abort
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: 'Blocked: error, blockers, report'
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Dry-run, start or abort a change of carrier
+      tags:
+      - Nodes
+  /api/cluster/settings:
+    get:
+      description: Returns the NATS address of the frontends and of the workers and
+        the waits of a change. A user name, password or query string in an address
+        is dropped. Admin only.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ClusterSettingsView'
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Read the settings of the cluster
+      tags:
+      - Nodes
+    put:
+      description: Stores the NATS address, the address workers use, or the waits
+        of a change. Saving a NATS address checks that the serving replica reaches
+        it and makes NATS available; it does not switch the cluster. Admin only.
+      parameters:
+      - description: settings to store
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ClusterSettingsRequest'
+      responses:
+        "200":
+          description: saved, nats.reachable when a NATS address was checked, settings
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Unknown setting, bad value, or a credential in an address
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: A change of carrier is under way
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: This replica cannot reach the NATS server
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Store settings of the cluster
+      tags:
+      - Nodes
   /api/failover:
     get:
       produces:
@@ -4427,6 +4891,20 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/storage:
+    get:
+      description: Per-model disk usage, shared-file relations and missing references
+        under the models path
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: storage report
+          schema:
+            $ref: '#/definitions/gallery.StorageIndex'
+      summary: Report model storage usage on disk
+      tags:
+      - models
   /api/models/toggle-pinned/{name}/{action}:
     put:
       description: Pin or unpin a model. Pinned models stay loaded and are excluded

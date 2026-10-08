@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/pkg/system"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -199,6 +200,53 @@ var _ = Describe("Route auth coverage", func() {
 				"pattern to expectedPublicRoutes in core/http/route_coverage_test.go " +
 				"with a justification comment. Otherwise, keep it behind the " +
 				"global auth middleware or RequireAdmin / RequireFeature.")
+		}
+	})
+
+	// The route that a worker dials to open its tunnel is registered on every
+	// replica, also when the deployment is not distributed. The generic walk
+	// above covers it, but only while it exists. This keeps its removal from
+	// passing unseen, and checks that a dial with no credential gets 401 and not
+	// the 503 of a frontend with no registry.
+	It("registers the worker tunnel route and refuses an anonymous dial", func() {
+		found := false
+		for _, r := range app.Routes() {
+			if r.Method == http.MethodGet && r.Path == tunnel.ConnectPath {
+				found = true
+			}
+		}
+		Expect(found).To(BeTrue(), "GET %s is not registered", tunnel.ConnectPath)
+
+		req := httptest.NewRequest(http.MethodGet, tunnel.ConnectPath, nil)
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+	})
+
+	// The admin routes of the carrier sit under /api/cluster/, next to the two
+	// routes that skip the global authentication. The prefix must not be public:
+	// an anonymous caller gets 401 on each of them, also on a frontend that is not
+	// distributed, and they exist whatever the mode.
+	It("registers the admin routes of the carrier and refuses an anonymous caller", func() {
+		want := map[string]bool{
+			http.MethodGet + " /api/cluster/carrier":  false,
+			http.MethodPost + " /api/cluster/carrier": false,
+			http.MethodGet + " /api/cluster/settings": false,
+			http.MethodPut + " /api/cluster/settings": false,
+		}
+		for _, r := range app.Routes() {
+			if _, ok := want[r.Method+" "+r.Path]; ok {
+				want[r.Method+" "+r.Path] = true
+			}
+		}
+		for route, found := range want {
+			Expect(found).To(BeTrue(), "%s is not registered", route)
+			method, path, _ := strings.Cut(route, " ")
+			req := httptest.NewRequest(method, path, strings.NewReader(`{"target":"tunnel"}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized), route)
 		}
 	})
 })

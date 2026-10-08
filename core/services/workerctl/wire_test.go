@@ -151,3 +151,41 @@ var _ = Describe("Control payload wire format", func() {
 		Entry("FileReleaseReply, error", workerctl.FileReleaseReply{Error: "e"}, `{"error":"e"}`),
 	)
 })
+
+var _ = Describe("Agent worker verbs", func() {
+	It("names four verbs that the backend worker does not serve", func() {
+		Expect(workerctl.AgentVerbs()).To(ConsistOf(
+			workerctl.VerbMCPToolExecute, workerctl.VerbMCPDiscovery,
+			workerctl.VerbAgentExecute, workerctl.VerbMCPCIRun,
+		))
+		for _, v := range workerctl.AgentVerbs() {
+			Expect(workerctl.AllVerbs()).ToNot(ContainElement(v), v)
+		}
+	})
+
+	It("maps each verb onto its own path below the prefix", func() {
+		Expect(workerctl.PathOf(workerctl.VerbMCPToolExecute)).To(Equal("/v1/control/mcp/tools/execute"))
+		Expect(workerctl.PathOf(workerctl.VerbMCPDiscovery)).To(Equal("/v1/control/mcp/discovery"))
+		Expect(workerctl.PathOf(workerctl.VerbAgentExecute)).To(Equal("/v1/control/agent/execute"))
+		Expect(workerctl.PathOf(workerctl.VerbMCPCIRun)).To(Equal("/v1/control/mcp-ci/run"))
+	})
+
+	It("carries the subject of a progress line only when there is one", func() {
+		raw, err := json.Marshal(workerctl.Envelope{Subject: "jobs.j1.progress", Progress: json.RawMessage(`{"a":1}`)})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(Equal(`{"subject":"jobs.j1.progress","progress":{"a":1}}`))
+
+		raw, err = json.Marshal(workerctl.Envelope{Progress: json.RawMessage(`{"a":1}`)})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(Equal(`{"progress":{"a":1}}`))
+	})
+
+	It("pins the bytes of the terminal reply of a run", func() {
+		raw, err := json.Marshal(workerctl.RunReply{JobID: "j", Status: "completed", Result: "r", Error: "e"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(Equal(`{"job_id":"j","status":"completed","result":"r","error":"e"}`))
+		raw, err = json.Marshal(workerctl.RunReply{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(Equal(`{}`))
+	})
+})

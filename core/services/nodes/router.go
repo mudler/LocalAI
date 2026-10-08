@@ -760,6 +760,11 @@ type routeAttempt struct {
 	observeChain     []uint64
 }
 
+// warmProbeRetryDelay is how long the warm path waits before it probes a replica
+// again, when the first probe could not reach the worker. A variable, so that a
+// spec does not wait for it.
+var warmProbeRetryDelay = 500 * time.Millisecond
+
 // tryWarmPath returns a route to an already-loaded, reachable replica, or nil
 // when the model has to be cold-loaded. It is the authority on readiness: a
 // waiter woken by a finished job re-runs it rather than trusting the signal,
@@ -776,7 +781,31 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	replicaIdx := nm.ReplicaIndex
 
 	// Verify the backend process is still alive via gRPC health check
-	if !r.probeHealth(ctx, node, modelAddr) {
+	verdict := r.probeHealth(ctx, node, modelAddr)
+	if verdict == probeUnknown {
+		// A relay that dropped for a moment looks the same as a worker that cannot
+		// be reached. Loading the model again at once would put a second replica
+		// beside one that is well, so the probe is repeated once first.
+		select {
+		case <-time.After(warmProbeRetryDelay):
+			verdict = r.probeHealth(ctx, node, modelAddr)
+		case <-ctx.Done():
+		}
+	}
+	switch verdict {
+	case probeUnknown:
+		// The transport failed, so nothing is known about the backend. The row
+		// stays: a replica that is loaded on a worker that cannot be reached from
+		// here for the moment is not a replica that is gone. This request goes
+		// to a cold load, which places the model where a route exists.
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release routing reservation of an unreachable replica",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Backend not reachable through the transport, keeping its row and falling through to a load elsewhere",
+			"node", node.Name, "model", att.modelName, "replica", replicaIdx)
+		return nil
+	case probeDead:
 		// Stale — roll back the increment, remove the specific replica row, fall through
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
@@ -2043,15 +2072,25 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // burst of N requests for a cold cache costs at most one round-trip, not N.
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
-func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+//
+// The verdict is three-valued. A probe that could not get a stream to the backend
+// because the transport failed learned nothing, and it must not read as a dead
+// backend: the caller would remove the row of a model that is loaded.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) probeVerdict {
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
+	return r.probeCache.DoOrCachedVerdict(key, func() probeVerdict {
 		client := r.buildClientForAddr(node, addr, false)
 		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, _ := client.HealthCheck(checkCtx)
-		return ok
+		switch {
+		case ok:
+			return probeAlive
+		case grpc.TransportFailureOf(client) != nil:
+			return probeUnknown
+		}
+		return probeDead
 	})
 }
 

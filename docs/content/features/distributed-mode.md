@@ -5,54 +5,86 @@ weight = 71
 url = "/features/distributed-mode/"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. A **carrier** moves the control traffic between the frontends and the workers. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
-Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
+Distributed mode needs authentication and a **PostgreSQL** database. SQLite is not supported, because the node registry, the job store, and the other distributed state are PostgreSQL tables.
 {{% /notice %}}
 
 ## Architecture Overview
 
-![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
+![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends. They share PostgreSQL and one active carrier, NATS or the database tunnel. Generic workers run per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
-**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
+**Frontends** are stateless LocalAI instances. They receive API requests and route them to worker nodes with the **SmartRouter**. All frontends share state through PostgreSQL and talk to the workers through the active carrier.
 
-**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
+**Workers** are generic processes that register themselves with a frontend. A worker has no fixed backend type. When a request arrives, the SmartRouter tells the worker to install the backend it needs, over the active carrier.
 
 ### Scheduling Algorithm
 
 ![SmartRouter scheduling: idle-first placement that checks for an already-loaded node, then free VRAM, then an idle node, then preemptive LRU eviction, ending in backend.install and LoadModel](/images/diagrams/smartrouter-scheduling.png)
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
-1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
-3. If no node has the model → prefer nodes with enough free VRAM
-4. Fall back to idle nodes (zero models), then least-loaded nodes
-5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-6. If all models are busy → wait (with timeout) for a model to become idle, then evict
-7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+1. If the model is already loaded on a node, use it (per-model gRPC address).
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom)).
+3. If no node has the model, prefer nodes with enough free VRAM.
+4. Fall back to idle nodes (zero models), then least-loaded nodes.
+5. If no node has capacity, **evict the least-recently-used model with zero in-flight requests** to free a node.
+6. If all models are busy, wait (with a timeout) for a model to become idle, then evict.
+7. Send the `backend.install` request, with the backend name and the model ID, to the worker. The worker starts a new gRPC process on a dynamic port.
+8. The SmartRouter calls gRPC `LoadModel` on the model-specific port and records the result in the database.
 
-Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
+Each model gets its own gRPC backend process, so one worker can serve several models at once (for example a chat model and an embedding model).
+
+## Carriers
+
+The control traffic between frontends and workers goes over one **carrier**. There are two:
+
+| Carrier | What it is | What you need |
+|---------|------------|---------------|
+| `nats` | A NATS broker. Frontends publish broadcasts and send control requests through it. Work queues are NATS queue groups. | A NATS server, reachable from the frontends and the workers. |
+| `tunnel` | The database. Broadcasts use PostgreSQL `LISTEN`/`NOTIFY` (a bus named *pgbus*). Jobs go through a claim table in PostgreSQL. Each worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. | PostgreSQL only. Workers need no inbound port. |
+
+**Exactly one carrier is active at a time.** There is no setting that you pass at boot. The active carrier is a row in the database, and an admin can change it while the cluster runs, with no restart. The two carriers are never used together as a steady state. During a change, both stay attached for a short time so that work in progress can finish. See [Switching the carrier](#switching-the-carrier).
+
+### How a deployment starts
+
+The first frontend that starts writes the row:
+
+- A **new deployment with only PostgreSQL** (no NATS URL in the flags and none stored) starts on `tunnel`.
+- An **existing deployment with a NATS URL** (`--nats-url` or `LOCALAI_NATS_URL`) starts on `nats`. Nothing changes for it: the subjects, the payloads, the queue groups, and the direct gRPC connections stay as they were.
+
+Later frontends read the row and follow it. A frontend never uses its own flags to override the row. If its `--nats-url` names another server than the stored one, it refuses to start and names both addresses.
+
+A frontend that finds a cluster on NATS but has no NATS address fails to start and tells you to set `--nats-url`. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect.
+
+### Choose a carrier
+
+- Use `tunnel` for a self-hosted cluster with PostgreSQL only. It has fewer parts to run and workers behind NAT or a firewall need no open port. See [Operational limits](#operational-limits) for the numbers.
+- Use `nats` for large clusters, many frontends, high-rate or large broadcasts, and fast queue pickup.
+
+You can start on one and change to the other later.
 
 ## Prerequisites
 
-- **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-- **NATS** server - used for real-time backend lifecycle events and file staging
-- All services must be on the same network (or reachable via configured URLs)
+- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the carrier row, and the shared state. On the `tunnel` carrier it is also the message bus and the job queue, so size it for that (see [Operational limits](#operational-limits)).
+- A **NATS** server, only if you want the `nats` carrier. A deployment can start without one and add it later.
+- All services must be reachable from each other, through the network or the configured URLs.
+- On the `tunnel` carrier, a session-level `LISTEN` connection to PostgreSQL. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`. Point the frontends directly at PostgreSQL, or use a session-mode pool.
 
 ## Quick Start with Docker Compose
 
-The easiest way to try distributed mode locally is with the provided Docker Compose file:
+The easiest way to try distributed mode on one machine is the provided Docker Compose file:
 
 ```bash
 docker compose -f docker-compose.distributed.yaml up
 ```
 
-This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
+This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. The frontend has a NATS URL, so the cluster starts on `nats`. When you send an inference request, the SmartRouter installs the needed backend on the worker and loads the model. See the file for GPU support, shared volumes, and more workers.
+
+To try the `tunnel` carrier, remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The cluster then starts on `tunnel`, and the worker needs only `LOCALAI_REGISTER_TO` and the registration token.
 
 {{% notice tip %}}
-Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
+Use `docker-compose.distributed.yaml` for quick local tests. For production, run PostgreSQL (and NATS, if you use it) as managed services, and run frontends and workers on separate hosts.
 {{% /notice %}}
 
 ## Frontend Configuration
@@ -61,9 +93,15 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
+| `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode. Needs PostgreSQL. NATS is optional. |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does. Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
+| `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. LocalAI warns at start-up when it publishes an address that is not on the local host and this flag is off. |
+| `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, a new cluster starts on the `nats` carrier. Without one, it starts on the `tunnel` carrier. The URL is copied into the `nats.url` cluster setting. See [Carriers](#carriers). |
+| `--carrier-prepare-timeout` | `LOCALAI_CARRIER_PREPARE_TIMEOUT` | `1m` | How long a change of carrier waits for every frontend to be ready before it is aborted. The stored cluster setting wins. |
+| `--carrier-transition-window` | `LOCALAI_CARRIER_TRANSITION_WINDOW` | `2m` | How long a change waits for every frontend to confirm the commit. |
+| `--carrier-max-drain` | `LOCALAI_CARRIER_MAX_DRAIN` | `15m` | How long the previous carrier stays attached after a change. See [Switching the carrier](#switching-the-carrier). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
@@ -72,12 +110,13 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
-| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
+| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. It applies to both carriers. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -205,6 +244,12 @@ The call is idempotent. A repeat retries the stop and never extends the hold. A 
 #### Rolling upgrades
 
 Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
+
+### Broadcast size limit
+
+A broadcast is a message that goes to every frontend replica, such as a job progress event or a gallery update. Every carrier now refuses a broadcast with a payload above 8 MiB. The call fails with `ErrPayloadTooLarge`, and nothing is sent. The limit is the same for every carrier, so a deployment keeps its behavior when the carrier changes.
+
+This matters only if your NATS server sets `max_payload` above 8 MiB. The default of the NATS server is 1 MiB, and a message above the server limit was always refused. Keep `max_payload` at 8 MiB or lower.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -349,13 +394,14 @@ Workers are started with the `worker` subcommand. Each worker is generic - it do
 ```bash
 local-ai worker \
   --register-to http://frontend:8080 \
-  --registration-token changeme \
-  --nats-url nats://nats:4222
+  --registration-token changeme
 ```
+
+The worker needs no NATS address. The frontend tells it which [carrier](#carriers) is active and gives it the credential for it. Add `--addr` to make the worker [dual-capable](#worker-profiles).
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--addr` | `LOCALAI_ADDR` | *(empty)* | Address where this worker is reachable (`host:port`). The port is the base for gRPC backends. Setting it makes the worker [dual-capable](#worker-profiles). |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
@@ -368,7 +414,7 @@ local-ai worker \
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | Optional override of the NATS address that the frontend hands over. A deployment on the `tunnel` carrier needs none. |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
@@ -420,7 +466,6 @@ The simplest way to configure a worker's network address is with a single variab
 ```yaml
 environment:
   LOCALAI_ADDR: "192.168.1.100:50051"
-  LOCALAI_NATS_URL: "nats://frontend:4222"
   LOCALAI_REGISTER_TO: "http://frontend:8080"
   LOCALAI_REGISTRATION_TOKEN: "my-secret"
 ```
@@ -545,7 +590,7 @@ The system automatically applies hardware-detected labels on registration:
 
 ### How Workers Operate
 
-Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a NATS `backend.install` event with the backend name and model ID. The worker:
+Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a `backend.install` request, over the active carrier, with the backend name and model ID. The worker:
 
 1. Installs the backend from the gallery (if not already installed)
 2. Starts a **new gRPC backend process on a dynamic port** (each model gets its own process)
@@ -648,6 +693,26 @@ which case every sizing surface falls back to the local host:
 Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
 judges backend compatibility against the union of the capabilities present in
 the cluster, so a CUDA-only build is offered when any worker can run it.
+
+### Model configs across frontends
+
+Every frontend keeps its own in-memory copy of the model configs in the shared models directory. When a frontend installs, edits, toggles or deletes a model, it writes the change to the directory and publishes a message on NATS. The other frontends reload the directory when they receive it.
+
+A gallery install or delete publishes this message as soon as the new config is in place, before the frontend preloads model files. The preload can take minutes on a large models directory, and other frontends do not wait for it. If the preload fails, the operation reports the error, but the config change stays applied on every frontend.
+
+NATS keeps no history of these messages. A frontend that is disconnected when a message is published never receives it. To recover, each frontend also reloads the models directory:
+
+- every `--model-config-resync-interval` (default `30s`), when a config file changed since its last pass, and
+- after each NATS reconnect.
+
+The pass is the same reconcile that a NATS message triggers, so it is idempotent. Only models whose file changed get a new [configuration revision](#model-configuration-revisions). A pass over an unchanged directory reads the config files and does nothing else.
+
+Distributed-state mode: each frontend derives this state from the shared directory, so there is no leader and nothing to replicate. The only per-frontend memory is a hash of the config files from its last pass, which only saves work. The consequence is a bounded delay: a frontend that missed a message serves the previous config for at most one interval.
+
+Two limits apply:
+
+- Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
+- The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
 
 ### Model configuration revisions
 
@@ -1192,6 +1257,17 @@ the slot, and the model filling it can change without rewriting the rule. The
 WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
 the model each one resolves to.
 
+Each frontend resolves the alias from its own copy of the model configs, and a
+frontend that has not yet reloaded a repointed alias still resolves it the old
+way (see [Model configs across frontends](#model-configs-across-frontends)).
+The rule's stored target therefore follows the alias only through frontends
+whose copy of the alias config matches the
+[configuration revision](#model-configuration-revisions) the cluster accepted.
+A frontend that is behind uses the stored target for the replica reconciler and
+does not write it, so two frontends cannot overwrite the rule's target against
+each other, and a frontend that is behind cannot reload the model the alias
+used to point at.
+
 Two constraints follow from replicas being shared. A single load of `llama3`
 serves both `production` and any request that names `llama3` directly, so only
 one rule can decide where it runs: a rule whose target is already governed by
@@ -1321,12 +1397,264 @@ Notes:
 | **Best for** | Ad-hoc clusters, community sharing | Production, Kubernetes, managed infrastructure |
 | **Setup complexity** | Minimal (share a token) | Requires PostgreSQL + NATS |
 
+## Switching the carrier
+
+An admin changes the carrier with a **dry run** first and a **change** second. The same operation is in the Nodes page of the WebUI (the *Cluster transport* panel), in the `local-ai cluster` command, and in the admin API.
+
+{{% notice warning %}}
+Upgrade **all** frontends to a release that has carrier switching before you change the carrier for the first time. A frontend of an older release writes no row and cannot be detected. The preflight cannot see it, and it would not follow the change. See [Rolling upgrades](#rolling-upgrades-and-rollback).
+{{% /notice %}}
+
+### Save a NATS address
+
+To make NATS available, store its address in the cluster settings. This **does not switch** the cluster. It stores the address and checks that the frontend that served the request can reach the server.
+
+```bash
+local-ai cluster settings set --nats-url nats://nats.example.com:4222
+```
+
+If workers must use another address than the frontends (for example a public name), also set `--nats-worker-url`. When it is empty, workers use the `nats.url` address. An address must not contain a user name, a password, or a query string. NATS credentials stay on each frontend (see [NATS JWT authentication](#nats-jwt-authentication-recommended-for-production)). The address cannot be saved while a change is under way.
+
+A deployment that started with `--nats-url` already has this address stored.
+
+### Dry run
+
+```bash
+local-ai cluster carrier switch --to tunnel --dry-run
+```
+
+The dry run asks every frontend what it can build, then prints the **preflight**. It changes nothing. The preflight lists:
+
+- **Blockers.** Each blocker says what is wrong, and whether `force` can pass it:
+  - `busy`: a change is already under way. Only `abort` is accepted. (Not forceable.)
+  - `same`: the target is the active carrier already. (Not forceable.)
+  - `replica`: a frontend cannot use the target (for example, it cannot reach NATS), or its report is missing or too old. (Forceable.)
+  - `worker`: a worker cannot follow (see [Workers and carriers](#workers-and-carriers)). (Forceable.)
+- **Warnings**, for example that the previous carrier from the last change is still draining.
+- **Work in flight:** model loads, jobs, and pending and claimed queue rows.
+- **The live frontends**, each with its version and whether it is ready. **Check that this list is complete.** It is the only protection against a frontend that predates carrier switching.
+- **The workers**, each with the carriers it holds and whether it can follow.
+
+### Change the carrier
+
+```bash
+local-ai cluster carrier switch --to tunnel --wait
+```
+
+The command runs the dry run, prints the preflight, and asks you to confirm that the listed frontends are all the frontends, and that all of them run a release with carrier switching. In a script, pass `--yes`. The WebUI asks for the same confirmation with a checkbox. A change stops at a blocker unless you pass `--force`. Use `--force` only when you accept the result: a worker that cannot follow becomes unroutable until you fix it (see [Troubleshooting](#troubleshooting)).
+
+The admin API answers `202` and the frontends carry out the change. One frontend leads it. If that frontend, or the one that served your request, stops, another one takes over, because the whole state is in the database row.
+
+A change goes through these states:
+
+| State | What happens |
+|-------|--------------|
+| `stable` | One carrier is active. |
+| `prepare` | Every frontend builds the target carrier and listens on it. Publishing, queues, and new calls still use the old carrier. The leader waits until every live frontend reports ready. |
+| `commit` | The target is the active carrier. Every frontend publishes and sends new calls on it and confirms. |
+| `stable` (draining) | The old carrier stays attached for the **drain time**. Then it is released. |
+
+Waits, all measured on the clock of the database:
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `prepare_timeout` | `1m` | How long `prepare` waits for every live frontend. After that the change is **aborted**, or, with `force`, it commits without the late frontend and names it. |
+| `transition_window` | `2m` | How long `commit` waits for every frontend to confirm. After that the cluster settles and names the frontends that did not confirm. |
+| `max_drain` | `15m` | How long the previous carrier stays attached after the commit. |
+
+Set them with `local-ai cluster settings set --max-drain 20m` (a value must be at least 5 seconds), or with `--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain` (environment `LOCALAI_CARRIER_PREPARE_TIMEOUT`, `LOCALAI_CARRIER_TRANSITION_WINDOW`, `LOCALAI_CARRIER_MAX_DRAIN`) on the frontend. A stored setting wins over a flag.
+
+### What finishes where it started
+
+No request is cut by the commit.
+
+| Work | During the change |
+|------|-------------------|
+| Inference requests and streams | Continue on the connection they started on. |
+| Backend installs | Finish on the carrier that received them. A failed install is retried on the new one. |
+| Model loads | Keep their lease. Each renewal is a new call, sent on whichever carrier reaches the worker. A load whose worker never follows is stopped by the worker watchdog after 90 s without a renewal, then retried. |
+| File transfers | Finish on their connection. New ones use the new carrier. |
+| Jobs on the claim queue (`tunnel`) | Claimed rows are driven to the end over the old tunnel while workers are attached. At the end of the drain, rows still pending move to the NATS queue. |
+| Jobs on a NATS queue group | The ones NATS already delivered finish. NATS stores nothing that is pending. |
+| Agent runs | Keep the carrier they started on. |
+| Broadcasts (progress, cache hints, state deltas) | Frontends listen on both carriers from `prepare` and publish on one. Order can skew by about one poll interval (2 s) around the commit. Each frontend then reloads its shared state once, so a lost delta is repaired. |
+
+**After the drain** (`max_drain`, default 15 minutes) the old carrier is released. Work that still runs only on it is cut. A job that was running is failed by the reaper. An agent run that lasts longer than the drain time loses its carrier and is failed the same way. Raise `max_drain` before you change the carrier if you run long jobs.
+
+### Abort and roll back
+
+`abort` is accepted only in `prepare`. It returns to `stable` on the old carrier and moves no data.
+
+```bash
+local-ai cluster carrier abort
+```
+
+After the commit, the target is the active carrier. To go back, change the carrier in the other direction. This is a normal change with a dry run. If the old carrier is still draining, it is cheap, and the preflight warns that two drains overlap.
+
+### The admin API
+
+All four routes are for an admin only. They answer `503` when distributed mode is off. The full schema is in the swagger UI of your server (`/swagger/index.html`).
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/cluster/carrier` | The active carrier, the epoch, the state, the replicas and their readiness, the workers, the work in flight, and the settings. |
+| `POST /api/cluster/carrier` | `{"target":"nats"\|"tunnel","dry_run":true}` for a dry run (`200`). `{"target":"tunnel"}` starts a change (`202`). Add `"force":true` to pass forceable blockers. `{"abort":true}` aborts. A blocked request is `422` with the blockers. A change already under way is `409`. |
+| `GET /api/cluster/settings` | `nats_url`, `nats_worker_url`, `prepare_timeout`, `transition_window`, `max_drain`. |
+| `PUT /api/cluster/settings` | Store the fields that you send. An empty string clears a setting. A `nats_url` that the serving frontend cannot reach is `422`. A `nats_url` during a change is `409`. |
+
+The LocalAI Assistant has a read-only `get_cluster_carrier` tool. It has no tool that changes the carrier, because a change needs a dry run and a check of the frontend list by an admin.
+
+## Workers and carriers
+
+A worker does not choose the carrier. At registration, the frontend tells the worker which carrier is active and gives it the credential for that carrier. The worker needs only `--register-to` and the registration token. `--nats-url` on a worker is an optional override.
+
+The worker then follows the cluster. Every heartbeat reply carries the active carrier, the epoch, and the state. When a change starts, the worker registers again (the same call it makes at boot), receives the credential for the target, waits a random time of up to 10 seconds so that a large fleet does not connect at the same instant, and attaches to the target. It keeps the old carrier open until the cluster releases it and nothing runs on it. The **backend processes keep running**: a switch moves the control channel only, so a loaded model is not reloaded. The follow delay can be tuned with `LOCALAI_FOLLOW_MAX_DELAY` (default `10s`).
+
+### Worker profiles
+
+| Profile | How to start it | Can follow to `tunnel` | Can follow to `nats` |
+|---------|-----------------|------------------------|----------------------|
+| **Dual-capable** | Give it an address: `--addr` (`LOCALAI_ADDR`) or `--advertise-addr` (`LOCALAI_ADVERTISE_ADDR`) that the frontends can reach. | Yes | Yes |
+| **Tunnel-only** | No address. It opens an outbound connection only. On the tunnel its backends and file server bind to loopback, so no port is open. | Yes | **No**, not until you restart it with an address |
+
+A worker that started on `nats` always binds all interfaces, as workers always did, so it can follow to the tunnel and back.
+
+Other reasons a worker cannot follow, shown in the preflight and in the `follow_error` of the node:
+
+- The worker predates carrier switching. It reports no capabilities and stays on NATS.
+- The NATS server asks for a client certificate, and the worker has none. The frontend cannot hand over certificate files. Set `LOCALAI_NATS_TLS_CERT` and `LOCALAI_NATS_TLS_KEY` on the worker.
+- The worker has no frontend URL that a tunnel can use.
+
+A worker that cannot follow keeps the carrier it has, reports why, and looks again every 30 seconds. After the old carrier is released, it stays registered and keeps sending heartbeats. It is **not reaped**, but the scheduler skips it (it is unroutable) until it follows. Restart it with an address, or fix the reason, and it follows.
+
+### Credentials handover
+
+At registration and at every re-registration the frontend returns the credential for the carrier:
+
+- For `nats`: the worker NATS address (`nats.worker_url`, else `nats.url`), the CA certificate of the server as PEM, and the per-node JWT and seed when JWT authentication is on (`nats_jwt`, `nats_user_seed`).
+- For `tunnel`: a per-node tunnel token (`tunnel_token`), sent once.
+
+Credentials rotate at each registration. The handover crosses the network under the registration token, so use `https` for `--register-to` unless the frontend is on loopback.
+
+## Peer link
+
+Several frontends can share the tunnels of the workers. A worker is connected to one frontend. A request that arrives at another frontend goes over a **peer link** to the frontend that holds the tunnel. The peer link is used on the `tunnel` carrier.
+
+| Flag | Env | Meaning |
+|------|-----|---------|
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | `host:port` at which the other frontends dial this one. By default LocalAI finds it from the route to the database. Set it when that address is wrong, for example in Kubernetes or behind NAT. A frontend that publishes none cannot be reached by the others, and logs a warning. |
+| `--peer-tls` | `LOCALAI_PEER_TLS` | Dial the other frontends over `wss`. |
+| `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | PEM file with the CA that signs their certificate. By default the system roots are used. |
+
+The link carries the credential of the frontend and the requests that it relays. Without `--peer-tls` it is clear text, and LocalAI logs a warning at start-up when the published address is not on the local host. If a reverse proxy ends TLS in front of each frontend, use `--peer-tls`, and set `--peer-address` to the TLS address of that frontend.
+
+## Security of the carriers
+
+- **Per-node credentials.** Each worker has its own tunnel token. It is stored as a hash (SHA-256) and compared in constant time, and it is rotated at each registration. Each frontend has its own peer credential. The shared **registration token never opens a tunnel or a peer link**. It only allows a worker to obtain its own credential.
+- **Open registration.** With no registration token and `--auto-approve-nodes`, anyone who can reach a frontend can register a node, get a tunnel, and receive the requests sent to workers. LocalAI logs a warning once (`Worker registration is open`) but does not refuse to start. Set a token, or turn off automatic approval. `--distributed-require-auth` makes the missing token a start-up error.
+- **Admin only.** The carrier and settings routes need an admin user, and each change is logged with the name of the admin (`Change of carrier requested`).
+- **Websocket.** The tunnel upgrade happens after bearer authentication. The tunnel reaches only the loopback ports of the worker that its backends use.
+- **Worker control plane.** A worker serves its control plane to callers on its own host only, unless it has a registration token. A frontend reaches it through the tunnel.
+- **NATS secrets stay on the frontends.** Operator keys and TLS key files are files or environment values on each frontend. They never enter the database. The CA certificate (public) is handed to the workers.
+- **Cluster settings** are shared by all frontends, so they cannot hold credentials: an address with a user name, a password, or a query string is refused.
+
+## Rolling upgrades and rollback
+
+Upgrade the **frontends first**, all of them, then the workers. Do not change the carrier as part of an upgrade. Do it afterwards, with the dry run.
+
+| Frontends | Workers | Result |
+|-----------|---------|--------|
+| old | old | As before, on NATS. |
+| new | old | Works on NATS. Old workers report no capabilities, never follow, and block a change to the tunnel unless you force it. |
+| old | new | A new worker gets no carrier from an old frontend. It uses its own `--nats-url`, or exits with a message when it has none. |
+| old and new together | any | Supported on NATS only, with no switching. A tunnel worker is not supported: an old frontend reads it as unroutable. |
+| new | new | Switching is supported. |
+
+- **Old frontends are undetectable.** The preflight prints the live frontends so that you can check the list. Do not tick the confirmation if a frontend is missing.
+- **Rollback to a release without carrier switching.** First change the carrier to `nats` and wait for the drain to end. Then downgrade the frontends. Old workers still work.
+- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_carrier`, `cluster_settings`, `instances`, `node_connections`, `bus_messages`, and `work_claims`; one write per frontend per heartbeat; one small read of the carrier row about every 2 seconds per frontend; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the new status API and UI panel.
+
+## Observability
+
+LocalAI exports these metrics through OpenTelemetry (Prometheus on `/metrics`):
+
+| Metric | Type | Meaning |
+|--------|------|---------|
+| `localai_carrier_active` (label `carrier`) | gauge | `1` for the carrier this frontend publishes on. |
+| `localai_carrier_state` (label `state`) | gauge | `1` for the current state: `stable`, `prepare`, or `commit`. |
+| `localai_carrier_epoch` | gauge | The epoch of the carrier row, as this frontend last read it. |
+| `localai_carrier_drain_remaining_seconds` | gauge | Seconds until the previous carrier is released, `0` if none drains. |
+| `localai_carrier_replica_ready` | gauge | `1` when this frontend reported ready for the epoch it read. |
+| `localai_carrier_swaps_total` (label `to`) | counter | Times this frontend started to use another carrier. |
+| `localai_carrier_prepare_failures_total` | counter | Times this frontend could not build the carrier it was asked to prepare. |
+| `localai_carrier_swap_seconds` | histogram | Time from the first sight of a change to the start of use of the new carrier on this frontend. |
+| `localai_carrier_changes_total` (label `outcome`) | counter | Moves of the row by the leader or an admin: `requested`, `committed`, `settled`, `drained`, `aborted`. |
+| `localai_carrier_phase_duration_seconds` (label `phase`) | histogram | How long the cluster stayed in `prepare` and in `commit`. |
+| `localai_pgbus_published_total` (label `path`) | counter | Broadcasts published through the database: `inline` or `spill`. |
+| `localai_pgbus_dropped_total` (label `stage`) | counter | Broadcasts this frontend received and lost: `listener`, `subscription`, or `resolve`. |
+| `localai_pgbus_spill_purged_total` | counter | Spilled broadcast rows deleted after the retention time. |
+| `localai_pgbus_reconnections_total` | counter | Times the `LISTEN` connection was lost and opened again. |
+
+Log lines to watch (frontend): `Change of carrier requested`, `Change of carrier committed`, `Change of carrier settled`, `Change of carrier aborted` (with the reason), `The previous carrier is released`, `This replica cannot build the carrier it was asked to prepare`, `Could not follow the cluster carrier row`. Worker: `The worker attached to a carrier`, `The worker follows a change of carrier`, `The worker could not follow the carrier; it keeps the one it has and tries again`, `The worker released a carrier`.
+
+## Operational limits
+
+The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 PostgreSQL cores, loopback). Treat the ratios as a guide and the ceilings as rough. Measure your own deployment.
+
+- **Broadcast ceiling.** pgbus carries about 16,000 messages per second of 200 bytes with a p99 latency under 10 ms. With 20 listening frontends, or messages of 2 to 8 KiB, the ceiling is about 8,000 per second. Realistic cluster rates (hundreds per second for 200 workers) use a few percent of this. A NATS server is far above it.
+- **Large broadcasts.** A payload that does not fit in a PostgreSQL notification (about 8 KB) goes through a table row (the *spill* path). The spill path is fine up to about 1,000 messages per second of 64 KiB. It loses messages above about 2,000 per second, because delivery is at most once. The frontends read spilled rows with up to 8 concurrent readers, which reduces this loss. Keep large payloads rare.
+- **Delivery is at most once** on both carriers. Anything that must survive a gap lives in a table.
+- **Broadcast size limit.** Every carrier refuses a payload above 8 MiB (`ErrPayloadTooLarge`). Keep the NATS `max_payload` at 8 MiB or lower.
+- **Job pickup.** On the claim queue, a frontend polls every 2 seconds, and a NOTIFY hint wakes the pickup at once, so a job usually starts in a few milliseconds. The poll is the safety net, so the worst case is 2 seconds. One consumer claims about 660 rows per second, and 32 consumers about 6,000. The claim queue is at-least-once: a job in flight can run twice after a frontend dies, so job handlers must be idempotent. A NATS queue group lost 17 to 20% of items when a consumer was killed.
+- **Tunnel latency.** A tunnel adds about 0.1 ms per call. Token streaming runs at the same rate as a direct connection.
+- **Large transfers.** A bulk transfer used to delay small calls on the same tunnel session (head-of-line blocking). Bulk data now uses its own lane of the tunnel, so inference calls are not held behind a model upload.
+- **Cost of one tunnel session.** About 46 KB of heap and 6 goroutines (both ends together). With 64 KiB websocket buffers it is about 306 KB. 200 workers cost a frontend a few megabytes.
+- **Database connections.** The `tunnel` carrier holds one `LISTEN` connection per frontend. A change from NATS to the tunnel adds one per frontend for the length of the change.
+- **Reconnects.** At a change, each worker waits a random time of up to 10 seconds. With 200 workers that is about 20 connects per second.
+- **Not measured.** The duration of a change with many workers, the reconnect storm at scale, PostgreSQL on another host, behind a pooler, with many frontends, and TLS on the websocket.
+
+## FAQ
+
+**Does saving a NATS URL move my cluster to NATS?** No. It makes NATS available and checks that it can be reached. A change is a separate step.
+
+**Can both carriers run together?** Not as a steady state. They overlap only during a change, for the drain time.
+
+**Do I need to restart anything to change the carrier?** No. Not the frontends, not the workers, and not the backends.
+
+**Can I use `--nats-url` and keep my old setup?** Yes. A deployment with `--nats-url` starts on NATS. The flag is copied to the `nats.url` setting (without credentials in the address).
+
+**Do I still need `--nats-url` on workers?** No. A worker learns the address from the frontend. Set it only to override the address.
+
+**What if I never use NATS?** Run PostgreSQL only. The cluster starts on the tunnel.
+
+**Why can my tunnel-only worker not follow to NATS?** It has no address that the frontends can dial, and its backends listen on loopback. Restart it with `--addr`.
+
+**What happens to a worker that cannot follow, when I force the change?** It stays registered, reports `follow_error`, and is unroutable. Nothing is deleted. Fix it and it follows.
+
+**How long does a change take?** `prepare` ends as soon as every frontend is ready (a few seconds), and the commit follows at once. The drain then runs for `max_drain`.
+
+**Is it safe to change the carrier with a model loading?** Yes. The load keeps its lease and its backend process. See [What finishes where it started](#what-finishes-where-it-started).
+
 ## Troubleshooting
 
 **Worker not registering:**
 - Verify the frontend URL is reachable from the worker (`curl http://frontend:8080/api/node/register`)
 - Check that `--registration-token` matches on both frontend and worker
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
+
+**A change of carrier stays in `prepare`:**
+- The leader waits for every live frontend to report ready, then aborts after `prepare_timeout` (default 1 minute). Read the note of the aborted change (`GET /api/cluster/carrier`, field `row.note`, or the log line `Change of carrier aborted`). It names the frontend and the reason.
+- A frontend that cannot build the target (for example it cannot reach NATS with its own credentials) reports the reason, and the leader aborts at once. Fix it, run a dry run, and try again.
+- A frontend that is down is ignored once its row is stale. A frontend of an older release is not seen at all, so it does not delay the change. It does not follow the change either, and it keeps using the carrier it knew. Upgrade it before any change.
+- Use `local-ai cluster carrier abort` to return to `stable` at once.
+
+**A worker shows `follow_error`:**
+- The text is the reason. See [Worker profiles](#worker-profiles): no address (tunnel-only worker and a change to NATS), a missing NATS client certificate, an old worker, or no frontend URL for the tunnel.
+- The worker keeps its old carrier and tries again every 30 seconds. After the old carrier is released it is registered but unroutable. Restart it with an address, or fix the reason. It follows without further steps.
+
+**The frontend log says it cannot reach NATS, or the NATS URL is refused:**
+- Saving a NATS URL (`PUT /api/cluster/settings`) is refused with `422` when the serving frontend cannot reach the server with its own credentials. Check the address, the TLS files (`--nats-tlsca`, `--nats-tls-cert`, `--nats-tls-key`), and the JWT credentials on that frontend.
+- A frontend that is on the NATS carrier and loses the server stays up and keeps retrying. NATS workers become unroutable (nothing is reaped). You can change to the `tunnel` carrier from the dashboard if PostgreSQL is healthy: the dry run lists any NATS-only worker that cannot follow.
 
 **NATS connection errors:**
 - Confirm NATS is running and reachable (`nats-server --signal ldm` or check port 4222)

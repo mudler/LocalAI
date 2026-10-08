@@ -414,6 +414,44 @@ type VRAMEstimateRequest struct {
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
 }
 
+// ClusterCarrierStatus is the LLM-facing view of the transport of a
+// distributed cluster. Distributed is false on a frontend that is not
+// distributed, and the other fields are then empty.
+type ClusterCarrierStatus struct {
+	Distributed bool `json:"distributed"`
+	// Active is "nats" or "tunnel".
+	Active string `json:"active,omitempty"`
+	// State is "stable", "prepare" or "commit". A stable cluster with
+	// DrainRemainingSeconds above zero is draining the previous carrier.
+	State                 string  `json:"state,omitempty"`
+	Target                string  `json:"target,omitempty"`
+	Epoch                 int64   `json:"epoch,omitempty"`
+	DrainRemainingSeconds float64 `json:"drain_remaining_seconds,omitempty"`
+	// Replicas are the live frontends.
+	Replicas []ClusterReplicaInfo `json:"replicas,omitempty"`
+	// Workers are the registered workers and the carriers they hold.
+	Workers []ClusterWorkerInfo `json:"workers,omitempty"`
+}
+
+// ClusterReplicaInfo is one live frontend replica.
+type ClusterReplicaInfo struct {
+	ID          string `json:"id"`
+	Version     string `json:"version,omitempty"`
+	ReadyEpoch  int64  `json:"ready_epoch"`
+	ReadyReason string `json:"ready_reason,omitempty"`
+}
+
+// ClusterWorkerInfo is one worker. CanFollow is about a change to the other
+// carrier, and Reason says why it is false.
+type ClusterWorkerInfo struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name,omitempty"`
+	Attached    []string `json:"attached,omitempty"`
+	CanFollow   bool     `json:"can_follow"`
+	Reason      string   `json:"reason,omitempty"`
+	FollowError string   `json:"follow_error,omitempty"`
+}
+
 // FailoverTargetInfo is the LLM-facing view of one failover chain target's
 // health. It mirrors failover.TargetStatus but drops ConsecutiveOK and
 // LastProbe — internal probing detail the LLM doesn't need to decide

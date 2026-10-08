@@ -36,7 +36,7 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 // token but do not verify per-node identity. A compromised worker can heartbeat/drain/
 // deregister other nodes. Future: issue per-node JWT at registration, validate node
 // identity on subsequent requests (compare :id param with token subject).
-func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) {
+func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
@@ -45,8 +45,8 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	tokenAuthMw := nodeTokenAuth(registrationToken)
 
 	node := e.Group("/api/node", readyMw, tokenAuthMw)
-	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg))
-	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry))
+	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg, options...))
+	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry, options...))
 	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	node.POST("/:id/deregister", localai.DeactivateNodeEndpoint(registry))
@@ -61,7 +61,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 // backend install path (POST /:id/backends/install). That handler enqueues a
 // ManagementOp on the gallery channel rather than blocking on a NATS reply, so
 // the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor) {
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
@@ -82,10 +82,10 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 
 	admin.GET("/:id", localai.GetNodeEndpoint(registry))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
-	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader))
+	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader, options...))
 	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry, unloader))
 	admin.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
-	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
+	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg, options...))
 
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))

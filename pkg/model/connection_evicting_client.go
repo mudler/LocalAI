@@ -30,8 +30,20 @@ func newConnectionEvictingClient(inner grpc.Backend, modelID string, evict func(
 	}
 }
 
+// Unwrap returns the client that this one decorates, so that a caller can ask it
+// why a dial failed. See grpc.BackendUnwrapper.
+func (c *ConnectionEvictingClient) Unwrap() grpc.Backend { return c.Backend }
+
 func (c *ConnectionEvictingClient) checkErr(err error) {
 	if err != nil && isConnectionError(err) {
+		// A dial that failed in the transport says nothing about the backend. The
+		// eviction shuts the model down on the worker and removes its rows, and a
+		// backend that could not be reached has not been shown to be gone.
+		if transportErr := grpc.TransportFailureOf(c.Backend); transportErr != nil {
+			xlog.Debug("Connection error during inference came from the transport; keeping the model",
+				"model", c.modelID, "error", transportErr)
+			return
+		}
 		c.once.Do(func() {
 			xlog.Warn("Connection error during inference, evicting model from cache",
 				"model", c.modelID, "error", err)

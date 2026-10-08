@@ -54,7 +54,7 @@
     </header>
     <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
     <footer>
-      <div class="note">Stateless frontends, a shared <b>NATS/Postgres</b> plane, and generic workers running per-model backends.</div>
+      <div class="note">Stateless frontends, shared <b>PostgreSQL</b>, one active carrier (<b>NATS</b> or the database <b>tunnel</b>) that an admin can switch live, and generic workers.</div>
       <div class="url">localai.io<span>/features/distributed-mode</span></div>
     </footer>
   </div>
@@ -106,8 +106,8 @@ svg.appendChild(el("line",{x1:SPX,y1:SPY+58,x2:SPX+SPW,y2:SPY+58,stroke:INK,"str
 txt(SPX+22,SPY+38,"Control plane",{f:"Bricolage Grotesque",w:800,sz:26,fill:PAPER});
 // chips
 const chips=[
-  {n:"PostgreSQL", s:"shared config & state"},
-  {n:"NATS",       s:"jobs · messaging bus"},
+  {n:"PostgreSQL", s:"state · tunnel · bus · queue"},
+  {n:"NATS (optional)", s:"the other carrier"},
   {n:"S3 (optional)", s:"model & artifact store"},
 ];
 const CHX=SPX+24, CHW=SPW-48, CHH=104; let cy=SPY+82;
@@ -151,14 +151,14 @@ fY.forEach((y)=>{
   arrow(FX+FW, y+FH/2, SPX, ty, INK);
 });
 
-// NATS messaging bus -> workers (dashed). Workers coordinate via NATS;
-// PostgreSQL is the frontends' shared state, not something workers connect to.
-const natsY = SPY+82+CHH+18 + CHH/2; // NATS chip center y
+// Active carrier -> workers (dashed). One carrier is active at a time: NATS, or the
+// websocket tunnel that workers open to a frontend. An admin switches it live.
+const natsY = SPY+SPH/2; // the carrier leaves the plane, not one chip
 wY.forEach((y)=> arrow(SPX+SPW, natsY, WX, y+WH/2, RUSTD, "2 8"));
 // label the NATS bus arrows
-const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2, labY=natsY-46;
+const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2-26, labY=natsY-46;
 svg.appendChild(el("rect",{x:labX,y:labY,width:labW,height:labH,fill:PAPER,stroke:RUSTD,"stroke-width":2}));
-txt(labX+labW/2,labY+18,"backend.install",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
+txt(labX+labW/2,labY+18,"active carrier",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
 
 // ---- annotated arrow: frontend -> worker : LoadModel (gRPC) ----
 arrow(FX+FW, fY[2]+FH-24, WX, wY[2]+WH-30, COLD, "4 7");

@@ -1,0 +1,97 @@
+---
+name: 'E2E Distributed Tests'
+
+on:
+  pull_request:
+    # The suite's dependency graph is large, so an allowlist of paths would
+    # silently stop guarding the moment code moves. It is cheap enough to run
+    # unless the diff is confined to paths it provably cannot reach.
+    # See .agents/ci-caching.md.
+    paths-ignore:
+      - 'gallery/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '**/*.md'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-tests-e2e-distributed-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests-e2e-distributed:
+    runs-on: ubuntu-latest
+    # Advisory: a failure is a visible red X on the pull request, and the job is
+    # deliberately not in branch protection. Promoting it to a required check
+    # is a repository-settings change, to be made once it has a track record.
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Pre-pull test images
+        # The suite starts its own PostgreSQL and NATS servers with
+        # testcontainers. Pulling the images here keeps the pull time out of the
+        # spec timeouts and makes a registry outage read as a setup failure
+        # instead of a test failure.
+        run: |
+          docker pull postgres:16-alpine
+          docker pull nats:2-alpine
+      - name: Distributed E2E
+        # TESTCONTAINERS_RYUK_DISABLED keeps the pre-pull above meaningful. The
+        # reaper exists to clean up leaked containers on a long-lived host, but
+        # this runner is ephemeral and every container dies with the VM.
+        # Leaving it enabled would pull one more unpinned image mid-suite.
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
+      - name: Distributed E2E, switch of the carrier
+        # Real processes: two frontends and two workers change the carrier
+        # between NATS and the database tunnel while a model serves requests.
+        # It runs apart from the suite above so that a failure names the
+        # switch and the two logs stay short. Like the suite, it needs only the
+        # public PostgreSQL and NATS images and no secret, so a pull request
+        # from a fork runs it the same way.
+        if: ${{ !cancelled() }}
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          PATH="$PATH:$HOME/go/bin" make test-e2e-distributed-switch
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

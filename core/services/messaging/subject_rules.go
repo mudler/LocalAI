@@ -62,3 +62,18 @@ func ValidateSubject(subject string) error {
 	}
 	return fmt.Errorf("%w: %q", ErrUnservedSubject, subject)
 }
+
+// ValidateBroadcastSubject is ValidateSubject for a carrier that has fan-out
+// and no request and reply. It refuses the control roots with the same class
+// of error as a root that is not served at all, because for that carrier they
+// are not served.
+func ValidateBroadcastSubject(subject string) error {
+	if err := ValidateSubject(subject); err != nil {
+		return err
+	}
+	root, _, _ := strings.Cut(subject, ".")
+	if _, ok := broadcastRoots[root]; !ok {
+		return fmt.Errorf("%w: %q carries request and reply, which this carrier does not", ErrUnservedSubject, subject)
+	}
+	return nil
+}

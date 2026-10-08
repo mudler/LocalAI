@@ -47,6 +47,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListAliases:          "GET /api/aliases",
 	ToolListVoiceProfiles:    "GET /api/voice-profiles",
 	ToolListFailoverChains:   "GET /api/failover",
+	ToolGetClusterCarrier:    "GET /api/cluster/carrier",
 
 	// Mutating tools.
 	ToolInstallModel:        "POST /models/apply",

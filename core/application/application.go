@@ -611,6 +611,9 @@ func (a *Application) start() error {
 		if a.distributed != nil && a.distributed.Unloader != nil {
 			assistantClient.LoadStopper = a.distributed.Unloader
 		}
+		if a.distributed != nil && a.distributed.Switch != nil {
+			assistantClient.Carrier = a.distributed.Switch
+		}
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
@@ -670,8 +673,8 @@ func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
-		if d.Nats != nil {
-			opts.Bus = d.Nats
+		if d.Broadcaster != nil {
+			opts.Bus = d.Broadcaster
 		}
 	}
 	return opts
@@ -723,7 +726,7 @@ func (a *Application) StartAgentPool() {
 	}
 	// Keep per-user agent tasks consistent across replicas (nil in standalone).
 	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
+		usm.SetJobSyncNATS(d.Broadcaster)
 	}
 	aps.SetUserServicesManager(usm)
 

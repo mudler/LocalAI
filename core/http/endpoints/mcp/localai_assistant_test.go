@@ -218,6 +218,10 @@ func (stubClient) ClearRouterCorpus(_ context.Context, routerModel string) (*loc
 	return &localaitools.RouterCorpusClearResult{Router: routerModel}, nil
 }
 
+func (stubClient) GetClusterCarrier(_ context.Context) (*localaitools.ClusterCarrierStatus, error) {
+	return &localaitools.ClusterCarrierStatus{}, nil
+}
+
 func (stubClient) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
 	return []localaitools.FailoverChainInfo{}, nil
 }

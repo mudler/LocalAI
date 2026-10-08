@@ -16,6 +16,11 @@ type fakeConn struct{ connected bool }
 
 func (f *fakeConn) IsConnected() bool { return f.connected }
 
+// fakeTunnel stands in for the tunnel client of a worker.
+type fakeTunnel struct{ connected bool }
+
+func (f *fakeTunnel) Connected() bool { return f.connected }
+
 var _ = Describe("WorkerReadiness", func() {
 	Describe("the gate itself", func() {
 		It("reports ready when no probe has been installed yet", func() {
@@ -49,6 +54,25 @@ var _ = Describe("WorkerReadiness", func() {
 			// up and the port is bound, but the worker can receive no work.
 			err := NATSReadiness(&fakeConn{connected: false})()
 			Expect(err).To(MatchError(ContainSubstring("NATS")))
+		})
+	})
+
+	Describe("TunnelReadiness", func() {
+		It("reports ready while the tunnel holds a session", func() {
+			Expect(TunnelReadiness(&fakeTunnel{connected: true})()).To(Succeed())
+		})
+
+		It("reports not ready once the session is gone", func() {
+			err := TunnelReadiness(&fakeTunnel{connected: false})()
+			Expect(err).To(MatchError(ErrTunnelDisconnected))
+		})
+
+		It("reports not ready when there is no tunnel at all", func() {
+			Expect(TunnelReadiness(nil)()).To(MatchError(ErrTunnelDisconnected))
+		})
+
+		It("does not mix up the reasons of the two carriers", func() {
+			Expect(errors.Is(ErrTunnelDisconnected, ErrNATSDisconnected)).To(BeFalse())
 		})
 	})
 

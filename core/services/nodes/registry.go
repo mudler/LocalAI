@@ -27,13 +27,24 @@ type BackendNode struct {
 	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
 	ID                string `gorm:"primaryKey;size:36" json:"id"`
 	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`  // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                   // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`              // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
+	// TunnelTokenHash is the SHA-256 of the own credential of this node for the
+	// tunnel: the token that it presents at GET /api/cluster/connect. It is not
+	// the registration token. Registration mints a new random secret for each
+	// node, returns it once and stores only this hash, so a registration token
+	// that leaked does not open a tunnel for every node whose ID can be read.
+	//
+	// Empty means that no tunnel credential was minted for the node. A node that
+	// registered before the column existed looks like this, and it cannot open a
+	// tunnel until it registers again. The column cannot be filled in, because
+	// the secret exists only in the response that minted it.
+	TunnelTokenHash string `gorm:"size:64" json:"-"`
+	TotalVRAM       uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM   uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -96,7 +107,19 @@ type BackendNode struct {
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	// Attached lists the carriers that the worker reported it is connected to,
+	// separated by commas, and AttachedEpoch is the epoch of the cluster
+	// carrier row that the worker saw when it reported. During a change of
+	// carrier a worker is attached to both, and the frontends route by this.
+	// Both are empty for a worker that does not report them.
+	Attached      string `gorm:"column:attached;size:64" json:"attached,omitempty"`
+	AttachedEpoch int64  `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
+	// Follow lists the carriers the worker reported it can attach to, separated by
+	// commas, and FollowError is why it cannot attach to another one, in its own
+	// words. A worker that predates carrier switching reports neither.
+	Follow        string    `gorm:"column:follow;size:64" json:"follow,omitempty"`
+	FollowError   string    `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
 	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
 	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
 	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
@@ -1139,6 +1162,31 @@ type HeartbeatUpdate struct {
 	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
 	// WorkerIncarnation is the worker process identity. See BackendNode.
 	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
+
+	// The carrier report. A worker that follows a change of carrier sends it in
+	// every heartbeat: the carriers it is attached to, the epoch of the cluster
+	// row it saw, the carriers it can attach to, and why it cannot attach to
+	// another. A worker that predates carrier switching sends none of them.
+	// FollowCapabilities is never empty in a report (a worker can follow the
+	// carrier it holds), so it tells a report from its absence.
+	Attached           []string `json:"attached,omitempty"`
+	AttachedEpoch      int64    `json:"attached_epoch,omitempty"`
+	FollowCapabilities []string `json:"follow_capabilities,omitempty"`
+	FollowError        string   `json:"follow_error,omitempty"`
+}
+
+// CarrierReport returns the carrier report of a heartbeat, and false when the
+// worker sent none.
+func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
+	if len(u.FollowCapabilities) == 0 {
+		return CarrierReport{}, false
+	}
+	return CarrierReport{
+		Attached:      parseCarriers(u.Attached),
+		AttachedEpoch: u.AttachedEpoch,
+		Follow:        parseCarriers(u.FollowCapabilities),
+		FollowError:   truncateRunes(u.FollowError, followErrorMax),
+	}, true
 }
 
 func clampCPUUsage(usage float64) float64 {
@@ -1331,6 +1379,34 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 		InFlightCount: inFlight.Total,
 		Labels:        labels,
 	}, nil
+}
+
+// SetTunnelTokenHash stores the hash of the tunnel credential of a node. An
+// empty hash clears it. It writes the one column on its own because Register
+// updates from a struct, and a struct update skips an empty value, so it could
+// not clear a credential.
+func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Update("tunnel_token_hash", hash)
+	if res.Error != nil {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// ClearAddresses removes the addresses of a node. A worker that holds only a
+// tunnel advertises none, and Register does not clear a column when the new
+// value is empty, so a node that registered with addresses before would keep
+// them.
+func (r *NodeRegistry) ClearAddresses(ctx context.Context, nodeID string) error {
+	err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"address": "", "http_address": ""}).Error
+	if err != nil {
+		return fmt.Errorf("clearing the addresses of node %s: %w", nodeID, err)
+	}
+	return nil
 }
 
 // GetByName returns a single node by name.
@@ -2410,11 +2486,14 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 }
 
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
+// The replica reconciler acts on these, so a rule whose alias this frontend
+// resolves from an outdated config keeps the stored target instead (see
+// applyCurrentTarget).
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	for i := range configs {
-		r.applyTarget(&configs[i])
+		r.applyCurrentTarget(ctx, &configs[i])
 	}
 	return configs, err
 }

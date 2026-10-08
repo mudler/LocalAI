@@ -213,6 +213,15 @@ func (s *JobStore) DeleteJob(id string) error {
 	return s.db.Where("id = ?", id).Delete(&JobRecord{}).Error
 }
 
+// JobStatus returns the status of a job.
+func (s *JobStore) JobStatus(id string) (string, error) {
+	var status string
+	if err := s.db.Model(&JobRecord{}).Select("status").Where("id = ?", id).Scan(&status).Error; err != nil {
+		return "", err
+	}
+	return status, nil
+}
+
 // UpdateJobStatus updates just the status (and optionally result/error) of a job.
 func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	updates := map[string]any{

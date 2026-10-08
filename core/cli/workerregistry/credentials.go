@@ -15,6 +15,11 @@ import (
 // package (and its gorm/DB dependencies).
 const statusPending = "pending"
 
+// carrierTunnel mirrors cluster.CarrierTunnel, for the reason statusPending is
+// copied: this package does not import the cluster package and its database
+// dependencies.
+const carrierTunnel = "tunnel"
+
 // defaultMaxAttempts bounds how many times Acquire registers (and how many
 // consecutive times RefreshLoop may fail) before giving up. It is high enough
 // to ride out a slow admin approval or a transient frontend outage, but finite
@@ -25,20 +30,27 @@ const defaultMaxAttempts = 100
 // RegisterFunc performs one idempotent registration round-trip.
 type RegisterFunc func(ctx context.Context) (*RegisterResponse, error)
 
-// NATSCredentialManager acquires NATS credentials at startup — waiting through
-// admin approval when required — and refreshes them before the minted JWT
-// expires, by re-registering (which mints a fresh JWT). The live NATS
-// connection adopts a refreshed JWT on its next reconnect via Provider. Safe
-// for concurrent use.
+// CredentialManager acquires the credentials of the carrier at startup. For
+// NATS it waits through admin approval when required, and it refreshes the
+// credentials before the minted JWT expires, by registering again (which mints a
+// new JWT). The live NATS connection adopts a refreshed JWT on its next
+// reconnect via Provider. For the tunnel it keeps the token of the node that the
+// last registration returned. Safe for concurrent use.
 //
 // It addresses two failure modes: a worker that needs credentials but registers
 // while still pending approval (it would otherwise give up and never connect),
 // and a long-running worker whose 24h JWT expires with no way to renew it.
-type NATSCredentialManager struct {
+type CredentialManager struct {
 	register     RegisterFunc
 	requireCreds bool // block until credentials are present (frontend minting in use)
+	// carrier is the carrier whose credential this manager waits for. Empty
+	// means the one the frontend names as active, which is what a worker wants
+	// when it starts. A worker that follows a change asks for the carrier it
+	// attaches to, and that is not the active one yet while the change is
+	// prepared.
+	carrier string
 
-	// Tunables; defaults set by NewNATSCredentialManager, overridable in tests.
+	// Tunables; defaults set by NewCredentialManager, overridable in tests.
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
 	maxAttempts    int     // bound on Acquire attempts / consecutive refresh failures (<=0 = unlimited)
@@ -46,16 +58,40 @@ type NATSCredentialManager struct {
 	refreshRetry   time.Duration
 	expiryOf       func(jwt string) (time.Time, bool)
 
-	mu     sync.RWMutex
-	jwt    string
-	seed   string
-	nodeID string
+	mu          sync.RWMutex
+	jwt         string
+	seed        string
+	nodeID      string
+	tunnelToken string
 }
 
-// NewNATSCredentialManager builds a manager over register. When requireCreds is
+// NewCredentialManagerFor is NewCredentialManager for a manager that waits for the
+// credential of one carrier, whichever the cluster has active. register must ask
+// the frontend for that carrier.
+func NewCredentialManagerFor(register RegisterFunc, requireCreds bool, carrier string) *CredentialManager {
+	m := NewCredentialManager(register, requireCreds)
+	m.carrier = carrier
+	return m
+}
+
+// credentialFor is the carrier that an answer carries a credential for.
+func (m *CredentialManager) credentialFor(res *RegisterResponse) string {
+	if m.carrier != "" {
+		return m.carrier
+	}
+	return res.Carrier
+}
+
+// wrongCarrier is true when the manager asked for a carrier and the frontend
+// answered with the credential of another.
+func (m *CredentialManager) wrongCarrier(res *RegisterResponse) bool {
+	return m.carrier != "" && res.CredentialFor != "" && res.CredentialFor != m.carrier
+}
+
+// NewCredentialManager builds a manager over register. When requireCreds is
 // true, Acquire blocks until the node is approved and credentials are minted.
-func NewNATSCredentialManager(register RegisterFunc, requireCreds bool) *NATSCredentialManager {
-	return &NATSCredentialManager{
+func NewCredentialManager(register RegisterFunc, requireCreds bool) *CredentialManager {
+	return &CredentialManager{
 		register:       register,
 		requireCreds:   requireCreds,
 		initialBackoff: 2 * time.Second,
@@ -80,24 +116,36 @@ func jwtExpiry(token string) (time.Time, bool) {
 	return time.Unix(uc.Expires, 0), true
 }
 
-func (m *NATSCredentialManager) store(res *RegisterResponse) {
+func (m *CredentialManager) store(res *RegisterResponse) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nodeID = res.ID
 	if res.NatsJWT != "" && res.NatsUserSeed != "" {
 		m.jwt, m.seed = res.NatsJWT, res.NatsUserSeed
 	}
+	if res.TunnelToken != "" {
+		m.tunnelToken = res.TunnelToken
+	}
+}
+
+// TunnelToken returns the token of the node for the tunnel, or an empty string
+// before the first registration that returned one. The tunnel client calls it
+// for every dial, because a registration mints a new token.
+func (m *CredentialManager) TunnelToken() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.tunnelToken
 }
 
 // Current returns the latest NATS credentials (both empty until acquired).
-func (m *NATSCredentialManager) Current() (jwt, seed string) {
+func (m *CredentialManager) Current() (jwt, seed string) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.jwt, m.seed
 }
 
 // NodeID returns the node ID from the most recent registration.
-func (m *NATSCredentialManager) NodeID() string {
+func (m *CredentialManager) NodeID() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.nodeID
@@ -105,12 +153,12 @@ func (m *NATSCredentialManager) NodeID() string {
 
 // Provider returns a callback compatible with messaging.WithUserJWTProvider,
 // supplying the current credentials on each (re)connect.
-func (m *NATSCredentialManager) Provider() func() (string, string) {
+func (m *CredentialManager) Provider() func() (string, string) {
 	return m.Current
 }
 
 // HasCredentials reports whether complete NATS credentials have been obtained.
-func (m *NATSCredentialManager) HasCredentials() bool {
+func (m *CredentialManager) HasCredentials() bool {
 	jwt, seed := m.Current()
 	return jwt != "" && seed != ""
 }
@@ -119,7 +167,13 @@ func (m *NATSCredentialManager) HasCredentials() bool {
 // exponential backoff until the node is approved (status != pending) and
 // credentials are minted. Without requireCreds it returns the first successful
 // response (the historical one-shot behavior, preserved for anonymous NATS).
-func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
+//
+// When the frontend names the tunnel as the carrier, the token for the tunnel is
+// what Acquire waits for, and it does not matter whether the node is approved.
+// The frontend mints the token at registration and the connect route refuses a
+// node that waits for approval, so the tunnel client waits for the approval by
+// itself.
+func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
 	backoff := m.initialBackoff
 	var lastReason error
 	for attempt := 1; m.maxAttempts <= 0 || attempt <= m.maxAttempts; attempt++ {
@@ -128,6 +182,15 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
+		case m.wrongCarrier(res):
+			lastReason = fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
+			xlog.Info("The frontend does not hand out the credential of that carrier yet; waiting", "asked", m.carrier, "got", res.CredentialFor, "attempt", attempt, "next_retry", backoff)
+		case m.credentialFor(res) == carrierTunnel && res.TunnelToken == "":
+			lastReason = fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
+			xlog.Info("Node registered but the tunnel credential is not minted yet; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
+		case m.credentialFor(res) == carrierTunnel:
+			m.store(res)
+			return res, nil
 		case !m.requireCreds:
 			m.store(res)
 			return res, nil
@@ -151,6 +214,27 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 	return nil, fmt.Errorf("giving up acquiring NATS credentials after %d attempts: %w", m.maxAttempts, lastReason)
 }
 
+// Reregister registers once more and keeps the credentials of the answer. It
+// does not wait and does not retry: the caller owns the backoff. The tunnel
+// client calls it after the frontend refused its credential, which happens when
+// another process registered under the same node name, or when the frontend
+// lost its record of the node. A registration mints a new credential, and the
+// registration token of the deployment authorises it, as it does at startup.
+func (m *CredentialManager) Reregister(ctx context.Context) error {
+	res, err := m.register(ctx)
+	if err != nil {
+		return err
+	}
+	if m.wrongCarrier(res) {
+		return fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
+	}
+	if m.credentialFor(res) == carrierTunnel && res.TunnelToken == "" {
+		return fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
+	}
+	m.store(res)
+	return nil
+}
+
 // RefreshLoop re-registers to mint a fresh JWT before the current one expires,
 // updating the credentials returned by Current/Provider so the NATS connection
 // adopts them on its next reconnect. It returns nil when ctx is cancelled or
@@ -158,7 +242,7 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 // error after maxAttempts consecutive refresh failures — letting the caller
 // exit the worker so it restarts and re-acquires (or surfaces the outage)
 // rather than silently drifting toward an expired, unrenewable JWT.
-func (m *NATSCredentialManager) RefreshLoop(ctx context.Context) error {
+func (m *CredentialManager) RefreshLoop(ctx context.Context) error {
 	failures := 0
 	for {
 		jwt, _ := m.Current()

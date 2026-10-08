@@ -452,6 +452,23 @@ var _ = Describe("Dispatcher", func() {
 			Expect(bus.QueueGroups()).To(BeEmpty())
 		})
 
+		// Dispatcher.Cancel publishes jobs.<id>.cancel, and on the NATS carrier
+		// nothing subscribes to it: no worker and no frontend. A cancel of a
+		// distributed job therefore ends nothing there, as it has never. The
+		// carrier of the claim queue gives the cancel a consumer (AgentDriver),
+		// and these specs pin the NATS side so that a change to it is deliberate.
+		It("publishes the cancel of a job and subscribes to none", func() {
+			// What the dispatcher listens to, read before the spec adds its own.
+			for _, subject := range bus.SubscribedSubjects() {
+				Expect(messaging.SubjectMatches(subject, messaging.SubjectJobCancel("j1"))).To(BeFalse(), subject)
+			}
+			var heard []byte
+			_, err := bus.Subscribe(messaging.SubjectJobCancel("j1"), func(b []byte) { heard = b })
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disp.Cancel("j1")).To(Succeed())
+			Expect(heard).To(MatchJSON(`{"job_id":"j1"}`))
+		})
+
 		It("persists the result a worker publishes", func() {
 			task := &TaskRecord{UserID: "user-1", Name: "result-task", Model: "m", Enabled: true}
 			Expect(store.CreateTask(task)).To(Succeed())
@@ -472,3 +489,39 @@ var _ = Describe("Dispatcher", func() {
 type broadcastOnly struct {
 	messaging.Broadcaster
 }
+
+var _ = Describe("Dispatcher.Cancel", func() {
+	var (
+		store *JobStore
+		disp  *Dispatcher
+		bus   *testutil.FakeBus
+	)
+
+	BeforeEach(func() {
+		db := testutil.SetupTestDB()
+		var err error
+		store, err = NewJobStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		bus = testutil.NewFakeBus()
+		disp = NewDispatcher(store, &fakeWorkQueue{}, bus, db, "test-instance")
+		Expect(store.CreateTask(&TaskRecord{ID: "t1", UserID: "u1"})).To(Succeed())
+	})
+
+	It("marks a job that waits in the queue as cancelled, so that no replica runs it", func() {
+		Expect(store.CreateJob(&JobRecord{ID: "j1", TaskID: "t1", UserID: "u1", Status: "pending"})).To(Succeed())
+
+		Expect(disp.Cancel("j1")).To(Succeed())
+
+		status, err := store.JobStatus("j1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(status).To(Equal("cancelled"))
+	})
+
+	It("keeps the end state of a job that has finished", func() {
+		Expect(store.CreateJob(&JobRecord{ID: "j2", TaskID: "t1", UserID: "u1", Status: "completed"})).To(Succeed())
+		Expect(disp.Cancel("j2")).To(Succeed())
+		status, err := store.JobStatus("j2")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(status).To(Equal("completed"))
+	})
+})

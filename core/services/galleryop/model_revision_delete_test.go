@@ -195,8 +195,6 @@ var _ = Describe("model deletion revision lifecycle", func() {
 				manager.afterDelete = func() error {
 					return os.WriteFile(filepath.Join(dir, "broken.yaml"), []byte("name: ["), 0644)
 				}
-			case "preload":
-				Expect(os.WriteFile(filepath.Join(dir, "survivor.yaml"), []byte("name: survivor\nbackend: transformers\nartifacts:\n  - name: model\n    target: model\n    source: {type: huggingface, repo: owner/repo}\n"), 0644)).To(Succeed())
 			case "lifecycle":
 				lifecycle.err = errors.New("injected lifecycle failure")
 			}
@@ -225,7 +223,46 @@ var _ = Describe("model deletion revision lifecycle", func() {
 			Expect(ok).To(BeTrue())
 		},
 		Entry("when authoritative parsing fails", "parse"),
-		Entry("when preload fails", "preload"),
 		Entry("when lifecycle publication fails", "lifecycle"),
 	)
+
+	// The preload walks every remaining model, not the deleted one, so its
+	// failure says nothing about the deletion. Once the deletion is announced
+	// to peers it must stay applied here too, or this replica would list a
+	// model that every peer has already dropped.
+	It("keeps and announces a committed deletion when the preload fails", func() {
+		dir := GinkgoT().TempDir()
+		materializer := &rejectingDeleteMaterializer{}
+		appConfig := &config.ApplicationConfig{
+			SystemState:               &system.SystemState{Model: system.Model{ModelsPath: dir}},
+			ModelArtifactMaterializer: materializer,
+		}
+		loader := config.NewModelConfigLoader(dir, config.WithArtifactMaterializer(materializer))
+		configPath := filepath.Join(dir, "doomed.yaml")
+		Expect(os.WriteFile(configPath, []byte("name: doomed\nbackend: llama-cpp\n"), 0640)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, gallery.GalleryFileName("doomed")), []byte("files: []\n"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "survivor.yaml"), []byte("name: survivor\nbackend: transformers\nartifacts:\n  - name: model\n    target: model\n    source: {type: huggingface, repo: owner/repo}\n"), 0644)).To(Succeed())
+		Expect(loader.LoadModelConfigsFromPath(dir, appConfig.ToConfigLoaderOptions()...)).To(Succeed())
+
+		service := NewGalleryService(appConfig, nil)
+		bus := &countingMessagingClient{}
+		service.SetNATSClient(bus)
+		service.SetModelManager(&realDeletingManager{state: appConfig.SystemState})
+		lifecycle := &deleteRevisionLifecycle{}
+		service.SetModelRevisionLifecycle(lifecycle)
+		op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID: "delete-operation", GalleryElementName: "doomed", Delete: true, Context: context.Background(),
+		}
+
+		err := service.modelHandler(op, loader, appConfig.SystemState)
+		Expect(err).To(MatchError(ContainSubstring("preloading model files failed")))
+		Expect(materializer.calls).To(BeNumerically(">", 0), "precondition: the preload ran and failed")
+		Expect(lifecycle.applied).To(BeTrue())
+		Expect(bus.subjects).To(ContainElement(messaging.SubjectCacheInvalidateModels))
+		Expect(configPath).NotTo(BeAnExistingFile())
+		_, ok := loader.GetModelConfig("doomed")
+		Expect(ok).To(BeFalse())
+		_, ok = loader.GetModelConfig("survivor")
+		Expect(ok).To(BeTrue())
+	})
 })

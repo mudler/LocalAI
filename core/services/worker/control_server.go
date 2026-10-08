@@ -3,32 +3,33 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // controlVerb names one control verb independent of the carrier that delivers
-// it. The NATS server maps it onto a per-node subject; a tunnel server maps it
-// onto a path.
+// it. The NATS server maps it onto a per-node subject; the HTTP server maps it
+// onto a path. The names are those of package workerctl.
 type controlVerb string
 
 const (
-	verbBackendInstall controlVerb = "backend.install"
-	verbBackendUpgrade controlVerb = "backend.upgrade"
-	verbBackendStop    controlVerb = "backend.stop"
-	verbBackendDelete  controlVerb = "backend.delete"
-	verbBackendList    controlVerb = "backend.list"
-	verbModelsRunning  controlVerb = "models.running"
-	verbModelUnload    controlVerb = "model.unload"
-	verbModelStop      controlVerb = "model.stop"
-	verbModelDelete    controlVerb = "model.delete"
-	verbModelOp        controlVerb = "model.op"
-	verbNodeStop       controlVerb = "node.stop"
-	verbFilesEnsure    controlVerb = "files.ensure"
-	verbFilesStage     controlVerb = "files.stage"
-	verbFilesTemp      controlVerb = "files.temp"
-	verbFilesListDir   controlVerb = "files.listdir"
-	verbFilesRelease   controlVerb = "files.release"
+	verbBackendInstall controlVerb = workerctl.VerbBackendInstall
+	verbBackendUpgrade controlVerb = workerctl.VerbBackendUpgrade
+	verbBackendStop    controlVerb = workerctl.VerbBackendStop
+	verbBackendDelete  controlVerb = workerctl.VerbBackendDelete
+	verbBackendList    controlVerb = workerctl.VerbBackendList
+	verbModelsRunning  controlVerb = workerctl.VerbModelsRunning
+	verbModelUnload    controlVerb = workerctl.VerbModelUnload
+	verbModelStop      controlVerb = workerctl.VerbModelStop
+	verbModelDelete    controlVerb = workerctl.VerbModelDelete
+	verbModelOp        controlVerb = workerctl.VerbModelOp
+	verbNodeStop       controlVerb = workerctl.VerbNodeStop
+	verbFilesEnsure    controlVerb = workerctl.VerbFilesEnsure
+	verbFilesStage     controlVerb = workerctl.VerbFilesStage
+	verbFilesTemp      controlVerb = workerctl.VerbFilesTemp
+	verbFilesListDir   controlVerb = workerctl.VerbFilesListDir
+	verbFilesRelease   controlVerb = workerctl.VerbFilesRelease
 )
 
 // progressSink receives install progress while a long-running verb runs.
@@ -50,7 +51,9 @@ type progressControlHandler func(ctx context.Context, body []byte, progress prog
 // registration returns once the carrier will deliver requests for the verb, or
 // an error that names the verb; a carrier-side refusal (a NATS permission
 // violation) is an error here, never a silent no-op. handle may deliver
-// requests concurrently (the NATS server happens to serialise per verb).
+// requests concurrently (the NATS server happens to serialise per verb; the
+// HTTP server does not, so a handler must be safe to call from several
+// goroutines).
 // handleWithProgress delivers each request on its own goroutine, because a verb
 // that runs for minutes must not hold up the next request of the same verb.
 type controlServer interface {
@@ -109,3 +112,17 @@ func refuseNever[Reply any](error) Reply {
 	var reply Reply
 	return reply
 }
+
+// inflight counts the requests that a control server is answering. A worker does
+// not close a carrier while one runs on it, because the answer goes back on the
+// carrier the request came on.
+type inflight struct{ n atomic.Int32 }
+
+// enter marks a request as running and returns the function that ends it.
+func (c *inflight) enter() func() {
+	c.n.Add(1)
+	return func() { c.n.Add(-1) }
+}
+
+// InFlight is the number of requests that run now.
+func (c *inflight) InFlight() int { return int(c.n.Load()) }
