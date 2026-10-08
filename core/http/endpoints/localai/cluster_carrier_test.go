@@ -302,6 +302,19 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(code).To(Equal(http.StatusBadRequest))
 		})
 
+		It("refuses a wait that is not positive or is too short, with a 400, and stores none of the request", func() {
+			for _, bad := range []string{"0s", "-5s", "1ns", "1ms", "4s"} {
+				body := `{"nats_url":"nats://broker2:4222","max_drain":"20m","prepare_timeout":"` + bad + `"}`
+				code, resp := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, body)
+				Expect(code).To(Equal(http.StatusBadRequest), bad)
+				Expect(resp["error"]).To(ContainSubstring("prepare_timeout"), bad)
+				Expect(settings.m).ToNot(HaveKey(cluster.SettingMaxDrain), "%s: nothing is stored when one part is refused", bad)
+				Expect(settings.m[cluster.SettingNATSURL]).To(ContainSubstring("broker:4222"), bad)
+			}
+			code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, `{"prepare_timeout":"5s"}`)
+			Expect(code).To(Equal(http.StatusOK))
+		})
+
 		It("reads the settings with the password of the URL masked", func() {
 			code, body := call(GetClusterSettingsEndpoint(settings), http.MethodGet, "")
 			Expect(code).To(Equal(http.StatusOK))

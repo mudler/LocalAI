@@ -243,26 +243,22 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 		type change struct {
 			key string
 			val *string
-			url bool
 		}
 		changes := []change{
-			{cluster.SettingNATSURL, req.NATSURL, true},
-			{cluster.SettingNATSWorkerURL, req.NATSWorkerURL, true},
-			{cluster.SettingPrepareTimeout, req.PrepareTimeout, false},
-			{cluster.SettingTransitionWindow, req.TransitionWindow, false},
-			{cluster.SettingMaxDrain, req.MaxDrain, false},
+			{cluster.SettingNATSURL, req.NATSURL},
+			{cluster.SettingNATSWorkerURL, req.NATSWorkerURL},
+			{cluster.SettingPrepareTimeout, req.PrepareTimeout},
+			{cluster.SettingTransitionWindow, req.TransitionWindow},
+			{cluster.SettingMaxDrain, req.MaxDrain},
 		}
-		// Validate everything before storing anything.
+		// Validate everything before storing anything. The store checks again, and a
+		// request that it would refuse half way must not be accepted here.
 		for _, ch := range changes {
 			if ch.val == nil || *ch.val == "" {
 				continue
 			}
-			if ch.url {
-				if err := cluster.CheckNATSURL(*ch.val); err != nil {
-					return carrierError(c, http.StatusBadRequest, fmt.Sprintf("%s: %v", ch.key, err), nil)
-				}
-			} else if _, err := time.ParseDuration(*ch.val); err != nil {
-				return carrierError(c, http.StatusBadRequest, fmt.Sprintf("%s: %v", ch.key, err), nil)
+			if err := cluster.CheckSetting(ch.key, *ch.val); err != nil {
+				return carrierError(c, http.StatusBadRequest, err.Error(), nil)
 			}
 		}
 

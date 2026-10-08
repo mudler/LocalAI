@@ -44,16 +44,26 @@ var knownSettings = map[string]func(string) error{
 	SettingMaxDrain:         durationSetting,
 }
 
+// MinTiming is the shortest wait of a change that the cluster accepts. The
+// replicas read the row every two seconds, so a shorter wait would abort every
+// change before a replica could see it, and a value such as 1ns is a typo for
+// a value that is meant to be long.
+const MinTiming = 5 * time.Second
+
 func durationSetting(v string) error {
 	d, err := time.ParseDuration(v)
 	if err != nil {
 		return fmt.Errorf("not a duration: %w", err)
 	}
-	if d <= 0 {
-		return errors.New("a duration must be positive")
+	if d < MinTiming {
+		return fmt.Errorf("a wait must be at least %s, not %s", MinTiming, d)
 	}
 	return nil
 }
+
+// CheckSetting says whether value may be stored for key. It stores nothing, so a
+// caller with several settings can refuse all of them before it writes one.
+func CheckSetting(key, value string) error { return checkSetting(key, value) }
 
 // Timings are the waits of a change.
 type Timings struct {
@@ -202,7 +212,7 @@ func (s *SettingsStore) Timings(ctx context.Context, fallback Timings) (Timings,
 		SettingMaxDrain:         &t.MaxDrain,
 	} {
 		if v, ok := all[key]; ok {
-			if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			if d, err := time.ParseDuration(v); err == nil && d >= MinTiming {
 				*dst = d
 			}
 		}

@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -46,5 +47,28 @@ var _ = Describe("the NATS address of the cluster", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeFalse())
 		}
+	})
+})
+
+var _ = Describe("the waits of a change in the cluster settings", func() {
+	It("refuses a wait that is not a sensible duration", func() {
+		store, err := cluster.NewSettingsStore(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+		ctx := context.Background()
+		for _, bad := range []string{"0s", "-1m", "1ns", "999ms", "soon"} {
+			Expect(store.Set(ctx, cluster.SettingMaxDrain, bad, "x")).ToNot(Succeed(), bad)
+			Expect(cluster.CheckSetting(cluster.SettingMaxDrain, bad)).ToNot(Succeed(), bad)
+		}
+		Expect(store.Set(ctx, cluster.SettingMaxDrain, "5s", "x")).To(Succeed())
+	})
+
+	It("ignores a stored wait below the minimum when it reads the timings", func() {
+		db := testutil.SetupTestDB()
+		store, err := cluster.NewSettingsStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(db.Create(&cluster.Setting{Key: cluster.SettingPrepareTimeout, Value: "1ns"}).Error).To(Succeed())
+		t, err := store.Timings(context.Background(), cluster.Timings{PrepareTimeout: 40 * time.Second})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(t.PrepareTimeout).To(Equal(40 * time.Second))
 	})
 })
