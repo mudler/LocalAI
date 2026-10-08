@@ -62,8 +62,8 @@ test('sparse raw slots, known/unavailable, explicit zero and duplicate names', a
   expect(stored.map(x => x.id)).toEqual(['id-2', 'id-1'])
   expect(JSON.stringify(stored)).not.toMatch(/embedding|speaker_profiles|sampleUrl/)
   await page.getByRole('link', { name: 'Manage remembered voices' }).click()
-  await page.getByRole('tab', { name: 'Enrollment' }).click()
-  await expect(page.getByText('Known', { exact: true })).toHaveCount(2)
+  await expect(page.getByRole('heading', { name: 'Known speakers' })).toBeVisible()
+  await expect(page.getByTestId('known-list').locator('.dk-table-name', { hasText: 'Known' })).toHaveCount(2)
 })
 
 test('save failure preserves input, no premature relabel, duplicate submission disabled', async ({ page }) => {

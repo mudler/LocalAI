@@ -60,24 +60,31 @@ async function mockVoiceAPIs(page) {
   return state
 }
 
-test.describe('Personality Library', () => {
+test.describe('Speech voices', () => {
   let apiState
 
   test.beforeEach(async ({ page }) => {
     apiState = await mockVoiceAPIs(page)
   })
 
-  test('renders the library-first master/detail view', async ({ page }) => {
+  test('lists the voices and opens one in a sheet', async ({ page }) => {
     await page.goto('/app/voice-library')
-    await expect(page.getByRole('heading', { name: /Personality Library/i })).toBeVisible()
-    await expect(page.locator('.voice-row', { hasText: 'Documentary narrator' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Voices', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Speech voices/i, level: 2 })).toBeVisible()
+    await expect(page.locator('.idn-tabs').getByRole('tab', { name: /Speech voices/ })).toHaveAttribute('aria-current', 'page')
+    const row = page.locator('.voice-row', { hasText: 'Documentary narrator' })
+    await expect(row).toBeVisible()
+    // Nothing opens by itself: the detail is a sheet the person asks for.
+    await expect(page.getByTestId('speech-voice-sheet')).toHaveCount(0)
+    await row.click()
+    await expect(page.getByTestId('speech-voice-sheet')).toBeVisible()
     await expect(page.locator('.voice-library-detail')).toContainText('The exact words spoken in this reference.')
     await expect(page.locator('.voice-library-detail')).toContainText('Consent confirmed')
     await expect(page.getByRole('button', { name: /Use in Text to Speech/i })).toBeEnabled()
   })
 
   test('shows inline API usage and installed model compatibility', async ({ page }) => {
-    await page.goto('/app/voice-library')
+    await page.goto(`/app/voice-library?selected=${VOICE_ID}`)
     await page.getByText('API usage and compatible models').click()
     const apiHelp = page.locator('.voice-detail__api')
     await expect(apiHelp).toContainText('qwen-base')
@@ -113,7 +120,7 @@ test.describe('Personality Library', () => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ jobID: 'voice-install' }) })
     })
 
-    await page.goto('/app/voice-library')
+    await page.goto(`/app/voice-library?selected=${VOICE_ID}`)
     await expect(page.getByRole('heading', { name: 'Install a voice-cloning model' })).toBeVisible()
     await expect(page.locator('.voice-detail__model-list')).toContainText('omnivoice-cpp')
     expect(galleryCapability).toBe('voice_cloning')
@@ -132,7 +139,8 @@ test.describe('Personality Library', () => {
     await voices.scrollIntoViewIfNeeded()
     await expect(voices).toBeInViewport()
     await expect(voices).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.hub-subnav').getByRole('link', { name: 'Library' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.idn-tabs').getByRole('tab', { name: /Speech voices/ })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('.hub-subnav')).toHaveCount(0)
   })
 
   test('passes the stable voice URI from the library into TTS', async ({ page }) => {
