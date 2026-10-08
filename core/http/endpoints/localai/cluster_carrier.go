@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -19,6 +20,9 @@ import (
 type CarrierSwitchAdmin interface {
 	Status(ctx context.Context) (cluster.Report, error)
 	Preflight(ctx context.Context, target cluster.Carrier) (cluster.Report, error)
+	// PreflightForStatus is Preflight for a read of the state: an old report of a
+	// replica is shown with its age and is not a blocker.
+	PreflightForStatus(ctx context.Context, target cluster.Carrier) (cluster.Report, error)
 	// PreflightWithin is Preflight where a report of what a replica can build
 	// counts only when it is younger than within.
 	PreflightWithin(ctx context.Context, target cluster.Carrier, within time.Duration) (cluster.Report, error)
@@ -48,6 +52,10 @@ type ClusterSettings interface {
 	Clear(ctx context.Context, key string) error
 	All(ctx context.Context) (map[string]string, error)
 }
+
+// statusAskEvery is the least time between two asks of the replicas that a read
+// of the status makes.
+const statusAskEvery = 15 * time.Second
 
 func actor(c echo.Context) string {
 	if u := auth.GetUser(c); u != nil {
@@ -117,9 +125,16 @@ type CarrierStatusResponse struct {
 // @Success 200 {object} localai.CarrierStatusResponse
 // @Failure 503 {object} map[string]string "Distributed mode is not enabled"
 // @Router /api/cluster/carrier [get]
-func GetCarrierEndpoint(sw CarrierSwitchAdmin, settings ClusterSettings) echo.HandlerFunc {
+func GetCarrierEndpoint(sw CarrierSwitchAdmin, settings ClusterSettings, prober ReplicaProber) echo.HandlerFunc {
+	var lastAsk atomic.Int64
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
+		// The page polls this route every few seconds. The replicas are asked to
+		// look again at most once in statusAskEvery, so that what the next read
+		// shows is fresh, and the reads do not turn into a stream of probes.
+		if now, last := time.Now().UnixNano(), lastAsk.Load(); now-last >= int64(statusAskEvery) && lastAsk.CompareAndSwap(last, now) {
+			prober.AskReplicas(ctx)
+		}
 		status, err := sw.Status(ctx)
 		if err != nil {
 			return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
@@ -130,7 +145,7 @@ func GetCarrierEndpoint(sw CarrierSwitchAdmin, settings ClusterSettings) echo.Ha
 		if status.Active == cluster.CarrierTunnel {
 			other = cluster.CarrierNATS
 		}
-		report, err := sw.Preflight(ctx, other)
+		report, err := sw.PreflightForStatus(ctx, other)
 		if err != nil {
 			return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
 		}

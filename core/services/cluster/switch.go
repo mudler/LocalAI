@@ -274,7 +274,7 @@ func (s *Switch) observePhase(phase string, d time.Duration) {
 
 // Status reports the cluster as it is, with no target.
 func (s *Switch) Status(ctx context.Context) (Report, error) {
-	return s.report(ctx, "", 0)
+	return s.report(ctx, "", 0, true)
 }
 
 // Preflight reports what a change to target would meet. It changes nothing.
@@ -290,10 +290,22 @@ func (s *Switch) PreflightWithin(ctx context.Context, target Carrier, within tim
 	if !target.valid() {
 		return Report{}, fmt.Errorf("%w: %q", ErrInvalidCarrier, target)
 	}
-	return s.report(ctx, target, within)
+	return s.report(ctx, target, within, false)
 }
 
-func (s *Switch) report(ctx context.Context, target Carrier, within time.Duration) (Report, error) {
+// PreflightForStatus is Preflight for a caller that only reads the state of the
+// cluster. It asked no replica to look again, so a report that is merely old says
+// nothing about a change: the age is in the report, and it is not listed as a
+// blocker. A replica that said it cannot use the carrier, and one that never
+// reported, still are. Use PreflightWithin before a change.
+func (s *Switch) PreflightForStatus(ctx context.Context, target Carrier) (Report, error) {
+	if !target.valid() {
+		return Report{}, fmt.Errorf("%w: %q", ErrInvalidCarrier, target)
+	}
+	return s.report(ctx, target, 0, true)
+}
+
+func (s *Switch) report(ctx context.Context, target Carrier, within time.Duration, reading bool) (Report, error) {
 	row, err := s.o.Store.Get(ctx)
 	if err != nil {
 		return Report{}, err
@@ -365,7 +377,7 @@ func (s *Switch) report(ctx context.Context, target Carrier, within time.Duratio
 			case within > 0 && in.AvailabilityAge > maxAge:
 				r.Blockers = append(r.Blockers, Blocker{Kind: BlockerReplica, ID: in.ID, Forceable: true,
 					Reason: fmt.Sprintf("the replica has not answered the check for the %s carrier: its last report is %s old", target, in.AvailabilityAge.Round(time.Second))})
-			case in.AvailabilityAge > s.o.AvailabilityMaxAge:
+			case !reading && in.AvailabilityAge > s.o.AvailabilityMaxAge:
 				r.Blockers = append(r.Blockers, Blocker{Kind: BlockerReplica, ID: in.ID, Forceable: true,
 					Reason: fmt.Sprintf("what the replica reported about the %s carrier is stale (%s old)", target, in.AvailabilityAge.Round(time.Second))})
 			case reason != "":

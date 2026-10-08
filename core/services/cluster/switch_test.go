@@ -177,6 +177,22 @@ var _ = Describe("The switch of the carrier", func() {
 			Expect(report.Blockers).To(ConsistOf(HaveField("Reason", ContainSubstring("stale"))))
 		})
 
+		It("does not list a report that is only old as a blocker when it reads the status, and shows its age", func() {
+			replica("a", "", "")
+			Expect(db.Exec(`UPDATE instances SET availability_at = now() - interval '1 hour' WHERE id = 'a'`).Error).To(Succeed())
+			report, err := sw.PreflightForStatus(ctx, cluster.CarrierTunnel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(report.Blockers).To(BeEmpty(), "an old report is not a reason that a change would fail")
+			Expect(report.Replicas).To(ConsistOf(HaveField("AvailabilityAge", BeNumerically(">=", time.Hour))))
+		})
+
+		It("still lists a replica that said it cannot use the carrier, when it reads the status", func() {
+			replica("a", "no LISTEN session", "")
+			report, err := sw.PreflightForStatus(ctx, cluster.CarrierTunnel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(report.Blockers).To(ConsistOf(HaveField("Reason", ContainSubstring("no LISTEN session"))))
+		})
+
 		It("blocks on a worker that reports no capabilities, and says why", func() {
 			replica("a", "", "")
 			workers.set(cluster.WorkerInfo{ID: "old", Name: "old-worker", Attached: []cluster.Carrier{cluster.CarrierNATS}})

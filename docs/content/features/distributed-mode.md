@@ -1497,7 +1497,7 @@ All four routes are for an admin only. They answer `503` when distributed mode i
 
 | Route | Purpose |
 |-------|---------|
-| `GET /api/cluster/carrier` | The active carrier, the epoch, the state, the replicas and their readiness, the workers, the work in flight, and the settings. |
+| `GET /api/cluster/carrier` | The active carrier, the epoch, the state, the replicas and their readiness, the workers, the work in flight, and the settings. A report of a replica that is only old is shown with its age and is not listed as a blocker. The call also asks the replicas to look again, at most once in 15 seconds. A dry run (`POST` with `dry_run`) always asks and waits up to 5 seconds for the answers. |
 | `POST /api/cluster/carrier` | `{"target":"nats"\|"tunnel","dry_run":true}` for a dry run (`200`). `{"target":"tunnel"}` starts a change (`202`). Add `"force":true` to pass forceable blockers. `{"abort":true}` aborts. A blocked request is `422` with the blockers. A change already under way is `409`. |
 | `GET /api/cluster/settings` | `nats_url`, `nats_worker_url`, `prepare_timeout`, `transition_window`, `max_drain`. |
 | `PUT /api/cluster/settings` | Store the fields that you send. An empty string clears a setting. A `nats_url` that the serving frontend cannot reach is `422`. A `nats_url` during a change is `409`. |

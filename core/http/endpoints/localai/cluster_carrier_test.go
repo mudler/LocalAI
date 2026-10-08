@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -46,6 +47,13 @@ func (f *fakeSwitch) Preflight(_ context.Context, target cluster.Carrier) (clust
 	return r, nil
 }
 
+func (f *fakeSwitch) PreflightForStatus(_ context.Context, target cluster.Carrier) (cluster.Report, error) {
+	f.note("status-preflight")
+	r := f.report
+	r.Target = target
+	return r, nil
+}
+
 func (f *fakeSwitch) PreflightWithin(ctx context.Context, target cluster.Carrier, within time.Duration) (cluster.Report, error) {
 	f.mu.Lock()
 	f.within = append(f.within, within)
@@ -71,6 +79,7 @@ func (f *fakeSwitch) Abort(_ context.Context, by string) (cluster.CarrierRow, er
 type fakeProber struct {
 	order *[]string
 	delay time.Duration
+	asked *atomic.Int32
 }
 
 func (f fakeProber) ProbeReplicas(context.Context) {
@@ -80,7 +89,11 @@ func (f fakeProber) ProbeReplicas(context.Context) {
 	}
 }
 
-func (f fakeProber) AskReplicas(context.Context) {}
+func (f fakeProber) AskReplicas(context.Context) {
+	if f.asked != nil {
+		f.asked.Add(1)
+	}
+}
 
 type fakeNATS struct {
 	err  error
@@ -166,7 +179,7 @@ var _ = Describe("The admin API of the carrier", func() {
 
 	Describe("the status", func() {
 		It("reports the row, the replicas, the opposite carrier as the target, and a NATS URL without its password", func() {
-			code, body := call(GetCarrierEndpoint(sw, settings), http.MethodGet, "")
+			code, body := call(GetCarrierEndpoint(sw, settings, fakeProber{}), http.MethodGet, "")
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(body["active"]).To(Equal("nats"))
 			Expect(body["epoch"]).To(BeEquivalentTo(4))
@@ -178,6 +191,24 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(shown).ToNot(ContainSubstring("user"))
 			Expect(shown).ToNot(ContainSubstring("abc"), "a token in the query is not shown either")
 			Expect(settings.m[cluster.SettingNATSURL]).To(ContainSubstring("secret"), "the stored value is not changed")
+		})
+	})
+
+	Describe("the status and old reports", func() {
+		It("reads the status without counting an old report of a replica as a blocker", func() {
+			code, _ := call(GetCarrierEndpoint(sw, settings, fakeProber{}), http.MethodGet, "")
+			Expect(code).To(Equal(http.StatusOK))
+			Expect(order).To(Equal([]string{"status-preflight"}))
+		})
+
+		It("asks the replicas to look again, but not at every read", func() {
+			var asked atomic.Int32
+			h := GetCarrierEndpoint(sw, settings, fakeProber{asked: &asked})
+			for range 5 {
+				code, _ := call(h, http.MethodGet, "")
+				Expect(code).To(Equal(http.StatusOK))
+			}
+			Expect(asked.Load()).To(Equal(int32(1)), "the page polls every few seconds; the replicas are asked once per interval")
 		})
 	})
 
