@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -182,7 +183,18 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
-	httpServer, err := nodes.StartFileTransferServerWithCapacity(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, ml.BackendLogs())
+	// A worker on the tunnel serves its control verbs on this server, because the
+	// tunnel reaches it with the http stream tag. The routes are added once the
+	// supervisor exists.
+	var (
+		httpControl *httpControlServer
+		controlMux  http.Handler
+	)
+	if onTunnel {
+		httpControl = newHTTPControlServer()
+		controlMux = httpControl
+	}
+	httpServer, err := nodes.StartFileTransferServerWithControl(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, controlMux, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -310,24 +322,23 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// The watchdog stops load operations the controller no longer renews.
 	go supervisor.runOperationWatchdog(shutdownCtx)
 
+	var control controlServer
 	if natsClient != nil {
-		control := newNATSControlServer(natsClient, nodeID)
-		if err := supervisor.registerLifecycleVerbs(control); err != nil {
-			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
-		}
-
-		// Serve the file staging verbs only when S3 is configured
-		if cfg.StorageURL != "" {
-			if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
-				nodes.ShutdownFileTransferServer(httpServer)
-				return fmt.Errorf("subscribing to file staging subjects: %w", err)
-			}
-		}
+		control = newNATSControlServer(natsClient, nodeID)
 	} else {
-		// The tunnel carries streams to the backends and to the file-transfer
-		// server of this worker. The lifecycle verbs have no route on it yet.
-		xlog.Warn("This worker is attached to the tunnel and serves no lifecycle verbs on it: backends are not installed or stopped by the frontend")
+		control = httpControl
+	}
+	if err := supervisor.registerLifecycleVerbs(control); err != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("serving the worker lifecycle verbs: %w", err)
+	}
+
+	// Serve the file staging verbs only when S3 is configured
+	if cfg.StorageURL != "" {
+		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("serving the file staging verbs: %w", err)
+		}
 	}
 
 	xlog.Info("Worker ready, waiting for backend.install events")
