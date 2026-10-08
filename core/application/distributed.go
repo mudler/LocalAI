@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -77,6 +79,19 @@ type DistributedServices struct {
 	// every replica and refuses every worker that has no tunnel credential.
 	Tunnels *tunnel.Registry
 
+	// Instances reads the instances table. The peer route checks the
+	// credential of a dialling replica against it.
+	Instances *cluster.Registry
+	// PeerSessions holds the links that other replicas dialled into this one,
+	// and relays their streams onto the tunnels that this replica holds.
+	PeerSessions *tunnel.PeerSessions
+	// PeerPool holds the links that this replica dialled to its peers.
+	PeerPool *tunnel.PeerPool
+	// WorkerDialer opens a stream to a worker through the replica that holds its
+	// tunnel: directly, or through a peer link. The tunnel carrier builds the
+	// dial seams on it; nothing calls it while the cluster runs on NATS.
+	WorkerDialer *tunnel.WorkerDialer
+
 	// active names the carrier set the holders forward to.
 	active *atomic.Pointer[carrier.Set]
 
@@ -94,6 +109,12 @@ func (ds *DistributedServices) Shutdown() {
 		// asks who owns a worker must not be told a replica that is leaving.
 		if ds.Tunnels != nil {
 			ds.Tunnels.Close()
+		}
+		if ds.PeerSessions != nil {
+			ds.PeerSessions.Close()
+		}
+		if ds.PeerPool != nil {
+			ds.PeerPool.Close()
 		}
 		// Then the membership, so the peers see this replica leave before its
 		// services stop.
@@ -557,20 +578,31 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
-	membership, err := startMembership(cfg.Context, authDB, cfg.Distributed.InstanceID)
+	// A replica proves who it is to its peers with a credential that it mints
+	// itself. Only the hash is published, in the same row as the address that
+	// the peers dial.
+	peerCred := cluster.NewPeerCredential()
+	membership, err := startMembership(cfg.Context, authDB, cfg.Distributed.InstanceID, peerAddress(cfg), peerCred)
 	if err != nil {
 		return nil, err
 	}
-	tunnels := tunnel.NewRegistry(cluster.NewRegistry(authDB), cfg.Distributed.InstanceID)
+	clusterReg := cluster.NewRegistry(authDB)
+	tunnels := tunnel.NewRegistry(clusterReg, cfg.Distributed.InstanceID)
 	// If a peer sweeps this replica while it stalls, the claims of the tunnels
 	// that it still holds are written again when it registers again.
 	membership.SetReclaimer(tunnels)
+	peerPool := tunnel.NewPeerPool(cfg.Distributed.InstanceID, peerCred, clusterReg)
+	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels).Stream)
 
 	success = true
 	return &DistributedServices{
 		Membership:   membership,
 		Carriers:     carrierStore,
 		Tunnels:      tunnels,
+		Instances:    clusterReg,
+		PeerSessions: peerSessions,
+		PeerPool:     peerPool,
+		WorkerDialer: tunnel.NewWorkerDialer(tunnels, peerPool),
 		Broadcaster:  broadcaster,
 		WorkQueue:    workQueue,
 		AgentControl: carrier.NewAgents(active),
@@ -600,7 +632,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 // instances table and keeps its row fresh until the Membership is stopped.
 // Every replica does this on every carrier, because the change of carrier needs
 // to know which replicas are alive and ready.
-func startMembership(ctx context.Context, db *gorm.DB, instanceID string) (*cluster.Membership, error) {
+func startMembership(ctx context.Context, db *gorm.DB, instanceID, advertisedAddr string, peerCred cluster.PeerCredential) (*cluster.Membership, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -610,6 +642,7 @@ func startMembership(ctx context.Context, db *gorm.DB, instanceID string) (*clus
 		return nil, fmt.Errorf("migrating cluster tables: %w", err)
 	}
 	membership := cluster.NewMembership(cluster.NewRegistry(db), instanceID, internal.PrintableVersion())
+	membership.SetPeer(advertisedAddr, peerCred)
 	if err := membership.Start(ctx); err != nil {
 		return nil, fmt.Errorf("registering this replica: %w", err)
 	}
@@ -618,4 +651,41 @@ func startMembership(ctx context.Context, db *gorm.DB, instanceID string) (*clus
 
 func isPostgresURL(url string) bool {
 	return strings.HasPrefix(url, "postgres://") || strings.HasPrefix(url, "postgresql://")
+}
+
+// peerAddress returns the address at which the other replicas dial this one. An
+// address that the operator configured is checked and used as it is. Without
+// one, it comes from the route to the database, which all replicas share.
+//
+// A replica that has no usable address is not refused. It publishes none, and
+// the replicas that need to relay through it find it unreachable, which is
+// reported when they try. The log line says how to fix it.
+func peerAddress(cfg *config.ApplicationConfig) string {
+	if configured := cfg.Distributed.PeerAddress; configured != "" {
+		reason, err := cluster.CheckAdvertisedAddr(configured)
+		if err != nil {
+			xlog.Warn("The configured peer address is unusable, so this replica publishes none and the other replicas cannot reach it", "address", configured, "error", err)
+			return ""
+		}
+		if reason != "" {
+			xlog.Warn("The configured peer address may not work for the other replicas", "address", configured, "reason", reason)
+		}
+		return configured
+	}
+	_, portText, err := net.SplitHostPort(cfg.APIAddress)
+	if err != nil {
+		xlog.Warn("The listen address has no port, so this replica publishes no peer address; set LOCALAI_PEER_ADDRESS", "address", cfg.APIAddress, "error", err)
+		return ""
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		xlog.Warn("The listen port is not a number, so this replica publishes no peer address; set LOCALAI_PEER_ADDRESS", "port", portText, "error", err)
+		return ""
+	}
+	addr, err := cluster.DiscoverAdvertisedAddr(cfg.Auth.DatabaseURL, port)
+	if err != nil {
+		xlog.Warn("This replica publishes no peer address, so a worker tunnel that it holds cannot be reached through the other replicas; set LOCALAI_PEER_ADDRESS", "error", err)
+		return ""
+	}
+	return addr
 }

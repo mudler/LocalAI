@@ -91,8 +91,13 @@ func isPublicRoute(method, path string) bool {
 // it with tunnel.ConnectPath.
 const ClusterConnectPath = "/api/cluster/connect"
 
+// ClusterPeerPath is the route that a replica dials to reach a tunnel that
+// another replica holds. The handler checks the own credential of the dialling
+// replica. The spec of the peer endpoint compares it with tunnel.PeerPath.
+const ClusterPeerPath = "/api/cluster/peer"
+
 // usesAlternativeAuthentication identifies requests whose credentials are
 // validated by route-group middleware instead of the global auth middleware.
 func usesAlternativeAuthentication(path string) bool {
-	return strings.HasPrefix(path, "/api/node/") || path == ClusterConnectPath
+	return strings.HasPrefix(path, "/api/node/") || path == ClusterConnectPath || path == ClusterPeerPath
 }

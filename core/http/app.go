@@ -28,6 +28,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -579,7 +580,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg, registerOpts...)
-	routes.RegisterClusterRoutes(e, registry, tunnels)
+	var (
+		instances *cluster.Registry
+		onPeer    func(string, *tunnel.Session)
+	)
+	if d := application.Distributed(); d != nil {
+		instances = d.Instances
+		onPeer = d.PeerSessions.Accept
+	}
+	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)
 
 	// Distributed SSE routes (job progress + agent events via NATS)

@@ -128,7 +128,7 @@ func newNodeSelfServiceTestApp(db *gorm.DB, appConfig *config.ApplicationConfig,
 func newClusterTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(auth.Middleware(db, appConfig))
-	routes.RegisterClusterRoutes(e, nil, nil)
+	routes.RegisterClusterRoutes(e, nil, nil, nil, nil)
 	e.GET("/api/cluster/other", ok)
 	return e
 }

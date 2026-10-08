@@ -13,8 +13,12 @@ import (
 // DistributedConfig holds configuration for horizontal scaling mode.
 // When Enabled is true, PostgreSQL and NATS are required.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// PeerAddress is the host and port at which the other frontends dial this
+	// one, to reach a worker tunnel that this one holds. Empty means that the
+	// address is found from the route to the database. LOCALAI_PEER_ADDRESS.
+	PeerAddress       string
 	NatsURL           string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
@@ -193,6 +197,14 @@ var EnableDistributed = func(o *ApplicationConfig) {
 func WithDistributedInstanceID(id string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.InstanceID = id
+	}
+}
+
+// WithDistributedPeerAddress sets the address at which other frontends dial this
+// one.
+func WithDistributedPeerAddress(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerAddress = addr
 	}
 }
 

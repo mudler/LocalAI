@@ -165,6 +165,7 @@ type RunCMD struct {
 	// Distributed / Horizontal Scaling
 	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
 	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
+	PeerAddress                  string `env:"LOCALAI_PEER_ADDRESS" help:"host:port at which the other frontends dial this one to reach a worker tunnel it holds (found from the route to the database if empty)" group:"distributed"`
 	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
 	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
 	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
@@ -362,6 +363,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 	if r.InstanceID != "" {
 		opts = append(opts, config.WithDistributedInstanceID(r.InstanceID))
+	}
+	if r.PeerAddress != "" {
+		opts = append(opts, config.WithDistributedPeerAddress(r.PeerAddress))
 	}
 	if r.NatsURL != "" {
 		opts = append(opts, config.WithNatsURL(r.NatsURL))

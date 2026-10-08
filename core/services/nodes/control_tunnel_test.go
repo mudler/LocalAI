@@ -135,8 +135,12 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 			worker.replyJSON(workerctl.VerbBackendStop, workerctl.BackendStopReply{Success: true})
 			worker.replyJSON(workerctl.VerbBackendDelete, workerctl.BackendDeleteReply{Success: true})
 			worker.replyJSON(workerctl.VerbModelDelete, workerctl.ModelDeleteReply{Success: true})
-			worker.on(workerctl.VerbBackendInstall, func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `{"reply":{"success":true}}`+"\n") })
-			worker.on(workerctl.VerbBackendUpgrade, func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, `{"reply":{"success":true}}`+"\n") })
+			worker.on(workerctl.VerbBackendInstall, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"reply":{"success":true}}`+"\n")
+			})
+			worker.on(workerctl.VerbBackendUpgrade, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"reply":{"success":true}}`+"\n")
+			})
 
 			_, err := control.StopLoadOperation(context.Background(), node, workerctl.ModelStopRequest{ProcessKey: "m#0", OperationID: "op"})
 			Expect(err).ToNot(HaveOccurred())
