@@ -299,7 +299,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
-	dispatcher.Stop()
+	_ = dispatcher.Stop()
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
 	return runErr

@@ -78,9 +78,8 @@ func (r *natsRig) Request(subject string, data []byte, _ time.Duration) ([]byte,
 
 var _ = Describe("The S3 file stager over each carrier of the file verbs", func() {
 	type rig struct {
-		name    string
-		build   func(fm *storage.FileManager, w *scriptedWorker) (FileStager, func(noRoute bool))
-		release func(FileStager) RequestFileReleaser
+		name  string
+		build func(fm *storage.FileManager, w *scriptedWorker) (FileStager, func(noRoute bool))
 	}
 
 	rigs := []rig{

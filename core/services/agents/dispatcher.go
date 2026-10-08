@@ -286,7 +286,7 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent, brid
 		if err != nil {
 			xlog.Error("Failed to load agent config", "agent", evt.AgentName, "error", err)
 			if bridge != nil {
-				bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
+				_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
 			}
 			return
 		}
@@ -294,7 +294,7 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent, brid
 	if cfg == nil {
 		xlog.Error("No agent config available", "agent", evt.AgentName)
 		if bridge != nil {
-			bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
+			_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
 		}
 		return
 	}
@@ -333,8 +333,8 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent, brid
 	if execErr != nil {
 		xlog.Error("Distributed agent execution failed", "agent", evt.AgentName, "error", execErr)
 		if bridge != nil {
-			bridge.PublishStatus(evt.AgentName, evt.UserID, "error")
-			bridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
+			_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error")
+			_ = bridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
 				fmt.Sprintf("Agent execution failed: %v", execErr), evt.MessageID+"-error")
 		}
 		return
@@ -428,7 +428,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent, bridge *EventBri
 			default:
 				return
 			}
-			bridge.PublishStreamEvent(evt.AgentName, evt.UserID, data)
+			_ = bridge.PublishStreamEvent(evt.AgentName, evt.UserID, data)
 		},
 		OnReasoning: func(text string) {
 			// Reasoning is buffered via OnStream
@@ -439,7 +439,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent, bridge *EventBri
 		OnToolResult: func(name, result string) {
 			// Emit tool_result stream event for real-time UI display
 			if bridge != nil {
-				bridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
+				_ = bridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
 					"type":        "tool_result",
 					"tool_name":   name,
 					"tool_result": result,
@@ -462,12 +462,12 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent, bridge *EventBri
 		},
 		OnStatus: func(status string) {
 			if bridge != nil {
-				bridge.PublishStatus(evt.AgentName, evt.UserID, status)
+				_ = bridge.PublishStatus(evt.AgentName, evt.UserID, status)
 			}
 		},
 		OnMessage: func(sender, content, msgID string) {
 			if bridge != nil {
-				bridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID)
+				_ = bridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID)
 			}
 
 			// On agent response, persist the root observable with completion
