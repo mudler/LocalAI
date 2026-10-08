@@ -105,6 +105,7 @@ func (rt *carrierRuntime) CAPEM() (string, error) {
 	if path == "" {
 		return "", nil
 	}
+	// #nosec G304 -- the operator set this path for the CA of the NATS server.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("reading the NATS CA to hand to workers: %w", err)
