@@ -193,6 +193,11 @@ type SwitchOptions struct {
 	// Timings returns the waits of a change, read at each use so that a change of
 	// the settings applies to the next decision.
 	Timings func() Timings
+	// NATSURL returns the address of the NATS server that a change to NATS builds
+	// from. Request copies it into the row, so that every replica builds from the
+	// same address whatever happens to the setting during the change. It may be
+	// nil.
+	NATSURL func(ctx context.Context) (string, error)
 	// Liveness is the window of replica liveness. InstanceLiveness when zero.
 	Liveness time.Duration
 	// AvailabilityMaxAge is how old a replica's report of what it can build may
@@ -388,11 +393,19 @@ func (s *Switch) Request(ctx context.Context, req Request) (CarrierRow, Report, 
 	if req.Force && len(report.Blockers) > 0 {
 		note = fmt.Sprintf("forced past %d blocker(s)", len(report.Blockers))
 	}
-	next, err := s.transition(ctx, row.Epoch, Change{
+	change := Change{
 		Active: row.Active, State: StatePrepare, Target: req.Target,
 		Draining: row.Draining, DrainingUntil: row.DrainingUntil,
 		Force: req.Force, Note: note, By: req.By,
-	})
+	}
+	if req.Target == CarrierNATS && s.o.NATSURL != nil {
+		addr, err := s.o.NATSURL(ctx)
+		if err != nil {
+			return CarrierRow{}, report, fmt.Errorf("reading the NATS address of the cluster: %w", err)
+		}
+		change.NATSURL = PublicNATSURL(addr)
+	}
+	next, err := s.transition(ctx, row.Epoch, change)
 	if errors.Is(err, ErrStaleEpoch) {
 		return CarrierRow{}, report, ErrBusy
 	}

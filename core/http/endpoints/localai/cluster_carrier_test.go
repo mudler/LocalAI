@@ -147,7 +147,7 @@ var _ = Describe("The admin API of the carrier", func() {
 			report: cluster.Report{Active: cluster.CarrierNATS, Epoch: 4, State: cluster.StateStable, OK: true, Replicas: []cluster.ReplicaStatus{{ID: "a", Version: "v1"}}},
 			row:    cluster.CarrierRow{Active: cluster.CarrierNATS, Epoch: 5, State: cluster.StatePrepare, Target: cluster.CarrierTunnel},
 		}
-		settings = &memorySettings{m: map[string]string{cluster.SettingNATSURL: "nats://user:secret@broker:4222"}}
+		settings = &memorySettings{m: map[string]string{cluster.SettingNATSURL: "nats://user:secret@broker:4222?token=abc"}}
 		nats = &fakeNATS{}
 	})
 
@@ -163,6 +163,7 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(shown).To(ContainSubstring("broker:4222"))
 			Expect(shown).ToNot(ContainSubstring("secret"))
 			Expect(shown).ToNot(ContainSubstring("user"))
+			Expect(shown).ToNot(ContainSubstring("abc"), "a token in the query is not shown either")
 			Expect(settings.m[cluster.SettingNATSURL]).To(ContainSubstring("secret"), "the stored value is not changed")
 		})
 	})
@@ -236,7 +237,7 @@ var _ = Describe("The admin API of the carrier", func() {
 
 	Describe("the settings", func() {
 		It("stores a NATS URL, checks that this replica reaches it, and does not switch", func() {
-			code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, `{"nats_url":"nats://broker2:4222"}`)
+			code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, `{"nats_url":"nats://broker2:4222"}`)
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(settings.m[cluster.SettingNATSURL]).To(Equal("nats://broker2:4222"))
 			Expect(nats.seen).To(Equal([]string{"nats://broker2:4222"}))
@@ -244,36 +245,60 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(sw.requests).To(BeEmpty())
 		})
 
-		It("still stores a URL that this replica cannot reach, and says why", func() {
+		It("refuses a URL that this replica cannot reach, says why, and stores nothing", func() {
 			nats.err = errors.New("no answer within 3s")
-			code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, `{"nats_url":"nats://broker2:4222"}`)
-			Expect(code).To(Equal(http.StatusOK))
-			Expect(settings.m[cluster.SettingNATSURL]).To(Equal("nats://broker2:4222"))
-			nb := body["nats"].(map[string]any)
-			Expect(nb["reachable"]).To(BeFalse())
-			Expect(nb["reason"]).To(ContainSubstring("no answer"))
+			code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut,
+				`{"nats_url":"nats://broker2:4222","max_drain":"20m"}`)
+			Expect(code).To(Equal(http.StatusUnprocessableEntity))
+			Expect(body["error"]).To(ContainSubstring("no answer"))
+			Expect(settings.m[cluster.SettingNATSURL]).To(Equal("nats://user:secret@broker:4222?token=abc"))
+			Expect(settings.m).ToNot(HaveKey(cluster.SettingMaxDrain), "a refused request stores none of its parts")
+		})
+
+		It("refuses a NATS URL while a change of carrier is under way, and stores nothing", func() {
+			for _, st := range []cluster.State{cluster.StatePrepare, cluster.StateCommit} {
+				sw.report.State = st
+				code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut,
+					`{"nats_url":"nats://broker2:4222"}`)
+				Expect(code).To(Equal(http.StatusConflict), string(st))
+				Expect(body["error"]).To(ContainSubstring("change of carrier"))
+				Expect(settings.m[cluster.SettingNATSURL]).To(ContainSubstring("broker:4222"))
+				Expect(nats.seen).To(BeEmpty(), "the server is not even asked")
+			}
+		})
+
+		It("refuses an address that carries a credential or a query string", func() {
+			for _, bad := range []string{
+				`{"nats_url":"nats://user:pass@broker2:4222"}`,
+				`{"nats_url":"nats://broker2:4222?token=abc"}`,
+				`{"nats_worker_url":"nats://user@broker2:4222"}`,
+			} {
+				code, body := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, bad)
+				Expect(code).To(Equal(http.StatusBadRequest), bad)
+				Expect(body["error"]).To(ContainSubstring("credentials stay on each replica"), bad)
+			}
 		})
 
 		It("refuses a URL that is not a NATS address", func() {
 			for _, bad := range []string{`{"nats_url":"http://broker:4222"}`, `{"nats_url":"nats://"}`, `{"nats_url":"::"}`} {
-				code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, bad)
+				code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, bad)
 				Expect(code).To(Equal(http.StatusBadRequest), bad)
 			}
-			Expect(settings.m[cluster.SettingNATSURL]).To(Equal("nats://user:secret@broker:4222"))
+			Expect(settings.m[cluster.SettingNATSURL]).To(ContainSubstring("broker:4222"))
 		})
 
 		It("clears a URL with an empty string", func() {
-			code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, `{"nats_url":""}`)
+			code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, `{"nats_url":""}`)
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(settings.m).ToNot(HaveKey(cluster.SettingNATSURL))
 		})
 
 		It("stores the waits of a change, and refuses one that is not a positive duration", func() {
-			code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, `{"max_drain":"20m","prepare_timeout":"90s"}`)
+			code, _ := call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, `{"max_drain":"20m","prepare_timeout":"90s"}`)
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(settings.m[cluster.SettingMaxDrain]).To(Equal("20m"))
 			Expect(settings.m[cluster.SettingPrepareTimeout]).To(Equal("90s"))
-			code, _ = call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}), http.MethodPut, `{"max_drain":"soon"}`)
+			code, _ = call(PutClusterSettingsEndpoint(settings, nats, fakeProber{}, sw), http.MethodPut, `{"max_drain":"soon"}`)
 			Expect(code).To(Equal(http.StatusBadRequest))
 		})
 
@@ -282,6 +307,7 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(code).To(Equal(http.StatusOK))
 			Expect(body["nats_url"]).To(ContainSubstring("broker:4222"))
 			Expect(body["nats_url"]).ToNot(ContainSubstring("secret"))
+			Expect(body["nats_url"]).ToNot(ContainSubstring("token"))
 		})
 	})
 

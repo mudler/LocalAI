@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/testcontainers/testcontainers-go"
@@ -158,17 +159,85 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(url).To(Equal("nats://127.0.0.1:1"))
 	})
 
-	It("uses the NATS URL stored for the cluster and not the one of the flag", func() {
+	It("stops the start when the NATS URL of the flag differs from the one stored for the cluster, and names both", func() {
 		store, err := cluster.NewSettingsStore(db)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(store.Set(context.Background(), cluster.SettingNATSURL, "nats://[::1", "admin")).To(Succeed())
-		cfg.Distributed.NatsURL = "nats://127.0.0.1:2"
+		Expect(store.Set(context.Background(), cluster.SettingNATSURL, "nats://old-broker:4222", "admin")).To(Succeed())
+		cfg.Distributed.NatsURL = "nats://new-broker:4222"
 
-		_, err = initDistributed(cfg, db, nil, nil)
-		Expect(err).To(MatchError(ContainSubstring("connecting to NATS")), "the stored address, which cannot be parsed, was the one used")
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(svc).To(BeNil())
+		Expect(err.Error()).To(ContainSubstring("nats://new-broker:4222"))
+		Expect(err.Error()).To(ContainSubstring("nats://old-broker:4222"))
+		Expect(err.Error()).To(ContainSubstring("/api/cluster/settings"), "it says how to resolve it")
 		url, _, err := store.Get(context.Background(), cluster.SettingNATSURL)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(url).To(Equal("nats://[::1"), "a flag does not overwrite a setting of the cluster")
+		Expect(url).To(Equal("nats://old-broker:4222"), "a flag does not overwrite a setting of the cluster")
+	})
+
+	It("starts on the stored NATS URL when the flag names the same server, and keeps the credential of the flag out of the database", func() {
+		cfg.Distributed.NatsURL = "nats://user:secret@127.0.0.1:1?token=abc"
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(svc.Shutdown)
+
+		store, err := cluster.NewSettingsStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		url, ok, err := store.Get(context.Background(), cluster.SettingNATSURL)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(url).To(Equal("nats://127.0.0.1:1"))
+		Expect(carrierRow().NATSURL).To(Equal("nats://127.0.0.1:1"))
+
+		// A second start with the same flag is the same deployment.
+		cfg.Distributed.InstanceID = "replica-b"
+		second, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(second.Shutdown)
+	})
+
+	It("does not seed the tunnel in a cluster that has workers, when the replica has no NATS URL", func() {
+		Expect(db.AutoMigrate(&nodes.BackendNode{})).To(Succeed())
+		Expect(db.Create(&nodes.BackendNode{ID: "w1", Name: "w1", NodeType: "backend", Address: "w1:50051"}).Error).To(Succeed())
+		cfg.Distributed.NatsURL = ""
+
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).To(MatchError(ContainSubstring("--nats-url")))
+		Expect(svc).To(BeNil())
+
+		store, err := cluster.NewCarrierStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = store.Get(context.Background())
+		Expect(err).To(MatchError(cluster.ErrNotSeeded), "the row is not written, so the next start with the flag seeds NATS")
+	})
+
+	It("does not start without a NATS URL when the row says NATS", func() {
+		store, err := cluster.NewCarrierStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		_, _, err = store.Seed(context.Background(), cluster.CarrierNATS, "replica-b")
+		Expect(err).ToNot(HaveOccurred())
+		cfg.Distributed.NatsURL = ""
+
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).To(MatchError(ContainSubstring("the cluster carrier row says NATS")))
+		Expect(svc).To(BeNil())
+	})
+
+	It("starts without a NATS flag on the URL that the cluster stored", func() {
+		settings, err := cluster.NewSettingsStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(settings.Set(context.Background(), cluster.SettingNATSURL, "nats://127.0.0.1:1", "admin")).To(Succeed())
+		store, err := cluster.NewCarrierStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		_, _, err = store.Seed(context.Background(), cluster.CarrierNATS, "replica-b")
+		Expect(err).ToNot(HaveOccurred())
+		cfg.Distributed.NatsURL = ""
+
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(svc.Shutdown)
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
 	})
 
 	Context("with a NATS server", func() {

@@ -37,8 +37,8 @@ const (
 var ErrUnknownSetting = errors.New("unknown cluster setting")
 
 var knownSettings = map[string]func(string) error{
-	SettingNATSURL:          nil,
-	SettingNATSWorkerURL:    nil,
+	SettingNATSURL:          CheckNATSURL,
+	SettingNATSWorkerURL:    CheckNATSURL,
 	SettingPrepareTimeout:   durationSetting,
 	SettingTransitionWindow: durationSetting,
 	SettingMaxDrain:         durationSetting,

@@ -247,6 +247,52 @@ var _ = Describe("The switch of the carrier", func() {
 			Expect(got.Force).To(BeFalse())
 		})
 
+		Describe("the NATS address of a change", func() {
+			var current atomic.Pointer[string]
+
+			BeforeEach(func() {
+				u := "nats://broker-one:4222"
+				current.Store(&u)
+				var err error
+				sw, err = cluster.NewSwitch(cluster.SwitchOptions{
+					Store: store, Registry: reg, Workers: workers, Work: work,
+					Timings: func() cluster.Timings { return timings },
+					NATSURL: func(context.Context) (string, error) { return *current.Load(), nil },
+				})
+				Expect(err).ToNot(HaveOccurred())
+				// The cluster runs on the tunnel, so a change to NATS can start.
+				_, err = store.Transition(ctx, row().Epoch, cluster.Change{Active: cluster.CarrierTunnel, State: cluster.StateStable, By: "x"})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("copies the address into the row, and keeps it through the commit and the settle", func() {
+				replica("a", "", "")
+				got, _, err := request(cluster.CarrierNATS, false)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(got.NATSURL).To(Equal("nats://broker-one:4222"))
+
+				// The setting changes during the change. The row does not.
+				u := "nats://broker-two:4222"
+				current.Store(&u)
+				ready("a", row().Epoch, "")
+				Expect(sw.Drive(ctx)).To(Succeed())
+				Expect(row().State).To(Equal(cluster.StateCommit))
+				ready("a", row().Epoch, "")
+				Expect(sw.Drive(ctx)).To(Succeed())
+				Expect(row().State).To(Equal(cluster.StateStable))
+				Expect(row().NATSURL).To(Equal("nats://broker-one:4222"))
+			})
+
+			It("never copies a credential or a query string into the row", func() {
+				u := "nats://user:secret@broker-one:4222?token=abc"
+				current.Store(&u)
+				replica("a", "", "")
+				got, _, err := request(cluster.CarrierNATS, false)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(got.NATSURL).To(Equal("nats://broker-one:4222"))
+			})
+		})
+
 		It("changes nothing and returns the report when the preflight blocks", func() {
 			replica("a", "", "")
 			workers.set(cluster.WorkerInfo{ID: "old", Name: "old"})

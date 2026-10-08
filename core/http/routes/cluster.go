@@ -67,5 +67,5 @@ func RegisterClusterAdminRoutes(e *echo.Echo, adminMw echo.MiddlewareFunc, admin
 	e.GET(CarrierPath, localai.GetCarrierEndpoint(admin.Switch, admin.Settings), adminMw)
 	e.POST(CarrierPath, localai.SwitchCarrierEndpoint(admin.Switch, admin.Prober), adminMw)
 	e.GET(ClusterSettingsPath, localai.GetClusterSettingsEndpoint(admin.Settings), adminMw)
-	e.PUT(ClusterSettingsPath, localai.PutClusterSettingsEndpoint(admin.Settings, admin.NATS, admin.Prober), adminMw)
+	e.PUT(ClusterSettingsPath, localai.PutClusterSettingsEndpoint(admin.Settings, admin.NATS, admin.Prober, admin.Switch), adminMw)
 }

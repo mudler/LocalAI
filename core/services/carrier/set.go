@@ -38,6 +38,10 @@ type Set struct {
 	Name cluster.Carrier
 	// Epoch is the epoch of the cluster row the set was built for.
 	Epoch int64
+	// NATSURL is the address of the NATS server that a NATS set was built from,
+	// as the row of the cluster named it. A set that was built from another
+	// address is not the set that the row asks for. Empty for the tunnel.
+	NATSURL string
 
 	// Broadcaster carries fan-out and nothing else. A subject outside the
 	// broadcast roots (see messaging.ValidateBroadcastSubject) is not served

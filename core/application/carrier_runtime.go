@@ -19,7 +19,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/tunnel"
-	"github.com/mudler/LocalAI/pkg/sanitize"
 )
 
 const (
@@ -136,16 +135,38 @@ func (rt *carrierRuntime) build(ctx context.Context, row cluster.CarrierRow, tar
 	return nil, fmt.Errorf("%w: %q", cluster.ErrInvalidCarrier, target)
 }
 
-func (rt *carrierRuntime) natsClient(ctx context.Context, wait time.Duration) (*messaging.Client, string, error) {
-	url, err := rt.natsURL(ctx)
+// natsTarget is the address of the NATS server that a build uses. While a change
+// is under way the row names it, so that every replica builds from the same
+// address whatever happens to the setting; otherwise it is the setting, else the
+// flag of this replica.
+func (rt *carrierRuntime) natsTarget(ctx context.Context, row *cluster.CarrierRow) (string, error) {
+	if row != nil && row.State != cluster.StateStable && row.NATSURL != "" {
+		return row.NATSURL, nil
+	}
+	return rt.natsURL(ctx)
+}
+
+// connectURL is the address to dial for target. The cluster stores the address
+// without a credential. When the flag of this replica names the same server, the
+// flag is dialled, because it is where this replica keeps its user name,
+// password or token.
+func (rt *carrierRuntime) connectURL(target string) string {
+	if flag := rt.cfg.Distributed.NatsURL; flag != "" && cluster.PublicNATSURL(flag) == target {
+		return flag
+	}
+	return target
+}
+
+func (rt *carrierRuntime) natsClient(ctx context.Context, wait time.Duration, row *cluster.CarrierRow) (*messaging.Client, string, error) {
+	target, err := rt.natsTarget(ctx, row)
 	if err != nil {
 		return nil, "", err
 	}
-	if url == "" {
+	if target == "" {
 		return nil, "", errors.New("no NATS URL is configured: store one in the cluster settings (nats.url) or start the frontend with --nats-url")
 	}
-	client, err := rt.natsClientAt(ctx, url, wait)
-	return client, url, err
+	client, err := rt.natsClientAt(ctx, rt.connectURL(target), wait)
+	return client, target, err
 }
 
 // natsClientAt connects to the NATS server at url with the credentials of this
@@ -167,7 +188,7 @@ func (rt *carrierRuntime) natsClientAt(ctx context.Context, url string, wait tim
 		for !client.IsConnected() {
 			if time.Now().After(deadline) || ctx.Err() != nil {
 				client.Close()
-				return nil, fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", sanitize.URL(url), wait)
+				return nil, fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", cluster.PublicNATSURL(url), wait)
 			}
 			select {
 			case <-ctx.Done():
@@ -181,7 +202,7 @@ func (rt *carrierRuntime) natsClientAt(ctx context.Context, url string, wait tim
 // CheckNATS says whether this replica reaches the NATS server at url with its own
 // credentials. It opens a connection and closes it.
 func (rt *carrierRuntime) CheckNATS(ctx context.Context, url string) error {
-	client, err := rt.natsClientAt(ctx, url, natsProbeWait)
+	client, err := rt.natsClientAt(ctx, rt.connectURL(url), natsProbeWait)
 	if err != nil {
 		return err
 	}
@@ -194,7 +215,7 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 	if wait {
 		waitFor = natsConnectWait
 	}
-	client, url, err := rt.natsClient(ctx, waitFor)
+	client, url, err := rt.natsClient(ctx, waitFor, &row)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +251,8 @@ func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow,
 		client.Close()
 		return nil, err
 	}
-	xlog.Info("Connected to NATS", "url", sanitize.URL(url), "epoch", row.Epoch)
+	set.NATSURL = row.NATSURL
+	xlog.Info("Connected to NATS", "url", cluster.PublicNATSURL(url), "epoch", row.Epoch)
 	return set, nil
 }
 
@@ -277,7 +299,7 @@ func (rt *carrierRuntime) availability(ctx context.Context) map[cluster.Carrier]
 	case cur != nil && cur.Name == cluster.CarrierNATS:
 		out[cluster.CarrierNATS] = ""
 	default:
-		client, _, err := rt.natsClient(ctx, natsProbeWait)
+		client, _, err := rt.natsClient(ctx, natsProbeWait, nil)
 		if err != nil {
 			out[cluster.CarrierNATS] = err.Error()
 		} else {

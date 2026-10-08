@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"slices"
 	"time"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 )
 
@@ -67,8 +64,8 @@ func carrierError(c echo.Context, status int, msg string, extra map[string]any) 
 	return c.JSON(status, body)
 }
 
-// settingsView is the settings as an admin reads them. A password in the address
-// of a server is masked.
+// settingsView is the settings as an admin reads them. A user name, a password or a
+// query string in the address of a server is dropped.
 func settingsView(all map[string]string) map[string]any {
 	view := map[string]any{
 		"nats_url":          "",
@@ -78,10 +75,10 @@ func settingsView(all map[string]string) map[string]any {
 		"max_drain":         all[cluster.SettingMaxDrain],
 	}
 	if v := all[cluster.SettingNATSURL]; v != "" {
-		view["nats_url"] = sanitize.URL(v)
+		view["nats_url"] = cluster.PublicNATSURL(v)
 	}
 	if v := all[cluster.SettingNATSWorkerURL]; v != "" {
-		view["nats_worker_url"] = sanitize.URL(v)
+		view["nats_worker_url"] = cluster.PublicNATSURL(v)
 	}
 	return view
 }
@@ -212,29 +209,29 @@ type settingsRequest struct {
 	MaxDrain         *string `json:"max_drain"`
 }
 
-func validNATSURL(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("not a URL: %w", err)
-	}
-	if !slices.Contains([]string{"nats", "tls", "ws", "wss"}, u.Scheme) {
-		return fmt.Errorf("the scheme must be nats, tls, ws or wss, not %q", u.Scheme)
-	}
-	if u.Host == "" {
-		return errors.New("the address has no host")
-	}
-	return nil
-}
-
 // natsCheckTimeout bounds the reachability check of a saved URL.
 const natsCheckTimeout = 8 * time.Second
 
-// PutClusterSettingsEndpoint stores settings of the cluster. Saving a NATS URL
-// makes NATS available and checks that this replica reaches it; it does not
-// switch the cluster to NATS. The change of carrier is a separate request with a
-// dry run. Every replica checks the stored URL on its next report, and a dry run
-// asks them to.
-func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, prober ReplicaProber) echo.HandlerFunc {
+// CarrierStatus reads the state of the cluster carrier. *cluster.Switch is one.
+type CarrierStatus interface {
+	Status(ctx context.Context) (cluster.Report, error)
+}
+
+// PutClusterSettingsEndpoint stores settings of the cluster. It stores nothing
+// unless it can store everything: the request is checked as a whole first.
+//
+// A NATS URL is stored only when no change of carrier is under way and this
+// replica reaches the server at that address. A change builds the NATS carrier
+// from the address that the row of the change holds, so an edit during one
+// would only confuse the operator; an address that does not answer would stay in
+// the settings until a change to NATS failed on it. Saving an address makes NATS
+// available; it does not switch the cluster to NATS. The change of carrier is a
+// separate request with a dry run. Every replica checks the stored URL on its
+// next report, and a dry run asks them to.
+//
+// No address may carry a user name, a password or a query string: the settings
+// are shared, and the credentials of NATS stay on each replica.
+func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, prober ReplicaProber, state CarrierStatus) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req settingsRequest
 		if err := c.Bind(&req); err != nil {
@@ -261,13 +258,38 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 				continue
 			}
 			if ch.url {
-				if err := validNATSURL(*ch.val); err != nil {
+				if err := cluster.CheckNATSURL(*ch.val); err != nil {
 					return carrierError(c, http.StatusBadRequest, fmt.Sprintf("%s: %v", ch.key, err), nil)
 				}
 			} else if _, err := time.ParseDuration(*ch.val); err != nil {
 				return carrierError(c, http.StatusBadRequest, fmt.Sprintf("%s: %v", ch.key, err), nil)
 			}
 		}
+
+		resp := map[string]any{"saved": true}
+		if req.NATSURL != nil {
+			st, err := state.Status(ctx)
+			if err != nil {
+				return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
+			}
+			if st.State != cluster.StateStable {
+				return carrierError(c, http.StatusConflict, fmt.Sprintf(
+					"the NATS URL cannot be changed while a change of carrier is under way (%s to %s): wait for it to settle or abort it",
+					st.State, st.Row.Target), nil)
+			}
+			if *req.NATSURL != "" {
+				checkCtx, cancel := context.WithTimeout(ctx, natsCheckTimeout)
+				err := checker.CheckNATS(checkCtx, *req.NATSURL)
+				cancel()
+				if err != nil {
+					xlog.Warn("The NATS URL was refused: this replica cannot reach it", "error", err)
+					return carrierError(c, http.StatusUnprocessableEntity, fmt.Sprintf(
+						"nats_url: this replica cannot reach the NATS server at %s: %v", cluster.PublicNATSURL(*req.NATSURL), err), nil)
+				}
+				resp["nats"] = map[string]any{"reachable": true}
+			}
+		}
+
 		for _, ch := range changes {
 			if ch.val == nil {
 				continue
@@ -279,7 +301,7 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 				err = settings.Set(ctx, ch.key, *ch.val, by)
 			}
 			switch {
-			case errors.Is(err, cluster.ErrUnknownSetting):
+			case errors.Is(err, cluster.ErrUnknownSetting), errors.Is(err, cluster.ErrCredentialInURL):
 				return carrierError(c, http.StatusBadRequest, err.Error(), nil)
 			case err != nil:
 				return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
@@ -287,18 +309,6 @@ func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, p
 		}
 		xlog.Info("Cluster settings changed", "by", by)
 
-		resp := map[string]any{"saved": true}
-		if req.NATSURL != nil && *req.NATSURL != "" {
-			checkCtx, cancel := context.WithTimeout(ctx, natsCheckTimeout)
-			err := checker.CheckNATS(checkCtx, *req.NATSURL)
-			cancel()
-			result := map[string]any{"reachable": err == nil}
-			if err != nil {
-				result["reason"] = err.Error()
-				xlog.Warn("The NATS URL that was saved is not reachable from this replica", "error", err)
-			}
-			resp["nats"] = result
-		}
 		if req.NATSURL != nil || req.NATSWorkerURL != nil {
 			// The other replicas look at the new address and write what they find.
 			prober.AskReplicas(ctx)

@@ -72,7 +72,11 @@ func (n *replicaNode) build(_ context.Context, row cluster.CarrierRow, target cl
 		return nil, err
 	}
 	n.builds[target]++
-	return n.newSet(target, row.Epoch), nil
+	set := n.newSet(target, row.Epoch)
+	if target == cluster.CarrierNATS {
+		set.NATSURL = row.NATSURL
+	}
+	return set, nil
 }
 
 // newSet builds a fake set over the shared bus of the carrier. The caller holds
@@ -244,6 +248,37 @@ var _ = Describe("The swap of a replica", func() {
 	})
 
 	Describe("prepare", func() {
+		It("builds again when the row names another NATS address than the set it holds was built from", func() {
+			a := join("a")
+			settle(cluster.CarrierTunnel)
+			row0 := row()
+			_, err := store.Transition(ctx, row0.Epoch, cluster.Change{
+				Active: cluster.CarrierTunnel, State: cluster.StatePrepare, Target: cluster.CarrierNATS,
+				Draining: row0.Draining, DrainingUntil: row0.DrainingUntil,
+				By: "admin", NATSURL: "nats://broker-one:4222",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			poll()
+			Expect(a.buildCount(cluster.CarrierNATS)).To(Equal(1))
+			first := a.fake(cluster.CarrierNATS)
+
+			// Same address, new epoch: the set is reused.
+			Expect(a.swapper.Reconcile(ctx, row())).To(Succeed())
+			Expect(a.buildCount(cluster.CarrierNATS)).To(Equal(1))
+
+			// Another replica saw another address: the row decides.
+			_, err = store.Transition(ctx, row().Epoch, cluster.Change{
+				Active: cluster.CarrierTunnel, State: cluster.StatePrepare, Target: cluster.CarrierNATS,
+				Draining: row0.Draining, DrainingUntil: row0.DrainingUntil,
+				By: "admin", NATSURL: "nats://broker-two:4222",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			poll()
+			Expect(a.buildCount(cluster.CarrierNATS)).To(Equal(2), "a set built from the old address is not reused")
+			Expect(a.fake(cluster.CarrierNATS)).ToNot(BeIdenticalTo(first))
+			Expect(a.life.seen()).To(ContainElement("close:nats"), "the set built from the old address is closed")
+		})
+
 		It("builds the target while the old carrier still serves, listens on both, and reports ready", func() {
 			a, b := join("a"), join("b")
 			var heardOnNew atomic.Int32

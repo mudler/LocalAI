@@ -79,6 +79,13 @@ type CarrierRow struct {
 	// Note says in a sentence how the last change ended, or why it did. It is
 	// for operators.
 	Note string `gorm:"size:512;not null;default:''" json:"note,omitempty"`
+	// NATSURL is the address of the NATS server that this change, or the last
+	// change to NATS, builds from. The admin starts a change and the replicas
+	// build in it, and an edit of the setting in between must not give two
+	// replicas two servers, so every replica builds from this copy while a change
+	// is under way. It never carries a credential. Empty when the cluster has no
+	// NATS address.
+	NATSURL string `gorm:"column:nats_url;size:2048;not null;default:''" json:"nats_url,omitempty"`
 }
 
 func (CarrierRow) TableName() string { return "cluster_carrier" }
@@ -94,6 +101,10 @@ type Change struct {
 	By            string
 	Force         bool
 	Note          string
+	// NATSURL replaces the address of the row when it is not empty. An empty
+	// value keeps the address that the row has, because only the start of a
+	// change to NATS knows which address to use.
+	NATSURL string
 }
 
 func (c Change) validate() error {
@@ -149,6 +160,11 @@ func (s *CarrierStore) Get(ctx context.Context) (CarrierRow, error) {
 // whose insert won. Replicas that start together can all call it: the first
 // insert wins and the others read that row.
 func (s *CarrierStore) Seed(ctx context.Context, active Carrier, by string) (row CarrierRow, created bool, err error) {
+	return s.SeedWith(ctx, active, by, "")
+}
+
+// SeedWith is Seed for a row that also carries the NATS address of the cluster.
+func (s *CarrierStore) SeedWith(ctx context.Context, active Carrier, by, natsURL string) (row CarrierRow, created bool, err error) {
 	if !active.valid() {
 		return CarrierRow{}, false, fmt.Errorf("%w: %q", ErrInvalidCarrier, active)
 	}
@@ -159,6 +175,7 @@ func (s *CarrierStore) Seed(ctx context.Context, active Carrier, by string) (row
 		State:     StateStable,
 		ChangedBy: by,
 		ChangedAt: time.Now().UTC(),
+		NATSURL:   natsURL,
 	})
 	if res.Error != nil {
 		return CarrierRow{}, false, fmt.Errorf("seeding cluster carrier: %w", res.Error)
@@ -176,21 +193,25 @@ func (s *CarrierStore) Transition(ctx context.Context, from int64, change Change
 	}
 	// RETURNING hands back the row this update wrote, not a later one.
 	var row CarrierRow
+	fields := map[string]any{
+		"active":         change.Active,
+		"state":          change.State,
+		"target":         change.Target,
+		"draining":       change.Draining,
+		"draining_until": change.DrainingUntil,
+		"changed_by":     change.By,
+		"changed_at":     gorm.Expr("now()"),
+		"force":          change.Force,
+		"note":           change.Note,
+		"prev_epoch":     gorm.Expr("epoch"),
+		"epoch":          gorm.Expr("epoch + 1"),
+	}
+	if change.NATSURL != "" {
+		fields["nats_url"] = change.NATSURL
+	}
 	res := s.db.WithContext(ctx).Model(&row).Clauses(clause.Returning{}).
 		Where("id = ? AND epoch = ?", carrierRowID, from).
-		Updates(map[string]any{
-			"active":         change.Active,
-			"state":          change.State,
-			"target":         change.Target,
-			"draining":       change.Draining,
-			"draining_until": change.DrainingUntil,
-			"changed_by":     change.By,
-			"changed_at":     gorm.Expr("now()"),
-			"force":          change.Force,
-			"note":           change.Note,
-			"prev_epoch":     gorm.Expr("epoch"),
-			"epoch":          gorm.Expr("epoch + 1"),
-		})
+		Updates(fields)
 	if res.Error != nil {
 		return CarrierRow{}, fmt.Errorf("changing cluster carrier: %w", res.Error)
 	}

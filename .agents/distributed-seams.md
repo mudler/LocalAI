@@ -72,11 +72,27 @@ The row is seeded by the first replica that starts: NATS when it has a NATS URL
 (the flag `--nats-url`, or a URL stored in the cluster settings), the tunnel
 otherwise. `--nats-url` means what it always meant for a deployment on NATS, and
 it is no longer required: a deployment with only PostgreSQL runs on the tunnel.
-The flag is copied into the cluster setting `nats.url` when none is stored, and a
-stored URL wins afterwards, so that every replica uses the same one. A NATS URL
+
+The address is stored before the row, so a replica that finds a row for NATS also
+finds the address. A replica with no flag and no stored address does not seed the
+tunnel into a cluster that has NATS: when a worker or a replica is registered, or
+the row names NATS, its start fails and says to set `--nats-url`.
+
+The flag is copied into the cluster setting `nats.url` when none is stored, without
+its user name, password and query string. A flag that names another server than the
+stored address stops the start and names both: the stored address is what every
+replica uses, and the operator who moves a broker stores the new address
+(`PUT /api/cluster/settings`) and restarts. A replica whose flag names the stored
+server dials the flag, because that is where it keeps its own credential. A NATS URL
 that points at a server which is not up does not stop the start:
 `messaging.New` retries on a failed connect, so a frontend can start before its
 broker. A URL it cannot parse does.
+
+The row of a change to NATS carries the address (`cluster_carrier.nats_url`), copied
+from the setting when the admin requests the change. While the change is under
+way every replica builds from the row, and a prepared set built from another
+address is dropped and built again. The setting itself can be written only when no
+change is under way and this replica reaches the server at the new address.
 
 ## Changing the carrier
 
@@ -162,7 +178,9 @@ of a change (`switch.prepare_timeout`, `switch.transition_window`,
 `switch.max_drain`; defaults 1m, 2m and 15m; the flags
 `--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain`
 are the fallback). The runtime settings of the application are a file of one
-process and cannot carry them. Credentials are never stored there.
+process and cannot carry them. Credentials are never stored there: an address
+with a user name, a password or a query string is refused on write, and every view
+and log line drops them.
 
 ## The worker tunnel
 

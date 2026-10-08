@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -236,7 +237,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, fmt.Errorf("initializing cluster settings: %w", err)
 	}
-	carrierRow, err := seedCarrier(context.Background(), carrierStore, settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID)
+	carrierRow, err := seedCarrier(context.Background(), authDB, carrierStore, settingsStore, cfg.Distributed.NatsURL, cfg.Distributed.InstanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -683,6 +684,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		MaxDrain:         cfg.Distributed.CarrierMaxDrain,
 	}
 	carrierSwitch, err := cluster.NewSwitch(cluster.SwitchOptions{
+		NATSURL:  runtime.natsURL,
 		Store:    carrierStore,
 		Registry: clusterReg,
 		Workers:  workers,
@@ -786,41 +788,135 @@ const leaderTick = 2 * time.Second
 
 // seedCarrier reads the cluster carrier row, and writes it when no replica has
 // yet. It returns the row as it is after the call.
-func seedCarrier(ctx context.Context, store *cluster.CarrierStore, settings *cluster.SettingsStore, flagURL, instanceID string) (cluster.CarrierRow, error) {
+//
+// The NATS address of the cluster is the setting that is stored without a
+// credential. The flag of this replica is copied there when none is stored. A
+// flag that names another server than the stored address stops the start: the
+// stored address is what every replica uses, so a replica that was given another
+// one by mistake, or an operator who moved the broker and edited only the flag,
+// would otherwise run on the old server and see a warning in a log.
+//
+// A deployment that had NATS before the row existed, and a cluster whose row says
+// NATS, need an address. A replica that has none of it, and that sees no address
+// stored, stops its start, because seeding the tunnel would move the whole
+// cluster off the broker that its workers use.
+//
+// The address is stored before the row, so that a replica which reads the row and
+// finds NATS also finds the address.
+func seedCarrier(ctx context.Context, db *gorm.DB, store *cluster.CarrierStore, settings *cluster.SettingsStore, flagURL, instanceID string) (cluster.CarrierRow, error) {
+	// A flag that is not an address is not stored. The connection that is opened
+	// later says what is wrong with it.
+	flagPublic := ""
+	if flagURL != "" {
+		flagPublic = cluster.PublicNATSURL(flagURL)
+		if cluster.CheckNATSURL(flagPublic) != nil {
+			flagPublic = ""
+		}
+	}
 	stored, _, err := settings.Get(ctx, cluster.SettingNATSURL)
 	if err != nil {
 		return cluster.CarrierRow{}, err
 	}
-	seedWith := cluster.CarrierTunnel
-	if flagURL != "" || stored != "" {
-		seedWith = cluster.CarrierNATS
+	if flagPublic != "" && stored != "" && cluster.PublicNATSURL(stored) != flagPublic {
+		return cluster.CarrierRow{}, fmt.Errorf(
+			"the NATS address of this replica (--nats-url, %s) differs from the one stored for the cluster (%s). "+
+				"Every replica uses the stored address. To move the cluster to the new address, store it with PUT /api/cluster/settings "+
+				"({\"nats_url\": ...}) and restart; otherwise set --nats-url to the stored address or remove the flag",
+			flagPublic, cluster.PublicNATSURL(stored))
 	}
-	row, created, err := store.Seed(ctx, seedWith, instanceID)
-	if err != nil {
+
+	row, err := store.Get(ctx)
+	switch {
+	case err == nil:
+	case errors.Is(err, cluster.ErrNotSeeded):
+		seedWith := cluster.CarrierTunnel
+		known := stored
+		if known == "" {
+			known = flagPublic
+		}
+		switch {
+		case known != "" || flagURL != "":
+			seedWith = cluster.CarrierNATS
+		default:
+			era, err := natsEraDeployment(ctx, db)
+			if err != nil {
+				return cluster.CarrierRow{}, err
+			}
+			if era {
+				return cluster.CarrierRow{}, errNoNATSURL("this cluster already has registered workers or replicas, which use NATS")
+			}
+		}
+		if stored == "" && flagPublic != "" {
+			if _, err := settings.SetIfAbsent(ctx, cluster.SettingNATSURL, flagPublic, instanceID); err != nil {
+				return cluster.CarrierRow{}, err
+			}
+			stored = flagPublic
+		}
+		var created bool
+		row, created, err = store.SeedWith(ctx, seedWith, instanceID, stored)
+		if err != nil {
+			return cluster.CarrierRow{}, fmt.Errorf("reading cluster carrier state: %w", err)
+		}
+		if created {
+			xlog.Info("Cluster carrier seeded", "carrier", row.Active, "epoch", row.Epoch)
+		}
+	default:
 		return cluster.CarrierRow{}, fmt.Errorf("reading cluster carrier state: %w", err)
 	}
-	if created {
-		xlog.Info("Cluster carrier seeded", "carrier", row.Active, "epoch", row.Epoch)
+
+	// The address may have been stored by the replica that won the seed.
+	if stored == "" {
+		if stored, _, err = settings.Get(ctx, cluster.SettingNATSURL); err != nil {
+			return cluster.CarrierRow{}, err
+		}
 	}
-	if flagURL != "" {
+	if stored == "" && flagPublic != "" {
 		// The URL of the flag is copied into the cluster settings when none is
-		// stored, so that every replica uses the same one. A stored URL wins.
-		made, err := settings.SetIfAbsent(ctx, cluster.SettingNATSURL, flagURL, instanceID)
+		// stored, so that every replica uses the same one.
+		made, err := settings.SetIfAbsent(ctx, cluster.SettingNATSURL, flagPublic, instanceID)
 		if err != nil {
 			return cluster.CarrierRow{}, err
 		}
-		switch {
-		case made:
-			xlog.Info("The NATS URL of this replica is now a setting of the cluster", "url", sanitize.URL(flagURL))
-		case stored != "" && stored != flagURL:
-			xlog.Warn("The NATS URL of this replica differs from the one stored for the cluster; the stored one is used",
-				"flag", sanitize.URL(flagURL), "cluster", sanitize.URL(stored))
+		if made {
+			xlog.Info("The NATS URL of this replica is now a setting of the cluster", "url", flagPublic)
+			stored = flagPublic
 		}
+	}
+	if stored == "" && flagURL == "" && (row.Active == cluster.CarrierNATS || row.Draining == cluster.CarrierNATS || row.Target == cluster.CarrierNATS) {
+		return cluster.CarrierRow{}, errNoNATSURL("the cluster carrier row says NATS")
+	}
+	if flagURL != "" && flagPublic != flagURL {
+		xlog.Warn("The NATS URL of this replica carries a credential or a query string. This replica keeps it for its own connection; the cluster stores the address without it",
+			"url", cluster.PublicNATSURL(flagURL))
 	}
 	if row.Active == cluster.CarrierTunnel && flagURL != "" {
 		xlog.Info("The cluster runs on the tunnel carrier. The NATS URL of this replica is kept for a change back to NATS, and no NATS connection is opened")
 	}
 	return row, nil
+}
+
+func errNoNATSURL(why string) error {
+	return fmt.Errorf("no NATS address is known: %s, so a replica without one would flip the cluster to the tunnel or sit disconnected. "+
+		"Start this replica with --nats-url (LOCALAI_NATS_URL), or store the address with PUT /api/cluster/settings", why)
+}
+
+// natsEraDeployment says whether the database shows a cluster that ran before it
+// had a carrier row: a worker or a replica is registered. Such a cluster used
+// NATS, because NATS was the only carrier.
+func natsEraDeployment(ctx context.Context, db *gorm.DB) (bool, error) {
+	for _, table := range []string{"backend_nodes", "instances"} {
+		if !db.Migrator().HasTable(table) {
+			continue
+		}
+		var n int64
+		if err := db.WithContext(ctx).Table(table).Limit(1).Count(&n).Error; err != nil {
+			return false, fmt.Errorf("looking for registered workers: %w", err)
+		}
+		if n > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // attachmentOf turns the carriers a worker is attached to into the routing form.

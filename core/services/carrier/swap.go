@@ -308,10 +308,19 @@ func (s *Swapper) report(ctx context.Context, epoch int64, reason string) error 
 // makes every subscription listen on it.
 func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target cluster.Carrier) (*Set, error) {
 	switch {
-	case s.prepared != nil && s.prepared.Name == target:
+	case s.prepared != nil && s.prepared.Name == target && builtFrom(s.prepared, row):
 		return s.prepared, nil
-	case s.draining != nil && s.draining.Name == target:
+	case s.draining != nil && s.draining.Name == target && builtFrom(s.draining, row):
 		return s.draining, nil
+	}
+	if s.prepared != nil && s.prepared.Name == target {
+		// Built from another address than the row names now. Every replica must
+		// build from the address of the row, so this set is dropped.
+		stale := s.prepared
+		s.prepared = nil
+		if stale != s.draining {
+			closeSet(s.dropListening(stale))
+		}
 	}
 	set, err := s.o.Build(ctx, row, target)
 	if err != nil {
@@ -325,6 +334,12 @@ func (s *Swapper) attach(ctx context.Context, row cluster.CarrierRow, target clu
 		return nil, err
 	}
 	return set, nil
+}
+
+// builtFrom says whether set was built from the address that the row names. A
+// row with no address, or a set of the other carrier, has nothing to compare.
+func builtFrom(set *Set, row cluster.CarrierRow) bool {
+	return set.Name != cluster.CarrierNATS || row.NATSURL == "" || set.NATSURL == row.NATSURL
 }
 
 func (s *Swapper) prepare(ctx context.Context, row cluster.CarrierRow) error {
