@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 // AliasResolver maps a model name to the name of the model that actually
@@ -16,6 +17,13 @@ import (
 // the registry stays testable without building a full config loader.
 type AliasResolver interface {
 	ResolveAliasName(name string) (string, bool)
+}
+
+// configRevisionSource is implemented by an AliasResolver that can also report
+// the config revision behind its view of a name. core/config.ModelConfigLoader
+// implements it. A resolver without it is always treated as current.
+type configRevisionSource interface {
+	ConfigRevisionOf(name string) string
 }
 
 // SetAliasResolver installs the resolver used to map a scheduling rule's model
@@ -34,6 +42,65 @@ func (r *NodeRegistry) resolveAlias(name string) (string, bool) {
 		return name, false
 	}
 	return (*p).ResolveAliasName(name)
+}
+
+// localViewIsCurrent reports whether this frontend's config for name is the
+// one the cluster accepted: its revision matches the model_config_states row
+// for name. Every frontend keeps its own copy of the model configs, and a
+// frontend that missed an update still resolves an alias the old way.
+//
+// It answers true when it cannot tell: no revision-aware resolver, a config
+// with no stamped revision, or no accepted revision recorded for name. Those
+// cases keep the behaviour from before this check existed.
+func (r *NodeRegistry) localViewIsCurrent(ctx context.Context, name string) (bool, error) {
+	p := r.aliasResolver.Load()
+	if p == nil || *p == nil {
+		return true, nil
+	}
+	source, ok := (*p).(configRevisionSource)
+	if !ok {
+		return true, nil
+	}
+	local := source.ConfigRevisionOf(name)
+	if local == "" {
+		return true, nil
+	}
+	accepted, err := r.GetModelConfigRevision(ctx, name)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return accepted == local, nil
+}
+
+// applyCurrentTarget is applyTarget for the writers of shared scheduling state:
+// the replica reconciler and RefreshSchedulingTargets. It derives the target
+// from this frontend's alias mapping only when that mapping is current. When
+// this frontend is behind the cluster, it keeps the target_model stored by a
+// frontend that is current, so a stale frontend can neither rewrite the stored
+// target back nor scale up the model the alias used to point at.
+//
+// It costs a database read only for a rule whose stored and derived targets
+// differ, which is rare and short-lived.
+func (r *NodeRegistry) applyCurrentTarget(ctx context.Context, cfg *ModelSchedulingConfig) {
+	stored := cfg.TargetModel
+	r.applyTarget(cfg)
+	if stored == "" || stored == cfg.TargetModel {
+		return
+	}
+	current, err := r.localViewIsCurrent(ctx, cfg.ModelName)
+	if err != nil {
+		xlog.Warn("Cannot tell whether this frontend's model config is current; keeping the stored scheduling target",
+			"rule", cfg.ModelName, "stored", stored, "local", cfg.TargetModel, "error", err)
+	} else if current {
+		return
+	} else {
+		xlog.Debug("This frontend's model config is behind the cluster; keeping the stored scheduling target",
+			"rule", cfg.ModelName, "stored", stored, "local", cfg.TargetModel)
+	}
+	cfg.TargetModel = stored
 }
 
 // applyTarget fills in the rule's derived TargetModel. Every read path runs a
@@ -207,6 +274,12 @@ func (r *NodeRegistry) ValidateSchedulingTarget(ctx context.Context, ruleName st
 // alias therefore reaches that guard one reconciler tick later, which is early
 // enough: until then the guard protects the previous target, and the reconciler
 // is already reloading the new one.
+//
+// Only a frontend whose model config is current writes (see
+// applyCurrentTarget). Every frontend can run the reconciler, and each one
+// resolves aliases from its own copy of the configs, so without that check a
+// frontend that missed an alias update and one that did not would rewrite the
+// row against each other on alternate ticks.
 func (r *NodeRegistry) RefreshSchedulingTargets(ctx context.Context) error {
 	var configs []ModelSchedulingConfig
 	if err := r.db.WithContext(ctx).Find(&configs).Error; err != nil {
@@ -214,7 +287,8 @@ func (r *NodeRegistry) RefreshSchedulingTargets(ctx context.Context) error {
 	}
 	for i := range configs {
 		stored := configs[i].TargetModel
-		live, _ := r.resolveAlias(configs[i].ModelName)
+		r.applyCurrentTarget(ctx, &configs[i])
+		live := configs[i].TargetModel
 		if stored == live {
 			continue
 		}

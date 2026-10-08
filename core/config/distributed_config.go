@@ -75,6 +75,10 @@ type DistributedConfig struct {
 	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
 	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
+	// ModelConfigResyncInterval is how often a frontend compares its model
+	// configs with the shared models directory, to catch a change whose
+	// invalidation event it missed (default 30s).
+	ModelConfigResyncInterval time.Duration
 	// DisablePerModelHealthCheck turns off the health monitor's per-model
 	// gRPC probe. When enabled (the default), the monitor pings each model's
 	// gRPC address and removes stale node_models rows whose backend has
@@ -191,6 +195,9 @@ func (c DistributedConfig) Validate() error {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
 		}
+	}
+	if c.ModelConfigResyncInterval < 0 {
+		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
 	}
 	return nil
 }
@@ -366,6 +373,14 @@ func WithModelLoadWait(d time.Duration) AppOption {
 	}
 }
 
+// WithModelConfigResyncInterval sets how often a frontend resyncs its model
+// configs from the shared models directory. Zero means the default.
+func WithModelConfigResyncInterval(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelConfigResyncInterval = d
+	}
+}
+
 // WithStaleNodeThreshold sets how long a node may go without a durable
 // heartbeat before the health monitor marks it offline. It has to be raised
 // alongside WithNodeHeartbeatCheckpoint: a checkpoint interval wider than this
@@ -458,6 +473,14 @@ const (
 	// log line knows exactly which knob produced it.
 	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
+
+// FlagModelConfigResyncInterval names the model config resync interval.
+const FlagModelConfigResyncInterval = "model-config-resync-interval"
+
+// DefaultModelConfigResyncInterval bounds how long a frontend that missed a
+// models invalidation serves an old model config. It matches the tick of the
+// replica reconciler, which acts on those configs.
+const DefaultModelConfigResyncInterval = 30 * time.Second
 
 // Defaults for distributed timeouts.
 const (
@@ -572,6 +595,12 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 }
 
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
+// ModelConfigResyncIntervalOrDefault returns the configured interval or the
+// default.
+func (c DistributedConfig) ModelConfigResyncIntervalOrDefault() time.Duration {
+	return cmp.Or(c.ModelConfigResyncInterval, DefaultModelConfigResyncInterval)
+}
+
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
 }
