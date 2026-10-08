@@ -1,745 +1,436 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { tracesApi, settingsApi, DEFAULT_TRACE_PAGE_SIZE } from '../utils/api'
 import { formatDateTime } from '../utils/format'
-import LoadingSpinner from '../components/LoadingSpinner'
-import PageHeader from '../components/PageHeader'
-import ResponsiveTable from '../components/ResponsiveTable'
-import Toggle from '../components/Toggle'
-import SettingRow from '../components/SettingRow'
-import WaveformPlayer from '../components/audio/WaveformPlayer'
+import { durationText, filterTraces, nsToMs, saveFile, traceCounts, traceState, traceTime } from '../utils/traffic'
+import { useTracingEnabled } from '../hooks/useTraffic'
+import { usePolling } from '../hooks/usePolling'
+import { cssVars } from '../utils/modelLedger'
+import BackendTraceDetail from '../components/traffic/BackendTraceDetail'
 import Icon from '../components/Icon'
+import LoadingSpinner from '../components/LoadingSpinner'
+import './traffic.css'
 
-// How many traces the page keeps on screen. The server buffer holds far more;
-// the counters next to the tab labels report the true total.
-const TRACE_PAGE_SIZE = DEFAULT_TRACE_PAGE_SIZE
+const PAGE_SIZE = DEFAULT_TRACE_PAGE_SIZE
+// A request this slow is marked, not only long.
+const SLOW_MS = 2000
 
-const AUDIO_DATA_KEYS = new Set([
-  'audio_wav_base64', 'audio_duration_s', 'audio_snippet_s',
-  'audio_sample_rate', 'audio_samples', 'audio_rms_dbfs',
-  'audio_peak_dbfs', 'audio_dc_offset',
-])
-
-function formatDuration(ns) {
-  if (!ns && ns !== 0) return '-'
-  if (ns < 1000) return `${ns}ns`
-  if (ns < 1_000_000) return `${(ns / 1000).toFixed(1)}\u00b5s`
-  if (ns < 1_000_000_000) return `${(ns / 1_000_000).toFixed(1)}ms`
-  return `${(ns / 1_000_000_000).toFixed(2)}s`
+function clock(value) {
+  const ms = traceTime(value)
+  if (ms == null) return '-'
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-// Latency as a bar as well as a figure. Scaled against the slowest request
-// currently in view rather than an absolute ceiling: what matters when scanning
-// a page of traces is which ones are the outliers here, and an absolute scale
-// would flatten every row on a fast installation into nothing.
-const SLOW_NS = 2_000_000_000
-
+// Latency as a bar as well as a figure. The bar is scaled against the slowest
+// request in view, not an absolute ceiling: scanning a page of traces is about
+// which are the outliers here, and an absolute scale would flatten every row on
+// a fast installation into nothing.
 function LatencyCell({ ns, max }) {
-  if (!ns && ns !== 0) return <span className="text-sub">-</span>
+  const ms = nsToMs(ns)
+  if (ms == null) return <span className="tf-sub">-</span>
   const pct = max > 0 ? Math.max(2, Math.round((ns / max) * 100)) : 2
-  const slow = ns >= SLOW_NS
   return (
     <span className="lat">
-      <span className={`lat__bar${slow ? ' lat__bar--slow' : ''}`}>
-        <i style={{ width: `${pct}%` }} />
+      <span className={`lat__bar${ms >= SLOW_MS ? ' lat__bar--slow' : ''}`}>
+        <i style={cssVars({ width: `${pct}%` })} />
       </span>
-      <b>{formatDuration(ns)}</b>
+      <b>{durationText(ms)}</b>
     </span>
   )
 }
 
-function decodeTraceBody(body) {
-  if (!body) return ''
-  try {
-    const bin = atob(body)
-    const bytes = new Uint8Array(bin.length)
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    const text = new TextDecoder().decode(bytes)
-    try { return JSON.stringify(JSON.parse(text), null, 2) } catch { return text }
-  } catch {
-    return body
-  }
-}
-
-function formatValue(value) {
-  if (value === null || value === undefined) return 'null'
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
-
-function formatLargeValue(value) {
-  if (typeof value === 'string') {
-    try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value }
-  }
-  if (typeof value === 'object') return JSON.stringify(value, null, 2)
-  return String(value)
-}
-
-function isLargeValue(value) {
-  if (typeof value === 'string') return value.length > 120
-  if (typeof value === 'object') return JSON.stringify(value).length > 120
-  return false
-}
-
-function truncateValue(value, maxLen) {
-  const str = typeof value === 'object' ? JSON.stringify(value) : String(value)
-  if (str.length <= maxLen) return str
-  return str.substring(0, maxLen) + '...'
-}
-
-const TYPE_COLORS = {
-  llm: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },
-  embedding: { bg: 'var(--color-accent-light)', color: 'var(--color-data-3)' },
-  transcription: { bg: 'var(--color-warning-light)', color: 'var(--color-data-4)' },
-  image_generation: { bg: 'var(--color-success-light)', color: 'var(--color-data-5)' },
-  video_generation: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
-  '3d_generation': { bg: 'var(--color-success-light)', color: 'var(--color-data-5)' },
-  '3d_remesh': { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
-  tts: { bg: 'var(--color-warning-light)', color: 'var(--color-data-6)' },
-  sound_generation: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
-  rerank: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },
-  tokenize: { bg: 'var(--color-secondary-light)', color: 'var(--color-text-muted)' },
-  detection: { bg: 'var(--color-info-light)', color: 'var(--color-data-8)' },
-  model_load: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
-  vector_store: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
-  token_classify: { bg: 'var(--color-info-light)', color: 'var(--color-data-3)' },
-  pattern_pii: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
-  failover: { bg: 'var(--color-warning-light)', color: 'var(--color-data-2)' },
-}
-
-function typeBadgeStyle(type) {
-  const c = TYPE_COLORS[type] || TYPE_COLORS.tokenize
-  return { background: c.bg, color: c.color, padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 500 }
-}
-
-// useWavObjectURL — decode a base64 WAV payload into a blob: object URL for
-// the waveform player. A data: URL would render in <audio> (media-src allows
-// data:) but the peaks renderer fetch()es the src and the CSP's connect-src
-// only allows blob:, so playback broke with a CSP violation. Decoding to a
-// Blob also tolerates payloads that aren't valid base64 — e.g. the
-// "<truncated: N bytes>" marker older servers stamped into oversized fields —
-// by yielding null instead of a broken player.
-function useWavObjectURL(b64) {
-  const [url, setUrl] = useState(null)
-  useEffect(() => {
-    if (!b64) {
-      setUrl(null)
-      return undefined
-    }
-    let objectUrl = null
-    try {
-      const bin = atob(b64)
-      const bytes = new Uint8Array(bin.length)
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-      objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
-      setUrl(objectUrl)
-    } catch {
-      setUrl(null)
-    }
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [b64])
-  return url
-}
-
-// Audio player + metrics for transcription traces
-function AudioSnippet({ data }) {
-  const audioUrl = useWavObjectURL(data?.audio_wav_base64)
-  if (!data?.audio_wav_base64) return null
-  const metrics = [
-    { label: 'Duration', value: data.audio_duration_s + 's' },
-    { label: 'Sample Rate', value: data.audio_sample_rate + ' Hz' },
-    { label: 'RMS Level', value: data.audio_rms_dbfs + ' dBFS' },
-    { label: 'Peak Level', value: data.audio_peak_dbfs + ' dBFS' },
-    { label: 'Samples', value: data.audio_samples },
-    { label: 'Snippet', value: data.audio_snippet_s + 's' },
-    { label: 'DC Offset', value: data.audio_dc_offset },
-  ]
+function SortHead({ col, label, sort, onSort, className }) {
+  const active = sort.key === col
   return (
-    <div className="mb-md">
-      <h4 className="hstack hstack--xs text-sm fw-semibold mb-xs">
-        <Icon name="headphones" className="text-primary" /> Audio Snippet
-      </h4>
-      <div className="tr-well">
-        {audioUrl
-          ? <WaveformPlayer src={audioUrl} height={64} />
-          : <div data-testid="audio-snippet-unavailable" className="text-xs text-secondary pad-xs">
-              <Icon name="warning" /> Audio clip not playable — it was truncated when recorded (raise Max Body Bytes in the tracing settings).
-            </div>}
-        <div className="tr-metrics mt-sm">
-          {metrics.map(m => (
-            <div key={m.label} className="tr-metric">
-              <div className="text-secondary">{m.label}</div>
-              <div className="text-mono">{m.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function fieldSummary(value) {
-  const count = Object.keys(value).length
-  return `{${count} field${count !== 1 ? 's' : ''}}`
-}
-
-// Expandable data fields for backend traces (recursive for nested objects)
-function DataFields({ data, nested }) {
-  const [expandedFields, setExpandedFields] = useState({})
-  const filtered = Object.entries(data).filter(([key]) => !AUDIO_DATA_KEYS.has(key))
-  if (filtered.length === 0) return null
-
-  const toggleField = (key) => {
-    setExpandedFields(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  return (
-    <div>
-      {!nested && <h4 className="text-sm fw-semibold mb-xs">Data Fields</h4>}
-      <div className="tr-fields">
-        {filtered.map(([key, value]) => {
-          const objValue = isPlainObject(value)
-          const large = !objValue && isLargeValue(value)
-          const expandable = objValue || large
-          const expanded = expandedFields[key]
-          return (
-            <div key={key} className="tr-field">
-              <div
-                onClick={expandable ? () => toggleField(key) : undefined}
-                className={`tr-field__head${expandable ? ' tr-field__head--expandable' : ''}`}
-              >
-                {expandable ? (
-                  <Icon name={`chevron-${expanded ? 'down' : 'right'}`} className="tr-field__chevron" />
-                ) : (
-                  <span className="tr-field__chevron" />
-                )}
-                <span className="tr-field__key">{key}</span>
-                {objValue && !expanded && <span className="text-xs text-secondary">{fieldSummary(value)}</span>}
-                {!objValue && !large && <span className="text-mono text-xs text-secondary">{formatValue(value)}</span>}
-                {!objValue && large && !expanded && <span className="text-xs text-secondary cell-clip">{truncateValue(value, 120)}</span>}
-              </div>
-              {expanded && objValue && (
-                <div className="tr-field__nested">
-                  <DataFields data={value} nested />
-                </div>
-              )}
-              {expanded && large && (
-                <div className="tr-field__body">
-                  <pre className="tr-code">
-                    {formatLargeValue(value)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// Expanded detail for a backend trace row
-function BackendTraceDetail({ trace }) {
-  const running = trace.status === 'running'
-  const infoItems = [
-    { label: 'Type', value: trace.type },
-    { label: 'Model', value: trace.model_name || '-' },
-    { label: 'Backend', value: trace.backend || '-' },
-    { label: 'Duration', value: running ? `${formatDuration(trace.duration)} (running)` : formatDuration(trace.duration) },
-  ]
-
-  return (
-    <div className="tr-panel">
-      {/* Summary cards */}
-      <div className="tr-metrics tr-metrics--fixed mb-md">
-        {infoItems.map(item => (
-          <div key={item.label} className="tr-metric tr-metric--outlined">
-            <div className="text-secondary">{item.label}</div>
-            <div className="fw-medium">{item.label === 'Type' ? <span style={typeBadgeStyle(item.value)}>{item.value}</span> : item.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Error banner */}
-      {trace.error && (
-        <div className="tr-error mb-md">
-          <Icon name="warning" className="text-error" />
-          <span className="text-error text-sm">{trace.error}</span>
-        </div>
-      )}
-
-      {/* Backend logs link — /app/backend-logs/:modelId is the unified entry
-          point: in standalone mode it streams local logs, in distributed mode
-          it resolves the model to the host worker(s) and either redirects to
-          /app/node-backend-logs/<nodeId>/<modelId> or shows a node picker. */}
-      {trace.model_name && (
-        <div className="mb-md">
-          <a
-            href={`/app/backend-logs/${encodeURIComponent(trace.model_name)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}
-            className="hstack hstack--xs text-sm text-primary"
-          >
-            <Icon name="terminal" /> View backend logs
-          </a>
-        </div>
-      )}
-
-      {/* Audio snippet */}
-      {trace.data && <AudioSnippet data={trace.data} />}
-
-      {/* Request body: cloud-proxy passthrough records the full
-          payload here (capped to ~1MB upstream); pretty-print when
-          it parses as JSON, otherwise show the raw text. */}
-      {trace.body && (
-        <div className="mb-md">
-          <h4 className="text-sm fw-semibold mb-xs">Request Body</h4>
-          <pre className="tr-code">
-            {formatLargeValue(trace.body)}
-          </pre>
-        </div>
-      )}
-
-      {/* Data fields */}
-      {trace.data && Object.keys(trace.data).length > 0 && <DataFields data={trace.data} />}
-    </div>
-  )
-}
-
-// Expanded detail for an API trace row
-function ApiTraceDetail({ trace }) {
-  const user = trace.user_name || trace.user_id
-  const meta = [
-    ['User', user],
-    ['Client IP', trace.client_ip],
-    ['User Agent', trace.user_agent],
-  ].filter(([, v]) => v)
-  return (
-    <div className="tr-panel">
-      {meta.length > 0 && (
-        <div className="tr-meta-grid mb-md">
-          {meta.map(([label, value]) => (
-            <React.Fragment key={label}>
-              <span className="fw-semibold text-secondary">{label}</span>
-              <span className="text-mono wrap-anywhere">{value}</span>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
-      {trace.error && (
-        <div className="tr-error mb-md">
-          <Icon name="warning" className="text-error" />
-          <span className="text-error text-sm text-mono wrap-anywhere">{trace.error}</span>
-        </div>
-      )}
-      <div className="tr-split">
-        <div>
-          <h4 className="text-sm fw-semibold mb-xs">Request Body</h4>
-          <pre className="tr-code">
-            {decodeTraceBody(trace.request?.body)}
-          </pre>
-        </div>
-        <div>
-          <h4 className="text-sm fw-semibold mb-xs">Response Body</h4>
-          <pre className="tr-code">
-            {decodeTraceBody(trace.response?.body)}
-          </pre>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function Traces() {
-  const { addToast } = useOutletContext()
-  const { t } = useTranslation('admin')
-  const [searchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') === 'backend' ? 'backend' : 'api')
-  const [traces, setTraces] = useState([])
-  const [apiCount, setApiCount] = useState(0)
-  const [backendCount, setBackendCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [expandedTraceId, setExpandedTraceId] = useState(null)
-  // detail holds the full record for the currently expanded row, fetched on
-  // demand from /api/traces/:id (the list response omits the bodies).
-  const [detail, setDetail] = useState(null)
-  const [sort, setSort] = useState({ key: null, dir: 'asc' })
-  const [tracingEnabled, setTracingEnabled] = useState(null)
-
-  const TRACE_SORT = {
-    method: (a, b) => (a.request?.method || '').localeCompare(b.request?.method || ''),
-    path: (a, b) => (a.request?.path || '').localeCompare(b.request?.path || ''),
-    user: (a, b) => (a.user_name || a.user_id || '').localeCompare(b.user_name || b.user_id || ''),
-    status: (a, b) => (a.response?.status || 0) - (b.response?.status || 0),
-    type: (a, b) => (a.type || '').localeCompare(b.type || ''),
-    time: (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0),
-    model: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
-    duration: (a, b) => (a.duration || 0) - (b.duration || 0),
-  }
-  const toggleSort = (key) => {
-    setExpandedTraceId(null)
-    setDetail(null)
-    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
-  }
-  const sortableTh = (key, label, props = {}) => (
-    <th
-      {...props}
-      role="button"
-      tabIndex={0}
-      aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      onClick={() => toggleSort(key)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(key) } }}
-      className="sortable-th" style={props.style}
-    >
-      {label}{sort.key === key && <Icon name={`chevron-${sort.dir === 'asc' ? 'up' : 'down'}`} className="ml-xs op-70" />}
+    <th scope="col" className={className} aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="dk-table-sort" onClick={() => onSort(s => ({ key: col, dir: s.key === col && s.dir === 'asc' ? 'desc' : 'asc' }))}>
+        {label}
+        <Icon name="arrow-up" className="dk-icon" />
+      </button>
     </th>
   )
-  const [backendLoggingEnabled, setBackendLoggingEnabled] = useState(null)
-  const [settings, setSettings] = useState(null)
-  const [settingsExpanded, setSettingsExpanded] = useState(false)
+}
+
+const API_SORT = {
+  method: (a, b) => (a.request?.method || '').localeCompare(b.request?.method || ''),
+  path: (a, b) => (a.request?.path || '').localeCompare(b.request?.path || ''),
+  user: (a, b) => (a.user_name || a.user_id || '').localeCompare(b.user_name || b.user_id || ''),
+  status: (a, b) => (a.response?.status || 0) - (b.response?.status || 0),
+  time: (a, b) => (traceTime(a.timestamp) || 0) - (traceTime(b.timestamp) || 0),
+  duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+}
+const BACKEND_SORT = {
+  type: (a, b) => (a.type || '').localeCompare(b.type || ''),
+  time: (a, b) => (traceTime(a.timestamp) || 0) - (traceTime(b.timestamp) || 0),
+  model: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
+  duration: (a, b) => (a.duration || 0) - (b.duration || 0),
+}
+
+function ResultCell({ trace }) {
+  const { t } = useTranslation('traffic')
+  const state = traceState(trace)
+  if (state === 'running') return <span className="tf-result" data-level="info"><Icon name="spinner" spin title={t('traces.inProgress')} /> {t('traces.state.running')}</span>
+  if (state === 'failed') return <span className="tf-result" data-level="error"><Icon name="alert-circle" title={trace.error || undefined} /> {t('traces.state.failed')}</span>
+  if (state === 'refused') return <span className="tf-result" data-level="warn"><Icon name="warning" /> {t('traces.state.refused')}</span>
+  return <span className="tf-result" data-level="ok"><Icon name="check-circle" /> {t('traces.state.ok')}</span>
+}
+
+// Tracing is how failures and latency are known, and it is off until someone
+// turns it on. This is the settings strip: one line that says where it stands,
+// and the four settings behind it.
+function TracingStrip({ tracing, expanded, setExpanded, addToast }) {
+  const { t } = useTranslation('traffic')
   const [saving, setSaving] = useState(false)
-  const refreshRef = useRef(null)
+  const { settings, setSettings } = tracing
+  if (!settings) return null
+  const on = !!tracing.enabled
+  const logging = !!tracing.backend
+  const all = on && logging
 
-  useEffect(() => {
-    settingsApi.get()
-      .then(data => {
-        setTracingEnabled(!!data.enable_tracing)
-        setBackendLoggingEnabled(!!data.enable_backend_logging)
-        setSettings(data)
-        if (!data.enable_tracing) setSettingsExpanded(true)
-      })
-      .catch(() => {})
-  }, [])
-
-  const handleSaveSettings = async () => {
+  const save = async (next) => {
     setSaving(true)
     try {
-      await settingsApi.save(settings)
-      setTracingEnabled(!!settings.enable_tracing)
-      setBackendLoggingEnabled(!!settings.enable_backend_logging)
-      addToast('Tracing settings saved', 'success')
-      if (settings.enable_tracing) setSettingsExpanded(false)
+      await settingsApi.save(next)
+      tracing.reload()
+      addToast?.(t('traces.settings.saved'), 'success')
+      if (next.enable_tracing) setExpanded(false)
     } catch (err) {
-      addToast(`Save failed: ${err.message}`, 'error')
+      addToast?.(t('traces.settings.failed', { message: err.message }), 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  // Only a bounded page is fetched, and the server strips the request /
-  // response bodies from list entries — the full record is pulled per row on
-  // expand. The unbounded form was a multi-megabyte transfer on every poll.
+  const set = (key, value) => setSettings({ ...settings, [key]: value })
+
+  return (
+    <div className={`tf-strip${all ? ' tf-strip--ok' : ''}`} data-testid="tracing-strip">
+      <button type="button" className="tf-strip__toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        <Icon name={all ? 'check-circle' : 'warning'} />
+        <span>
+          {t('traces.settings.tracingIs')} <strong>{on ? t('traces.settings.enabled') : t('traces.settings.disabled')}</strong>
+          {' · '}{t('traces.settings.loggingIs')} <strong>{logging ? t('traces.settings.enabled') : t('traces.settings.disabled')}</strong>
+          {!on && ` · ${t('traces.settings.notRecorded')}`}
+        </span>
+        <Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
+      </button>
+      {expanded && (
+        <div className="tf-strip__body">
+          <div className="tf-setting">
+            <div><strong>{t('traces.settings.enable')}</strong><span className="tf-hint">{t('traces.settings.enableHint')}</span></div>
+            <button type="button" className="dk-switch" role="switch" aria-checked={!!settings.enable_tracing} aria-label={t('traces.settings.enable')} onClick={() => set('enable_tracing', !settings.enable_tracing)} />
+          </div>
+          <label className="tf-setting">
+            <div><strong>{t('traces.settings.maxItems')}</strong><span className="tf-hint">{t('traces.settings.maxItemsHint')}</span></div>
+            <input className="dk-input dk-input--mono tf-setting__num" type="number" value={settings.tracing_max_items ?? ''} placeholder="100" disabled={!settings.enable_tracing}
+              onChange={e => set('tracing_max_items', parseInt(e.target.value) || 0)} />
+          </label>
+          <label className="tf-setting">
+            <div><strong>{t('traces.settings.maxBody')}</strong><span className="tf-hint">{t('traces.settings.maxBodyHint')}</span></div>
+            <input className="dk-input dk-input--mono tf-setting__num" type="number" value={settings.tracing_max_body_bytes ?? ''} placeholder="65536" disabled={!settings.enable_tracing}
+              onChange={e => set('tracing_max_body_bytes', parseInt(e.target.value) || 0)} />
+          </label>
+          <div className="tf-setting">
+            <div><strong>{t('traces.settings.logging')}</strong><span className="tf-hint">{t('traces.settings.loggingHint')}</span></div>
+            <button type="button" className="dk-switch" role="switch" aria-checked={!!settings.enable_backend_logging} aria-label={t('traces.settings.logging')} onClick={() => set('enable_backend_logging', !settings.enable_backend_logging)} />
+          </div>
+          <div className="tf-strip__foot">
+            <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={() => save(settings)}>
+              {saving ? <><LoadingSpinner size="sm" /> {t('traces.settings.saving')}</> : <><Icon name="save" /> {t('traces.settings.save')}</>}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function Traces() {
+  const { addToast } = useOutletContext() || {}
+  const { t } = useTranslation('traffic')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') === 'backend' ? 'backend' : 'api')
+  const [apiPage, setApiPage] = useState({ items: [], total: 0 })
+  const [backendPage, setBackendPage] = useState({ items: [], total: 0 })
+  const [loading, setLoading] = useState(true)
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
+  const [open, setOpen] = useState(null)
+  const [detail, setDetail] = useState(null)
+  const [expanded, setExpanded] = useState(null)
+  const tracing = useTracingEnabled()
+  const state = searchParams.get('state') === 'failed' ? 'failed' : searchParams.get('state') === 'slow' ? 'slow' : 'all'
+  const [query, setQuery] = useState(searchParams.get('q') || '')
+
+  // Open the settings when tracing turns out to be off, once.
+  useEffect(() => {
+    if (tracing.enabled === false && expanded === null) setExpanded(true)
+  }, [tracing.enabled, expanded])
+
+  // Only a bounded page is fetched, and the server strips the bodies from list
+  // entries. The unbounded form was a multi-megabyte transfer on every poll.
   const fetchTraces = useCallback(async () => {
     try {
-      const [apiPage, backendPage] = await Promise.all([
-        tracesApi.get({ limit: TRACE_PAGE_SIZE }),
-        tracesApi.getBackend({ limit: TRACE_PAGE_SIZE }),
+      const [api, backend] = await Promise.all([
+        tracesApi.get({ limit: PAGE_SIZE }),
+        tracesApi.getBackend({ limit: PAGE_SIZE }),
       ])
-      setApiCount(apiPage.total)
-      setBackendCount(backendPage.total)
-      setTraces(activeTab === 'api' ? apiPage.items : backendPage.items)
+      setApiPage(api)
+      setBackendPage(backend)
     } catch (err) {
-      // Tracing disabled is the default state, not an error — the in-page banner covers it.
+      // Tracing off is the default, not an error: the strip above says so.
       const disabled = /disabled|not enabled|404|not found/i.test(err?.message || '')
-      if (!disabled) {
-        addToast(`Failed to load traces: ${err.message}`, 'error')
-      }
+      if (!disabled) addToast?.(t('traces.loadFailed', { message: err.message }), 'error')
     } finally {
       setLoading(false)
     }
-  }, [activeTab, addToast])
+  }, [addToast, t])
 
-  useEffect(() => {
-    setLoading(true)
-    setExpandedTraceId(null)
-    setDetail(null)
-    fetchTraces()
-  }, [fetchTraces])
+  const { refetch } = usePolling(fetchTraces, 5000)
 
-  // Expanding a row pulls the full record (bodies, data fields, audio
-  // snippets) that the list response deliberately omits.
-  const toggleRow = useCallback(async (row, index) => {
-    const traceKey = row?.id ?? index
-    if (expandedTraceId === traceKey) {
-      setExpandedTraceId(null)
-      setDetail(null)
-      return
+  useEffect(() => { setSort({ key: null, dir: 'asc' }); setOpen(null); setDetail(null) }, [tab])
+
+  const setFilterState = (next) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('state'); else params.set('state', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  const traces = tab === 'api' ? apiPage.items : backendPage.items
+  const counts = useMemo(() => traceCounts(apiPage.items, SLOW_MS), [apiPage.items])
+  const filtered = useMemo(() => {
+    if (tab !== 'api') {
+      const needle = query.trim().toLowerCase()
+      if (!needle) return traces
+      return traces.filter(tr => [tr.model_name, tr.summary, tr.type, tr.error].some(v => v && String(v).toLowerCase().includes(needle)))
     }
-    setExpandedTraceId(traceKey)
+    return filterTraces(traces, { state, query, slowMs: SLOW_MS })
+  }, [tab, traces, state, query])
+  const sorters = tab === 'api' ? API_SORT : BACKEND_SORT
+  const sorted = useMemo(() => {
+    const cmp = sort.key && sorters[sort.key]
+    if (!cmp) return filtered
+    return [...filtered].sort((a, b) => (sort.dir === 'asc' ? cmp(a, b) : cmp(b, a)))
+  }, [filtered, sort, sorters])
+  const slowest = traces.reduce((m, tr) => Math.max(m, tr.duration || 0), 0)
+
+  const toggleBackend = async (row, index) => {
+    const key = row?.id ?? index
+    if (open === key) { setOpen(null); setDetail(null); return }
+    setOpen(key)
     setDetail(null)
     if (!row?.id) return
-    try {
-      const full = activeTab === 'api'
-        ? await tracesApi.getOne(row.id)
-        : await tracesApi.getBackendOne(row.id)
-      setDetail(full)
-    } catch {
-      // Fall back to the summary view; the row still renders what it has.
-    }
-  }, [expandedTraceId, activeTab])
+    try { setDetail(await tracesApi.getBackendOne(row.id)) } catch { /* the row still shows what it has */ }
+  }
 
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    refreshRef.current = setInterval(fetchTraces, 5000)
-    return () => clearInterval(refreshRef.current)
-  }, [fetchTraces])
-
-  const handleClear = async () => {
+  const clear = async () => {
     try {
-      if (activeTab === 'api') await tracesApi.clear()
-      else await tracesApi.clearBackend()
-      setTraces([])
-      setExpandedTraceId(null)
+      if (tab === 'api') await tracesApi.clear(); else await tracesApi.clearBackend()
+      if (tab === 'api') setApiPage({ items: [], total: 0 }); else setBackendPage({ items: [], total: 0 })
+      setOpen(null)
       setDetail(null)
-      addToast('Traces cleared', 'success')
+      addToast?.(t('traces.cleared'), 'success')
     } catch (err) {
-      addToast(`Failed to clear: ${err.message}`, 'error')
+      addToast?.(t('traces.clearFailed', { message: err.message }), 'error')
     }
   }
 
-  // Export asks for the full payloads explicitly — the on-screen list only
-  // holds summaries, and an export without bodies would be useless.
-  const handleExport = async () => {
-    let rows = traces
+  // Export asks for the full payloads: the list holds summaries, and an export
+  // without bodies would be useless. It is the page the server holds, not the
+  // whole buffer.
+  const exportJson = async () => {
+    let rows = sorted
     try {
-      const page = activeTab === 'api'
-        ? await tracesApi.get({ limit: TRACE_PAGE_SIZE, full: true })
-        : await tracesApi.getBackend({ limit: TRACE_PAGE_SIZE, full: true })
+      const page = tab === 'api'
+        ? await tracesApi.get({ limit: PAGE_SIZE, full: true })
+        : await tracesApi.getBackend({ limit: PAGE_SIZE, full: true })
       rows = page.items
     } catch (err) {
-      addToast(`Exporting summaries only: ${err.message}`, 'error')
+      addToast?.(t('traces.exportSummaries', { message: err.message }), 'error')
     }
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `traces-${activeTab}-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    saveFile(`traces-${tab}-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 2), 'application/json')
   }
 
-  // Reset sort + expansion when switching trace tabs (columns differ).
-  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedTraceId(null); setDetail(null) }, [activeTab])
-
-  const sortedTraces = sort.key && TRACE_SORT[sort.key]
-    ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
-    : traces
-
-  const slowestTrace = traces.reduce((m, t) => Math.max(m, t.duration || 0), 0)
+  const off = tracing.enabled === false
+  const backendOff = tracing.backend === false
 
   return (
-    <div className="page page--wide">
-      <PageHeader title={t('traces.title')} supporting={t('traces.subtitle')} />
-
-      <div className="tabs">
-        <button className={`tab ${activeTab === 'api' ? 'tab-active' : ''}`} onClick={() => setActiveTab('api')}>
-          <Icon name="swap" className="icon-before text-xs" />
-          API Traces
-          <span className="ml-xs op-60 text-xs">({apiCount})</span>
-        </button>
-        <button className={`tab ${activeTab === 'backend' ? 'tab-active' : ''}`} onClick={() => setActiveTab('backend')}>
-          <Icon name="settings" className="icon-before text-xs" />
-          Backend Traces
-          <span className="ml-xs op-60 text-xs">({backendCount})</span>
-        </button>
-      </div>
-
-      <div className="hstack mb-md">
-        <button className="btn btn-secondary btn-sm" onClick={fetchTraces}><Icon name="refresh" /> Refresh</button>
-        <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={traces.length === 0}><Icon name="download" /> Export</button>
-        <div className="flex-1" />
-        <button
-          className="btn btn-danger btn-sm"
-          onClick={handleClear}
-          /* Stay enabled while loading: a massive in-memory trace buffer is
-             precisely the case where the user can't see the table yet and
-             needs Clear to recover. Clearing an already-empty server-side
-             buffer is a harmless no-op. */
-          disabled={!loading && traces.length === 0}
-        ><Icon name="trash" /> Clear</button>
-      </div>
-
-      {settings && (() => {
-        const allEnabled = tracingEnabled && backendLoggingEnabled
-        return (
-        <div className={`tr-settings mb-md${allEnabled ? ' tr-settings--ok' : ''}`}>
-          <button
-            onClick={() => setSettingsExpanded(!settingsExpanded)}
-            className="tr-settings__toggle"
-          >
-            <div className="hstack">
-              <Icon name={allEnabled ? 'check-circle' : 'warning'} className={`shrink-0 ${allEnabled ? 'text-success' : 'text-warning'}`} />
-              <span className="text-sm text-left">
-                Tracing is <strong>{tracingEnabled ? 'enabled' : 'disabled'}</strong>
-                {' · Backend logging is '}<strong>{backendLoggingEnabled ? 'enabled' : 'disabled'}</strong>
-                {!tracingEnabled && ' — new requests will not be recorded'}
-              </span>
-            </div>
-            <Icon name={`chevron-${settingsExpanded ? 'up' : 'down'}`} className="text-meta shrink-0" />
-          </button>
-          {settingsExpanded && (
-            <div className="tr-settings__body">
-              <SettingRow label="Enable Tracing" description="Record API requests, responses, and backend operations">
-                <Toggle
-                  checked={settings.enable_tracing}
-                  onChange={(v) => setSettings(prev => ({ ...prev, enable_tracing: v }))}
-                />
-              </SettingRow>
-              <SettingRow label="Max Items" description="Maximum trace items to retain (0 = unlimited)">
-                <input
-                  className="input col-w-120"
-                  type="number"
-                  value={settings.tracing_max_items ?? ''}
-                  onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_items: parseInt(e.target.value) || 0 }))}
-                  placeholder="100"
-                  disabled={!settings.enable_tracing}
-                />
-              </SettingRow>
-              <SettingRow label="Max Body Bytes" description="Per-field cap for captured bodies and backend trace Data (0 = uncapped). Prevents oversized LLM histories or TTS snippets from locking this page in loading.">
-                <input
-                  className="input col-w-120"
-                  type="number"
-                  value={settings.tracing_max_body_bytes ?? ''}
-                  onChange={(e) => setSettings(prev => ({ ...prev, tracing_max_body_bytes: parseInt(e.target.value) || 0 }))}
-                  placeholder="65536"
-                  disabled={!settings.enable_tracing}
-                />
-              </SettingRow>
-              <SettingRow label="Enable Backend Logging" description="Capture backend process output per model (without requiring debug mode)">
-                <Toggle
-                  checked={settings.enable_backend_logging}
-                  onChange={(v) => setSettings(prev => ({ ...prev, enable_backend_logging: v }))}
-                />
-              </SettingRow>
-              <div className="form-group__actions hstack--end">
-                <button className="btn btn-primary btn-sm" onClick={handleSaveSettings} disabled={saving}>
-                  {saving ? <><LoadingSpinner size="sm" /> Saving...</> : <><Icon name="save" /> Save</>}
-                </button>
-              </div>
-            </div>
-          )}
+    <div className="page page--wide tf-page" data-testid="traces-page">
+      <header className="tf-head">
+        <div className="tf-head__lead">
+          <h1 className="tf-title">{t('traces.title')}</h1>
         </div>
-        )
-      })()}
+        <div className="tf-head__acts">
+          <button type="button" className="dk-btn dk-btn--secondary" onClick={refetch}><Icon name="refresh" /> {t('traces.refresh')}</button>
+          <button type="button" className="dk-btn dk-btn--secondary" onClick={exportJson} disabled={traces.length === 0}><Icon name="download" /> {t('traces.export')}</button>
+          {/* Stays enabled while loading: a huge trace buffer is the case where
+              the table cannot be seen yet and Clear is how to recover. */}
+          <button type="button" className="dk-btn dk-btn--secondary tf-danger" onClick={clear} disabled={!loading && traces.length === 0}><Icon name="trash" /> {t('traces.clear')}</button>
+        </div>
+      </header>
+
+      <TracingStrip tracing={tracing} expanded={!!expanded} setExpanded={setExpanded} addToast={addToast} />
+
+      <div className="tf-controls">
+        <div className="dk-segmented" role="group" aria-label={t('traces.kind')}>
+          <button type="button" className="dk-seg" aria-pressed={tab === 'api'} onClick={() => setTab('api')}>
+            {t('traces.apiTab')} <span className="tf-count">({apiPage.total})</span>
+          </button>
+          <button type="button" className="dk-seg" aria-pressed={tab === 'backend'} onClick={() => setTab('backend')}>
+            {t('traces.backendTab')} <span className="tf-count">({backendPage.total})</span>
+          </button>
+        </div>
+      </div>
+
+      {traces.length > 0 && !(tab === 'api' && off) && (
+        <div className="tf-controls">
+          {tab === 'api' && <div className="tf-chips" role="group" aria-label={t('traces.filter')}>
+            <button type="button" className="dk-chip" aria-pressed={state === 'all'} onClick={() => setFilterState('all')}>{t('traces.all')} <span className="tf-count">{counts.all}</span></button>
+            <button type="button" className="dk-chip" aria-pressed={state === 'failed'} onClick={() => setFilterState('failed')}>{t('traces.failed')} <span className="tf-count">{counts.failed}</span></button>
+            <button type="button" className="dk-chip" aria-pressed={state === 'slow'} onClick={() => setFilterState('slow')}>{t('traces.slow')} <span className="tf-count">{counts.slow}</span></button>
+          </div>}
+          <div className="dk-input-icon tf-search">
+            <Icon name="search" className="dk-icon" />
+            <input className="dk-input" type="search" aria-label={t('traces.search')} placeholder={t('traces.search')} value={query} onChange={e => setQuery(e.target.value)} />
+          </div>
+        </div>
+      )}
 
       {loading ? (
-        <div className="loading-center"><LoadingSpinner size="lg" /></div>
+        <div className="tf-loading"><LoadingSpinner size="lg" /></div>
       ) : traces.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name="waveform" /></div>
-          <h2 className="empty-state-title">
-            {activeTab === 'api'
-              ? (tracingEnabled ? 'No API traces yet' : 'API tracing is off')
-              : (backendLoggingEnabled ? 'No backend traces yet' : 'Backend logging is off')}
+        <div className="dk-empty tf-empty" data-testid="traces-empty">
+          <Icon name="waveform" className="dk-empty-icon" />
+          <h2 className="dk-empty-title">
+            {tab === 'api'
+              ? (off ? t('traces.offTitle') : t('traces.noneTitle'))
+              : (backendOff ? t('traces.backendOffTitle') : t('traces.backendNoneTitle'))}
           </h2>
-          <p className="empty-state-text">
-            {activeTab === 'api'
-              ? (tracingEnabled
-                  ? 'Traces will appear here as API requests are made.'
-                  : 'Enable Tracing above to start recording API requests, responses, and backend operations.')
-              : (backendLoggingEnabled
-                  ? 'Backend operations will appear here as models run.'
-                  : 'Enable Backend Logging above to capture per-model process output.')}
+          <p className="dk-empty-text">
+            {tab === 'api'
+              ? (off ? t('traces.offText') : t('traces.noneText'))
+              : (backendOff ? t('traces.backendOffText') : t('traces.backendNoneText'))}
           </p>
+          {tab === 'api' && off && tracing.settings && (
+            <div className="tf-empty__acts">
+              <button type="button" className="dk-btn dk-btn--primary" data-testid="turn-on-tracing" onClick={async () => {
+                try {
+                  await settingsApi.save({ ...tracing.settings, enable_tracing: true })
+                  tracing.reload()
+                  addToast?.(t('traces.settings.saved'), 'success')
+                } catch (err) {
+                  addToast?.(t('traces.settings.failed', { message: err.message }), 'error')
+                }
+              }}>{t('traces.turnOn')}</button>
+            </div>
+          )}
+          {tab === 'api' && off && <p className="tf-note-line">{t('traces.offEnv')}</p>}
         </div>
-      ) : activeTab === 'api' ? (
-        <ResponsiveTable>
+      ) : sorted.length === 0 ? (
+        <div className="dk-empty tf-empty" data-testid="traces-nomatch">
+          <h2 className="dk-empty-title">{t('traces.noMatch')}</h2>
+          <p className="dk-empty-text">{t('traces.noMatchText')}</p>
+        </div>
+      ) : tab === 'api' ? (
+        <div className="dk-table-wrap" data-testid="api-traces-table">
+          <table className="dk-table tf-table">
+            <caption className="dk-sr-only">{t('traces.apiTab')}</caption>
             <thead>
               <tr>
-                <th className="col-w-30"></th>
-                {sortableTh('method', 'Method')}
-                {sortableTh('path', 'Path')}
-                {sortableTh('user', 'User')}
-                {sortableTh('status', 'Status')}
-                {sortableTh('duration', 'Latency')}
-                <th className="col-w-40">Result</th>
+                <SortHead col="time" label={t('traces.col.time')} sort={sort} onSort={setSort} className="dk-hide-phone" />
+                <SortHead col="method" label={t('traces.col.method')} sort={sort} onSort={setSort} />
+                <SortHead col="path" label={t('traces.col.path')} sort={sort} onSort={setSort} />
+                <SortHead col="user" label={t('traces.col.user')} sort={sort} onSort={setSort} className="dk-hide-phone" />
+                <SortHead col="status" label={t('traces.col.status')} sort={sort} onSort={setSort} />
+                <SortHead col="duration" label={t('traces.col.latency')} sort={sort} onSort={setSort} className="dk-hide-phone" />
+                <th scope="col">{t('traces.col.result')}</th>
               </tr>
             </thead>
             <tbody>
-              {sortedTraces.map((trace, i) => (
-                <React.Fragment key={trace.id ?? i}>
-                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
-                    <td><Icon name={`chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'}`} className="text-xs" /></td>
-                    <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
-                    <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
-                    <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
+              {sorted.map((trace, i) => {
+                const status = trace.response?.status
+                const href = trace.id ? `/app/traces/${encodeURIComponent(trace.id)}` : null
+                return (
+                  <tr key={trace.id ?? i} data-row data-clickable={href ? '' : undefined} data-entity={trace.request?.path}
+                    onClick={e => { if (href && !e.target.closest('a, button')) navigate(href) }}
+                    data-href={href || undefined}>
+                    <td className="dk-hide-phone dk-mono tf-sub">{clock(trace.timestamp)}</td>
+                    <td><span className="dk-chip dk-chip--sm tf-method">{trace.request?.method || '-'}</span></td>
                     <td>
-                      {trace.response?.status === 0
-                        ? <span className="badge badge-info">Running</span>
-                        : trace.response?.status == null
-                        ? <span className="badge badge--soft">-</span>
-                        : <span className={`badge ${trace.response.status < 400 ? 'badge-success' : 'badge-error'}`}>{trace.response.status}</span>}
+                      {href
+                        ? <Link className="dk-table-name dk-mono tf-name" to={href}>{trace.request?.path || '-'}</Link>
+                        : <span className="dk-table-name dk-mono">{trace.request?.path || '-'}</span>}
+                      {trace.error && <span className="dk-table-sub tf-error-text">{trace.error}</span>}
                     </td>
-                    <td><LatencyCell ns={trace.duration} max={slowestTrace} /></td>
-                    <td className="text-center">
-                      {trace.response?.status === 0
-                        ? <Icon name="spinner" spin className="text-primary" title="In progress" />
-                        : trace.error
-                        ? <Icon name="close-circle" className="text-error" title={trace.error} />
-                        : <Icon name="check-circle" className="text-success" />}
+                    <td className="dk-hide-phone tf-sub" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
+                    <td className="dk-mono" data-level={traceState(trace) === 'failed' ? 'error' : undefined}>
+                      {status === 0 ? t('traces.state.running') : status == null ? '-' : status}
                     </td>
+                    <td className="dk-hide-phone"><LatencyCell ns={trace.duration} max={slowest} /></td>
+                    <td><ResultCell trace={trace} /></td>
                   </tr>
-                  {expandedTraceId === (trace.id ?? i) && (
-                    <tr>
-                      <td colSpan="7" className="p-0">
-                        <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
+                )
+              })}
             </tbody>
-        </ResponsiveTable>
+          </table>
+        </div>
       ) : (
-        <ResponsiveTable>
+        <div className="dk-table-wrap" data-testid="backend-traces-table">
+          <table className="dk-table tf-table">
+            <caption className="dk-sr-only">{t('traces.backendTab')}</caption>
             <thead>
               <tr>
-                <th className="col-w-30"></th>
-                {sortableTh('type', 'Type')}
-                {sortableTh('time', 'Time')}
-                {sortableTh('model', 'Model')}
-                <th>Summary</th>
-                {sortableTh('duration', 'Duration')}
-                <th className="col-w-40">Status</th>
+                <th scope="col" className="dk-table-toggle-cell"><span className="dk-sr-only">{t('table.open')}</span></th>
+                <SortHead col="type" label={t('traces.col.type')} sort={sort} onSort={setSort} />
+                <SortHead col="time" label={t('traces.col.time')} sort={sort} onSort={setSort} className="dk-hide-phone" />
+                <SortHead col="model" label={t('traces.col.model')} sort={sort} onSort={setSort} />
+                <th scope="col" className="dk-hide-phone">{t('traces.col.summary')}</th>
+                <SortHead col="duration" label={t('traces.col.duration')} sort={sort} onSort={setSort} className="dk-num" />
+                <th scope="col">{t('traces.col.status')}</th>
               </tr>
             </thead>
             <tbody>
-              {sortedTraces.map((trace, i) => (
-                <React.Fragment key={trace.id ?? i}>
-                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
-                    <td><Icon name={`chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'}`} className="text-xs" /></td>
-                    <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
-                    <td className="text-sub nowrap">{formatDateTime(trace.timestamp)}</td>
-                    <td className="text-mono text-sm">{trace.model_name || '-'}</td>
-                    <td className="cell-clip cell-clip--wide">
-                      {trace.summary || '-'}
-                    </td>
-                    <td className="text-sub">{formatDuration(trace.duration)}</td>
-                    <td className="text-center">
-                      {trace.status === 'running'
-                        ? <Icon name="spinner" spin className="text-primary" title="Running" />
-                        : trace.error
-                        ? <Icon name="close-circle" className="text-error" title={trace.error} />
-                        : <Icon name="check-circle" className="text-success" />}
-                    </td>
-                  </tr>
-                  {expandedTraceId === (trace.id ?? i) && (
-                    <tr>
-                      <td colSpan="7" className="p-0">
-                        <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
+              {sorted.map((trace, i) => {
+                const key = trace.id ?? i
+                const isOpen = open === key
+                const ms = nsToMs(trace.duration)
+                return (
+                  <Fragment key={key}>
+                    <tr data-row data-clickable onClick={() => toggleBackend(trace, i)}>
+                      <td className="dk-table-toggle-cell"><Icon name={isOpen ? 'chevron-down' : 'chevron-right'} className="dk-icon" /></td>
+                      <td><span className="dk-chip dk-chip--sm">{trace.type || '-'}</span></td>
+                      <td className="dk-hide-phone dk-mono tf-sub">{formatDateTime(trace.timestamp)}</td>
+                      <td className="dk-mono">{trace.model_name || '-'}</td>
+                      <td className="dk-hide-phone"><span className="dk-table-cut">{trace.summary || '-'}</span></td>
+                      <td className="dk-num">{ms == null ? '-' : durationText(ms)}</td>
+                      <td>
+                        {trace.status === 'running'
+                          ? <span className="tf-result" data-level="info"><Icon name="spinner" spin title={t('traces.running')} /> {t('traces.state.running')}</span>
+                          : trace.error
+                            ? <span className="tf-result" data-level="error"><Icon name="alert-circle" title={trace.error} /> {t('traces.state.failed')}</span>
+                            : <span className="tf-result" data-level="ok"><Icon name="check-circle" /> {t('traces.state.ok')}</span>}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+                    {isOpen && (
+                      <tr className="dk-table-detail">
+                        <td colSpan={7}>
+                          <div className="dk-table-detail-body">
+                            <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
-        </ResponsiveTable>
+          </table>
+        </div>
+      )}
+      {traces.length > 0 && (
+        <p className="tf-note-line">{t('traces.bufferNote', { shown: traces.length, total: tab === 'api' ? apiPage.total : backendPage.total })}</p>
       )}
     </div>
   )

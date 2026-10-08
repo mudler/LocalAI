@@ -65,7 +65,10 @@
     "thisMachine": "This machine",
     "failover": "Failover",
     "logs": "Logs",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "trafficModels": "Models",
+    "gpuHost": "GPU and host",
+    "prometheus": "Prometheus"
   },
   "footer": {
     "github": "GitHub",

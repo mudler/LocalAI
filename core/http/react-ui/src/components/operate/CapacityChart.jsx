@@ -22,7 +22,7 @@ function spanWords(ms, t) {
 // opened. LocalAI stores no memory history, so the chart says what it is: the
 // page's own readings. The axis starts at zero, the capacity is a labelled
 // line, the line is labelled at its end, and a data table sits behind it.
-export default function CapacityChart({ memory, samples, labelKey }) {
+export default function CapacityChart({ memory, samples, labelKey, scopeKey = 'chart.scope', waitingKey = 'chart.waiting' }) {
   const { t } = useTranslation('operate')
   const figureRef = useRef(null)
   // The plot is drawn at the width it is shown at, so its text keeps its size
@@ -82,7 +82,7 @@ export default function CapacityChart({ memory, samples, labelKey }) {
     <section className="op-capacity" data-testid="operate-capacity" aria-label={title}>
       <header className="op-capacity__head">
         <h2 className="dk-eyebrow">{title}</h2>
-        <span className="op-capacity__scope">{t('chart.scope')}</span>
+        <span className="op-capacity__scope">{t(scopeKey)}</span>
       </header>
 
       <div className="op-capacity__now">
@@ -115,7 +115,7 @@ export default function CapacityChart({ memory, samples, labelKey }) {
             tabIndex={0}
             role="group"
             aria-roledescription="chart"
-            aria-label={`${title}. ${t('chart.scope')}`}
+            aria-label={`${title}. ${t(scopeKey)}`}
             onKeyDown={move}
             onPointerMove={hover}
             onPointerLeave={() => setCursor(null)}
@@ -169,7 +169,7 @@ export default function CapacityChart({ memory, samples, labelKey }) {
           </details>
         </figure>
       ) : (
-        <p className="op-capacity__wait" data-testid="operate-capacity-wait">{t('chart.waiting')}</p>
+        <p className="op-capacity__wait" data-testid="operate-capacity-wait">{t(waitingKey)}</p>
       )}
     </section>
   )

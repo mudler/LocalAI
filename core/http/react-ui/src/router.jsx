@@ -137,6 +137,18 @@ const NodeDetail = page(null, () => import('./pages/NodeDetail'))
 const AddNode = page(null, () => import('./pages/AddNode'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
+// The Traffic hub's other pages. Only referenced from JSX below, which eslint
+// cannot see.
+// eslint-disable-next-line no-unused-vars
+const TrafficOverview = page('traffic', () => import('./pages/TrafficOverview'))
+// eslint-disable-next-line no-unused-vars
+const TrafficModels = page(null, () => import('./pages/TrafficModels'))
+// eslint-disable-next-line no-unused-vars
+const TrafficHost = page(null, () => import('./pages/TrafficHost'))
+// eslint-disable-next-line no-unused-vars
+const Prometheus = page(null, () => import('./pages/Prometheus'))
+// eslint-disable-next-line no-unused-vars
+const TracePage = page(null, () => import('./pages/TracePage'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Failover = page('failover', () => import('./pages/Failover'))
@@ -240,7 +252,12 @@ const appChildren = [
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'activity', element: <Admin><Activity /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
+      { path: 'traffic', element: <Admin><TrafficOverview /></Admin> },
+      { path: 'traffic/models', element: <Admin><TrafficModels /></Admin> },
+      { path: 'traffic/host', element: <Admin><TrafficHost /></Admin> },
+      { path: 'traffic/prometheus', element: <Admin><Prometheus /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
+      { path: 'traces/:id', element: <Admin><TracePage /></Admin> },
       { path: 'backend-logs', element: <Admin><BackendLogs /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },

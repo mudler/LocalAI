@@ -169,10 +169,16 @@ export const operateHub = {
       labelKey: 'hub.traffic',
       icon: 'chart-line',
       signals: [{ key: 'traces', kind: 'error' }],
+      // Eight pages behind one tab. Alerts is not among them: LocalAI has no
+      // alert rules, so there is nothing for that page to hold.
       items: [
+        { path: '/app/traffic', labelKey: 'items.overview', adminOnly: true, exact: true },
         { path: '/app/usage', labelKey: 'items.usage', adminOnly: true },
+        { path: '/app/traffic/models', labelKey: 'items.trafficModels', adminOnly: true },
+        { path: '/app/traffic/host', labelKey: 'items.gpuHost', adminOnly: true },
         { path: '/app/traces', labelKey: 'items.traces', adminOnly: true },
         { path: '/app/middleware', labelKey: 'items.middleware', adminOnly: true },
+        { path: '/app/traffic/prometheus', labelKey: 'items.prometheus', adminOnly: true },
       ],
     },
     {

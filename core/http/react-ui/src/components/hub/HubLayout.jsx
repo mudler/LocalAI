@@ -57,7 +57,9 @@ function SubNav({ tab, auth, pathname, t }) {
   return (
     <nav className="hub-subnav" aria-label={t(tab.labelKey)}>
       {items.map(item => {
-        const active = pathname === item.path || pathname.startsWith(item.path + '/')
+        // An item marked `exact` is the hub's own landing page: the pages under
+        // it have items of their own, so a prefix match would light two links.
+        const active = item.exact ? pathname === item.path : (pathname === item.path || pathname.startsWith(item.path + '/'))
         return (
           <Link
             key={item.path}

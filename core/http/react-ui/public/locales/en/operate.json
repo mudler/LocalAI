@@ -110,7 +110,9 @@
     "dataTable": "Data table",
     "time": "Time",
     "inUse": "In use",
-    "capacityColumn": "Capacity"
+    "capacityColumn": "Capacity",
+    "scopeHost": "Since you opened this page. LocalAI keeps no memory history.",
+    "waitingHost": "The chart starts with the second reading, about 5 seconds after you open this page. It shows only readings taken while this page is open."
   },
   "unload": {
     "title": "Stop {{name}}?",
