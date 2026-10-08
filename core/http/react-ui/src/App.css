@@ -1208,12 +1208,13 @@ button.card:active {
   transform: scale(var(--dk-press-scale));
 }
 
-/* Accent-rail variant — editorial left bar for highlighted cards */
+/* Highlighted card: a raised surface with a firmer edge, no coloured strip. */
 .card--accent {
-  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-sm);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 .card--accent:hover {
-  box-shadow: inset 2px 0 0 var(--color-primary), var(--shadow-sm);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
 }
 
 .card-grid {
@@ -1835,8 +1836,8 @@ select.input {
 }
 
 /* Stat cards — uniform-height cluster metrics for the Nodes dashboard.
-   Left accent bar ties the color to the metric's semantic (success/warning/
-   error/primary), icon chip sits top-right, value is left-aligned and
+   The metric's semantic colour (success/warning/error/primary) is carried by
+   the icon and the value, with no strip on the edge. The icon sits on the right and the value is left-aligned and
    prominent so you can scan a row of cards without reading labels. */
 /* Renamed off `.stat-grid` in favour of the children it actually holds. The
    split views introduced a second, unrelated `.stat-grid` for detail panes
@@ -1865,14 +1866,6 @@ select.input {
               box-shadow var(--duration-fast) var(--ease-default),
               border-color var(--duration-fast) var(--ease-default);
   overflow: hidden;
-}
-.stat-card::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--stat-accent, var(--color-border-subtle));
-  transition: background var(--duration-fast) var(--ease-default);
 }
 .stat-card:hover {
   transform: translateY(-1px);
@@ -7751,7 +7744,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .markdown-body blockquote {
   margin: 0 0 var(--spacing-sm);
   padding-left: var(--spacing-sm);
-  border-left: 2px solid var(--color-border-strong);
+  font-style: italic;
   color: var(--color-text-muted);
 }
 .markdown-body img {
@@ -7970,9 +7963,9 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   grid-column: 1 / -1;
   min-width: 0;
   margin: var(--spacing-xs) 0 var(--spacing-sm) var(--spacing-lg);
-  border-left: 2px solid var(--color-border-default);
+  border: 1px solid var(--color-border-default);
   background: var(--color-surface-sunken);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .variant-detail__state {
@@ -8523,7 +8516,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .failover-status__unpin { margin-left: auto; }
 .failover-status__table td, .failover-status__table th { white-space: nowrap; }
 .failover-status__table code { font-family: var(--font-mono); font-size: 0.8125rem; }
-.failover-status__row--active td:first-child { box-shadow: inset 2px 0 0 var(--color-success); }
+.failover-status__row--active td { background: var(--color-success-light); }
 .failover-status__error {
   display: inline-block;
   max-width: 28ch;
@@ -8778,11 +8771,11 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   .entity-rail__group-head { padding-top: 10px; padding-bottom: 10px; }
 }
 
-/* The selected row: an accent wash and a thin accent edge, in both themes. */
+/* The selected row: an accent wash with a hairline outline, in both themes. */
 .entity-rail__item--on,
 .entity-rail__item--on:hover {
   background: var(--color-primary-light);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
 .entity-rail__icon {
@@ -8815,13 +8808,14 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   font-variant-numeric: tabular-nums;
 }
 
-/* A left edge for surfaces read by condition before they are read by name. An
-   inventory has one; a catalog does not, because "available" is not a state
-   worth a colour on every row. */
+/* A small status dot for surfaces read by condition before they are read by
+   name. An inventory has one; a catalog does not, because "available" is not
+   a state worth a colour on every row. */
 .entity-rail__stripe {
-  width: 3px;
-  align-self: stretch;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
+  align-self: center;
+  border-radius: 50%;
   flex: none;
 }
 

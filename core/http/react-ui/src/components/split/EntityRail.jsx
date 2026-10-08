@@ -16,7 +16,7 @@ import Icon from '../Icon'
 // items:  [{ id, name, icon, meta, metaTone, stripe, groupId }]
 // groups: [{ id, label, icon }] - pass null, or grouped=false, for a flat list.
 //   metaTone: 'ok' | 'bad' | 'warn' | 'busy'
-//   stripe:   'run' | 'idle' | 'err' | 'off' - a left edge for surfaces read by
+//   stripe:   'run' | 'idle' | 'err' | 'off' - a status dot for surfaces read by
 //             condition before they are read by name. Omit where state is not
 //             the point.
 export default function EntityRail({

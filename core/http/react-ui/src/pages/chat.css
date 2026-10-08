@@ -144,7 +144,7 @@
 }
 .cx-prose blockquote {
   padding-left: 14px;
-  border-left: 2px solid var(--dk-edge);
+  font-style: italic;
   color: var(--color-text-secondary);
 }
 .cx-prose hr { border: 0; height: 1px; background: var(--dk-edge); }
