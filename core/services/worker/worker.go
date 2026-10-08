@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -185,21 +184,12 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// answers as a path that does not exist, which is what a worker on NATS has
 	// always answered. A worker that has no frontend URL a tunnel can use mounts
 	// no plane at all.
-	follower := newTunnelFollower(tunnelFollowerOptions{
-		Config:   cfg,
-		NodeID:   nodeID,
-		HTTPAddr: httpAddr,
-	})
-	if onTunnel && !follower.CanAttach() {
+	plane := NewBackendPlane(cfg, nodeID, httpAddr, natsLocal)
+	if onTunnel && !plane.CanTunnel() {
 		_, terr := tunnelEndpoint(cfg.RegisterTo, nodeID)
 		return terr
 	}
-	var controlMux http.Handler
-	if follower.CanAttach() {
-		controlSlot := &nodes.ControlSlot{}
-		follower.slot = controlSlot
-		controlMux = controlSlot
-	}
+	controlMux := plane.Control()
 	httpServer, err := nodes.StartFileTransferServerWithControl(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, controlMux, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
@@ -242,10 +232,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// The carriers of the worker. It follows the one the frontend names, so the
 	// attachments are made by the same code at start and when the cluster changes.
 	carriers := NewFollower(FollowerOptions{
-		Attachers: map[cluster.Carrier]Attacher{
-			cluster.CarrierNATS:   natsAttacher(natsLocal, nodeID, func(cs controlServer) error { return registerVerbs(cs) }),
-			cluster.CarrierTunnel: tunnelAttacher(follower),
-		},
+		Attachers: plane.Attachers(),
 		Credentials: func(c cluster.Carrier) *workerregistry.CredentialManager {
 			return workerregistry.NewCredentialManagerFor(
 				registerFor(regClient, registrationBody, c), c == cluster.CarrierNATS && cfg.NatsAuthRequired() && !staticNATS, string(c))
@@ -253,16 +240,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		Heartbeat: func(ctx context.Context, body map[string]any) (*Beat, error) {
 			return regClient.HeartbeatFull(ctx, nodeID, body)
 		},
-		Body: cfg.heartbeatBody,
-		Cannot: map[cluster.Carrier]func(CarrierView) string{
-			cluster.CarrierNATS: NATSReasons(routable.Load(), natsLocal),
-			cluster.CarrierTunnel: func(CarrierView) string {
-				if !follower.CanAttach() {
-					return "this worker has no frontend URL that a tunnel can use"
-				}
-				return ""
-			},
-		},
+		Body:     cfg.heartbeatBody,
+		Cannot:   plane.Cannot(routable.Load()),
 		Interval: heartbeatInterval,
 		MaxDelay: cfg.followMaxDelay(),
 	})
@@ -309,7 +288,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 		return nil
 	}
-	follower.register = registerVerbs
+	plane.setServe(registerVerbs)
 
 	// Attach to the carrier that the frontend named, with the credential that the
 	// registration returned, and follow it from here on.

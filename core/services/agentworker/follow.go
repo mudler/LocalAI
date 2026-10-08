@@ -36,8 +36,8 @@ type FollowConfig struct {
 	// BackendStop drops the sessions cached for a backend that goes away.
 	BackendStop func(backend string)
 	// Jobs registers the consumers of the queued jobs on the consumer of one
-	// carrier. It is called for each attachment.
-	Jobs func(ctx context.Context, consumer messaging.WorkConsumer) error
+	// carrier, which it is told. It is called for each attachment.
+	Jobs func(ctx context.Context, on cluster.Carrier, consumer messaging.WorkConsumer) error
 }
 
 // counted counts the runs that are in flight on one attachment.
@@ -137,7 +137,7 @@ func (c FollowConfig) natsAttacher(ctx context.Context, h worker.Handover) (work
 		}
 	}
 	if c.Jobs != nil {
-		if err := c.Jobs(actx, consumer); err != nil {
+		if err := c.Jobs(actx, cluster.CarrierNATS, consumer); err != nil {
 			return fail(err)
 		}
 	}
@@ -181,7 +181,7 @@ func (c FollowConfig) tunnelAttacher(ctx context.Context, h worker.Handover) (wo
 		return nil, fmt.Errorf("starting dispatcher: %w", err)
 	}
 	if c.Jobs != nil {
-		if err := c.Jobs(ctx, consumer); err != nil {
+		if err := c.Jobs(ctx, cluster.CarrierTunnel, consumer); err != nil {
 			_ = dispatcher.Stop()
 			return nil, err
 		}

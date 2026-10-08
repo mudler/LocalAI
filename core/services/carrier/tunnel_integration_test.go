@@ -50,6 +50,8 @@ type fakeBackend struct {
 	loads     []string
 	cancelled []string
 	loading   chan string
+	// gate holds a load of the model "slow" until a spec closes it.
+	gate chan struct{}
 }
 
 func (b *fakeBackend) Health(context.Context, *pb.HealthMessage) (*pb.Reply, error) {
@@ -63,6 +65,16 @@ func (b *fakeBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 	switch in.Model {
 	case "fails":
 		return &pb.Result{Success: false, Message: "out of memory"}, nil
+	case "slow":
+		select {
+		case b.loading <- in.Model:
+		default:
+		}
+		select {
+		case <-b.gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	case "hangs":
 		select {
 		case b.loading <- in.Model:
