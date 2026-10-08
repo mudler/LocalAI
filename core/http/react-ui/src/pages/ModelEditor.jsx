@@ -12,25 +12,20 @@ import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
 import { ModelFailoverStatus } from '../components/FailoverChainStatus'
+// eslint-disable-next-line no-unused-vars
+import PlacementSection from '../components/models/placement/PlacementSection'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
+import Icon from '../components/Icon'
 
 const SECTION_ICONS = {
-  general: 'fa-cog', llm: 'fa-microchip', parameters: 'fa-sliders',
-  templates: 'fa-file-code', functions: 'fa-wrench', reasoning: 'fa-brain',
-  diffusers: 'fa-image', tts: 'fa-volume-up', pipeline: 'fa-code-branch',
-  grpc: 'fa-server', agent: 'fa-robot', mcp: 'fa-plug', router: 'fa-route', proxy: 'fa-cloud',
-  mitm: 'fa-user-secret', pii: 'fa-user-shield', failover: 'fa-shuffle', other: 'fa-ellipsis-h',
+  general: 'settings', llm: 'cpu', parameters: 'sliders',
+  templates: 'file-code', functions: 'wrench', reasoning: 'brain',
+  diffusers: 'image', tts: 'volume', pipeline: 'git-branch',
+  grpc: 'server', agent: 'robot', mcp: 'plug', router: 'route', proxy: 'cloud',
+  mitm: 'user-secret', pii: 'user-shield', failover: 'shuffle', other: 'more',
 }
 
-const SECTION_COLORS = {
-  general: 'var(--color-primary)', llm: 'var(--color-accent)', parameters: 'var(--color-success)',
-  templates: 'var(--color-warning)', functions: 'var(--color-info, var(--color-primary))',
-  reasoning: 'var(--color-accent)', diffusers: 'var(--color-warning)', tts: 'var(--color-success)',
-  pipeline: 'var(--color-accent)', grpc: 'var(--color-text-muted)', agent: 'var(--color-primary)',
-  mcp: 'var(--color-accent)', router: 'var(--color-accent)', proxy: 'var(--color-info, var(--color-primary))',
-  mitm: 'var(--color-warning)', pii: 'var(--color-error)', failover: 'var(--color-accent)', other: 'var(--color-text-muted)',
-}
 
 // flattenConfig turns a parsed YAML config into a flat { 'a.b.c': value }
 // map keyed by the same dotted paths the field registry uses. leafPaths is
@@ -83,6 +78,7 @@ function defaultForType(uiType) {
 
 export default function ModelEditor() {
   const { t } = useTranslation('modelEditor')
+  const { t: tModels } = useTranslation('models')
   const { name } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -117,6 +113,9 @@ export default function ModelEditor() {
   const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState(null)
   const [tabSwitchWarning, setTabSwitchWarning] = useState(false)
+  // Keys the Placement section unset. A patch only merges what it is given, so
+  // an unset key has to be sent as null for the file to lose it.
+  const [clearedPaths, setClearedPaths] = useState(new Set())
 
   const sectionRefs = useRef({})
 
@@ -172,6 +171,11 @@ export default function ModelEditor() {
   useEffect(() => {
     if (loadedConfig === null) return
     const flat = flattenConfig(loadedConfig, leafPaths)
+    // A key the Placement section set back to Auto is stored as null, which
+    // means unset. It must not come back as a field with a value.
+    for (const key of ['gpu_layers', 'tensor_split', 'main_gpu']) {
+      if (flat[key] === null) delete flat[key]
+    }
     setValues(flat)
     setInitialValues(structuredClone(flat))
     setActiveFieldPaths(new Set(Object.keys(flat)))
@@ -268,7 +272,7 @@ export default function ModelEditor() {
     if (vramEstimate.loading) {
       return (
         <div className="text-meta mt-xs">
-          <i className="fas fa-spinner fa-spin icon-before" />
+          <Icon name="spinner" spin className="icon-before" />
           Estimating VRAM...
         </div>
       )
@@ -276,7 +280,7 @@ export default function ModelEditor() {
     if (vramEstimate.vramDisplay) {
       return (
         <div className="text-xs text-warning fw-medium mt-xs">
-          <i className="fas fa-memory icon-before" />
+          <Icon name="memory" className="icon-before" />
           ~{vramEstimate.vramDisplay} VRAM
         </div>
       )
@@ -291,6 +295,10 @@ export default function ModelEditor() {
       const patchFlat = {}
       for (const path of activeFieldPaths) {
         if (path in values) patchFlat[path] = values[path]
+      }
+      if (!isCreateMode) {
+        // Only a key the file had needs removing; one that was never there does not.
+        for (const path of clearedPaths) if (path in initialValues && !(path in patchFlat)) patchFlat[path] = null
       }
       if (patchFlat['router.classifier'] === 'decisions') {
         const available = await modelsApi.listNativeCapabilities()
@@ -312,6 +320,7 @@ export default function ModelEditor() {
       } else {
         await modelsApi.patchConfig(name, config)
         setInitialValues(structuredClone(values))
+        setClearedPaths(new Set())
         try {
           const data = await modelsApi.getEditConfig(name)
           const refreshedYaml = data?.config || ''
@@ -425,6 +434,19 @@ export default function ModelEditor() {
     })
   }
 
+  // The Placement section sets a key or, with undefined, unsets it.
+  const handlePlacementChange = (path, val) => {
+    if (val === undefined) {
+      setActiveFieldPaths(prev => { const next = new Set(prev); next.delete(path); return next })
+      setValues(prev => { const next = { ...prev }; delete next[path]; return next })
+      setClearedPaths(prev => new Set(prev).add(path))
+      return
+    }
+    setActiveFieldPaths(prev => new Set(prev).add(path))
+    setClearedPaths(prev => { if (!prev.has(path)) return prev; const next = new Set(prev); next.delete(path); return next })
+    handleFieldChange(path, val)
+  }
+
   const toggleSection = (id) => {
     setCollapsedSections(prev => {
       const next = new Set(prev)
@@ -463,16 +485,16 @@ export default function ModelEditor() {
             else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/models?view=installed')
           }}>
-            <i className="fas fa-arrow-left" /> {t('actions.backTo', {page: backPage})}
+            <Icon name="arrow-left" /> {t('actions.backTo', {page: backPage})}
           </button>
           {!showTemplateSelector && tab === 'interactive' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleYamlSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><i className="fas fa-save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
+              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
             </button>
           )}
         </div>
@@ -502,7 +524,7 @@ export default function ModelEditor() {
                   }}
                   className={`me-tab${active ? ' me-tab--on' : ''}${blocked ? ' me-tab--blocked' : ''}`}
                 >
-                  <i className={`fas ${tb === 'interactive' ? 'fa-sliders' : 'fa-code'} icon-before`} />
+                  <Icon name={tb === 'interactive' ? 'sliders' : 'code'} className="icon-before" />
                   {tb === 'interactive' ? t('tabs.interactive') : t('tabs.yaml')}
                 </button>
               )
@@ -510,7 +532,7 @@ export default function ModelEditor() {
           </div>
           {tabSwitchWarning && isDirty && (
             <div className="me-warn">
-              <i className="fas fa-exclamation-triangle" />
+              <Icon name="warning" />
               <span>{t('actions.switchWarning')}</span>
               <button
                 className="btn btn-secondary ml-auto pill-tiny"
@@ -520,6 +542,7 @@ export default function ModelEditor() {
                   } else {
                     setValues(structuredClone(initialValues))
                     setActiveFieldPaths(new Set(Object.keys(initialValues)))
+                    setClearedPaths(new Set())
                   }
                   setTabSwitchWarning(false)
                   setTab(tab === 'yaml' ? 'interactive' : 'yaml')
@@ -557,7 +580,7 @@ export default function ModelEditor() {
             <div className="me-pad mb-md">
               <div className="card pad-md">
                 <label className="form-label fw-semibold">
-                  <i className="fas fa-tag icon-before text-primary" />
+                  <Icon name="tag" className="icon-before text-primary" />
                   {t('forms.modelName.label')}
                 </label>
                 <input
@@ -590,16 +613,23 @@ export default function ModelEditor() {
           <div className="set-layout">
             {/* Sidebar — sticks to the top of the viewport as the body scrolls. */}
             <nav className="set-rail">
+              {!isCreateMode && (
+                <button
+                  onClick={() => scrollTo('placement')}
+                  className={`set-rail__item${activeSection === 'placement' ? ' set-rail__item--on' : ''}`}
+                  data-testid="rail-placement"
+                >
+                  <Icon name="cpu" className="set-rail__icon" />
+                  {tModels('placement.title')}
+                </button>
+              )}
               {activeSections.map(s => (
                 <button
                   key={s.id}
                   onClick={() => scrollTo(s.id)}
                   className={`set-rail__item${activeSection === s.id ? ' set-rail__item--on' : ''}`}
                 >
-                  <i
-                    className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'} set-rail__icon`}
-                    style={activeSection === s.id ? { color: SECTION_COLORS[s.id] || 'var(--color-primary)' } : undefined}
-                  />
+                  <Icon name={SECTION_ICONS[s.id] || 'settings'} className="set-rail__icon" />
                   {s.label}
                   <span className="ml-auto text-meta">
                     {fieldsBySection[s.id]?.length || 0}
@@ -617,13 +647,30 @@ export default function ModelEditor() {
             <div
               className="me-body"
             >
+              {!isCreateMode && (
+                <div ref={el => { sectionRefs.current.placement = el }} className="mb-xl">
+                  <div className="card pad-md" data-testid="editor-placement">
+                    <PlacementSection
+                      model={name}
+                      values={{
+                        gpu_layers: values['gpu_layers'],
+                        tensor_split: values['tensor_split'],
+                        main_gpu: values['main_gpu'],
+                        context_size: values['context_size'],
+                      }}
+                      onChange={handlePlacementChange}
+                    />
+                  </div>
+                </div>
+              )}
+
               {activeSections.length === 0 && (
-                <div className="card loading-center text-center">
-                  <i className="fas fa-sliders icon-xl text-muted mb-md" />
-                  <h3 className="mb-sm">{t('forms.empty.title')}</h3>
-                  <p className="text-base text-secondary">
-                    {t('forms.empty.text')}
-                  </p>
+                // .loading-center is a flex row, which set the icon, the title and
+                // the text side by side with no gap; this is a stacked empty state.
+                <div className="dk-empty" data-testid="editor-no-fields">
+                  <div className="dk-empty-icon"><Icon name="sliders" /></div>
+                  <h3 className="dk-empty-title">{t('forms.empty.title')}</h3>
+                  <p className="dk-empty-text">{t('forms.empty.text')}</p>
                 </div>
               )}
 
@@ -636,9 +683,8 @@ export default function ModelEditor() {
                       onClick={() => toggleSection(s.id)}
                       className={`me-section-head${isCollapsed ? ' me-section-head--collapsed' : ''}`}
                     >
-                      <i className={`fas ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'} me-chevron`} />
-                      <i className={`fas ${SECTION_ICONS[s.id] || 'fa-cog'}`}
-                        style={{ color: SECTION_COLORS[s.id] || 'var(--color-primary)' }} />
+                      <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} className="me-chevron" />
+                      <Icon name={SECTION_ICONS[s.id] || 'settings'} className="me-section-icon" />
                       {s.label}
                       <span className="text-xs fw-normal text-muted">
                         ({sectionFields.length})

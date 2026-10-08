@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { nodesApi } from '../../utils/api'
 import LoadingSpinner from '../LoadingSpinner'
 import { formatVRAM } from './nodeStatus'
+import Icon from '../Icon'
 
 /**
  * Inline editor for a node's per-model replica capacity.
@@ -148,7 +149,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
     }}>
-      <i className="fas fa-layer-group" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} aria-hidden="true" />
+      <Icon name="layers" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
           <label
@@ -182,7 +183,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 disabled={saving}
                 aria-label="Save replica capacity"
               >
-                {saving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
+                {saving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
               </button>
               <button
                 className="btn btn-secondary btn-sm min-h-control"
@@ -225,7 +226,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
                 }}
               >
-                <i className="fas fa-pencil-alt" />
+                <Icon name="pencil" />
               </button>
               {isOverride && (
                 <button
@@ -235,7 +236,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
                   className="btn btn-secondary btn-sm min-h-control"
                 >
-                  {resetting ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Reset</>}
+                  {resetting ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Reset</>}
                 </button>
               )}
             </>
@@ -255,7 +256,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
     }}>
-      <i className="fas fa-microchip" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} aria-hidden="true" />
+      <Icon name="cpu" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
           <label
@@ -289,7 +290,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 disabled={budgetSaving}
                 aria-label="Save VRAM budget"
               >
-                {budgetSaving ? <LoadingSpinner size="xs" /> : <><i className="fas fa-check" /> Save</>}
+                {budgetSaving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
               </button>
               <button
                 className="btn btn-secondary btn-sm min-h-control"
@@ -326,7 +327,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
                 }}
               >
-                <i className="fas fa-pencil-alt" />
+                <Icon name="pencil" />
               </button>
               {hasBudget && (
                 <button
@@ -336,7 +337,7 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   title="Clear the VRAM budget; this node's full VRAM becomes available again"
                   className="btn btn-secondary btn-sm min-h-control"
                 >
-                  {budgetClearing ? <LoadingSpinner size="xs" /> : <><i className="fas fa-undo" /> Clear</>}
+                  {budgetClearing ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Clear</>}
                 </button>
               )}
             </>

@@ -557,6 +557,21 @@ convention the Whisper / Voxtral transcription backends use.
 Pass `threshold` explicitly when switching recognizers - the per-model
 default only applies when omitted.
 
+## The WebUI page
+
+**Build → Voices** has three tabs. **Speakers** is this feature. **Speech voices** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
+
+On Speakers:
+
+- **Who is this** matches a clip against the people you enrolled (`POST /v1/voice/identify`). The answer is a sentence with the real distance and the cut-off, a word for how far inside the cut-off it sits (strong, likely, close call), and a scale with the cut-off drawn on it. The cut-off slider re-reads the answer in the browser; it does not call the server again. The page sends the cut-off in the request, 0.25 by default.
+- **Same person?** compares two clips (`POST /v1/voice/verify`) and uses the threshold the model returns. The word is not a probability, and the page says so.
+- **Enrol a speaker** opens a sheet: a recording, a name, optional labels, and a permission tick. An administrator can also keep the recording as a speech voice in the same step. Keeping a copy of the recording in the browser is off unless you tick it.
+- **Known speakers** is a list kept in the browser. The server has no list call, so the page cannot check it by itself. After a search it marks a saved person the server did not return as "not on the server" (only when the search asked for more people than it got back, so a short answer is never read as proof), and lists anyone the server returned that this browser has no record of. A server restart empties the server's index; enrol again, or use **Re-enrol from saved copy** if you kept one.
+- Removing a person waits ten seconds behind an **Undo** toast. Nothing is sent to the server until the time ends; Undo cancels it.
+- If no speaker-recognition model is installed, the tool is replaced by a note that says so, with models from the gallery to install. Users without the Voice recognition permission see a page that says it is off for their account.
+
+The clip you test with is sent to the model on the server and is not kept. Analyze (age, gender and emotion guesses, all off by default) and the raw embedding are under **More tools**.
+
 ## Related features
 
 - [Face Recognition](/features/face-recognition/) - the image analog;

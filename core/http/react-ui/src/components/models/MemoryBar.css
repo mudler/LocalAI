@@ -1,0 +1,21 @@
+/* One memory bar: solid segments with a surface gap, a tick at the pool's
+   capacity. Over capacity the bar grows past the tick and the tick turns red.
+   Built on the kit's meter; only what the kit does not say is here. */
+
+.memorybar { display: grid; gap: var(--dk-space-2); min-width: 0; }
+
+.memorybar__meter { height: 14px; overflow: visible; }
+
+.memorybar__seg { min-width: 0; }
+.memorybar__seg--other { background: var(--dk-control-edge); opacity: .55; }
+.memorybar__seg--model { background: var(--dk-accent); }
+.memorybar__seg--kv { background: color-mix(in srgb, var(--dk-accent) 55%, var(--dk-card)); }
+.memorybar__seg--cpu { background: var(--dk-warn); }
+
+.memorybar__swatch--other { background: var(--dk-control-edge); opacity: .55; }
+.memorybar__swatch--model { background: var(--dk-accent); }
+.memorybar__swatch--kv { background: color-mix(in srgb, var(--dk-accent) 55%, var(--dk-card)); }
+.memorybar__swatch--cpu { background: var(--dk-warn); }
+
+.memorybar[data-over="true"] .memorybar__limit { background: var(--dk-error); }
+.memorybar__legend { margin-top: 0; }

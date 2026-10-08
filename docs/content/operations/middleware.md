@@ -18,7 +18,9 @@ a single client-facing model name fans out across multiple downstream
 targets.
 
 Both are inspected and configured from the same admin page
-(`/app/middleware`), backed by the same REST surface (`/api/middleware/*`,
+(`/app/middleware`), which draws the order a request passes through as five
+steps (Proxy, Admission, Filtering, Routing, Model) and shows only the rules of
+the step you select, backed by the same REST surface (`/api/middleware/*`,
 `/api/pii/*`, `/api/router/*`) and the same MCP tools.
 
 ## Request lifecycle

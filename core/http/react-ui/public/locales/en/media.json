@@ -10,31 +10,360 @@
       "overview": "Overview",
       "diarization": "Diarization"
     },
+    "tabState": {
+      "on": "(model installed)",
+      "off": "(no model installed)"
+    },
     "overview": {
-      "eyebrow": "{{ready}} of {{total}} modalities ready",
       "title": "Studio",
-      "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
-      "canMake": "What you can make",
-      "running": "Running now",
-      "recent": "Recent outputs",
-      "noModel": "No model installed",
-      "install": "Install a model",
-      "ready": "Ready",
-      "seconds": "{{seconds}}s",
-      "describe": {
-        "images": "Text to image, image to image, reference images",
-        "video": "Text to video and image to video",
-        "threed": "Mesh generation and animation",
-        "tts": "Text to speech using your voice library",
-        "sound": "Music and sound effects from a prompt",
-        "transform": "Separation, enhancement and voice conversion",
-        "diarization": "Find speaker turns and remember voices from a recording."
-      }
+      "subtitle": "Images, video, 3D, speech and sound, made with the models on this machine."
     },
     "groups": {
       "create": "Create",
       "voice": "Voice",
       "transform": "Transform"
+    },
+    "composer": {
+      "title": "What do you want to make?",
+      "lede": "Describe it and Studio suggests the type. Alt+1 to 7 picks one.",
+      "startTyping": "start typing",
+      "prompt": "Prompt",
+      "placeholder": {
+        "images": "Describe the image you want…",
+        "video": "Describe the shot: subject, camera move, light…",
+        "tts": "Type the words to speak…",
+        "sound": "Describe the sound or music…"
+      },
+      "fileLead": {
+        "threed": "3D turns one picture into an object. Start from one of your pictures below, or add a file on the next page.",
+        "transform": "Transform cleans up a recording or changes a voice. Start from one of your recordings below, or add a file on the next page.",
+        "diarization": "Diarization finds who spoke and when in a recording. Start from one of your recordings below, or add a file on the next page."
+      },
+      "starters": "Starters",
+      "soundsLike": "Sounds like {{type}}.",
+      "soundsLikeMissing": "Sounds like {{type}}, and no {{type}} model is installed yet.",
+      "switchTo": "Switch to {{type}}",
+      "seeNeeds": "See what it needs",
+      "model": "Model",
+      "noModel": "No model installed",
+      "size": "Size",
+      "count": "How many",
+      "countOption_one": "{{count}} image",
+      "countOption_other": "{{count}} images",
+      "startFrom": "Start from",
+      "sourceNone": "Start from nothing",
+      "sourceOnPage": "Add a file on the next page",
+      "fit": {
+        "fits": "Needs {{need}}, fits with {{amount}} GB to spare",
+        "spill": "Needs {{need}}, {{amount}} GB spills to RAM",
+        "over": "Needs {{need}}, {{amount}} GB more than this machine has"
+      },
+      "whyModel": "Install the {{type}} model first",
+      "whyPrompt": "Write a prompt first",
+      "generate": "Generate",
+      "openType": "Open {{type}}",
+      "firstRun": "Nothing is installed yet. Install the one you want first. You can add the others later, or never."
+    },
+    "starters": {
+      "images": [
+        {
+          "label": "Harbour at first light",
+          "text": "A fishing harbour at first light, pastel houses, long reflections, 35 mm film grain"
+        },
+        {
+          "label": "Paper-cut mountains",
+          "text": "Paper-cut mountains in layered teal and amber, soft haze"
+        },
+        {
+          "label": "Macro fern",
+          "text": "Macro photo of a dew-covered fern, shallow depth of field"
+        }
+      ],
+      "video": [
+        {
+          "label": "Misty forest dolly",
+          "text": "Slow dolly through a misty pine forest at sunrise"
+        },
+        {
+          "label": "Waves on black sand",
+          "text": "Waves rolling onto black sand, drone shot"
+        }
+      ],
+      "tts": [
+        {
+          "label": "Welcome line",
+          "text": "Welcome to the harbour tour. The first boats leave at six, and the bakery opens at five."
+        },
+        {
+          "label": "Release note",
+          "text": "Release 3.2 is out. It adds a faster scheduler and fixes the model unload bug."
+        }
+      ],
+      "sound": [
+        {
+          "label": "Lo-fi piano",
+          "text": "Lo-fi piano with rain on glass"
+        },
+        {
+          "label": "Wind in pines",
+          "text": "Wind through pines, no music"
+        }
+      ],
+      "threed": [],
+      "transform": [],
+      "diarization": []
+    },
+    "install": {
+      "title": "No {{type}} model installed",
+      "size": "is {{size}} to download.",
+      "sizeUnknown": "has no download size listed.",
+      "need": "It needs about {{need}} of memory while it runs.",
+      "needUnknown": "Its memory need is not listed.",
+      "free": "{{free}} free now.",
+      "nothingStarts": "Nothing starts until you install it.",
+      "button": "Install {{model}}",
+      "installing": "Installing {{model}}",
+      "started": "Installing {{model}}",
+      "failed": "The install did not start: {{message}}",
+      "galleryDown": "The model gallery could not be reached, so there is nothing to suggest. Check the connection, or add a model by hand.",
+      "noneListed": "The gallery lists no {{type}} model.",
+      "browse": "Browse all models"
+    },
+    "work": {
+      "title": "Your work",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "nResults_one": "{{count}} result",
+      "nResults_other": "{{count}} results",
+      "group": "Group related results",
+      "clear": "Clear history",
+      "clearTitle": "Clear your work history?",
+      "clearBody": "This removes the list of results and favourites from this browser. Files already made stay on the server.",
+      "clearConfirm": "Clear history",
+      "filters": "Filter your work",
+      "all": "All",
+      "favourites": "Favourites",
+      "favourite": "Favourite",
+      "open": "Open {{title}}",
+      "openProject": "Open {{title}}, {{count}} results that came from each other",
+      "project": "Project",
+      "emptyTitle": "Nothing here yet",
+      "emptyBody": "What you make shows up here, so you can find it again and build on it.",
+      "emptyFilterTitle": "No {{filter}} yet",
+      "emptyFilterBody": "Pick another filter, or make something.",
+      "fileGone": "The file is no longer on the server",
+      "untitled": {
+        "images": "Picture",
+        "video": "Clip",
+        "threed": "3D object",
+        "tts": "Speech",
+        "sound": "Sound",
+        "transform": "Transformed audio",
+        "diarization": "Recording"
+      }
+    },
+    "lineage": {
+      "back": "Your work",
+      "sub_one": "{{count}} result",
+      "sub_other": "{{count}} results that came from each other",
+      "subOne": "One result",
+      "board": "How these results were made, from the prompt on the left",
+      "prompt": "Prompt",
+      "file": "File",
+      "suggested": "Suggested",
+      "draft": "Draft",
+      "needsModel": "Needs a {{type}} model",
+      "ready": "Ready",
+      "dock": "Selected result",
+      "details": "Show details",
+      "take": "Run as a new take",
+      "branch": "Branch from here",
+      "cancel": "Cancel",
+      "openIn": "Open in {{type}}",
+      "newBranch": "New branch: {{step}}",
+      "fromResult": "from {{title}}",
+      "makeFrom": "Make from this result",
+      "targets": "What to make next",
+      "describe": "Describe it",
+      "keeps": "Keeps the original. Opens the workspace with this filled in; nothing runs until you press Generate there.",
+      "promptLabel": "Prompt",
+      "continue": "Continue from this result",
+      "download": "Download",
+      "took": "took {{seconds}} s",
+      "speakers_one": "{{count}} speaker",
+      "speakers_other": "{{count}} speakers",
+      "noInput": "The original input was not kept, so this cannot be run again as it was.",
+      "noBranch": "Nothing accepts a {{type}} as a starting point yet.",
+      "cannotStart": "The {{page}} page cannot start from a {{what}} yet.",
+      "goneTitle": "That result is no longer in this browser",
+      "goneBody": "It may have been cleared from the history. Go back to your work to see what is left."
+    },
+    "edges": {
+      "take": "take",
+      "animate": "animate",
+      "to-3d": "to 3D",
+      "variation": "variation",
+      "transform": "transform",
+      "diarize": "who spoke",
+      "soundtrack": "soundtrack",
+      "turntable": "turntable"
+    },
+    "steps": {
+      "animate": {
+        "title": "Animate",
+        "why": "Turn this picture into a short clip",
+        "template": "Slow push-in, small natural motion"
+      },
+      "to-3d": {
+        "title": "Make it 3D",
+        "why": "Build an object you can turn around",
+        "plain": "3D starts from this picture. You choose the model and options on the next page."
+      },
+      "variation": {
+        "title": "Variation",
+        "why": "Another take with edits"
+      },
+      "transform": {
+        "title": "Transform",
+        "why": "Clean up this audio or change the voice",
+        "plain": "Transform works on this audio. You choose the model and options on the next page."
+      },
+      "diarize": {
+        "title": "Find who spoke",
+        "why": "Mark each speaker on a timeline",
+        "plain": "This opens the recording in Diarization. You choose the model on the next page."
+      },
+      "soundtrack": {
+        "title": "Add a soundtrack",
+        "why": "Sound that fits the shot"
+      },
+      "turntable": {
+        "title": "Turntable clip",
+        "why": "Show the object from every side"
+      }
+    },
+    "kinds": {
+      "video": "video",
+      "mesh": "3D object"
+    },
+    "handoff": {
+      "aResult": "a result from Studio",
+      "loading": "Loading {{name}} as the starting point…",
+      "ready": "Starting from {{name}}.",
+      "missing": "The result this was made from is no longer in this browser's history, so there is no starting point. You can still add a file below.",
+      "error": "{{name}} could not be loaded. The server may have cleaned up the file. You can add a file below.",
+      "remove": "Remove"
+    },
+    "error": {
+      "title": "Studio could not read the installed models",
+      "body": "The list of models did not load, so Studio cannot say which types are ready. Your work below is not affected.",
+      "retry": "Try again"
+    },
+    "workspace": {
+      "sourcesLabel": "Starting points",
+      "lede": {
+        "images": "Text to image, image to image, reference images",
+        "video": "Text to video and image to video",
+        "threed": "One picture in, one 3D object out",
+        "tts": "Text to speech, with a saved voice when the model clones",
+        "sound": "Music and sound from a description",
+        "transform": "Clean up a recording, or change a voice",
+        "diarization": "Find who spoke and when"
+      },
+      "sources": {
+        "startImage": "Start from an image",
+        "endImage": "End image",
+        "chosen": "Chosen file",
+        "audio": "Audio",
+        "reference": "Reference"
+      },
+      "fields": {
+        "prompt": "text",
+        "model": "model",
+        "size": "size",
+        "count": "count",
+        "steps": "steps",
+        "seed": "seed",
+        "negative": "negative prompt",
+        "duration": "duration",
+        "fps": "fps",
+        "frames": "frames",
+        "cfg": "CFG",
+        "quality": "quality",
+        "background": "background",
+        "voice": "voice",
+        "instructions": "delivery",
+        "mode": "mode",
+        "caption": "caption",
+        "lyrics": "lyrics",
+        "bpm": "BPM",
+        "key": "key",
+        "language": "language",
+        "timesignature": "time signature",
+        "instrumental": "instrumental",
+        "think": "think mode",
+        "params": "parameters",
+        "speakers": "speakers",
+        "detail": "detail"
+      },
+      "changedFrom": "Changed from this take:",
+      "edited": "edited",
+      "runAgain": "Run again",
+      "useIn": "Use in",
+      "rerun": "Re-run with edits",
+      "lineage": "Lineage",
+      "download": "Download",
+      "tools": "Result actions",
+      "from": "from",
+      "fromGone": "from a result that is no longer in this browser ({{edge}})",
+      "failed": {
+        "title": "That did not finish",
+        "note": "Your prompt and settings are still here.",
+        "retry": "Try again",
+        "traces": "View traces for details"
+      },
+      "strip": {
+        "title": "Recent results",
+        "allWork": "All work",
+        "noFavourites": "No favourites yet. Star a result to keep it here."
+      },
+      "auto": "Auto",
+      "sound": {
+        "more": "More options",
+        "generated": "Sound generated",
+        "noCaption": "Please enter caption or lyrics"
+      },
+      "transform": {
+        "noModel": "Please select a model",
+        "noAudio": "Please choose an audio file",
+        "done": "Audio transformed",
+        "inputGone": "The audio that run used is no longer on the server. Add it again to run it.",
+        "loadReference": "Load a reference first",
+        "noMic": "This browser does not expose the microphone",
+        "recorded": "Recorded the microphone with the reference echo. Press Transform to test echo cancellation.",
+        "echoFailed": "Echo test failed: {{message}}",
+        "recording": "recording {{seconds}} s",
+        "whyAudio": "Add an audio file first",
+        "waiting": "Your audio, waiting to be transformed",
+        "paramCount_one": "{{count}} parameter",
+        "paramCount_other": "{{count}} parameters"
+      },
+      "threed": {
+        "whyImage": "Add a picture first"
+      },
+      "choose": "Choose",
+      "replace": "Replace",
+      "dropHint": "or drop it here",
+      "diarization": {
+        "whyFile": "Choose a recording first",
+        "hint": "Audio or video, or drop it here",
+        "timeline": "Timeline of {{count}} speakers over {{length}}",
+        "segmentCount_one": "{{count}} segment",
+        "segmentCount_other": "{{count}} segments",
+        "talk": "{{seconds}} s of talk, {{percent}}%",
+        "notKept": "The recording and the transcript are not kept, so only the summary of this run is shown. Run it again with the file to see the timeline.",
+        "empty": "Choose a recording to see who spoke and when"
+      }
     }
   },
   "image": {
@@ -198,8 +527,9 @@
     }
   },
   "voiceLibrary": {
-    "title": "Personality Library",
-    "subtitle": "Create and manage reusable voice personalities with one or more reference recordings.",
+    "title": "Speech voices",
+    "subtitle": "A recording and its exact transcript. Text-to-speech models that accept reference audio can speak with it.",
+    "loadFailed": "Speech voices could not be loaded",
     "loading": "Loading saved personalities…",
     "listLabel": "Saved voice personalities",
     "status": {
@@ -221,15 +551,16 @@
       "allLanguages": "All languages"
     },
     "empty": {
-      "title": "Your personality library is empty",
-      "body": "Record or upload consented reference clips, add their exact transcripts, and reuse the personality across compatible TTS models."
+      "title": "No speech voices yet",
+      "body": "Record or upload a consented reference clip, add its exact transcript, and reuse the voice across compatible text-to-speech models."
     },
     "noResults": {
       "title": "No voices match these filters",
       "body": "Try a different search or show every language."
     },
     "detail": {
-      "eyebrow": "Selected voice",
+      "eyebrow": "Reference recording and exact transcript",
+      "close": "Close",
       "emptyTitle": "Select a voice to inspect it",
       "emptyBody": "Reference audio, transcript, compatibility, and consent details will appear here.",
       "referenceAudio": "Reference audio",
@@ -243,6 +574,7 @@
       "created": "Created"
     },
     "consent": {
+      "label": "Permission",
       "confirmed": "Consent confirmed",
       "confirmedAt": "Confirmed {{date}}"
     },
@@ -268,12 +600,12 @@
       "endpointNote": "The same model, input, and voice fields also work with POST /tts."
     },
     "actions": {
-      "create": "Create personality",
-      "createFirst": "Create your first personality",
+      "create": "Add a speech voice",
+      "createFirst": "Add your first speech voice",
       "retry": "Try again",
       "clearFilters": "Clear filters",
       "useInTTS": "Use in Text to Speech",
-      "delete": "Delete personality",
+      "delete": "Delete voice",
       "installModel": "Install a compatible model",
       "browseModels": "Browse all models"
     },
@@ -291,9 +623,8 @@
     }
   },
   "voiceCreate": {
-    "eyebrow": "Personality Library",
-    "title": "Create a reusable personality",
-    "subtitle": "Create a reusable personality from one or more clean reference clips and their exact transcripts.",
+    "title": "Add a speech voice",
+    "subtitle": "A speech voice is one or more clean reference clips and their exact transcripts. Text-to-speech models that accept reference audio can speak with it.",
     "references": {
       "add": "Add another reference",
       "additional": "Reference {{number}}",
@@ -317,6 +648,7 @@
       "label": "Voice reference",
       "normalizing": "Preparing a secure PCM WAV…",
       "preview": "Normalized reference",
+      "tooLarge": "This file is larger than 50 MiB.",
       "durationError": "Reference audio must be between 1 second and 2 minutes.",
       "decodeError": "This browser could not decode the selected audio file.",
       "qualityReady": "Recommended length",

@@ -1,12 +1,24 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
-import { agentsApi, skillsApi } from '../utils/api'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+// eslint-disable-next-line no-unused-vars
+import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { agentsApi, agentCollectionsApi, skillsApi, chatApi } from '../utils/api'
+import { useLibraryFacts } from '../hooks/useLibraryFacts'
+import { estimateTokens, skillLoadTokens, skillUsers, sumTokens } from '../utils/library'
+import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
+import './agents.css'
+import './library.css'
+// eslint-disable-next-line no-unused-vars
 import SearchableModelSelect from '../components/SearchableModelSelect'
-import PageHeader from '../components/PageHeader'
+// eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
+// eslint-disable-next-line no-unused-vars
 import Toggle from '../components/Toggle'
+// eslint-disable-next-line no-unused-vars
 import SettingRow from '../components/SettingRow'
+import Icon from '../components/Icon'
 
 // --- MCP STDIO helpers ---
 
@@ -57,6 +69,7 @@ function buildStdioJson(list) {
 
 // --- Form field components ---
 
+// eslint-disable-next-line no-unused-vars
 function FormField({ field, value, onChange, disabled }) {
   const id = `field-${field.name}`
   const label = field.required
@@ -153,6 +166,7 @@ function FormField({ field, value, onChange, disabled }) {
 
 // --- ConfigForm for connectors/actions/filters/dynamic_prompts ---
 
+// eslint-disable-next-line no-unused-vars
 function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, typeField, addButtonText }) {
   const typeOptions = [
     { value: '', label: `Select a ${itemType} type` },
@@ -188,7 +202,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
             <div className="hstack hstack--between mb-md">
               <h4 style={{ margin: 0, fontWeight: 600 }}>{label} #{index + 1}</h4>
               <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemove(index)}>
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             </div>
             <div className="form-group">
@@ -241,7 +255,7 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
         )
       })}
       <button type="button" className="btn btn-secondary" onClick={onAdd}>
-        <i className="fas fa-plus" /> {addButtonText}
+        <Icon name="plus" /> {addButtonText}
       </button>
     </div>
   )
@@ -250,16 +264,16 @@ function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, t
 // --- Section definitions ---
 
 const SECTIONS = [
-  { id: 'BasicInfo', icon: 'fa-info-circle', label: 'Basic Info' },
-  { id: 'ModelSettings', icon: 'fa-brain', label: 'Model Settings' },
-  { id: 'MemorySettings', icon: 'fa-database', label: 'Memory' },
-  { id: 'PromptsGoals', icon: 'fa-bullseye', label: 'Prompts & Goals' },
-  { id: 'AdvancedSettings', icon: 'fa-cog', label: 'Advanced' },
-  { id: 'MCP', icon: 'fa-server', label: 'MCP Servers' },
-  { id: 'connectors', icon: 'fa-plug', label: 'Connectors' },
-  { id: 'actions', icon: 'fa-bolt', label: 'Actions' },
-  { id: 'filters', icon: 'fa-filter', label: 'Filters' },
-  { id: 'dynamic_prompts', icon: 'fa-wand-magic-sparkles', label: 'Dynamic Prompts' },
+  { id: 'BasicInfo', icon: 'info', label: 'Basic Info' },
+  { id: 'ModelSettings', icon: 'brain', label: 'Model Settings' },
+  { id: 'MemorySettings', icon: 'database', label: 'Memory' },
+  { id: 'PromptsGoals', icon: 'target', label: 'Prompts & Goals' },
+  { id: 'AdvancedSettings', icon: 'settings', label: 'Advanced' },
+  { id: 'MCP', icon: 'server', label: 'MCP Servers' },
+  { id: 'connectors', icon: 'plug', label: 'Connectors' },
+  { id: 'actions', icon: 'bolt', label: 'Actions' },
+  { id: 'filters', icon: 'filter', label: 'Filters' },
+  { id: 'dynamic_prompts', icon: 'sparkles', label: 'Dynamic Prompts' },
 ]
 
 // Fields handled by custom editors in the MCP section
@@ -287,14 +301,22 @@ export default function AgentCreate() {
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
+  const { t } = useTranslation(['agents', 'library'])
   const [searchParams] = useSearchParams()
   const userId = searchParams.get('user_id') || undefined
+  const templateId = searchParams.get('template') || ''
   const isEdit = !!name
   const importedConfig = location.state?.importedConfig || null
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeSection, setActiveSection] = useState('BasicInfo')
+  // Sections fold. Basics is open at first; the rest open on demand.
+  const [openSections, setOpenSections] = useState(() => new Set(['BasicInfo']))
+  const [savedConfig, setSavedConfig] = useState(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewTab, setPreviewTab] = useState('config')
+  const [draftText, setDraftText] = useState('')
+  const [drafting, setDrafting] = useState(false)
   const [meta, setMeta] = useState(null)
   const [form, setForm] = useState({})
   // Snapshot of the form as first loaded, for the unsaved-changes guard.
@@ -309,6 +331,15 @@ export default function AgentCreate() {
   const [stdioServers, setStdioServers] = useState([])
   const [availableSkills, setAvailableSkills] = useState([])
   const [selectedSkills, setSelectedSkills] = useState([])
+  // Who else uses a skill, and whether this agent's collection exists, so the
+  // pickers can say "not used yet" without sending anyone to another page.
+  const library = useLibraryFacts()
+  const [collectionNames, setCollectionNames] = useState(null)
+  useEffect(() => {
+    agentCollectionsApi.list(false)
+      .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name))))
+      .catch(() => setCollectionNames(null))
+  }, [])
 
   // Group metadata Fields by tags.section
   const fieldsBySection = useMemo(() => {
@@ -331,7 +362,7 @@ export default function AgentCreate() {
       const hiddenInDistributed = new Set(['actions', 'connectors', 'filters', 'dynamic_prompts'])
       items = items.filter(s => !hiddenInDistributed.has(s.id))
     }
-    if (isEdit) items.push({ id: 'export', icon: 'fa-download', label: 'Export' })
+    if (isEdit) items.push({ id: 'export', icon: 'download', label: 'Export' })
     return items
   }, [isEdit, meta])
 
@@ -377,6 +408,17 @@ export default function AgentCreate() {
           if (Array.isArray(sourceConfig.selected_skills)) setSelectedSkills(sourceConfig.selected_skills)
         }
 
+        // A starting point fills the form; nothing is saved until the person saves.
+        if (!sourceConfig && templateId) {
+          const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
+          if (tpl) {
+            for (const key of ['name', 'description', 'system_prompt']) {
+              if (key in initialForm && tpl[key]) initialForm[key] = tpl[key]
+            }
+          }
+        }
+
+        if (config) setSavedConfig(config)
         initialFormRef.current = initialForm
         setForm(initialForm)
       } catch (err) {
@@ -386,14 +428,45 @@ export default function AgentCreate() {
       }
     }
     init()
-  }, [name, isEdit, importedConfig, addToast])
+  }, [name, isEdit, importedConfig, templateId, addToast])
 
   const updateField = (fieldName, value) => {
     setForm(prev => ({ ...prev, [fieldName]: value }))
   }
 
+  // The config exactly as it is saved: the form, the lists and the MCP and
+  // skills choices. The preview shows this object and Save sends it.
+  const buildPayload = () => {
+    const payload = { ...form }
+    // Convert number fields
+    if (meta?.Fields) {
+      for (const field of meta.Fields) {
+        if (field.type === 'number' && payload[field.name] !== '' && payload[field.name] != null) {
+          payload[field.name] = Number(payload[field.name])
+        }
+      }
+    }
+    payload.connectors = connectors
+    payload.actions = actions
+    payload.filters = filters
+    payload.dynamic_prompts = dynamicPrompts
+    payload.mcp_servers = mcpHttpServers.filter(s => s.url)
+    // Send STDIO servers as JSON string in expected format
+    if (mcpJsonMode && mcpRawJson.trim()) {
+      // In JSON editor mode, use the raw JSON directly
+      payload.mcp_stdio_servers = mcpRawJson
+    } else if (stdioServers.length > 0) {
+      payload.mcp_stdio_servers = buildStdioJson(stdioServers)
+    }
+    // Send selected skills
+    if (selectedSkills.length > 0) {
+      payload.selected_skills = selectedSkills
+    }
+    return payload
+  }
+
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     if (!form.name?.toString().trim()) {
       addToast('Agent name is required', 'warning')
       return
@@ -404,32 +477,7 @@ export default function AgentCreate() {
     }
     setSaving(true)
     try {
-      const payload = { ...form }
-      // Convert number fields
-      if (meta?.Fields) {
-        for (const field of meta.Fields) {
-          if (field.type === 'number' && payload[field.name] !== '' && payload[field.name] != null) {
-            payload[field.name] = Number(payload[field.name])
-          }
-        }
-      }
-      payload.connectors = connectors
-      payload.actions = actions
-      payload.filters = filters
-      payload.dynamic_prompts = dynamicPrompts
-      payload.mcp_servers = mcpHttpServers.filter(s => s.url)
-      // Send STDIO servers as JSON string in expected format
-      if (mcpJsonMode && mcpRawJson.trim()) {
-        // In JSON editor mode, use the raw JSON directly
-        payload.mcp_stdio_servers = mcpRawJson
-      } else if (stdioServers.length > 0) {
-        payload.mcp_stdio_servers = buildStdioJson(stdioServers)
-      }
-      // Send selected skills
-      if (selectedSkills.length > 0) {
-        payload.selected_skills = selectedSkills
-      }
-
+      const payload = buildPayload()
       if (isEdit) {
         await agentsApi.update(name, payload, userId)
         addToast(`Agent "${form.name}" updated`, 'success')
@@ -485,7 +533,29 @@ export default function AgentCreate() {
       ))
   }
 
-  const renderSection = () => {
+  // Used by, from the other agents' saved configs. This agent's own choice is
+  // the checkbox, so it is left out.
+  const allSkillNames = availableSkills.map(sk => sk.name)
+  const skillHint = (skill) => {
+    const others = library.status === 'ready'
+      ? skillUsers(library.agents.filter(a => a.name !== (isEdit ? name : form.name)), skill.name, allSkillNames)
+      : null
+    const use = others === null ? '' : (others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(o => o.name).join(', ') }))
+    const cost = form.skills_mode === 'tools' ? t('library:add.toolsMode') : t('library:add.tokens', { count: estimateTokens(skill.content || '') })
+    return [use, cost].filter(Boolean).join(' · ')
+  }
+  const pickedSkills = selectedSkills.length === 0 ? availableSkills : availableSkills.filter(sk => selectedSkills.includes(sk.name))
+  const skillsBudget = form.skills_mode === 'tools'
+    ? t('library:add.toolsMode')
+    : t('library:agentBudget', { count: sumTokens(pickedSkills.map(sk => skillLoadTokens(sk, form))) })
+  const ownName = (isEdit ? name : form.name) || ''
+  const kbNote = collectionNames === null
+    ? t('library:agentKb.reads', { name: ownName || '...' })
+    : collectionNames.includes(ownName)
+      ? t('library:agentKb.exists', { name: ownName })
+      : t('library:agentKb.created', { name: ownName || '...' })
+
+  const renderSection = (activeSection) => {
     switch (activeSection) {
       case 'BasicInfo':
       case 'ModelSettings':
@@ -499,7 +569,7 @@ export default function AgentCreate() {
             {activeSection === 'AdvancedSettings' && form.enable_skills && availableSkills.length > 0 && (
               <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
                 <h4 className="agent-subsection-title">
-                  <i className="fas fa-puzzle-piece text-primary icon-before" />
+                  <Icon name="puzzle" className="text-primary icon-before" />
                   Select Skills
                 </h4>
                 <p className="agent-section-desc">Choose which skills this agent can use. If none selected, all available skills are included.</p>
@@ -549,11 +619,16 @@ export default function AgentCreate() {
                             {skill.description.length > 80 ? skill.description.slice(0, 80) + '...' : skill.description}
                           </div>
                         )}
+                        <div className="lib-hint" data-testid={`agent-skill-hint-${skill.name}`}>{skillHint(skill)}</div>
                       </div>
                     </label>
                   ))}
                 </div>
+                <p className="lib-hint lib-hint--total" data-testid="agent-skills-budget">{skillsBudget}</p>
               </div>
+            )}
+            {activeSection === 'MemorySettings' && form.enable_kb && (
+              <p className="lib-hint lib-hint--block" data-testid="agent-kb-note">{kbNote}</p>
             )}
           </>
         )
@@ -613,7 +688,7 @@ export default function AgentCreate() {
                 }
                 setMcpJsonMode(!mcpJsonMode)
               }}>
-                <i className={`fas ${mcpJsonMode ? 'fa-list' : 'fa-code'}`} />
+                <Icon name={mcpJsonMode ? 'list' : 'code'} />
                 {mcpJsonMode ? ' Form Editor' : ' JSON Editor'}
               </button>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
@@ -641,7 +716,7 @@ export default function AgentCreate() {
             {/* STDIO Servers */}
             <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-terminal text-primary icon-before" />
+                <Icon name="terminal" className="text-primary icon-before" />
                 STDIO Servers
               </h4>
               <p className="agent-section-desc">Local command-based MCP servers (e.g. docker run).</p>
@@ -650,7 +725,7 @@ export default function AgentCreate() {
                   <div className="hstack hstack--between mb-sm">
                     <span className="fw-semibold text-base">Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeStdioServer(idx)}>
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
@@ -667,14 +742,14 @@ export default function AgentCreate() {
                     <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       Arguments
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => addArg(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <i className="fas fa-plus" /> Add
+                        <Icon name="plus" /> Add
                       </button>
                     </label>
                     {(server.args || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No arguments.</p>}
                     {(server.args || []).map((arg, ai) => (
                       <div key={ai} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                         <input className="input flex-1" value={arg} onChange={(e) => updateArg(idx, ai, e.target.value)} placeholder="argument" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><i className="fas fa-times" /></button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><Icon name="close" /></button>
                       </div>
                     ))}
                   </div>
@@ -682,28 +757,28 @@ export default function AgentCreate() {
                     <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       Environment Variables
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => addEnv(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <i className="fas fa-plus" /> Add
+                        <Icon name="plus" /> Add
                       </button>
                     </label>
                     {(server.env || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No environment variables.</p>}
                     {(server.env || []).map((env, ei) => (
                       <div key={ei} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
                         <input className="input flex-1" value={env} onChange={(e) => updateEnv(idx, ei, e.target.value)} placeholder="KEY=VALUE" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><i className="fas fa-times" /></button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><Icon name="close" /></button>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
               <button type="button" className="btn btn-secondary" onClick={addStdioServer}>
-                <i className="fas fa-plus" /> Add STDIO Server
+                <Icon name="plus" /> Add STDIO Server
               </button>
             </div>
 
             {/* HTTP Servers */}
             <div className="mt-lg">
               <h4 className="agent-subsection-title">
-                <i className="fas fa-globe text-primary icon-before" />
+                <Icon name="globe" className="text-primary icon-before" />
                 HTTP Servers
               </h4>
               <p className="agent-section-desc">MCP servers connected over HTTP.</p>
@@ -712,7 +787,7 @@ export default function AgentCreate() {
                   <div className="hstack hstack--between mb-sm">
                     <span className="fw-semibold text-base">HTTP Server #{idx + 1}</span>
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeMcpHttp(idx)}>
-                      <i className="fas fa-times" />
+                      <Icon name="close" />
                     </button>
                   </div>
                   {(meta?.MCPServers || [{ name: 'url', label: 'URL', type: 'text' }, { name: 'token', label: 'API Key', type: 'password' }]).map(f => (
@@ -728,7 +803,7 @@ export default function AgentCreate() {
                 </div>
               ))}
               <button type="button" className="btn btn-secondary" onClick={addMcpHttp}>
-                <i className="fas fa-plus" /> Add HTTP Server
+                <Icon name="plus" /> Add HTTP Server
               </button>
             </div>
               </>
@@ -805,7 +880,7 @@ export default function AgentCreate() {
               className="btn btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
             >
-              <i className="fas fa-download icon-before" /> Export Agent
+              <Icon name="download" className="icon-before" /> Export Agent
             </a>
           </div>
         )
@@ -817,8 +892,8 @@ export default function AgentCreate() {
 
   if (loading) {
     return (
-      <div className="page page--narrow loading-center">
-        <i className="fas fa-spinner fa-spin icon-xl text-primary" />
+      <div className="page page--medium loading-center">
+        <Icon name="spinner" spin className="icon-xl text-primary" />
       </div>
     )
   }
@@ -826,178 +901,323 @@ export default function AgentCreate() {
   const dirty = initialFormRef.current != null &&
     JSON.stringify(form) !== JSON.stringify(initialFormRef.current)
 
+  const leave = () => navigate(isEdit ? `/app/agents/${encodeURIComponent(name)}${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}` : '/app/agents')
+
+  // What each fold says about itself: ready mark, one line, and, when editing,
+  // how many of its fields differ from the saved agent.
+  const payload = buildPayload()
+  const baseline = {}
+  if (savedConfig) for (const k of Object.keys(payload)) if (k in savedConfig) baseline[k] = savedConfig[k]
+  const diff = savedConfig ? diffConfig(baseline, payload) : diffConfig({}, payload)
+  const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
+  const listOf = { connectors, actions, filters, dynamic_prompts: dynamicPrompts }
+
+  const foldInfo = (s) => {
+    const fields = fieldsBySection[s.id] || []
+    let keys = fields.map(f => f.name)
+    let summary = ''
+    let state = 'empty'
+    if (s.id in listOf) {
+      const n = listOf[s.id].length
+      keys = [s.id]
+      summary = n ? t('create.countConfigured', { count: n }) : t('create.noneYet')
+      state = n ? 'ready' : 'empty'
+    } else if (s.id === 'MCP') {
+      keys = [...keys, 'mcp_servers', 'mcp_stdio_servers']
+      const n = stdioServers.length + mcpHttpServers.filter(x => x.url).length
+      summary = n ? t('create.countServers', { count: n }) : t('create.noneYet')
+      state = n ? 'ready' : 'empty'
+    } else if (s.id === 'export') {
+      summary = t('create.exportSummary')
+      state = 'ready'
+    } else {
+      summary = summarise(fields, form)
+      if (s.id === 'AdvancedSettings') {
+        keys = [...keys, 'selected_skills']
+        if (form.enable_skills && selectedSkills.length) summary = [summary, t('create.countSkills', { count: selectedSkills.length })].filter(Boolean).join(', ')
+      }
+      state = summary ? 'ready' : 'empty'
+    }
+    if (s.id === 'BasicInfo' && !form.name?.toString().trim()) { state = 'needs'; summary = t('create.needsName') }
+    if (s.id === 'ModelSettings' && !form.model?.toString().trim()) { state = 'needs'; summary = t('create.needsModel') }
+    const changed = keys.filter(k => changedKeys.has(k)).length
+    return { summary, state, changed }
+  }
+
+  const toggleSection = (id) => setOpenSections(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
+  const applyTemplate = (tpl) => {
+    setForm(prev => {
+      const next = { ...prev }
+      for (const key of ['name', 'description', 'system_prompt']) {
+        if (!(key in prev)) continue
+        if (key === 'name' && isEdit) continue
+        next[key] = tpl[key] || ''
+      }
+      return next
+    })
+    setOpenSections(prev => new Set([...prev, 'BasicInfo']))
+  }
+
+  const draft = async () => {
+    const sentence = draftText.trim()
+    if (!sentence) return
+    if (!form.model?.toString().trim()) {
+      addToast(t('create.draftNeedsModel'), 'warning')
+      setOpenSections(prev => new Set([...prev, 'ModelSettings']))
+      return
+    }
+    setDrafting(true)
+    try {
+      const res = await chatApi.complete({
+        model: form.model,
+        temperature: 0.2,
+        messages: [
+          { role: 'system', content: 'You write the configuration of a software agent. Answer with one JSON object and nothing else. Keys: "name" (lowercase words joined by dashes, at most 30 characters), "description" (one sentence), "system_prompt" (the instructions the agent follows, three to six sentences).' },
+          { role: 'user', content: sentence },
+        ],
+      })
+      const text = res?.choices?.[0]?.message?.content || ''
+      const match = text.match(/\{[\s\S]*\}/)
+      const parsed = match ? JSON.parse(match[0]) : null
+      if (!parsed || typeof parsed !== 'object') throw new Error(t('create.draftBad'))
+      setForm(prev => {
+        const next = { ...prev }
+        for (const key of ['name', 'description', 'system_prompt']) {
+          if (key in prev && typeof parsed[key] === 'string' && parsed[key].trim() && !(key === 'name' && isEdit)) next[key] = parsed[key].trim()
+        }
+        return next
+      })
+      setOpenSections(prev => new Set([...prev, 'BasicInfo', 'PromptsGoals']))
+      addToast(t('create.drafted'), 'success')
+    } catch (err) {
+      addToast(t('create.draftFailed', { message: err.message }), 'error')
+    } finally {
+      setDrafting(false)
+    }
+  }
+
+  const title = isEdit ? t('create.titleEdit', { name }) : importedConfig ? t('create.titleImport') : t('create.titleCreate')
+  const saveLabel = isEdit ? t('create.save') : importedConfig ? t('create.titleImport') : t('create.titleCreate')
+
   return (
-    <div className="page page--narrow">
+    <div className="page page--medium ag-page" data-testid="agent-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
-      <style>{`
-        .agent-form-container {
-          display: flex;
-          gap: var(--spacing-lg);
-          min-height: 500px;
-        }
-        .agent-wizard-sidebar {
-          width: 220px;
-          flex-shrink: 0;
-        }
-        .agent-wizard-nav {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          position: sticky;
-          top: var(--spacing-md);
-        }
-        .agent-wizard-nav-item {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-sm);
-          padding: var(--spacing-sm) var(--spacing-md);
-          border-radius: var(--radius-md);
-          cursor: pointer;
-          font-size: 0.875rem;
-          color: var(--color-text-secondary);
-          transition: background 0.15s, color 0.15s;
-          user-select: none;
-          margin-bottom: 2px;
-          border-left: 3px solid transparent;
-        }
-        .agent-wizard-nav-item:hover {
-          background: var(--color-primary-light);
-          color: var(--color-text-primary);
-        }
-        .agent-wizard-nav-item.active {
-          background: var(--color-primary-light);
-          color: var(--color-primary);
-          border-left-color: var(--color-primary);
-          font-weight: 500;
-        }
-        .agent-wizard-nav-item i {
-          width: 18px;
-          text-align: center;
-          font-size: 0.8125rem;
-        }
-        .agent-wizard-badge {
-          margin-left: auto;
-          font-size: 0.7rem;
-          background: var(--color-primary);
-          color: white;
-          border-radius: 999px;
-          padding: 1px 6px;
-          min-width: 18px;
-          text-align: center;
-        }
-        .agent-form-content {
-          flex: 1;
-          min-width: 0;
-        }
-        .agent-section-title {
-          font-weight: 600;
-          font-size: 1.1rem;
-          margin-bottom: var(--spacing-md);
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-xs);
-        }
-        .agent-subsection-title {
-          font-weight: 600;
-          font-size: 0.95rem;
-          margin-bottom: var(--spacing-sm);
-        }
-        .agent-section-desc {
-          font-size: 0.8125rem;
-          color: var(--color-text-muted);
-          margin-bottom: var(--spacing-md);
-        }
-        .agent-form-help-text {
-          font-size: 0.75rem;
-          color: var(--color-text-muted);
-          margin-top: var(--spacing-xs);
-          margin-bottom: 0;
-        }
-        @media (max-width: 768px) {
-          .agent-form-container {
-            flex-direction: column;
-          }
-          .agent-wizard-sidebar {
-            width: 100%;
-          }
-          .agent-wizard-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--spacing-xs);
-            position: static;
-          }
-          .agent-wizard-nav-item {
-            font-size: 0.8125rem;
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border-left: none;
-            border-bottom: 3px solid transparent;
-          }
-          .agent-wizard-nav-item.active {
-            border-left-color: transparent;
-            border-bottom-color: var(--color-primary);
-          }
-        }
-      `}</style>
+      <form onSubmit={handleSubmit} noValidate className="ag-edit">
+        <header className="ag-edit__head">
+          <div>
+            <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? name : t('agent.back')}</button>
+            <h1>{title}</h1>
+            <p className="ag-edit__sub">{isEdit ? t('create.subEdit') : t('create.subCreate')}</p>
+          </div>
+          <div className="ag-edit__acts">
+            <button type="button" className="btn btn-secondary" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
+              <Icon name="eye" /> {t('create.preview')}
+              {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={leave}>
+              {t('create.discard')}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving
+                ? <><Icon name="spinner" spin /> {t('create.saving')}</>
+                : <><Icon name="save" /> {saveLabel}</>
+              }
+            </button>
+          </div>
+        </header>
 
-      <PageHeader
-        title={isEdit ? `Edit Agent: ${name}` : importedConfig ? 'Import Agent' : 'Create Agent'}
-        actions={
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/agents')}>
-            <i className="fas fa-arrow-left" aria-hidden="true" /> Back
+        {!isEdit && (
+          <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
+            <h2 id="ag-start-h" className="ag-eyebrow">{t('create.startFrom')}</h2>
+            <div className="ag-start__row">
+              {AGENT_TEMPLATES.map(tpl => (
+                <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
+                  {t(`templates.${tpl.id}.label`)}
+                </button>
+              ))}
+            </div>
+            <div className="ag-draft">
+              <input
+                className="input"
+                type="text"
+                value={draftText}
+                aria-label={t('create.draftLabel')}
+                placeholder={t('create.draftPlaceholder')}
+                onChange={(e) => setDraftText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); draft() } }}
+              />
+              <button type="button" className="btn btn-secondary" disabled={drafting || !draftText.trim()} onClick={draft}>
+                {drafting ? <Icon name="spinner" spin /> : <Icon name="sparkles" />} {t('create.draft')}
+              </button>
+            </div>
+            <p className="ag-note">{t('create.draftNote')}</p>
+          </section>
+        )}
+
+        <div className="ag-folds">
+          {visibleSections.map(s => {
+            const open = openSections.has(s.id)
+            const info = foldInfo(s)
+            return (
+              <section key={s.id} className="ag-fold" data-open={open || undefined} data-section={s.id}>
+                <h2 className="ag-fold__h">
+                  <button
+                    type="button"
+                    className="ag-fold__button"
+                    aria-expanded={open}
+                    aria-controls={`ag-fold-${s.id}`}
+                    onClick={() => toggleSection(s.id)}
+                  >
+                    <span className="ag-ready" data-state={info.state} aria-hidden="true"><Icon name={info.state === 'needs' ? 'warning' : 'check'} /></span>
+                    <span className="ag-fold__title">{s.label}</span>
+                    <span className="ag-fold__sum">{info.summary}</span>
+                    {info.changed > 0 ? <span className="ag-badge-changed">{t('create.changed', { count: info.changed })}</span> : <span />}
+                    <Icon name="chevron-down" className="ag-fold__chev" />
+                  </button>
+                </h2>
+                {open && (
+                  <div className="ag-fold__body" id={`ag-fold-${s.id}`}>
+                    {renderSection(s.id)}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
+
+        <div className="ag-foot">
+          <button type="button" className="btn btn-secondary" onClick={leave}>
+            {t('create.discard')}
           </button>
-        }
-      />
-
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="agent-form-container">
-          <div className="agent-wizard-sidebar">
-            <div className="card pad-sm">
-              <ul className="agent-wizard-nav">
-                {visibleSections.map(s => {
-                  let count = 0
-                  if (s.id === 'connectors') count = connectors.length
-                  else if (s.id === 'actions') count = actions.length
-                  else if (s.id === 'filters') count = filters.length
-                  else if (s.id === 'dynamic_prompts') count = dynamicPrompts.length
-                  return (
-                    <li
-                      key={s.id}
-                      className={`agent-wizard-nav-item ${activeSection === s.id ? 'active' : ''}`}
-                      onClick={() => setActiveSection(s.id)}
-                    >
-                      <i className={`fas ${s.icon}`} />
-                      {s.label}
-                      {count > 0 && <span className="agent-wizard-badge">{count}</span>}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          </div>
-
-          <div className="agent-form-content">
-            <div className="card pad-lg">
-              <h3 className="agent-section-title">
-                <i className={`fas ${visibleSections.find(s => s.id === activeSection)?.icon || 'fa-cog'} text-primary`} />
-                {visibleSections.find(s => s.id === activeSection)?.label || activeSection}
-              </h3>
-              {renderSection()}
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/agents')}>
-                <i className="fas fa-times" /> Cancel
-              </button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving
-                  ? <><i className="fas fa-spinner fa-spin" /> Saving...</>
-                  : <><i className="fas fa-save" /> {isEdit ? 'Save Changes' : importedConfig ? 'Import Agent' : 'Create Agent'}</>
-                }
-              </button>
-            </div>
-          </div>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving
+              ? <><Icon name="spinner" spin /> {t('create.saving')}</>
+              : <><Icon name="save" /> {saveLabel}</>
+            }
+          </button>
         </div>
       </form>
+
+      {previewOpen && (
+        <PreviewSheet
+          tab={previewTab}
+          onTab={setPreviewTab}
+          payload={payload}
+          diff={diff}
+          isEdit={isEdit}
+          saving={saving}
+          onSave={() => { setPreviewOpen(false); handleSubmit() }}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
+  )
+}
+
+// The config as it will be saved, and what differs from the saved agent.
+// Secret values are hidden here; they are saved as typed.
+// eslint-disable-next-line no-unused-vars
+function PreviewSheet({ tab, onTab, payload, diff, isEdit, saving, onSave, onClose }) {
+  const { t } = useTranslation('agents')
+  const sheetRef = useRef(null)
+  const closeRef = useRef(null)
+  const openerRef = useRef(null)
+
+  useEffect(() => {
+    openerRef.current = document.activeElement
+    closeRef.current?.focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return }
+      if (e.key !== 'Tab' || !sheetRef.current) return
+      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      const el = openerRef.current
+      if (el && document.contains(el)) el.focus?.()
+    }
+  }, [onClose])
+
+  const shown = useCallback((v) => displayValue(maskSecrets(v)), [])
+  const json = useMemo(() => JSON.stringify(maskSecrets(payload), null, 2), [payload])
+
+  return createPortal(
+    <div className="dk-sheet-veil" data-state="open" onMouseDown={onClose}>
+      <div
+        ref={sheetRef}
+        className="dk-sheet dk-sheet--wide"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="agent-preview-title"
+        data-state="open"
+        data-testid="agent-preview"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <span className="dk-sheet-grip" aria-hidden="true" />
+        <div className="dk-sheet-head">
+          <div>
+            <h2 className="dk-sheet-title" id="agent-preview-title">{t('create.previewTitle')}</h2>
+            <p className="dk-sheet-desc">{isEdit ? t('create.previewEdit') : t('create.previewNew')}</p>
+          </div>
+          <button ref={closeRef} type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('create.close')} onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </div>
+        <div className="dk-sheet-body">
+          <div className="dk-tabs ag-sheet-tabs" role="tablist" aria-label={t('create.previewTitle')}>
+            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'config'} onClick={() => onTab('config')}>{t('create.tabConfig')}</button>
+            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'changes'} onClick={() => onTab('changes')}>
+              {t('create.tabChanges')}{diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+            </button>
+          </div>
+          {tab === 'config' ? (
+            <div className="dk-tabpanel" role="tabpanel" data-testid="agent-preview-config">
+              <p className="ag-note ag-note--bottom">{t('create.configNote')}</p>
+              <pre className="ag-pre">{json}</pre>
+            </div>
+          ) : (
+            <div className="dk-tabpanel" role="tabpanel" data-testid="agent-preview-changes">
+              {diff.length === 0 ? (
+                <p className="ag-note">{isEdit ? t('create.noChanges') : t('create.nothingSet')}</p>
+              ) : (
+                <>
+                  {!isEdit && <p className="ag-note ag-note--bottom">{t('create.allNew')}</p>}
+                  <div className="ag-diff">
+                    {diff.map(d => (
+                      <div key={d.key} className="ag-diff__item" data-key={d.key}>
+                        <span className="ag-diff__key">{d.key}</span>
+                        <div className="ag-diff__pair">
+                          <div className="ag-diff__side" data-side="before"><span className="ag-diff__label">{isEdit ? t('create.saved') : t('create.default')}</span>{shown(d.before) || t('create.empty')}</div>
+                          <div className="ag-diff__side" data-side="after"><span className="ag-diff__label">{t('create.new')}</span>{shown(d.after) || t('create.empty')}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="dk-sheet-foot">
+          <button type="button" className="dk-btn dk-btn--secondary" onClick={onClose}>{t('create.close')}</button>
+          <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={onSave}>
+            {isEdit ? t('create.save') : t('create.titleCreate')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

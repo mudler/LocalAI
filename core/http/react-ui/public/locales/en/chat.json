@@ -4,7 +4,10 @@
     "tool": "Tool",
     "result": "Result",
     "toolResult": "{{name}} result",
-    "thinking": "Thinking..."
+    "thinking": "Thinking...",
+    "toolCall": "Tool call",
+    "toolCalls_one": "{{count}} tool call",
+    "toolCalls_other": "{{count}} tool calls"
   },
   "header": {
     "manageModeTooltip": "This chat can install models, edit configs and manage backends by talking to LocalAI.",
@@ -12,7 +15,10 @@
     "chatSettings": "Chat settings",
     "modelInfoTitle": "Model Info: {{model}}",
     "editConfig": "Edit config",
-    "close": "Close"
+    "close": "Close",
+    "chatName": "Chat name",
+    "find": "Find in chat",
+    "more": "More"
   },
   "modelInfo": {
     "backend": "Backend",
@@ -27,7 +33,10 @@
   },
   "context": {
     "label": "Context: {{percent}}%",
-    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)"
+    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)",
+    "title": "Context",
+    "ofSize": "{{percent}}% of {{size}} tokens",
+    "nearlyFull": "The context is nearly full. Start a new chat or raise the size in settings."
   },
   "settings": {
     "title": "Chat Settings",
@@ -42,14 +51,22 @@
     "topK": "Top K",
     "contextSize": "Context Size",
     "contextSizePlaceholder": "2048",
-    "clearHistory": "Clear chat history"
+    "clearHistory": "Clear chat history",
+    "appliesNext": "Applies from the next message.",
+    "systemPromptHelp": "Sent before every message in this chat. Leave it empty to use the model's own default.",
+    "sampling": "Sampling",
+    "modelDefault": "model default",
+    "reset": "Reset",
+    "contextWindow": "Context window",
+    "contextUsing": "Using {{used}} of {{size}} tokens ({{percent}}%). The size only drives the meter in the header; it is not sent to the model.",
+    "contextHelp": "Used to show how full the context is. It is not sent to the model.",
+    "behaviour": "Behaviour",
+    "conversation": "This conversation",
+    "clearHelp": "Remove every message. The name, model and settings stay."
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
     "manageText": "Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.",
-    "startTitle": "Start a conversation",
-    "readyText": "Ready to chat with {{model}}",
-    "selectModelText": "Select a model above to get started",
     "suggestionsManage": [
       "What is installed?",
       "Install a chat model",
@@ -62,11 +79,12 @@
       "Summarize a document",
       "Brainstorm ideas"
     ],
-    "recent": "Recent",
     "noMessages": "No messages yet",
-    "hintEnter": "Enter to send",
-    "hintShiftEnter": "Shift+Enter for newline",
-    "hintAttach": "Attach files"
+    "title": "What are we working on?",
+    "try": "Try",
+    "warmReady": "{{model}} is loaded and ready.",
+    "coldReady": "{{model}} is not loaded yet. The first reply loads it.",
+    "hintKeys": "Enter sends, Shift+Enter adds a line. Press Ctrl K for all chats."
   },
   "errors": {
     "viewTraces": "View traces for details"
@@ -91,12 +109,15 @@
       "installing": "Installing the backend...",
       "staging": "Staging model files...",
       "loading": "Loading the model..."
-    }
+    },
+    "waiting": "Waiting for the reply"
   },
   "tokens": {
     "perSec": "{{count}} tok/s",
     "peak": "Peak: {{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
+    "usage": "{{prompt}}p + {{completion}}c = {{total}}",
+    "generating": "generating",
+    "ofContext": "{{used}} / {{size}} tokens"
   },
   "input": {
     "placeholder": "Message...",
@@ -105,7 +126,11 @@
     "stopGenerating": "Stop generating",
     "canvasTitle": "Canvas — extract code blocks and media into a side panel for preview, copy, and download",
     "canvasLabel": "Canvas",
-    "openCanvas": "Open canvas panel"
+    "openCanvas": "Open canvas panel",
+    "placeholderModel": "Message {{model}}...",
+    "placeholderNoModel": "Install a model to start chatting",
+    "selectModelFirst": "Select a model first",
+    "placeholderPick": "Pick a model to start"
   },
   "deleteAllDialog": {
     "title": "Delete All Chats",
@@ -134,9 +159,142 @@
     "deleteChat": "Delete chat",
     "newChat": "New chat",
     "clearAll": "Clear all",
-    "deleteAllTitle": "Delete all conversations"
+    "deleteAllTitle": "Delete all conversations",
+    "title": "Conversations",
+    "noModel": "No model",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
+    },
+    "keys": {
+      "move": "move",
+      "open": "open",
+      "rename": "rename",
+      "delete": "delete"
+    },
+    "deleted": "Deleted \"{{title}}\"",
+    "undo": "Undo",
+    "dismiss": "Dismiss"
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "assistant": "Assistant",
+    "system": "System",
+    "attachedImage": "Attached image {{n}}",
+    "openImage": "Open image {{n}}"
+  },
+  "error": {
+    "title": "The reply failed",
+    "kept": "What was written so far is kept above.",
+    "retry": "Retry",
+    "detail": "Technical detail"
+  },
+  "clearDialog": {
+    "title": "Clear this conversation",
+    "message": "Remove every message in this chat? Its name, model and settings stay.",
+    "confirm": "Clear conversation"
+  },
+  "slash": {
+    "group": {
+      "chat": "Chat",
+      "view": "View"
+    },
+    "model": {
+      "label": "Switch model",
+      "desc": "Pick a different chat model"
+    },
+    "new": {
+      "label": "New chat",
+      "desc": "Start an empty conversation"
+    },
+    "chats": {
+      "label": "Conversations",
+      "desc": "Open the list of your chats"
+    },
+    "assistant": {
+      "label": "Manage mode",
+      "desc": "Let this chat manage LocalAI"
+    },
+    "canvas": {
+      "label": "Canvas",
+      "desc": "Show code blocks and media in a side panel"
+    },
+    "find": {
+      "label": "Find in chat",
+      "desc": "Search this conversation"
+    },
+    "settings": {
+      "label": "Chat settings",
+      "desc": "System prompt, sampling and context"
+    },
+    "export": {
+      "label": "Export as Markdown",
+      "desc": "Download this conversation"
+    },
+    "clear": {
+      "label": "Clear conversation",
+      "desc": "Remove every message in this chat"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "conversations": "Open your conversations",
+    "find": "Search this chat",
+    "actions": "Actions",
+    "send": "Send",
+    "newline": "New line",
+    "editLast": "Edit your last message",
+    "inEmptyBox": "in an empty box",
+    "stop": "Stop the reply",
+    "moveMessages": "Move between messages",
+    "onMessage": "On a message: copy, edit, regenerate, branch",
+    "close": "Close"
+  },
+  "picker": {
+    "readyNow": "ready now",
+    "fits": "{{amount}} GB free",
+    "spill": "{{amount}} GB runs on the CPU",
+    "over": "{{amount}} GB more than this machine has",
+    "memory": "Memory",
+    "gpuMemory": "GPU memory",
+    "memoryUsed": "{{used}} of {{total}} {{unit}} used"
+  },
+  "find": {
+    "placeholder": "Search this chat",
+    "count": "{{current}} of {{total}}",
+    "none": "No matches",
+    "previous": "Previous match",
+    "next": "Next match",
+    "close": "Close search"
+  },
+  "canvas": {
+    "title": "Canvas",
+    "artifact": "Artifact",
+    "artifacts": "Artifacts",
+    "close": "Close canvas",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "resize": "Resize canvas (double-click to reset)",
+    "resizeHint": "Drag to resize, double-click to reset",
+    "view": "View",
+    "code": "Code",
+    "preview": "Preview",
+    "download": "Download",
+    "htmlPreview": "HTML preview"
+  },
+  "load": {
+    "title": "Loading",
+    "bytes": "{{sent}} of {{total}}",
+    "queued": "Your message is queued and sends when the model is ready. Stop cancels it.",
+    "cold": "This model is not loaded yet, so the first reply takes longer. Your message sends as soon as it is ready."
+  },
+  "noModel": {
+    "title": "Chat needs a language model",
+    "body": "Install one to start chatting. What you type here stays while it installs.",
+    "bodyMember": "No chat model is installed on this server yet. Ask an administrator to install one.",
+    "gallery": "Browse the gallery",
+    "import": "Import a model"
   }
 }

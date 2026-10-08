@@ -20,6 +20,10 @@ test.describe('Voice library empty state', () => {
   test('the action sits inside the panel, not past its edge', async ({ page }) => {
     const panel = page.locator('.empty-state').first()
     const action = page.locator('.empty-state__actions a.btn').first()
+    // Measure after the layout settles; the two boxes are read one after the
+    // other, and a reflow in between made the comparison race.
+    await expect(action).toBeVisible()
+    await page.waitForTimeout(500)
     const [p, a] = [await panel.boundingBox(), await action.boundingBox()]
     expect(a.y + a.height).toBeLessThanOrEqual(p.y + p.height + 1)
   })

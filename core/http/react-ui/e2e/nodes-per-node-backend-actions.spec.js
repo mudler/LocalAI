@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// These specs cover the per-node backend row in the Nodes page:
+// These specs cover the per-node backend row on the node detail page:
 //   - the upgrade affordance is self-explanatory (icon + tooltip)
 //   - a delete affordance is present and goes through ConfirmDialog
 //
@@ -90,10 +90,9 @@ async function mockDistributedNodes(page, { onDelete } = {}) {
 }
 
 async function openNodeDetail(page) {
-  // The per-node backend table now lives on the deep-linkable detail page
-  // at /app/nodes/:id (the old expand-row + "Manage" disclosure was removed
-  // when the roster was restructured). Navigate straight there.
-  await page.goto(`/app/nodes/${NODE_ID}`)
+  // The per-node backend table is the Backends tab of the deep-linkable detail
+  // page at /app/nodes/:id. Navigate straight there.
+  await page.goto(`/app/nodes/${NODE_ID}?tab=backends`)
   await expect(page.getByRole('cell', { name: BACKEND_NAME, exact: true })).toBeVisible({ timeout: 10_000 })
 }
 
@@ -107,13 +106,13 @@ async function openBackendActions(page) {
   return menu
 }
 
-test.describe('Nodes page — per-node backend actions', () => {
+test.describe('Node detail — per-node backend actions', () => {
   test('upgrade affordance is self-explanatory (not "Reinstall backend" with a sync icon)', async ({ page }) => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
-    await expect(page.locator('.node-detail__metrics')).toContainText('RAM')
-    await expect(page.locator('.node-detail__metrics')).toContainText('3.7 GB / 7.5 GB')
+    await expect(page.getByRole('region', { name: 'Node resources' })).toContainText('RAM')
+    await expect(page.getByRole('region', { name: 'Node resources' })).toContainText('3.7 GB / 7.5 GB')
 
     const menu = await openBackendActions(page)
 
@@ -123,7 +122,7 @@ test.describe('Nodes page — per-node backend actions', () => {
     // Positive: the action menu names the operation and uses an upgrade icon.
     const upgradeItem = menu.getByRole('menuitem', { name: 'Upgrade backend' })
     await expect(upgradeItem).toBeVisible()
-    await expect(upgradeItem.locator('i.fa-arrow-up')).toBeVisible()
+    await expect(upgradeItem.locator('svg[data-icon="arrow-up"]')).toBeVisible()
   })
 
   test('per-node backend row shows a delete (trash) button next to upgrade', async ({ page }) => {
@@ -133,7 +132,7 @@ test.describe('Nodes page — per-node backend actions', () => {
     const menu = await openBackendActions(page)
     const deleteItem = menu.getByRole('menuitem', { name: 'Delete backend…' })
     await expect(deleteItem).toBeVisible()
-    await expect(deleteItem.locator('i.fa-trash')).toBeVisible()
+    await expect(deleteItem.locator('svg[data-icon="trash"]')).toBeVisible()
   })
 
   test('clicking delete opens the confirm dialog and POSTs to the per-node delete endpoint', async ({ page }) => {

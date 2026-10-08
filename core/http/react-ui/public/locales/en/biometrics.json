@@ -1,0 +1,292 @@
+{
+  "voices": {
+    "title": "Voices",
+    "lede": "Recognise who is speaking, and keep voices that text-to-speech can use.",
+    "tabs": "Voices sections",
+    "speakers": "Speakers",
+    "speech": "Speech voices",
+    "recording": "From a recording"
+  },
+  "faces": {
+    "title": "Faces",
+    "lede": "Find out whose face is in a photo, or whether two photos show the same person. Photos go only to the model running on this server."
+  },
+  "tool": {
+    "aria": "Recognition tool",
+    "sameTab": "Same person?",
+    "clip": "Clip",
+    "clipA": "Clip A",
+    "clipB": "Clip B",
+    "photo": "Photo",
+    "photoA": "Photo A",
+    "photoB": "Photo B",
+    "compare": "Compare",
+    "comparing": "Comparing",
+    "workingAria": "Working on it"
+  },
+  "voice": {
+    "speaker": "speaker",
+    "print": "voiceprint",
+    "whoTab": "Who is this",
+    "whoLede": "Matches a clip against the people you enrolled.",
+    "sameLede": "Two clips, one question. Nobody has to be enrolled.",
+    "whoGo": "Identify speaker",
+    "working": "Identifying",
+    "whoNote": "Searches the speakers enrolled on this server. The clip you test with is not stored.",
+    "sameNote": "The answer comes from one voiceprint per clip. Nothing is stored.",
+    "workingText": "Comparing the clip with the voiceprints the server holds.",
+    "probably": "Probably {{name}}",
+    "matchText": "{{name}}'s voiceprint is the closest of {{count}} compared, {{distance}} away. Anything under {{cutoff}} counts as the same person.",
+    "nobody": "Nobody enrolled sounds like this",
+    "missText": "The closest was {{name}} at {{distance}}, past the cut-off of {{cutoff}}. That usually means a new speaker, or a clip that is too short or noisy.",
+    "noneEnrolled": "Nobody is enrolled to compare with",
+    "noneEnrolledText": "Enrol a speaker first, then identify a clip against them.",
+    "noneReturned": "The server returned no speakers",
+    "noneReturnedText": "It holds no voiceprints made with this model. If the server restarted, enrolled voices are gone: enrol them again.",
+    "enrolThis": "Enrol this voice",
+    "same": "Probably the same person",
+    "different": "Probably different people",
+    "knownTitle": "Known speakers",
+    "enrol": "Enrol a speaker",
+    "enrolTitle": "Enrol a speaker",
+    "enrolIntro": "The server keeps a voiceprint and a name. It does not keep the recording.",
+    "emptyTitle": "Nobody enrolled in this browser yet",
+    "emptyText": "Enrol a speaker with a short recording, then test a clip against them.",
+    "agreedHint": "I have their permission, or another lawful basis, to store a voiceprint of them.",
+    "keepHint": "Lets you replay it and enrol again after a server restart. Off by default. It is stored in this browser only.",
+    "neededTitle": "Voices need a speaker model",
+    "neededText": "Voice recognition turns a recording into a voiceprint and compares voiceprints. It runs on a speaker-recognition model, and none is installed on this server.",
+    "neededWhat": "Install a model that supports speaker recognition. Once one is installed, this page turns on by itself. Users also need the Voice recognition permission.",
+    "moreTitle": "More tools",
+    "moreHint": "guess a speaker's traits, get the raw voiceprint",
+    "why": [
+      "One speaker is assumed. A clip with two people mixes both voices.",
+      "A different microphone or room changes how a voice sounds.",
+      "This is a similarity score, not a security check. Do not use it to unlock anything."
+    ],
+    "stored": [
+      { "where": "On the server", "what": "A {{print}} (numbers that describe the voice, not the audio), a name and your labels. They are kept in memory, are shared by everyone who uses this server, and are lost when it restarts. The recording is not kept." },
+      { "where": "In this browser", "what": "The name, labels and time of each person you enrolled. A copy of the recording only if you tick Keep a copy when enrolling." },
+      { "where": "Clips you test with", "what": "They go to the model on this server to be compared and are not kept." }
+    ]
+  },
+  "face": {
+    "person": "person",
+    "print": "faceprint",
+    "whoTab": "Who is this",
+    "whoLede": "Matches a photo against the people you enrolled.",
+    "sameLede": "Two photos, one question. Nobody has to be enrolled.",
+    "whoGo": "Find who this is",
+    "working": "Searching",
+    "whoNote": "Searches the people enrolled on this server. The photo you test with is not stored.",
+    "sameNote": "The answer comes from one faceprint per photo. Nothing is stored.",
+    "workingText": "Comparing the photo with the faceprints the server holds.",
+    "probably": "Probably {{name}}",
+    "matchText": "{{name}}'s faceprint is the closest of {{count}} compared, {{distance}} away. Anything under {{cutoff}} counts as the same person.",
+    "nobody": "Nobody enrolled looks like this",
+    "missText": "The closest was {{name}} at {{distance}}, past the cut-off of {{cutoff}}. That usually means a new person, or a photo that is blurred, turned away or in poor light.",
+    "noneEnrolled": "Nobody is enrolled to compare with",
+    "noneEnrolledText": "Enrol a person first, then look up a photo against them.",
+    "noneReturned": "The server returned no people",
+    "noneReturnedText": "It holds no faceprints made with this model. If the server restarted, enrolled faces are gone: enrol them again.",
+    "enrolThis": "Enrol this face",
+    "same": "Probably the same person",
+    "different": "Probably different people",
+    "knownTitle": "Known people",
+    "enrol": "Enrol a person",
+    "enrolTitle": "Enrol a person",
+    "enrolIntro": "The server keeps a faceprint and a name. It does not keep the photo.",
+    "emptyTitle": "Nobody enrolled in this browser yet",
+    "emptyText": "Enrol a person with one clear photo, then test a photo against them.",
+    "agreedHint": "I have their permission, or another lawful basis, to store a faceprint of them.",
+    "keepHint": "Lets you see the photo and enrol again after a server restart. Off by default. It is stored in this browser only.",
+    "antiSpoof": "Check for photos of photos",
+    "antiSpoofHint": "Needs a model that supports it.",
+    "real": "Real",
+    "spoof": "Spoof",
+    "found": "Face in photo {{n}}",
+    "neededTitle": "Faces need a face model",
+    "neededText": "Face recognition turns a photo into a faceprint and compares faceprints. It runs on a face-recognition model, and none is installed on this server.",
+    "neededWhat": "Install a model that supports face recognition. Once one is installed, this page turns on by itself. Users also need the Face recognition permission.",
+    "moreTitle": "More tools",
+    "moreHint": "detect faces, guess traits, get the raw faceprint",
+    "why": [
+      "The server matches one face per photo. A group photo is matched on a single face.",
+      "Light, angle, glasses and blur change a face a lot.",
+      "This is a similarity score, not a security check. Do not use it to unlock anything."
+    ],
+    "stored": [
+      { "where": "On the server", "what": "A {{print}} (numbers that describe the face, not the picture), a name and your labels. They are kept in memory and are lost when the server restarts. The photo is not kept." },
+      { "where": "In this browser", "what": "The name, labels and time of each person you enrolled. A copy of the photo only if you tick Keep a copy when enrolling." },
+      { "where": "Photos you test with", "what": "They go to the model on this server to be compared and are not kept." }
+    ]
+  },
+  "same": {
+    "text": "The two {{print}}s are {{distance}} apart. Anything under {{cutoff}} counts as the same person.",
+    "distance": "distance"
+  },
+  "word": {
+    "strong": "Strong match",
+    "likely": "Likely match",
+    "close": "Close call",
+    "near": "Just past the cut-off"
+  },
+  "scale": {
+    "aria": "Distance scale with the cut-off at {{cutoff}}. Lower means more alike. {{dots}}",
+    "cutoff": "cut-off {{value}}",
+    "axis": "distance between {{print}}s, lower means more alike",
+    "oneDot": "one dot per enrolled {{person}}",
+    "onePair": "one dot for the pair"
+  },
+  "ranks": {
+    "aria": "Closest people, nearest first",
+    "within": "within cut-off",
+    "far": "too far"
+  },
+  "cutoff": {
+    "label": "Cut-off",
+    "default": "model default",
+    "reset": "Reset to {{value}}",
+    "stricter": "Stricter",
+    "looser": "Looser",
+    "explain": "Stricter means fewer wrong matches and more misses. The answer above updates as you move it. The server is not asked again."
+  },
+  "how": {
+    "title": "How to read this.",
+    "body": "Distance is how far apart two {{print}}s are, 0 meaning identical. The cut-off is the line between same and different. The word Strong or Likely says how far inside the line a result sits. It is not a probability."
+  },
+  "why": {
+    "title": "Why this might be wrong",
+    "short": "The clip is short: {{s}} s. Three seconds or more of speech works better."
+  },
+  "clip": {
+    "mic": "microphone",
+    "camera": "camera",
+    "record": "Record",
+    "takePhoto": "Take a photo",
+    "chooseAudio": "Choose a file",
+    "choosePhoto": "Choose a photo",
+    "readAloud": "Read this aloud, normal pace",
+    "remove": "Remove",
+    "blocked": "The {{thing}} is blocked. Allow it in the browser's site settings and try again, or choose a file instead.",
+    "insecure": "A browser only opens the {{thing}} on https or on localhost. You are on {{origin}}. Open this page through localhost or add TLS, or choose a file.",
+    "unsupported": "This browser cannot open the {{thing}}. Choose a file instead.",
+    "missing": "No {{thing}} was found on this device. Choose a file instead.",
+    "failed": "The {{thing}} could not be opened. Choose a file instead.",
+    "allowed": "Microphone allowed.",
+    "capture": "Capture",
+    "cancel": "Cancel",
+    "recording": "Recording, {{s}} s",
+    "micReady": "Microphone ready",
+    "stop": "Stop",
+    "start": "Start recording",
+    "recorded": "Recording",
+    "photographed": "Photo",
+    "uploaded": "Uploaded file",
+    "goodLength": "good length",
+    "short": "short",
+    "checkLevel": "check level",
+    "preview": "Preview",
+    "photoAlt": "The photo you chose"
+  },
+  "known": {
+    "caption": "People saved in this browser, with their {{noun}} state",
+    "name": "Name",
+    "added": "Added",
+    "actions": "Actions",
+    "best": "best match",
+    "notOnServer": "not on the server",
+    "notInBrowser": "not in this browser's list",
+    "removing": "removing",
+    "goneText": "The last search did not return this person. The server may have restarted, so the {{print}} is gone, or it was enrolled with another model.",
+    "extraText": "The server returned this person but this browser has no record of them.",
+    "noLabels": "no labels",
+    "undo": "Undo",
+    "reenrolSaved": "Re-enrol from saved copy",
+    "enrolAgain": "Enrol again",
+    "play": "Play the saved sample of {{name}}",
+    "forget": "Remove {{name}}",
+    "note": "This list is kept in this browser. The server has no list call, so it cannot be checked until you run a search.",
+    "noteSearched": "This list is kept in this browser. The last search checked it against the server; a person it did not return is marked."
+  },
+  "stored": {
+    "title": "What is stored, and where"
+  },
+  "enrol": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "submit": "Enrol",
+    "working": "Enrolling",
+    "ready": "Ready to enrol.",
+    "stillNeeded": "Still needed: {{list}}.",
+    "needModel": "a model",
+    "needRecording": "a recording",
+    "needPhoto": "a photo",
+    "needName": "a name",
+    "needTranscript": "a transcript",
+    "needPermission": "permission",
+    "recordingStep": "Recording",
+    "photoStep": "Photo",
+    "recordingLabel": "Recording",
+    "photoLabel": "Photo",
+    "whoStep": "Who is it",
+    "name": "Name",
+    "namePlaceholder": "e.g. Marta Rossi",
+    "labels": "Labels",
+    "labelsHint": "optional, one per line as key: value",
+    "asSpeech": "Also keep it as a speech voice",
+    "asSpeechHint": "Text-to-speech can then speak in this voice. Needs the exact transcript.",
+    "transcript": "Exact transcript",
+    "permissionStep": "Permission",
+    "agreed": "This person agreed",
+    "keep": "Keep a copy in this browser"
+  },
+  "toast": {
+    "enrolled": "Enrolled {{name}}",
+    "enrolledBoth": "Enrolled {{name}} and saved a speech voice",
+    "tooBig": "The copy was too large for browser storage, so it was not kept.",
+    "speechFailed": "Enrolled, but the speech voice could not be saved: {{message}}",
+    "removing": "{{name}} will be removed.",
+    "removed": "Removed {{name}}",
+    "alreadyGone": "{{name}} was already gone from the server."
+  },
+  "error": {
+    "retry": "Try again",
+    "traces": "Open traces"
+  },
+  "needed": {
+    "badge": "Not enabled on this server",
+    "backend": "backend {{backend}}",
+    "install": "Install",
+    "installing": "Installing",
+    "started": "Installing {{name}}. Progress is in Operations.",
+    "loadFailed": "Models could not be listed.",
+    "noneListed": "No matching model is listed in the galleries.",
+    "browse": "Browse all models",
+    "askAdmin": "Ask an administrator to install one.",
+    "whatTitle": "What turns this on"
+  },
+  "off": {
+    "badge": "Not enabled for your account",
+    "voice": {
+      "title": "Voice recognition is off for your account",
+      "text": "An administrator has not allowed you to use voice recognition.",
+      "what": "An administrator can turn on the Voice recognition permission for your user in Users and keys."
+    },
+    "face": {
+      "title": "Face recognition is off for your account",
+      "text": "An administrator has not allowed you to use face recognition.",
+      "what": "An administrator can turn on the Face recognition permission for your user in Users and keys."
+    }
+  },
+  "recording": {
+    "title": "Name the speakers in a recording",
+    "text": "The diarization workspace finds who spoke when in a recording. From there you can remember a speaker, and that voice joins the Speakers list here.",
+    "step1": "Open the workspace, add a recording and tick Prepare speakers to remember.",
+    "step2": "Run diarization. Each speaker with enough clean speech gets a Name and remember button.",
+    "step3": "Name a speaker and remember it. That voice then appears under Speakers, ready for Who is this.",
+    "open": "Open the diarization workspace",
+    "off": "Diarization is not turned on for your account.",
+    "warning": "Remembered voices are shared on this server and are lost when it restarts. Nothing is remembered automatically."
+  }
+}

@@ -5,6 +5,7 @@ import ConfirmDialog from './ConfirmDialog'
 import useFailoverChains from '../hooks/useFailoverChains'
 import { useAuth } from '../context/AuthContext'
 import { failoverApi } from '../utils/api'
+import Icon from './Icon'
 
 const UNITS = [
   ['day', 86_400],
@@ -65,7 +66,7 @@ export default function FailoverChainStatus({ chain, onPin, onUnpin, canPin = fa
         )}
         {chain.pinned && (
           <span className="failover-status__pinned">
-            <i className="fas fa-thumbtack" aria-hidden="true" /> {t('failover.pinnedTo', { target: chain.pinned })}
+            <Icon name="pin" /> {t('failover.pinnedTo', { target: chain.pinned })}
           </span>
         )}
         {canPin && chain.pinned && (

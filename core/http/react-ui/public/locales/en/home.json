@@ -25,7 +25,8 @@
     "title": "Manage LocalAI by chatting",
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
     "open": "Open assistant",
-    "tooltip": "Manage LocalAI by chatting"
+    "tooltip": "Manage LocalAI by chatting",
+    "dismiss": "Dismiss"
   },
   "input": {
     "placeholder": "Message...",
@@ -36,7 +37,14 @@
     "selectModelFirst": "Select a model first",
     "sendMessage": "Send message",
     "selectModelToast": "Please select a model first",
-    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged."
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged.",
+    "placeholderFirstRun": "Install a model to start chatting",
+    "label": "Message",
+    "slashHint": "Type <kbd>/</kbd> for actions",
+    "enterHint": "Enter to send, Shift+Enter for a new line",
+    "send": "Send",
+    "removeFile": "Remove {{name}}",
+    "stop": "Stop"
   },
   "quickLinks": {
     "manageByChat": "Manage by chat",
@@ -79,7 +87,8 @@
     "importModel": "Import Model",
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
-    "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting."
+    "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
+    "guideLabel": "Getting started"
   },
   "starters": {
     "title": "Recommended for your hardware",
@@ -106,15 +115,134 @@
     "copied": "Copied",
     "browse": "Browse the API",
     "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "hideSection": "Hide this section"
   },
   "jump": {
     "heading": "Jump back in",
-    "models": "Models",
-    "modelsSummary": "Explore, install, and manage models",
-    "create": "Create",
-    "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "move": "move",
+    "resume": "Resume",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
+    },
+    "messages_one": "{{count}} message",
+    "messages_other": "{{count}} messages",
+    "delete": "Delete conversation",
+    "deleteNamed": "Delete conversation: {{title}}",
+    "deleted": "Deleted \"{{title}}\"",
+    "undo": "Undo",
+    "dismissToast": "Dismiss",
+    "showMore_one": "Show {{count}} older conversation",
+    "showMore_other": "Show {{count}} older conversations",
+    "emptyTitle": "Your conversations will wait here.",
+    "emptyBody": "They are grouped by day, with the model that answered. Move with j and k, resume with Enter.",
+    "hasImage": "Includes an image",
+    "noModel": "No model",
+    "examples": "Slash actions"
+  },
+  "picker": {
+    "loading": "Loading models",
+    "none": "No chat model",
+    "noneSelected": "No model selected",
+    "title": "Choose the model for this message",
+    "filter": "Filter models",
+    "label": "Model",
+    "heading": "Chat models",
+    "noMatch": "No model matches.",
+    "warm": "warm",
+    "cold": "not loaded",
+    "loadedNow": "Loaded now",
+    "installed": "Installed",
+    "vision": "Understands images"
+  },
+  "slash": {
+    "label": "Actions",
+    "move": "move",
+    "close": "close",
+    "group": {
+      "chat": "Chat",
+      "models": "Models",
+      "go": "Go to"
+    },
+    "model": {
+      "label": "Switch model",
+      "desc": "Pick a different chat model"
+    },
+    "new": {
+      "label": "New chat",
+      "desc": "Start an empty conversation"
+    },
+    "chat": {
+      "label": "Open Chat",
+      "desc": "Go to the chat page"
+    },
+    "assistant": {
+      "label": "Manage by chat",
+      "desc": "Install and configure models by talking"
+    },
+    "gallery": {
+      "label": "Browse gallery",
+      "desc": "Find and install models"
+    },
+    "installed": {
+      "label": "Installed models",
+      "desc": "See and manage what is installed"
+    },
+    "import": {
+      "label": "Import model",
+      "desc": "Add your own model files"
+    },
+    "stop": {
+      "label": "Stop a model",
+      "desc": "Free memory by unloading a model"
+    },
+    "studio": {
+      "label": "Open Studio",
+      "desc": "Create images, audio and video"
+    },
+    "settings": {
+      "label": "Settings",
+      "desc": "Change how LocalAI runs"
+    },
+    "docs": {
+      "label": "Documentation",
+      "desc": "Open localai.io in a new tab"
+    }
+  },
+  "strip": {
+    "label": "Memory",
+    "noneLoaded": "No models loaded",
+    "modelsLoaded_one": "model loaded",
+    "modelsLoaded_other": "models loaded",
+    "modelsOn_one": "model on",
+    "modelsOn_other": "models on",
+    "nodes_one": "node",
+    "nodes_other": "nodes",
+    "gpus_one": "{{count}} GPU",
+    "gpus_other": "{{count}} GPUs",
+    "memoryLabel": "Memory in use",
+    "ramLabel": "System RAM in use",
+    "nodesLabel": "Nodes",
+    "progress": "Progress for {{name}}",
+    "staging": "Staging {{name}}",
+    "stagingTo": "to {{node}}",
+    "failed": "could not be staged",
+    "firstRun": "No models running. Memory use shows here once one loads."
+  },
+  "notice": {
+    "loadFailedTitle": "LocalAI could not load your models",
+    "loadFailedBody": "The server did not answer. Check that it is running, then try again.",
+    "retry": "Try again",
+    "stagingFailedTitle": "{{name}} could not be staged",
+    "stagingFailedBody": "The model could not be sent to a node. Nothing else was changed.",
+    "stagingFailedBodyNode": "The model could not be sent to {{node}}. Nothing else was changed.",
+    "openActivity": "Open Activity",
+    "details": "Details"
+  },
+  "library": {
+    "label": "Library"
   }
 }

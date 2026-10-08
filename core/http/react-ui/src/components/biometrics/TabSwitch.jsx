@@ -1,3 +1,5 @@
+import Icon from '../Icon'
+
 export default function TabSwitch({ tabs, value, onChange }) {
   return (
     <div className="biometrics-tabs" role="tablist">
@@ -12,7 +14,7 @@ export default function TabSwitch({ tabs, value, onChange }) {
             className={`biometrics-tab ${active ? 'active' : ''}`}
             onClick={() => onChange(t.id)}
           >
-            {t.icon && <i className={`${t.icon}`} aria-hidden="true" />}
+            {t.icon && <Icon name={t.icon} aria-hidden="true" />}
             <span>{t.label}</span>
           </button>
         )

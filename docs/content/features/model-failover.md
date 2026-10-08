@@ -246,11 +246,16 @@ continue. On a single LocalAI instance, a restart removes the pin. In
   and a table of every target with its kind, warm flag, status, last probe
   time and last error. An admin sees a **Pin** button on each target and an
   **Unpin** action for the chain, both behind a confirmation dialog.
-- The **Failover** page (`/app/failover`, admin only, linked from the
-  console navigation) lists every chain with its status pill, active target,
-  a small pill per target, and time since the last switch. It links each
-  chain name to its model editor page and shows an empty state linking to
-  the failover template when no chains exist yet.
+- The **Failover** page (`/app/failover`, admin only) lists every chain with
+  its status pill, active target, a small pill per target, and time since the
+  last switch. It links each chain name to its model editor page and shows an
+  empty state linking to the failover template when no chains exist yet. It
+  sits under **Operate → Runtime** on a single install and under **Operate →
+  Swarm** when distributed mode is on. On a cluster it also describes what the
+  router and the health monitor do when a worker stops answering, and shows a
+  preview of what would stop if a chosen node went away, worked out in the
+  browser from the loaded replicas and the placement rules. The server does not
+  compute that preview.
 - The Installed Models list badges a model that belongs to a chain with
   `chain → <active target>`, next to the alias badge.
 - All of the above update live from the same event stream as

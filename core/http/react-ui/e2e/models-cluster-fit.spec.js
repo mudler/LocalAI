@@ -78,8 +78,9 @@ test.describe("Models gallery - cluster-aware fit", () => {
 
     // The whole defect in one assertion: 40GB against a 4-node cluster whose
     // largest card holds 80GB.
-    await expect(railItem(page, "big-gpu-model")).toContainText("fits", { timeout: 20_000 });
-    await expect(railItem(page, "big-gpu-model")).not.toContainText("too large");
+    await expect(railItem(page, "big-gpu-model").locator("[data-fit]")).toHaveAttribute("data-fit", "fits", { timeout: 20_000 });
+    await expect(railItem(page, "big-gpu-model")).toContainText("free");
+    await expect(railItem(page, "big-gpu-model")).not.toContainText("over");
   });
 
   test("the fit verdict names the node it belongs to", async ({ page }) => {
@@ -90,7 +91,7 @@ test.describe("Models gallery - cluster-aware fit", () => {
     await railItem(page, "big-gpu-model").click();
     // Wait for the detail itself: until it renders, the pane still holds the
     // zero-state hero, which names the node for its own reasons.
-    await expect(page.locator(PANE).getByText("40.0 GB")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(PANE).locator(".stat-grid").getByText("40.0 GB")).toBeVisible({ timeout: 20_000 });
 
     // The headroom this model has is headroom SOMEWHERE, and the stat says
     // where rather than leaving it to read as this machine's.
@@ -115,6 +116,7 @@ test.describe("Models gallery - cluster-aware fit", () => {
     await page.goto("/app/models");
 
     await railReady(page);
-    await expect(railItem(page, "big-gpu-model")).toContainText("too large", { timeout: 20_000 });
+    await expect(railItem(page, "big-gpu-model").locator("[data-fit]")).toHaveAttribute("data-fit", "over", { timeout: 20_000 });
+    await expect(railItem(page, "big-gpu-model")).toContainText("over");
   });
 });

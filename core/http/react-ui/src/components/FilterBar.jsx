@@ -1,4 +1,5 @@
 import Toggle from './Toggle'
+import Icon from './Icon'
 
 // FilterBar is the shared search + chip filter + toggles control strip that
 // the Backends gallery pioneered. Pulled into its own component so the System
@@ -35,7 +36,7 @@ export default function FilterBar({
     <div className="filter-bar-group">
       {onSearchChange && (
         <div className="search-bar filter-bar-group__search">
-          <i className="fas fa-search search-icon" />
+          <Icon name="search" className="search-icon" />
           <input
             className="input"
             placeholder={searchPlaceholder}
@@ -58,7 +59,7 @@ export default function FilterBar({
                   className={`filter-btn ${activeFilter === f.key ? 'active' : ''}`}
                   onClick={() => onFilterChange(f.key)}
                 >
-                  {f.icon && <i className={`fas ${f.icon} icon-before`} />}
+                  {f.icon && <Icon name={f.icon} className="icon-before" />}
                   {f.label}
                   {typeof f.count === 'number' && (
                     <span className="filter-btn__count">{f.count}</span>
@@ -73,7 +74,7 @@ export default function FilterBar({
               {hasToggles && toggles.map(t => (
                 <label key={t.key} className="filter-bar-group__toggle">
                   <Toggle checked={t.checked} onChange={t.onChange} />
-                  {t.icon && <i className={`fas ${t.icon}`} />}
+                  {t.icon && <Icon name={t.icon} />}
                   {t.label}
                 </label>
               ))}

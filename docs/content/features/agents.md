@@ -43,7 +43,24 @@ LOCALAI_DISABLE_AGENTS=true
 1. Navigate to the **Agents** page in the web UI
 2. Click **Create Agent** or import one from the [Agent Hub](https://agenthub.localai.io)
 3. Configure the agent's name, model, system prompt, and actions
-4. Save and start chatting
+4. Open **Preview** to read the configuration that will be saved and, when editing, what differs from the saved agent. Secret values are hidden in the preview.
+5. Save, then give the agent a task from its page
+
+The form folds into sections. Each section shows a mark when it is ready and one line that says what it holds. **Start from** offers a few starting points. **Draft** asks the model you chose to write a name, a description and instructions from one sentence; it is optional, nothing is saved until you save, and the draft may be wrong.
+
+### Running a task
+
+Open an agent from the Agents page to see its model, tools, memory, skills and instructions, and a box to give it a task. A task starts a **run** with its own address, `/app/agents/<name>/runs/<id>`. While the agent works the page shows the thread: the steps folded into one line ("Worked 26 s, 5 steps"), the tool in use and the answer as it arrives. About a second and a half after the agent answers, the page settles into a report: the task, the outcome, the evidence (what each tool returned) and the steps. Follow-ups sit under the outcome and carry the earlier turns. Wide tables and code open wider on demand.
+
+The server keeps no run history. Runs are recorded in the browser that watched them, up to 50 per agent, and the record holds task text, step text and answers. A run link opens only in the browser that recorded it, **Clear run record** on the agent page removes the record, and the last 14 runs of each agent appear as a strip on the Agents page. A run still marked as working five minutes after its last event reads as stopped. Durations are measured by the browser between sending the task and receiving the answer. The page does not show tokens or per-step timings from the server, and it has no Stop or approval control, because the agent API has neither; **Pause** on the agent stops it taking new work.
+
+### Jobs and scheduled tasks
+
+The **Jobs** tab lists tasks: a prompt a model runs for you, on a schedule or whenever you start it. The page opens with one sentence about the last 7 days, built from the jobs the server returned (how many ran, how many finished, failed, were cancelled or are still going, and which task failed last time). Each task shows its model, its schedule in plain words with the cron expression under it, its last 14 jobs and an enabled switch; **Run now** asks for the values the prompt uses (`{{.name}}` gaps) and any media to attach, and the menu holds Edit and Delete. Delete waits 30 seconds with an Undo button, and nothing is deleted on the server until that time ends.
+
+The run history is grouped by day, with one sentence for each job (the first line of its result, or its error). A row opens to show the error or the start of the result and one next action, **Run again** for a finished job or **Cancel** for one that is still going. Run again starts a new job with the same parameters and media, because the API has no retry call. A job opens as a document: the task as that run sent it, the outcome, whether the webhook was delivered, and the steps the server recorded.
+
+The task form takes a schedule as presets (hourly, daily, weekdays) with a time, or as a custom cron expression of five fields (minute, hour, day, month, weekday) or an `@hourly` style shortcut. The form checks the expression and says what it means in words. Times follow the clock of the machine that runs LocalAI, which the browser cannot read, so the page shows no next run. The page also shows no tokens, because the jobs API returns none, and durations come from the job's own start and end times.
 
 ### Importing an Agent
 
@@ -252,6 +269,15 @@ curl http://localhost:8080/api/agents/skills
 
 If a skill you expect is missing, confirm LocalAI was started with `LOCALAI_AGENT_POOL_ENABLE_SKILLS=true`.
 
+### The Skills and Memory libraries
+
+The **Skills** and **Memory** pages work as libraries. A skill or a collection exists on its own and needs no agent. Each row says who uses it, read from the saved configuration of your agents: "Used by research-assistant +2", or a quiet "Not used yet". An agent uses a skill when `enable_skills` is on and the skill is in `selected_skills` (an empty selection means every skill). An agent reads the one collection that carries its own name, when `enable_kb` is on. Chat does not read skills or collections, so it is never listed as a user.
+
+- **Add to...** on a skill opens a menu of agents. Each row shows an estimate of what the skill adds to every message: the characters of its content divided by four. With `skills_mode` set to `tools` the content is read only when the model asks, so nothing is added up front. Removing the last selected skill from an agent switches skills off for it, because an empty selection would mean every skill. Removing a skill or a collection from an agent can be undone for a few seconds.
+- **Add to...** on a collection offers only the agent with the same name, and turns its knowledge base on.
+- On a collection, **Try a question** searches that collection alone and shows the passages that come back with their scores (`POST /api/agents/collections/{name}/search`, with `max_results`). **Add source** uploads a file or adds a URL with a refresh interval in minutes. A failed upload shows the message the server returned, and can be retried.
+- **Simulate a message** shows what a context would load. Pick a collection on its own, or one of your agents: you see the skills the agent has on, an estimate of the tokens it adds around the message, and the passages that its own collection returns for that message. Nothing is sent to a model, so no answer is shown. A skill or collection that is not added anywhere can be tried in the sheet for that test only, and is never saved.
+
 ## API Endpoints
 
 All agent endpoints are grouped under `/api/agents/`:
@@ -388,7 +414,7 @@ curl -X POST http://localhost:8080/api/agents/my-agent/chat \
   }'
 ```
 
-The web UI does this for you: each conversation in the agent chat sends only its own visible turns. **New Chat** and switching conversations therefore continue from that conversation alone, and **Clear** starts the conversation over without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
+The web UI does this for you: a run sends only its own turns as history, so a follow-up sees the task and the answers before it, and a new run starts without history. A request without `history` is answered without earlier context; the server keeps no web chat history of its own. In distributed mode (NATS) the history is not forwarded yet.
 
 Listen to real-time events via SSE:
 

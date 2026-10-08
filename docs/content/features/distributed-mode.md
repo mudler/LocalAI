@@ -559,9 +559,17 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 ### Managing nodes in the WebUI
 
-Open **Operate → Nodes** to inspect fleet health, filter or select workers, and view running models across the cluster. The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement; when a model has several placements, it opens the model inspector so you can choose all logs for one node or the logs for one replica.
+With distributed mode on, **Operate → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
 
-Open a node's full details for node-scoped work: viewing replica logs, unloading a model, managing installed backends, changing replica capacity, or editing scheduling labels. Diagnostic actions are listed before destructive actions in row menus.
+**Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page sends the upgrade to the nodes that differ from the rest of the cluster, or to the nodes you selected.
+
+The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
+
+**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
+
+Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (upgrade, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. A node that stopped answering says so and shows the last figures it reported.
+
+The "what happens if I drain this node" list is a preview worked out in the browser from the node list, the loaded replicas and the placement rules. The server does not compute it, and the scheduler also weighs free memory and disk when it loads a model, so the preview never claims a model will fit.
 
 ## Node Management API
 
@@ -601,17 +609,11 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
-The **Nodes** page in the React WebUI is a fleet operations dashboard. Its health band and VRAM, RAM, CPU, and models-disk gauges aggregate the single `GET /api/nodes` response and identify how many workers do not report each metric. The attention queue isolates pending, impaired, or low-capacity workers without double-counting the headline affected-node total.
+The **Nodes** page reads `GET /api/nodes` every five seconds and renders 50 workers at a time. Bulk drain, resume and remove run with bounded concurrency, so the page stays usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
 
-The fleet table supports search, status and type filters, label or type grouping, sortable columns, and selection across filters. It renders 50 workers at a time and bulk drain, resume, and remove operations run with bounded concurrency, so the page remains usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
+The list never fetches backend inventory, and the **Running models** and **Map** views stay lazy: the first use of either makes one controller database request that is kept until the page is left. A node's backends are read only when its page opens.
 
-Selecting a row opens an in-context inspector with health, labels, capacity, model activity, and heartbeat details. Backend inventory is fetched only for the open inspector. The inspector links to the dedicated node detail page at `/app/nodes/:id`, where model, backend, label, capacity, CPU utilization and load, and models-disk management remain available. Model scheduling lives on its own **Scheduling** page.
-
-The workbench's **Running models** tab shows the current loaded replicas on healthy workers. It stays lazy: opening the Nodes page does not query model inventory, and the first activation makes one controller database request that is retained until the page is left. The view groups replicas by model, reports their worker spread, active requests, backend types, and most recent use, and renders 50 models per page for large fleets. Loading, empty, and query-failure states are shown in place; a failed query can be retried.
-
-Use a model row's actions menu to stop that model across the fleet. LocalAI sends one controller shutdown request for the model, which stops all loaded placements; the browser does not contact workers individually. The dashboard refreshes the running-model inventory after both successful and failed shutdown attempts because a failed request can still have stopped some replicas.
-
-Opening a model reveals its replica placement without another request. Replicas on the same worker remain individually visible with their process addresses and workload. From there, select a known worker to move into its node inspector, then return to the model with **Back to model**. That worker transition is the only point in this flow that requests backend inventory, preserving the Nodes page's no-prefetch behavior.
+Use a model row's actions menu in **Running models** to stop that model across the fleet. LocalAI sends one controller shutdown request for the model, which stops all loaded placements; the browser does not contact workers individually. The view refreshes the running-model inventory after both successful and failed shutdown attempts because a failed request can still have stopped some replicas.
 
 ### Model sizing in the WebUI
 
@@ -790,7 +792,7 @@ curl -X POST http://frontend:8080/api/nodes/<node-id>/approve \
   -H "Authorization: Bearer <admin-token>"
 ```
 
-The **Nodes** page in the WebUI also shows pending nodes with an **Approve** button.
+The **Nodes** page in the WebUI shows pending nodes with an **Approve** button, and so does the node's own page and the **Add a node** page once the machine has registered.
 
 To skip manual approval and let nodes join immediately, set `--auto-approve-nodes` (or `LOCALAI_AUTO_APPROVE_NODES=true`) on the frontend. This is convenient for development and trusted environments.
 
@@ -1136,7 +1138,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Scheduling** page (a top-level nav item, separate from the Nodes page). It combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Operate → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
 
 ### Node Selectors
 
@@ -1210,7 +1212,7 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 This makes an alias a stable deployment slot: the placement policy belongs to
 the slot, and the model filling it can change without rewriting the rule. The
-WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+WebUI lists aliases in the model picker on the **Placement rules** page, tagged with
 the model each one resolves to.
 
 Each frontend resolves the alias from its own copy of the model configs, and a

@@ -40,7 +40,7 @@ test.describe('Import form — page width', () => {
   })
 })
 
-test.describe('Import form — the source field owns its action', () => {
+test.describe('Import form — the form owns its action', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackends(page)
   })
@@ -49,8 +49,8 @@ test.describe('Import form — the source field owns its action', () => {
     await page.goto('/app/import-model')
     const submit = page.locator('[data-testid="import-submit"]')
     await expect(submit).toBeVisible({ timeout: 15_000 })
-    await expect(submit).toHaveClass(/btn/)
-    await expect(submit).toHaveClass(/btn-primary/)
+    await expect(submit).toHaveClass(/dk-btn/)
+    await expect(submit).toHaveClass(/dk-btn--primary/)
 
     // The regression this replaces was a <button> with no class at all, which
     // renders in the user-agent's own chrome. Checking the computed background
@@ -62,15 +62,15 @@ test.describe('Import form — the source field owns its action', () => {
     expect(background.toLowerCase()).not.toContain('buttonface')
   })
 
-  test('no control on the page sets Font Awesome as its own font family', async ({ page }) => {
+  test('no control on the page is itself an icon element', async ({ page }) => {
     await page.goto('/app/import-model')
     await expect(page.locator('[data-testid="import-submit"]')).toBeVisible({ timeout: 15_000 })
 
-    // `class="btn btn-primary fas fa-save"` puts the icon font on the button
-    // itself, so its label inherits it. Icons belong in a child <i>.
+    // An icon class on the button itself would restyle its label. Icons belong
+    // in a child svg.
     const offenders = await page.locator('main button').evaluateAll((buttons) =>
       buttons
-        .filter((el) => getComputedStyle(el).fontFamily.toLowerCase().includes('font awesome'))
+        .filter((el) => /\b(fas|far|fab|lai-icon)\b/.test(el.getAttribute('class') || ''))
         .map((el) => el.className)
     )
     expect(offenders).toEqual([])

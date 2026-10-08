@@ -19,7 +19,7 @@ This section covers everything you need to know about installing and configuring
 
 The Model Gallery is the simplest way to install models. It provides pre-configured models ready to use.
 
-GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. The Home page also omits static GPU suggestions when no fitting recommendation is available.
+GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. On the Models page the recommendations appear as a "Best for this machine" list in the pane beside the table while no model is selected. Once you have installed a model, the list shows only the best fit and offers the others behind "more that fit". The Home page also omits static GPU suggestions when no fitting recommendation is available.
 
 ### Via WebUI
 
@@ -35,10 +35,13 @@ For more details, refer to the [Gallery Documentation]({{% relref "features/mode
 
 The same Models page owns the complete lifecycle. Switch to **Installed** to
 search local configurations, filter them by running, idle, disabled, pinned,
-or distributed state, and open a model's runtime controls. Load, stop, edit,
-pin, disable, inspect backend logs, and remove actions stay with the selected
-model. The current view, search, filter, and selection are stored in the URL so
-links and browser history preserve your place.
+or distributed state, and open a model's runtime controls. Load and stop are on
+each row; edit, pin, disable, backend logs, and remove are in the row menu and in
+the details of the selected model. The current view, search, filter, and
+selection are stored in the URL so links and browser history preserve your place.
+The disk strip in the page header shows the free space on the models disk and
+opens a review of what can be removed to free more (see
+[Model gallery]({{% relref "features/model-gallery" %}})).
 
 ### Via CLI
 
@@ -73,15 +76,25 @@ Visit [models.localai.io](https://models.localai.io) to browse all available mod
 
 ## Method 1.5: Import Models via WebUI
 
-The WebUI import page takes either a source to resolve or a configuration to
-write. Both live on the same page, behind the two tabs in its header.
+The WebUI import page (**Build → Import**) takes either a source to resolve or a
+configuration to write. Both live on the same page, behind the two tabs in its
+header. From a source, it is a short guided flow: source, review, import, done.
 
 ### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Click "Import Model"
-3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
-4. Press Enter, or click **Import**
+2. Open **Build**, then **Import**
+3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`), or start from one of the examples
+4. Review what the page says, then press Enter or click **Import**
+
+While you type, the page reads the spelling of the source (Hugging Face
+repository, direct URL, configuration file, OCI image, Ollama model, or a path
+on the host) and shows the request the form will send. It also runs the checks
+that can be made before the import starts: whether the name is already in use,
+whether the chosen backend is installed, and how much disk and memory are free.
+The server returns no preview of the model configuration, the size or the memory
+a model needs before the import starts, so the page does not show them. They
+appear once the import starts, next to the free memory and disk.
 
 The **What you can paste** panel beside the field lists every accepted scheme:
 `huggingface://`, `hf://`, a full Hugging Face URL, any direct `https://` URL,
@@ -105,8 +118,10 @@ vision-language models and `mlx-audio` for text-to-speech models; other MLX
 repositories use `mlx`. An explicit backend selection in the import form always
 overrides this automatic routing.
 
-Once the import starts, the page reports the current phase, the bytes
-transferred and a progress bar until the model is ready.
+Once the import starts, the page reports the download size and the memory the
+model needs against what is free, then the current phase, the bytes transferred
+and a progress bar. When the model is ready, the page names it and links to a
+chat with it and to Models.
 
 ### Writing YAML
 
@@ -403,19 +418,23 @@ local-ai models list
 
 ### Disk Usage
 
-The **Installed** tab shows how much disk the installed configurations use: a
-summary strip with the total on disk and the portion shared across models, and
-a per-model size in the selected model's detail panel. A file referenced by
-more than one configuration is counted once in the total; the per-model size
-notes the shared portion, since deleting that model frees only its exclusive
-files. A reference whose file is not on disk — a download that never finished,
-or a file removed by hand — is shown as a warning on the model.
+In the WebUI, the **Installed** tab of **Models** shows how much disk each
+installed configuration uses. The **Size** column holds the size on disk, and
+for a model that shares files with others it adds the shared part ("1.2 GB
+shared"). A file referenced by more than one configuration is counted once in
+the total under the table, which also gives the shared total. The inspector
+beside the table names the models a model shares files with, and a model page
+lists its files under **Usage and history**, with each file's size, the other
+models that use it, and whether it is missing. Removing a model frees only its
+exclusive files; the files it shares stay while another configuration uses
+them. A reference whose file is not on disk (a download that never finished, or
+a file removed by hand) is marked on the model and in the cleanup review.
 
-While no model is selected, the detail pane lists every referenced file with
-its size, which models reference it, and whether it is shared or missing;
-clicking a model name selects it.
+Only an admin can read the report. For anyone else, or if the read fails, the
+Size column shows the size of the files the gallery lists, and "size unknown"
+for a model the gallery does not list.
 
-The report behind both views is available directly (admin only):
+The report behind these views is available directly (admin only):
 
 ```bash
 curl http://localhost:8080/api/models/storage

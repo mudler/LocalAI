@@ -10,6 +10,7 @@ This section collects the operator-facing concerns for running LocalAI in produc
 
 ## Pages
 
+- [Traffic]({{% relref "operations/traffic" %}}) - usage, failed requests, models, GPU and host, traces and Prometheus in one tab.
 - [Middleware: PII filtering and intelligent routing]({{% relref "operations/middleware" %}}) - per-model PII redaction and policy-based request routing.
 - [Cloud passthrough proxy]({{% relref "operations/cloud-proxy" %}}) - forward requests to OpenAI, Anthropic, or any compatible provider.
 - [MITM proxy for Claude Code / Codex CLI]({{% relref "operations/mitm-proxy" %}}) - redact PII from cloud-AI traffic without LocalAI holding API keys.

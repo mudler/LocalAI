@@ -33,11 +33,13 @@ LocalAI supports two modes of distributed inferencing via p2p:
 
 A list of global instances shared by the community is available at [explorer.localai.io](https://explorer.localai.io).
 
+A LocalAI server started with `local-ai explorer` serves the same list at `/explorer`. Each swarm shows its name, description, the types of its clusters, how many workers are online and a shortened token. **How to join** shows the whole token and, for a federated cluster, the Docker and command-line commands that start a node on it. **List a swarm** adds a swarm to the list. Listing publishes its token, so anyone who sees the list can use the swarm's workers. Only swarms with at least one online worker are listed. On a server that is not in explorer mode, the page says so.
+
 ## Usage
 
 Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 
 
-Simply navigate to the "Swarm" section in the WebUI and follow the on-screen instructions.
+Navigate to **Operate → Swarm → P2P** in the WebUI, or open **Add a node** and choose a peer instance or a memory shard, and follow the on-screen instructions.
 
 For fully shared instances, initiate LocalAI with --p2p --federated and adhere to the Swarm section's guidance. This feature, while still experimental, offers a tech preview quality experience.
 
@@ -63,7 +65,7 @@ local-ai federated
 
 To see all the available options, run `local-ai federated --help`.
 
-The instructions are displayed in the "Swarm" section of the WebUI, guiding you through the process of connecting multiple instances.
+The instructions are on the **P2P** page of the Swarm hub and in **Add a node**, guiding you through the process of connecting multiple instances.
 
 ### Workers mode
 
@@ -79,7 +81,7 @@ To connect multiple workers to a single LocalAI instance, start first a server i
 local-ai run --p2p
 ```
 
-And navigate the WebUI to the "Swarm" section to see the instructions to connect multiple workers to the network.
+And open **Operate → Swarm → P2P** to see the network token and the instructions to connect multiple workers to the network.
 
 ![346663124-1d2324fd-8b55-4fa2-9856-721a467969c2](https://github.com/user-attachments/assets/b8cadddf-a467-49cf-a1ed-8850de95366d)
 

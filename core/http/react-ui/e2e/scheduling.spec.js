@@ -35,27 +35,28 @@ async function mockScheduling(page, { rules = [rule], nodeList = nodes } = {}) {
   }))
 }
 
-test.describe('Scheduling page', () => {
+test.describe('Placement rules page', () => {
   // Node labels are only ever needed while writing a rule's node selector, so
   // they live in that field rather than in a card standing open above the
   // rules whether or not anyone is writing one.
   test('keeps no standing label browser on the page', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
-    await expect(page.getByText('llama-3.3')).toBeVisible()
+    await expect(page.getByTestId('rule-row').getByText('llama-3.3')).toBeVisible()
 
     await expect(page.getByTestId('node-label-reference')).toHaveCount(0)
     await expect(page.getByRole('button', { name: /node labels/i })).toHaveCount(0)
     await expect(page.locator('.scheduling-node-card')).toHaveCount(0)
-    // Falcon GPU is a node name, and nothing on this page has a reason to
-    // enumerate node names until a selector is being filled.
-    await expect(page.getByText('Falcon GPU')).toHaveCount(0)
+    // Label values are for filling a selector. The placement preview names
+    // nodes, but it never lists the labels they carry.
+    await expect(page.getByText('NVIDIA', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('gpu.vendor', { exact: true })).toHaveCount(0)
   })
 
   test('suggests the cluster\'s own label keys and values as the selector is typed', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
-    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+    await page.getByRole('button', { name: 'New rule' }).click()
 
     const keyInput = page.getByRole('combobox', { name: 'Selector key' })
     await keyInput.click()
@@ -85,7 +86,7 @@ test.describe('Scheduling page', () => {
   test('picks a suggestion from the keyboard', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
-    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+    await page.getByRole('button', { name: 'New rule' }).click()
 
     const keyInput = page.getByRole('combobox', { name: 'Selector key' })
     await keyInput.fill('zon')
@@ -103,7 +104,7 @@ test.describe('Scheduling page', () => {
   test('still accepts a label the cluster has never reported', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
-    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+    await page.getByRole('button', { name: 'New rule' }).click()
 
     await page.getByRole('combobox', { name: 'Selector key' }).fill('tenant')
     await page.getByRole('combobox', { name: 'Selector value' }).fill('acme')
@@ -128,7 +129,7 @@ test.describe('Scheduling page', () => {
 
     await expect(page.getByLabel('Model')).toHaveValue('llama-3.3')
     await expect(page.getByLabel('Model')).toHaveAttribute('readonly', '')
-    await expect(page.getByRole('radio', { name: 'Auto-scale' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('radio', { name: 'Auto-scaling' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByLabel('Node selector').getByText('gpu.vendor=nvidia', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Min replicas')).toHaveValue('2')
     await expect(page.getByLabel('Max replicas')).toHaveValue('8')
@@ -147,15 +148,18 @@ test.describe('Scheduling page', () => {
     await expect(page.getByLabel('Min replicas')).toHaveValue('2')
   })
 
-  test('keeps a single add or edit form open and leaves Add blank', async ({ page }) => {
+  test('keeps a single sheet open and leaves New blank', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
     await page.getByRole('button', { name: 'Edit llama-3.3' }).click()
-    await expect(page.locator('.scheduling-form')).toHaveCount(1)
-    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
-    await expect(page.locator('.scheduling-form')).toHaveCount(1)
-    await expect(page.getByRole('combobox', { name: '' }).first()).toHaveValue('')
-    await expect(page.getByRole('combobox', { name: '' }).first()).toBeEnabled()
+    await expect(page.getByTestId('rule-sheet')).toHaveCount(1)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('rule-sheet')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Edit llama-3.3' })).toBeFocused()
+    await page.getByRole('button', { name: 'New rule' }).click()
+    await expect(page.getByTestId('rule-sheet')).toHaveCount(1)
+    await expect(page.getByRole('combobox', { name: 'Model' })).toHaveValue('')
+    await expect(page.getByRole('combobox', { name: 'Model' })).toBeEnabled()
   })
 
   // The roster feeds suggestions and nothing else now, so failing to load it
@@ -166,9 +170,9 @@ test.describe('Scheduling page', () => {
     await page.goto('/app/scheduling')
 
     // The rules still render: the roster is not on their path.
-    await expect(page.getByText('llama-3.3')).toBeVisible()
+    await expect(page.getByTestId('rule-row').getByText('llama-3.3')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+    await page.getByRole('button', { name: 'New rule' }).click()
     await page.getByRole('combobox', { name: 'Selector key' }).fill('gpu.vendor')
     await page.getByRole('combobox', { name: 'Selector value' }).fill('nvidia')
     await page.getByRole('button', { name: 'Add selector' }).click()
@@ -207,7 +211,7 @@ test.describe('Scheduling page', () => {
       await mockAliases(page)
       await page.goto('/app/scheduling')
 
-      await expect(page.getByText('production')).toBeVisible()
+      await expect(page.getByTestId('rule-row').getByText('production')).toBeVisible()
       await expect(page.locator('.scheduling-rule-target')).toHaveText(/llama-3\.3/)
     })
 
@@ -234,11 +238,11 @@ test.describe('Scheduling page', () => {
       await mockScheduling(page)
       await mockAliases(page)
       await page.goto('/app/scheduling')
-      await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+      await page.getByRole('button', { name: 'New rule' }).click()
 
-      const picker = page.locator('.searchable-model-select input')
+      const picker = page.getByRole('combobox', { name: 'Model' })
       await picker.click()
-      await expect(page.locator('.sms-hint')).toHaveText('alias of llama-3.3')
+      await expect(page.locator('.dk-cmd-desc')).toHaveText('alias of llama-3.3')
 
       await page.getByRole('option', { name: /production/ }).click()
       await expect(page.getByText(/production is an alias for llama-3\.3/)).toBeVisible()
@@ -253,6 +257,9 @@ test.describe('Scheduling page', () => {
     const actions = page.locator('.scheduling-rule-actions')
     await expect(actions.getByRole('button', { name: 'Edit llama-3.3' })).toBeVisible()
     await expect(actions.getByRole('button', { name: 'Delete llama-3.3' })).toBeVisible()
-    expect((await actions.boundingBox()).width).toBeGreaterThan(200)
+    const box = await actions.boundingBox()
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 })
