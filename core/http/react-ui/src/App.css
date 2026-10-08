@@ -9802,9 +9802,9 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .pill-tiny { padding: 2px 6px; font-size: var(--text-xs); }
 
 /* ===========================================================================
-   Settings
-   The sticky section rail, the scrolling content column, the branding asset
-   preview and the resource meters. Meter colour is computed from usage.
+   Section rail
+   The sticky rail the Model editor uses. The Settings page has its own
+   styles in pages/settings.css.
    =========================================================================== */
 .set-layout { display: flex; gap: 0; min-height: calc(100vh - 180px); }
 .set-rail {
@@ -9857,42 +9857,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
     padding-bottom: var(--spacing-sm);
   }
   .set-rail__item { width: auto; flex: none; white-space: nowrap; margin-bottom: 0; }
-  .set-content { padding-inline: var(--spacing-md); }
-  .set-content .form-row { flex-wrap: wrap; }
-  .set-content .form-row__label { flex-basis: 100%; }
-  .set-content .form-row__control { flex-shrink: 1; max-width: 100%; }
 }
-.set-content {
-  flex: 1;
-  overflow: auto;
-  padding: 0 var(--spacing-lg) var(--spacing-xl) var(--spacing-md);
-  max-height: calc(100vh - 180px);
-}
-.set-asset {
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-.set-asset img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.set-meters {
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-sm);
-  font-size: var(--text-xs);
-}
-.set-meter { display: flex; align-items: center; gap: var(--spacing-xs); }
-.set-meter__label { color: var(--color-text-muted); min-width: 60px; }
-.set-meter__track { flex: 1; height: 6px; background: var(--color-bg-primary); border-radius: var(--radius-sm); overflow: hidden; }
-.set-meter__fill { height: 100%; border-radius: var(--radius-sm); }
-.set-meter__value { min-width: 40px; text-align: right; }
-.set-pct { font-size: var(--text-base); font-weight: var(--font-weight-semibold); min-width: 40px; text-align: right; }
-.set-head { padding: var(--spacing-lg) var(--spacing-lg) 0; }
-.w-280 { width: 280px; }
 
 /* ===========================================================================
    Model editor
