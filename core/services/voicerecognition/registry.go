@@ -61,8 +61,14 @@ type Metadata struct {
 	// EncoderFamily is the embedding space of the encoder ("voicedetect:<arch>:<name>:<dim>"),
 	// recorded when the encoder reports it (portable enrollment from speaker
 	// profiles). Empty when unknown, and for voices registered before it existed.
-	// Model then holds the weights identity ("sha256:<hex>") for the same voices.
+	// For the speaker-profiles route Model then holds the weights identity
+	// ("sha256:<hex>") of the same voices.
 	EncoderFamily string `json:"encoder_family,omitempty"`
+	// EncoderWeights is the "sha256:<hex>" identity of the encoder's model file,
+	// recorded for voices registered from audio when the voice backend reports
+	// it. Model keeps the encoder's name for those voices, so the 1:N filter on
+	// the name keeps working. Empty when unknown.
+	EncoderWeights string `json:"encoder_weights,omitempty"`
 }
 
 // Match is a single result from Identify, ranked by similarity.
