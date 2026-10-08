@@ -363,15 +363,6 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		})
 	})
 
-	Describe("StopNode", func() {
-		It("publishes to correct subject", func() {
-			Expect(adapter.StopNode("node-abc")).To(Succeed())
-			Expect(mc.published).To(HaveLen(1))
-			Expect(mc.published[0].Subject).To(Equal(messaging.SubjectNodeStop("node-abc")))
-			Expect(mc.published[0].Data).To(BeNil())
-		})
-	})
-
 	Describe("DeleteModelFiles", func() {
 		It("with no nodes returns nil", func() {
 			locator.nodes = nil

@@ -655,12 +655,6 @@ func (a *nodeControl) DeleteModelFiles(modelName string) error {
 	return nil
 }
 
-// StopNode tells a worker node to shut down entirely (deregister + exit).
-func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
-	subject := messaging.SubjectNodeStop(nodeID)
-	return a.nats.Publish(subject, nil)
-}
-
 // errVerbNotServed means that the worker answered and does not serve the verb.
 // It is a fact about the version of the worker. It is not a routing fact and
 // not an answer about any backend, so only a caller that has a fallback for an
