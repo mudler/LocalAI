@@ -29,6 +29,15 @@ type Instance struct {
 	// ReadyReason says why the replica is not ready. It is empty when the
 	// replica is ready.
 	ReadyReason string `gorm:"size:512;not null;default:''" json:"ready_reason,omitempty"`
+	// AdvertisedAddr is the host and port at which the other replicas dial this
+	// one. It is empty for a replica that publishes none, which no peer can
+	// reach.
+	AdvertisedAddr string `gorm:"size:255" json:"advertised_addr,omitempty"`
+	// PeerTokenHash is the SHA-256 of the peer credential of this replica, as
+	// hex. A peer that dials this replica proves who it is by presenting the
+	// secret behind this hash. It is empty for a replica that has not published
+	// one, and an empty hash authorises nobody.
+	PeerTokenHash string `gorm:"size:64" json:"-"`
 }
 
 // Registry reads and writes the instances table and the table of worker
@@ -48,6 +57,17 @@ func NewRegistry(db *gorm.DB) *Registry {
 // live set never sees a live replica as missing. The readiness columns are written too, so a replica
 // that registers again after it was swept does not lose what it reported.
 func (r *Registry) Register(ctx context.Context, id, version string, readyEpoch int64, readyReason string) error {
+	return r.RegisterPeer(ctx, id, version, readyEpoch, readyReason, "", "")
+}
+
+// RegisterPeer is Register for a replica that other replicas dial. The address
+// and the hash of the peer credential go in the same statement as the rest of the
+// row. A replica that had an address and no identity, even for a moment, would be
+// one that every peer refuses.
+//
+// An empty address or hash leaves the stored value alone on an update, so a
+// replica that publishes none cannot wipe what an earlier registration wrote.
+func (r *Registry) RegisterPeer(ctx context.Context, id, version string, readyEpoch int64, readyReason, advertisedAddr, peerTokenHash string) error {
 	// The database stamps last_seen and not this process. Liveness is compared
 	// across replicas, so it must be measured on the one clock they share. With
 	// one clock per replica, the real window becomes the window minus the clock
@@ -59,18 +79,41 @@ func (r *Registry) Register(ctx context.Context, id, version string, readyEpoch 
 		"ready_reason": readyReason,
 		"last_seen":    gorm.Expr("now()"),
 	}
+	update := map[string]any{
+		"version":      version,
+		"ready_epoch":  readyEpoch,
+		"ready_reason": readyReason,
+		"last_seen":    gorm.Expr("now()"),
+	}
+	if advertisedAddr != "" {
+		row["advertised_addr"] = advertisedAddr
+		update["advertised_addr"] = advertisedAddr
+	}
+	if peerTokenHash != "" {
+		row["peer_token_hash"] = peerTokenHash
+		update["peer_token_hash"] = peerTokenHash
+	}
 	if err := r.db.WithContext(ctx).Model(&Instance{}).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.Assignments(map[string]any{
-			"version":      version,
-			"ready_epoch":  readyEpoch,
-			"ready_reason": readyReason,
-			"last_seen":    gorm.Expr("now()"),
-		}),
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.Assignments(update),
 	}).Create(row).Error; err != nil {
 		return fmt.Errorf("registering instance %q: %w", id, err)
 	}
 	return nil
+}
+
+// Get returns one instance, or ErrInstanceNotFound if it is not registered. It
+// does not ask if the replica is alive.
+func (r *Registry) Get(ctx context.Context, id string) (*Instance, error) {
+	var inst Instance
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&inst).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("getting instance %q: %w", id, ErrInstanceNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("getting instance %q: %w", id, err)
+	}
+	return &inst, nil
 }
 
 // Heartbeat refreshes LastSeen for a registered instance. An unknown ID is an

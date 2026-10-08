@@ -103,6 +103,8 @@ type Membership struct {
 	readyEpoch  int64
 	readyReason string
 	reclaimer   Reclaimer
+	advertised  string
+	peerHash    string
 }
 
 // NewMembership returns the membership loop for one replica.
@@ -132,6 +134,21 @@ func (m *Membership) SetReconnectGrace(grace time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.retention = DepartedRetentionFor(grace)
+}
+
+// SetPeer gives the loop what the other replicas need to dial this one: the
+// address that they dial, and the credential that proves who this replica is.
+// Every registration writes both, so a replica that a peer swept and that
+// registers again is dialled again. Set it before Start.
+//
+// It is safe on a nil receiver, like Stop.
+func (m *Membership) SetPeer(advertisedAddr string, cred PeerCredential) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.advertised, m.peerHash = advertisedAddr, cred.Hash()
 }
 
 // SetReclaimer gives the loop the holder of the worker connections of this
@@ -169,8 +186,9 @@ func (m *Membership) ReportReady(ctx context.Context, epoch int64, reason string
 func (m *Membership) register(ctx context.Context) error {
 	m.mu.Lock()
 	epoch, reason := m.readyEpoch, m.readyReason
+	advertised, peerHash := m.advertised, m.peerHash
 	m.mu.Unlock()
-	return m.reg.Register(ctx, m.id, m.version, epoch, reason)
+	return m.reg.RegisterPeer(ctx, m.id, m.version, epoch, reason, advertised, peerHash)
 }
 
 // Start registers this replica, then heartbeats and sweeps in the background.
