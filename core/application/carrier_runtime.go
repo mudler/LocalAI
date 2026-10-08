@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -215,59 +214,18 @@ func (rt *carrierRuntime) buildTunnel(ctx context.Context, row cluster.CarrierRo
 		Token:          d.RegistrationToken,
 		S3Staging:      d.StorageURL != "",
 		FileManager:    rt.fileMgr,
+		// While the tunnel is the carrier in use, and while it drains, this replica
+		// claims queued work and drives it on agent workers.
+		Claims: &carrier.ClaimWork{
+			DB: rt.db, Owner: rt.instanceID, Store: rt.jobStore,
+			Bus: func() messaging.Broadcaster { return rt.bus },
+		},
 	})
 	if err != nil {
 		fanout.Close()
 		return nil, err
 	}
 
-	// While the tunnel is the carrier in use, and while it drains, this replica
-	// claims queued work and drives it on agent workers. The loop dials through
-	// the dialer of this set and not through the holder: a run that started on the
-	// tunnel finishes there.
-	set.Start = func(ctx context.Context) (func(), error) {
-		loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
-			DB:        rt.db,
-			Owner:     rt.instanceID,
-			Picker:    selector,
-			Control:   nodes.NewControlClient(set.Dialer, d.RegistrationToken),
-			Broadcast: nodes.NewRebroadcaster(rt.bus),
-			Store:     rt.jobStore,
-			Hints:     rt.bus,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if err := loop.Start(ctx); err != nil {
-			return nil, err
-		}
-		xlog.Info("This replica claims queued work")
-		return loop.Stop, nil
-	}
-
-	// When the tunnel is released, what is still queued moves to the queue of the
-	// carrier that took over. The rows are taken out of the table first and then
-	// published, so a job is lost, and not run twice, if this replica dies in
-	// between. A job that is lost stays running until the reaper fails it.
-	set.Handoff = func(ctx context.Context, next *carrier.Set) error {
-		rows, err := jobs.MigratePending(ctx, rt.db)
-		if err != nil {
-			return err
-		}
-		var failed error
-		moved := 0
-		for _, r := range rows {
-			if err := next.WorkQueue.Enqueue(ctx, messaging.WorkKind(r.Kind), json.RawMessage(r.Payload)); err != nil {
-				failed = errors.Join(failed, fmt.Errorf("publishing the %s unit %s: %w", r.Kind, r.ID, err))
-				continue
-			}
-			moved++
-		}
-		if len(rows) > 0 {
-			xlog.Info("Queued work moved to the carrier that took over", "carrier", next.Name, "moved", moved, "lost", len(rows)-moved)
-		}
-		return failed
-	}
 	return set, nil
 }
 

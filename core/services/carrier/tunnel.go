@@ -51,6 +51,11 @@ type TunnelOptions struct {
 	// FileManager is the shared store, and it is required with S3Staging.
 	S3Staging   bool
 	FileManager *storage.FileManager
+
+	// Claims makes the set claim queued work while it is in use or draining, and
+	// hand over what is still queued when it is released. It may be nil for a set
+	// that is built to be checked and thrown away.
+	Claims *ClaimWork
 }
 
 // NewTunnelSet builds the set of seam implementations that reach workers through
@@ -126,6 +131,10 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 				o.Fanout.Close()
 			}
 		},
+	}
+	if o.Claims != nil {
+		set.Start = o.Claims.start(func() *Set { return set }, o.AgentSelector, o.Token)
+		set.Handoff = o.Claims.handoff()
 	}
 	if err := set.Validate(); err != nil {
 		return nil, err
