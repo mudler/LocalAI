@@ -388,6 +388,9 @@ type carrierReplica struct {
 
 // carrierReport is the part of the answer of the carrier API that the scenario reads.
 type carrierReport struct {
+	Row struct {
+		Note string `json:"note"`
+	} `json:"row"`
 	Active   string           `json:"active"`
 	Target   string           `json:"target"`
 	Epoch    int64            `json:"epoch"`
@@ -523,6 +526,13 @@ func (s *switchStack) startChatLoad(fes ...*switchFrontend) *chatLoad {
 		}()
 	}
 	return l
+}
+
+// answers is the number of requests that were answered so far.
+func (l *chatLoad) answers() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.ok
 }
 
 // finish stops the load and returns the number of answers and the failures.

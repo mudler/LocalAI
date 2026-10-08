@@ -312,28 +312,37 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		Eventually(func() bool { return stack.workerAttached(feA, tunnelN, "nats") }, settle, poll).Should(BeTrue())
 	})
 
-	It("resolves a change when a frontend dies during prepare, and the frontend rebuilds from the row", func() {
+	It("commits a forced change without a frontend that dies during prepare, and the frontend rebuilds from the row", func() {
 		// Frozen, B cannot report that it is ready. Killed while frozen, it
-		// never does, and the change has to end on its own.
+		// never does. The change is forced, so after the prepare timeout it goes
+		// on without B: it commits on the tunnel. An unforced change would be
+		// aborted and would stay on NATS; the abort has its own spec below.
+		before, err := stack.carrier(feA)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(before.Active).To(Equal("nats"))
+
 		feB.signal(syscall.SIGSTOP)
+		load := stack.startChatLoad(feA)
 		code, body := request(feA, map[string]any{"target": "tunnel", "force": true})
 		Expect(code).To(Equal(http.StatusAccepted), string(body))
 		waitInState(feA, "prepare")
 		feB.signal(syscall.SIGCONT)
 		feB.kill()
 
-		// A forced change goes on without the replica that is not ready; an
-		// unforced one is aborted. Either way the row leaves prepare.
-		Eventually(func() string {
-			r, err := stack.carrier(feA)
-			if err != nil {
-				return "error"
-			}
-			return r.State
-		}, 3*time.Minute, poll).Should(Equal("stable"))
-		r, _ := stack.carrier(feA)
-		active := r.Active
-		chatOK(feA)
+		stableOn(feA, "tunnel")
+		r, err := stack.carrier(feA)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(r.Epoch).To(BeNumerically(">", before.Epoch))
+		Expect(r.Row.Note).ToNot(ContainSubstring("aborted"), "the forced change committed")
+		// Both workers follow, and the one frontend that is left answers all along.
+		Eventually(func() bool {
+			return stack.workerAttached(feA, dualN, "tunnel") && stack.workerAttached(feA, tunnelN, "tunnel")
+		}, settle, poll).Should(BeTrue())
+		answered := load.answers()
+		Eventually(load.answers, settle, poll).Should(BeNumerically(">=", answered+10))
+		ok, errs := load.finish()
+		Expect(errs).To(BeEmpty(), "chat failed while the change went on without the dead frontend")
+		Expect(ok).To(BeNumerically(">", 20))
 
 		stack.restart(feB)
 		Eventually(func() error {
@@ -342,18 +351,16 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		}, 120*time.Second, poll).Should(Succeed())
 		rb, err := stack.carrier(feB)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(rb.Active).To(Equal(active), "the restarted frontend must follow the row, not its flags")
+		Expect(rb.Active).To(Equal("tunnel"), "the restarted frontend must follow the row, not its flags")
 		chatOK(feA, feB)
-		// Back on NATS for the next specs. A change to the carrier that is
-		// already active is refused, so go only when needed.
-		if active != "nats" {
-			Eventually(func() int {
-				c, _ := request(feA, map[string]any{"target": "nats", "force": true})
-				return c
-			}, settle, poll).Should(Equal(http.StatusAccepted))
-			stableOn(feA, "nats")
-			stableOn(feB, "nats")
-		}
+
+		// Back on NATS for the next specs.
+		Eventually(func() int {
+			c, _ := request(feA, map[string]any{"target": "nats", "force": true})
+			return c
+		}, settle, poll).Should(Equal(http.StatusAccepted))
+		stableOn(feA, "nats")
+		stableOn(feB, "nats")
 	})
 
 	It("survives a worker that dies while it follows, and the restarted worker attaches to the active carrier", func() {
@@ -368,11 +375,25 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 		}, settle, 100*time.Millisecond).Should(Equal("tunnel"))
 		dual.kill()
 		dual.killGroup()
+
+		// The change commits on the tunnel whatever the worker does, and the
+		// worker that is gone stays registered.
 		stableOn(feA, "tunnel")
+		stableOn(feB, "tunnel")
+		_, registered := stack.node(feA, dualN)
+		Expect(registered).To(BeTrue(), "a worker that died is not removed by the change")
 
 		stack.restartWorker(dual)
 		Eventually(func() bool { return stack.workerAttached(feA, dualN, "tunnel") }, settle, poll).Should(BeTrue())
+		Eventually(func() bool { return stack.workerAttached(feA, tunnelN, "tunnel") }, settle, poll).Should(BeTrue())
+
+		// From here on nothing fails: the restarted worker serves its replicas on
+		// the carrier that is active.
 		chatOK(feA, feB)
+		load := stack.startChatLoad(feA, feB)
+		Eventually(load.answers, settle, poll).Should(BeNumerically(">=", 20))
+		_, errs := load.finish()
+		Expect(errs).To(BeEmpty(), "chat failed after the worker came back")
 	})
 
 	It("aborts a change in prepare and stays on the carrier it had", func() {
