@@ -18,8 +18,8 @@ files to that spec.
 |---|---|---|---|
 | Fan-out | `messaging.Broadcaster` | `core/services/messaging` | NATS client |
 | Queues | `messaging.WorkQueue` (producer), `messaging.WorkConsumer` (worker), keyed by `messaging.WorkKind` | `core/services/messaging` (`workqueue.go`) | `NewNATSWorkQueue`, `NewNATSWorkConsumer` |
-| Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter`, `S3NATSFileStager` over NATS request/reply; `HTTPFileStager` over HTTP |
-| Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer` |
+| Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter`, `S3NATSFileStager` over NATS request/reply; `HTTPFileStager` over HTTP; `TunnelControl` over the HTTP control plane of a worker |
+| Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl` |
 | Agent RPC, worker half | unexported `agentRPCServer` | `core/cli/agent_worker.go` | `nodes.NATSAgentRPCServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
@@ -102,6 +102,20 @@ of the sessions that a replica holds, and `Splice`. The connect endpoint is
   and stores only its SHA-256 (`BackendNode.TunnelTokenHash`). The registration
   token of the deployment never opens a tunnel. Every registration mints a new
   credential, so the client reads it at every dial.
+- The frontend resets every stream that a worker opens (`MaxIncomingStreams` is
+  0 on the server side of a session), because nothing reads such a stream and an
+  accepted one would hold its window of unread data for as long as the session
+  lives. The worker side keeps the default: it accepts the streams of the
+  frontend.
+- The credential is checked when a worker dials, and never again. A node that is
+  deleted, or whose credential a registration replaces, loses the session that
+  this replica holds (`Registry.Disconnect`), and a replica that shuts down
+  closes its registry (`Registry.Close`) before it leaves the instances table. A
+  session that another replica holds ends when its worker dials again and is
+  refused. A worker whose dial is refused with 401 or 403 registers again
+  (`TunnelConfig.Reauthorize`), once for each wait of its backoff.
+- A claim has its own bound (10 seconds), and a claim that was written for a
+  request that already ended is released.
 - A refusal of a stream is one of four. `tunnel.IsWorkerAnswer` is true for the
   three that are evidence about a backend. `ErrStreamNotServed` says that the
   worker learned nothing, and it must never count as evidence.
@@ -142,15 +156,41 @@ runs every carrier in `loadOperationCarriers` against it. Whether a worker
 names operations is the worker's own report (`BackendInstallReply.ReportsOperations`),
 not a property of the carrier.
 
-Worker half: each verb is a `controlVerb`. A handler is typed with `unary`,
-`withProgress` or `noReply` and registered with `handle` (one request of the
-verb at a time on NATS, panic not recovered) or `handleWithProgress` (a
-goroutine per request, progress published on the install-progress subject).
-An undecodable body is still answered with the verb's typed refusal. The
-`undecodable` error a `controlHandler` returns is read only by tests today: the
-NATS server drops it. It is a recorded exception to the no-dead-code rule, kept
-as the hook a carrier that signals a malformed request out of band (HTTP 400)
-needs.
+Worker half: each verb is a `controlVerb`, named by the constants of
+`core/services/workerctl` (`workerctl.AllVerbs` lists them). A handler is typed
+with `unary`, `withProgress` or `noReply` and registered with `handle` (one
+request of the verb at a time on NATS, panic not recovered) or
+`handleWithProgress` (a goroutine per request, progress published on the
+install-progress subject). An undecodable body is still answered with the verb's
+typed refusal on NATS.
+
+`httpControlServer` is the second server of the same handlers. It mounts each
+verb at `workerctl.PathOf(verb)` below `/v1/control/`, on the HTTP server that the
+worker already runs (`nodes.StartFileTransferServerWithControl`, behind the same
+bearer token as the file routes). It delivers requests of a verb concurrently,
+where NATS delivers them one by one, so a handler must be safe to call from
+several goroutines. The answer of a verb is 200 with the reply, and the refusal
+of the worker stays in the reply. A body that cannot be read, including a body
+that does not decode (the `undecodable` return of a `controlHandler`), is 400. A
+verb the worker does not serve is 404 with a body that says so, and a method other
+than POST is 405. A verb with progress streams lines (`workerctl.Envelope`): any
+number of progress lines and then exactly one reply line. A body that ends
+without a reply line is a link that broke, and it says nothing about the work.
+A verb that only one server can serve is simply not registered on the other
+(`files.*` need object storage on both).
+
+The frontend half is one implementation of the verbs over a `controlLink`
+(`nodeControl` in `unloader.go`). The link holds how one request travels and how
+its failure is told apart: `natsLink` for NATS and `httpLink` for the control
+plane of a worker (`ControlClient` is the HTTP client). Adding a carrier of the
+verbs is a new link, not a copy of the verbs. The link decides four things: what
+is `ErrNoRoute`, whether a wait that ran out means that the worker may still be
+installing (`waitExpired`), whether a missing acknowledgement of `backend.stop`
+may be read as an older worker (`acknowledgementMissing`: true only for NATS), and
+how the carrier is named in a log line. An HTTP link never reads silence as a
+stop that was done. A 404 is a worker that does not serve the verb. It becomes
+`ErrNoRoute` only for `backend.upgrade`, which keeps the fallback to the older
+install, and it is a plain error for every other verb.
 
 ## Agent RPC
 
@@ -169,12 +209,55 @@ client for SmartRouter, HealthMonitor and the reconciler's default
 `ModelProber`. The node id is there because a dialer that must know which node
 it reaches, as a tunnel does, cannot recover it from the address; the direct
 factory ignores it. `ModelProber.Probe(ctx, nodeID, address)` likewise.
+`NewDialerClientFactory` builds clients through `grpc.NewClientWithDialer`: the
+address is then the name of a backend process of the worker, and gRPC does not
+resolve it.
 
 `WorkerNetDialerFor` returns the dial function for one worker's own HTTP
 server. `DirectWorkerNetDialer` dials the address it is handed. It serves
-`HTTPFileStager` and the backend-logs proxy (HTTP and WebSocket).
-`HTTPFileStager.clientFor` keeps one HTTP client per node, because the idle
-pool is keyed by host and port and two workers can report the same address.
+`HTTPFileStager`, `ControlClient` and the backend-logs proxy (HTTP and
+WebSocket). `HTTPFileStager.clientFor` keeps one HTTP client per node, because
+the idle pool is keyed by host and port and two workers can report the same
+address, and `ForgetNode` drops one. A worker that holds a tunnel has no address.
+`nodes.WorkerHTTPHost` gives it a name under `.invalid` for the URL, which is
+never dialled, and the proxy of the environment is not used for such a host.
+
+A dial that fails in the transport says nothing about the backend. gRPC reports
+it as `codes.Unavailable`, the code of a backend that died, so the client keeps
+the error of its last dial and `grpc.TransportFailureOf(client)` returns it,
+looking through decorators (every decorator implements `Unwrap`). It is nil when
+the dial worked and when the host answered about the backend (an error that
+implements `grpc.BackendAnswer`). Code that decides a backend is dead must ask
+it before it acts: the probe of the reconciler (`ProbeUnknown`), the per-model
+check of the health monitor, the warm path of the router (`probeUnknown`), the
+eviction of a remote model and the check of a cached remote model. None of them
+may reap a row, count a miss or shut a model down on a transport failure.
+
+## The peer link and the relay
+
+A worker holds one tunnel and it lands on one replica. `tunnel.WorkerDialer` is
+the one door to a worker: the replica that holds the tunnel opens the stream, and
+any other replica relays through the owner over a link that the pool of peers
+(`tunnel.PeerPool`) holds and the owner accepts at `GET /api/cluster/peer`
+(`tunnel.PeerSessions`, `tunnel.Relay`). A replica publishes its address and the
+hash of its own peer credential in its instances row. The credential of the
+replica is the only secret that opens a peer link; the registration token opens
+none. A relayed stream carries two request frames, the relay frame (worker, lane,
+remaining budget of the caller) and then the frame of the tunnel. The relay never
+relays onward.
+
+The errors of a dial are kept apart. A route that does not exist carries
+`tunnel.ErrNoRoute`, and the carrier maps it onto `nodes.ErrNoRoute` in one place
+(`carrier.mapDialError`). Absence claims (`cluster.ErrNoConnection`,
+`ErrInstanceNotFound`) never reach a caller. A refusal of the worker keeps its
+identity and is no `ErrNoRoute`. A peer that does not answer is
+`tunnel.ErrPeerUnreachable` and is not `ErrNoRoute`: a link between two frontends
+says nothing about a worker, and the scheduler demotes a worker on `ErrNoRoute`. A
+bulk lane that is down is `tunnel.ErrNoBulkSession` and is not `ErrNoRoute`
+either. The budget of the caller is checked first and is never a route failure.
+
+A dial can ask for the bulk lane (`tunnel.WithBulkLane`) and then never falls
+back to the lane of model calls. The file stager asks for it.
 
 ## Rules a carrier must keep
 
@@ -264,28 +347,9 @@ other seams against a real server, also through Docker.
 
 ## Open items for a second carrier
 
-- `DistributedModelStore.Range` (`core/services/nodes/distributed_store.go`)
-  builds a tokenless `model.Model` from `node.Address`. It dials nothing today,
-  but it is the one direct construction site left outside the dial seam.
-- The worker's `files.ensure` handler passes the first caller's ctx into a
-  shared singleflight closure. The NATS server hands it `context.Background`.
-  A carrier with a request ctx needs `context.WithoutCancel` there, or one
-  cancelled caller fails the others.
-- `HTTPFileStager` caches a client per node and never forgets one. There is no
-  `ForgetNode`.
-- `clientFor` returns no error; a carrier with no dialer for a node needs that
-  path.
 - The agent worker still uses NATS directly for its connection and for agent
   events. `agents.NewEventBridge` takes a `Broadcaster`, so the frontend's
   bridge goes through the holder.
-- The backend-logs proxy (`proxyHTTPToWorker`) starts from
-  `httpclient.HardenedTransport()`, which keeps
-  `Proxy: http.ProxyFromEnvironment`. With `HTTP_PROXY` set, a dialer that
-  routes by node would be handed the proxy address. Clear `Proxy` when the
-  dialer is not the direct one.
-- `natsControlServer.subject` refuses a verb it has no subject for, so
-  registration fails. A verb that only one carrier serves needs a per-carrier
-  opt-out where the verbs are registered.
 - `WorkHandler` returns only an error. A carrier whose stream handler must send
   a terminal reply derives it from the `jobs.<id>.result` event the handler
   publishes on `events` (`handleMCPCIJob` does this).
@@ -295,7 +359,12 @@ other seams against a real server, also through Docker.
   change `NATSDispatcher` and `EventBridge`, for example by binding
   `handleJob`'s publishes to `events` through a bridge view that shares the
   cancel registry.
-- `controlHandler`'s `undecodable` return is the recorded exception described
-  under Control verbs.
 - Agent cancel has no production sender (`EventBridge.CancelExecution` has no
   caller), so it is not part of the agent RPC seam.
+- The file stager over shared object storage (`S3NATSFileStager`) sends its
+  requests over NATS. The files verbs exist on the HTTP control plane, but no
+  frontend stager uses them yet.
+- A worker that registers an address and holds a tunnel (a worker that can use
+  either carrier) is reached by the backend-logs proxy through the host that its
+  address names, and the proxy of the environment is used for it. Only a worker
+  without an address skips the proxy.
