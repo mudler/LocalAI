@@ -223,9 +223,9 @@ func RunWorkQueueConformance(newRig WorkQueueFactory) {
 
 		It("accepts a payload up to the bound and refuses one above it", func() {
 			var got atomic.Int32
-			var size atomic.Int32
+			var size atomic.Int64
 			consume(rig.NewConsumer(), messaging.WorkMCPCI, 0, func(_ context.Context, p []byte, _ messaging.Publisher) error {
-				size.Store(int32(len(p)))
+				size.Store(int64(len(p)))
 				got.Add(1)
 				return nil
 			})
