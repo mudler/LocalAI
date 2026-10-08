@@ -67,7 +67,7 @@ var _ = Describe("NewNATSSet", func() {
 		o.S3Staging = true
 		set, err = carrier.NewNATSSet(o)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(set.Files).To(BeAssignableToTypeOf(&nodes.S3NATSFileStager{}))
+		Expect(set.Files).To(BeAssignableToTypeOf(&nodes.S3FileStager{}))
 	})
 
 	It("forwards the reconnect hook of the connection", func() {

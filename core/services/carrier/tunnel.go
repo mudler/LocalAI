@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 )
 
@@ -42,6 +43,13 @@ type TunnelOptions struct {
 	// Token is the registration token. A worker checks it on its control plane,
 	// its file routes and its backend processes.
 	Token string
+
+	// S3Staging selects the stager over shared object storage: the frontend puts
+	// a file in the store and sends the worker the file verb, over the control
+	// plane of the tunnel. Without it the files go over the bulk lane directly.
+	// FileManager is the shared store, and it is required with S3Staging.
+	S3Staging   bool
+	FileManager *storage.FileManager
 }
 
 // NewTunnelSet builds the set of seam implementations that reach workers through
@@ -61,11 +69,25 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	bulkDial := httpDialerFor(o.Dialer, tunnel.WithBulkLane())
 
 	control := nodes.NewControlClient(httpDial, o.Token)
-	files := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
-		// The host is never dialled: the dialer opens a stream on the tunnel of
-		// the node. It names the node in a log line and in the URL.
-		return nodes.WorkerHTTPHost(nodeID, ""), nil
-	}, o.Token, bulkDial)
+	var (
+		files      FileCarrier
+		forgetFile func(string)
+	)
+	if o.S3Staging {
+		if o.FileManager == nil {
+			return nil, errors.New("tunnel set needs a file manager for S3 staging")
+		}
+		// The bytes go through the object store, and only the verbs go through
+		// the tunnel, so the lane of the files is not needed.
+		files = nodes.NewS3TunnelFileStager(o.FileManager, control)
+	} else {
+		stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
+			// The host is never dialled: the dialer opens a stream on the tunnel of
+			// the node. It names the node in a log line and in the URL.
+			return nodes.WorkerHTTPHost(nodeID, ""), nil
+		}, o.Token, bulkDial)
+		files, forgetFile = stager, stager.ForgetNode
+	}
 
 	set := &Set{
 		Name:        cluster.CarrierTunnel,
@@ -78,10 +100,12 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 		Clients:     nodes.NewDialerClientFactory(o.Token, grpcDialerFor(o.Dialer)),
 		Dialer:      httpDial,
 		Agents:      o.Agents,
-		// The control client and the stager keep one client for each node.
+		// The control client and the HTTP stager keep one client for each node.
 		ForgetNode: func(nodeID string) {
 			control.ForgetNode(nodeID)
-			files.ForgetNode(nodeID)
+			if forgetFile != nil {
+				forgetFile(nodeID)
+			}
 		},
 		Close: o.Fanout.Close,
 	}
