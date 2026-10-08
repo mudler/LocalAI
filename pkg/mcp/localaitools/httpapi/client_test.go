@@ -482,3 +482,40 @@ var _ = Describe("Bearer token", func() {
 		Expect(sawAuth).To(Equal("Bearer secret-key"))
 	})
 })
+
+var _ = Describe("Cluster carrier", func() {
+	It("issues GET /api/cluster/carrier and maps the report", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodGet))
+			Expect(r.URL.Path).To(Equal("/api/cluster/carrier"))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"active": "nats", "state": "commit", "target": "tunnel", "epoch": 7,
+				"drain_remaining_ns": 30e9,
+				"replicas":           []map[string]any{{"id": "r1", "version": "v1", "ready_epoch": 7}},
+				"workers": []map[string]any{{"id": "w1", "name": "n", "attached": []string{"nats"},
+					"can_follow": false, "reason": "old worker", "follow_error": "x"}},
+			})
+		}))
+		DeferCleanup(srv.Close)
+
+		out, err := New(srv.URL, "").GetClusterCarrier(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeTrue())
+		Expect(out.Active).To(Equal("nats"))
+		Expect(out.Target).To(Equal("tunnel"))
+		Expect(out.DrainRemainingSeconds).To(BeNumerically("==", 30))
+		Expect(out.Replicas).To(HaveLen(1))
+		Expect(out.Workers[0].Reason).To(Equal("old worker"))
+	})
+
+	It("reports distributed=false when the server answers 503", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"distributed mode is not enabled on this frontend"}`))
+		}))
+		DeferCleanup(srv.Close)
+		out, err := New(srv.URL, "").GetClusterCarrier(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeFalse())
+	})
+})

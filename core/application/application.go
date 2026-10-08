@@ -611,6 +611,9 @@ func (a *Application) start() error {
 		if a.distributed != nil && a.distributed.Unloader != nil {
 			assistantClient.LoadStopper = a.distributed.Unloader
 		}
+		if a.distributed != nil && a.distributed.Switch != nil {
+			assistantClient.Carrier = a.distributed.Switch
+		}
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
