@@ -248,7 +248,7 @@ var _ = Describe("The worker dialer", func() {
 			Expect(peers.requested()).To(ContainElement(ContainSubstring("bulk-only")))
 		})
 
-		It("gets the refusal of the owner when the owner has no bulk session, and not a transfer on the other lane", func() {
+		It("gets the refusal of the owner when the owner has no bulk session, as that and not as a missing route", func() {
 			Expect(other.Disconnect("w1")).To(BeTrue())
 			front, back := sessionPair(tunnel.LaneInference)
 			worker.serve(back)
@@ -258,8 +258,9 @@ var _ = Describe("The worker dialer", func() {
 			dialer := tunnel.NewWorkerDialer(tunnels, peers)
 			_, err = dialer.Dial(ctx, "w1", tunnel.StreamTagHTTP, "", tunnel.WithBulkLane())
 			Expect(err).To(HaveOccurred())
-			Expect(errors.Is(err, tunnel.ErrRelayUnavailable)).To(BeTrue(), "%v", err)
-			Expect(worker.seen()).To(BeEmpty())
+			Expect(errors.Is(err, tunnel.ErrNoBulkSession)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse(), "the tunnel is held and carries model calls; only a lane is down")
+			Expect(worker.seen()).To(BeEmpty(), "nothing may have crossed the inference lane")
 		})
 
 		It("states the remaining budget of the caller in the relay request", func() {

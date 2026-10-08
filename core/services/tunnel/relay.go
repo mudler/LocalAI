@@ -35,6 +35,7 @@ const (
 	relayReplyAccepted   = "relay-ok"
 	relayCodeNotOwner    = "relay-not-owner"
 	relayCodeUnavailable = "relay-unavailable"
+	relayCodeNoBulk      = "relay-no-bulk"
 	relayCodeBadRequest  = "relay-bad-request"
 )
 
@@ -64,6 +65,12 @@ func relayLane(o dialOptions) string {
 // is the owning replica failing: it holds the tunnel and its session will not
 // carry a stream, so a retry is worth something and looking elsewhere is not.
 // ErrRelayRequestInvalid is a bug of the caller, and no retry helps.
+//
+// The owner also reports a bulk lane that is down (ErrNoBulkSession), so that the
+// dialling replica reports it as that and not as a route that does not exist. A
+// worker whose bulk session is being dialled again has a tunnel that carries
+// model calls, and a scheduler that demoted it for the lane would lose it for the
+// requests that work.
 //
 // None of them is built over an absence error. A refusal proves that a replica
 // answered.
@@ -150,6 +157,8 @@ func WriteRelayRefusal(w io.Writer, reason error) error {
 		code = relayCodeNotOwner
 	case errors.Is(reason, ErrRelayUnavailable):
 		code = relayCodeUnavailable
+	case errors.Is(reason, ErrNoBulkSession):
+		code = relayCodeNoBulk
 	}
 	text := ""
 	if reason != nil {
@@ -191,6 +200,8 @@ func ReadRelayReply(r io.Reader) error {
 		return fmt.Errorf("%w: %s", ErrNotOwner, text)
 	case relayCodeUnavailable:
 		return fmt.Errorf("%w: %s", ErrRelayUnavailable, text)
+	case relayCodeNoBulk:
+		return fmt.Errorf("%w: %s", ErrNoBulkSession, text)
 	case relayCodeBadRequest:
 		return fmt.Errorf("%w: %s", ErrRelayRequestInvalid, text)
 	}
@@ -324,9 +335,11 @@ func (r *Relay) accept(peerID string, stream net.Conn) (net.Conn, bool) {
 	}
 	local, err := r.tunnels.Open(ctx, nodeID, openLane, openOpts...)
 	if err != nil {
-		if errors.Is(err, ErrNotOwner) {
-			// As itself: the worker is probably well on another replica, and this
-			// is the answer that tells the caller to look there.
+		if errors.Is(err, ErrNotOwner) || errors.Is(err, ErrNoBulkSession) {
+			// As itself. ErrNotOwner: the worker is probably well on another
+			// replica, and this is the answer that tells the caller to look there.
+			// ErrNoBulkSession: the tunnel is held here and only its bulk lane is
+			// down, which the caller must not read as a failure of this replica.
 			r.refuse(peerID, stream, err)
 			return nil, false
 		}

@@ -97,6 +97,7 @@ var _ = Describe("The relay reply", func() {
 	It("keeps the three refusals apart", func() {
 		Expect(roundTrip(tunnel.ErrNotOwner)).To(MatchError(tunnel.ErrNotOwner))
 		Expect(roundTrip(tunnel.ErrRelayUnavailable)).To(MatchError(tunnel.ErrRelayUnavailable))
+		Expect(roundTrip(tunnel.ErrNoBulkSession)).To(MatchError(tunnel.ErrNoBulkSession))
 		Expect(roundTrip(errors.New("anything else"))).To(MatchError(tunnel.ErrRelayRequestInvalid))
 	})
 
