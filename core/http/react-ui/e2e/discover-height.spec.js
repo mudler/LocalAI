@@ -32,7 +32,7 @@ test.describe('Models Explore - the view scrolls, not the page', () => {
 
     const pageHeight = () => page.evaluate(() => document.documentElement.scrollHeight)
     const railHeight = () => page.evaluate(
-      () => document.querySelector('.entity-rail')?.getBoundingClientRect().height,
+      () => document.querySelector('.ledger-wrap')?.getBoundingClientRect().height,
     )
 
     const beforePage = await pageHeight()
@@ -50,7 +50,7 @@ test.describe('Models Explore - the view scrolls, not the page', () => {
 
     // The pane is the thing that scrolls.
     const paneOverflows = await page.evaluate(() => {
-      const el = document.querySelector('.split-view__pane')
+      const el = document.querySelector('.ledger__pane')
       return el ? getComputedStyle(el).overflowY : null
     })
     expect(paneOverflows).toBe('auto')
@@ -64,7 +64,7 @@ test.describe('Models Explore - the view scrolls, not the page', () => {
     await expect(page.locator('[data-testid="discover-rail-item"]').first()).toBeVisible({ timeout: 10_000 })
 
     const overflow = await page.evaluate(() => {
-      const el = document.querySelector('.split-view__pane')
+      const el = document.querySelector('.ledger__pane')
       return el ? getComputedStyle(el).overflowY : null
     })
     expect(overflow).toBe('visible')

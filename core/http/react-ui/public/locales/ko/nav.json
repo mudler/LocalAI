@@ -16,7 +16,8 @@
     "create": "만들기",
     "recognition": "인식",
     "build": "구축",
-    "operate": "운영"
+    "operate": "운영",
+    "workspace": "워크스페이스"
   },
   "operate": {
     "inference": "Inference",
@@ -61,7 +62,8 @@
     "activity": "활동",
     "overview": "개요",
     "thisMachine": "이 머신",
-    "failover": "페일오버"
+    "failover": "페일오버",
+    "p2p": "P2P"
   },
   "footer": {
     "github": "GitHub",
@@ -72,5 +74,26 @@
   "console": {
     "automation": "자동화",
     "training": "학습"
+  },
+  "hub": {
+    "status": "상태",
+    "runtime": "런타임",
+    "traffic": "트래픽",
+    "import": "가져오기",
+    "recognition": "인식",
+    "overviewSupporting": "모델로 만드는 모든 것을 한곳에서.",
+    "overviewEmpty": "이 계정에서 사용할 수 있는 빌드 도구가 없습니다.",
+    "toolsLabel": "빌드 도구",
+    "descriptions": {
+      "agents": "모델과 도구를 사용하는 에이전트를 만들고 실행합니다.",
+      "skills": "에이전트가 필요할 때 불러오는 재사용 가능한 지침입니다.",
+      "memory": "에이전트가 검색할 수 있는 문서 컬렉션입니다.",
+      "jobs": "에이전트가 대신 실행하는 예약 작업과 일회성 작업입니다.",
+      "fineTune": "내 데이터로 모델을 학습합니다.",
+      "quantize": "더 작은 하드웨어에서 돌아가도록 모델을 줄입니다.",
+      "import": "파일, URL 또는 Hugging Face 저장소에서 모델을 추가합니다.",
+      "voices": "화자를 식별하고 음성 프로필 라이브러리를 관리합니다.",
+      "faces": "얼굴을 감지, 비교, 매칭합니다."
+    }
   }
 }

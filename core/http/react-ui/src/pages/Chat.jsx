@@ -3,38 +3,61 @@ import { useParams, useOutletContext, useNavigate, useLocation } from 'react-rou
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
-import ModelSelector from '../components/ModelSelector'
 import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/artifacts'
+// eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
-import Toggle from '../components/Toggle'
+// eslint-disable-next-line no-unused-vars
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
 import { readAttachmentText } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
-import MCPAppFrame from '../components/MCPAppFrame'
+// eslint-disable-next-line no-unused-vars
 import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
+// eslint-disable-next-line no-unused-vars
+import HomeComposer from '../components/home/HomeComposer'
+// eslint-disable-next-line no-unused-vars
+import HomeModelPicker from '../components/home/HomeModelPicker'
+import { useModels } from '../hooks/useModels'
+import { useModelFit } from '../hooks/useModelFit'
+import { fillStyle, hostMemory, memoryFigure } from '../components/home/memory'
+import { gbLabel, gbNumber } from '../utils/modelLedger'
+import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
+import { isTyping } from '../components/chat/chatText'
+// eslint-disable-next-line no-unused-vars
+import ChatHeader from '../components/chat/ChatHeader'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsDialog from '../components/chat/ShortcutsDialog'
+// eslint-disable-next-line no-unused-vars
+import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+// eslint-disable-next-line no-unused-vars
+import FindBar from '../components/chat/FindBar'
+// eslint-disable-next-line no-unused-vars
+import LoadCard from '../components/chat/LoadCard'
+// eslint-disable-next-line no-unused-vars
+import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
+import { conversationsFromChats } from '../utils/homeConversations'
+import { applyFind, clearFind } from '../components/chat/findInThread'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import { loadClientMCPServers } from '../utils/mcpClientStorage'
+// eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
+// eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
-import { relativeTime } from '../utils/format'
+import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
+import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import Lightbox from '../components/Lightbox'
+// eslint-disable-next-line no-unused-vars
+import ChatMessage, { ActivityRow, StreamingTurn } from '../components/chat/ChatMessage'
+import { editableMessageText, withEditedMessageText, isActivityRole } from '../components/chat/chatText'
+import './chat.css'
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
-
-function getLastMessagePreview(chat) {
-  if (!chat.history || chat.history.length === 0) return ''
-  for (let i = chat.history.length - 1; i >= 0; i--) {
-    const msg = chat.history[i]
-    if (msg.role === 'user' || msg.role === 'assistant') {
-      const text = typeof msg.content === 'string' ? msg.content : msg.content?.[0]?.text || ''
-      return text.slice(0, 40).replace(/\n/g, ' ')
-    }
-  }
-  return ''
-}
 
 function serializeChatAsMarkdown(chat) {
   let md = `# ${chat.name}\n\n`
@@ -63,240 +86,6 @@ function downloadChatAsMarkdown(chat) {
   URL.revokeObjectURL(url)
 }
 
-function formatToolContent(raw) {
-  try {
-    const data = JSON.parse(raw)
-    const name = data.name || 'unknown'
-    let params = data.arguments || data.input || data.result || data.parameters || {}
-    if (typeof params === 'string') {
-      try { params = JSON.parse(params) } catch (_) { /* keep as string */ }
-    }
-    const entries = typeof params === 'object' && params !== null ? Object.entries(params) : []
-    return { name, entries, fallback: null }
-  } catch (_e) {
-    return { name: null, entries: [], fallback: raw }
-  }
-}
-
-function ToolParams({ entries, fallback }) {
-  if (fallback) {
-    return <span className="chat-activity-item-text">{fallback}</span>
-  }
-  if (entries.length === 0) return null
-  return (
-    <div className="chat-activity-params">
-      {entries.map(([k, v]) => {
-        const val = typeof v === 'string' ? v : JSON.stringify(v, null, 2)
-        const isLong = val.length > 120
-        return (
-          <div key={k} className="chat-activity-param">
-            <span className="chat-activity-param-key">{k}:</span>
-            <span className={`chat-activity-param-val${isLong ? ' chat-activity-param-val-long' : ''}`}>{val}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ActivityGroup({ items, updateChatSettings, activeChat, getClientForTool }) {
-  const { t } = useTranslation('chat')
-  const [expanded, setExpanded] = useState(false)
-  const contentRef = useRef(null)
-
-  useEffect(() => {
-    if (expanded && contentRef.current) highlightAll(contentRef.current)
-  }, [expanded])
-
-  if (!items || items.length === 0) return null
-
-  // Separate out tool_result items that have appUI — they render outside the collapsed group
-  const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
-  const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
-
-  const labels = regularItems.map(item => {
-    if (item.role === 'thinking' || item.role === 'reasoning') return t('activity.thought')
-    if (item.role === 'tool_call') {
-      try { return JSON.parse(item.content)?.name || t('activity.tool') } catch (_e) { return t('activity.tool') }
-    }
-    if (item.role === 'tool_result') {
-      try { return t('activity.toolResult', { name: JSON.parse(item.content)?.name || t('activity.tool') }) } catch (_e) { return t('activity.result') }
-    }
-    return item.role
-  })
-  const summary = labels.join(' → ')
-
-  return (
-    <>
-      {regularItems.length > 0 && (
-        <div className="chat-message chat-message-assistant">
-          <div className="chat-message-avatar">
-            <i className="fas fa-cogs" />
-          </div>
-          <div className="chat-activity-group">
-            <button className="chat-activity-toggle" onClick={() => setExpanded(!expanded)}>
-              <span className="chat-activity-summary">{summary}</span>
-              <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
-            </button>
-            {expanded && (
-              <div className="chat-activity-details" ref={contentRef}>
-                {regularItems.map((item, idx) => {
-                  if (item.role === 'thinking' || item.role === 'reasoning') {
-                    return (
-                      <div key={idx} className="chat-activity-item chat-activity-thinking">
-                        <span className="chat-activity-item-label">{t('activity.thought')}</span>
-                        <div className="chat-activity-item-content"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content || '') }} />
-                      </div>
-                    )
-                  }
-                  const isCall = item.role === 'tool_call'
-                  const parsed = formatToolContent(item.content)
-                  return (
-                    <div key={idx} className={`chat-activity-item ${isCall ? 'chat-activity-tool-call' : 'chat-activity-tool-result'}`}>
-                      <span className="chat-activity-item-label">{labels[idx]}</span>
-                      <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {appUIItems.map((item, idx) => (
-        <div key={`appui-${idx}`} className="chat-message chat-message-assistant">
-          <div className="chat-message-avatar">
-            <i className="fas fa-puzzle-piece" />
-          </div>
-          <div className="chat-message-bubble">
-            <span className="chat-message-model">{item.appUI.toolName}</span>
-            <MCPAppFrame
-              toolName={item.appUI.toolName}
-              toolInput={item.appUI.toolInput}
-              toolResult={item.appUI.toolResult}
-              mcpClient={getClientForTool?.(item.appUI.toolName) || null}
-              toolDefinition={item.appUI.toolDefinition}
-              appHtml={item.appUI.html}
-              resourceMeta={item.appUI.meta}
-            />
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}
-
-function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
-  const { t } = useTranslation('chat')
-  const hasContent = reasoning || (toolCalls && toolCalls.length > 0)
-  if (!hasContent) return null
-
-  const contentRef = useRef(null)
-  const [manualCollapse, setManualCollapse] = useState(null)
-
-  // Auto-expand while thinking or tool-calling, auto-collapse when response starts
-  const autoExpanded = (reasoning || (toolCalls && toolCalls.length > 0)) && !hasResponse
-  const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
-
-  // Scroll to bottom of thinking content as it streams
-  useEffect(() => {
-    if (expanded && contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight
-    }
-  }, [reasoning, expanded])
-
-  // Reset manual override when streaming state changes significantly
-  useEffect(() => {
-    setManualCollapse(null)
-  }, [hasResponse])
-
-  const lastTool = toolCalls && toolCalls.length > 0 ? toolCalls[toolCalls.length - 1] : null
-  const label = reasoning
-    ? t('activity.thinking')
-    : lastTool
-      ? (lastTool.type === 'tool_call' ? lastTool.name : t('activity.toolResult', { name: lastTool.name }))
-      : ''
-
-  return (
-    <div className="chat-message chat-message-assistant">
-      <div className="chat-message-avatar">
-        <i className="fas fa-cogs" />
-      </div>
-      <div className="chat-activity-group chat-activity-streaming">
-        <button className="chat-activity-toggle" onClick={() => setManualCollapse(expanded)}>
-          <span className={`chat-activity-summary${!expanded ? ' chat-activity-shimmer' : ''}`}>
-            {label}
-          </span>
-          <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} />
-        </button>
-        {expanded && reasoning && (
-          <div className="chat-activity-details">
-            <div className="chat-activity-item chat-activity-thinking">
-              <div className="chat-activity-item-content chat-activity-live" ref={contentRef}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(reasoning) }} />
-            </div>
-          </div>
-        )}
-        {expanded && toolCalls && toolCalls.length > 0 && (
-          <div className="chat-activity-details">
-            {toolCalls.map((tc, idx) => {
-              if (tc.type === 'tool_result') {
-                return (
-                  <div key={idx} className="chat-activity-item chat-activity-tool-result">
-                    <span className="chat-activity-item-label">{t('activity.toolResult', { name: tc.name })}</span>
-                    <div className="chat-activity-item-content"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(tc.result || '') }} />
-                  </div>
-                )
-              }
-              const parsed = formatToolContent(JSON.stringify(tc, null, 2))
-              return (
-                <div key={idx} className="chat-activity-item chat-activity-tool-call">
-                  <span className="chat-activity-item-label">{tc.name || tc.type}</span>
-                  <ToolParams entries={parsed.entries} fallback={parsed.fallback} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function UserMessageContent({ content, files }) {
-  const text = typeof content === 'string' ? content : content?.[0]?.text || ''
-  return (
-    <>
-      <div className="wrap-anywhere">{text}</div>
-      {files && files.length > 0 && (
-        <div className="chat-message-files">
-          {files.map((f, i) => (
-            <span key={i} className="chat-file-inline">
-              <i className={`fas ${f.type === 'image' ? 'fa-image' : f.type === 'audio' ? 'fa-headphones' : f.type === 'video' ? 'fa-film' : 'fa-file'}`} />
-              {f.name}
-            </span>
-          ))}
-        </div>
-      )}
-      {Array.isArray(content) && content.filter(c => c.type === 'image_url').map((img, i) => (
-        <img key={i} src={img.image_url.url} alt="attached" className="chat-inline-image" />
-      ))}
-      {Array.isArray(content) && content.filter(c => c.type === 'video_url').map((vid, i) => (
-        <video key={i} src={vid.video_url.url} controls className="chat-inline-video" />
-      ))}
-    </>
-  )
-}
-
-function editableMessageText(message) {
-  if (typeof message.content === 'string') return message.content
-  if (!Array.isArray(message.content)) return null
-  const textBlock = message.content.find(block => block?.type === 'text')
-  return typeof textBlock?.text === 'string' ? textBlock.text : null
-}
-
 // formatLoadEta renders the server's remaining-seconds estimate. The server
 // omits it entirely until its observed transfer rate is meaningful, so anything
 // arriving here is worth showing.
@@ -306,17 +95,6 @@ function formatLoadEta(seconds) {
   const minutes = Math.round(seconds / 60)
   if (minutes < 60) return `${minutes} min`
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-}
-
-function withEditedMessageText(message, text) {
-  if (typeof message.content === 'string') return { ...message, content: text }
-  const textIndex = message.content.findIndex(block => block?.type === 'text')
-  return {
-    ...message,
-    content: message.content.map((block, index) =>
-      index === textIndex ? { ...block, text } : block
-    ),
-  }
 }
 
 export default function Chat() {
@@ -354,6 +132,8 @@ export default function Chat() {
           + (modelLoading.node ? ` ${t('streaming.onNode', { node: modelLoading.node })}` : ''),
         progress: modelLoading.progress || 0,
         detail: eta ? t('streaming.eta', { value: eta }) : '',
+        sent: modelLoading.bytes_sent || 0,
+        total: modelLoading.total_bytes || 0,
       }
     }
     if (stagingOp) {
@@ -382,16 +162,21 @@ export default function Chat() {
   const [mcpResourceList, setMcpResourceList] = useState([])
   const [mcpResourcesLoading, setMcpResourcesLoading] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
-  const [showModelInfo, setShowModelInfo] = useState(false)
+  const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [clientMCPServers, setClientMCPServers] = useState(() => loadClientMCPServers())
   const [confirmDialog, setConfirmDialog] = useState(null)
-  const [completionGlowIdx, setCompletionGlowIdx] = useState(-1)
+  const [lightbox, setLightbox] = useState(null)
+  const [renaming, setRenaming] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const pendingDeleteRef = useRef(null)
   const [editingMessageIndex, setEditingMessageIndex] = useState(null)
   const [messageEditDraft, setMessageEditDraft] = useState('')
-  const prevStreamingRef = useRef(false)
+  const pendingArtifactRef = useRef(null)
+  const { ids: loadedIds } = useLoadedModels()
   const {
     connect: mcpConnect, disconnect: mcpDisconnect, disconnectAll: mcpDisconnectAll,
     getToolsForLLM, isClientTool, executeTool, connectionStatuses, getConnectedTools,
@@ -404,6 +189,20 @@ export default function Chat() {
   const stickToBottomRef = useRef(true)
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
+  const pickerRef = useRef(null)
+  const { models: chatModels, loading: chatModelsLoading } = useModels(CAP_CHAT)
+  const [fitOpenCount, setFitOpenCount] = useState(0)
+  const modelNames = useMemo(() => chatModels.map(m => m.id), [chatModels])
+  const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames, contextSize: activeChat?.contextSize })
+  const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
+  const hasThread = (activeChat?.history?.length || 0) > 0
+  const slashConfig = useMemo(() => ({
+    actions: availableChatActions({ isAdmin, hasModels: chatModels.length > 0, hasThread }),
+    groups: CHAT_SLASH_GROUPS,
+    label: (a) => t(`slash.${a.id}.label`),
+    desc: (a) => t(`slash.${a.id}.desc`),
+    groupLabel: (g) => t(`slash.group.${g}`),
+  }), [isAdmin, chatModels.length, hasThread, t])
 
   // Focus mode: once a conversation has at least one message we slim the
   // surrounding chrome (collapse the global app rail, fade non-essential
@@ -426,6 +225,7 @@ export default function Chat() {
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
     [activeChat?.history, canvasMode]
   )
+  const modelWarm = !!activeChat?.model && loadedIds.has(activeChat.model)
 
   const prevArtifactCountRef = useRef(0)
   useEffect(() => {
@@ -433,24 +233,13 @@ export default function Chat() {
   }, [activeChat?.id])
   useEffect(() => {
     if (artifacts.length > prevArtifactCountRef.current && artifacts.length > 0) {
-      setSelectedArtifactId(artifacts[artifacts.length - 1].id)
+      // A block opened from its own Canvas button is the one to show.
+      setSelectedArtifactId(pendingArtifactRef.current || artifacts[artifacts.length - 1].id)
+      pendingArtifactRef.current = null
       if (!canvasOpen) setCanvasOpen(true)
     }
     prevArtifactCountRef.current = artifacts.length
   }, [artifacts])
-
-  // Completion glow: when streaming finishes, briefly highlight last assistant message
-  useEffect(() => {
-    if (prevStreamingRef.current && !isStreaming && activeChat?.history?.length > 0) {
-      const lastIdx = activeChat.history.length - 1
-      if (activeChat.history[lastIdx]?.role === 'assistant') {
-        setCompletionGlowIdx(lastIdx)
-        const timer = setTimeout(() => setCompletionGlowIdx(-1), 600)
-        return () => clearTimeout(timer)
-      }
-    }
-    prevStreamingRef.current = isStreaming
-  }, [isStreaming, activeChat?.history?.length])
 
   // Check MCP availability and fetch model config (admin-only endpoint)
   useEffect(() => {
@@ -661,15 +450,18 @@ export default function Chat() {
         const data = JSON.parse(stored)
         localStorage.removeItem('localai_index_chat_data')
 
-        // Two entry shapes from Home:
+        // Three entry shapes from Home:
         //   - "compose-and-send": data.message present → open new chat,
         //     prefill the composer, click submit.
         //   - "open-assistant": no message, just data.localaiAssistant → open
         //     a fresh chat already in admin mode so the wizard can fire.
+        //   - "new-chat": no message, data.newChat only → open an empty chat
+        //     on the chosen model (the /new action on the command bar).
         const hasMessage = !!data.message
         const wantsAssistant = !!data.localaiAssistant
+        const wantsNewChat = !!data.newChat
 
-        if (hasMessage || wantsAssistant) {
+        if (hasMessage || wantsAssistant || wantsNewChat) {
           let targetChat = activeChat
           if (data.newChat) {
             targetChat = addChat(data.model || '', '', data.mcpMode || false)
@@ -750,8 +542,13 @@ export default function Chat() {
     }
   }, [focusActive])
 
-  // Global keybindings: Cmd/Ctrl+K opens the chats menu; Esc exits focus
-  // mode while it is engaged (without closing any open dialogs first).
+  // Global keybindings: Cmd/Ctrl+K opens the chats menu and Cmd/Ctrl+Shift+F
+  // searches this chat. Esc stops a reply that is streaming, else closes the
+  // search, else closes the canvas; it also exits focus mode while that is
+  // engaged. None of that fires while a menu or dialog is open: those take
+  // their own Esc first.
+  const escapeRef = useRef({})
+  escapeRef.current = { streaming: isStreaming, stop: stopGeneration, findOpen: find.open, canvasOpen }
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -760,8 +557,30 @@ export default function Chat() {
         chatsMenuRef.current?.toggle()
         return
       }
+      if (isMod && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+        return
+      }
+      // "/" from anywhere that is not a text field starts a command, as on Home.
+      if (e.key === '/' && !isMod && !e.altKey && !isTyping(document.activeElement) && !document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        const el = textareaRef.current
+        if (el) {
+          e.preventDefault()
+          setInput('/')
+          el.focus()
+        }
+        return
+      }
+      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, [role="dialog"], [role="alertdialog"]')
+      if (e.key === 'Escape' && !overlay) {
+        const cur = escapeRef.current
+        if (cur.streaming) cur.stop()
+        else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+        else if (cur.canvasOpen) setCanvasOpen(false)
+      }
       if (e.key === 'Escape' && focusActive) {
-        // Don't fight the chats menu / settings drawer / dialogs — they
+        // Don't fight the chats menu / settings sheet / dialogs: they
         // each handle their own Esc and stop propagation when open.
         setFocusOverride(true)
       }
@@ -769,6 +588,33 @@ export default function Chat() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [focusActive])
+
+  // Find in chat: mark the matches in the thread, then show the current one.
+  // The search is the browser's own, over what this page has loaded.
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    if (!find.open || !find.query) {
+      clearFind(root)
+      setFind(f => (f.count === 0 ? f : { ...f, count: 0 }))
+      return
+    }
+    const marks = applyFind(root, find.query)
+    setFind(f => (f.count === marks.length ? f : { ...f, count: marks.length, index: Math.min(f.index, Math.max(0, marks.length - 1)) }))
+  }, [find.open, find.query, activeChat?.history, canvasMode, isStreaming])
+
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    root.querySelectorAll('mark.cx-hit').forEach((mark, i) => {
+      if (i === find.index) {
+        mark.setAttribute('data-cur', '')
+        mark.scrollIntoView({ block: 'center' })
+      } else {
+        mark.removeAttribute('data-cur')
+      }
+    })
+  }, [find.index, find.count, find.query])
 
   // Highlight code blocks + add per-block copy buttons. A MutationObserver on
   // the messages container is more reliable than render-keyed effects: it fires
@@ -779,16 +625,21 @@ export default function Chat() {
     const el = messagesRef.current
     if (!el) return
     let obs
+    const labels = {
+      copyLabel: t('actions.copy'),
+      canvasLabel: canvasMode ? undefined : t('input.canvasLabel'),
+      selector: '.cx-prose pre:not([data-enhanced])',
+    }
     const run = () => {
       obs?.disconnect()
       highlightAll(el)
-      enhanceCodeBlocks(el)
+      enhanceCodeBlocks(el, labels)
       obs?.observe(el, { childList: true, subtree: true })
     }
     obs = new MutationObserver(run)
     run()
     return () => obs.disconnect()
-  }, [activeChat?.id])
+  }, [activeChat?.id, canvasMode, t])
 
   // Auto-grow textarea
   const autoGrowTextarea = useCallback(() => {
@@ -802,11 +653,26 @@ export default function Chat() {
     autoGrowTextarea()
   }, [input, autoGrowTextarea])
 
-  // Event delegation for artifact cards
+  // Event delegation for artifact cards and the Canvas button on a code block.
   useEffect(() => {
     const el = messagesRef.current
-    if (!el || !canvasMode) return
+    if (!el) return
     const handler = (e) => {
+      const canvasBtn = e.target.closest('.code-canvas-btn')
+      if (canvasBtn) {
+        const text = canvasBtn.closest('.code-block')?.querySelector('pre code')?.textContent || ''
+        const at = Number(canvasBtn.closest('[data-index]')?.dataset.index)
+        const all = extractCodeArtifacts(activeChat?.history, 'role', 'assistant')
+        const same = (a) => a.code.trim() === text.trim()
+        const match = all.find(a => a.messageIndex === at && same(a)) || all.find(same)
+        if (!match) return
+        pendingArtifactRef.current = match.id
+        setSelectedArtifactId(match.id)
+        setCanvasMode(true)
+        setCanvasOpen(true)
+        return
+      }
+      if (!canvasMode) return
       const openBtn = e.target.closest('.artifact-card-open')
       const downloadBtn = e.target.closest('.artifact-card-download')
       const card = e.target.closest('.artifact-card')
@@ -835,11 +701,13 @@ export default function Chat() {
     }
     el.addEventListener('click', handler)
     return () => el.removeEventListener('click', handler)
-  }, [canvasMode, artifacts])
+  }, [canvasMode, artifacts, activeChat?.history])
 
-  const handleFileChange = useCallback(async (e) => {
+  // Files from any of the three attach buttons. Text and PDF files carry their
+  // extracted text with them; a file that cannot be read is skipped with a toast.
+  const attachFiles = useCallback(async (_kind, list) => {
     const newFiles = []
-    for (const file of e.target.files) {
+    for (const file of list) {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
@@ -853,7 +721,6 @@ export default function Chat() {
       newFiles.push(entry)
     }
     setFiles(prev => [...prev, ...newFiles])
-    e.target.value = ''
   }, [addToast, t])
 
   const handlePaste = useCallback(async (e) => {
@@ -878,6 +745,7 @@ export default function Chat() {
   }, [])
 
   const handleSend = useCallback(async () => {
+    if (isStreaming) return
     const msg = input.trim()
     if (!msg && files.length === 0) return
     if (!activeChat?.model) {
@@ -907,7 +775,7 @@ export default function Chat() {
       },
     } : {}
     await sendMessage(msg, files, mcpOptions)
-  }, [input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
+  }, [isStreaming, input, files, activeChat, sendMessage, addToast, getToolsForLLM, isClientTool, executeTool, hasAppUI, getAppResource, getToolDefinition])
 
   const handleRegenerate = useCallback(async (targetIndex) => {
     if (!activeChat || isStreaming) return
@@ -934,21 +802,19 @@ export default function Chat() {
     await sendMessage(userContent, userFiles, { baseHistory, prebuiltContent: true })
   }, [activeChat, isStreaming, sendMessage, updateChatSettings])
 
-  const handleKeyDown = (e) => {
-    // Only Enter (no modifiers, no IME composition) sends.
-    // Shift+Enter, Ctrl+Enter, Meta+Enter, Alt+Enter all fall through to default textarea behavior (newline).
-    if (
-      e.key === 'Enter' &&
-      !e.shiftKey &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey &&
-      !e.nativeEvent?.isComposing &&
-      e.keyCode !== 229
-    ) {
-      e.preventDefault()
-      handleSend()
+  // Up in an empty box edits your last message, as in most chat apps.
+  const onComposerKey = (e) => {
+    if (e.key !== 'ArrowUp' || input || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false
+    if (isStreaming || !activeChat) return false
+    for (let i = activeChat.history.length - 1; i >= 0; i--) {
+      const msg = activeChat.history[i]
+      if (msg.role === 'user' && editableMessageText(msg) !== null) {
+        e.preventDefault()
+        startMessageEdit(i, msg)
+        return true
+      }
     }
+    return false
   }
 
   const copyMessage = async (content) => {
@@ -966,13 +832,93 @@ export default function Chat() {
     addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
   }
 
-  const contextPercent = getContextUsagePercent()
+  // The thread as rows: a run of reasoning and tool entries folds into the
+  // assistant message that follows it, or stands alone when none does yet.
+  const history = activeChat?.history
+  const rows = useMemo(() => {
+    const out = []
+    let buf = []
+    ;(history || []).forEach((msg, i) => {
+      if (isActivityRole(msg.role)) { buf.push(msg); return }
+      if (buf.length > 0 && msg.role !== 'assistant') {
+        out.push({ kind: 'activity', key: i, items: buf })
+        buf = []
+      }
+      out.push({ kind: 'msg', index: i, msg, activity: buf.length > 0 ? buf : null })
+      buf = []
+    })
+    if (buf.length > 0) out.push({ kind: 'activity', key: 'end', items: buf })
+    return out
+  }, [history])
 
-  // Recent chats for the empty state — exclude the current chat and any
-  // empty placeholders, keep the four most recently updated.
-  const recentChats = chats
-    .filter(c => c.id !== activeChatId && (c.history?.length || 0) > 0)
-    .slice(0, 4)
+  // Deleting a chat is final when its undo time ends. Until then the chat stays
+  // in storage and only its row is hidden; if it was the open one, the next
+  // chat opens in its place.
+  const deleteRef = useRef(deleteChat)
+  deleteRef.current = deleteChat
+  const commitDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current
+    if (!pending) return
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    deleteRef.current(pending.id)
+  }, [])
+  const commitRef = useRef(commitDelete)
+  commitRef.current = commitDelete
+  useEffect(() => () => commitRef.current(), [])
+
+  const visibleChats = useMemo(
+    () => chats.filter(c => c.id !== pendingDelete?.id),
+    [chats, pendingDelete],
+  )
+
+  const requestDelete = (chat) => {
+    commitDelete()
+    const wasActive = chat.id === activeChatId
+    if (wasActive) {
+      const next = chats.find(c => c.id !== chat.id)
+      if (next) switchChat(next.id)
+    }
+    const pending = { id: chat.id, name: chat.name, wasActive }
+    pendingDeleteRef.current = pending
+    setPendingDelete(pending)
+  }
+
+  const undoDelete = () => {
+    const pending = pendingDeleteRef.current
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    if (pending?.wasActive) switchChat(pending.id)
+  }
+
+  // The message component is memoised, so it gets one stable set of actions
+  // that always call the latest handlers.
+  const actionsRef = useRef(null)
+  actionsRef.current = {
+    copyMessage, startMessageEdit, saveMessageEdit, cancelMessageEdit,
+    handleRegenerate, forkChat, addToast, t, activeChat,
+  }
+  const messageActions = useMemo(() => ({
+    copy: (content) => actionsRef.current.copyMessage(content),
+    startEdit: (index, message) => actionsRef.current.startMessageEdit(index, message),
+    saveEdit: () => actionsRef.current.saveMessageEdit(),
+    cancelEdit: () => actionsRef.current.cancelMessageEdit(),
+    regenerate: (index) => actionsRef.current.handleRegenerate(index),
+    branch: (index) => {
+      const a = actionsRef.current
+      a.forkChat(a.activeChat.id, index + 1)
+      a.addToast(a.t('toasts.forked'), 'success', 2000)
+    },
+    focusRelative: (index, delta) => {
+      const els = Array.from(messagesRef.current?.querySelectorAll('[data-testid="chat-message"]') || [])
+      const at = els.findIndex(el => Number(el.dataset.index) === index)
+      const next = els[at + delta]
+      if (next) { next.focus(); next.scrollIntoView({ block: 'nearest' }) }
+    },
+  }), [])
+  const openImage = useCallback((images, index) => setLightbox({ images, index }), [])
+
+  const contextPercent = getContextUsagePercent()
 
   const promptDeleteAll = () => setConfirmDialog({
     title: t('deleteAllDialog.title'),
@@ -982,644 +928,345 @@ export default function Chat() {
     onConfirm: () => { setConfirmDialog(null); deleteAllChats() },
   })
 
+  const promptClear = () => setConfirmDialog({
+    title: t('clearDialog.title'),
+    message: t('clearDialog.message'),
+    confirmLabel: t('clearDialog.confirm'),
+    danger: true,
+    onConfirm: () => { setConfirmDialog(null); clearHistory(activeChat.id) },
+  })
+
   if (!activeChat) return null
 
-  const layoutClasses = [
-    'chat-layout',
-    isInConversation ? 'chat--has-messages' : '',
-    focusActive ? 'chat--focus' : '',
-  ].filter(Boolean).join(' ')
+  const openFind = () => setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+  const closeFind = () => {
+    clearFind(messagesRef.current)
+    setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+    textareaRef.current?.focus()
+  }
+  const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
+
+  const isEmpty = activeChat.history.length === 0 && !isStreaming
+  const noModel = !activeChat.model && !chatModelsLoading && chatModels.length === 0
+  const conversations = isEmpty
+    ? conversationsFromChats(visibleChats.filter(c => c.id !== activeChatId))
+    : []
+
+  const toggleCanvasMode = () => {
+    const next = !canvasMode
+    setCanvasMode(next)
+    if (!next) setCanvasOpen(false)
+  }
+
+  // What a row of the model list says: whether it is loaded, what it can do and,
+  // where the server can estimate it, how it fits this machine. A model with no
+  // estimate gets no fit text.
+  const describeModel = (name, warm) => {
+    const vision = chatModels.find(m => m.id === name)?.capabilities?.includes('FLAG_VISION')
+    const reading = modelFit.reading(name)
+    let fit = null
+    if (warm) fit = { tone: 'ok', text: t('picker.readyNow') }
+    else if (reading?.fit) {
+      const f = reading.fit
+      fit = f.state === 'fits'
+        ? { tone: 'ok', text: t('picker.fits', { amount: gbNumber(f.amount) }) }
+        : f.state === 'spill'
+          ? { tone: 'warn', text: t('picker.spill', { amount: gbNumber(f.amount) }) }
+          : { tone: 'err', text: t('picker.over', { amount: gbNumber(f.amount) }) }
+    }
+    return { vision: !!vision, size: reading?.bytes ? gbLabel(reading.bytes) : null, fit }
+  }
+  const memory = hostMemory(modelFit.resources)
+  const memoryNumbers = memory ? memoryFigure(memory.used, memory.total) : null
+  const picker = (
+    <HomeModelPicker
+      ref={pickerRef}
+      value={activeChat.model}
+      onChange={(model) => updateChatSettings(activeChat.id, { model })}
+      capability={CAP_CHAT}
+      models={chatModels}
+      loading={chatModelsLoading}
+      loadedIds={loadedIds}
+      grouped
+      describe={describeModel}
+      onOpen={onPickerOpen}
+      footer={memoryNumbers && (
+        <div className="home-menu__foot" data-testid="chat-model-memory">
+          <span>{memory.isGpu ? t('picker.gpuMemory') : t('picker.memory')}</span>
+          <span className="cx-ctx__bar" aria-hidden="true"><i style={fillStyle(memory.pct)} /></span>
+          <span>{t('picker.memoryUsed', { used: memoryNumbers.used, total: memoryNumbers.total, unit: memoryNumbers.unit })}</span>
+        </div>
+      )}
+    />
+  )
+
+  const mcp = (
+    <UnifiedMCPDropdown
+      serverMCPAvailable={mcpAvailable}
+      mcpServerList={mcpServerList}
+      mcpServersLoading={mcpServersLoading}
+      serverListError={mcpServerListError}
+      selectedServers={activeChat.mcpServers || []}
+      onToggleServer={toggleMcpServer}
+      onSelectAllServers={() => {
+        const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
+        const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
+        updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
+      }}
+      onFetchServers={fetchMcpServers}
+      clientMCPActiveIds={activeChat.clientMCPServers || []}
+      onClientToggle={handleClientMCPToggle}
+      onClientAdded={handleClientMCPServerAdded}
+      onClientRemoved={handleClientMCPServerRemoved}
+      connectionStatuses={connectionStatuses}
+      getConnectedTools={getConnectedTools}
+      promptsAvailable={mcpAvailable}
+      mcpPromptList={mcpPromptList}
+      mcpPromptsLoading={mcpPromptsLoading}
+      onFetchPrompts={fetchMcpPrompts}
+      onSelectPrompt={handleSelectPrompt}
+      promptArgsDialog={mcpPromptArgsDialog}
+      promptArgsValues={mcpPromptArgsValues}
+      onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
+      onPromptArgsSubmit={handleExpandPromptWithArgs}
+      onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
+      resourcesAvailable={mcpAvailable}
+      mcpResourceList={mcpResourceList}
+      mcpResourcesLoading={mcpResourcesLoading}
+      onFetchResources={fetchMcpResources}
+      selectedResources={activeChat.mcpResources || []}
+      onToggleResource={toggleMcpResource}
+    />
+  )
+
+  const canvasChip = (
+    <span className="cx-chipset">
+      <button
+        type="button"
+        className="home-chip cx-chip-toggle"
+        aria-pressed={canvasMode}
+        onClick={toggleCanvasMode}
+        title={t('input.canvasTitle')}
+        data-testid="chat-canvas-chip"
+      >
+        <Icon name="columns" />
+        <span className="home-chip__text">{t('input.canvasLabel')}</span>
+      </button>
+      {canvasMode && artifacts.length > 0 && !canvasOpen && (
+        <button
+          type="button"
+          className="home-chip cx-chip-count"
+          title={t('input.openCanvas')}
+          aria-label={t('input.openCanvas')}
+          onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
+        >
+          {artifacts.length}
+        </button>
+      )}
+    </span>
+  )
+
+  const moreItems = [
+    { key: 'rename', icon: 'pencil', label: t('menu.rename'), onClick: () => setRenaming(true) },
+    { key: 'duplicate', icon: 'copy', label: t('menu.duplicate'), onClick: () => { if (forkChat(activeChat.id)) addToast(t('toasts.forked'), 'success', 2000) } },
+    { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChatAsMarkdown(activeChat) },
+    { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => downloadChatAsMarkdown(activeChat) },
+    { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(activeChat.model && isAdmin), onClick: () => setShowSettings(true) },
+    { key: 'keys', icon: 'keyboard', label: t('shortcuts.title'), onClick: () => setShowShortcuts(true) },
+    { divider: true },
+    { key: 'clear', icon: 'trash', label: t('clearDialog.confirm'), danger: true, hidden: !hasThread, onClick: promptClear },
+  ]
+
+  const runSlash = (id) => {
+    switch (id) {
+      case 'model': pickerRef.current?.open(); break
+      case 'new': addChat(activeChat.model); break
+      case 'chats': chatsMenuRef.current?.open(); break
+      case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
+      case 'canvas': toggleCanvasMode(); break
+      case 'settings': setShowSettings(true); break
+      case 'find': openFind(); break
+      case 'export': downloadChatAsMarkdown(activeChat); break
+      case 'clear': promptClear(); break
+      default: break
+    }
+  }
 
   return (
-    <div className={layoutClasses}>
-      {/* Chat main area */}
-      <div className="chat-main">
-        {/* Header */}
-        <div className="chat-header">
-          <ChatsMenu
-            ref={chatsMenuRef}
-            chats={chats}
-            activeChatId={activeChatId}
-            streamingChatId={streamingChatId}
-            onSelect={switchChat}
-            onNew={() => addChat(activeChat.model)}
-            onDelete={deleteChat}
-            onDeleteAll={promptDeleteAll}
-            onRename={renameChat}
-            onExport={(chat) => downloadChatAsMarkdown(chat)}
-            onCopyChat={(chat) => copyChatAsMarkdown(chat)}
-            onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
+    <div className="cx-page">
+      {/* Conversation column */}
+      <div className="cx-conv" data-empty={isEmpty || undefined}>
+        <ChatHeader
+          historyMenu={(
+            <ChatsMenu
+              ref={chatsMenuRef}
+              chats={visibleChats}
+              activeChatId={activeChatId}
+              streamingChatId={streamingChatId}
+              onSelect={switchChat}
+              onNew={() => addChat(activeChat.model)}
+              onDelete={requestDelete}
+              onDeleteAll={promptDeleteAll}
+              onRename={renameChat}
+              onExport={(chat) => downloadChatAsMarkdown(chat)}
+              onCopyChat={(chat) => copyChatAsMarkdown(chat)}
+              onDuplicate={(chat) => { if (forkChat(chat.id)) addToast(t('toasts.forked'), 'success', 2000) }}
+            />
+          )}
+          manageMode={!!activeChat.localaiAssistant}
+          name={activeChat.name}
+          onRename={(name) => renameChat(activeChat.id, name)}
+          renaming={renaming}
+          setRenaming={setRenaming}
+          contextPercent={contextPercent}
+          contextTokens={activeChat.tokenUsage?.total || 0}
+          contextSize={activeChat.contextSize}
+          onFind={() => openFind()}
+          findOpen={find.open}
+          onSettings={() => setShowSettings(v => !v)}
+          settingsOpen={showSettings}
+          moreItems={moreItems}
+        />
+
+        {find.open && (
+          <FindBar
+            query={find.query}
+            index={find.index}
+            count={find.count}
+            focusToken={find.token}
+            onQuery={(query) => setFind(f => ({ ...f, query, index: 0 }))}
+            onStep={stepFind}
+            onClose={closeFind}
           />
-          {activeChat.localaiAssistant && (
-            <span
-              className="chat-header-shield"
-              title={t('header.manageModeTooltip')}
-            >
-              <i className="fas fa-user-shield" />
-            </span>
-          )}
-          <span className="chat-header-title" title={activeChat.name}>{activeChat.name}</span>
-          <ModelSelector
-            value={activeChat.model}
-            onChange={(model) => updateChatSettings(activeChat.id, { model })}
-            capability={CAP_CHAT}
-            style={{ flex: '1 1 0', minWidth: 120 }}
-          />
-          <div className="chat-header-actions">
-            {activeChat.model && isAdmin && (
-              <button
-                type="button"
-                className={`btn btn-secondary btn-sm${showModelInfo ? ' active' : ''}`}
-                onClick={() => setShowModelInfo(prev => !prev)}
-                title={t('header.modelInfo')}
-                aria-pressed={showModelInfo}
-                aria-controls="chat-model-info-panel"
-              >
-                <i className="fas fa-circle-info" />
-              </button>
-            )}
-            <button
-              type="button"
-              className={`btn btn-secondary btn-sm${showSettings ? ' active' : ''}`}
-              onClick={() => setShowSettings(!showSettings)}
-              title={t('header.chatSettings')}
-              aria-pressed={showSettings}
-            >
-              <i className="fas fa-sliders-h" />
-            </button>
-          </div>
-        </div>
-
-        {/* Model info panel */}
-        {showModelInfo && modelInfo && (
-          <div id="chat-model-info-panel" className="chat-model-info-panel">
-            <div className="chat-model-info-header">
-              <span>{t('header.modelInfoTitle', { model: activeChat.model })}</span>
-              <div className="hstack hstack--xs">
-                {isAdmin && activeChat.model && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
-                    title={t('header.editConfig')}
-                  >
-                    <i className="fas fa-pen-to-square" /> {t('header.editConfig')}
-                  </button>
-                )}
-                <button className="btn btn-secondary btn-sm" onClick={() => setShowModelInfo(false)} title={t('header.close')}>
-                  <i className="fas fa-times" />
-                </button>
-              </div>
-            </div>
-            <div className="chat-model-info-body">
-              {modelInfo.backend && <div className="chat-model-info-row"><span>{t('modelInfo.backend')}</span><span>{modelInfo.backend}</span></div>}
-              {modelInfo.parameters?.model && <div className="chat-model-info-row"><span>{t('modelInfo.modelFile')}</span><span>{modelInfo.parameters.model}</span></div>}
-              {modelInfo.context_size > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.contextSize')}</span><span>{modelInfo.context_size}</span></div>}
-              {modelInfo.threads > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.threads')}</span><span>{modelInfo.threads}</span></div>}
-              {(modelInfo.mcp?.remote || modelInfo.mcp?.stdio) && <div className="chat-model-info-row"><span>{t('modelInfo.mcp')}</span><span className="badge badge-success">{t('modelInfo.configured')}</span></div>}
-              {modelInfo.template?.chat_message && <div className="chat-model-info-row"><span>{t('modelInfo.chatTemplate')}</span><span>{t('modelInfo.yes')}</span></div>}
-              {modelInfo.gpu_layers > 0 && <div className="chat-model-info-row"><span>{t('modelInfo.gpuLayers')}</span><span>{modelInfo.gpu_layers}</span></div>}
-            </div>
-          </div>
         )}
 
-        {/* Context window progress bar */}
-        {contextPercent !== null && (
-          <div className="chat-context-bar">
-            <div className="chat-context-progress"
-              style={{
-                width: `${contextPercent}%`,
-                background: contextPercent > 90 ? 'var(--color-error)' : contextPercent > 70 ? 'var(--color-warning)' : 'var(--color-primary)',
-              }}
-            />
-            <span className="chat-context-label">
-              {activeChat.tokenUsage.total > 0
-                ? t('context.labelWithTokens', { percent: Math.round(contextPercent), tokens: activeChat.tokenUsage.total })
-                : t('context.label', { percent: Math.round(contextPercent) })}
-            </span>
-          </div>
-        )}
-
-        {/* Settings slide-out panel */}
-        <div className={`chat-settings-overlay${showSettings ? ' open' : ''}`} onClick={() => setShowSettings(false)} />
-        <div className={`chat-settings-drawer${showSettings ? ' open' : ''}`}>
-          <div className="chat-settings-drawer-header">
-            <span>{t('settings.title')}</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowSettings(false)}>
-              <i className="fas fa-times" />
-            </button>
-          </div>
-          <div className="chat-settings-drawer-body">
-            {isAdmin && (
-              <div className="form-group chat-settings-toggle-row">
-                <div className="chat-settings-toggle-text">
-                  <span className="chat-settings-toggle-title">
-                    <i className="fas fa-user-shield" /> {t('settings.manageMode')}
-                  </span>
-                  <span className="chat-settings-toggle-desc">
-                    {t('settings.manageModeDesc')}
-                  </span>
-                </div>
-                <Toggle
-                  checked={!!activeChat.localaiAssistant}
-                  onChange={(next) => updateChatSettings(activeChat.id, { localaiAssistant: next })}
-                />
-              </div>
-            )}
-            <div className="form-group chat-settings-toggle-row">
-              <div className="chat-settings-toggle-text">
-                <span className="chat-settings-toggle-title">
-                  <i className="fas fa-compress" /> {t('settings.focusMode')}
-                </span>
-                <span className="chat-settings-toggle-desc">
-                  {t('settings.focusModeDesc')}
-                </span>
-              </div>
-              <Toggle
-                checked={focusModeEnabled}
-                onChange={toggleFocusMode}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('settings.systemPrompt')}</label>
-              <textarea
-                className="textarea"
-                value={activeChat.systemPrompt || ''}
-                onChange={(e) => updateChatSettings(activeChat.id, { systemPrompt: e.target.value })}
-                rows={3}
-                placeholder={t('settings.systemPromptPlaceholder')}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.temperature')} {activeChat.temperature !== null ? `(${activeChat.temperature})` : ''}
-              </label>
-              <input
-                type="range" min="0" max="2" step="0.1"
-                value={activeChat.temperature ?? 0.7}
-                onChange={(e) => updateChatSettings(activeChat.id, { temperature: parseFloat(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>0</span><span>2</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.topP')} {activeChat.topP !== null ? `(${activeChat.topP})` : ''}
-              </label>
-              <input
-                type="range" min="0" max="1" step="0.05"
-                value={activeChat.topP ?? 0.9}
-                onChange={(e) => updateChatSettings(activeChat.id, { topP: parseFloat(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>0</span><span>1</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">
-                {t('settings.topK')} {activeChat.topK !== null ? `(${activeChat.topK})` : ''}
-              </label>
-              <input
-                type="range" min="1" max="100" step="1"
-                value={activeChat.topK ?? 40}
-                onChange={(e) => updateChatSettings(activeChat.id, { topK: parseInt(e.target.value) })}
-                className="chat-slider"
-              />
-              <div className="chat-slider-labels"><span>1</span><span>100</span></div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('settings.contextSize')}</label>
-              <input
-                type="number"
-                className="input"
-                value={activeChat.contextSize || ''}
-                onChange={(e) => updateChatSettings(activeChat.id, { contextSize: parseInt(e.target.value) || null })}
-                placeholder={t('settings.contextSizePlaceholder')}
-              />
-            </div>
-            <div className="chat-settings-danger-zone">
-              <button
-                type="button"
-                className="chat-settings-danger-btn"
-                onClick={() => clearHistory(activeChat.id)}
-                title={t('settings.clearHistory')}
-              >
-                <i className="fas fa-eraser" /> {t('settings.clearHistory')}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="chat-messages" ref={messagesRef}>
-          {activeChat.history.length === 0 && !isStreaming && (
-            <div className="chat-empty-state">
-              <h2 className="chat-empty-title">{activeChat.localaiAssistant ? t('empty.manageTitle') : t('empty.startTitle')}</h2>
-              <p className="chat-empty-text">
-                {activeChat.localaiAssistant
-                  ? t('empty.manageText')
-                  : (activeChat.model ? t('empty.readyText', { model: activeChat.model }) : t('empty.selectModelText'))}
-              </p>
-              <div className="chat-empty-suggestions">
-                {(activeChat.localaiAssistant
-                  ? t('empty.suggestionsManage', { returnObjects: true })
-                  : t('empty.suggestionsChat', { returnObjects: true })
-                ).map((prompt) => (
-                  <button
-                    key={prompt}
-                    className="chat-empty-suggestion"
-                    onClick={() => { setInput(prompt); textareaRef.current?.focus() }}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-              {recentChats.length > 0 && (
-                <div className="chat-recent-strip">
-                  <div className="chat-recent-strip-label">
-                    {t('empty.recent')} <kbd className="chat-recent-strip-kbd">⌘K</kbd>
-                  </div>
-                  <div className="chat-recent-strip-list">
-                    {recentChats.map(chat => (
-                      <button
-                        key={chat.id}
-                        type="button"
-                        className="chat-recent-strip-item"
-                        onClick={() => switchChat(chat.id)}
-                        title={chat.name}
-                      >
-                        <span className="chat-recent-strip-item-name">{chat.name}</span>
-                        <span className="chat-recent-strip-item-preview">
-                          {getLastMessagePreview(chat) || t('empty.noMessages')}
-                        </span>
-                        <span className="chat-recent-strip-item-time">{relativeTime(chat.updatedAt)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="chat-empty-hints">
-                <span><i className="fas fa-keyboard" /> {t('empty.hintEnter')}</span>
-                <span><i className="fas fa-level-down-alt" /> {t('empty.hintShiftEnter')}</span>
-                <span><i className="fas fa-paperclip" /> {t('empty.hintAttach')}</span>
-              </div>
-            </div>
-          )}
-          {(() => {
-            const elements = []
-            let activityBuf = []
-            const flushActivity = (key) => {
-              if (activityBuf.length > 0) {
-                elements.push(
-                  <ActivityGroup key={`ag-${key}`} items={[...activityBuf]}
-                    updateChatSettings={updateChatSettings} activeChat={activeChat}
-                    getClientForTool={getClientForTool} />
-                )
-                activityBuf = []
-              }
-            }
-            activeChat.history.forEach((msg, i) => {
-              const isActivity = msg.role === 'thinking' || msg.role === 'reasoning' ||
-                msg.role === 'tool_call' || msg.role === 'tool_result'
-              if (isActivity) {
-                activityBuf.push(msg)
-                return
-              }
-              flushActivity(i)
-              elements.push(
-                <div key={i} className={`chat-message chat-message-${msg.role}${i === completionGlowIdx ? ' chat-message-new' : ''}`}>
-                  <div className="chat-message-avatar">
-                    <i className={`fas ${msg.role === 'user' ? 'fa-user' : 'fa-robot'}`} />
-                  </div>
-                  <div className="chat-message-bubble">
-                    {/* Both roles are labelled now that neither is a bubble.
-                        A transcript needs to say who is speaking; a bubble said
-                        it by shape and side. */}
-                    {msg.role === 'assistant' && activeChat.model && (
-                      <span className="chat-message-model">{activeChat.model}</span>
-                    )}
-                    {msg.role === 'user' && (
-                      <span className="chat-message-model">{t('message.you')}</span>
-                    )}
-                    {editingMessageIndex === i ? (
-                      <div className="chat-message-edit">
-                        <textarea
-                          autoFocus
-                          className="chat-message-edit-input"
-                          value={messageEditDraft}
-                          onChange={(event) => setMessageEditDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Escape') cancelMessageEdit()
-                          }}
-                          aria-label={t('actions.editMessage')}
-                        />
-                        <div className="chat-message-edit-actions">
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={saveMessageEdit}
-                            disabled={!messageEditDraft.trim()}
-                          >
-                            {t('actions.save')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={cancelMessageEdit}
-                          >
-                            {t('actions.cancel')}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="chat-message-content">
-                        {msg.role === 'user' ? (
-                          <UserMessageContent content={msg.content} files={msg.files} />
-                        ) : (
-                          <div dangerouslySetInnerHTML={{
-                            __html: canvasMode
-                              ? renderMarkdownWithArtifacts(typeof msg.content === 'string' ? msg.content : '', i)
-                              : renderMarkdown(typeof msg.content === 'string' ? msg.content : '')
-                          }} />
-                        )}
-                      </div>
-                    )}
-                    {msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.includes('Error:') && (
-                      <a href="/app/traces?tab=backend" className="chat-error-trace-link">
-                        <i className="fas fa-wave-square" /> {t('errors.viewTraces')}
-                      </a>
-                    )}
-                    {editingMessageIndex !== i && (
-                      <div className="chat-message-actions">
-                        <button onClick={() => copyMessage(msg.content)} title={t('actions.copy')}>
-                          <i className="fas fa-copy" />
-                        </button>
-                        {(msg.role === 'user' || msg.role === 'assistant') &&
-                          editableMessageText(msg) !== null && !isStreaming && (
-                            <button onClick={() => startMessageEdit(i, msg)} title={t('actions.edit')}>
-                              <i className="fas fa-pen" />
-                            </button>
-                          )}
-                        {msg.role === 'assistant' && !isStreaming && (
-                          <button onClick={() => handleRegenerate(i)} title={t('actions.regenerate')}>
-                            <i className="fas fa-rotate" />
-                          </button>
-                        )}
-                        {msg.role === 'assistant' && !isStreaming && (
-                          <button
-                            onClick={() => { forkChat(activeChat.id, i + 1); addToast(t('toasts.forked'), 'success', 2000) }}
-                            title={t('actions.branch')}
-                          >
-                            <i className="fas fa-code-branch" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-            flushActivity('end')
-            return elements
-          })()}
-
-          {/* Streaming activity (thinking + tools) */}
-          {isStreaming && (streamingReasoning || streamingToolCalls.length > 0) && (
-            <StreamingActivity reasoning={streamingReasoning} toolCalls={streamingToolCalls} hasResponse={!!streamingContent} />
-          )}
-
-          {/* Streaming message */}
-          {isStreaming && streamingContent && (
-            <div className="chat-message chat-message-assistant">
-              <div className="chat-message-avatar">
-                <i className="fas fa-robot" />
-              </div>
-              <div className="chat-message-bubble">
-                {activeChat.model && (
-                  <span className="chat-message-model">{activeChat.model}</span>
-                )}
-                <div className="chat-message-content">
-                  <span dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }} />
-                  <span className="chat-streaming-cursor" />
-                </div>
-                {tokensPerSecond !== null && (
-                  <div className="chat-streaming-speed">
-                    <i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {isStreaming && !streamingContent && !streamingReasoning && streamingToolCalls.length === 0 && (
-            <div className="chat-message chat-message-assistant">
-              <div className="chat-message-avatar">
-                <i className="fas fa-robot" />
-              </div>
-              <div className="chat-message-bubble">
-                <div className="chat-message-content chat-thinking-indicator">
-                  {loadProgress ? (
-                    <div className="chat-staging-progress">
-                      <div className="chat-staging-label">
-                        <i className="fas fa-cloud-arrow-up" /> {loadProgress.label}
-                      </div>
-                      {loadProgress.progress > 0 && (
-                        <div className="chat-staging-detail">
-                          <div className="chat-staging-bar-container">
-                            <div className="chat-staging-bar" style={{ width: `${loadProgress.progress}%` }} />
-                          </div>
-                          <span className="chat-staging-pct">{Math.round(loadProgress.progress)}%</span>
-                        </div>
-                      )}
-                      {loadProgress.detail && (
-                        <div className="chat-staging-file">{loadProgress.detail}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="chat-thinking-dots">
-                      <span /><span /><span />
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-          {scrolledUp && (
-            <button
-              type="button"
-              className="chat-jump-latest"
-              onClick={() => {
-                stickToBottomRef.current = true
-                setScrolledUp(false)
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              <i className="fas fa-arrow-down" aria-hidden="true" /> {t('actions.jumpToLatest')}
-            </button>
-          )}
-        </div>
-
-        {/* Token info bar */}
-        {(tokensPerSecond || maxTokensPerSecond || activeChat.tokenUsage?.total > 0) && (
-          <div className="chat-token-info">
-            {tokensPerSecond !== null && <span><i className="fas fa-tachometer-alt" /> {t('tokens.perSec', { count: tokensPerSecond })}</span>}
-            {maxTokensPerSecond !== null && !isStreaming && (
-              <span className="chat-max-tps-badge">
-                <i className="fas fa-bolt" /> {t('tokens.peak', { count: maxTokensPerSecond })}
-              </span>
-            )}
-            {activeChat.tokenUsage?.total > 0 && (
-              <span>
-                <i className="fas fa-coins" /> {t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total })}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* File badges */}
-        {files.length > 0 && (
-          <div className="chat-files">
-            {files.map((f, i) => {
-              const isImage = f.type?.startsWith('image/') && f.base64
-              return (
-                <span key={i} className={`chat-file-badge${isImage ? ' chat-file-badge--image' : ''}`}>
-                  {isImage ? (
-                    <img src={`data:${f.type};base64,${f.base64}`} alt={f.name} className="chat-file-thumb" />
-                  ) : (
-                    <i className={`fas ${f.type?.startsWith('audio/') ? 'fa-headphones' : f.type?.startsWith('video/') ? 'fa-film' : 'fa-file'}`} />
-                  )}
-                  <span className="chat-file-name">{f.name}</span>
-                  <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} aria-label={`Remove ${f.name}`}>
-                    <i className="fas fa-xmark" />
-                  </button>
-                </span>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Input area */}
-        <div className="chat-input-area">
-          <div className="chat-input-wrapper">
-            <div className="chat-input-modes">
-              <button
-                type="button"
-                className={`chat-mode-chip${canvasMode ? ' chat-mode-chip-on' : ''}`}
-                onClick={() => {
-                  const next = !canvasMode
-                  setCanvasMode(next)
-                  if (!next) setCanvasOpen(false)
-                }}
-                aria-pressed={canvasMode}
-                title={t('input.canvasTitle')}
-              >
-                <i className="fas fa-columns" />
-                <span className="chat-mode-chip-label">{t('input.canvasLabel')}</span>
-                {canvasMode && artifacts.length > 0 && !canvasOpen && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="chat-mode-chip-count"
-                    title={t('input.openCanvas')}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedArtifactId(artifacts[0]?.id)
-                      setCanvasOpen(true)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setSelectedArtifactId(artifacts[0]?.id)
-                        setCanvasOpen(true)
-                      }
-                    }}
-                  >
-                    {artifacts.length}
-                  </span>
-                )}
-              </button>
-              <UnifiedMCPDropdown
-                serverMCPAvailable={mcpAvailable}
-                mcpServerList={mcpServerList}
-                mcpServersLoading={mcpServersLoading}
-                serverListError={mcpServerListError}
-                selectedServers={activeChat.mcpServers || []}
-                onToggleServer={toggleMcpServer}
-                onSelectAllServers={() => {
-                  const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
-                  const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
-                  updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
-                }}
-                onFetchServers={fetchMcpServers}
-                clientMCPActiveIds={activeChat.clientMCPServers || []}
-                onClientToggle={handleClientMCPToggle}
-                onClientAdded={handleClientMCPServerAdded}
-                onClientRemoved={handleClientMCPServerRemoved}
-                connectionStatuses={connectionStatuses}
-                getConnectedTools={getConnectedTools}
-                promptsAvailable={mcpAvailable}
-                mcpPromptList={mcpPromptList}
-                mcpPromptsLoading={mcpPromptsLoading}
-                onFetchPrompts={fetchMcpPrompts}
-                onSelectPrompt={handleSelectPrompt}
-                promptArgsDialog={mcpPromptArgsDialog}
-                promptArgsValues={mcpPromptArgsValues}
-                onPromptArgsChange={(name, value) => setMcpPromptArgsValues(prev => ({ ...prev, [name]: value }))}
-                onPromptArgsSubmit={handleExpandPromptWithArgs}
-                onPromptArgsCancel={() => setMcpPromptArgsDialog(null)}
-                resourcesAvailable={mcpAvailable}
-                mcpResourceList={mcpResourceList}
-                mcpResourcesLoading={mcpResourcesLoading}
-                onFetchResources={fetchMcpResources}
-                selectedResources={activeChat.mcpResources || []}
-                onToggleResource={toggleMcpResource}
-              />
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm chat-attach-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title={t('input.attachFile')}
-            >
-              <i className="fas fa-paperclip" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,audio/*,video/*,application/pdf,.txt,.md,.csv,.json"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <textarea
-              ref={textareaRef}
-              className="chat-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder={t('input.placeholder')}
-              rows={1}
-              disabled={isStreaming}
-            />
-            {isStreaming ? (
-              <button className="chat-stop-btn" onClick={stopGeneration} title={t('input.stopGenerating')}>
-                <i className="fas fa-stop" />
-              </button>
+        {/* Thread */}
+        <div className="cx-stage">
+        <div className="cx-body" ref={messagesRef}>
+          {isEmpty && <EmptyHead name={activeChat.name} manage={!!activeChat.localaiAssistant} />}
+          <div className="cx-thread" data-testid="chat-thread" hidden={isEmpty}>
+            {rows.map((row) => (row.kind === 'activity' ? (
+              <ActivityRow key={`a${row.key}`} id={`cx-act-${row.key}`} items={row.items} getClientForTool={getClientForTool} />
             ) : (
-              <button
-                id="chat-submit-btn"
-                className="chat-send-btn"
-                onClick={handleSend}
-                disabled={!input.trim() && files.length === 0}
-                aria-label={t('input.send')}
-                title={t('input.send')}
-              >
-                <i className="fas fa-paper-plane" aria-hidden="true" />
-              </button>
+              <ChatMessage
+                key={row.index}
+                msg={row.msg}
+                index={row.index}
+                isLast={row.index === activeChat.history.length - 1}
+                model={activeChat.model}
+                warm={modelWarm}
+                canvasMode={canvasMode}
+                busy={isStreaming}
+                editing={editingMessageIndex === row.index}
+                draft={editingMessageIndex === row.index ? messageEditDraft : ''}
+                onDraft={setMessageEditDraft}
+                activityItems={row.activity}
+                getClientForTool={row.activity ? getClientForTool : undefined}
+                actions={messageActions}
+                onOpenImage={openImage}
+              />
+            )))}
+
+            {isStreaming && (
+              <StreamingTurn
+                model={activeChat.model}
+                warm={modelWarm}
+                content={streamingContent}
+                reasoning={streamingReasoning}
+                toolCalls={streamingToolCalls}
+                waiting={(loadProgress || !modelWarm) ? (
+                  <LoadCard model={activeChat.model} progress={loadProgress} />
+                ) : (
+                  <span className="cx-dots" aria-label={t('streaming.waiting')}><span /><span /><span /></span>
+                )}
+              />
             )}
           </div>
+          <div ref={messagesEndRef} />
         </div>
+        {scrolledUp && (
+          <button
+            type="button"
+            className="cx-jump"
+            data-testid="chat-jump-latest"
+            onClick={() => {
+              stickToBottomRef.current = true
+              setScrolledUp(false)
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }}
+          >
+            <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
+          </button>
+        )}
+        </div>
+
+        {/* Dock: the Home command bar under the thread */}
+        <div className="cx-dock">
+          <div className="cx-dock__in">
+            <HomeComposer
+              message={input}
+              onMessage={setInput}
+              onSubmit={handleSend}
+              canSend={!!activeChat.model && (input.trim().length > 0 || files.length > 0)}
+              sendTitle={activeChat.model ? t('input.send') : t('input.selectModelFirst')}
+              textareaRef={textareaRef}
+              picker={picker}
+              mcp={mcp}
+              chips={canvasChip}
+              files={files}
+              onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
+              onAttach={attachFiles}
+              placeholder={activeChat.model ? t('input.placeholderModel', { model: activeChat.model }) : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))}
+              slash={slashConfig}
+              onRunAction={runSlash}
+              streaming={isStreaming}
+              onStop={stopGeneration}
+              stopTitle={t('input.stopGenerating')}
+              onPaste={handlePaste}
+              onKeyDownExtra={onComposerKey}
+              fileAccept="video/*,application/pdf,.txt,.md,.csv,.json"
+              rows={1}
+              strictEnter
+              testId="chat-composer"
+              textareaTestId="chat-input"
+              sendId="chat-submit-btn"
+              sendTestId="chat-send"
+            />
+            <div className="cx-foot" data-testid="chat-foot">
+              <span data-warn={(!isStreaming && contextPercent !== null && contextPercent > 90) || undefined}>
+                {isStreaming
+                  ? (tokensPerSecond !== null ? `${t('tokens.perSec', { count: tokensPerSecond })} · ${t('tokens.generating')}` : t('tokens.generating'))
+                  : (contextPercent !== null && contextPercent > 90
+                    ? t('context.nearlyFull')
+                    : (maxTokensPerSecond !== null ? t('tokens.peak', { count: maxTokensPerSecond }) : ''))}
+              </span>
+              <span className="cx-foot__tokens">
+                {activeChat.tokenUsage?.total > 0 && (activeChat.contextSize
+                  ? t('tokens.ofContext', { used: activeChat.tokenUsage.total, size: activeChat.contextSize })
+                  : t('tokens.usage', { prompt: activeChat.tokenUsage.prompt, completion: activeChat.tokenUsage.completion, total: activeChat.tokenUsage.total }))}
+              </span>
+            </div>
+          </div>
+        </div>
+        {isEmpty && (
+          <div className="cx-under" data-testid="chat-under">
+            <EmptyUnder
+              noModel={noModel}
+              isAdmin={isAdmin}
+              addToast={addToast}
+              onInstallStarted={() => setFitOpenCount(n => n)}
+              manage={!!activeChat.localaiAssistant}
+              model={activeChat.model}
+              warm={modelWarm}
+              starters={t(activeChat.localaiAssistant ? 'empty.suggestionsManage' : 'empty.suggestionsChat', { returnObjects: true })}
+              onStarter={(prompt) => { setInput(prompt); textareaRef.current?.focus() }}
+              conversations={conversations}
+              leavingId={null}
+              onResume={(conv) => switchChat(conv.id)}
+              onDelete={(conv) => { const chat = chats.find(c => c.id === conv.id); if (chat) requestDelete(chat) }}
+            />
+          </div>
+        )}
       </div>
       {canvasOpen && artifacts.length > 0 && (
         <CanvasPanel
@@ -1627,6 +1274,39 @@ export default function Chat() {
           selectedId={selectedArtifactId}
           onSelect={setSelectedArtifactId}
           onClose={() => setCanvasOpen(false)}
+        />
+      )}
+      {lightbox && (
+        <Lightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onIndex={(index) => setLightbox(prev => ({ ...prev, index }))}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+      {showSettings && (
+        <ChatSettingsSheet
+          chat={activeChat}
+          isAdmin={isAdmin}
+          onUpdate={(patch) => updateChatSettings(activeChat.id, patch)}
+          focusMode={focusModeEnabled}
+          onFocusMode={toggleFocusMode}
+          modelInfo={modelInfo}
+          onEditConfig={() => navigate(`/app/model-editor/${encodeURIComponent(activeChat.model)}`, { state: fromState(location, 'Chat') })}
+          onClear={() => { setShowSettings(false); promptClear() }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind />}
+      {pendingDelete && (
+        <HomeUndoToast
+          key={pendingDelete.id}
+          message={t('menu.deleted', { title: pendingDelete.name })}
+          onUndo={undoDelete}
+          onExpire={commitDelete}
+          undoLabel={t('menu.undo')}
+          dismissLabel={t('menu.dismiss')}
+          testId="chat-undo-toast"
         />
       )}
       <ConfirmDialog

@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels'
+import { useOperations } from '../hooks/useOperations'
+import { fillStyle } from './home/memory'
+import Icon from './Icon'
 
 // Offline CPU suggestions do not claim a measured GPU fit.
 const CPU_FALLBACK = [
@@ -14,6 +17,7 @@ const CPU_FALLBACK = [
 export default function StarterModels({ addToast, onInstallStarted }) {
   const { t } = useTranslation('home')
   const { recommended, tier, loading } = useRecommendedModels({ count: 4 })
+  const { operations } = useOperations()
   const [installing, setInstalling] = useState(() => new Set())
 
   // While the hardware probe + gallery query are in flight, render nothing
@@ -46,11 +50,11 @@ export default function StarterModels({ addToast, onInstallStarted }) {
   }
 
   return (
-    <section className="home-starters card">
+    <section className="home-starters" aria-label={t('starters.title')}>
       <div className="home-starters-head">
-        <strong>{t('starters.title')}</strong>
+        <span className="home-starters-title">{t('starters.title')}</span>
         <span className="home-starters-tier">
-          <i className={`fas ${tier.id === 'cpu' ? 'fa-memory' : 'fa-microchip'}`} aria-hidden="true" />
+          <Icon name={tier.id === 'cpu' ? 'memory' : 'cpu'} />
           {t(`starters.tier.${tier.id}`)}
         </span>
       </div>
@@ -58,23 +62,43 @@ export default function StarterModels({ addToast, onInstallStarted }) {
         {tier.id === 'cpu' ? t('starters.cpuNote') : t('starters.gpuNote')}
       </p>
       <ul className="home-starters-list">
-        {items.map(c => {
-          const busy = installing.has(c.name)
+        {items.map((c, i) => {
+          // The install shows up in the operations list once the server has
+          // taken it. Its progress is the only progress there is to show.
+          const op = operations.find(o => o.name === c.name && !o.isBackend && !o.isDeletion)
+          const busy = installing.has(c.name) || !!op
           return (
             <li key={c.name} className="home-starters-item">
-              <span className="home-starters-name">{c.name}</span>
-              {isNvfp4Name(c.name) && <span className="badge badge-info home-starters-badge">NVFP4</span>}
-              {c.size && <span className="home-starters-size">{c.size}</span>}
+              <div className="home-starters-info">
+                <code className="home-starters-name" title={c.name}>{c.name}</code>
+                <small className="home-starters-meta">
+                  {c.size}
+                  {isNvfp4Name(c.name) && <span className="home-starters-badge">NVFP4</span>}
+                </small>
+              </div>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className={i === 0 ? 'home-primary home-primary--sm' : 'home-secondary home-secondary--sm'}
                 disabled={busy}
+                aria-busy={busy || undefined}
                 onClick={() => install(c.name)}
               >
                 {busy
-                  ? (<><i className="fas fa-spinner fa-spin" aria-hidden="true" /> {t('starters.installing')}</>)
-                  : (<><i className="fas fa-download" aria-hidden="true" /> {t('starters.install')}</>)}
+                  ? (<><Icon name="spinner" spin /> {t('starters.installing')}</>)
+                  : (<><Icon name="download" /> {t('starters.install')}</>)}
               </button>
+              {op && op.progress > 0 && (
+                <span
+                  className="home-bar home-bar--thin home-starters-progress"
+                  role="progressbar"
+                  aria-valuenow={Math.round(op.progress)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t('strip.progress', { name: c.name })}
+                >
+                  <span className="home-bar__fill" style={fillStyle(op.progress)} />
+                </span>
+              )}
             </li>
           )
         })}

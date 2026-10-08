@@ -143,6 +143,8 @@ test.describe('Audio Transform', () => {
     await expect(page.getByText('mic.wav')).toBeVisible()
 
     // Set a backend tuning param so the form posts params[noise_gate]=true.
+    // The key=value box lives in the Advanced fold.
+    await page.getByRole('button', { name: /Advanced parameters/ }).click()
     await page.locator('.textarea').fill('noise_gate=true')
 
     await page.getByRole('button', { name: /Transform/ }).last().click()

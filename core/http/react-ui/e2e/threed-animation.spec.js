@@ -139,7 +139,8 @@ test('keeps the 3D Studio category available with only an animation model', asyn
 })
 
 test('validates the prompt byte limit before submitting', async ({ page }) => {
-  await page.goto('/app/studio/threed?model=kimodo-test')
+  // The model query is now read as a hand-off, so pick the model in the page as a person would.
+  await page.goto('/app/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await page.getByLabel('Motion prompt').fill('🦊'.repeat(1025))

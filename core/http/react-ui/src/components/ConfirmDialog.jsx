@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import Icon from './Icon'
 
 export default function ConfirmDialog({
   open,
@@ -28,7 +29,7 @@ export default function ConfirmDialog({
     const dialog = dialogRef.current
     if (!dialog) return
 
-    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableSelector = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     const getFocusable = () => dialog.querySelectorAll(focusableSelector)
 
     const handleKeyDown = (e) => {
@@ -75,7 +76,7 @@ export default function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="confirm-dialog-header">
-          {danger && <i className="fas fa-exclamation-triangle confirm-dialog-danger-icon" />}
+          {danger && <Icon name="warning" className="confirm-dialog-danger-icon" />}
           <span id={titleId} className="confirm-dialog-title">{titleText}</span>
         </div>
         {message && <div id={bodyId} className="confirm-dialog-body">{message}</div>}

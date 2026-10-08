@@ -645,3 +645,19 @@ This event is a LocalAI extension to the OpenAI Realtime API and is server-emitt
 
 - [Realtime voice assistant demo (Go)](https://github.com/localai-org/localai-realtime-demo): a minimal Go client for the Realtime (WebSocket) API with a full talk-back voice loop and an example tool call. Ships a `docker compose` setup that brings up a realtime-capable LocalAI for you.
 - [Realtime voice assistant example (Python)](https://github.com/mudler/LocalAI-examples/tree/main/realtime): thin-client architecture (Silero VAD on the client, heavy lifting on LocalAI), suited to running the client on a Raspberry Pi.
+
+## Talk in the web UI
+
+The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch.
+
+The heading under the orb says what is happening: connecting, listening, thinking (also while a tool runs), speaking, or interrupted after you cut a reply off. The orb follows the real microphone level while it listens and the reply's audio while it speaks. These states have their own screen:
+
+- **Microphone blocked.** The browser did not give the page the microphone. Allow it in the address bar and press **Try again**.
+- **Connection lost.** The WebRTC link failed during a session. The transcript stays and **Reconnect** starts a new session.
+- **Something went wrong.** The server reported an error or the call could not be set up. The reason is shown, with a link to the traces.
+- **Talk needs a pipeline model.** No pipeline model exists yet. The page links to the model editor with the pipeline template and to the gallery.
+
+The transcript shows what you said, the replies and, in Manage mode, the tool calls and results. **Copy** puts it on the clipboard. It is not saved.
+
+The sliders button opens the session settings: the instructions, the voice, the transcription language, client-side MCP tools, Manage mode (admin, fixed once a session is open) and the parts of the selected pipeline. The gauge button, shown during a session, adds audio diagnostics (waveform, spectrum and WebRTC statistics).
+

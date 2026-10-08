@@ -1,0 +1,765 @@
+/* ==========================================================================
+   Models ledger: Explore and Installed as one dense table with an inspector,
+   the disk strip, and the cleanup sheet.
+
+   Built on the kit's table, chip, segmented, sheet and meter classes. What is
+   here is only what the kit does not say: the layout that lets the table scroll
+   inside the page, the fit bar, and the cleanup rows. Selection is a surface
+   step and a check, never a rail on the edge. Bars are solid. No glow.
+   ========================================================================== */
+
+/* --- Header -------------------------------------------------------------- */
+
+.models-bar {
+  align-items: center;
+  gap: var(--dk-space-3);
+  padding-bottom: var(--dk-space-3);
+}
+
+.models-bar .view-bar__title { line-height: 1.1; }
+
+.models-tabs { flex: none; }
+
+.models-bar__actions {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* --- Disk strip ---------------------------------------------------------- */
+
+.ledger-disk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  min-height: 40px;
+  padding: 4px var(--dk-space-3);
+  border: 1px solid var(--dk-control-edge);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: var(--dk-weight-semibold) var(--dk-text-13) / 1.1 var(--dk-font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--dk-dur-1) ease, transform var(--dk-dur-1) var(--dk-ease-out);
+}
+.ledger-disk:hover { background: var(--dk-hover); }
+.ledger-disk:active { transform: scale(var(--dk-press-scale-nav)); }
+.ledger-disk[data-low="true"] { border-color: var(--dk-warn); }
+.ledger-disk__icon { color: var(--dk-muted); font-size: 16px; }
+.ledger-disk__text { display: grid; gap: 1px; white-space: nowrap; }
+.ledger-disk__free { font-variant-numeric: tabular-nums; }
+.ledger-disk__low { font-size: var(--dk-text-12); font-weight: var(--dk-weight-semibold); color: var(--dk-warn-text); }
+.ledger-disk__bar {
+  flex: none;
+  display: flex;
+  width: 72px;
+  height: 8px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  overflow: hidden;
+}
+/* Other files, then the models, then the free space left as the empty track. */
+.ledger-disk__fill { display: block; flex: none; width: var(--ledger-fit, 0%); height: 100%; }
+.ledger-disk__fill--other { background: var(--dk-control-edge); opacity: .55; }
+.ledger-disk__fill--models { background: var(--dk-accent); }
+.ledger-disk[data-low="true"] .ledger-disk__fill--models { background: var(--dk-warn); }
+.ledger-disk__chev { color: var(--dk-muted); font-size: 14px; }
+
+/* --- Controls ------------------------------------------------------------ */
+
+.ledger-controls {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-3);
+  margin-bottom: var(--dk-space-3);
+}
+
+.ledger-controls__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--dk-space-3);
+}
+
+.ledger-controls__end {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  margin-left: auto;
+}
+
+.ledger-search { flex: 1 1 280px; min-width: 200px; max-width: 520px; }
+.ledger-search .dk-input { width: 100%; padding-right: 44px; }
+.ledger-search__key {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ledger-refine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--dk-space-3) var(--dk-space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ledger-refine .filter-bar-group__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  width: auto;
+  padding: 0;
+  font-size: var(--dk-text-13);
+  color: var(--dk-text);
+  cursor: pointer;
+}
+
+.ledger-density { margin-left: auto; }
+.ledger-density .dk-seg { width: 36px; padding: 0; justify-content: center; }
+
+/* The backend select is the shared component with inline styles; here it takes
+   the kit's control look so it sits level with the search field. */
+.models-filters__backend { flex: 0 0 auto; min-width: 0; }
+.models-filters__backend > div { min-width: 170px !important; }
+.models-filters__backend button.input {
+  height: 40px;
+  padding: 0 var(--dk-space-3) !important;
+  border: 1px solid var(--dk-control-edge) !important;
+  border-radius: var(--dk-radius-2) !important;
+  background: var(--dk-card) !important;
+  color: var(--dk-text) !important;
+  font: var(--dk-weight-regular) var(--dk-text-13) / 1 var(--dk-font-body) !important;
+}
+.models-filters__backend button.input:hover { background: var(--dk-hover) !important; }
+.models-filters__backend button.input .lai-icon { font-size: 14px !important; }
+
+/* Facets: one row that scrolls sideways instead of wrapping into a block. */
+.ledger-controls__row--facets { flex-wrap: nowrap; }
+
+.ledger-facets {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--dk-space-1);
+  padding: 3px 24px 7px 3px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  /* The row can be longer than the page is wide. A soft end says so, so a chip
+     is never cut in half without a hint that more follow. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+.ledger-facet { flex: none; }
+.ledger-facet__icon { display: none; }
+.ledger-facet__count {
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--dk-muted);
+}
+.dk-chip[aria-pressed="true"] .ledger-facet__count { color: inherit; }
+.ledger-facet__count[data-stale="true"] { opacity: .55; }
+
+.models-filters__context {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  width: 260px;
+  margin-left: auto;
+}
+.models-filters__context label {
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.models-filters__context .dk-range-wrap { flex: 1; min-width: 0; }
+
+.ledger-states { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.ledger-states .dk-seg { gap: var(--dk-space-2); }
+
+.ledger-banner {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-3);
+  margin-bottom: var(--dk-space-3);
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  font-size: var(--dk-text-13);
+}
+.ledger-banner > span { flex: 1; min-width: 0; }
+.ledger-banner--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
+
+/* --- Layout -------------------------------------------------------------- */
+
+/* The table scrolls inside the page and the inspector scrolls beside it, so the
+   filters and the header row stay put while a long list moves. The page's own
+   scroller only appears when the viewport is too short for the controls. */
+.ledger {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  gap: var(--dk-space-4);
+  align-items: stretch;
+}
+
+.ledger--solo { grid-template-columns: minmax(0, 1fr); }
+
+.ledger__table-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ledger-wrap { flex: 1; min-height: 160px; }
+
+.ledger__pane {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--dk-space-5);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-3);
+  background: var(--dk-card);
+  box-shadow: var(--dk-shadow-rest);
+  position: relative;
+}
+
+.ledger-bar { flex: none; justify-content: space-between; flex-wrap: nowrap; margin-bottom: var(--dk-space-2); min-height: 28px; }
+.ledger-bar__basis { font-size: var(--dk-text-12); color: var(--dk-muted); }
+.ledger-bar__count {
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--dk-muted);
+}
+.ledger-bar__count--foot { margin: var(--dk-space-2) 0 0; line-height: 1.5; }
+.ledger-bar__warn { color: var(--dk-warn-text); }
+
+.ledger-pager { flex: none; justify-content: center; margin-top: var(--dk-space-2); }
+
+.ledger-keys {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dk-space-2) var(--dk-space-4);
+  margin: var(--dk-space-3) 0 0;
+  font-size: var(--dk-text-12);
+  color: var(--dk-muted);
+}
+.ledger-keys span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* --- Table --------------------------------------------------------------- */
+
+.ledger-table tbody tr[data-row] { cursor: pointer; }
+.ledger-table tbody tr[data-row]:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+.ledger-table td { min-width: 0; }
+.ledger-table th.dk-num .dk-table-sort { margin-right: calc(-1 * var(--dk-space-2)); }
+
+.ledger-mark-cell { width: 1%; padding-right: 0 !important; }
+.ledger-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  color: transparent;
+}
+.ledger-mark .lai-icon { font-size: 12px; }
+tr[data-selected="true"] .ledger-mark {
+  background: var(--dk-accent);
+  box-shadow: none;
+  color: var(--dk-on-accent);
+}
+
+.ledger-name-cell { max-width: 0; width: 46%; }
+.ledger-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--dk-font-mono);
+  font-size: var(--dk-text-13);
+  min-width: 0;
+}
+/* The ellipsis has to sit on the text itself: it does not apply to the text
+   inside a flex container. */
+.ledger-name__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ledger-name__pin { flex: none; display: inline-flex; color: var(--dk-muted); font-size: 13px; }
+.ledger-table .dk-table-sub { max-width: none; }
+.ledger-builds::before { content: "\00a0\00b7\00a0"; }
+
+.ledger-size { color: var(--dk-text); }
+.ledger-size__shared { margin-top: 1px; white-space: nowrap; }
+.ledger-size__loading { display: inline-block; width: 48px; height: 12px; vertical-align: middle; }
+
+.ledger-fit-cell { min-width: 210px; }
+.ledger-status { white-space: nowrap; }
+.ledger-status__done { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
+.ledger-status__busy { display: inline-flex; align-items: center; gap: 8px; color: var(--dk-accent-text); font-weight: var(--dk-weight-semibold); flex-wrap: wrap; justify-content: flex-end; }
+
+.ledger-progress {
+  flex: none;
+  display: block;
+  width: 72px;
+  height: 4px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  overflow: hidden;
+}
+.ledger-progress--wide { width: 100%; max-width: 220px; margin-top: 4px; }
+.ledger-progress__bar { display: block; width: var(--ledger-fit, 0%); height: 100%; background: var(--dk-accent); }
+
+.ledger-rowactions { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--dk-space-2); }
+
+.ledger-state { gap: 8px; }
+.ledger-state[data-state="disabled"] { color: var(--dk-muted); }
+.ledger-state[data-state="running"] { color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
+
+/* Group rows: a quiet heading that folds its section. */
+.ledger-group > td { height: 36px; padding: 0; background: var(--dk-inset); border-bottom-color: var(--dk-edge); }
+.ledger-group__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--dk-space-4);
+  border: 0;
+  background: none;
+  color: var(--dk-muted);
+  cursor: pointer;
+  text-align: left;
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.ledger-group__toggle:hover { color: var(--dk-text); }
+.ledger-group__toggle:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
+.ledger-group__count { margin-left: auto; font-family: var(--dk-font-mono); font-weight: var(--dk-weight-regular); }
+
+/* Skeleton rows keep the table's own shape while the gallery loads. */
+.ledger-skeleton .dk-skeleton, .zero-pane__hero .dk-skeleton { display: block; height: 12px; border-radius: 6px; background: var(--dk-hover); }
+.zero-pane__hero .dk-skeleton--title { width: 60%; height: 24px; }
+.ledger-skeleton__name { width: 55%; margin-bottom: 8px; }
+.ledger-skeleton__sub { width: 35%; height: 10px !important; }
+.ledger-skeleton__action { width: 72px; margin-left: auto; height: 28px !important; border-radius: var(--dk-radius-1) !important; }
+
+/* --- Fit ----------------------------------------------------------------- */
+
+.ledger-fit { display: grid; gap: 3px; }
+.ledger-fit--none { color: var(--dk-muted); }
+.ledger-fit__line { display: flex; align-items: center; gap: var(--dk-space-3); }
+.ledger-fit__bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 56px;
+  max-width: 120px;
+  height: 8px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-inset);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  overflow: hidden;
+}
+.ledger-fit__fill {
+  display: block;
+  width: var(--ledger-fit, 0%);
+  min-width: 3px;
+  height: 100%;
+  background: var(--dk-accent);
+}
+.ledger-fit[data-fit="spill"] .ledger-fit__fill { background: var(--dk-warn); }
+.ledger-fit[data-fit="over"] .ledger-fit__fill { background: var(--dk-error); }
+.ledger-fit__need {
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--dk-muted);
+  white-space: nowrap;
+}
+.ledger-fit__words {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.2 var(--dk-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--dk-ok-text);
+}
+.ledger-fit[data-fit="spill"] .ledger-fit__words { color: var(--dk-warn-text); }
+.ledger-fit[data-fit="over"] .ledger-fit__words { color: var(--dk-error-text); }
+.ledger-fit__icon { font-size: 12px; }
+
+/* --- Inspector ----------------------------------------------------------- */
+
+.ledger__pane .detail-pane { gap: var(--dk-space-4); }
+.ledger__pane .detail-pane__close { position: absolute; top: var(--dk-space-3); right: var(--dk-space-3); }
+.ledger__pane .detail-pane__head { padding-right: 36px; flex-wrap: wrap; }
+.ledger__pane .detail-pane__title { flex: 1 1 100%; }
+.ledger__pane .detail-pane { min-width: 0; }
+.ledger__pane .detail-pane__head > * { min-width: 0; }
+/* The actions take their own row so they wrap inside the pane instead of
+   pushing past it. The primary action comes first; the rest are ghosts. */
+.ledger__pane .detail-pane__actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
+.ledger__pane .detail-pane__actions .dk-btn { max-width: 100%; }
+.ledger__pane .detail-pane__actions .inline-install { flex: 1 1 100%; min-width: 0; }
+.ledger__pane .detail-pane__name { font-size: var(--dk-text-17); }
+.ledger__pane .detail-pane__lede { color: var(--dk-muted); font-size: var(--dk-text-13); }
+.ledger__pane .detail-pane__icon { display: none; }
+.ledger__pane .stat-grid__item { background: var(--dk-inset); border-radius: var(--dk-radius-2); }
+.ledger__pane .stat-grid__item dd { font-size: var(--dk-text-17); }
+.ledger__pane .stat-grid__value--ok { color: var(--dk-ok-text); }
+.ledger__pane .stat-grid__value--bad { color: var(--dk-error-text); }
+.ledger__pane .stat-grid__value--warn { color: var(--dk-warn-text); }
+
+.ledger-leaves {
+  margin: 0;
+  font: var(--dk-weight-regular) var(--dk-text-13) / 1.4 var(--dk-font-mono);
+  color: var(--dk-muted);
+}
+.ledger-leaves--short { color: var(--dk-error-text); }
+
+.ledger-fitblock {
+  display: grid;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-inset);
+}
+.ledger-fitblock .detail-pane__label { margin: 0; }
+.ledger-fitblock__words { display: flex; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-13); line-height: 1.45; }
+.ledger-fitblock__words .lai-icon { flex: none; margin-top: 2px; font-size: 16px; }
+.ledger-fitblock[data-fit="fits"] .ledger-fitblock__words .lai-icon { color: var(--dk-ok-text); }
+.ledger-fitblock[data-fit="spill"] .ledger-fitblock__words .lai-icon { color: var(--dk-warn-text); }
+.ledger-fitblock[data-fit="over"] .ledger-fitblock__words .lai-icon { color: var(--dk-error-text); }
+.ledger-fitblock__rows { display: grid; gap: 6px; }
+.ledger-fitblock__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); }
+.ledger-fitblock__dev { font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-body); letter-spacing: .06em; color: var(--dk-muted); }
+.ledger-fitblock__fig { font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono); font-variant-numeric: tabular-nums; color: var(--dk-text); }
+.ledger-fitblock .ledger-fit__bar { max-width: none; background: var(--dk-card); }
+.ledger-fitblock[data-fit="spill"] .ledger-fit__fill { background: var(--dk-accent); }
+.ledger-fitblock[data-fit="over"] .ledger-fit__fill { background: var(--dk-accent); }
+.ledger-fitblock__row + .ledger-fitblock__row .ledger-fit__fill { background: var(--dk-warn); }
+
+/* The VRAM chart: solid bars on the kit's tokens. The limit is a dashed line. */
+.ledger__pane .discover__chart-title { color: var(--dk-muted); }
+.ledger__pane .discover__chart-bar { background: var(--dk-accent); box-shadow: 0 0 0 2px var(--dk-card); }
+.ledger__pane .discover__chart-bar--over { background: var(--dk-warn); }
+.ledger__pane .discover__chart-limit { border-top-color: var(--dk-warn); }
+.ledger__pane .discover__chart-limit-label {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1.4 var(--dk-font-mono);
+  letter-spacing: 0;
+  color: var(--dk-muted);
+}
+.ledger__pane .discover__chart-limit-label::before { content: ""; width: 16px; border-top: 2px dashed var(--dk-warn); }
+.ledger__pane .discover__chart-value { color: var(--dk-muted); background: var(--dk-card); position: relative; z-index: 1; }
+.ledger__pane .discover__chart-col--on .discover__chart-value,
+.ledger__pane .discover__chart-axis-on { color: var(--dk-accent-text); }
+.ledger__pane .discover__chart-axis { border-top-color: var(--dk-control-edge); }
+.ledger__pane .discover__chart-axis span { color: var(--dk-muted); }
+.ledger__pane .discover__chart-col:hover .discover__chart-bar { filter: none; background: var(--dk-accent-text); }
+.ledger__pane .discover__chart-col:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: 4px; }
+.ledger__pane .discover__chart-verdict--ok { color: var(--dk-ok-text); }
+.ledger__pane .discover__chart-verdict--warn { color: var(--dk-warn-text); }
+.ledger__pane .discover__chart-verdict--bad { color: var(--dk-error-text); }
+
+/* The entry's own fields: a label column and a value column. */
+.ledger-detail--nested { padding: 0; }
+.ledger-detail__table { width: 100%; border-collapse: collapse; }
+.ledger-detail__label {
+  padding: 6px var(--dk-space-3) 6px 0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.4 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.ledger-detail__value { padding: 6px 0; font-size: var(--dk-text-13); min-width: 0; }
+.ledger-detail__vram { display: flex; align-items: center; gap: var(--dk-space-2); }
+.ledger-detail__fit { font-size: var(--dk-text-12); }
+.ledger-detail__fit--ok { color: var(--dk-ok-text); }
+.ledger-detail__fit--bad { color: var(--dk-error-text); }
+.ledger-detail__muted { color: var(--dk-muted); }
+.ledger-detail__tags { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+.ledger-detail__links { display: flex; flex-direction: column; gap: 2px; }
+.ledger-detail__links a { word-break: break-all; font-size: var(--dk-text-13); }
+.ledger-files { margin-top: var(--dk-space-2); max-height: 240px; }
+.ledger-files__uri { word-break: break-all; max-width: 260px; }
+.ledger__pane .detail-prose__label { color: var(--dk-muted); }
+
+/* The failure note in the inspector sits flush with the blocks around it. */
+.ledger__pane .attention-callout { margin: 0; }
+
+/* The installed inspector's fields, in the same voice as the gallery's. */
+.ledger__pane .resource-row__detail { padding: 0; background: none; border: 0; }
+.ledger__pane .resource-row__detail h3 {
+  margin: 0 0 var(--dk-space-2);
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.4 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.ledger__pane .resource-row__detail h3 .lai-icon { display: none; }
+.ledger__pane .resource-row__detail-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px var(--dk-space-3); margin: 0; }
+.ledger__pane .resource-row__detail-grid dt {
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.6 var(--dk-font-body);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.ledger__pane .resource-row__detail-grid dd { margin: 0; font-size: var(--dk-text-13); min-width: 0; overflow-wrap: anywhere; }
+.ledger__pane .badge-row { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+
+/* --- Empty ---------------------------------------------------------------- */
+
+.ledger-empty {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-6) var(--dk-space-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-3);
+  background: var(--dk-card);
+  text-align: center;
+}
+.ledger-empty--page { margin-top: var(--dk-space-3); min-height: 280px; }
+.ledger-empty__actions { display: flex; gap: var(--dk-space-2); margin-top: var(--dk-space-2); }
+
+/* --- Cleanup sheet --------------------------------------------------------- */
+
+.ledger-sheet { width: min(560px, 100%); }
+.ledger-sheet .dk-sheet-head { border-bottom: 1px solid var(--dk-edge); padding-bottom: var(--dk-space-3); }
+
+.ledger-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: 0; }
+
+.ledger-space { padding: var(--dk-space-2) 0 0; }
+.ledger-space .dk-meter { height: 14px; }
+.ledger-space__other { background: var(--dk-control-edge) !important; opacity: .55; }
+.ledger-space__other-swatch { background: var(--dk-control-edge); opacity: .55; }
+.ledger-space__freed {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 2px var(--dk-text);
+}
+.ledger-space__freed-swatch { background: transparent; box-shadow: inset 0 0 0 2px var(--dk-text); }
+.ledger-space__free-swatch { background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-control-edge); }
+
+.ledger-note {
+  display: flex;
+  gap: var(--dk-space-2);
+  margin: 0;
+  padding: var(--dk-space-3);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-inset);
+  color: var(--dk-text);
+  font-size: var(--dk-text-13);
+  line-height: 1.45;
+}
+.ledger-note .lai-icon { flex: none; margin-top: 2px; font-size: 16px; color: var(--dk-muted); }
+.ledger-note--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.ledger-note--warn .lai-icon { color: var(--dk-warn-text); }
+
+.ledger-sheet__loading { display: grid; gap: var(--dk-space-4); padding: var(--dk-space-3) 0; }
+.ledger-sheet__loading .dk-skeleton { display: block; height: 44px; border-radius: var(--dk-radius-2); }
+
+.ledger-tier { display: grid; gap: var(--dk-space-1); margin-top: var(--dk-space-2); }
+.ledger-tier__head { display: flex; align-items: baseline; gap: var(--dk-space-3); }
+.ledger-tier__head h3, .ledger-protected__toggle h3 { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-15) / 1.3 var(--dk-font-display); }
+.ledger-tier__count { font-size: var(--dk-text-12); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.ledger-tier__all { margin-left: auto; font-size: var(--dk-text-13); }
+.ledger-tier__hint { margin: 0 0 var(--dk-space-1); font-size: var(--dk-text-13); color: var(--dk-muted); }
+.ledger-tier__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+
+.ledger-cr {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3);
+  border-radius: var(--dk-radius-2);
+  cursor: pointer;
+  transition: background-color var(--dk-dur-1) ease;
+}
+.ledger-cr:hover { background: var(--dk-hover); }
+.ledger-cr[data-selected="true"] { background: var(--dk-accent-wash); }
+.ledger-cr .dk-check { margin-top: 2px; }
+.ledger-cr__main { display: grid; gap: 3px; min-width: 0; }
+.ledger-cr__name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--dk-space-2);
+  font: var(--dk-weight-semibold) var(--dk-text-13) / 1.3 var(--dk-font-mono);
+  overflow-wrap: anywhere;
+}
+.ledger-cr__why { font-size: var(--dk-text-13); line-height: 1.45; color: var(--dk-muted); }
+.ledger-cr__why--warn { color: var(--dk-warn-text); }
+.ledger-cr__size { font-size: var(--dk-text-13); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--dk-text); }
+.ledger-cr--locked { cursor: default; }
+.ledger-cr--locked:hover { background: none; }
+.ledger-cr__lock { color: var(--dk-muted); margin-top: 2px; }
+
+.ledger-tier--protected { border-top: 1px solid var(--dk-edge); padding-top: var(--dk-space-3); }
+.ledger-protected__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-1) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.ledger-protected__toggle:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: 6px; }
+
+.ledger-effect { justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: var(--dk-space-3); }
+.ledger-effect__text { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; font-size: var(--dk-text-13); }
+.ledger-effect__text strong { font-weight: var(--dk-weight-semibold); }
+.ledger-effect__text span { color: var(--dk-muted); }
+.ledger-effect__text .ledger-effect__wait { color: var(--dk-warn-text); }
+
+.ledger-confirm { display: grid; gap: var(--dk-space-3); font-size: var(--dk-text-13); }
+.ledger-confirm p { margin: 0; }
+.confirm-dialog:has(.ledger-confirm) { max-width: 520px; }
+.ledger-confirm__table, .ledger-confirm__table tbody { display: block; width: 100%; }
+.ledger-confirm__table { max-height: 36vh; overflow-y: auto; }
+/* One row per model: the name and its size on a line, the reason under it. */
+.ledger-confirm__table tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--dk-space-3);
+  padding: 8px 0;
+  border-top: 1px solid var(--dk-edge);
+}
+.ledger-confirm__table th, .ledger-confirm__table td { display: block; padding: 0; text-align: left; }
+.ledger-confirm__table th { grid-column: 1; font-family: var(--dk-font-mono); font-weight: var(--dk-weight-semibold); overflow-wrap: anywhere; color: var(--dk-text); }
+.ledger-confirm__table td { grid-column: 1 / -1; grid-row: 2; color: var(--dk-muted); }
+.ledger-confirm__table td.dk-num { grid-column: 2; grid-row: 1; color: var(--dk-text); text-align: right; font-family: var(--dk-font-mono); white-space: nowrap; }
+.ledger-confirm__ok { display: flex; gap: var(--dk-space-2); align-items: center; color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
+.ledger-confirm__warn { color: var(--dk-warn-text); }
+
+/* --- Narrow ---------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .ledger { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); }
+  .models-filters__context { width: 200px; }
+}
+
+@media (max-width: 900px) {
+  /* Stacked, the view scrolls with the document, as every other page does. */
+  .ledger { display: block; flex: none; }
+  .ledger__table-col { min-height: 0; }
+  .ledger-wrap { max-height: none; }
+  /* A selected model is the page; the table steps aside and comes back with
+     the close button. With nothing selected the table is the page. */
+  .ledger--detail .ledger__table-col { display: none; }
+  .ledger:not(.ledger--detail) .ledger__pane { display: none; }
+  .ledger__pane { overflow: visible; }
+  .ledger-controls__row--facets { flex-wrap: wrap; }
+  .models-filters__context { width: 100%; margin-left: 0; }
+  .ledger-density { margin-left: 0; }
+  /* With a model open the inspector is the page; the controls above it would
+     only push it down. */
+  .models-page:has(.ledger--detail) .ledger-controls { display: none; }
+  .ledger-bar { flex-wrap: wrap; }
+  .ledger-bar__basis { display: none; }
+}
+
+@media (max-width: 640px) {
+  .models-bar { gap: var(--dk-space-2); }
+  .models-bar .view-bar__count { display: none; }
+  .models-bar__actions { width: 100%; margin-left: 0; }
+  .ledger-disk { flex: 1 1 100%; min-height: 44px; }
+  .ledger-disk__bar { flex: 1; width: auto; }
+  .ledger-search { flex-basis: 100%; max-width: none; }
+  .ledger-controls__end { width: 100%; justify-content: flex-end; }
+
+  /* Rows: name over fit, with the action at the end. The size column goes.
+     The table, its header and its body stop being a table so a row can be a
+     grid; the header keeps only the two sort buttons. */
+  .ledger-table, .ledger-table tbody, .ledger-table thead { display: block; }
+  .ledger-table caption { display: none; }
+  .ledger-table thead tr { display: flex; justify-content: space-between; border-bottom: 1px solid var(--dk-control-edge); }
+  .ledger-table thead th { display: block; height: 36px; border-bottom: 0; }
+  .ledger-table thead th.ledger-mark-cell { display: none; }
+  .ledger-table--installed thead th:not(:nth-child(2)) { display: none; }
+  .ledger-fit-cell { min-width: 0; }
+  .ledger-table thead .dk-hide-phone, .ledger-table thead .ledger-fit-head { display: none !important; }
+  .ledger-table tbody tr[data-row] {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    column-gap: var(--dk-space-3);
+    row-gap: 4px;
+    align-items: center;
+    padding: var(--dk-space-3) var(--dk-space-3);
+    border-bottom: 1px solid var(--dk-edge);
+  }
+  .ledger-table tbody tr[data-row] > td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .ledger-table tbody tr[data-row][data-selected="true"] { background: var(--dk-accent-wash); }
+  .ledger-table tbody tr[data-row] > td.ledger-mark-cell { grid-column: 1; grid-row: 1 / span 2; width: auto; }
+  .ledger-table tbody tr[data-row] > td.ledger-name-cell { grid-column: 2; grid-row: 1; max-width: none; width: auto; }
+  .ledger-table tbody tr[data-row] > td.ledger-fit-cell { grid-column: 2; grid-row: 2; }
+  .ledger-table tbody tr[data-row] > td.ledger-status { grid-column: 3; grid-row: 1 / span 2; }
+  .ledger-table--installed tbody tr[data-row] > td:nth-child(3) { grid-column: 2; grid-row: 2; }
+  .ledger-table--installed tbody tr[data-row] > td.ledger-status { grid-column: 3; grid-row: 1 / span 2; }
+  .ledger-table.dk-table--compact tbody tr[data-row] { padding-block: var(--dk-space-2); row-gap: 2px; }
+  .ledger-table tbody tr.dk-table-loading > td.dk-hide-phone, .ledger-table tbody tr.dk-table-loading > td.ledger-fit-cell { display: none; }
+  .ledger-table tbody tr.dk-table-loading > td.ledger-status { grid-column: 3; grid-row: 1; }
+  .ledger-table tbody tr.dk-table-loading > td.ledger-name-cell { grid-column: 2; grid-row: 1; }
+  .ledger-table tbody tr.ledger-group { display: block; }
+  .ledger-table tbody tr.ledger-group > td { display: block; }
+  .ledger-table tbody tr.dk-table-loading { display: grid; grid-template-columns: 20px 1fr auto; }
+  .ledger-table tbody tr.dk-table-loading > td { display: block; padding: 6px; border: 0; }
+  .ledger-fit__bar { max-width: 96px; }
+  .ledger-status__busy { max-width: 120px; }
+  .ledger-rowactions .dk-btn { padding-inline: var(--dk-space-2); }
+
+  .ledger-effect { flex-wrap: wrap; }
+  .ledger-effect .dk-btn--danger { flex: 1 1 auto; }
+  .ledger-cr { grid-template-columns: 22px minmax(0, 1fr); }
+  .ledger-cr__size { grid-column: 2; }
+  .ledger-cr--locked .ledger-cr__size { grid-column: 2; }
+}
+
+/* A phone has no keyboard to teach. */
+@media (pointer: coarse) {
+  .ledger-keys { display: none; }
+}
+
+/* The undo toast sits in the open part of the page, beside a side sheet and
+   above a bottom sheet, never on top of the effect bar. */
+.ledger-veil ~ .dk-toast-region { left: calc((100% - min(560px, 100%)) / 2); }
+@media (max-width: 640px) {
+  .ledger-veil ~ .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
+}
+
+/* The arrow at the end of a row: opens the model's own page. */
+.models-host { display: contents; }
+.models-host[hidden] { display: none; }
+.ledger-open { color: var(--dk-muted); }
+.ledger-open:hover { color: var(--dk-text); }

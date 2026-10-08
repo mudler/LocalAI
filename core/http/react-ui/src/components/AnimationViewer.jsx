@@ -78,7 +78,7 @@ export default function AnimationViewer({ blob }) {
           context.beginPath(); context.moveTo(...a); context.lineTo(...b); context.stroke()
         }
       }
-      context.strokeStyle = styles.getPropertyValue('--color-primary').trim() || '#438eff'
+      context.strokeStyle = styles.getPropertyValue('--color-primary').trim() || '#3f9a91'
       context.fillStyle = context.strokeStyle
       context.lineWidth = 3
       positions.forEach((position, index) => {

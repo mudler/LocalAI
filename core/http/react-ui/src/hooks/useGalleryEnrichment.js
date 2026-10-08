@@ -10,12 +10,15 @@ import { modelsApi, backendsApi } from '../utils/api'
 //
 // Items not present in the gallery (custom imports, external OCI installs)
 // resolve to `null` — callers fall back to a neutral icon + "no description".
-export function useGalleryEnrichment() {
+export function useGalleryEnrichment(enabled = true) {
   const [modelMap, setModelMap] = useState(() => new Map())
   const [backendMap, setBackendMap] = useState(() => new Map())
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    // The whole gallery is a large request. A caller that only needs it some of
+    // the time passes enabled=false until then.
+    if (!enabled) return undefined
     let cancelled = false
     Promise.allSettled([
       modelsApi.list({ items: 9999, page: 1 }),
@@ -44,7 +47,7 @@ export function useGalleryEnrichment() {
       setLoaded(true)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [enabled])
 
   const enrichModel = useCallback((name) => (name ? modelMap.get(name) || null : null), [modelMap])
   const enrichBackend = useCallback((name) => (name ? backendMap.get(name) || null : null), [backendMap])

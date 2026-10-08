@@ -1,34 +1,49 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useParams, useSearchParams, useOutletContext, Link, Navigate } from 'react-router-dom'
+import { useParams, useSearchParams, useOutletContext, useNavigate, Link, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { backendLogsApi, nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import { useDistributedMode } from '../hooks/useDistributedMode'
+import Icon from '../components/Icon'
+import './operate.css'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}${apiUrl(path)}`
 }
 
-const STREAM_BADGE = {
-  stdout: { bg: 'var(--color-info-light)', color: 'var(--color-log-info)', label: 'stdout' },
-  stderr: { bg: 'var(--color-error-light)', color: 'var(--color-log-stderr)', label: 'stderr' },
-}
+const STREAM_LABEL = { stdout: 'out', stderr: 'err' }
+
+// How long a Clear waits before the server's copy is wiped. The call erases
+// every captured line and cannot be reversed, so the lines are hidden at once
+// and this wait is the undo.
+const CLEAR_UNDO_MS = 6000
 
 // Detail view: log lines for a specific model
-function BackendLogsDetail({ modelId }) {
+// `embedded` drops the page chrome (header, page width) so the same viewer sits
+// inside another page, such as a tab of the model page.
+function BackendLogsDetail({ modelId, embedded = false }) {
+  const { t } = useTranslation('operate')
   const { addToast } = useOutletContext()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const fromTimestamp = searchParams.get('from')
 
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [text, setText] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [showDetails, setShowDetails] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
+  const [processes, setProcesses] = useState([])
+  // How many of the first lines a pending Clear is hiding. Zero when none is.
+  const [hidden, setHidden] = useState(0)
   const logContainerRef = useRef(null)
   const wsRef = useRef(null)
   const reconnectTimerRef = useRef(null)
@@ -40,12 +55,23 @@ function BackendLogsDetail({ modelId }) {
   // Keep loadingRef in sync
   useEffect(() => { loadingRef.current = loading }, [loading])
 
+  // The processes that have output, for the picker. Read once: a new process
+  // appears the next time the page is opened.
+  useEffect(() => {
+    if (embedded) return undefined
+    let cancelled = false
+    backendLogsApi.listModels()
+      .then(list => { if (!cancelled) setProcesses(Array.isArray(list) ? list : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [embedded])
+
   // Auto-scroll to bottom when new lines arrive
   useEffect(() => {
     if (autoScroll && logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
     }
-  }, [lines, autoScroll])
+  }, [lines, autoScroll, hidden])
 
   // WebSocket connection with reconnect
   const connectWebSocket = useCallback(() => {
@@ -117,26 +143,32 @@ function BackendLogsDetail({ modelId }) {
       const lineTime = new Date(el.dataset.timestamp).getTime()
       if (lineTime >= fromDate) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        el.style.background = 'rgba(59,130,246,0.1)'
-        setTimeout(() => { el.style.background = '' }, 3000)
+        el.dataset.mark = 'true'
+        setTimeout(() => { delete el.dataset.mark }, 3000)
         scrolledToTimestampRef.current = true
         break
       }
     }
   }, [fromTimestamp, lines])
 
-  const filteredLines = useMemo(
-    () => filter === 'all' ? lines : lines.filter(l => l.stream === filter),
-    [lines, filter]
-  )
+  const filteredLines = useMemo(() => {
+    const needle = text.trim().toLowerCase()
+    return lines.slice(hidden).filter(l => (filter === 'all' || l.stream === filter)
+      && (!needle || String(l.text || '').toLowerCase().includes(needle)))
+  }, [lines, filter, text, hidden])
 
-  const handleClear = async () => {
+  // Hide now, wipe on the server when the window ends. Undo shows them again.
+  const clear = () => setHidden(lines.length)
+  const undoClear = () => setHidden(0)
+  const commitClear = async () => {
     try {
       await backendLogsApi.clear(modelId)
       setLines([])
-      addToast('Logs cleared', 'success')
+      addToast(t('logs.cleared'), 'success')
     } catch (err) {
-      addToast(`Failed to clear: ${err.message}`, 'error')
+      addToast(t('logs.clearFailed', { message: err.message }), 'error')
+    } finally {
+      setHidden(0)
     }
   }
 
@@ -150,55 +182,68 @@ function BackendLogsDetail({ modelId }) {
     URL.revokeObjectURL(url)
   }
 
-  return (
-    <div className="page page--wide">
-      <PageHeader
-        title={<><i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
-        supporting="Backend process output"
-      />
+  const picker = [...new Set([modelId, ...processes])].sort((a, b) => a.localeCompare(b))
+  const nothingToShow = filteredLines.length === 0
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 2 }}>
+  return (
+    <div className={embedded ? 'logs-embedded lg' : 'page page--wide op-page lg'}>
+      {!embedded && (
+        <>
+          <Link className="lg-back dk-link" to="/app/backends?view=installed"><Icon name="arrow-left" /> {t('logs.back')}</Link>
+          <PageHeader
+            title={<span className="dk-mono">{modelId}</span>}
+            supporting={t('logs.supporting')}
+            actions={picker.length > 1 ? (
+              <label className="lg-picker">
+                <span className="dk-sr-only">{t('logs.process')}</span>
+                <select
+                  className="dk-select"
+                  value={modelId}
+                  onChange={e => navigate(`/app/backend-logs/${encodeURIComponent(e.target.value)}`)}
+                >
+                  {picker.map(id => <option key={id} value={id}>{id}</option>)}
+                </select>
+              </label>
+            ) : null}
+          />
+        </>
+      )}
+
+      <div className="lg-bar">
+        <div className="dk-segmented" role="group" aria-label={t('logs.stream')}>
           {['all', 'stdout', 'stderr'].map(f => (
-            <button
-              key={f}
-              className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setFilter(f)}
-            >
-              {f === 'all' ? 'All' : f}
+            <button key={f} type="button" className="dk-seg" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+              {f === 'all' ? t('logs.all') : f}
             </button>
           ))}
         </div>
-        <button className="btn btn-danger btn-sm" onClick={handleClear}><i className="fas fa-trash" /> Clear</button>
-        <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-          <i className="fas fa-download" /> Export
-        </button>
-        <button
-          className={`btn btn-sm ${showDetails ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={() => setShowDetails(prev => !prev)}
-          title={showDetails ? 'Hide timestamps and stream labels for easier copying' : 'Show timestamps and stream labels'}
-        >
-          <i className={`fas ${showDetails ? 'fa-eye-slash' : 'fa-eye'}`} /> {showDetails ? 'Text only' : 'Show details'}
-        </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.8125rem' }}>
-          <span style={{
-            display: 'inline-block',
-            width: 8, height: 8,
-            borderRadius: '50%',
-            background: wsConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-          }} />
-          <span className="text-secondary">
-            {wsConnected ? 'Live' : 'Reconnecting...'}
+        <input
+          className="dk-input lg-filter"
+          type="text"
+          aria-label={t('logs.filterLines')}
+          placeholder={t('logs.filterLines')}
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
+        <div className="lg-bar__right">
+          <span className="lg-live" role="status">
+            <span className={`dk-dot${wsConnected ? ' dk-dot--ok' : ''}`} aria-hidden="true" />
+            {wsConnected ? t('logs.live') : t('logs.reconnecting')}
           </span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'var(--spacing-sm)' }}>
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-            />
-            <span className="text-secondary">Auto-scroll</span>
-          </label>
+          <span className="lg-switch">
+            <button type="button" className="dk-switch" role="switch" aria-checked={autoScroll} aria-label={t('logs.follow')} onClick={() => setAutoScroll(v => !v)} />
+            <span aria-hidden="true">{t('logs.follow')}</span>
+          </span>
+          <span className="lg-switch">
+            <button type="button" className="dk-switch" role="switch" aria-checked={showDetails} aria-label={t('logs.times')} onClick={() => setShowDetails(v => !v)} />
+            <span aria-hidden="true">{t('logs.times')}</span>
+          </span>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={handleExport} disabled={filteredLines.length === 0}>
+            <Icon name="download" /> {t('logs.export')}
+          </button>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={clear} disabled={lines.length === 0 || hidden > 0}>
+            <Icon name="trash" /> {t('logs.clear')}
+          </button>
         </div>
       </div>
 
@@ -207,65 +252,54 @@ function BackendLogsDetail({ modelId }) {
         <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
-      ) : filteredLines.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
-          <h2 className="empty-state-title">No log lines</h2>
-          <p className="empty-state-text">
+      ) : nothingToShow ? (
+        <div className="dk-empty lg-empty">
+          <div className="dk-empty-icon"><Icon name="terminal" /></div>
+          <h2 className="dk-empty-title">{t('logs.emptyTitle')}</h2>
+          <p className="dk-empty-text">
             {filter !== 'all'
-              ? `No ${filter} output. Try switching to "All".`
-              : 'Log output will appear here as the backend process runs.'}
+              ? t('logs.emptyStream', { stream: filter })
+              : text.trim() ? t('logs.emptyFilter') : t('logs.emptyBody')}
           </p>
         </div>
       ) : (
         <div
           ref={logContainerRef}
-          style={{
-            background: 'var(--color-bg-primary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            overflow: 'auto',
-            maxHeight: 'calc(100vh - 280px)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            lineHeight: '1.5',
-          }}
+          className={`lg-log${embedded ? ' lg-log--embedded' : ''}`}
+          role="log"
+          aria-label={t('logs.output')}
+          tabIndex={0}
         >
-          {filteredLines.map((line, i) => {
-            const badge = STREAM_BADGE[line.stream] || STREAM_BADGE.stdout
-            return (
-              <div
-                key={i}
-                data-log-line
-                data-timestamp={line.timestamp}
-                style={{
-                  display: 'flex',
-                  gap: showDetails ? 'var(--spacing-sm)' : undefined,
-                  padding: '2px var(--spacing-sm)',
-                  borderBottom: '1px solid var(--color-border-subtle, rgba(255,255,255,0.03))',
-                  alignItems: 'flex-start',
-                }}
-              >
-                {showDetails && (<>
-                  <span style={{ color: 'var(--color-text-muted)', flexShrink: 0, minWidth: 90 }}>
-                    {formatTimestamp(line.timestamp)}
-                  </span>
-                  <span style={{
-                    background: badge.bg, color: badge.color,
-                    padding: '0 4px', borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.625rem', fontWeight: 500, flexShrink: 0,
-                    lineHeight: '1.5',
-                  }}>
-                    {badge.label}
-                  </span>
-                </>)}
-                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>
-                  {line.text}
-                </span>
-              </div>
-            )
-          })}
+          {filteredLines.map((line, i) => (
+            <div
+              key={i}
+              className="lg-line"
+              data-log-line
+              data-stream={line.stream === 'stderr' ? 'stderr' : 'stdout'}
+              data-timestamp={line.timestamp}
+            >
+              {showDetails && (
+                <>
+                  <span className="lg-line__time">{formatTimestamp(line.timestamp)}</span>
+                  <span className="lg-line__stream">{STREAM_LABEL[line.stream] || 'out'}</span>
+                </>
+              )}
+              <span className="lg-line__text">{line.text}</span>
+            </div>
+          ))}
         </div>
+      )}
+
+      {hidden > 0 && (
+        <HomeUndoToast
+          message={t('logs.clearing')}
+          undoLabel={t('activity.undo')}
+          dismissLabel={t('logs.clearNow')}
+          duration={CLEAR_UNDO_MS}
+          testId="logs-undo-toast"
+          onUndo={undoClear}
+          onExpire={commitClear}
+        />
       )}
     </div>
   )
@@ -309,11 +343,11 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
 
   if (error) {
     return (
-      <div className="page page--wide">
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-exclamation-triangle" /></div>
-          <h2 className="empty-state-title">Failed to resolve hosting nodes</h2>
-          <p className="empty-state-text">{error.message}</p>
+      <div className="page page--wide op-page">
+        <div className="dk-empty">
+          <div className="dk-empty-icon"><Icon name="warning" /></div>
+          <h2 className="dk-empty-title">Failed to resolve hosting nodes</h2>
+          <p className="dk-empty-text">{error.message}</p>
         </div>
       </div>
     )
@@ -329,13 +363,13 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
 
   if (hits.length === 0) {
     return (
-      <div className="page page--wide">
-        <div className="empty-state">
-          <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
-          <h2 className="empty-state-title">Model not loaded on any worker</h2>
-          <p className="empty-state-text">
-            <span className="text-mono">{modelId}</span> isn't currently loaded on any node in the cluster.
-            Check the <Link to="/app/nodes" className="text-primary">Nodes page</Link> to see which models are running where.
+      <div className="page page--wide op-page">
+        <div className="dk-empty">
+          <div className="dk-empty-icon"><Icon name="terminal" /></div>
+          <h2 className="dk-empty-title">Model not loaded on any worker</h2>
+          <p className="dk-empty-text">
+            <span className="dk-mono">{modelId}</span> isn't currently loaded on any node in the cluster.
+            Check the <Link to="/app/nodes" className="dk-link">Nodes page</Link> to see which models are running where.
           </p>
         </div>
       </div>
@@ -356,33 +390,27 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
 
   // Multiple workers host this model — let the operator pick.
   return (
-    <div className="page page--wide">
+    <div className="page page--wide op-page lg">
       <PageHeader
-        title={<><i className="fas fa-terminal" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />{modelId}</>}
+        title={<span className="dk-mono">{modelId}</span>}
         supporting={`Hosted on ${hits.length} workers — pick one to view its logs.`}
       />
-      <div className="stack stack--xs">
+      <ul className="dk-list lg-processes">
         {hits.map(({ node, model }) => (
-          <Link
-            key={`${node.id}#${model.replica_index ?? 0}`}
-            to={buildHref(node.id)}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: 'var(--spacing-sm) var(--spacing-md)',
-              background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)', textDecoration: 'none', color: 'inherit',
-            }}
-          >
-            <div>
-              <div className="fw-medium">{node.name || node.id}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                {node.id}{model.replica_index ? ` · replica ${model.replica_index}` : ''} · {model.state}
-              </div>
-            </div>
-            <i className="fas fa-chevron-right text-muted" />
-          </Link>
+          <li key={`${node.id}#${model.replica_index ?? 0}`}>
+            <Link className="dk-row" to={buildHref(node.id)}>
+              <span className="dk-row-lead"><Icon name="terminal" /></span>
+              <span className="dk-row-main">
+                <span className="dk-row-title">{node.name || node.id}</span>
+                <span className="dk-row-meta dk-mono">
+                  {node.id}{model.replica_index ? ` · replica ${model.replica_index}` : ''} · {model.state}
+                </span>
+              </span>
+              <span className="dk-row-end"><Icon name="chevron-right" /></span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   )
 }
@@ -411,24 +439,74 @@ function BackendLogsRouter({ modelId }) {
   return <BackendLogsDetail modelId={modelId} />
 }
 
+// With no model in the address the page lists the processes that have output,
+// each a link to its log. Reached from a backend's "Logs" link.
+function LogProcessList() {
+  const { t } = useTranslation('operate')
+  const [processes, setProcesses] = useState(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    backendLogsApi.listModels()
+      .then(list => { if (!cancelled) setProcesses(Array.isArray(list) ? list : []) })
+      .catch(err => { if (!cancelled) { setError(err.message); setProcesses([]) } })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div className="page page--wide op-page lg" data-testid="logs-processes">
+      <Link className="lg-back dk-link" to="/app/backends?view=installed"><Icon name="arrow-left" /> {t('logs.back')}</Link>
+      <PageHeader title={t('logs.title')} supporting={t('logs.listSupporting')} />
+      {processes === null ? (
+        <div className="loading-center"><LoadingSpinner size="lg" /></div>
+      ) : error ? (
+        <div className="op-error" role="alert"><Icon name="alert-circle" /> <span>{t('logs.listFailed', { message: error })}</span></div>
+      ) : processes.length === 0 ? (
+        <div className="dk-empty">
+          <div className="dk-empty-icon"><Icon name="terminal" /></div>
+          <h2 className="dk-empty-title">{t('logs.noProcessesTitle')}</h2>
+          <p className="dk-empty-text">
+            {t('logs.noProcessesBody')} <Link to="/app/models?view=installed" className="dk-link">{t('logs.noProcessesLink')}</Link>.
+          </p>
+        </div>
+      ) : (
+        <ul className="dk-list lg-processes">
+          {[...processes].sort((a, b) => a.localeCompare(b)).map(id => (
+            <li key={id}>
+              <Link className="dk-row" to={`/app/backend-logs/${encodeURIComponent(id)}`}>
+                <span className="dk-row-lead"><Icon name="terminal" /></span>
+                <span className="dk-row-main"><span className="dk-row-title dk-mono">{id}</span></span>
+                <span className="dk-row-end"><Icon name="chevron-right" /></span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function BackendLogs() {
   const { modelId } = useParams()
 
   if (modelId) {
     return <BackendLogsRouter modelId={modelId} />
   }
+  return <LogProcessList />
+}
 
-  // No model specified — redirect to System page
-  return (
-    <div className="page page--wide">
-      <div className="empty-state">
-        <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
-        <h2 className="empty-state-title">No model selected</h2>
-        <p className="empty-state-text">
-          View backend logs for a specific model from the{' '}
-          <Link to="/app/models?view=installed" className="text-primary">Installed Models page</Link>.
-        </p>
-      </div>
-    </div>
-  )
+// The log viewer without the page around it, for the model page's Logs tab.
+// In distributed mode the local stream has nothing behind it, so the tab points
+// at the full page, which resolves the node that hosts the model.
+export function BackendLogsPanel({ modelId, fullPageLabel }) {
+  const { enabled: distributedMode, loading } = useDistributedMode()
+  if (loading) return <div className="loading-center"><LoadingSpinner size="lg" /></div>
+  if (distributedMode) {
+    return (
+      <p className="logs-embedded__note">
+        <Link to={`/app/backend-logs/${encodeURIComponent(modelId)}`} className="dk-link">{fullPageLabel}</Link>
+      </p>
+    )
+  }
+  return <BackendLogsDetail modelId={modelId} embedded />
 }

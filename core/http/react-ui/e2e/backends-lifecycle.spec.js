@@ -117,12 +117,19 @@ test.describe('Backends lifecycle page', () => {
     await expect(page.getByRole('link', { name: 'Installed', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('textbox', { name: /search installed backends/i })).toHaveValue('llama')
     await expect(page.getByRole('tab', { name: /updates/i })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('llama-cpp')
+    // The open row is the one in the URL.
+    await expect(backendRow(page, 'llama-cpp')).toHaveAttribute('data-selected', 'true')
+    await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('v1.1.0')
     await expect(page).toHaveURL(/[?&]target=worker-1(?:&|$)/)
 
     await page.getByRole('link', { name: 'Catalog', exact: true }).click()
     await expect(page).toHaveURL(/[?&]target=worker-1(?:&|$)/)
     await expect(page.getByText(/installing only on GPU worker/i)).toBeVisible()
+    // The row opened from the URL; a click closes it and a second one opens it.
+    // Neither touches the scope.
+    await backendRow(page, 'llama-cpp').click()
+    await expect(page).not.toHaveURL(/[?&]backend=/)
+    await expect(page).toHaveURL(/[?&]target=worker-1(?:&|$)/)
     await backendRow(page, 'llama-cpp').click()
     await expect(page).toHaveURL(/[?&]backend=llama-cpp(?:&|$)/)
     await expect(page).toHaveURL(/[?&]target=worker-1(?:&|$)/)
@@ -136,8 +143,8 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed&backend=llama-cpp')
 
-    await expect(page.getByRole('button', { name: /upgrade to v1\.1\.0/i })).toBeVisible()
-    await page.getByRole('button', { name: 'Actions for llama-cpp' }).click()
+    await expect(page.getByRole('button', { name: /update to v1\.1\.0/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     const reinstall = page.getByRole('menuitem', { name: 'Reinstall backend' })
     await expect(reinstall).toBeVisible()
     await reinstall.click()
@@ -147,7 +154,7 @@ test.describe('Backends lifecycle page', () => {
   test('keeps Reinstall beside Upgrade for an installed backend in Catalog', async ({ page }) => {
     await page.goto('/app/backends?view=catalog&backend=llama-cpp')
 
-    await expect(page.locator('button[title^="Upgrade to"]')).toBeVisible()
+    await expect(page.locator('button[title^="Update to"]')).toBeVisible()
     await expect(page.locator('button[title="Reinstall"]')).toBeVisible()
   })
 
@@ -158,7 +165,7 @@ test.describe('Backends lifecycle page', () => {
     }))
     await page.goto('/app/backends?view=installed&backend=llama-cpp')
 
-    await page.getByRole('button', { name: 'Actions for llama-cpp' }).click()
+    await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Reinstall backend' }).click()
 
     const detail = page.locator('[data-testid="backends-installed-pane"]')
@@ -172,7 +179,7 @@ test.describe('Backends lifecycle page', () => {
     }))
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /upgrade all/i }).click()
+    await page.getByRole('button', { name: /update all/i }).click()
 
     await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
   })
@@ -199,7 +206,7 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /upgrade all/i }).click()
+    await page.getByRole('button', { name: /update all/i }).click()
 
     await expect(page.getByRole('alert')).toContainText('first registry unavailable')
     await expect.poll(() => laterUpgradeRequests).toBe(1)
@@ -269,7 +276,7 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed&backend=llama-cpp')
 
-    await page.getByRole('button', { name: 'Actions for llama-cpp' }).click()
+    await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Delete backend' }).click()
     await expect(page.getByRole('alertdialog')).toContainText('Delete backend llama-cpp?')
     expect(deleteRequests).toBe(0)
@@ -278,18 +285,23 @@ test.describe('Backends lifecycle page', () => {
     await expect.poll(() => deleteRequests).toBe(1)
   })
 
-  test('narrow detail Back restores focus to the originating backend', async ({ page }) => {
+  test('on a phone a backend opens in place and closes again, with its action in reach', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await page.goto('/app/backends?view=installed')
 
     const backend = backendRow(page, 'llama-cpp')
-    await backend.click()
-    await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('llama-cpp')
-    await expect(backend).not.toBeVisible()
-
-    await page.locator('[data-testid="backends-installed-back"]').click()
-
     await expect(backend).toBeVisible()
-    await expect(backend).toBeFocused()
+    // The row is a card: name, state and the action, no sideways scroll.
+    await expect(backend.getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+
+    await backend.click()
+    await expect(backend).toHaveAttribute('data-selected', 'true')
+    await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('v1.1.0')
+    await expect(backend).toBeVisible()
+
+    await backend.getByRole('button', { name: /Hide details for llama-cpp/ }).click()
+    await expect(page.locator('[data-testid="backends-installed-pane"]')).toHaveCount(0)
   })
 })

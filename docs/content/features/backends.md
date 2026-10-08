@@ -16,27 +16,52 @@ For the complete list of backends, the model families they support, and their ac
 
 ## Managing Backends in the UI
 
-The **Operate → Backends** page is the canonical home for the complete backend
-lifecycle:
+The **Operate → Runtime → Backends** page is the canonical home for the
+complete backend lifecycle. It is one list with two views, **Installed** and
+**Catalog**, each with a count:
 
 1. **Catalog** browses configured galleries, searches by name or description,
    filters by capability, and installs a backend. Catalog is the default view.
-2. **Installed** shows the runtimes present on the host or cluster. Search and
-   filter by user, system, update, or offline-node state, then select a backend
-   to inspect its version, source, node placement, and lifecycle actions.
+   On a new installation with nothing installed it recommends llama-cpp, which
+   runs most text models, with a single install button.
+2. **Installed** shows the runtimes present on the host or cluster, those with
+   an update first. Search and filter by user, system, update, or offline-node
+   state.
 3. Variant and development builds remain opt-in refinements. Target-node links
    compose with the current view and selection instead of opening a separate
    management page.
 
-The current view, search, filter, selected backend, and target node are stored
-in the URL. Browser Back and shared links therefore restore the same state.
+Each row shows the backend, its version and its state: **Current**, **Update
+1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
+installs, with **Cancel** in the row. A failed install says why, with **Retry**.
+The one action that matters sits in the row (**Install**, **Update**), and the
+chevron opens the row for the rest. **Update all** starts every pending update,
+and **Check for updates** asks the server to check now instead of waiting for
+its next scheduled check. **From URL** installs a backend from an OCI image, a
+URL or a path.
+
+The current view, search, filter, open row, and target node are stored in the
+URL. Browser Back and shared links therefore restore the same state.
+
+**Removing** a backend asks first. The dialog names the configured models that
+ask for that backend by name, and any installed meta backend that points at it
+(for example `llama-cpp` pointing at a hardware-specific build), because those
+stop working without it. The catalog does not report a size per backend, and
+LocalAI keeps no earlier version of a backend, so there is no size column and
+no rollback.
+
+**Operate → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
+that have printed something. Open one to read its output live, filter by stream
+or text, follow the end, show or hide times, export the lines as JSON, or clear
+them. Clearing hides the lines at once and wipes them on the server after 6
+seconds, unless you press **Undo**.
 
 Installs run in the background. The strip at the top of the app follows the
 current one, and **Operate → Activity** lists everything in flight, what needs
-attention, and what has finished, and is where a running install is cancelled
-or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
+attention, and what has finished, and is where a running install is paused,
+cancelled or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
 
-Each selected backend displays:
+Each open row displays:
 - Backend name and description
 - Type of models it supports
 - Installation status

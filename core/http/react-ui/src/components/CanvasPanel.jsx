@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { renderMarkdown } from '../utils/markdown'
 import { getArtifactIcon, extensionForLanguage } from '../utils/artifacts'
 import { safeHref } from '../utils/url'
 import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
 import hljs from '../utils/hljs'
+import Icon from './Icon'
 
 const WIDTH_KEY = 'localai_canvas_width'
 const MIME_BY_EXT = { html: 'text/html', svg: 'image/svg+xml', json: 'application/json', css: 'text/css' }
 
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
+  const { t } = useTranslation('chat')
   const [showPreview, setShowPreview] = useState(true)
   const [copySuccess, setCopySuccess] = useState(false)
   // Persisted drag-to-resize width (px). null = use the CSS default (45%).
@@ -25,12 +28,14 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
 
   // All hooks must run unconditionally (no early return above them).
   useEffect(() => {
-    if (codeRef.current && !showPreview && current?.type === 'code') {
+    // Code is highlighted whenever it is what is shown: in the Code view, and for
+    // a language that has no preview at all.
+    if (codeRef.current && (!showPreview || !hasPreview) && current?.type === 'code') {
       codeRef.current.querySelectorAll('pre code').forEach(block => {
         hljs.highlightElement(block)
       })
     }
-  }, [current, showPreview])
+  }, [current, showPreview, hasPreview])
 
   // Drag the left edge to resize; clamp to a sane range; persist on release.
   const startResize = (e) => {
@@ -101,7 +106,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'audio') {
       return (
         <div className="canvas-audio-wrapper">
-          <i className="fas fa-music canvas-audio-icon" />
+          <Icon name="music" className="canvas-audio-icon" />
           <p>{current.title}</p>
           <audio controls src={current.url} className="w-full" />
         </div>
@@ -113,7 +118,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'url') {
       return (
         <div className="canvas-url-card">
-          <i className="fas fa-external-link-alt" />
+          <Icon name="external-link" />
           <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer">{current.url}</a>
         </div>
       )
@@ -121,7 +126,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     if (current.type === 'file') {
       return (
         <div className="canvas-url-card">
-          <i className="fas fa-file" />
+          <Icon name="file" />
           <a href={safeHref(current.url)} target="_blank" rel="noopener noreferrer" download={current.title}>{current.title}</a>
         </div>
       )
@@ -129,7 +134,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     // Code artifacts
     if (showPreview && hasPreview) {
       if (current.language === 'html') {
-        return <iframe srcDoc={current.code} sandbox="allow-scripts" className="canvas-preview-iframe" title="HTML Preview" />
+        return <iframe srcDoc={current.code} sandbox="allow-scripts" className="canvas-preview-iframe" title={t('canvas.htmlPreview')} />
       }
       if (current.language === 'svg') {
         return <div className="canvas-preview-svg" dangerouslySetInnerHTML={{
@@ -150,8 +155,10 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
   }
 
   return (
-    <div
+    <aside
       className={`canvas-panel${fullscreen ? ' canvas-panel--fullscreen' : ''}`}
+      aria-label={t('canvas.title')}
+      data-testid="canvas-panel"
       ref={panelRef}
       style={!fullscreen && width ? { width: `${width}px`, maxWidth: 'none' } : undefined}
     >
@@ -162,23 +169,24 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
           onDoubleClick={resetWidth}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize canvas (double-click to reset)"
-          title="Drag to resize, double-click to reset"
+          aria-label={t('canvas.resize')}
+          title={t('canvas.resizeHint')}
         />
       )}
       <div className="canvas-panel-header">
-        <span className="canvas-panel-title">{current.title || 'Artifact'}</span>
+        <span className="canvas-panel-title">{current.title || t('canvas.artifact')}</span>
         <div className="canvas-header-actions">
           <button
-            className="btn btn-secondary btn-sm"
+            type="button"
+            className="canvas-icobtn"
             onClick={() => setFullscreen(f => !f)}
-            title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={fullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}
+            aria-label={fullscreen ? t('canvas.exitFullscreen') : t('canvas.fullscreen')}
           >
-            <i className={`fas ${fullscreen ? 'fa-compress' : 'fa-expand'}`} aria-hidden="true" />
+            <Icon name={fullscreen ? 'minimize' : 'maximize'} />
           </button>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} title="Close canvas" aria-label="Close canvas">
-            <i className="fas fa-times" aria-hidden="true" />
+          <button type="button" className="canvas-icobtn" onClick={onClose} title={t('canvas.close')} aria-label={t('canvas.close')}>
+            <Icon name="close" />
           </button>
         </div>
       </div>
@@ -187,7 +195,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
         <div
           className="canvas-panel-tabs"
           role="tablist"
-          aria-label="Artifacts"
+          aria-label={t('canvas.artifacts')}
           onKeyDown={(e) => {
             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
             e.preventDefault()
@@ -208,7 +216,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
               onClick={() => onSelect(a.id)}
               title={a.title}
             >
-              <i className={`fas ${getArtifactIcon(a.type, a.language)}`} aria-hidden="true" />
+              <Icon name={getArtifactIcon(a.type, a.language)} />
               <span>{a.title}</span>
             </button>
           ))}
@@ -218,29 +226,33 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
       <div className="canvas-panel-toolbar">
         <span className="badge badge-sm">{current.type === 'code' ? current.language : current.type}</span>
         {hasPreview && (
-          <div className="canvas-toggle-group">
+          <div className="canvas-toggle-group" role="group" aria-label={t('canvas.view')}>
             <button
+              type="button"
               className={`canvas-toggle-btn${!showPreview ? ' active' : ''}`}
+              aria-pressed={!showPreview}
               onClick={() => setShowPreview(false)}
-            >Code</button>
+            >{t('canvas.code')}</button>
             <button
+              type="button"
               className={`canvas-toggle-btn${showPreview ? ' active' : ''}`}
+              aria-pressed={showPreview}
               onClick={() => setShowPreview(true)}
-            >Preview</button>
+            >{t('canvas.preview')}</button>
           </div>
         )}
         <div className="flex-1" />
-        <button className="btn btn-secondary btn-sm" onClick={handleCopy} title="Copy">
-          <i className={`fas ${copySuccess ? 'fa-check' : 'fa-copy'}`} />
+        <button type="button" className="canvas-textbtn" onClick={handleCopy} title={t('actions.copy')}>
+          <Icon name={copySuccess ? 'check' : 'copy'} /> <span>{t('actions.copy')}</span>
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={handleDownload} title="Download">
-          <i className="fas fa-download" />
+        <button type="button" className="canvas-textbtn" onClick={handleDownload} title={t('canvas.download')}>
+          <Icon name="download" /> <span>{t('canvas.download')}</span>
         </button>
       </div>
 
       <div className="canvas-panel-body">
         {renderBody()}
       </div>
-    </div>
+    </aside>
   )
 }

@@ -1,0 +1,24 @@
+/* Memory by context. Solid bars from zero; the kit's chart parts do the rest. */
+.vramchart { margin: 0; display: grid; gap: var(--dk-space-3); }
+.vramchart .dk-chart-plot { max-width: 760px; }
+.vramchart__bar { fill: color-mix(in srgb, var(--dk-accent) 68%, var(--dk-card)); }
+.vramchart__col { cursor: pointer; }
+.vramchart__hit { fill: transparent; }
+.vramchart__col[data-selected="true"] .vramchart__bar { fill: var(--dk-accent); }
+.vramchart__col[data-over="true"] .vramchart__bar { fill: color-mix(in srgb, var(--dk-warn) 70%, var(--dk-card)); }
+.vramchart__col[data-over="true"][data-selected="true"] .vramchart__bar { fill: var(--dk-warn); }
+.vramchart__col:hover .vramchart__bar { opacity: .85; }
+.vramchart__value { text-anchor: middle; fill: var(--dk-muted); }
+.vramchart__col[data-selected="true"] .vramchart__value { fill: var(--dk-text); font-weight: var(--dk-weight-semibold); }
+.vramchart__tick { text-anchor: middle; }
+.vramchart__col[data-selected="true"] .vramchart__tick { fill: var(--dk-text); font-weight: var(--dk-weight-semibold); }
+.vramchart__limit-label { text-anchor: start; }
+
+/* Labels sit over the bars; a click on them belongs to the bar below. */
+.vramchart text, .vramchart .dk-chart-threshold { pointer-events: none; }
+
+/* The chart is drawn in a 640 unit box that shrinks with the screen. On a phone
+   the same type would be too small to read, so it is drawn larger. */
+@media (max-width: 640px) {
+  .vramchart .dk-chart-value, .vramchart .vramchart__tick, .vramchart .dk-chart-threshold-label { font-size: 17px; }
+}

@@ -142,12 +142,16 @@ The UI also supports entering a custom quantization type string for any format s
 
 ## Web UI
 
-A "Quantize" page appears in the sidebar under the Tools section. The UI provides:
+**Build → Quantize** uses the same page pattern as fine-tuning: set up, check, run, result.
 
-1. **Job Configuration** - Select model, quantization type (dropdown with presets or custom input), backend, and HuggingFace token
-2. **Progress Monitor** - Real-time progress bar and log output via SSE
-3. **Jobs List** - View all quantization jobs with status, stop/delete actions
-4. **Output** - Download the quantized GGUF file or import it directly into LocalAI for immediate use
+1. **Set up** - Choose the model and the quantization type (a preset, or a custom type). The backend and the Hugging Face token are under **More options**.
+2. **Check before you start** - Whether a model and type are set, whether a quantization backend is installed, the free RAM and the free space on the models disk. The server reports no model size before the job starts, so the page does not estimate one.
+3. **Run** - Percent, the stage (downloading, converting, quantizing), and a log of what the job reported since the page opened. **Stop** ends the job.
+4. **Result** - A failed job shows the server's message. A finished job shows the output file, downloads it, or imports it into LocalAI under a name you choose, then links to a chat with it and to Models.
+
+Earlier jobs are listed below the form, with **Reuse** and **Delete** (after a confirmation).
+
+A user needs the quantization permission. Without it, the page says the account cannot quantize.
 
 ## Architecture
 

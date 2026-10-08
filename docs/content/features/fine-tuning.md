@@ -203,12 +203,16 @@ curl -X POST http://localhost:8080/api/fine-tuning/jobs \
 
 ## Web UI
 
-When fine-tuning is enabled, a "Fine-Tune" page appears in the sidebar under the Agents section. The UI provides:
+**Build → Fine-Tune** is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
 
-1. **Job Configuration** - Select backend, model, training method, adapter type, and hyperparameters
-2. **Dataset Upload** - Upload local datasets or reference HuggingFace datasets
-3. **Training Monitor** - Real-time loss chart, progress bar, metrics display
-4. **Export** - Export trained models in various formats
+1. **Set up** - Choose the base model, the dataset (a Hugging Face id or an uploaded file), the kind of training (an adapter, or the full model) and the epochs, batch size and learning rate. Method, backend, adapter settings, optimizer, evaluation, reward functions (GRPO) and extra options are under **More options**.
+2. **Check before you start** - A list of what is known before the job starts, redrawn as you change the form: whether the model and dataset are set, whether a fine-tuning backend is installed, how much GPU memory (or RAM, when there is no GPU) is free, how much space is free on the models disk, and whether a token is set. LocalAI does not estimate how much memory a job needs or how long it takes, because the server cannot know that before the job starts, so the page says so. A missing model or dataset blocks the start. A warning, such as a missing backend or no GPU, does not.
+3. **Run** - Percent, step, epoch, the server's time estimate and tokens per second, the stages the job passes through, a chart of loss (with the evaluation loss as hollow dots), learning rate and gradient norm, and a log of what the job reported since the page opened. **Stop** asks whether to keep a checkpoint.
+4. **Result** - A failed job shows the server's message. When the message says memory ran out, the page offers two changes (a batch size of 1 and gradient checkpointing) that are applied to a copy of the setup and start nothing until you press Start. A finished job lists its checkpoints and exports the result as a model, then links to a chat with it and to Models.
+
+Earlier jobs are listed below the form. **Reuse** puts a job's setup back in the form.
+
+A user needs the fine-tuning permission. Without it, the page says the account cannot fine-tune and who can change that.
 
 ## Dataset Formats
 

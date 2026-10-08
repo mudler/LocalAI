@@ -16,7 +16,8 @@
     "create": "Crea",
     "recognition": "Riconoscimento",
     "build": "Costruisci",
-    "operate": "Gestione"
+    "operate": "Gestione",
+    "workspace": "Area di lavoro"
   },
   "operate": {
     "inference": "Inference",
@@ -61,7 +62,8 @@
     "activity": "Attività",
     "overview": "Panoramica",
     "thisMachine": "Questa macchina",
-    "failover": "Failover"
+    "failover": "Failover",
+    "p2p": "P2P"
   },
   "footer": {
     "github": "GitHub",
@@ -72,5 +74,26 @@
   "console": {
     "automation": "Automazione",
     "training": "Addestramento"
+  },
+  "hub": {
+    "status": "Stato",
+    "runtime": "Runtime",
+    "traffic": "Traffico",
+    "import": "Importa",
+    "recognition": "Riconoscimento",
+    "overviewSupporting": "Tutto ciò che costruisci con i tuoi modelli, in un posto solo.",
+    "overviewEmpty": "Nessuno strumento di Build è disponibile per il tuo account.",
+    "toolsLabel": "Strumenti di Build",
+    "descriptions": {
+      "agents": "Crea ed esegui agenti che usano i tuoi modelli e strumenti.",
+      "skills": "Istruzioni riutilizzabili che gli agenti caricano quando servono.",
+      "memory": "Raccolte di documenti in cui gli agenti possono cercare.",
+      "jobs": "Attività pianificate o singole che gli agenti eseguono per te.",
+      "fineTune": "Addestra un modello sui tuoi dati.",
+      "quantize": "Riduci un modello per farlo girare su hardware più piccolo.",
+      "import": "Aggiungi un modello da un file, un URL o un repository Hugging Face.",
+      "voices": "Identifica chi parla e gestisci una libreria di profili vocali.",
+      "faces": "Rileva, confronta e abbina volti."
+    }
   }
 }

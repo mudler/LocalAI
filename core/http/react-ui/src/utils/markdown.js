@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import hljs from './hljs'
 import { copyToClipboard } from './clipboard'
+import { iconHtml } from './iconHtml'
 
 marked.setOptions({
   highlight(code, lang) {
@@ -78,9 +79,23 @@ export function highlightAll(element) {
 // bar carrying the language label and a copy button. Idempotent: re-running on
 // the same DOM (e.g. while streaming) only touches new blocks. Copy clicks are
 // handled by a single delegated document listener (registered below).
-export function enhanceCodeBlocks(element) {
+//
+// options.copyLabel puts a word next to the copy icon, and options.canvasLabel
+// adds a second button that asks the page to open the block in its canvas. The
+// page owns what that button does: it listens for clicks on .code-canvas-btn.
+// options.selector limits which blocks count (the chat page leaves out the
+// plain output boxes of tool results).
+export function enhanceCodeBlocks(element, options = {}) {
   if (!element) return
-  element.querySelectorAll('pre:not([data-enhanced])').forEach((pre) => {
+  const { copyLabel, canvasLabel, selector = 'pre:not([data-enhanced])' } = options
+  const withLabel = (btn, icon, label) => {
+    btn.innerHTML = iconHtml(icon)
+    if (!label) return
+    const span = document.createElement('span')
+    span.textContent = label
+    btn.appendChild(span)
+  }
+  element.querySelectorAll(selector).forEach((pre) => {
     pre.setAttribute('data-enhanced', '1')
     const code = pre.querySelector('code')
     const langMatch = code && code.className.match(/language-(\w+)/)
@@ -92,17 +107,32 @@ export function enhanceCodeBlocks(element) {
     const label = document.createElement('span')
     label.className = 'code-block__lang'
     label.textContent = lang
+    head.appendChild(label)
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = 'code-copy-btn'
     btn.setAttribute('aria-label', 'Copy code')
-    btn.innerHTML = '<i class="fas fa-copy" aria-hidden="true"></i>'
-    head.appendChild(label)
+    withLabel(btn, 'copy', copyLabel)
     head.appendChild(btn)
+    if (canvasLabel) {
+      const open = document.createElement('button')
+      open.type = 'button'
+      open.className = 'code-canvas-btn'
+      open.setAttribute('aria-label', canvasLabel)
+      withLabel(open, 'columns', canvasLabel)
+      head.appendChild(open)
+    }
     pre.parentNode.insertBefore(wrap, pre)
     wrap.appendChild(head)
     wrap.appendChild(pre)
   })
+}
+
+// Swap only the icon, so a label next to it stays.
+function setButtonIcon(btn, name) {
+  const svg = btn.querySelector('svg')
+  if (svg) svg.outerHTML = iconHtml(name)
+  else btn.innerHTML = iconHtml(name)
 }
 
 // One delegated handler for every code-copy button, anywhere in the app.
@@ -115,10 +145,10 @@ if (typeof document !== 'undefined' && !window.__codeCopyDelegate) {
     if (!code) return
     const ok = await copyToClipboard(code.innerText)
     if (!ok) return
-    btn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i>'
+    setButtonIcon(btn, 'check')
     btn.classList.add('code-copy-btn--ok')
     setTimeout(() => {
-      btn.innerHTML = '<i class="fas fa-copy" aria-hidden="true"></i>'
+      setButtonIcon(btn, 'copy')
       btn.classList.remove('code-copy-btn--ok')
     }, 2000)
   })

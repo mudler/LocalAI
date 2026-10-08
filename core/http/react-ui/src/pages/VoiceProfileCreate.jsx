@@ -3,53 +3,19 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
+import './identity.css'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
-import MediaInput from '../components/biometrics/MediaInput'
+import ClipInput from '../components/identity/ClipInput'
 import WaveformPlayer from '../components/audio/WaveformPlayer'
-import { audioBufferToWavBlob } from '../hooks/useMediaCapture'
+import { MAX_AUDIO_BYTES, normalizeAudioSample } from '../utils/referenceAudio'
 import { voiceProfilesApi } from '../utils/api'
-
-const MAX_AUDIO_BYTES = 50 * 1024 * 1024
-const REFERENCE_SAMPLE_RATE = 24000
-
-function base64ToArrayBuffer(value) {
-  const binary = window.atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
-  return bytes.buffer
-}
-
-async function normalizeAudioSample(sample) {
-  const source = sample.blob?.arrayBuffer
-    ? await sample.blob.arrayBuffer()
-    : base64ToArrayBuffer(sample.base64)
-  const AudioCtx = window.AudioContext || window.webkitAudioContext
-  if (!AudioCtx) throw new Error('Web Audio API is not available in this browser')
-  const context = new AudioCtx()
-  try {
-    const decoded = await context.decodeAudioData(source.slice(0))
-    const blob = audioBufferToWavBlob(decoded, REFERENCE_SAMPLE_RATE)
-    if (blob.size > MAX_AUDIO_BYTES) throw new Error('Normalized audio is larger than 50 MiB')
-    return {
-      ...sample,
-      blob,
-      dataUrl: URL.createObjectURL(blob),
-      objectUrl: true,
-      mime: 'audio/wav',
-      duration: decoded.duration,
-      sampleRate: REFERENCE_SAMPLE_RATE,
-      name: sample.name || 'recording.wav',
-    }
-  } finally {
-    await context.close().catch(() => {})
-  }
-}
+import Icon from '../components/Icon'
 
 function ReadinessItem({ ready, warning, children }) {
   const tone = ready ? 'ready' : warning ? 'warning' : 'pending'
   return (
     <li className={`voice-readiness__item voice-readiness__item--${tone}`}>
-      <i className={`fas ${ready ? 'fa-check' : warning ? 'fa-triangle-exclamation' : 'fa-minus'}`} aria-hidden="true" />
+      <Icon name={ready ? 'check' : warning ? 'warning' : 'minus'} />
       <span>{children}</span>
     </li>
   )
@@ -91,6 +57,11 @@ export default function VoiceProfileCreate() {
     if (!sample) {
       setAudio(null)
       setAudioError('')
+      return
+    }
+    if (sample.blob?.size > MAX_AUDIO_BYTES) {
+      setAudio(null)
+      setAudioError(t('voiceCreate.audio.tooLarge'))
       return
     }
     setAudioProcessing(true)
@@ -154,15 +125,14 @@ export default function VoiceProfileCreate() {
   }
 
   return (
-    <main className="voice-create-page">
+    <main className="page voice-create-page">
       <UnsavedChangesGuard
         when={!submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent)}
       />
       <PageHeader
-        eyebrow={t('voiceCreate.eyebrow')}
-        title={<><i className="fas fa-microphone-lines" aria-hidden="true" /> {t('voiceCreate.title')}</>}
+        title={<><Icon name="mic" /> {t('voiceCreate.title')}</>}
         supporting={t('voiceCreate.subtitle')}
-        actions={<Link className="btn btn-secondary" to="/app/voice-library"><i className="fas fa-arrow-left" aria-hidden="true" /> {t('voiceCreate.actions.back')}</Link>}
+        actions={<Link className="dk-btn dk-btn--secondary" to="/app/voice-library"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</Link>}
       />
 
       <form className="voice-create-grid" onSubmit={submit}>
@@ -172,24 +142,21 @@ export default function VoiceProfileCreate() {
               <span>01</span>
               <div><h2 id="voice-reference-heading">{t('voiceCreate.sections.reference.title')}</h2><p>{t('voiceCreate.sections.reference.body')}</p></div>
             </div>
-            <MediaInput
-              mode="audio"
+            <ClipInput
+              kind="audio"
               label={t('voiceCreate.audio.label')}
               value={audio}
               onChange={handleAudio}
-              onError={(error) => setAudioError(error.message)}
-              maxBytes={MAX_AUDIO_BYTES}
-              preferBlob
               idPrefix="voice-profile"
             />
             {audioProcessing && <div className="voice-create-processing"><LoadingSpinner size="sm" /> {t('voiceCreate.audio.normalizing')}</div>}
-            {audioError && <p className="form-error" role="alert">{audioError}</p>}
+            {audioError && <p className="dk-field-error" role="alert">{audioError}</p>}
             {audio && (
               <div className="voice-create-preview">
                 <WaveformPlayer src={audio.dataUrl} height={72} label={t('voiceCreate.audio.preview')} />
                 <div className="voice-create-preview__meta">
-                  <span><i className="fas fa-clock" aria-hidden="true" /> {audio.duration.toFixed(1)}s</span>
-                  <span><i className="fas fa-wave-square" aria-hidden="true" /> {Math.round(audio.sampleRate / 1000)} kHz · PCM WAV</span>
+                  <span><Icon name="clock" /> {audio.duration.toFixed(1)}s</span>
+                  <span><Icon name="waveform" /> {Math.round(audio.sampleRate / 1000)} kHz · PCM WAV</span>
                   <span className={durationRecommended ? 'tone-success' : 'tone-warning'}>
                     {durationRecommended ? t('voiceCreate.audio.qualityReady') : t('voiceCreate.audio.qualityHint')}
                   </span>
@@ -200,17 +167,17 @@ export default function VoiceProfileCreate() {
               <div className="voice-create-preview" key={index}>
                 <div className="voice-create-label-row">
                   <strong>{t('voiceCreate.references.additional', { number: index + 2 })}</strong>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
+                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => {
                     if (reference.audio?.objectUrl) URL.revokeObjectURL(reference.audio.dataUrl)
                     setAdditionalReferences(current => current.filter((_, itemIndex) => itemIndex !== index))
                   }}>{t('voiceCreate.references.remove')}</button>
                 </div>
-                <MediaInput mode="audio" label={t('voiceCreate.audio.label')} value={reference.audio} onChange={(sample) => handleAdditionalAudio(index, sample)} maxBytes={MAX_AUDIO_BYTES} preferBlob idPrefix={`voice-profile-${index + 2}`} />
-                <label className="form-label" htmlFor={`voice-profile-transcript-${index + 2}`}>{t('voiceCreate.fields.transcript')}</label>
-                <textarea id={`voice-profile-transcript-${index + 2}`} className="textarea" rows={3} maxLength={4000} value={reference.transcript} onChange={(event) => setAdditionalReferences(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transcript: event.target.value } : item))} required />
+                <ClipInput kind="audio" label={t('voiceCreate.audio.label')} value={reference.audio} onChange={(sample) => handleAdditionalAudio(index, sample)} idPrefix={`voice-profile-${index + 2}`} />
+                <label className="dk-label" htmlFor={`voice-profile-transcript-${index + 2}`}>{t('voiceCreate.fields.transcript')}</label>
+                <textarea id={`voice-profile-transcript-${index + 2}`} className="dk-textarea" rows={3} maxLength={4000} value={reference.transcript} onChange={(event) => setAdditionalReferences(current => current.map((item, itemIndex) => itemIndex === index ? { ...item, transcript: event.target.value } : item))} required />
               </div>
             ))}
-            {additionalReferences.length < 9 && <button type="button" className="btn btn-secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><i className="fas fa-plus" aria-hidden="true" /> {t('voiceCreate.references.add')}</button>}
+            {additionalReferences.length < 9 && <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setAdditionalReferences(current => [...current, { audio: null, transcript: '' }])}><Icon name="plus" /> {t('voiceCreate.references.add')}</button>}
           </section>
 
           <section className="voice-create-section" aria-labelledby="voice-details-heading">
@@ -219,26 +186,26 @@ export default function VoiceProfileCreate() {
               <div><h2 id="voice-details-heading">{t('voiceCreate.sections.details.title')}</h2><p>{t('voiceCreate.sections.details.body')}</p></div>
             </div>
             <div className="form-grid-2col">
-              <div className="form-group">
-                <label className="form-label" htmlFor="voice-profile-name">{t('voiceCreate.fields.name')}</label>
-                <input id="voice-profile-name" className="input" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder={t('voiceCreate.fields.namePlaceholder')} required />
+              <div className="dk-field">
+                <label className="dk-label" htmlFor="voice-profile-name">{t('voiceCreate.fields.name')}</label>
+                <input id="voice-profile-name" className="dk-input" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder={t('voiceCreate.fields.namePlaceholder')} required />
               </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="voice-profile-language">{t('voiceCreate.fields.language')}</label>
-                <input id="voice-profile-language" className="input" value={language} maxLength={35} onChange={(event) => setLanguage(event.target.value)} placeholder={t('voiceCreate.fields.languagePlaceholder')} />
+              <div className="dk-field">
+                <label className="dk-label" htmlFor="voice-profile-language">{t('voiceCreate.fields.language')}</label>
+                <input id="voice-profile-language" className="dk-input" value={language} maxLength={35} onChange={(event) => setLanguage(event.target.value)} placeholder={t('voiceCreate.fields.languagePlaceholder')} />
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="voice-profile-description">{t('voiceCreate.fields.description')}</label>
-              <input id="voice-profile-description" className="input" value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder={t('voiceCreate.fields.descriptionPlaceholder')} />
+            <div className="dk-field">
+              <label className="dk-label" htmlFor="voice-profile-description">{t('voiceCreate.fields.description')}</label>
+              <input id="voice-profile-description" className="dk-input" value={description} maxLength={500} onChange={(event) => setDescription(event.target.value)} placeholder={t('voiceCreate.fields.descriptionPlaceholder')} />
             </div>
-            <div className="form-group">
+            <div className="dk-field">
               <div className="voice-create-label-row">
-                <label className="form-label" htmlFor="voice-profile-transcript">{t('voiceCreate.fields.transcript')}</label>
+                <label className="dk-label" htmlFor="voice-profile-transcript">{t('voiceCreate.fields.transcript')}</label>
                 <span>{transcript.length}/4000</span>
               </div>
-              <textarea id="voice-profile-transcript" className="textarea" rows={5} maxLength={4000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={t('voiceCreate.fields.transcriptPlaceholder')} required />
-              <p className="form-hint">{t('voiceCreate.fields.transcriptHint')}</p>
+              <textarea id="voice-profile-transcript" className="dk-textarea" rows={5} maxLength={4000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={t('voiceCreate.fields.transcriptPlaceholder')} required />
+              <p className="dk-hint">{t('voiceCreate.fields.transcriptHint')}</p>
             </div>
           </section>
 
@@ -247,24 +214,23 @@ export default function VoiceProfileCreate() {
               <span>03</span>
               <div><h2 id="voice-consent-heading">{t('voiceCreate.sections.consent.title')}</h2><p>{t('voiceCreate.sections.consent.body')}</p></div>
             </div>
-            <label className="voice-consent-check">
-              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-              <span className="voice-consent-check__box"><i className="fas fa-check" aria-hidden="true" /></span>
-              <span><strong>{t('voiceCreate.consent.title')}</strong><small>{t('voiceCreate.consent.body')}</small></span>
+            <label className="dk-choice voice-consent-check">
+              <input className="dk-check" type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+              <span><strong>{t('voiceCreate.consent.title')}</strong><span className="dk-hint">{t('voiceCreate.consent.body')}</span></span>
             </label>
           </section>
 
           <div className="voice-create-actions">
-            <Link className="btn btn-secondary" to="/app/voice-library">{t('voiceCreate.actions.cancel')}</Link>
-            <button type="submit" className="btn btn-primary" disabled={!formReady || submitting}>
-              {submitting ? <><LoadingSpinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><i className="fas fa-floppy-disk" aria-hidden="true" /> {t('voiceCreate.actions.save')}</>}
+            <Link className="dk-btn dk-btn--secondary" to="/app/voice-library">{t('voiceCreate.actions.cancel')}</Link>
+            <button type="submit" className="dk-btn dk-btn--primary" disabled={!formReady || submitting}>
+              {submitting ? <><LoadingSpinner size="sm" /> {t('voiceCreate.actions.saving')}</> : <><Icon name="save" /> {t('voiceCreate.actions.save')}</>}
             </button>
           </div>
         </div>
 
         <aside className="voice-readiness" aria-label={t('voiceCreate.readiness.title')}>
           <div className="voice-readiness__header">
-            <span className="voice-readiness__icon"><i className="fas fa-shield-halved" aria-hidden="true" /></span>
+            <span className="voice-readiness__icon"><Icon name="shield" /></span>
             <div><h2>{t('voiceCreate.readiness.title')}</h2><p>{t('voiceCreate.readiness.body')}</p></div>
           </div>
           <ul>
@@ -275,7 +241,7 @@ export default function VoiceProfileCreate() {
             <ReadinessItem ready={readiness.consent}>{t('voiceCreate.readiness.consent')}</ReadinessItem>
           </ul>
           <div className="voice-readiness__privacy">
-            <i className="fas fa-lock" aria-hidden="true" />
+            <Icon name="lock" />
             <p><strong>{t('voiceCreate.privacy.title')}</strong>{t('voiceCreate.privacy.body')}</p>
           </div>
         </aside>

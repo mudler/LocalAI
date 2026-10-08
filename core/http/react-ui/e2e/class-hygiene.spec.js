@@ -3,18 +3,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Font Awesome's `fas` / `far` / `fab` classes do not draw an icon on their
-// own — they set `font-family: "Font Awesome 6 Free"` and a weight on whatever
-// element carries them, and the matching `fa-*` class supplies the glyph
-// through ::before. Put them on a <button> and the button's own label text is
-// rendered in the icon font; put two `fa-*` classes on one element and they
-// fight over the same ::before.
-//
-// This is not hypothetical. A class-merging edit at some point collapsed
-// several "wrapper + button + icon" trios into a single className string, which
-// left icon classes on buttons and layout wrappers, and left the real buttons
-// with no class at all — rendering them in the browser's own chrome. Both
-// symptoms read as "unstyled button" and neither fails a build.
+// The app draws icons with the Icon component (an svg from the kit sprite).
+// Two kinds of slip are cheap to make in a bulk edit and do not fail a build:
+// an icon-font class left on an element, which now draws nothing, and a class
+// string merged from several elements into one, which leaves a wrapper styled
+// as a button and the real buttons bare.
 //
 // These tests read the source rather than the DOM on purpose: several of the
 // affected pages need agent or voice data before they render their header, so a
@@ -56,45 +49,20 @@ function classLiterals() {
   return found
 }
 
-const isIconFont = (c) => c === 'fas' || c === 'far' || c === 'fab'
-
-// Font Awesome's `fa-*` namespace holds two different kinds of class: the glyph
-// (`fa-plus`), of which an element may have exactly one, and modifiers that
-// size, spin or align it, of which it may have any number. `fa-spinner fa-spin`
-// is the documented spinner idiom and must not be mistaken for a conflict.
-const FA_MODIFIERS = new Set([
-  'fa-2xs', 'fa-xs', 'fa-sm', 'fa-lg', 'fa-xl', 'fa-2xl',
-  'fa-fw', 'fa-ul', 'fa-li', 'fa-border', 'fa-inverse',
-  'fa-pull-left', 'fa-pull-right',
-  'fa-beat', 'fa-fade', 'fa-beat-fade', 'fa-bounce', 'fa-flip', 'fa-shake',
-  'fa-spin', 'fa-spin-pulse', 'fa-spin-reverse', 'fa-pulse',
-  'fa-rotate-90', 'fa-rotate-180', 'fa-rotate-270', 'fa-rotate-by',
-  'fa-flip-horizontal', 'fa-flip-vertical', 'fa-flip-both',
-  'fa-stack', 'fa-stack-1x', 'fa-stack-2x',
-  'fa-sr-only', 'fa-sr-only-focusable',
-])
-const isGlyph = (c) =>
-  c.startsWith('fa-') && !FA_MODIFIERS.has(c) && !/^fa-\d+x$/.test(c)
+const isIconFont = (c) => c === 'fas' || c === 'far' || c === 'fab' || c === 'fa-solid' || /^fa-[a-z0-9-]+$/.test(c)
 
 test.describe('class hygiene', () => {
-  test('the icon font is only ever set on an icon element', () => {
-    // <i> and <span> are the icon carriers. Anything else wearing `fas` is
-    // rendering its own text in the icon font.
+  test('no element still carries a Font Awesome class', () => {
     const offenders = classLiterals()
       .filter(c => c.classes.some(isIconFont))
-      .filter(c => c.tag && c.tag !== 'i' && c.tag !== 'span')
-      .map(c => `${c.file}:${c.line} <${c.tag} class="${c.classes.join(' ')}">`)
+      .map(c => `${c.file}:${c.line} class="${c.classes.join(' ')}"`)
 
-    expect(offenders, 'icon-font classes belong on an <i>, not on the element whose text they would restyle').toEqual([])
+    expect(offenders, 'draw icons with <Icon name="..." />, not with an icon-font class').toEqual([])
   })
 
-  test('no element carries two competing glyphs or two button variants', () => {
+  test('no element carries two button variants or a wrapper styled as a button', () => {
     const offenders = []
     for (const c of classLiterals()) {
-      const glyphs = c.classes.filter(isGlyph)
-      if (glyphs.length > 1) {
-        offenders.push(`${c.file}:${c.line} two glyphs (${glyphs.join(', ')}) on one ::before`)
-      }
       const variants = c.classes.filter(x => /^btn-(primary|secondary|danger|ghost)$/.test(x))
       if (variants.length > 1) {
         offenders.push(`${c.file}:${c.line} two button variants (${variants.join(', ')}) on one element`)

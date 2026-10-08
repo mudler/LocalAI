@@ -70,7 +70,8 @@
     "manualPickTooltip": "Auto-detect won't route to this backend. Pick it here if you know that's what you want.",
     "optionsSummary": "backend, name, description, quantizations…",
     "modalityAny": "Any",
-    "modalityFilter": "Filter backends by modality"
+    "modalityFilter": "Filter backends by modality",
+    "yamlHint": "Written to the models folder as it is. Nothing is detected or downloaded."
   },
   "modality": {
     "text": "Text LLM",
@@ -88,7 +89,13 @@
   },
   "estimate": {
     "downloadLabel": "Download",
-    "vramLabel": "VRAM at load"
+    "vramLabel": "VRAM at load",
+    "fit": {
+      "fits": "Fits in the {{free}} that is free.",
+      "tight": "Close to the {{free}} that is free.",
+      "over": "More than the {{free}} that is free."
+    },
+    "diskShort": "More than the {{free}} free on the models disk."
   },
   "progress": {
     "label": "Import progress",
@@ -122,5 +129,78 @@
     "ollama": {
       "title": "Ollama"
     }
+  },
+  "steps": {
+    "label": "Progress",
+    "source": "Source",
+    "review": "Review",
+    "import": "Import",
+    "done": "Done"
+  },
+  "found": {
+    "title": "What LocalAI can tell",
+    "untouched": "Nothing is downloaded or contacted yet. LocalAI reads the repository when you import.",
+    "examples": "Or start from an example",
+    "kind": {
+      "huggingface": "Hugging Face repository",
+      "url": "Direct URL",
+      "config": "Configuration file",
+      "oci": "OCI image",
+      "ollama": "Ollama model",
+      "local": "File on this host",
+      "unknown": "Not recognised"
+    },
+    "ref": {
+      "huggingface": "Repository",
+      "url": "Address",
+      "config": "File",
+      "oci": "Image",
+      "ollama": "Model",
+      "local": "Path",
+      "unknown": "Source"
+    },
+    "file": "File",
+    "backend": "Backend",
+    "backendAuto": "Chosen when the import starts, from what the source holds.",
+    "backendChosen": "chosen by you",
+    "backendDownload": "chosen by you, downloaded first",
+    "adjust": "Adjust name, backend and quantizations"
+  },
+  "preview": {
+    "title": "Request preview",
+    "note": "This is what the form sends. LocalAI returns no preview of the model configuration: it is written after the import starts. Write YAML lets you write the configuration yourself."
+  },
+  "checks": {
+    "heading": "Checks",
+    "note": "Only what can be known before the import starts."
+  },
+  "done": {
+    "title": "The model is imported",
+    "titleNamed": "{{name}} is imported",
+    "text": "It is registered with LocalAI. Open it in Models, or start a chat with it.",
+    "chat": "Chat with {{name}}",
+    "models": "Open in Models",
+    "another": "Import another"
+  },
+  "bar": {
+    "empty": "Enter a source to continue.",
+    "ready": "Imports {{ref}} and writes its model configuration. The size is known once it starts.",
+    "working": "Importing. Progress is shown above."
+  },
+  "ambiguity": {
+    "title": "More than one backend could run this",
+    "tts": "This looks like a text-to-speech model. Pick one of the backends below to continue.",
+    "asr": "This looks like a speech-recognition model. Pick one of the backends below to continue.",
+    "embeddings": "This looks like an embeddings model. Pick one of the backends below to continue.",
+    "image": "This looks like an image-generation model. Pick one of the backends below to continue.",
+    "reranker": "This looks like a reranker or classifier model. Pick one of the backends below to continue.",
+    "detection": "This looks like an object-detection model. Pick one of the backends below to continue.",
+    "other": "This looks like a {{modality}} model, but LocalAI cannot pick a backend by itself. Pick one of the backends below to continue.",
+    "installed": "Installed.",
+    "notInstalled": "Not installed. LocalAI downloads it first.",
+    "use": "Use {{name}}",
+    "useTitle": "Use {{name}} for this import",
+    "useInstallTitle": "Use {{name}}. LocalAI will install it first.",
+    "dismiss": "Dismiss"
   }
 }

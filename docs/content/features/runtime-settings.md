@@ -9,7 +9,38 @@ LocalAI provides a web-based interface for managing application settings at runt
 
 ## Accessing Runtime Settings
 
-Navigate to the **Settings** page from the management interface at `http://localhost:8080/manage`. The settings page provides a comprehensive interface for configuring various aspects of LocalAI.
+Open **Operate → Settings** in the web UI (`/app/settings`). The page lists every setting below under eight groups by intent, and keeps your edits in a pending bar until you apply them.
+
+### Groups
+
+The groups reorganise the fields the page used to show under fifteen sections. The mapping:
+
+| Group | Settings it holds | Used to be under |
+|---|---|---|
+| Memory and models | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget | Watchdog, Memory Reclaimer, Backend Management, Performance |
+| Speed and defaults | Default threads, default context size, artifact download concurrency, F16 | Performance |
+| Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
+| Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
+| Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
+| Agents and responses | Agent job history, the agent pool, the LocalAI Assistant, the response store TTL | Agent Jobs, Agent Pool, LocalAI Assistant, Open Responses |
+| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
+| Look and feel | Instance name, tagline, the three logos | Branding |
+
+Search at the top of the page matches a setting's name, description and key, the group, and the old section name, so a search for "Watchdog" still finds the watchdog settings and each result says where it used to be.
+
+### Editing, applying and undoing
+
+Edits are not sent as you type. A bar at the bottom of the page counts them and offers **Discard**, **Show diff** and **Apply**. The diff lists each old and new value, and runs the checks the browser can make: a duration parses the way the server parses it, a GPU memory budget is one the server accepts, a gallery list is valid JSON with a `url` in each entry, and warnings repeat what the server says (a restart is needed, an empty P2P token stops P2P, evicting while busy can interrupt requests, CSRF protection off). A check that would make the server refuse the value stops **Apply**.
+
+**Apply** sends only the settings that changed. After it, **Undo** (for ten seconds) saves the previous values again. This is a new save, not a rollback: anything that changed in between stays changed.
+
+A setting shows **Changed** and its built-in default, with a **Reset** link, only when the default is known (the defaults of the `local-ai run` flags). Settings without a stated default, such as threads and the context size, never show the marker. An environment variable or flag can change the value the server starts with, so the marker compares with the built-in default, not with the startup value.
+
+A row says **Applies now** when the save handler applies the setting immediately (the watchdog and the memory reclaimer restart with the new values; so do the P2P stack and the agent job service when their settings change), and **Needs restart** for the agent pool settings. A setting without either note is saved, and the code does not say when it takes effect.
+
+**History** lists the settings you applied from this browser, newest first, up to the last 50. LocalAI keeps no settings log of its own, so changes made elsewhere do not appear, and a secret (the P2P token, shared API keys, the agent database URL) is listed as changed without its value. **Revert** puts the old value back as an edit.
+
+`POST /api/settings` accepts a partial body and merges it over the saved settings, so the page sends only the keys it changes. In the request, the `csrf` field carries the **disable** flag: the page shows the inverse as "CSRF protection". The galleries are sent as `galleries` and `backend_galleries`, and the shared API keys as `api_keys`, each as a JSON list.
 
 ## Available Settings
 

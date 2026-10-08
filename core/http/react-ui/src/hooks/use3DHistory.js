@@ -11,7 +11,8 @@ import { generateId } from '../utils/format'
 // Entry: { id, createdAt, name, model,
 //          params: { seed, steps, textureSteps, guidance, quality, background },
 //          inputThumb,  // small dataURL of the conditioning image
-//          glb }        // Blob
+//          glb,         // Blob
+//          parentId, edge, label }  // optional: the result it was made from
 
 const DB_NAME = 'localai-3d-history'
 const DB_VERSION = 1
@@ -100,8 +101,12 @@ export function use3DHistory() {
     return () => { historyListeners.delete(refresh) }
   }, [refresh])
 
-  const addEntry = useCallback(async ({ model, params, inputThumb, glb, name, inputs, operation, outputType }) => {
-    const entry = { id: generateId(), createdAt: Date.now(), model, params, inputThumb, glb, name, inputs, operation, outputType }
+  const addEntry = useCallback(async ({ model, params, inputThumb, glb, name, inputs, operation, outputType, parentId, edge, label }) => {
+    const entry = {
+      id: generateId(), createdAt: Date.now(), model, params, inputThumb, glb, name, inputs, operation, outputType,
+      ...(parentId ? { parentId, edge: edge || 'to-3d' } : {}),
+      ...(label ? { label: String(label).slice(0, 2000) } : {}),
+    }
     try {
       await idbPutAndEvict(entry)
       await refresh()

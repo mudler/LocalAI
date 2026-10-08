@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 
 import { suggestKeys, suggestValues } from '../../utils/nodeLabelSuggestions'
+import Icon from '../Icon'
 
 /**
  * Controlled chip-builder for { key: value } maps. Replaces the prior
@@ -142,7 +143,7 @@ export default function KeyValueChips({
                 title="Remove"
                 className="kvchips__chip-remove"
               >
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             </span>
           ))}
@@ -158,7 +159,7 @@ export default function KeyValueChips({
           disabled={!k.trim()}
           aria-label={addLabel}
         >
-          <i className="fas fa-plus" /> Add
+          <Icon name="plus" /> Add
         </button>
         {options.length > 0 && (
           <ul className="kvchips__suggestions" id={listId} role="listbox" data-testid="label-suggestions">

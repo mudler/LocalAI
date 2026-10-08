@@ -235,12 +235,27 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
   // Counted totals, so a dashboard does not fetch the whole list to size it.
-  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
+  // `hours` picks the window the server counts over (1 to 168).
+  summary: (hours) => fetchJSON(hours ? `${API_CONFIG.endpoints.tracesSummary}?hours=${hours}` : API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
   getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
+}
+
+// Prometheus exposition text from /metrics (admin only). Returns the status and
+// the text, so a page can tell a route that is off (404) from one that refused
+// the caller (401, 403) and from a network failure (status 0).
+export const metricsApi = {
+  scrape: async () => {
+    try {
+      const response = await fetch(apiUrl('/metrics'))
+      return { status: response.status, text: response.ok ? await response.text() : '' }
+    } catch {
+      return { status: 0, text: '' }
+    }
+  },
 }
 
 // P2P API
@@ -267,6 +282,16 @@ export const agentJobsApi = {
   getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
   cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
   executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
+  // Run a finished job's task again with the parameters and media it had. There
+  // is no retry call, so this is a new job.
+  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
+    task_id: job.task_id,
+    parameters: job.parameters || {},
+    ...(job.images?.length ? { images: job.images } : {}),
+    ...(job.videos?.length ? { videos: job.videos } : {}),
+    ...(job.audios?.length ? { audios: job.audios } : {}),
+    ...(job.files?.length ? { files: job.files } : {}),
+  }),
 }
 
 // Image generation
@@ -566,7 +591,8 @@ export const adminInvitesApi = {
 // API Keys
 export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
-  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  // expiresIn is "30d", "90d" or "1y"; without it the server applies its own default.
+  create: (name, expiresIn) => postJSON('/api/auth/api-keys', expiresIn ? { name, expiresIn } : { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
   setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {

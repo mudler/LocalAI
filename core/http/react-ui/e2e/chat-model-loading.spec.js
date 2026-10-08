@@ -70,15 +70,16 @@ test.describe('Chat - model loading', () => {
     })
 
     await page.goto('/app/chat')
-    await expect(page.getByRole('button', { name: 'test-model' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /test-model/ })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('.chat-input').fill('Hello')
-    await page.locator('.chat-send-btn').click()
+    await page.getByTestId('chat-input').fill('Hello')
+    await page.getByTestId('chat-send').click()
 
     // The 503 is shown as progress, not as an error.
-    await expect(page.locator('.chat-staging-progress')).toBeVisible({ timeout: 10_000 })
-    await expect(page.locator('.chat-staging-label')).toContainText('nvidia-thor')
-    await expect(page.locator('.chat-staging-pct')).toContainText('41%')
+    await expect(page.getByTestId('chat-load')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('chat-load-phase')).toContainText('nvidia-thor')
+    await expect(page.getByTestId('chat-load-pct')).toContainText('41%')
+    await expect(page.getByTestId('chat-load')).toContainText('13.7 of 33.3 GB')
 
     // ...and the request retries itself once the load reports ready.
     await expect(page.getByText('loaded at last')).toBeVisible({ timeout: 25_000 })

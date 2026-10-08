@@ -16,7 +16,8 @@
     "create": "创建",
     "recognition": "识别",
     "build": "构建",
-    "operate": "运维"
+    "operate": "运维",
+    "workspace": "工作区"
   },
   "operate": {
     "inference": "Inference",
@@ -61,7 +62,8 @@
     "activity": "活动",
     "overview": "概览",
     "thisMachine": "本机",
-    "failover": "故障转移"
+    "failover": "故障转移",
+    "p2p": "P2P"
   },
   "footer": {
     "github": "GitHub",
@@ -72,5 +74,26 @@
   "console": {
     "automation": "自动化",
     "training": "训练"
+  },
+  "hub": {
+    "status": "状态",
+    "runtime": "运行时",
+    "traffic": "流量",
+    "import": "导入",
+    "recognition": "识别",
+    "overviewSupporting": "用你的模型构建的一切，集中在一处。",
+    "overviewEmpty": "你的账户没有可用的构建工具。",
+    "toolsLabel": "构建工具",
+    "descriptions": {
+      "agents": "创建并运行使用你的模型和工具的智能体。",
+      "skills": "智能体可按需加载的可复用指令。",
+      "memory": "智能体可以搜索的文档集合。",
+      "jobs": "智能体为你执行的定时任务和一次性任务。",
+      "fineTune": "用你自己的数据训练模型。",
+      "quantize": "压缩模型，使其能在更小的硬件上运行。",
+      "import": "从文件、URL 或 Hugging Face 仓库添加模型。",
+      "voices": "识别说话人，并维护声音档案库。",
+      "faces": "检测、比较和匹配人脸。"
+    }
   }
 }

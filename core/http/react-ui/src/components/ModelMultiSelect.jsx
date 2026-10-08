@@ -1,4 +1,5 @@
 import SearchableModelSelect from './SearchableModelSelect'
+import Icon from './Icon'
 
 // Editor for a list of model names (value is []string). Selected models render
 // as compact removable chips; a single capability-filtered, commit-only picker
@@ -39,7 +40,7 @@ export default function ModelMultiSelect({ value, onChange, capability, placehol
                 onClick={() => remove(i)}
                 style={{ padding: '0 6px', fontSize: '0.75rem', lineHeight: 1.6 }}
                 aria-label={`Remove ${name}`}>
-                <i className="fas fa-times" />
+                <Icon name="close" />
               </button>
             </span>
           ))}

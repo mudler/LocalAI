@@ -28,16 +28,110 @@ GPT and text generation models might have a license which is not permissive for 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
 lifecycle and has two views:
 
-- **Explore** browses configured galleries, compares hardware fit and variants,
-  and installs models. This is the default view.
-- **Installed** lists local model configurations and their running, idle,
-  disabled, pinned, and distributed state. Select a model to load or stop it,
-  edit its configuration, open a supported use case, inspect backend logs, or
-  remove it.
+- **Explore** browses configured galleries and installs models. It is one
+  dense table: each row shows the model's size, a bar for the memory it needs at
+  the chosen context length, and the headroom in words ("3.7 free", "+1.5 on
+  CPU", "0.9 over"). Capability chips show how many models each one matches.
+  Select a row to open the details beside the table: the fit on this machine,
+  VRAM by context length, variants, files, links, tags and licence. This is the
+  default view.
+- **Installed** lists local model configurations in the same table, with their
+  running, idle, disabled, pinned, and distributed state and their size on disk.
+  Load or stop a model from its row, or select it to edit its configuration,
+  open a supported use case, inspect backend logs, or remove it.
 
-Both views use the same model selection and store the view, search, filter, and
-selection in the URL. Installing from Explore does not move you away from the
-catalog; the entry updates in place when the operation finishes.
+Both views store the view, search, filter, and selection in the URL. Installing
+from Explore does not move you away from the catalog; the entry updates in place
+when the operation finishes.
+
+### A model's own page
+
+Every model also has a page of its own at `/app/models/<name>`, so it can be
+linked. Open it with the arrow at the end of a row, a double click on the row,
+or `o` on the selected row. On a phone, a tap on a row opens it. The details
+beside the table stay as the quick look.
+
+The title block names the model and holds the main action: **Install**, with a
+chevron to choose which build to install, or **Load** and **Stop** with a menu
+for an installed model (disable, pin, edit configuration, logs, delete). A strip
+under it answers three questions: whether the model fits this machine, what it
+does, and what installing leaves free on the models disk (or its state, when it
+is installed). The tabs are:
+
+- **Overview**: the description, backend, licence, largest context, tags, links
+  and a memory bar. For an installed model it also shows its state, the pages it
+  opens in, and which agents, agent tasks, failover chains and aliases name it.
+- **Fit and memory**: the verdict in words, a context size selector, the memory
+  bar split into weights and the part that grows with context, and a chart of the
+  memory needed at each context size against the memory this machine offers.
+  When a model has several builds, pick the build to see its own figures.
+- **Variants and files**: the builds with their size and fit, and the files the
+  chosen build downloads. Install any build from its row.
+- **Usage and history**, **Configuration** and **Logs**, for installed models.
+  LocalAI does not record requests, timings, loads or configuration changes for
+  each model, so the usage tab lists what it cannot show yet instead of an empty
+  chart. The same tab lists the files the model uses on disk, with their size,
+  the other models that use them, and any file the configuration names that is
+  not on disk (see [Disk and cleanup](#disk-and-cleanup)). Configuration holds the [Placement](/advanced/model-configuration/#placement)
+  section. Logs is the backend log viewer of the Operate section.
+
+The page reads the same lists as the table, so it works for a model the gallery
+does not list (it has no variants or files tab) and for a gallery model that is
+not installed (it has no usage, configuration or logs tab). If the gallery cannot
+be reached, an installed model keeps working and Install says why it is off.
+
+Going back with `Esc`, `Backspace` or the **Models** button returns to the list
+with its view, search, filters, selection and scroll as you left them. The
+previous and next buttons step through the rows of the list you came from, in
+the order you saw them.
+
+### Keyboard
+
+On the Models page, `/` jumps to the search field, the up and down arrows move
+the selection, `Enter` installs the selected model in Explore, `d` switches
+between comfortable and compact rows, `o` opens the selected model's page, and
+`Esc` closes the details.
+
+On a model's page, `1` to `6` switch tabs, `[` and `]` (or `k` and `j`) step to
+the previous and next model of the list, and `Esc` goes back to the list.
+
+### Disk and cleanup
+
+When the server reports the disk that holds the models directory, a strip in the
+page header shows how much of it is free. It turns amber when less than 10
+percent, or less than 20 GB, is free. In Explore, the details of a model say how
+much disk an install leaves free. The strip is hidden when the disk cannot be
+read, and on a distributed controller, where the models live on the workers.
+
+Select the strip to open the cleanup review. LocalAI does not record when a
+model was last used or how often, so the review says so and ranks installed
+models only by what it can see:
+
+- **Safe to remove**: another build of the same gallery model is installed, and
+  the build LocalAI would pick on this host is the one that stays.
+- **Probably safe**: disabled, unused, and available in the gallery to download
+  again.
+- **Your call**: not loaded and not used by anything, but with nothing more
+  known. A model that is not in the gallery cannot be downloaded again, and the
+  review says so.
+- **Protected**: loaded, pinned, or named by an agent, an agent task, a failover
+  chain or an alias. These are never suggested. If an agent or task cannot be
+  read, nothing is marked safe.
+
+For an admin, sizes are what each model uses on disk, read from
+`GET /api/models/storage`. A file that another installed model also uses stays
+on disk when you remove one of the two, so the review counts only the files a
+model does not share. It says which models share files, and the amount freed
+by a selection counts a shared file only when every model that uses it is in
+the selection. A configuration that names files that are not on disk (a download
+that did not finish, or files removed by hand) is listed as a finding. If the
+report cannot be read, for example because the user is not an admin, sizes fall
+back to the sizes of the files the gallery lists. A model that is not in the
+gallery then shows no size and is not counted in what a removal frees. Before you
+confirm, the review checks again and lists what will go, why, and how much it
+frees. Removal then waits 30 seconds, during which you can undo it; the delete
+request is sent only when that time ends. If you leave the page during the wait,
+nothing is deleted.
 
 ## Cyber-Ornith 1.5 9B
 
@@ -171,9 +265,9 @@ This removal does not delete previously installed models. Remove that configurat
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
 
-- **Where they appear**: In the model gallery table (Size / VRAM column), in the model detail modal, and after starting an import from URI (in the success message).
+- **Where they appear**: In the model gallery table (Size and Fit columns), in the model inspector beside it, and after starting an import from URI (in the success message).
 - **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used. GGUF metadata lengths that exceed the file size are rejected before allocation; these files also use the size-only estimate.
-- **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
+- **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
 ## Useful Links and resources

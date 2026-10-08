@@ -1,134 +1,127 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
-import { formatBytes } from '../utils/format'
-import { staggerStyle } from '../hooks/useStagger'
+import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import StudioComposer from '../components/studio/StudioComposer'
+// eslint-disable-next-line no-unused-vars
+import WorkMasonry from '../components/studio/WorkMasonry'
+// eslint-disable-next-line no-unused-vars
+import LineageView from '../components/studio/LineageView'
+import { useStudioWork } from '../hooks/useStudioWork'
+import { readLastModel } from '../utils/lastModel'
+import { TYPE_ORDER } from '../utils/studioWork'
+import '../components/studio/studio.css'
 
-// What this machine can actually make.
+// The Studio front page: a prompt box that suggests what to make, and under it
+// the things already made, with results that came from each other stacked into
+// projects. A result or a stack opens as a lineage board at ?work=<id>, so Back
+// and a reload both land where you were.
 //
-// Studio used to open on Images and say nothing about the other five
-// modalities, so the only way to learn that video had no model was to pick the
-// tab and find an empty select. This page answers that before the click.
+// The page does not generate anything itself. The composer opens the right
+// workspace with the prompt filled in; each workspace is still where a run
+// happens, is recorded, and shows its request.
 //
-// Two kinds of unavailable, and they must not read the same:
-//   - switched off server-side  -> no tab, no lane, nothing (handled upstream
-//     in Studio.jsx, which never puts a gated modality in the list)
-//   - available, no model yet   -> a lane with a route to installing one
-//
-// Lanes, not a SplitView: six modalities each carrying one decision-relevant
-// fact are read in sequence, not compared as candidates.
-
-export default function StudioOverview({ modalities, recent, running, onPick }) {
+//   modalities     the workspaces this person can use, each with the ids of the
+//                  models installed for it
+//   modelsLoading  true until the first answer about installed models
+//   modelsError    set when that answer could not be read
+//   refetchModels  ask again, used while a model installs
+export default function StudioOverview({ modalities, modelsLoading, modelsError, refetchModels }) {
   const { t } = useTranslation('media')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { items, ready, toggleFavourite, clearHistory } = useStudioWork()
+  const [filter, setFilter] = useState('all')
+  const [group, setGroup] = useState(true)
+  // The composer's state lives here, so opening a lineage and coming back, or a
+  // model installing, never costs the words that were typed.
+  const [draft, setDraft] = useState({ type: '', text: '', models: {}, sizes: {}, count: 1, sourceId: '' })
 
-  const ready = modalities.filter(m => m.installed.length > 0).length
+  const workId = searchParams.get('work')
+  const types = TYPE_ORDER.filter(k => modalities.some(m => m.key === k))
 
-  return (
-    <div data-testid="studio-overview" className="page-pad">
-      {/* The shared header, not a bespoke one: every other page in the app
-          announces itself with .page-title, and the render-smoke gate looks
-          for exactly that. */}
-      <PageHeader
-        title={t('studio.overview.title')}
-        supporting={t('studio.overview.subtitle')}
-      />
+  // The model a type opens with: the one last picked in its workspace when it is
+  // still installed, else the first installed.
+  const defaultModel = useCallback((type, ids) => {
+    const capability = modalities.find(m => m.key === type)?.capability
+    const last = readLastModel(capability)
+    return ids.includes(last) ? last : (ids[0] || '')
+  }, [modalities])
 
-      <div className="lane-head">
-        <h2>{t('studio.overview.canMake')}</h2>
-        <span className="lane-head__meta">
-          {t('studio.overview.eyebrow', { ready, total: modalities.length })}
-        </span>
-      </div>
-      <ul className="lanes lanes--modality reveal-stagger">
-        {modalities.map((m, i) => (
-          <li key={m.key} data-testid="studio-modality" data-modality={m.key} style={staggerStyle(i)}>
-            <ModalityLane modality={m} onPick={onPick} t={t} />
-          </li>
-        ))}
-      </ul>
+  const open = (id) => setSearchParams({ work: id })
+  const close = useCallback(() => setSearchParams({}), [setSearchParams])
+  const handoff = useCallback((path) => navigate(path), [navigate])
 
-      {running.length > 0 && (
-        <>
-          <div className="lane-head"><h2>{t('studio.overview.running')}</h2></div>
-          <ul className="lanes lanes--takes" data-testid="studio-running">
-            {running.map(op => (
-              <li key={op.id || op.name} className="lane">
-                <span className="lane__name">{op.name || op.id}</span>
-                {typeof op.progress === 'number' && (
-                  <span className="studio-running__meter">
-                    <i style={{ width: `${Math.max(0, Math.min(100, op.progress))}%` }} />
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {/* Absent rather than empty. A shelf with nothing on it is furniture. */}
-      {recent.length > 0 && (
-        <>
-          <div className="lane-head"><h2>{t('studio.overview.recent')}</h2></div>
-          <ul className="lanes lanes--takes reveal-stagger" data-testid="studio-recent">
-            {recent.map((entry, i) => (
-              <li key={entry.id} style={staggerStyle(i)}>
-                <button type="button" className="lane" onClick={() => onPick(entry.modality)}>
-                  <span className="lane__name">{entry.model || entry.modality}</span>
-                  <span className="lane__num">{describeEntry(entry, t)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  )
-}
-
-function ModalityLane({ modality, onPick, t }) {
-  const { key, installed, typical } = modality
-  const hasModel = installed.length > 0
-
-  const body = (
-    <>
-      <span className="lane__tag">{t(`studio.groups.${modality.group}`)}</span>
-      <span className="lane__main">
-        <b className="lane__name">{t(`studio.tabs.${key}`)}</b>
-        <span className="lane__desc">{t(`studio.overview.describe.${key}`)}</span>
-      </span>
-      <span className="lane__num">
-        {hasModel
-          ? installed[0] + (installed.length > 1 ? ` +${installed.length - 1}` : '')
-          : t('studio.overview.noModel')}
-      </span>
-      {/* Dash, not a guess. Cost is measured from this machine's own history. */}
-      <span className="lane__num">{typical || '—'}</span>
-    </>
-  )
-
-  if (!hasModel) {
+  if (workId) {
     return (
-      <span className="lane studio-modality--empty">
-        {body}
-        <Link className="studio-modality__install" to={`/app/models?capability=${key}`}>
-          {t('studio.overview.install')}
-        </Link>
-      </span>
+      <div data-testid="studio-overview" className="page-pad studio-front">
+        {!ready ? (
+          <div className="dk-skeleton studio-skel studio-skel--board" aria-busy="true" />
+        ) : (
+          <LineageView
+            key={workId}
+            items={items}
+            workId={workId}
+            modalities={modalities}
+            defaultModel={defaultModel}
+            onClose={close}
+            onToggleFavourite={toggleFavourite}
+            onHandoff={handoff}
+            onModelsChanged={refetchModels}
+          />
+        )}
+      </div>
     )
   }
 
   return (
-    <button type="button" className="lane" onClick={() => onPick(key)}>
-      {body}
-      <span className="studio-modality__state">{t('studio.overview.ready')}</span>
-    </button>
-  )
-}
+    <div data-testid="studio-overview" className="page-pad studio-front">
+      <PageHeader
+        title={t('studio.overview.title')}
+        supporting={t('studio.overview.subtitle')}
+        actions={<span className="studio-key-hint"><kbd className="dk-kbd">/</kbd> {t('studio.composer.startTyping')}</span>}
+      />
 
-function describeEntry(entry, t) {
-  const bits = []
-  if (entry.size) bits.push(entry.size)
-  if (entry.bytes) bits.push(formatBytes(entry.bytes))
-  if (entry.elapsedMs) bits.push(t('studio.overview.seconds', { seconds: (entry.elapsedMs / 1000).toFixed(1) }))
-  return bits.join(' · ')
+      {modelsError ? (
+        <div className="studio-note studio-note--error studio-note--standalone" role="alert" data-testid="studio-models-error">
+          <h3>{t('studio.error.title')}</h3>
+          <p>{t('studio.error.body')}</p>
+          <div className="studio-note__row">
+            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={refetchModels}>
+              <Icon name="refresh" /> {t('studio.error.retry')}
+            </button>
+          </div>
+        </div>
+      ) : modelsLoading ? (
+        <section className="studio-composer" aria-busy="true" data-testid="studio-composer-loading">
+          <div className="dk-skeleton studio-skel studio-skel--composer" />
+        </section>
+      ) : (
+        <StudioComposer
+          draft={draft}
+          setDraft={setDraft}
+          modalities={modalities}
+          items={items}
+          onHandoff={handoff}
+          onModelsChanged={refetchModels}
+          defaultModel={defaultModel}
+        />
+      )}
+
+      <WorkMasonry
+        items={items}
+        ready={ready}
+        types={types}
+        filter={filter}
+        onFilter={setFilter}
+        group={group}
+        onGroup={setGroup}
+        onOpen={open}
+        onToggleFavourite={toggleFavourite}
+        onClear={clearHistory}
+      />
+    </div>
+  )
 }

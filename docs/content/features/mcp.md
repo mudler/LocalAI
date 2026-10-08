@@ -562,7 +562,7 @@ In addition to server-side MCP (where the backend connects to MCP servers), Loca
 
 ### How It Works
 
-1. **Add servers in the UI**: Click **MCP** in the chat header, open the **Client** tab, and add MCP server URLs
+1. **Add servers in the UI**: Click the **MCP** chip above the message box, open the **Client** tab, and add MCP server URLs
 2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
 3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
 4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request

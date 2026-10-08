@@ -14,7 +14,7 @@ export default function Modal({ onClose, children, maxWidth = '600px', ariaLabel
     const dialog = dialogRef.current
     if (!dialog) return
 
-    const focusableSelector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    const focusableSelector = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     const getFocusable = () => dialog.querySelectorAll(focusableSelector)
 
     const firstFocusable = getFocusable()[0]

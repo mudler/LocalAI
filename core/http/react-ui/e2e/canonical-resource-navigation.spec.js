@@ -49,8 +49,8 @@ test.describe('Canonical resource navigation', () => {
     await expect(sidebar.getByRole('link', { name: 'Discover', exact: true })).toHaveCount(0)
 
     await sidebar.getByRole('link', { name: 'Operate', exact: true }).click()
-    const operateRail = page.locator('.console-rail')
-    await expect(operateRail.getByRole('link', { name: /Backends/ })).toBeVisible()
-    await expect(operateRail.getByRole('link', { name: /Host/ })).toHaveCount(0)
+    const operateBar = page.locator('.dk-hubtabs')
+    await expect(operateBar.getByRole('link', { name: /Runtime/ })).toBeVisible()
+    await expect(operateBar.getByRole('link', { name: /Host/ })).toHaveCount(0)
   })
 })
