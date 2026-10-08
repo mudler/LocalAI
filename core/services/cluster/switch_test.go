@@ -541,6 +541,30 @@ var _ = Describe("The switch of the carrier", func() {
 			Expect(got.Note).To(ContainSubstring("b"))
 		})
 
+		It("keeps the note of the change when the drain ends", func() {
+			timings.PrepareTimeout = 300 * time.Millisecond
+			timings.MaxDrain = 500 * time.Millisecond
+			replica("a", "", "")
+			replica("b", "", "")
+			prepare(true)
+			ready("a", row().Epoch, "")
+			Eventually(func() cluster.State {
+				Expect(sw.Drive(ctx)).To(Succeed())
+				return row().State
+			}, "10s", "100ms").Should(Equal(cluster.StateCommit))
+			noted := row().Note
+			Expect(noted).To(ContainSubstring("without"))
+			ready("a", row().Epoch, "")
+			ready("b", row().Epoch, "")
+			Expect(sw.Drive(ctx)).To(Succeed())
+
+			Eventually(func() cluster.Carrier {
+				Expect(sw.Drive(ctx)).To(Succeed())
+				return row().Draining
+			}, "10s", "100ms").Should(BeEmpty())
+			Expect(row().Note).To(Equal(noted), "the note says how the change ended, and the end of the drain does not replace it")
+		})
+
 		It("does not wait for the timeout for a forced change when a replica says it cannot build the target", func() {
 			replica("a", "", "")
 			replica("b", "", "")

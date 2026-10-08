@@ -578,8 +578,10 @@ func (s *Switch) driveDrain(ctx context.Context, row CarrierRow, now time.Time) 
 	if row.DrainingUntil != nil && now.Before(*row.DrainingUntil) {
 		return nil
 	}
+	// The note of the change stays: it says how that change ended, and the drain
+	// ending is an ordinary event that the log and the counter record.
 	_, err := s.transition(ctx, row.Epoch, Change{
-		Active: row.Active, State: StateStable, Note: "drained", By: row.ChangedBy,
+		Active: row.Active, State: StateStable, Note: row.Note, By: row.ChangedBy,
 	})
 	if err == nil {
 		s.count("drained")
