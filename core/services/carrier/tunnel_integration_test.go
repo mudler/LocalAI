@@ -160,7 +160,7 @@ type replica struct {
 	tunnels  *tunnel.Registry
 	sessions *tunnel.PeerSessions
 	pool     *tunnel.PeerPool
-	set      *carrier.TunnelSet
+	set      *carrier.Set
 	active   *atomic.Pointer[carrier.Set]
 
 	commands *carrier.Commands
@@ -207,7 +207,7 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	Expect(err).ToNot(HaveOccurred())
 	r.set = set
 	r.active = &atomic.Pointer[carrier.Set]{}
-	r.active.Store(set.Set)
+	r.active.Store(set)
 	r.commands = carrier.NewCommands(r.active)
 	r.files = carrier.NewFiles(r.active)
 	r.clients = carrier.NewClients(r.active)
@@ -453,6 +453,13 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 			got, err := os.ReadFile(remote)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(got).To(Equal(payload), r.id)
+
+			// A node that is forgotten loses its cached clients, and the next
+			// transfer builds new ones.
+			Expect(r.set.ForgetNode).ToNot(BeNil())
+			r.set.ForgetNode(nodeID)
+			_, err = r.files.EnsureRemote(ctx, nodeID, src, "models/"+r.id+"/again.bin")
+			Expect(err).ToNot(HaveOccurred(), r.id)
 		}
 	})
 

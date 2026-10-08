@@ -101,6 +101,19 @@ type DistributedServices struct {
 	shutdownOnce sync.Once
 }
 
+// Disconnect ends the tunnel that this replica holds for a node, and drops what
+// the active carrier caches for it. The node was removed or its credential was
+// replaced. It reports whether this replica held a tunnel of the node.
+func (ds *DistributedServices) Disconnect(nodeID string) bool {
+	held := ds.Tunnels.Disconnect(nodeID)
+	if ds.active != nil {
+		if set := ds.active.Load(); set != nil && set.ForgetNode != nil {
+			set.ForgetNode(nodeID)
+		}
+	}
+	return held
+}
+
 // Shutdown stops all distributed services in reverse initialization order.
 // It is safe to call on a nil receiver and is idempotent (uses sync.Once).
 func (ds *DistributedServices) Shutdown() {

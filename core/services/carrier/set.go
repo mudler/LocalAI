@@ -52,6 +52,11 @@ type Set struct {
 	Dialer      nodes.WorkerNetDialerFor
 	Agents      mcpTools.AgentControl
 
+	// ForgetNode drops what the set caches for a node that left or lost its
+	// right to a connection, and closes the idle streams that it holds. It may
+	// be nil for a carrier that caches nothing per node.
+	ForgetNode func(nodeID string)
+
 	// Close releases the carrier's connections. It may be nil.
 	Close func()
 }

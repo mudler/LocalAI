@@ -571,9 +571,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		workerHTTPDial = d.WorkerHTTPDial
 		tunnels = d.Tunnels
 		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
-		if d.Tunnels != nil {
-			registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d.Tunnels))
-		}
+		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}

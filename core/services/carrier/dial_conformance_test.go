@@ -199,3 +199,21 @@ func (fx *dialFixture) unroutedVia(r *replica) func(context.Context) (net.Conn, 
 	dial := r.set.Dialer("a-node-that-no-worker-holds")
 	return func(ctx context.Context) (net.Conn, error) { return dial(ctx, "tcp", "nowhere.worker.invalid:80") }
 }
+
+var _ = Describe("Forgetting a node", func() {
+	It("is offered by the NATS set for its HTTP stager, and not by the one for shared storage", func() {
+		natsSet, err := carrier.NewNATSSet(carrier.NATSOptions{
+			Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{},
+			HTTPAddrFor: func(string) (string, error) { return "127.0.0.1:1", nil },
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(natsSet.ForgetNode).ToNot(BeNil())
+		natsSet.ForgetNode("n")
+
+		s3Set, err := carrier.NewNATSSet(carrier.NATSOptions{
+			Client: &closingBus{FakeBus: testutil.NewFakeBus()}, Registry: noModels{}, S3Staging: true,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s3Set.ForgetNode).To(BeNil(), "the shared-storage stager keeps no client for each node")
+	})
+})

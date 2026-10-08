@@ -3,13 +3,18 @@ package application
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/gorm"
@@ -146,6 +151,61 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 			Expect(live()).To(ConsistOf("replica-b"))
 		})
 
+		It("publishes the address and the peer credential of the replica in its row", func() {
+			cfg.Distributed.PeerAddress = "10.0.0.7:8080"
+			svc, err := initDistributed(cfg, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(svc.Shutdown)
+
+			inst, err := cluster.NewRegistry(db).Get(context.Background(), "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inst.AdvertisedAddr).To(Equal("10.0.0.7:8080"))
+			Expect(inst.PeerTokenHash).To(HaveLen(64), "only the hash of the credential is published")
+			Expect(svc.PeerPool).ToNot(BeNil())
+			Expect(svc.PeerSessions).ToNot(BeNil())
+			Expect(svc.WorkerDialer).ToNot(BeNil())
+		})
+
+		It("starts without an address when the operator gave none and the database route cannot give one", func() {
+			svc, err := initDistributed(cfg, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(svc.Shutdown)
+			inst, err := cluster.NewRegistry(db).Get(context.Background(), "replica-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inst.AdvertisedAddr).To(BeEmpty())
+			Expect(inst.PeerTokenHash).ToNot(BeEmpty())
+		})
+
+		It("ends the tunnel that it holds for a node that was removed, and says whether it held one", func() {
+			svc, err := initDistributed(cfg, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(svc.Shutdown)
+
+			Expect(svc.Disconnect("nobody")).To(BeFalse())
+
+			front, back := tunnelSessionPair()
+			_, err = svc.Tunnels.Attach(context.Background(), "w1", tunnel.LaneInference, front)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(svc.Disconnect("w1")).To(BeTrue())
+			Eventually(back.CloseChan()).Should(BeClosed())
+			_, _, err = cluster.NewRegistry(db).Owner(context.Background(), "w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
+		It("closes the tunnels it holds before it leaves the instances table", func() {
+			svc, err := initDistributed(cfg, db, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			front, back := tunnelSessionPair()
+			_, err = svc.Tunnels.Attach(context.Background(), "w2", tunnel.LaneInference, front)
+			Expect(err).ToNot(HaveOccurred())
+
+			svc.Shutdown()
+
+			Eventually(back.CloseChan()).Should(BeClosed())
+			_, _, err = cluster.NewRegistry(db).Owner(context.Background(), "w2")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
 		It("starts a second replica on the same row without changing it", func() {
 			first, err := initDistributed(cfg, db, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -164,6 +224,34 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		})
 	})
 })
+
+// tunnelSessionPair returns the two ends of a tunnel session over a real
+// websocket.
+func tunnelSessionPair() (front, back *tunnel.Session) {
+	GinkgoHelper()
+	up := tunnel.NewUpgrader()
+	got := make(chan *tunnel.Session, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ws, err := up.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		sess, err := tunnel.ServerSession(ws, tunnel.LaneInference)
+		if err != nil {
+			_ = ws.Close()
+			return
+		}
+		got <- sess
+	}))
+	DeferCleanup(srv.Close)
+	ws, _, err := tunnel.NewDialer(5*time.Second).Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	Expect(err).ToNot(HaveOccurred())
+	back, err = tunnel.ClientSession(ws, tunnel.LaneInference)
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { _ = back.Close() })
+	Eventually(got).Should(Receive(&front))
+	return front, back
+}
 
 var (
 	natsOnce sync.Once

@@ -71,6 +71,11 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 		Agents:      nodes.NewNATSAgentControl(o.Client),
 		Close:       o.Client.Close,
 	}
+	// The HTTP stager keeps one client for each node, and nothing else ever drops
+	// it.
+	if stager, ok := files.(*nodes.HTTPFileStager); ok {
+		set.ForgetNode = stager.ForgetNode
+	}
 	if err := set.Validate(); err != nil {
 		return nil, err
 	}

@@ -44,25 +44,9 @@ type TunnelOptions struct {
 	Token string
 }
 
-// TunnelSet is a Set for the tunnel carrier, with the pieces that hold a cache
-// per node. Forget drops them when a node leaves.
-type TunnelSet struct {
-	*Set
-	control *nodes.ControlClient
-	files   *nodes.HTTPFileStager
-}
-
-// ForgetNode drops the clients that this set caches for a node and closes the
-// idle streams they hold. Call it when a node is removed or loses its tunnel for
-// good.
-func (t *TunnelSet) ForgetNode(nodeID string) {
-	t.control.ForgetNode(nodeID)
-	t.files.ForgetNode(nodeID)
-}
-
 // NewTunnelSet builds the set of seam implementations that reach workers through
 // their tunnels. The set is complete or it is an error, as for NATS.
-func NewTunnelSet(o TunnelOptions) (*TunnelSet, error) {
+func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	if o.Dialer == nil {
 		return nil, errors.New("tunnel set needs a dialer")
 	}
@@ -94,12 +78,17 @@ func NewTunnelSet(o TunnelOptions) (*TunnelSet, error) {
 		Clients:     nodes.NewDialerClientFactory(o.Token, grpcDialerFor(o.Dialer)),
 		Dialer:      httpDial,
 		Agents:      o.Agents,
-		Close:       o.Fanout.Close,
+		// The control client and the stager keep one client for each node.
+		ForgetNode: func(nodeID string) {
+			control.ForgetNode(nodeID)
+			files.ForgetNode(nodeID)
+		},
+		Close: o.Fanout.Close,
 	}
 	if err := set.Validate(); err != nil {
 		return nil, err
 	}
-	return &TunnelSet{Set: set, control: control, files: files}, nil
+	return set, nil
 }
 
 // httpDialerFor returns the dialer of the HTTP server of a worker.
