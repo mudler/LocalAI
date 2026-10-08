@@ -27,7 +27,7 @@ import (
 //
 // It is NOT returned for a timeout, for a transport fault, or for a worker that
 // answered with a refusal. A node that answers is present by demonstration.
-var ErrNoRoute = errors.New("nodes: no route to that node")
+var ErrNoRoute = workerctl.ErrNoRoute
 
 // natsLink carries control requests as NATS requests to the per-node subject of
 // the verb. It maps the failure of the carrier onto the conditions this package

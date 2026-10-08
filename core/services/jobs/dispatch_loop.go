@@ -40,6 +40,9 @@ type DispatchConfig struct {
 	// MaxConcurrent is how many claims of a kind this replica drives at once,
 	// DefaultMaxConcurrent when zero.
 	MaxConcurrent int
+	// MaxFailures is how many failures end a queued unit that no worker can run.
+	// DefaultClaimMaxFailures when zero.
+	MaxFailures int
 }
 
 // DispatchLoop is what a frontend replica runs on the tunnel carrier: it claims
@@ -70,6 +73,7 @@ func NewDispatchLoop(cfg DispatchConfig) (*DispatchLoop, error) {
 	consumer, err := NewClaimConsumer(ClaimConsumerConfig{
 		DB: cfg.DB, Owner: cfg.Owner, Events: cfg.Hints, Hints: cfg.Hints,
 		Interval: cfg.Interval, Liveness: cfg.Liveness,
+		MaxFailures: cfg.MaxFailures, OnExhausted: driver.failExhausted,
 	})
 	if err != nil {
 		return nil, err

@@ -659,7 +659,7 @@ func (a *nodeControl) DeleteModelFiles(modelName string) error {
 // It is a fact about the version of the worker. It is not a routing fact and
 // not an answer about any backend, so only a caller that has a fallback for an
 // older worker reads it, and it becomes ErrNoRoute there.
-var errVerbNotServed = errors.New("the worker does not serve that control verb")
+var errVerbNotServed = workerctl.ErrVerbNotServed
 
 // callVerb sends one request and returns the decoded reply, or nil and the
 // error.

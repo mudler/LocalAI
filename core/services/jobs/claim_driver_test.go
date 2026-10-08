@@ -95,9 +95,17 @@ func (b *fakeBroadcast) Handle(nodeType, subject string, raw json.RawMessage) bo
 type terminal struct{ jobID, status, result, errMsg string }
 
 type fakeStore struct {
-	mu   sync.Mutex
-	got  []terminal
-	fail error
+	mu       sync.Mutex
+	got      []terminal
+	fail     error
+	statuses map[string]string
+}
+
+// JobStatus makes the fake a JobStatusReader.
+func (s *fakeStore) JobStatus(jobID string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.statuses[jobID], nil
 }
 
 func (s *fakeStore) UpdateJobStatus(jobID, status, result, errMsg string) error {
@@ -271,6 +279,143 @@ var _ = Describe("The agent driver", func() {
 		It("refuses a kind it does not know", func() {
 			_, err := driver.Handler(messaging.WorkKind("nonsense"))
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("a run whose link breaks", func() {
+		// startedThen plays a worker that sends a line of the run and then loses the link.
+		startedThen := func(err error) {
+			control.do = func(_ context.Context, _, _ string, onProgress func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				onProgress("", json.RawMessage(`{"tick":1}`))
+				return workerctl.RunReply{}, err
+			}
+		}
+
+		It("does not release the claim of a job that had started, and closes the job as failed", func() {
+			startedThen(errors.New("the stream ended before its reply line"))
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)).To(Succeed(), "a release would run the job a second time")
+			Expect(control.seen()).To(HaveLen(1))
+			Expect(store.terminals()).To(HaveLen(1))
+			Expect(store.terminals()[0].jobID).To(Equal("j1"))
+			Expect(store.terminals()[0].status).To(Equal("failed"))
+			Expect(store.terminals()[0].errMsg).To(ContainSubstring("link to the worker broke"))
+		})
+
+		It("keeps the claim when the failure of a started job cannot be written", func() {
+			startedThen(errors.New("unexpected EOF"))
+			store.fail = errors.New("database is away")
+			err := handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)
+			Expect(errors.Is(err, ErrKeepClaim)).To(BeTrue())
+		})
+
+		It("completes the claim of a chat run that had started, because it has no job to close", func() {
+			startedThen(errors.New("unexpected EOF"))
+			Expect(handler(messaging.WorkAgentRun)(ctx, []byte(`{}`), nil)).To(Succeed())
+			Expect(store.terminals()).To(BeEmpty())
+		})
+
+		It("still releases when the link breaks before any line came back", func() {
+			control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				return workerctl.RunReply{}, errors.New("connection reset")
+			}
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)).ToNot(Succeed())
+			Expect(store.terminals()).To(BeEmpty())
+		})
+	})
+
+	Describe("a worker that cannot take the run", func() {
+		for name, cause := range map[string]error{
+			"has no route to it":           fmt.Errorf("control request: %w", workerctl.ErrNoRoute),
+			"is too old to serve the verb": fmt.Errorf("control request: %w", workerctl.ErrVerbNotServed),
+			"has no free slot":             workerctl.ErrWorkerBusy,
+		} {
+			It("moves on to the next worker when the first "+name, func() {
+				control.do = func(_ context.Context, node, _ string, _ func(string, json.RawMessage)) (workerctl.RunReply, error) {
+					if node == "w1" {
+						return workerctl.RunReply{}, cause
+					}
+					return workerctl.RunReply{}, nil
+				}
+				Expect(handler(messaging.WorkAgentRun)(ctx, []byte(`{}`), nil)).To(Succeed())
+				Expect(control.seen()).To(HaveLen(2))
+			})
+		}
+
+		It("returns an error that says nothing about the work when no worker took it", func() {
+			control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				return workerctl.RunReply{}, workerctl.ErrNoRoute
+			}
+			err := handler(messaging.WorkAgentRun)(ctx, []byte(`{}`), nil)
+			Expect(errors.Is(err, errNoAnswerYet)).To(BeTrue())
+			Expect(control.seen()).To(HaveLen(3))
+		})
+	})
+
+	Describe("a carrier that is released", func() {
+		released := func() context.Context {
+			c, cancel := context.WithCancelCause(ctx)
+			cancel(messaging.ErrCarrierReleased)
+			return c
+		}
+
+		It("releases a claim whose run never started, when no worker could be picked", func() {
+			picker.err = errors.New("no agent worker holds a tunnel")
+			err := handler(messaging.WorkMCPCI)(released(), ciPayload("j1"), nil)
+			Expect(err).To(HaveOccurred(), "completing it would drop work that was never run")
+			Expect(errors.Is(err, errNoAnswerYet)).To(BeTrue())
+			Expect(control.seen()).To(BeEmpty())
+		})
+
+		It("releases a claim whose worker was busy as the carrier was released", func() {
+			c, cancel := context.WithCancelCause(ctx)
+			control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				cancel(messaging.ErrCarrierReleased)
+				return workerctl.RunReply{}, workerctl.ErrWorkerBusy
+			}
+			err := handler(messaging.WorkMCPCI)(c, ciPayload("j1"), nil)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, errNoAnswerYet)).To(BeTrue())
+		})
+
+		It("completes the claim of a run that had started", func() {
+			c, cancel := context.WithCancelCause(ctx)
+			control.do = func(_ context.Context, _, _ string, onProgress func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				onProgress("", json.RawMessage(`{}`))
+				cancel(messaging.ErrCarrierReleased)
+				return workerctl.RunReply{}, context.Cause(c)
+			}
+			Expect(handler(messaging.WorkMCPCI)(c, ciPayload("j1"), nil)).To(Succeed())
+			Expect(store.terminals()).To(BeEmpty(), "the reaper decides about the job")
+		})
+	})
+
+	Describe("a job that was cancelled before it ran", func() {
+		It("does not dispatch a job whose row says cancelled, and completes the claim", func() {
+			store.statuses = map[string]string{"j1": "cancelled"}
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)).To(Succeed())
+			Expect(control.seen()).To(BeEmpty())
+		})
+
+		It("does not start the job again when the cancel arrives while the worker is busy", func() {
+			control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				Expect(bus.Publish(messaging.SubjectJobCancel("j1"), CancelEvent{JobID: "j1"})).To(Succeed())
+				return workerctl.RunReply{}, workerctl.ErrWorkerBusy
+			}
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)).To(Succeed(), "released it would run again")
+			Expect(control.seen()).To(HaveLen(1))
+			Expect(store.terminals()).To(Equal([]terminal{{"j1", "cancelled", "", "cancelled"}}))
+		})
+
+		It("treats a pick that fails with the context ended by a cancel as a cancel, and not as a missing worker", func() {
+			control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				Expect(bus.Publish(messaging.SubjectJobCancel("j2"), CancelEvent{JobID: "j2"})).To(Succeed())
+				picker.mu.Lock()
+				picker.err = context.Canceled
+				picker.mu.Unlock()
+				return workerctl.RunReply{}, workerctl.ErrWorkerBusy
+			}
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j2"), nil)).To(Succeed())
+			Expect(store.terminals()).To(Equal([]terminal{{"j2", "cancelled", "", "cancelled"}}))
 		})
 	})
 

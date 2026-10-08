@@ -168,10 +168,25 @@ func (d *AgentDriver) handler(kind messaging.WorkKind, verb string) messaging.Wo
 	}
 }
 
-// drive hands one claim to a worker and returns what settles it: nil when the
-// worker answered (or the job was cancelled), ErrKeepClaim when the worker
-// answered and the answer could not be written, and any other error when nothing
-// was learned about the work.
+// JobStatusReader reads the status of a job. *JobStore is one. The driver reads
+// it before it hands a job to a worker, so that a job that was cancelled while it
+// waited in the queue is not run.
+type JobStatusReader interface {
+	JobStatus(jobID string) (string, error)
+}
+
+// drive hands one claim to a worker and returns what settles it:
+//
+//   - nil when the worker answered, when the job was cancelled, and when a run
+//     that had started lost its link (the job is then closed as failed);
+//   - ErrKeepClaim when the worker answered and the answer could not be written;
+//   - an error marked noAnswerYet when the run was not started: no worker, no
+//     route, no free slot, an old worker, or the carrier was released first;
+//   - any other error when a worker was reached and the call failed before a
+//     single line of the run came back.
+//
+// A run that has started is never released. Releasing it would start the job a
+// second time, and a job may run a CI pipeline or call an agent with side effects.
 func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb string, payload []byte) error {
 	jobID := ""
 	if kind == messaging.WorkMCPCI {
@@ -181,49 +196,122 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithCancel(ctx)
 		defer cancel()
+		// Registered before the status is read: a cancel that comes after the
+		// read ends the run, and one that came before is in the status.
 		d.cancels.Register(jobID, cancel)
 		defer d.cancels.Deregister(jobID)
 		defer d.cancelled.remove(jobID)
 	}
 
+	// started becomes true when the first line of the run comes back. From then on
+	// the job may have done work, and the claim is not released.
+	var started atomic.Bool
 	tried := make(map[string]bool, maxDrivePicks)
 	var last error
 	for range maxDrivePicks {
+		if d.cancelledNow(ctx, jobID) {
+			return d.persistCancelled(jobID)
+		}
 		nodeID, nodeType, err := d.cfg.Picker.PickConnectedExcluding(ctx, tried)
 		if err != nil {
-			if carrierReleased(ctx) {
-				return d.cutOff(jobID)
+			switch {
+			case carrierReleased(ctx):
+				return noAnswerYet(fmt.Errorf("the carrier was released before the %s claim started: %w", kind, err))
+			case d.cancelledNow(ctx, jobID):
+				return d.persistCancelled(jobID)
+			case last != nil:
+				// Every worker that was offered the run had no slot, no route or an
+				// old build. That is the evidence, and the end of the list is not.
+				return noAnswerYet(last)
 			}
-			if last != nil {
-				// Every worker that was offered the run had no slot. That is the
-				// evidence, and the end of the list is not.
-				return last
-			}
-			return fmt.Errorf("picking an agent worker for a %s claim: %w", kind, err)
+			return noAnswerYet(fmt.Errorf("picking an agent worker for a %s claim: %w", kind, err))
 		}
 		tried[nodeID] = true
 
 		var reply workerctl.RunReply
 		err = d.cfg.Control.CallStreaming(ctx, nodeID, verb, json.RawMessage(payload), &reply,
-			func(subject string, raw json.RawMessage) { d.rebroadcast(nodeType, subject, raw) })
+			func(subject string, raw json.RawMessage) {
+				started.Store(true)
+				d.rebroadcast(nodeType, subject, raw)
+			})
 		switch {
 		case err == nil:
 			return d.persistTerminal(&reply)
 		case carrierReleased(ctx):
-			return d.cutOff(jobID)
-		case errors.Is(err, workerctl.ErrWorkerBusy):
-			last = fmt.Errorf("offering a %s claim to agent worker %q: %w", kind, nodeID, err)
-			continue
+			if started.Load() {
+				return d.cutOff(jobID)
+			}
+			return noAnswerYet(fmt.Errorf("the carrier was released before the %s claim started: %w", kind, err))
 		case jobID != "" && d.cancelled.has(jobID) && ctx.Err() != nil:
 			// The stream was ended by the cancel of the job. The worker's run dies
 			// with its request, and the job is closed here, because nothing else
 			// will.
-			return d.persistTerminal(&workerctl.RunReply{JobID: jobID, Status: "cancelled", Error: "cancelled"})
+			return d.persistCancelled(jobID)
+		case !started.Load() && (errors.Is(err, workerctl.ErrWorkerBusy) ||
+			errors.Is(err, workerctl.ErrNoRoute) || errors.Is(err, workerctl.ErrVerbNotServed)):
+			// The run did not start on this worker: it has no slot, no route is
+			// held to it, or it is too old to serve the verb. The next worker may
+			// take it, and the claim waits for no backoff.
+			last = fmt.Errorf("offering a %s claim to agent worker %q: %w", kind, nodeID, err)
+			continue
+		case started.Load():
+			return d.failStarted(jobID, nodeID, err)
 		default:
 			return fmt.Errorf("driving a %s claim on agent worker %q: %w", kind, nodeID, err)
 		}
 	}
-	return last
+	return noAnswerYet(last)
+}
+
+// cancelledNow says whether the job was cancelled: this replica ended its run for
+// that reason, or the job row says so. A job cancelled while it waited in the
+// queue has no run to end, so the row is the only place that knows.
+func (d *AgentDriver) cancelledNow(ctx context.Context, jobID string) bool {
+	if jobID == "" {
+		return false
+	}
+	if d.cancelled.has(jobID) && ctx.Err() != nil {
+		return true
+	}
+	reader, ok := d.cfg.Store.(JobStatusReader)
+	if !ok {
+		return false
+	}
+	status, err := reader.JobStatus(jobID)
+	return err == nil && status == "cancelled"
+}
+
+// persistCancelled closes a job as cancelled. The claim is then completed: a
+// cancel is an answer.
+func (d *AgentDriver) persistCancelled(jobID string) error {
+	return d.persistTerminal(&workerctl.RunReply{JobID: jobID, Status: "cancelled", Error: "cancelled"})
+}
+
+// failStarted settles the claim of a run that had started when its link broke.
+// The claim is completed and not released, because the run may have done work
+// that a second run would repeat. The job is closed as failed, so that it does
+// not stay running until the reaper finds it. A run with no job is a chat, whose
+// output reached the user as events; there is nothing to close.
+func (d *AgentDriver) failStarted(jobID, nodeID string, cause error) error {
+	xlog.Error("The link to an agent worker broke while a run was in progress; the run is not started again",
+		"job", jobID, "node", nodeID, "error", cause)
+	if jobID == "" {
+		return nil
+	}
+	return d.persistTerminal(&workerctl.RunReply{
+		JobID: jobID, Status: "failed",
+		Error: "the link to the worker broke while the job ran: " + cause.Error(),
+	})
+}
+
+// failExhausted records that a job could not be run after the failures that the
+// consumer allows. It is the OnExhausted of the consumer.
+func (d *AgentDriver) failExhausted(_ context.Context, _ messaging.WorkKind, payload []byte, cause error) error {
+	jobID := jobIDOf(payload)
+	if jobID == "" || d.cfg.Store == nil {
+		return nil
+	}
+	return d.cfg.Store.UpdateJobStatus(jobID, "failed", "", "the job could not be run after repeated failures: "+cause.Error())
 }
 
 // carrierReleased reports that ctx ended because the carrier of the loop was
@@ -233,10 +321,12 @@ func carrierReleased(ctx context.Context) bool {
 	return errors.Is(context.Cause(ctx), messaging.ErrCarrierReleased)
 }
 
-// cutOff settles the claim of a run that the end of the drain cut off. The claim
-// is completed, and not released: the run did start, so a carrier that took over
-// the queue must not start it a second time. The job is left as it is, and the
-// reaper fails it if it stays running, as it does for a job that lost its worker.
+// cutOff settles the claim of a run that the end of the drain cut off after it had
+// started. The claim is completed, and not released: the run did start, so a
+// carrier that took over the queue must not start it a second time. The job is
+// left as it is, and the reaper fails it if it stays running, as it does for a job
+// that lost its worker. A run that had not started is released instead, and the
+// carrier that takes over runs it.
 func (d *AgentDriver) cutOff(jobID string) error {
 	xlog.Warn("A run was cut off by the end of the drain of its carrier; its job is left to the reaper", "job", jobID)
 	return nil

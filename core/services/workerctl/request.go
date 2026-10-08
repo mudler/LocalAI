@@ -66,6 +66,16 @@ const BusyMessage = "the worker has no free slot for this run"
 // route: the route exists.
 var ErrWorkerBusy = errors.New("the worker has no free slot")
 
+// ErrNoRoute means that nothing answers for a node: there is no route to it now.
+// It is a routing fact and says nothing about the node or about the work. Callers
+// outside the nodes package, such as the claim queue, read it here.
+var ErrNoRoute = errors.New("nodes: no route to that node")
+
+// ErrVerbNotServed means that a worker answered and does not serve the control
+// verb. It is a fact about the version of the worker: a run that was sent to it
+// did not start.
+var ErrVerbNotServed = errors.New("the worker does not serve that control verb")
+
 // WriteBusy answers a run that this worker cannot take now. The worker is
 // present and routable, and the request was not started, so the frontend may
 // offer it to another worker.

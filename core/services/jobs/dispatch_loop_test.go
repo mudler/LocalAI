@@ -123,10 +123,13 @@ var _ = Describe("The dispatch loop", func() {
 	Describe("when the carrier of the loop is released", func() {
 		// run starts a loop whose context the spec can end with a cause, and waits
 		// until a run is in flight on it.
-		run := func() (cancel context.CancelCauseFunc, loop *DispatchLoop) {
+		run := func(sendLine bool) (cancel context.CancelCauseFunc, loop *DispatchLoop) {
 			GinkgoHelper()
 			started := make(chan struct{}, 1)
-			control.do = func(ctx context.Context, _, _ string, _ func(string, json.RawMessage)) (workerctl.RunReply, error) {
+			control.do = func(ctx context.Context, _, _ string, onProgress func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				if sendLine {
+					onProgress("", json.RawMessage(`{"tick":1}`))
+				}
 				started <- struct{}{}
 				<-ctx.Done()
 				return workerctl.RunReply{}, ctx.Err()
@@ -145,8 +148,8 @@ var _ = Describe("The dispatch loop", func() {
 			return cancel, loop
 		}
 
-		It("completes the claim of a run that the end of the drain cut off, and leaves its job to the reaper, so the run is not offered again", func() {
-			cancel, loop := run()
+		It("completes the claim of a run that the end of the drain cut off after it started, and leaves its job to the reaper, so the run is not offered again", func() {
+			cancel, loop := run(true)
 			cancel(messaging.ErrCarrierReleased)
 			loop.Stop()
 
@@ -155,8 +158,18 @@ var _ = Describe("The dispatch loop", func() {
 			Expect(control.seen()).To(HaveLen(1))
 		})
 
+		It("releases the claim of a run that the end of the drain cut off before a line came back, so the carrier that takes over runs it", func() {
+			cancel, loop := run(false)
+			cancel(messaging.ErrCarrierReleased)
+			loop.Stop()
+
+			var row WorkClaim
+			Expect(db.First(&row).Error).To(Succeed(), "the work was never run, so it must not be dropped")
+			Expect(row.State).To(Equal(ClaimPending))
+		})
+
 		It("still releases the claim of a run that ends for another reason, such as the stop of the replica", func() {
-			cancel, loop := run()
+			cancel, loop := run(false)
 			cancel(context.Canceled)
 			loop.Stop()
 
@@ -182,6 +195,29 @@ var _ = Describe("The dispatch loop", func() {
 
 		Eventually(rows, 10*time.Second).Should(BeZero())
 		Expect(store.terminals()).To(Equal([]terminal{{"j1", "cancelled", "", "cancelled"}}))
+	})
+
+	It("fails the job and deletes the row of a unit that no worker can run, after the failures it allows", func() {
+		control.do = func(context.Context, string, string, func(string, json.RawMessage)) (workerctl.RunReply, error) {
+			// The wait of a release is not what this spec is about.
+			_ = db.Exec(`UPDATE work_claims SET not_before = NULL`).Error
+			return workerctl.RunReply{}, errors.New("the worker rejected the payload")
+		}
+		live(db, "replica-a")
+		loop, err := NewDispatchLoop(DispatchConfig{
+			DB: db, Owner: "replica-a", Picker: picker, Control: control, Broadcast: broadcast, Store: store, Hints: bus,
+			Interval: 50 * time.Millisecond, MaxFailures: 2,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(loop.Start(ctx)).To(Succeed())
+		DeferCleanup(loop.Stop)
+		Expect(NewClaimQueue(db, bus).Enqueue(ctx, messaging.WorkMCPCI, ci("j9"))).To(Succeed())
+
+		Eventually(rows, 15*time.Second).Should(BeZero())
+		Expect(store.terminals()).To(HaveLen(1))
+		Expect(store.terminals()[0].jobID).To(Equal("j9"))
+		Expect(store.terminals()[0].status).To(Equal("failed"))
+		Expect(store.terminals()[0].errMsg).To(ContainSubstring("repeated failures"))
 	})
 
 	It("is built only with what it needs", func() {

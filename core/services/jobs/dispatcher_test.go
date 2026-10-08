@@ -489,3 +489,39 @@ var _ = Describe("Dispatcher", func() {
 type broadcastOnly struct {
 	messaging.Broadcaster
 }
+
+var _ = Describe("Dispatcher.Cancel", func() {
+	var (
+		store *JobStore
+		disp  *Dispatcher
+		bus   *testutil.FakeBus
+	)
+
+	BeforeEach(func() {
+		db := testutil.SetupTestDB()
+		var err error
+		store, err = NewJobStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		bus = testutil.NewFakeBus()
+		disp = NewDispatcher(store, &fakeWorkQueue{}, bus, db, "test-instance")
+		Expect(store.CreateTask(&TaskRecord{ID: "t1", UserID: "u1"})).To(Succeed())
+	})
+
+	It("marks a job that waits in the queue as cancelled, so that no replica runs it", func() {
+		Expect(store.CreateJob(&JobRecord{ID: "j1", TaskID: "t1", UserID: "u1", Status: "pending"})).To(Succeed())
+
+		Expect(disp.Cancel("j1")).To(Succeed())
+
+		status, err := store.JobStatus("j1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(status).To(Equal("cancelled"))
+	})
+
+	It("keeps the end state of a job that has finished", func() {
+		Expect(store.CreateJob(&JobRecord{ID: "j2", TaskID: "t1", UserID: "u1", Status: "completed"})).To(Succeed())
+		Expect(disp.Cancel("j2")).To(Succeed())
+		status, err := store.JobStatus("j2")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(status).To(Equal("completed"))
+	})
+})
