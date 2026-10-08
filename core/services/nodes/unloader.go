@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -204,6 +205,19 @@ func (a *nodeControl) OperationControl(nodeID string, req workerctl.OperationReq
 
 const operationControlTimeout = 5 * time.Second
 
+// replicaIndex32 converts the index of a replica for the wire. An index is a
+// small count; a value outside the range of the field is clamped to its end and
+// not wrapped, so that it can never name another replica.
+func replicaIndex32(i int) int32 {
+	switch {
+	case i > math.MaxInt32:
+		return math.MaxInt32
+	case i < math.MinInt32:
+		return math.MinInt32
+	}
+	return int32(i)
+}
+
 // InstallBackendOp is InstallBackend for a load operation: the request carries
 // the operation id and the longest the load may run, so the worker can bound it.
 func (a *nodeControl) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
@@ -211,7 +225,7 @@ func (a *nodeControl) InstallBackendOp(nodeID, backendType, modelID, galleriesJS
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
-		ReplicaIndex:     int32(replicaIndex),
+		ReplicaIndex:     replicaIndex32(replicaIndex),
 		OpID:             opID,
 		OperationID:      operationID,
 		DeadlineMs:       deadline.Milliseconds(),
@@ -313,7 +327,7 @@ func (a *nodeControl) InstallBackend(
 		URI:              uri,
 		Name:             name,
 		Alias:            alias,
-		ReplicaIndex:     int32(replicaIndex),
+		ReplicaIndex:     replicaIndex32(replicaIndex),
 		OpID:             opID,
 	}, onProgress)
 }
@@ -356,7 +370,7 @@ func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, na
 			URI:              uri,
 			Name:             name,
 			Alias:            alias,
-			ReplicaIndex:     int32(replicaIndex),
+			ReplicaIndex:     replicaIndex32(replicaIndex),
 			OpID:             opID,
 		}, a.upgradeTimeout, onProgress)
 
@@ -393,7 +407,7 @@ func (a *nodeControl) InstallBackendForce(nodeID, backendType, galleriesJSON, ur
 			URI:              uri,
 			Name:             name,
 			Alias:            alias,
-			ReplicaIndex:     int32(replicaIndex),
+			ReplicaIndex:     replicaIndex32(replicaIndex),
 			Force:            true,
 			OpID:             opID,
 		}, a.upgradeTimeout, onProgress)

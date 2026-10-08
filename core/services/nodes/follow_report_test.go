@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -225,5 +226,14 @@ var _ = Describe("The direct client factory for a worker that holds a tunnel", f
 			factory.NewClient("tunnel-only", "127.0.0.1:1", false)
 		}
 		Expect(asked).To(Equal(1))
+	})
+})
+
+var _ = Describe("the index of a replica on the wire", func() {
+	It("keeps a small index and clamps one that does not fit, instead of wrapping it", func() {
+		Expect(replicaIndex32(0)).To(Equal(int32(0)))
+		Expect(replicaIndex32(7)).To(Equal(int32(7)))
+		Expect(replicaIndex32(math.MaxInt32 + 1)).To(Equal(int32(math.MaxInt32)))
+		Expect(replicaIndex32(math.MinInt32 - 1)).To(Equal(int32(math.MinInt32)))
 	})
 })
