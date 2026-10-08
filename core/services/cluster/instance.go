@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -38,6 +39,37 @@ type Instance struct {
 	// secret behind this hash. It is empty for a replica that has not published
 	// one, and an empty hash authorises nobody.
 	PeerTokenHash string `gorm:"size:64" json:"-"`
+	// Availability says, for each carrier, whether this replica could build it
+	// the last time it looked: a JSON object from the name of the carrier to the
+	// reason it cannot, empty when it can. It is what a dry run reads, because a
+	// dry run changes no epoch and so no replica builds anything for it.
+	Availability string `gorm:"type:text;not null;default:''" json:"-"`
+	// AvailabilityAt is when the replica last wrote Availability, by the clock of
+	// the database.
+	AvailabilityAt *time.Time `json:"-"`
+}
+
+// LiveInstance is an Instance as ListLive reads it.
+type LiveInstance struct {
+	Instance
+	// AvailabilityAge is how long ago the replica wrote Availability, on the
+	// clock of the database. It is zero when the replica never did, which
+	// AvailabilityFor reports as unknown.
+	AvailabilityAge time.Duration `gorm:"-" json:"-"`
+}
+
+// AvailabilityFor reports why the replica cannot build carrier, or an empty
+// reason when it can. known is false when the replica never reported on it.
+func (i LiveInstance) AvailabilityFor(c Carrier) (reason string, known bool) {
+	if i.Availability == "" {
+		return "", false
+	}
+	var byCarrier map[Carrier]string
+	if err := json.Unmarshal([]byte(i.Availability), &byCarrier); err != nil {
+		return "", false
+	}
+	reason, known = byCarrier[c]
+	return reason, known
 }
 
 // Registry reads and writes the instances table and the table of worker
@@ -181,3 +213,63 @@ const instanceIsLive = `instances.last_seen > now() - make_interval(secs => ?)`
 // It is built from instanceIsLive and does not restate it, so the deployment
 // has one spelling of "alive".
 const LiveInstanceIDsSQL = `SELECT instances.id FROM instances WHERE ` + instanceIsLive
+
+// ReportAvailability records, for each carrier, why this replica cannot build it
+// (an empty reason when it can). A carrier that the map leaves out keeps what the
+// replica reported before.
+func (r *Registry) ReportAvailability(ctx context.Context, id string, byCarrier map[Carrier]string) error {
+	var current Instance
+	err := r.db.WithContext(ctx).Select("availability").Where("id = ?", id).Take(&current).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("reporting availability of instance %q: %w", id, ErrInstanceNotFound)
+	}
+	if err != nil {
+		return fmt.Errorf("reporting availability of instance %q: %w", id, err)
+	}
+	merged := map[Carrier]string{}
+	if current.Availability != "" {
+		_ = json.Unmarshal([]byte(current.Availability), &merged)
+	}
+	for c, reason := range byCarrier {
+		merged[c] = reason
+	}
+	raw, err := json.Marshal(merged)
+	if err != nil {
+		return fmt.Errorf("encoding availability of instance %q: %w", id, err)
+	}
+	res := r.db.WithContext(ctx).Model(&Instance{}).Where("id = ?", id).Updates(map[string]any{
+		"availability":    string(raw),
+		"availability_at": gorm.Expr("now()"),
+	})
+	if res.Error != nil {
+		return fmt.Errorf("reporting availability of instance %q: %w", id, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("reporting availability of instance %q: %w", id, ErrInstanceNotFound)
+	}
+	return nil
+}
+
+// ListLive returns the replicas that the deployment considers alive, ordered by
+// id. It uses instanceIsLive, the one definition of alive.
+func (r *Registry) ListLive(ctx context.Context, within time.Duration) ([]LiveInstance, error) {
+	type row struct {
+		Instance
+		AgeSeconds *float64 `gorm:"column:availability_age"`
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(
+		`SELECT instances.*, EXTRACT(EPOCH FROM (now() - instances.availability_at)) AS availability_age
+		 FROM instances WHERE `+instanceIsLive+` ORDER BY instances.id`, within.Seconds()).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("listing the live instances: %w", err)
+	}
+	out := make([]LiveInstance, len(rows))
+	for i, rw := range rows {
+		out[i] = LiveInstance{Instance: rw.Instance}
+		if rw.AgeSeconds != nil {
+			out[i].AvailabilityAge = time.Duration(*rw.AgeSeconds * float64(time.Second))
+		}
+	}
+	return out, nil
+}

@@ -67,10 +67,18 @@ type CarrierRow struct {
 	Draining      Carrier    `gorm:"size:16;not null;default:''" json:"draining,omitempty"`
 	DrainingUntil *time.Time `json:"draining_until,omitempty"`
 	ChangedBy     string     `gorm:"size:255" json:"changed_by"`
-	// ChangedAt is for operators. Nothing decides on it, so replicas need no
-	// agreed clock.
+	// ChangedAt is stamped by the database on every change, and the age of a
+	// change is read on that same clock (CarrierStore.DBNow), so that the
+	// timeouts of a change need no clock that the replicas agree on.
 	ChangedAt time.Time `json:"changed_at"`
 	PrevEpoch int64     `json:"prev_epoch"`
+	// Force records that the admin who started the change accepted that a
+	// replica which is not ready, or a worker that cannot follow, is left
+	// behind. It belongs to one change and is cleared by the next one.
+	Force bool `gorm:"not null;default:false" json:"force,omitempty"`
+	// Note says in a sentence how the last change ended, or why it did. It is
+	// for operators.
+	Note string `gorm:"size:512;not null;default:''" json:"note,omitempty"`
 }
 
 func (CarrierRow) TableName() string { return "cluster_carrier" }
@@ -84,6 +92,8 @@ type Change struct {
 	Draining      Carrier
 	DrainingUntil *time.Time
 	By            string
+	Force         bool
+	Note          string
 }
 
 func (c Change) validate() error {
@@ -175,7 +185,9 @@ func (s *CarrierStore) Transition(ctx context.Context, from int64, change Change
 			"draining":       change.Draining,
 			"draining_until": change.DrainingUntil,
 			"changed_by":     change.By,
-			"changed_at":     time.Now().UTC(),
+			"changed_at":     gorm.Expr("now()"),
+			"force":          change.Force,
+			"note":           change.Note,
 			"prev_epoch":     gorm.Expr("epoch"),
 			"epoch":          gorm.Expr("epoch + 1"),
 		})
@@ -190,4 +202,16 @@ func (s *CarrierStore) Transition(ctx context.Context, from int64, change Change
 		return CarrierRow{}, ErrStaleEpoch
 	}
 	return row, nil
+}
+
+// DBNow returns the time on the clock of the database. The timeouts of a change
+// (the prepare timeout, the transition window, the end of a drain) are compared
+// with it and with the stamps that the database wrote, never with the clock of a
+// replica.
+func (s *CarrierStore) DBNow(ctx context.Context) (time.Time, error) {
+	var now time.Time
+	if err := s.db.WithContext(ctx).Raw("SELECT now()").Scan(&now).Error; err != nil {
+		return time.Time{}, fmt.Errorf("reading the clock of the database: %w", err)
+	}
+	return now, nil
 }
