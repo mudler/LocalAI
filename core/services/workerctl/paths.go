@@ -60,6 +60,11 @@ func PathOf(verb string) string {
 // the body. A caller that reads to the end of the body without a Reply line
 // learned nothing about the work: the link broke.
 type Envelope struct {
+	// Subject, when set on a progress line, is the broadcast subject that the
+	// worker asks the receiving frontend to publish the line on. A worker that
+	// holds no connection to a bus uses it for the events of a run. The frontend
+	// publishes only the subjects that the type of the worker may ask for.
+	Subject  string          `json:"subject,omitempty"`
 	Progress json.RawMessage `json:"progress,omitempty"`
 	Reply    json.RawMessage `json:"reply,omitempty"`
 }

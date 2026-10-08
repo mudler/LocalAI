@@ -3,6 +3,7 @@ package workerctl
 import (
 	"io"
 	"net/http"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -51,6 +52,23 @@ func ReadRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 // not about any backend.
 func WriteUnknownPath(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "unknown worker control path "+truncate(r.URL.Path, MaxEchoedPathBytes), http.StatusNotFound)
+}
+
+// BusyMessage is the body of the answer of a worker that has no free slot for a
+// run. Together with the status 503 it is how a frontend tells a worker that is
+// full from a worker that failed.
+const BusyMessage = "the worker has no free slot for this run"
+
+// WriteBusy answers a run that this worker cannot take now. The worker is
+// present and routable, and the request was not started, so the frontend may
+// offer it to another worker.
+func WriteBusy(w http.ResponseWriter) {
+	http.Error(w, BusyMessage, http.StatusServiceUnavailable)
+}
+
+// IsBusy reports whether an answer is the one WriteBusy writes.
+func IsBusy(status int, body string) bool {
+	return status == http.StatusServiceUnavailable && strings.Contains(body, BusyMessage)
 }
 
 // truncate bounds a string that a caller chose and that is about to be echoed.

@@ -70,9 +70,9 @@ func (l *httpLink) requestWithProgress(ctx context.Context, nodeID, verb, opID s
 	}
 	ctx, cancel := context.WithTimeout(ctx, l.bound(timeout))
 	defer cancel()
-	var sink func(json.RawMessage)
+	var sink func(string, json.RawMessage)
 	if onProgress != nil && opID != "" {
-		sink = func(raw json.RawMessage) {
+		sink = func(_ string, raw json.RawMessage) {
 			var ev workerctl.BackendInstallProgressEvent
 			if err := json.Unmarshal(raw, &ev); err != nil {
 				xlog.Debug("malformed backend progress event", "node", nodeID, "error", err)

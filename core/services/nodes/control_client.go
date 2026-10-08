@@ -148,12 +148,13 @@ func (c *ControlClient) Call(ctx context.Context, nodeID, verb string, req, repl
 
 // CallStreaming sends a request whose answer is a stream of lines: zero or more
 // progress lines and then one reply line. It calls onProgress for each progress
-// line, in the order the worker sent them, and decodes the reply line into
-// reply. onProgress may be nil.
+// line, in the order the worker sent them, with the subject the worker named for
+// it (empty for a line meant for this caller alone), and decodes the reply line
+// into reply. onProgress may be nil.
 //
 // onProgress runs on the goroutine of the caller. A slow callback holds up the
 // body of this request and nothing else.
-func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, verb string, req, reply any, onProgress func(raw json.RawMessage)) error {
+func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, verb string, req, reply any, onProgress func(subject string, raw json.RawMessage)) error {
 	resp, err := c.do(ctx, nodeID, verb, req)
 	if err != nil {
 		return err
@@ -178,7 +179,7 @@ func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, verb string, 
 			break
 		}
 		if env.Progress != nil && onProgress != nil {
-			onProgress(env.Progress)
+			onProgress(env.Subject, env.Progress)
 		}
 	}
 	if reply == nil {
@@ -230,9 +231,18 @@ func (c *ControlClient) do(ctx context.Context, nodeID, verb string, req any) (*
 		// is evidence about a backend.
 		detail := readErrorBody(resp)
 		_ = resp.Body.Close()
+		if workerctl.IsBusy(resp.StatusCode, detail) {
+			return nil, controlFailure(ctx, nodeID, fmt.Errorf("the %s verb: %w", verb, ErrWorkerBusy))
+		}
 		return nil, controlFailure(ctx, nodeID, fmt.Errorf("the %s verb answered HTTP %d: %s", verb, resp.StatusCode, detail))
 	}
 }
+
+// ErrWorkerBusy means that the worker answered that it has no free slot for a
+// run. The worker is present and the request did not start, so it says nothing
+// about the work, and a caller may offer the run to another worker. It is not
+// ErrNoRoute: the route exists.
+var ErrWorkerBusy = errors.New("the worker has no free slot")
 
 // maxControlErrorBodyBytes bounds how much of an error body reaches a log line.
 const maxControlErrorBodyBytes = 512
