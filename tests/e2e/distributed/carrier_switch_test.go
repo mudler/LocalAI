@@ -268,16 +268,13 @@ var _ = Describe("Carrier switch with real processes", Ordered, Label("CarrierSw
 			return workerAttached(r, dualN)
 		}, settle, poll).Should(Equal([]string{"nats"}))
 
-		// The tunnel-only worker holds a replica of the model, and the frontends
-		// dial a replica by its address. At the flip, a request that picked that
-		// replica is refused by the connection: the worker was named in the
-		// blockers and the force accepted it. Any other failure is a bug.
+		// The tunnel-only worker holds a replica of the model. Once the cluster is
+		// on NATS that worker has no route, and no request may be sent to it: a
+		// request that picks its replica is routed to another node, or refused
+		// with a clear 503. A connection error is a bug.
 		ok2, errs := load.finish()
-		for _, err := range errs {
-			Expect(err.Error()).To(ContainSubstring("connection refused"), "chat failed during the forced change")
-		}
-		Expect(len(errs)).To(BeNumerically("<=", 10), "the unroutable worker kept receiving requests")
-		Expect(ok2).To(BeNumerically(">", 10))
+		Expect(errs).To(BeEmpty(), "chat failed during the forced change")
+		Expect(ok2).To(BeNumerically(">", 20))
 		Expect(backendPIDs(dual)).To(ContainElement(pid))
 
 		// The worker that could not follow reports why, and is still registered.

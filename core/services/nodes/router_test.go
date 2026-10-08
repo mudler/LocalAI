@@ -157,9 +157,14 @@ type fakeModelRouter struct {
 	// Preferences passed to FindAndLockNodeWithModel, in call order. nil
 	// entries are recorded too, so tests can assert "preference was nil".
 	findAndLockPrefs []*RoutePreference
+	// Candidate sets passed to FindAndLockNodeWithModel and to
+	// FindIdleNodeFromSet, in call order.
+	findAndLockCandidates [][]string
+	idleFromSetCandidates [][]string
 }
 
-func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, _ []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+func (f *fakeModelRouter) FindAndLockNodeWithModel(_ context.Context, modelName string, candidates []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+	f.findAndLockCandidates = append(f.findAndLockCandidates, candidates)
 	f.findAndLockPrefs = append(f.findAndLockPrefs, pref)
 	return f.findAndLockNode, f.findAndLockNM, f.findAndLockErr
 }
@@ -429,10 +434,20 @@ func (f *fakeModelRouter) FindNodesBySelector(_ context.Context, _ map[string]st
 	return f.findBySelectorNodes, f.findBySelectorErr
 }
 
-func (f *fakeModelRouter) FindNodesWithFreeSlot(_ context.Context, _ string, _ []string) ([]BackendNode, error) {
-	// Default: same answer as FindNodesBySelector. Tests that need a
-	// specific filter can override by reusing findBySelectorNodes.
-	return f.findBySelectorNodes, f.findBySelectorErr
+func (f *fakeModelRouter) FindNodesWithFreeSlot(_ context.Context, _ string, candidates []string) ([]BackendNode, error) {
+	// Default: same answer as FindNodesBySelector, limited to the candidate set
+	// when one is given, as the registry does. Tests that need a specific
+	// filter can override by reusing findBySelectorNodes.
+	if len(candidates) == 0 {
+		return f.findBySelectorNodes, f.findBySelectorErr
+	}
+	var out []BackendNode
+	for _, n := range f.findBySelectorNodes {
+		if slices.Contains(candidates, n.ID) {
+			out = append(out, n)
+		}
+	}
+	return out, f.findBySelectorErr
 }
 
 func (f *fakeModelRouter) NarrowByDiskHeadroom(_ context.Context, candidateNodeIDs []string, required uint64) ([]string, error) {
@@ -458,7 +473,8 @@ func (f *fakeModelRouter) FindNodeWithVRAMFromSet(_ context.Context, _ uint64, _
 	return f.findVRAMFromSetNode, f.findVRAMFromSetErr
 }
 
-func (f *fakeModelRouter) FindIdleNodeFromSet(_ context.Context, _ []string) (*BackendNode, error) {
+func (f *fakeModelRouter) FindIdleNodeFromSet(_ context.Context, ids []string) (*BackendNode, error) {
+	f.idleFromSetCandidates = append(f.idleFromSetCandidates, ids)
 	return f.findIdleFromSetNode, f.findIdleFromSetErr
 }
 

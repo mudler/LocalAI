@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -112,6 +113,10 @@ type SmartRouterOptions struct {
 	// (LOCALAI_NATS_MODEL_LOAD_TIMEOUT) and always wins over the derived budget,
 	// in BOTH directions: an operator who wants faster failure gets it.
 	ModelLoadTimeout time.Duration
+	// ActiveCarrier says which carrier the cluster uses now. With it, the router
+	// leaves out the nodes that cannot be reached on that carrier: a worker that
+	// is attached to another carrier and cannot follow. Nil keeps every node.
+	ActiveCarrier func() cluster.Carrier
 	// StagingStallWindow is how long file staging may report zero bytes before
 	// the cold load is declared wedged and the advisory lock released. While
 	// bytes keep moving the hold extends, so transfer size no longer bounds the
@@ -165,6 +170,9 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
+	// activeCarrier is optional. See SmartRouterOptions.ActiveCarrier.
+	activeCarrier    func() cluster.Carrier
+	unroutable       unroutableCache
 	registry         ModelRouter
 	unloader         NodeCommandSender // optional, for NATS-driven load/unload
 	modelCleanup     *ModelCleanupService
@@ -260,6 +268,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	}
 	return &SmartRouter{
 		registry:            registry,
+		activeCarrier:       opts.ActiveCarrier,
 		unloader:            opts.Unloader,
 		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,
@@ -697,6 +706,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// matching node where the model was already at capacity (eviction-busy).
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, trackingKey, sched)
 	if err != nil {
+		return nil, err
+	}
+	// A node that cannot be reached on the active carrier is not asked for a
+	// replica, so that its recorded address is never dialled.
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, trackingKey, candidateNodeIDs); err != nil {
 		return nil, err
 	}
 
@@ -1141,6 +1155,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	sched, _ := r.registry.GetGoverningScheduling(ctx, modelID)
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
+		return nil, "", 0, err
+	}
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, modelID, candidateNodeIDs); err != nil {
 		return nil, "", 0, err
 	}
 

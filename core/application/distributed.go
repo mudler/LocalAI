@@ -572,8 +572,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
-		Unloader:         remoteUnloader,
-		ModelCleanup:     modelCleanup,
+		Unloader:     remoteUnloader,
+		ModelCleanup: modelCleanup,
+		// A worker that is attached to another carrier and cannot follow the
+		// active one is not asked for a replica: its address cannot be dialled.
+		ActiveCarrier: func() cluster.Carrier {
+			if set := active.Load(); set != nil {
+				return set.Name
+			}
+			return ""
+		},
 		FileStager:       fileStager,
 		ClientFactory:    clientFactory,
 		GalleriesJSON:    routerGalleriesJSON,
