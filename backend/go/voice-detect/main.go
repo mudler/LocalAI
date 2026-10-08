@@ -54,6 +54,19 @@ func main() {
 		purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
 	}
 
+	// Encoder identity accessors (additive in voice-detect.cpp, no ABI bump).
+	// Probed so a libvoicedetect.so from before them still loads: the encoder
+	// family then stays empty and audio-registered voices stay unfingerprinted.
+	for _, lf := range []LibFuncs{
+		{&CppEncoderArch, "voicedetect_capi_encoder_arch"},
+		{&CppEncoderName, "voicedetect_capi_encoder_name"},
+		{&CppEncoderFamily, "voicedetect_capi_encoder_family"},
+	} {
+		if sym, err := purego.Dlsym(lib, lf.Name); err == nil && sym != 0 {
+			purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
+		}
+	}
+
 	fmt.Fprintf(os.Stderr, "[voice-detect] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

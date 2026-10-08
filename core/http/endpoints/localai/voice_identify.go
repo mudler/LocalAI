@@ -74,6 +74,12 @@ func VoiceIdentifyEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				if trustedErr != nil || m.Metadata.Model != trusted.Identity || len(embed.GetEmbedding()) != trusted.Dimension {
 					continue
 				}
+			} else if m.Metadata.EncoderFamily != "" && embed.GetEncoderFamily() != "" {
+				// Both sides carry a fingerprint: the embedding space decides, not
+				// the file name.
+				if m.Metadata.EncoderFamily != embed.GetEncoderFamily() {
+					continue
+				}
 			} else if m.Metadata.Model != "" && voicerecognition.EncoderTag(m.Metadata.Model) != voicerecognition.EncoderTag(embed.GetModel()) {
 				continue
 			}

@@ -1160,6 +1160,12 @@ message VoiceEmbedRequest {
 message VoiceEmbedResponse {
   repeated float embedding = 1;
   string         model = 2;
+  // Fingerprint of the encoder that made the embedding, when the backend can
+  // tell: the embedding space ("voicedetect:<arch>:<name>:<dim>") and the
+  // weights ("sha256:<hex>" of the model file). Both empty when unknown, and
+  // old backends never set them.
+  string         encoder_family = 3;
+  string         encoder_weights = 4;
 }
 
 message ToolFormatMarkers {

@@ -118,9 +118,13 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string, extraTags ...st
 		switch {
 		case e.Metadata.Model == "":
 			untagged = append(untagged, e)
-			// Hash-tagged portable registrations are checked against the loaded
-		// encoder by the backend, never against a filename or dimension alone.
-		case strings.HasPrefix(e.Metadata.Model, "sha256:"), tags[EncoderTag(e.Metadata.Model)]:
+		case e.Metadata.EncoderFamily != "", strings.HasPrefix(e.Metadata.Model, "sha256:"):
+			// A voice with an encoder family is checked by the backend against the
+			// loaded encoder's family, not by file name: the same encoder can be
+			// converted under another name, and a different one must be refused
+			// by the backend with a clear error.
+			sel.Voices = append(sel.Voices, knownVoice(e))
+		case tags[EncoderTag(e.Metadata.Model)]:
 			sel.Voices = append(sel.Voices, knownVoice(e))
 		default:
 			sel.OtherEncoder++
@@ -137,7 +141,10 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string, extraTags ...st
 
 func knownVoice(e Entry) KnownVoice {
 	v := KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model, Family: e.Metadata.EncoderFamily}
-	if strings.HasPrefix(e.Metadata.Model, "sha256:") {
+	switch {
+	case e.Metadata.EncoderWeights != "":
+		v.Weights = e.Metadata.EncoderWeights
+	case strings.HasPrefix(e.Metadata.Model, "sha256:"):
 		v.Weights = e.Metadata.Model
 	}
 	return v

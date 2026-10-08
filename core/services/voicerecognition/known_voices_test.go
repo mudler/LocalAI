@@ -156,6 +156,23 @@ var _ = Describe("encoder fingerprint of selected voices", func() {
 		Expect(sel.Voices[0].Family).To(Equal("voicedetect:ecapa_tdnn:ecapa:192"))
 		Expect(sel.Voices[0].Weights).To(Equal(hash))
 	})
+	It("forwards an audio-registered voice by its family and weights, whatever its file name", func() {
+		e := entry("ada", "voice-detect-ecapa.gguf", 1, 0)
+		e.Metadata.EncoderFamily = "voicedetect:ecapa_tdnn:ecapa:192"
+		e.Metadata.EncoderWeights = hash
+		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{e}, "other-encoder.gguf")
+		Expect(sel.OtherEncoder).To(BeZero())
+		Expect(sel.Voices).To(HaveLen(1))
+		Expect(sel.Voices[0].Model).To(Equal("voice-detect-ecapa.gguf"))
+		Expect(sel.Voices[0].Family).To(Equal("voicedetect:ecapa_tdnn:ecapa:192"))
+		Expect(sel.Voices[0].Weights).To(Equal(hash))
+	})
+	It("keeps an old audio voice without a family on the file-name filter", func() {
+		old := entry("ada", "voice-detect-ecapa.gguf", 1, 0)
+		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{old}, "other-encoder.gguf")
+		Expect(sel.Voices).To(BeEmpty())
+		Expect(sel.OtherEncoder).To(Equal(1))
+	})
 	It("leaves a file-name tagged voice unfingerprinted", func() {
 		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{entry("ada", "spk.gguf", 1, 0)}, "spk.gguf")
 		Expect(sel.Voices[0].Family).To(BeEmpty())
@@ -171,6 +188,7 @@ var _ = Describe("encoder fingerprint of selected voices", func() {
 		Expect(fresh.EncoderFamily).To(Equal("f"))
 		raw, _ = json.Marshal(old)
 		Expect(string(raw)).ToNot(ContainSubstring("encoder_family"))
+		Expect(string(raw)).ToNot(ContainSubstring("encoder_weights"))
 	})
 })
 
