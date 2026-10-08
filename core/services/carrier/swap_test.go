@@ -25,7 +25,6 @@ const swapSubject = "state.swap-spec"
 // each carrier, so a message that one replica publishes on a carrier reaches the
 // replicas that listen on it.
 type fakeNet struct {
-	mu  sync.Mutex
 	bus map[cluster.Carrier]*testutil.FakeBus
 }
 
@@ -121,12 +120,6 @@ func (n *replicaNode) failBuild(name cluster.Carrier, err error) {
 }
 
 func (n *replicaNode) active() cluster.Carrier { return n.cur.Load().Name }
-
-func (n *replicaNode) handoffs() []cluster.Carrier {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return slices.Clone(n.handedTo)
-}
 
 var _ = Describe("The swap of a replica", func() {
 	var (
@@ -342,8 +335,10 @@ var _ = Describe("The swap of a replica", func() {
 			var heardOld, heardNew atomic.Int32
 			_, err := b.bus.Subscribe(swapSubject, func([]byte) {})
 			Expect(err).ToNot(HaveOccurred())
-			net.bus[cluster.CarrierNATS].Subscribe(swapSubject, func([]byte) { heardOld.Add(1) })
-			net.bus[cluster.CarrierTunnel].Subscribe(swapSubject, func([]byte) { heardNew.Add(1) })
+			_, err = net.bus[cluster.CarrierNATS].Subscribe(swapSubject, func([]byte) { heardOld.Add(1) })
+			Expect(err).ToNot(HaveOccurred())
+			_, err = net.bus[cluster.CarrierTunnel].Subscribe(swapSubject, func([]byte) { heardNew.Add(1) })
+			Expect(err).ToNot(HaveOccurred())
 
 			request(cluster.CarrierTunnel)
 			poll()

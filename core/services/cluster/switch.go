@@ -263,13 +263,6 @@ func (s *Switch) observePhase(phase string, d time.Duration) {
 	}
 }
 
-func other(c Carrier) Carrier {
-	if c == CarrierNATS {
-		return CarrierTunnel
-	}
-	return CarrierNATS
-}
-
 // Status reports the cluster as it is, with no target.
 func (s *Switch) Status(ctx context.Context) (Report, error) {
 	return s.report(ctx, "")
