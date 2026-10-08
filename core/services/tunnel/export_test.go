@@ -16,3 +16,8 @@ func SetClaimTimeout(d time.Duration) (restore func()) {
 	claimTimeout = d
 	return func() { claimTimeout = old }
 }
+
+// NewRelayWithTimeouts builds a relay with timeouts that a spec can reach.
+func NewRelayWithTimeouts(tunnels *Registry, header, open time.Duration) *Relay {
+	return newRelay(tunnels, header, open)
+}
