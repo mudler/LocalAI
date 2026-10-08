@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -32,6 +33,20 @@ type Client struct {
 	inFlight int
 	parallel bool
 	token    string
+	// dialer replaces the transport that gRPC would use to reach address. In a
+	// deployment where workers hold a tunnel, it opens a stream on that tunnel,
+	// and address stops being a socket and becomes the name of a backend process
+	// inside the worker. Nil keeps the TCP dial of gRPC, which is what every
+	// caller outside a tunnel wants.
+	dialer func(ctx context.Context, addr string) (net.Conn, error)
+
+	// dialErrMu guards lastDialErr. It is not the embedded mutex: that one
+	// guards inFlight and is taken on every call, and a dialer runs under the
+	// machinery of gRPC, where taking it again is not something this type can
+	// reason about.
+	dialErrMu   sync.Mutex
+	lastDialErr error
+
 	sync.Mutex
 	opMutex sync.Mutex
 	wd      WatchDog
@@ -80,7 +95,17 @@ func (c *Client) dial() (*grpc.ClientConn, error) {
 	if c.token != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(bearerToken{token: c.token}))
 	}
-	return grpc.NewClient(c.address, opts...)
+	target := c.address
+	if c.dialer != nil {
+		// The address still goes to grpc.NewClient, because it names the target
+		// in every error message and in the authority header. What it no longer
+		// decides is where the bytes go. The passthrough resolver keeps gRPC from
+		// resolving it: the name of a backend process of a worker is not a host
+		// that a resolver knows.
+		opts = append(opts, grpc.WithContextDialer(c.dialer))
+		target = "passthrough:///" + c.address
+	}
+	return grpc.NewClient(target, opts...)
 }
 
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
@@ -1423,4 +1448,38 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 	return client.ModelMetadata(ctx, in, opts...)
+}
+
+// LastDialError returns the error of the most recent attempt of the custom
+// dialer of this client, or nil when that attempt succeeded or there is no custom
+// dialer.
+//
+// It exists because gRPC destroys the difference that its callers need. A failure
+// of the dialer reaches a call as codes.Unavailable with the cause flattened into
+// a message, and codes.Unavailable is also what a backend process that died
+// produces. The two call for opposite actions: the row of a dead backend is
+// reaped, and a transport that could not reach a live backend must never cause
+// that. Recording the error here keeps the error value for the caller.
+//
+// It is the last dial on this client and not the last dial for one call. The
+// callers that build a client for one probe and close it get an exact answer.
+// The one that reads the long-lived client of a model reads it after the call
+// failed, so a concurrent dial can record or clear the value in between. A dial
+// that failed in that window makes a dead backend look unreachable for now, and
+// its row survives one more round. A dial that succeeded clears the value, and
+// a failure of the transport reads as a failure of the backend, which is what
+// happened before the dialer existed. Neither is a new hazard.
+func (c *Client) LastDialError() error {
+	c.dialErrMu.Lock()
+	defer c.dialErrMu.Unlock()
+	return c.lastDialErr
+}
+
+// recordDialErr stores the outcome of one dial. A success clears the failure
+// before it, so that a client that recovered does not keep reporting an error
+// that describes nothing.
+func (c *Client) recordDialErr(err error) {
+	c.dialErrMu.Lock()
+	c.lastDialErr = err
+	c.dialErrMu.Unlock()
 }
