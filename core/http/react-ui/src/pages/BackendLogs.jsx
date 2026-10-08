@@ -191,7 +191,6 @@ function BackendLogsDetail({ modelId, embedded = false }) {
         <>
           <Link className="lg-back dk-link" to="/app/backends?view=installed"><Icon name="arrow-left" /> {t('logs.back')}</Link>
           <PageHeader
-            eyebrow={null}
             title={<span className="dk-mono">{modelId}</span>}
             supporting={t('logs.supporting')}
             actions={picker.length > 1 ? (
@@ -393,7 +392,6 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
   return (
     <div className="page page--wide op-page lg">
       <PageHeader
-        eyebrow={null}
         title={<span className="dk-mono">{modelId}</span>}
         supporting={`Hosted on ${hits.length} workers — pick one to view its logs.`}
       />
@@ -458,7 +456,7 @@ function LogProcessList() {
   return (
     <div className="page page--wide op-page lg" data-testid="logs-processes">
       <Link className="lg-back dk-link" to="/app/backends?view=installed"><Icon name="arrow-left" /> {t('logs.back')}</Link>
-      <PageHeader eyebrow={null} title={t('logs.title')} supporting={t('logs.listSupporting')} />
+      <PageHeader title={t('logs.title')} supporting={t('logs.listSupporting')} />
       {processes === null ? (
         <div className="loading-center"><LoadingSpinner size="lg" /></div>
       ) : error ? (

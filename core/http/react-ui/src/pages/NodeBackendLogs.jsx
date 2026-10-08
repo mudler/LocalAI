@@ -184,7 +184,6 @@ export default function NodeBackendLogs() {
     <div className="page page--wide sw-page lg">
       <Link className="lg-back dk-link" to={`/app/nodes/${encodeURIComponent(nodeId)}`}><Icon name="arrow-left" /> {nodeName || t('nodeLogs.backNode')}</Link>
       <PageHeader
-        eyebrow={null}
         title={(
           <>
             <span className="dk-mono">{baseModelName}</span>

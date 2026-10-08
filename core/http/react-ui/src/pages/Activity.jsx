@@ -133,7 +133,6 @@ export default function Activity() {
   return (
     <div className="page page--wide op-page activity-page">
       <PageHeader
-        eyebrow={null}
         title={t('activity.title')}
         supporting={supporting}
         actions={history.length > 0 ? (

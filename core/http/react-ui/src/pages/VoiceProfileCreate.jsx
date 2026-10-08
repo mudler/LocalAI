@@ -130,7 +130,6 @@ export default function VoiceProfileCreate() {
         when={!submitting && !!(audio || additionalReferences.length || name || description || language || transcript || consent)}
       />
       <PageHeader
-        eyebrow={t('voiceCreate.eyebrow')}
         title={<><Icon name="mic" /> {t('voiceCreate.title')}</>}
         supporting={t('voiceCreate.subtitle')}
         actions={<Link className="dk-btn dk-btn--secondary" to="/app/voice-library"><Icon name="arrow-left" /> {t('voiceCreate.actions.back')}</Link>}

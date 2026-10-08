@@ -623,7 +623,6 @@
     }
   },
   "voiceCreate": {
-    "eyebrow": "Speech voices",
     "title": "Add a speech voice",
     "subtitle": "A speech voice is one or more clean reference clips and their exact transcripts. Text-to-speech models that accept reference audio can speak with it.",
     "references": {

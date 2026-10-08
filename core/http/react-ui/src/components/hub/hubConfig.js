@@ -1,6 +1,6 @@
 // Hub configuration shared by HubLayout (renders the tab bar), the Sidebar
 // (renders the single entry for each hub and computes its active state), App
-// (page-transition key) and the page eyebrow.
+// (page-transition key).
 //
 // A hub is a page-level tab bar. Each tab owns one or more existing routes
 // (`items`). A tab with several routes shows a second, quieter row of links
