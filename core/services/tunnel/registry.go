@@ -37,6 +37,12 @@ var ErrRegistryClosed = errors.New("tunnel: the registry is closed")
 // worker dials the bulk lane again within moments, and the caller may try again.
 var ErrNoBulkSession = errors.New("tunnel: the node holds no bulk session on this replica")
 
+// claimTimeout bounds the claim in Attach. The context of the caller is the one
+// of a request, and a request has no deadline. A database that does not answer
+// would hold the goroutine of the connect handler, its hijacked socket and the
+// gate of the node for as long as the worker stays connected.
+var claimTimeout = 10 * time.Second
+
 // releaseTimeout bounds the release in Detach. Detach runs in the goroutine that
 // has just seen a session end, and that goroutine must not wait for a database
 // that went away with the session.
@@ -196,8 +202,17 @@ func (t *Registry) attachInference(ctx context.Context, nodeID string, sess *Ses
 	epoch, err := func() (int64, error) {
 		defer t.leaveClaim(nodeID)
 
-		epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
+		claimCtx, cancelClaim := context.WithTimeout(ctx, claimTimeout)
+		epoch, err := t.reg.Claim(claimCtx, nodeID, t.selfID)
+		cancelClaim()
 		if err != nil {
+			return 0, err
+		}
+		if err := ctx.Err(); err != nil {
+			// The worker left, or the request ended, while the claim ran. The
+			// claim is in the table and no entry will ever release it, because
+			// the caller closes the session when Attach fails.
+			t.releaseClaim(nodeID, epoch)
 			return 0, err
 		}
 

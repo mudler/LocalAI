@@ -128,6 +128,33 @@ var _ = Describe("Registry", func() {
 			Expect(err).To(MatchError(cluster.ErrNoConnection))
 		})
 
+		It("stops waiting for a claim that the database does not answer, and holds nothing", func() {
+			restore := tunnel.SetClaimTimeout(300 * time.Millisecond)
+			DeferCleanup(restore)
+			// A first claim makes the row. A transaction then locks it, so the
+			// next claim of the node waits for the lock.
+			first, _ := sessionPair(tunnel.LaneInference)
+			token, err := registry.Attach(ctx, "w1", tunnel.LaneInference, first)
+			Expect(err).ToNot(HaveOccurred())
+			registry.Detach("w1", tunnel.LaneInference, token)
+
+			tx := db.Begin()
+			DeferCleanup(func() { _ = tx.Rollback() })
+			Expect(tx.Exec("SELECT 1 FROM node_connections WHERE node_id = ? FOR UPDATE", "w1").Error).To(Succeed())
+
+			// The context has no deadline, as the one of a request has none.
+			stuck, _ := sessionPair(tunnel.LaneInference)
+			begun := time.Now()
+			_, err = registry.Attach(context.Background(), "w1", tunnel.LaneInference, stuck)
+			Expect(err).To(HaveOccurred())
+			Expect(time.Since(begun)).To(BeNumerically("<", 5*time.Second))
+			Expect(registry.Holds("w1")).To(BeFalse())
+
+			Expect(tx.Rollback().Error).To(Succeed())
+			_, err = owner("w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection), "the stuck claim must not have taken the row")
+		})
+
 		It("keeps the entry whose claim the row carries when two dials race", func() {
 			const dials = 8
 			var wg sync.WaitGroup
