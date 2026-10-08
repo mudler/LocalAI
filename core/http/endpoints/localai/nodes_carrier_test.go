@@ -8,7 +8,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -248,10 +250,99 @@ var _ = Describe("Registration and the active carrier", func() {
 			Expect(storedHash("w")).ToNot(BeEmpty())
 
 			response := map[string]any{}
-			attachTunnelToken(ctx, response, registry, &nodes.BackendNode{ID: id, Name: "w", NodeType: "gpu-farm"})
+			attachTunnelToken(ctx, response, registry, &nodes.BackendNode{ID: id, Name: "w", NodeType: "gpu-farm"}, nil)
 
 			Expect(response).ToNot(HaveKey("tunnel_token"))
 			Expect(storedHash("w")).To(BeEmpty())
 		})
+	})
+})
+
+// recordingDisconnector records the nodes whose tunnel it was asked to end.
+type recordingDisconnector struct {
+	mu    sync.Mutex
+	nodes []string
+}
+
+func (r *recordingDisconnector) Disconnect(nodeID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.nodes = append(r.nodes, nodeID)
+	return true
+}
+
+func (r *recordingDisconnector) seen() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.nodes)
+}
+
+var _ = Describe("Ending the tunnel session of a node that lost its right to it", func() {
+	var (
+		ctx      context.Context
+		registry *nodes.NodeRegistry
+		tunnels  *recordingDisconnector
+		natsCfg  natsauth.Config
+	)
+	tunnelRow := cluster.CarrierRow{Active: cluster.CarrierTunnel, Epoch: 7, State: cluster.StateStable}
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		var err error
+		registry, err = nodes.NewNodeRegistry(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+		tunnels = &recordingDisconnector{}
+	})
+
+	register := func() string {
+		GinkgoHelper()
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"w"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		h := RegisterNodeEndpoint(registry, "", true, nil, "", natsCfg,
+			WithCarrierReader(fixedCarrier{row: tunnelRow}), WithTunnelDisconnector(tunnels))
+		Expect(h(e.NewContext(req, rec))).To(Succeed())
+		var resp map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+		return resp["id"].(string)
+	}
+
+	It("ends the session when a registration replaces the credential", func() {
+		id := register()
+		Expect(tunnels.seen()).To(Equal([]string{id}))
+		// A second registration replaces it again.
+		register()
+		Expect(tunnels.seen()).To(HaveLen(2))
+	})
+
+	It("ends the session when an admin removes the node", func() {
+		id := register()
+		before := len(tunnels.seen())
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodDelete, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetParamNames("id")
+		c.SetParamValues(id)
+		Expect(DeregisterNodeEndpoint(registry, nil, WithTunnelDisconnector(tunnels))(c)).To(Succeed())
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(tunnels.seen()).To(HaveLen(before + 1))
+		_, err := registry.Get(ctx, id)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("does not end a session when the registration mints nothing", func() {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"name":"w"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		natsRow := cluster.CarrierRow{Active: cluster.CarrierNATS, Epoch: 3, State: cluster.StateStable}
+		h := RegisterNodeEndpoint(registry, "", true, nil, "", natsCfg,
+			WithCarrierReader(fixedCarrier{row: natsRow}), WithTunnelDisconnector(tunnels))
+		Expect(h(e.NewContext(req, rec))).To(Succeed())
+		Expect(tunnels.seen()).To(BeEmpty())
 	})
 })

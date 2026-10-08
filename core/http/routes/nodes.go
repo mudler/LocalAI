@@ -82,7 +82,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 
 	admin.GET("/:id", localai.GetNodeEndpoint(registry))
 	admin.GET("/:id/models", localai.GetNodeModelsEndpoint(registry))
-	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader))
+	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry, unloader, options...))
 	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry, unloader))
 	admin.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
 	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg, options...))

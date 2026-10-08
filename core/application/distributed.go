@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -25,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/sanitize"
@@ -90,7 +90,13 @@ func (ds *DistributedServices) Shutdown() {
 		return
 	}
 	ds.shutdownOnce.Do(func() {
-		// First, so the peers see this replica leave before its services stop.
+		// The tunnels first: their claims name this replica, and a peer that
+		// asks who owns a worker must not be told a replica that is leaving.
+		if ds.Tunnels != nil {
+			ds.Tunnels.Close()
+		}
+		// Then the membership, so the peers see this replica leave before its
+		// services stop.
 		ds.Membership.Stop()
 		if ds.Health != nil {
 			ds.Health.Stop()

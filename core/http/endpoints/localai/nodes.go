@@ -131,6 +131,26 @@ type CarrierReader interface {
 
 type registerOptions struct {
 	carriers CarrierReader
+	tunnels  TunnelDisconnector
+}
+
+// TunnelDisconnector ends the tunnel that this replica holds for a node.
+// *tunnel.Registry is one.
+type TunnelDisconnector interface {
+	Disconnect(nodeID string) bool
+}
+
+// WithTunnelDisconnector makes a registration that replaces the tunnel
+// credential of a node, and the removal of a node, end the tunnel session that
+// the replica holds for it. The credential is checked when a worker dials, so
+// without this a session that was open stays open for a node that no longer has
+// the right to it.
+//
+// It acts on this replica only. A session held by another replica ends when its
+// worker dials again and is refused, or when the session ends for another
+// reason.
+func WithTunnelDisconnector(d TunnelDisconnector) RegisterOption {
+	return func(o *registerOptions) { o.tunnels = d }
 }
 
 // RegisterOption changes how a registration or an approval answers.
@@ -329,7 +349,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
-		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier)
+		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier, opts.tunnels)
 		if tunnelActive && expectedToken == "" && autoApprove {
 			openRegistrationWarning.Do(func() {
 				xlog.Warn("Worker registration is open: there is no registration token and new nodes are approved at once, " +
@@ -390,13 +410,13 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // credential for it: the tunnel token when the tunnel is active, the NATS user
 // JWT otherwise. A deployment with no carrier row is a deployment with NATS and
 // gets the answer that it always had.
-func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool) {
+func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool, tunnels TunnelDisconnector) {
 	if haveCarrier {
 		response["carrier"] = row.Active
 		response["carrier_epoch"] = row.Epoch
 	}
 	if haveCarrier && row.Active == cluster.CarrierTunnel {
-		attachTunnelToken(ctx, response, registry, node)
+		attachTunnelToken(ctx, response, registry, node, tunnels)
 		return
 	}
 	attachNatsJWT(response, node, natsCfg)
@@ -428,7 +448,7 @@ func attachCarrierCredential(ctx context.Context, response map[string]any, regis
 // token. Registration is how a worker joins the cluster, and a tunnel problem
 // must not become a node that cannot join. The worker sees no tunnel_token,
 // says so, and tries at its next registration.
-func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
+func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, tunnels TunnelDisconnector) {
 	if node == nil {
 		return
 	}
@@ -436,6 +456,10 @@ func attachTunnelToken(ctx context.Context, response map[string]any, registry *n
 		if err := registry.SetTunnelTokenHash(ctx, node.ID, ""); err != nil {
 			xlog.Error("Failed to clear the tunnel credential of a node whose type holds none",
 				"node", node.Name, "type", node.NodeType, "error", err)
+			return
+		}
+		if tunnels != nil {
+			tunnels.Disconnect(node.ID)
 		}
 		return
 	}
@@ -447,6 +471,11 @@ func attachTunnelToken(ctx context.Context, response map[string]any, registry *n
 		return
 	}
 	response["tunnel_token"] = secret
+	// The old credential is gone from the table. A session that was opened with
+	// it is ended, so that the old holder has to present the new one.
+	if tunnels != nil && tunnels.Disconnect(node.ID) {
+		xlog.Info("Ended the tunnel session of a node whose credential was replaced", "node", node.Name)
+	}
 }
 
 // tunnelEligible reports whether a node of this type holds a tunnel credential.
@@ -534,7 +563,8 @@ func cancelNodeLoads(ctx context.Context, registry *nodes.NodeRegistry, unloader
 }
 
 // DeregisterNodeEndpoint removes a backend node permanently (admin use).
-func DeregisterNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender) echo.HandlerFunc {
+func DeregisterNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -542,6 +572,11 @@ func DeregisterNodeEndpoint(registry *nodes.NodeRegistry, unloader nodes.NodeCom
 		if err := registry.Deregister(ctx, id); err != nil {
 			xlog.Error("Failed to deregister node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to deregister node"))
+		}
+		// The row is gone, and so is the right to a tunnel. Without this the
+		// session stays up, because the credential is checked at the dial only.
+		if opts.tunnels != nil {
+			opts.tunnels.Disconnect(id)
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "node deregistered"})
 	}
