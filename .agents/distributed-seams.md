@@ -37,7 +37,7 @@ call loads an `atomic.Pointer[carrier.Set]` once and calls the same method on
 that set. A `carrier.Set` is the implementation of every seam for one carrier.
 Build a set completely and call `Validate` before you store it. The holders take
 no lock and allocate nothing, and a call that is already running is never moved.
-`carrier.NewNATSSet` is the one place that builds the NATS set.
+`carrier.NewNATSSet` and `carrier.NewTunnelSet` are the places that build a set.
 
 `NodeControl` is the whole control surface a carrier gives the frontend:
 `NodeCommandSender`, the process lister, the three unload interfaces the model
@@ -63,12 +63,106 @@ parts of that carrier before `Validate` accepts it.
 The active carrier is one row of table `cluster_carrier`
 (`cluster.CarrierStore`). Each transition is a compare-and-set on its epoch. At
 startup a replica reads the row, or inserts it if it is absent, and builds the
-set the row names. A replica whose row names a carrier it does not implement
-fails to start. It never falls back to another carrier.
+set the row names (`carrierRuntime.build` in `core/application`: `NewNATSSet` or
+`NewTunnelSet`). A replica whose row names a carrier it does not implement fails
+to start. It never falls back to another carrier, and its own flags never
+override the row.
 
-A NATS URL that points at a server which is not up does not stop the start:
+The row is seeded by the first replica that starts: NATS when it has a NATS URL
+(the flag `--nats-url`, or a URL stored in the cluster settings), the tunnel
+otherwise. `--nats-url` means what it always meant for a deployment on NATS, and
+it is no longer required: a deployment with only PostgreSQL runs on the tunnel.
+The flag is copied into the cluster setting `nats.url` when none is stored, and a
+stored URL wins afterwards, so that every replica uses the same one. A NATS URL
+that points at a server which is not up does not stop the start:
 `messaging.New` retries on a failed connect, so a frontend can start before its
 broker. A URL it cannot parse does.
+
+## Changing the carrier
+
+An admin changes the carrier of a running cluster with `POST /api/cluster/carrier`
+(`{"target": "nats"|"tunnel", "dry_run": bool, "force": bool}`, or `{"abort": true}`).
+`GET /api/cluster/carrier` reports the state. Both routes, and
+`GET`/`PUT /api/cluster/settings`, answer to an admin only; the prefix
+`/api/cluster/` is not public, and only the exact connect and peer paths skip the
+global authentication. Saving a NATS URL stores it and checks that the serving
+replica reaches it. It does not change the carrier.
+
+The row has a state, and every move is a compare-and-set on the epoch:
+
+| State | Meaning | Who moves it on |
+|---|---|---|
+| `stable` | One carrier is active. A previous carrier may still be attached (`draining`, `draining_until`). | the admin starts a change |
+| `prepare` | Every replica builds the target and listens on it. Publishing stays on the old carrier. | the leader, when every live replica reported ready for this epoch |
+| `commit` | The target is active. Every replica publishes on it and confirms with the epoch of the commit. | the leader, when every live replica confirmed |
+| `stable` | The old carrier drains for `max_drain`. | the leader, at `draining_until` |
+
+`cluster.Switch` holds the protocol and keeps no state outside the row and the
+`instances` table, so a leader that dies between two moves is replaced by one that
+reads the same row. The leader is whichever replica holds the advisory lock
+`KeyCarrierSwitch` at a tick (`advisorylock.RunLeaderLoop`). Every timeout is
+measured on the clock of the database (`CarrierStore.DBNow` and the change stamp),
+never on the clock of a replica. A replica that cannot build the target reports
+the reason, and the leader aborts naming it. A replica that is late for the prepare
+timeout aborts the change, or is left behind by a forced one. `abort` is accepted
+only in `prepare`: after the commit the target is the active carrier, and going
+back is a change like any other.
+
+The preflight (also the dry run) lists: the live replicas with their versions (old
+frontends write no row and cannot be detected, so the admin confirms that the list
+is complete, and every frontend must be upgraded before the first change); whether
+each replica could build the target (`instances.availability`, written by the
+replica when a dry run asks for it); every worker that cannot follow and why
+(`nodes.SwitchWorkers`: a worker that reports no capabilities predates carrier
+switching, a worker that reports an error says it); and the work in flight. A
+blocker can be forced. A forced change commits without a replica that is not ready,
+and names it in the note of the row.
+
+`carrier.Swapper` is what a replica does. It polls the row every two seconds with a
+jitter, and a hint on `state.carrier` makes it look at once; the poll decides. In
+`prepare` it builds the target, attaches every subscription to it
+(`Broadcaster.Listen`) and reports ready for the epoch. In `commit` it stores the
+set, so that publishes, enqueues and new calls use it, starts the work of the set
+(`Set.Start`: the claim loop of the tunnel) and confirms. In `stable` with a drain it
+does nothing: the old set stays attached. When the leader ends the drain it stops
+listening on the old set, cancels its work with `messaging.ErrCarrierReleased`,
+runs `Set.Handoff` (the tunnel moves its pending claims to the queue of the new
+carrier: update, then publish, so a job is lost and not run twice if the replica
+dies in between; it runs again after `Settle` for the producers that were slow to
+flip), closes the set, and runs the reconnect hooks once. A replica that polls
+late, restarts or joins during a change acts on the row alone.
+
+`carrier.Window` is the only per-worker routing, and it exists between the commit
+and the end of the drain. A control verb, a file transfer, a dial or a client for
+one worker goes to the active set when the worker is attached to it, else to the
+previous set when it is attached to that, else it fails with `nodes.ErrNoRoute`.
+The choice is read from the state of the worker (`BackendNode.Attached`, or a
+tunnel held when it reports nothing) and never from the error of an earlier
+attempt. A call that is running is never moved, so an install, a stream or a load
+renewal ends on the carrier it began on while the old carrier is attached.
+
+A run that the end of the drain cuts off is cancelled with
+`messaging.ErrCarrierReleased`. The claim driver completes its claim and leaves the
+job to the reaper (`ReapStuckJobs`), because the run did start and the carrier that
+took over must not start it again. The model loads, installs and agent runs that
+were started before the change finish where they began; whatever is still running
+at `max_drain` is failed by the reaper, and a load whose lease is not renewed is
+killed by the watchdog of the worker, as it is for a dead owner (`#12524`).
+
+A worker that holds a tunnel has no address and binds its backends to loopback. The
+NATS set therefore builds its clients with `nodes.NewGuardedDirectClientFactory`:
+for a worker that registered no address, a loopback address is not dialled, and the
+client reports a failure of the transport, which no code that decides whether a
+backend is dead reads as an answer. A forced change to NATS cannot make the health
+monitor or the reconciler reap a model that runs.
+
+The cluster settings (`cluster.SettingsStore`, table `cluster_settings`) hold what
+every replica must read the same way: `nats.url`, `nats.worker_url` and the waits
+of a change (`switch.prepare_timeout`, `switch.transition_window`,
+`switch.max_drain`; defaults 1m, 2m and 15m; the flags
+`--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain`
+are the fallback). The runtime settings of the application are a file of one
+process and cannot carry them. Credentials are never stored there.
 
 ## The worker tunnel
 
