@@ -165,7 +165,8 @@
 
 /* ---- Phone ---------------------------------------------------------------- */
 @media (max-width: 760px) {
-  .aj-phone-line { display: block; margin-top: 2px; max-width: 21ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 400; color: var(--dk-muted); }
+/* Wraps: "Every day at 07:00. Last run failed" is the one line that says when and how it went, and an ellipsis cut it mid-sentence. */
+  .aj-phone-line { display: block; margin-top: 2px; max-width: 28ch; overflow-wrap: anywhere; font-size: 13px; font-weight: 400; color: var(--dk-muted); }
   .aj-title { font-size: 28px; }
   .aj-sum { font-size: 16px; }
   .aj-acts__word { display: none; }

@@ -166,7 +166,10 @@
   text-align: right;
 }
 .ws-chip__input::placeholder { color: var(--dk-muted); opacity: 1; }
-.ws-chip__input[data-width="wide"] { width: 120px; }
+/* A wide field holds a sentence-length placeholder ("Optional speaker or voice
+   ID"), which 120px cut off mid-word. Left-aligned text, and it gives way on a
+   phone instead of overflowing the row. */
+.ws-chip__input[data-width="wide"] { width: 15rem; text-align: left; text-overflow: ellipsis; }
 
 .ws-toggle { height: 36px; }
 .ws-toggle[data-changed] { box-shadow: 0 0 0 2px var(--dk-accent); }

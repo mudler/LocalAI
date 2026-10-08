@@ -5650,6 +5650,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+.rec-models__facts > span + span::before { content: "\00b7"; margin-right: var(--spacing-sm); }
 .rec-models__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--spacing-sm); overflow: visible; }
 .rec-models__more {
   margin-top: var(--spacing-xs);
@@ -7590,6 +7591,13 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   min-width: 0;
   width: 100%;
 }
+/* A medium page is centred in the content area, but the tab bar above it is
+   flush with the page edge, so the title sat 60px to the right of the first
+   tab. Inside a hub the medium column starts where the bar starts. */
+.hub-body .page--medium {
+  margin-left: max(0px, calc((100% - var(--page-max-default)) / 2));
+  margin-right: auto;
+}
 @media (max-width: 768px) {
   .hub-layout { padding-top: var(--spacing-sm); }
   .hub-bar { padding: 0 var(--spacing-md); }
@@ -9522,6 +9530,21 @@ button.lane:hover {
 }
 
 .lane__go { color: var(--color-text-tertiary); }
+
+/* Model templates: one lane per starting point. */
+.template-picker { padding: 0 var(--spacing-lg) var(--spacing-lg); max-width: 56rem; }
+.template-picker__lede { font-size: var(--text-base); color: var(--color-text-secondary); margin-bottom: var(--spacing-md); }
+.lanes--templates .lane { grid-template-columns: 1.75rem minmax(0, 1fr) auto; align-items: start; }
+.template-picker__icon { font-size: 1.25rem; color: var(--color-text-secondary); margin-top: 2px; }
+.lanes--templates .lane__name { font-size: var(--text-md, 1rem); font-weight: var(--font-weight-semibold); }
+.lanes--templates .lane__desc { font-size: var(--text-sm); }
+.template-picker__fields {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  overflow-wrap: anywhere;
+}
+.lanes--templates .lane__go { margin-top: 2px; }
 
 /* Section rhythm above a set of lanes. */
 .lane-head {
