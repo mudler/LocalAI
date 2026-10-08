@@ -79,6 +79,7 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	var (
 		files      FileCarrier
 		forgetFile func(string)
+		closeFiles func()
 	)
 	if o.S3Staging {
 		if o.FileManager == nil {
@@ -93,7 +94,7 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 			// the node. It names the node in a log line and in the URL.
 			return nodes.WorkerHTTPHost(nodeID, ""), nil
 		}, o.Token, bulkDial)
-		files, forgetFile = stager, stager.ForgetNode
+		files, forgetFile, closeFiles = stager, stager.ForgetNode, stager.Close
 	}
 
 	set := &Set{
@@ -114,7 +115,17 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 				forgetFile(nodeID)
 			}
 		},
-		Close: o.Fanout.Close,
+		// The streams that the clients keep idle belong to tunnels that are about to
+		// be replaced, so they are given back with the set.
+		Close: func() {
+			control.Close()
+			if closeFiles != nil {
+				closeFiles()
+			}
+			if o.Fanout.Close != nil {
+				o.Fanout.Close()
+			}
+		},
 	}
 	if err := set.Validate(); err != nil {
 		return nil, err

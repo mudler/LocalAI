@@ -142,6 +142,21 @@ func (h *HTTPFileStager) ForgetNode(nodeID string) {
 	}
 }
 
+// Close drops the client of every node and closes the idle streams that their
+// transports hold. It is safe on a nil receiver and may be called twice.
+func (h *HTTPFileStager) Close() {
+	if h == nil {
+		return
+	}
+	h.clientsMu.Lock()
+	entries := h.clients
+	h.clients = map[string]*nodeFileClient{}
+	h.clientsMu.Unlock()
+	for _, entry := range entries {
+		entry.transport.CloseIdleConnections()
+	}
+}
+
 // ReleaseRemote removes one exact ephemeral key from a backend node.
 func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
 	if err := validateEphemeralReleaseKey(key); err != nil {

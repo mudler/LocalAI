@@ -126,6 +126,23 @@ func (c *ControlClient) ForgetNode(nodeID string) {
 	}
 }
 
+// Close drops the client of every node and closes the idle streams that their
+// transports hold. The carrier calls it when it is replaced, so that the streams
+// of its tunnels do not wait for an idle timeout. It is safe on a nil receiver
+// and may be called twice.
+func (c *ControlClient) Close() {
+	if c == nil {
+		return
+	}
+	c.clientsMu.Lock()
+	entries := c.clients
+	c.clients = map[string]*nodeHTTPClient{}
+	c.clientsMu.Unlock()
+	for _, entry := range entries {
+		entry.transport.CloseIdleConnections()
+	}
+}
+
 // Call sends one request and decodes the reply. reply may be nil for a verb that
 // answers with no body.
 //
