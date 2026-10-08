@@ -209,11 +209,18 @@ test.describe('Status capacity chart', () => {
     await page.clock.install()
     await mockOperate(page)
     await page.goto('/app/operate')
-    for (let i = 0; i < 12; i += 1) await page.clock.fastForward(16_000)
-    await page.getByTestId('operate-capacity').locator('.dk-chart-data summary').click()
-    const rows = await page.getByTestId('operate-capacity').locator('.dk-chart-data tbody tr').count()
-    expect(rows).toBeGreaterThan(5)
-    expect(rows).toBeLessThanOrEqual(240)
+    const capacity = page.getByTestId('operate-capacity')
+    await expect(capacity).toBeVisible()
+    // The page takes a reading on each poll. Advance the clock in small steps and
+    // let the page run between them, so every step lands on a mounted poller.
+    for (let i = 0; i < 20; i += 1) {
+      await page.clock.fastForward(16_000)
+      await page.waitForTimeout(40)
+    }
+    await capacity.locator('.dk-chart-data summary').click()
+    const rows = capacity.locator('.dk-chart-data tbody tr')
+    await expect.poll(() => rows.count()).toBeGreaterThan(5)
+    expect(await rows.count()).toBeLessThanOrEqual(240)
   })
 })
 

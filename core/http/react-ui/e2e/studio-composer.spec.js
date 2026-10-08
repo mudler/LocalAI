@@ -143,10 +143,15 @@ test.describe('Studio composer: keys', () => {
   test('Alt+1 to Alt+7 pick a type', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
+    // The key handler is armed when the composer mounts: wait for it before the
+    // first press, and retry a press that lands during a re-render.
+    await expect(prompt(page)).toBeVisible()
     const order = ['images', 'video', 'threed', 'tts', 'sound', 'transform', 'diarization']
     for (let i = 0; i < order.length; i++) {
-      await page.keyboard.press(`Alt+Digit${i + 1}`)
-      await expect(chip(page, order[i])).toHaveAttribute('aria-pressed', 'true')
+      await expect(async () => {
+        await page.keyboard.press(`Alt+Digit${i + 1}`)
+        await expect(chip(page, order[i])).toHaveAttribute('aria-pressed', 'true', { timeout: 1500 })
+      }).toPass({ timeout: 10_000 })
     }
   })
 
