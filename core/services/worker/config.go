@@ -1,5 +1,11 @@
 package worker
 
+import (
+	"time"
+
+	"github.com/mudler/xlog"
+)
+
 // Config is the configuration for the distributed agent worker.
 //
 // Field tags are kong/kong-env metadata read by core/cli/worker.go's WorkerCMD,
@@ -78,6 +84,10 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
+	// FollowMaxDelay bounds the random wait before the worker attaches to a carrier
+	// that the cluster changed to, so that a fleet does not connect at once.
+	FollowMaxDelay string `env:"LOCALAI_FOLLOW_MAX_DELAY" default:"10s" help:"Longest random wait before this worker attaches to the carrier that the cluster changed to" group:"registration" hidden:""`
+
 	// NATS. The URL is needed only when the cluster runs on NATS.
 	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed when the cluster runs on NATS; a cluster on the tunnel does not use it" group:"distributed"`
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`
@@ -105,4 +115,22 @@ func (c Config) NatsAuthRequired() bool {
 // before the file-transfer server may start — the granular flag or the umbrella.
 func (c Config) RegistrationAuthRequired() bool {
 	return c.RegistrationRequireAuth || c.DistributedRequireAuth
+}
+
+// followMaxDelay returns the longest random wait before the worker follows a
+// change of carrier. A value that is not a duration is the default.
+func (c Config) followMaxDelay() time.Duration {
+	if c.FollowMaxDelay == "" {
+		return DefaultFollowMaxDelay
+	}
+	d, err := time.ParseDuration(c.FollowMaxDelay)
+	if err != nil {
+		xlog.Warn("invalid follow delay, using the default", "input", c.FollowMaxDelay, "error", err)
+		return DefaultFollowMaxDelay
+	}
+	if d == 0 {
+		// Zero is "no wait" here, and a zero in the options means the default.
+		return -1
+	}
+	return d
 }

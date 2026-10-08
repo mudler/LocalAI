@@ -70,6 +70,16 @@ func newTunnelFollower(o tunnelFollowerOptions) *tunnelFollower {
 	}
 }
 
+// UseCredentials sets where the tunnel reads its credential, and how it gets a
+// new one. A credential is new after every registration, so the follower is given
+// it again for each attach.
+func (f *tunnelFollower) UseCredentials(token func() string, reauthorize func(ctx context.Context) error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.token = token
+	f.reauthorize = reauthorize
+}
+
 // CanAttach reports whether this worker has what a tunnel needs: a frontend URL
 // that can be turned into the endpoint of the tunnel. A worker that cannot attach
 // must not mount a control plane at all.
