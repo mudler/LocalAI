@@ -38,7 +38,7 @@ test.describe('Nodes fleet roster', () => {
       await expect(page.getByTestId('local-machine')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByText('No workers registered yet')).toHaveCount(0)
       await expect(page.getByTestId('scale-out')).toHaveCount(0)
-      await page.getByRole('button', { name: 'Add machines' }).click()
+      await page.getByRole('button', { name: 'Add a machine' }).click()
       await expect(page.getByTestId('scale-out')).toContainText('Distributed mode is not enabled')
     })
   }

@@ -141,7 +141,7 @@ test.describe('Operate overview', () => {
   })
 })
 
-test.describe('Operate overview headline', () => {
+test.describe('Operate overview ledger', () => {
   const SUMMARY = {
     total: 18402, errors: 37, p95_ms: 842, window_hours: 24,
     buckets: Array.from({ length: 12 }, (_, i) => ({ count: 100 + i * 10, errors: i })),
@@ -153,35 +153,39 @@ test.describe('Operate overview headline', () => {
     await page.route('**/api/traces/summary', route => route.fulfill({ json: SUMMARY }))
     await mockQuiet(page)
     await page.goto('/app/operate')
-    const headline = page.locator('.operate-headline')
-    await expect(headline).toBeVisible()
-    await expect(headline).toContainText('18,402')
-    await expect(headline).toContainText('37')
-    await expect(headline).toContainText('842')
+    // Failed requests are a problem, so the row opens by itself.
+    const row = page.getByTestId('operate-row-failures')
+    await expect(row).toContainText('37 failed of 18,402 requests')
+    await expect(row.getByTestId('operate-traffic')).toContainText('842 ms')
     // The whole point of the endpoint: three numbers, not the buffer.
     expect(listCalls).toBe(0)
   })
 
-  test('a quiet installation keeps the grid and says why it is empty', async ({ page }) => {
-    // Hiding the grid removed the page's structure exactly when someone was
+  test('a quiet installation keeps the row and says why it is empty', async ({ page }) => {
+    // Hiding the row removed the page's structure exactly when someone was
     // most likely to be looking at it, and "0 failed" is information.
     await page.route('**/api/traces/summary', route =>
       route.fulfill({ json: { total: 0, errors: 0, p95_ms: 0, window_hours: 24, buckets: [] } }))
     await mockQuiet(page)
     await page.goto('/app/operate')
-    await expect(page.locator('.operate-headline')).toBeVisible()
-    await expect(page.locator('.operate-headline__cell')).toHaveCount(4)
-    await expect(page.locator('.operate-headline__note')).toBeVisible()
+    const row = page.getByTestId('operate-row-failures')
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('No requests recorded in the last 24 hours.')
+    await expect(row.locator('.op-row__head')).toHaveAttribute('aria-expanded', 'false')
   })
 
-  test('the sections state counts rather than listing their destinations', async ({ page }) => {
-    await page.route('**/api/traces/summary', route =>
-      route.fulfill({ json: { total: 18402, errors: 37, p95_ms: 842, window_hours: 24, buckets: [] } }))
-    await mockQuiet(page)
+  test('the Running now row states counts rather than listing destinations', async ({ page }) => {
+    await mockQuiet(page, {
+      operations: [{ id: 'op-1', name: 'qwen3-8b', type: 'install', progress: 40 }],
+    })
+    // A single node: the cluster API is not mounted.
+    await page.route('**/api/features', route => route.fulfill({ json: { distributed: false, agents: true, mcp: true } }))
+    await page.route('**/api/nodes', route => route.fulfill({ status: 404, json: { message: 'Not Found' } }))
+    await page.route('**/system', route => route.fulfill({ json: { backends: [], loaded_models: [{ id: 'm1', backend: 'llama-cpp' }] } }))
     await page.goto('/app/operate')
-    const runtime = page.locator('.lanes--sections .lane').first()
-    await expect(runtime).toContainText('backends')
-    await expect(runtime).toContainText('running')
+    const row = page.getByTestId('operate-row-running')
+    await expect(row).toContainText('1 operation in progress')
+    await expect(row).toContainText('1 model loaded')
   })
 
   test('shows host capacity from the shared Operate summary', async ({ page }) => {
@@ -197,11 +201,10 @@ test.describe('Operate overview headline', () => {
 
     await page.goto('/app/operate')
 
-    const capacity = page.locator('[data-testid="operate-capacity"]')
-    await expect(capacity).toBeVisible()
-    await expect(capacity).toContainText('Host capacity')
-    await expect(capacity).toContainText('NVIDIA L40S')
+    const capacity = page.getByTestId('operate-row-capacity')
+    await expect(capacity).toContainText('GPU memory')
     await expect(capacity).toContainText('42%')
+    await expect(page.getByTestId('operate-capacity')).toContainText('GPU memory in use')
   })
 
   test('states when host capacity is unavailable', async ({ page }) => {
@@ -213,8 +216,8 @@ test.describe('Operate overview headline', () => {
 
     await page.goto('/app/operate')
 
-    const capacity = page.locator('[data-testid="operate-capacity"]')
-    await expect(capacity).toContainText('Host capacity unavailable')
+    await expect(page.getByTestId('operate-row-capacity')).toContainText('Capacity is not reported by this host.')
+    await expect(page.getByTestId('operate-capacity-unavailable')).toBeVisible()
   })
 
   test('states when the host reports no capacity fields', async ({ page }) => {
@@ -223,7 +226,6 @@ test.describe('Operate overview headline', () => {
 
     await page.goto('/app/operate')
 
-    const capacity = page.locator('[data-testid="operate-capacity"]')
-    await expect(capacity).toContainText('No capacity data reported')
+    await expect(page.getByTestId('operate-row-capacity')).toContainText('Capacity is not reported by this host.')
   })
 })

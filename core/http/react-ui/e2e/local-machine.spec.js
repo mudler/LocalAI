@@ -144,6 +144,7 @@ test.describe('This machine (single node)', () => {
   test('the Operate overview previews the heaviest five and links to the full view', async ({ page }) => {
     await mockSingleNode(page, [1, 2, 3, 4, 5, 6].map(n => model(`m${n}`, 'llama-cpp', n, 1)))
     await page.goto('/app/operate')
+    await page.getByTestId('operate-row-running').locator('.op-row__head').click()
 
     const preview = page.getByTestId('local-running-models')
     await expect(preview.getByTestId('local-model-row')).toHaveCount(5, { timeout: 15_000 })
@@ -169,10 +170,86 @@ test.describe('This machine (distributed)', () => {
     await page.route('**/api/nodes', route => route.fulfill({ json: [{ id: 'n1', name: 'atlas', status: 'healthy' }] }))
     await page.route('**/system', route => { systemCalls.push(route.request().url()); return route.fulfill({ json: { loaded_models: [] } }) })
     await page.goto('/app/operate')
+    await expect(page.getByTestId('operate-row-running')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('operate-row-running').locator('.op-row__head').click()
 
     await expect(page.getByRole('link', { name: /Running models/ })).toHaveAttribute('href', '/app/nodes', { timeout: 15_000 })
     await expect(page.getByTestId('local-running-models')).toHaveCount(0)
     await expect(page.locator('.dk-hubtabs a', { hasText: 'This machine' })).toHaveCount(0)
     expect(systemCalls).toEqual([])
+  })
+})
+
+test.describe('This machine layout', () => {
+  test('puts the GPU memory first, with what is free and the next-model hint', async ({ page }) => {
+    await mockSingleNode(page, [model('qwen3-8b', 'llama-cpp', 12, 35.5)])
+    await page.goto('/app/nodes')
+    const strip = page.getByTestId('gpu-strip')
+    await expect(strip).toContainText('GPU memory, 18.0 GB of 24.0 GB in use', { timeout: 15_000 })
+    await expect(strip).toContainText('6.0 GB free.')
+    await expect(strip).toContainText('The next model must fit in that')
+    await expect(strip.getByRole('img', { name: /GPU memory: 18.0 GB of 24.0 GB in use, 75 percent/ })).toBeVisible()
+  })
+
+  test('says there is no GPU instead of drawing an empty bar', async ({ page }) => {
+    await mockSingleNode(page, [])
+    await page.route('**/api/resources', route => route.fulfill({ json: { ...RESOURCES, type: 'ram', gpus: [] } }))
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('gpu-strip')).toContainText('No GPU detected', { timeout: 15_000 })
+    await expect(page.getByTestId('gpu-strip').getByRole('img')).toHaveCount(0)
+  })
+
+  test('lists each GPU when there is more than one', async ({ page }) => {
+    await mockSingleNode(page, [])
+    await page.route('**/api/resources', route => route.fulfill({
+      json: {
+        ...RESOURCES,
+        gpus: [
+          { name: 'GPU A', total_vram: 24 * GB, used_vram: 12 * GB, free_vram: 12 * GB },
+          { name: 'GPU B', total_vram: 24 * GB, used_vram: 20 * GB, free_vram: 4 * GB },
+        ],
+      },
+    }))
+    await page.goto('/app/nodes')
+    const list = page.getByRole('list', { name: 'GPUs' })
+    await expect(list).toContainText('GPU A', { timeout: 15_000 })
+    await expect(list).toContainText('20.0 GB / 24.0 GB')
+  })
+
+  test('shows no temperature or power, because the host does not report them', async ({ page }) => {
+    await mockSingleNode(page, [model('qwen3-8b', 'llama-cpp', 12, 10)])
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('host-overview')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('local-machine')).not.toContainText(/temperature|power draw/i)
+  })
+
+  test('Add a machine opens the real setup, and closes it again', async ({ page }) => {
+    await mockSingleNode(page, [])
+    await page.goto('/app/nodes')
+    const button = page.getByRole('button', { name: 'Add a machine' })
+    await expect(button).toHaveAttribute('aria-expanded', 'false', { timeout: 15_000 })
+    await button.click()
+    await expect(page.getByTestId('scale-out')).toContainText('Distributed mode is not enabled')
+    await page.getByRole('button', { name: 'Hide setup' }).click()
+    await expect(page.getByTestId('scale-out')).toHaveCount(0)
+  })
+
+  test('fits a phone, with the running models as a table that keeps its actions', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await mockSingleNode(page, [model('qwen3-8b', 'llama-cpp', 12, 10)])
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('local-model-row')).toHaveCount(1, { timeout: 15_000 })
+    await expect(page.getByRole('button', { name: 'Actions for qwen3-8b' })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+  })
+
+  test('the memory bar and the models in it do not move when motion is reduced', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await mockSingleNode(page, [model('qwen3-8b', 'llama-cpp', 12, 10)])
+    await page.goto('/app/nodes')
+    await expect(page.getByTestId('gpu-strip')).toBeVisible({ timeout: 15_000 })
+    const duration = await page.getByTestId('gpu-strip').locator('.dk-meter-seg').evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))
+    expect(duration).toBeLessThan(0.001)
   })
 })
