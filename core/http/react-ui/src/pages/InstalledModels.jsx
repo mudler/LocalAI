@@ -256,7 +256,8 @@ export default function InstalledModels({
   // references point at nothing.
   const totals = useMemo(() => {
     const index = storage.index
-    if (!index) return null
+    // An empty report says nothing about the disk: no line is better than "0.0 GB on disk".
+    if (!index || index.byPath.size === 0) return null
     let shared = 0
     let missing = 0
     for (const f of index.byPath.values()) {

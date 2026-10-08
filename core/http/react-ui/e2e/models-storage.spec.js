@@ -94,6 +94,13 @@ test.describe('Installed table - size on disk', () => {
     await expect(summary).toContainText('1 missing references')
   })
 
+  test('an empty storage report gives no footer line instead of 0.0 GB on disk', async ({ page }) => {
+    await mockLedger(page)
+    await page.goto('/app/models?view=installed')
+    await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('installed-models-storage-summary')).toHaveCount(0)
+  })
+
   test('a model whose config names a missing file is marked on its row', async ({ page }) => {
     await openInstalled(page)
     await expect(row(page, 'my-finetune-q4').getByRole('img', { name: '1 referenced file missing' })).toBeVisible()
