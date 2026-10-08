@@ -7,6 +7,7 @@ import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
 import FeatureOff from './components/identity/FeatureOff'
+import ToolOff from './components/tools/ToolOff'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -222,8 +223,8 @@ const appChildren = [
       { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
       { path: 'agent-jobs', element: <Feature feature="mcp_jobs"><AgentJobs /></Feature> },
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
-      { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
-      { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
+      { path: 'fine-tune', element: <Feature feature="fine_tuning" disabled={<ToolOff tool="fineTune" />}><FineTune /></Feature> },
+      { path: 'quantize', element: <Feature feature="quantization" disabled={<ToolOff tool="quantize" />}><Quantize /></Feature> },
       { path: 'face', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
       { path: 'face/:model', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
       { path: 'voice', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },

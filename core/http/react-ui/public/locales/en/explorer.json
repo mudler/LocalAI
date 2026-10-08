@@ -1,0 +1,57 @@
+{
+  "brand": "{{name}} Explorer",
+  "openApp": "Open LocalAI",
+  "close": "Close",
+  "copy": "Copy",
+  "copied": "Copied",
+  "loading": "Loading swarms",
+  "title": "Public swarms",
+  "lede": "A swarm is a group of machines that share model inference over a peer-to-peer network. This list shows the swarms whose owners chose to make them public. Anyone with a swarm's token can join it.",
+  "count_one": "{{count}} swarm online",
+  "count_other": "{{count}} swarms online",
+  "sorted": "Most workers first",
+  "workers_one": "worker",
+  "workers_other": "workers",
+  "tokenTitle": "The start and the end of the token. Copy it from How to join.",
+  "warning": "The Explorer is a community list of swarm tokens. Anyone can use a token to send work to a swarm or share resources with it. Use at your own risk.",
+  "listed": "The swarm is listed.",
+  "empty": {
+    "title": "No swarm has workers online",
+    "text": "Only swarms with at least one online worker are listed. List yours to make it public."
+  },
+  "off": {
+    "title": "This server is not an explorer",
+    "text": "The Explorer page needs a LocalAI server started in explorer mode. This one has no list of swarms to show."
+  },
+  "error": {
+    "title": "Could not load the swarms",
+    "text": "The explorer server did not answer. Check that it is running, then try again.",
+    "retry": "Try again"
+  },
+  "join": {
+    "open": "How to join",
+    "title": "Join {{name}}",
+    "text": "Start a LocalAI worker with this swarm's token.",
+    "token": "Token",
+    "federated": "Federated cluster {{id}}. Start a node on it with either command.",
+    "docker": "With Docker",
+    "cli": "With the command line",
+    "noCommands": "This swarm's workers share compute over its token. The token above is what a node needs to join.",
+    "docs": "Read how swarms work"
+  },
+  "list": {
+    "open": "List a swarm",
+    "title": "List a swarm",
+    "text": "Add a swarm to the public list. It appears once it has an online worker.",
+    "name": "Name",
+    "description": "Description",
+    "token": "Token",
+    "tokenHint": "The swarm's network token, as the server printed it.",
+    "public": "Listing publishes the token. Anyone who sees the list can use your swarm's workers.",
+    "understood": "I understand the token becomes public.",
+    "cancel": "Cancel",
+    "add": "List this swarm",
+    "adding": "Listing...",
+    "failed": "Could not list the swarm."
+  }
+}

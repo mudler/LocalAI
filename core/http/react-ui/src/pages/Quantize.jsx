@@ -1,6 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { quantizationApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { useResources } from '../hooks/useResources'
+import { QZ_STAGES, TERMINAL, appendLog, blocked, logLines, machineFacts, quantizeChecks, warned } from '../utils/tools'
+import PageHeader from '../components/PageHeader'
+import Dialog from '../components/Dialog'
 import Icon from '../components/Icon'
+import LoadingSpinner from '../components/LoadingSpinner'
+import ToolSteps from '../components/tools/ToolSteps'
+import Checks from '../components/tools/Checks'
+import StageLine from '../components/tools/StageLine'
+import JobLog from '../components/tools/JobLog'
+import '../components/tools/tools.css'
 
 const QUANT_PRESETS = [
   'q2_k', 'q3_k_s', 'q3_k_m', 'q3_k_l',
@@ -9,117 +23,55 @@ const QUANT_PRESETS = [
   'q6_k', 'q8_0', 'f16',
 ]
 const DEFAULT_QUANT = 'q4_k_m'
-const FALLBACK_BACKENDS = ['llama-cpp-quantization']
-
-const statusBadgeClass = {
-  queued: '', downloading: 'badge-warning', converting: 'badge-warning',
-  quantizing: 'badge-info', completed: 'badge-success',
-  failed: 'badge-error', stopped: '',
+const FALLBACK_BACKEND = 'llama-cpp-quantization'
+const BADGE = {
+  queued: '', downloading: 'dk-badge--warn', converting: 'dk-badge--warn', quantizing: 'dk-badge--accent',
+  completed: 'dk-badge--ok', failed: 'dk-badge--error', stopped: '',
 }
 
-// ── Reusable sub-components ──────────────────────────────────────
+function StatusBadge({ status }) {
+  const { t } = useTranslation('tools')
+  return <span className={`dk-badge ${BADGE[status] || ''}`} data-status={status}>{t(`quantize.status.${status}`, { defaultValue: String(status || '') })}</span>
+}
 
-function FormSection({ icon, title, children }) {
+function Field({ id, label, hint, className = '', children }) {
   return (
-    <div className="form-group">
-      <div className="form-group__title">
-        {icon && <Icon name={icon} />}
-        <span>{title}</span>
-      </div>
-      <div className="form-group__body">
-        {children}
-      </div>
+    <div className={`dk-field ${className}`.trim()}>
+      <label className="dk-label" htmlFor={id}>{label}</label>
+      {children}
+      {hint && <p className="dk-hint">{hint}</p>}
     </div>
   )
 }
 
-function ProgressMonitor({ job, onClose }) {
-  const [events, setEvents] = useState([])
-  const [latestEvent, setLatestEvent] = useState(null)
-  const esRef = useRef(null)
-
-  useEffect(() => {
-    if (!job) return
-    const terminal = ['completed', 'failed', 'stopped']
-    if (terminal.includes(job.status)) return
-
-    const es = new EventSource(quantizationApi.progressUrl(job.id))
-    esRef.current = es
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        setLatestEvent(data)
-        setEvents(prev => [...prev.slice(-100), data])
-        if (terminal.includes(data.status)) {
-          es.close()
-        }
-      } catch { /* ignore parse errors */ }
-    }
-    es.onerror = () => { es.close() }
-    return () => { es.close() }
-  }, [job?.id])
-
-  if (!job) return null
-
-  const progress = latestEvent?.progress_percent ?? 0
-  const status = latestEvent?.status ?? job.status
-  const message = latestEvent?.message ?? job.message ?? ''
-
+function Section({ done, title, children }) {
   return (
-    <div className="card quantize-progress-card">
-      <div className="quantize-progress-card__header">
-        <h4 className="quantize-progress-card__title">
-          <Icon name="chart-line" />
-          <span>Progress: {job.model}</span>
-        </h4>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} title="Close">
-          <Icon name="close" />
-        </button>
-      </div>
-
-      <div className="quantize-progress-card__status">
-        <span className={`badge ${statusBadgeClass[status] || ''}`}>{status}</span>
-        {message && <span className="quantize-progress-card__message">{message}</span>}
-      </div>
-
-      <div className="progress-bar">
-        <div
-          className={`progress-bar__fill${status === 'failed' ? ' progress-bar__fill--error' : ''}`}
-          style={{ width: `${Math.min(progress, 100)}%` }}
-        >
-          {progress > 8 ? `${progress.toFixed(1)}%` : ''}
-        </div>
-      </div>
-
-      <div className="log-tail">
-        {events.slice(-20).map((ev, i) => (
-          <div
-            key={i}
-            className={`log-tail__line${ev.status === 'failed' ? ' log-tail__line--error' : ''}`}
-          >
-            [{ev.status}] {ev.message}
-          </div>
-        ))}
-      </div>
-    </div>
+    <section className="bt-section" data-done={done ? 'true' : 'false'}>
+      <h2 className="bt-section__title">
+        <span className="bt-section__mark" aria-hidden="true">{done ? <Icon name="check" /> : null}</span>
+        {title}
+      </h2>
+      <div className="bt-section__body">{children}</div>
+    </section>
   )
 }
 
-function ImportPanel({ job, onRefresh }) {
+const startedAt = (job) => {
+  const d = new Date(job.created_at)
+  return Number.isNaN(d.getTime()) ? (job.created_at || '') : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// What to do with a finished quantization: import it as a model, then use it.
+function ResultPanel({ job, onRefresh }) {
+  const { t } = useTranslation('tools')
   const [modelName, setModelName] = useState('')
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
-  const pollRef = useRef(null)
 
-  // Poll for import status
   useEffect(() => {
-    if (job?.import_status !== 'importing') return
-    pollRef.current = setInterval(async () => {
-      try {
-        await onRefresh()
-      } catch { /* ignore */ }
-    }, 3000)
-    return () => clearInterval(pollRef.current)
+    if (job?.import_status !== 'importing') return undefined
+    const timer = setInterval(() => { onRefresh().catch(() => {}) }, 3000)
+    return () => clearInterval(timer)
   }, [job?.import_status, onRefresh])
 
   if (!job || job.status !== 'completed') return null
@@ -131,108 +83,208 @@ function ImportPanel({ job, onRefresh }) {
       await quantizationApi.importModel(job.id, { name: modelName || undefined })
       await onRefresh()
     } catch (e) {
-      setError(e.message || 'Import failed')
+      setError(e.message || t('quantize.importFailed'))
     } finally {
       setImporting(false)
     }
   }
 
+  const imported = job.import_status === 'completed' && job.import_model_name
+
   return (
-    <div className="card quantize-import-card">
-      <h4 className="quantize-import-card__title">
-        <Icon name="export" />
-        <span>Output</span>
-      </h4>
+    <>
+      {imported && (
+        <section className="bt-next dk-card" data-testid="quantize-next">
+          <span className="bt-next__mark"><Icon name="check-circle" /></span>
+          <div>
+            <h2 className="bt-h2">{t('quantize.nextTitle', { name: job.import_model_name })}</h2>
+            <p className="dk-hint">{t('quantize.nextText')}</p>
+            <div className="bt-next__acts">
+              <Link className="dk-btn dk-btn--primary" to={`/app/chat/${encodeURIComponent(job.import_model_name)}`}><Icon name="chat" /> {t('quantize.chat', { name: job.import_model_name })}</Link>
+              <Link className="dk-btn dk-btn--secondary" to="/app/models?view=installed"><Icon name="cube" /> {t('quantize.models')}</Link>
+              <a className="dk-btn dk-btn--ghost" href={quantizationApi.downloadUrl(job.id)} download><Icon name="download" /> {t('quantize.download')}</a>
+            </div>
+          </div>
+        </section>
+      )}
+      <section className="bt-block dk-card" aria-labelledby="bt-qz-out" data-testid="quantize-output">
+        <h2 className="bt-h2" id="bt-qz-out">{t('quantize.outputTitle')}</h2>
+        <p className="dk-hint">{t('quantize.outputText', { type: job.quantization_type })}</p>
+        {job.output_file && <p className="bt-pathrow"><span className="dk-label">{t('quantize.file')}</span> <span className="dk-mono bt-path" title={job.output_file}>{job.output_file}</span></p>}
+        {error && <p className="bt-status bt-status--error" role="alert">{error}</p>}
+        {job.import_status === 'failed' && <p className="bt-status bt-status--error" role="alert">{t('quantize.importFailedWith', { message: job.import_message })}</p>}
+        {!imported && (
+          <div className="bt-out">
+            {job.import_status === 'importing' ? (
+              <p className="bt-status" role="status"><LoadingSpinner size="sm" /> {t('quantize.importing')} {job.import_message}</p>
+            ) : (
+              <>
+                <Field id="qz-import-name" label={t('quantize.importName')} className="bt-out__name">
+                  <input id="qz-import-name" className="dk-input dk-input--mono" placeholder={t('quantize.importNamePlaceholder')} value={modelName} onChange={e => setModelName(e.target.value)} />
+                </Field>
+                <div className="bt-actions">
+                  <button type="button" className="dk-btn dk-btn--primary" onClick={handleImport} disabled={importing} aria-busy={importing || undefined} data-testid="quantize-import">
+                    <Icon name="import" /> {t('quantize.import')}
+                  </button>
+                  <a className="dk-btn dk-btn--secondary" href={quantizationApi.downloadUrl(job.id)} download><Icon name="download" /> {t('quantize.download')}</a>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
 
-      {error && <div className="alert alert-error">{error}</div>}
+function JobView({ job, onStop, onReuse, onTerminal, onRefresh }) {
+  const { t } = useTranslation('tools')
+  const [latest, setLatest] = useState(null)
+  const [log, setLog] = useState([])
+  const previousRef = useRef(null)
+  const terminalRef = useRef(onTerminal)
+  terminalRef.current = onTerminal
 
-      <div className="quantize-import-card__row">
-        <a
-          href={quantizationApi.downloadUrl(job.id)}
-          className="btn btn-secondary"
-          download
-        >
-          <Icon name="download" />
-          <span>Download GGUF</span>
-        </a>
+  useEffect(() => {
+    previousRef.current = null
+    setLatest(null)
+    setLog([])
+    if (!job || TERMINAL.includes(job.status)) return undefined
+    const es = new EventSource(quantizationApi.progressUrl(job.id))
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        setLatest(data)
+        setLog(prev => appendLog(prev, logLines(data, previousRef.current)))
+        previousRef.current = data
+        if (TERMINAL.includes(data.status)) { es.close(); terminalRef.current?.() }
+      } catch { /* a partial frame */ }
+    }
+    es.onerror = () => es.close()
+    return () => es.close()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
+  }, [job?.id])
 
-        {job.import_status === 'completed' ? (
-          <a href={`/app/chat/${encodeURIComponent(job.import_model_name)}`} className="btn btn-primary">
-            <Icon name="chat" />
-            <span>Chat with {job.import_model_name}</span>
-          </a>
-        ) : job.import_status === 'importing' ? (
-          <button type="button" className="btn btn-secondary" disabled>
-            <Icon name="spinner" spin />
-            <span>Importing... {job.import_message}</span>
-          </button>
-        ) : (
+  const status = latest?.status || job.status
+  const active = QZ_STAGES.includes(status)
+  const failed = status === 'failed'
+  const progress = Math.min(latest?.progress_percent ?? 0, 100)
+  const message = latest?.message || job.message || ''
+  const stageLabels = Object.fromEntries(QZ_STAGES.map(s => [s, t(`quantize.status.${s}`)]))
+
+  return (
+    <div className="bt-stack" data-testid="job-view" data-status={status}>
+      {failed && (
+        <section className="bt-alert" role="alert" data-testid="job-failed">
+          <Icon name="alert-circle" />
+          <div>
+            <p className="bt-alert__title">{t('quantize.failed')}</p>
+            <p className="bt-alert__text" data-testid="job-failed-message">{message || t('fineTune.noMessage')}</p>
+          </div>
+        </section>
+      )}
+      <section className="bt-job dk-card" aria-labelledby="bt-job-title">
+        <div className="bt-job__top">
+          <div className="bt-job__who">
+            <h2 className="bt-job__title" id="bt-job-title">{job.model}</h2>
+            <p className="bt-job__meta">
+              {t('quantize.jobMeta', { type: job.quantization_type, backend: job.backend, started: startedAt(job) })}
+              <span className="dk-mono"> · {job.id?.slice(0, 8)}</span>
+            </p>
+          </div>
+          <div className="bt-job__acts">
+            <StatusBadge status={status} />
+            {active && (
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onStop(job.id)} data-testid="job-stop">
+                <Icon name="stop" /> {t('run.stop')}
+              </button>
+            )}
+          </div>
+        </div>
+        {(active || latest) && (
           <>
-            <input
-              className="input quantize-import-card__name"
-              placeholder="Model name (auto-generated if empty)"
-              value={modelName}
-              onChange={e => setModelName(e.target.value)}
-            />
-            <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing}>
-              <Icon name="import" />
-              <span>Import to LocalAI</span>
-            </button>
+            <div className="bt-job__figures">
+              <span className="bt-job__percent">{status === 'completed' ? '100' : progress.toFixed(0)}<small>%</small></span>
+            </div>
+            <div
+              className={`dk-progress${failed ? ' dk-progress--error' : status === 'completed' ? ' dk-progress--ok' : ''}`}
+              role="progressbar" aria-valuemin={0} aria-valuemax={100}
+              aria-valuenow={Math.round(status === 'completed' ? 100 : progress)} aria-label={t('run.progress')}
+              style={{ '--dk-value': `${status === 'completed' ? 100 : progress}%` }}
+            >
+              <span className="dk-progress-bar" />
+            </div>
           </>
         )}
-      </div>
+        {active && <StageLine stages={QZ_STAGES} labels={stageLabels} status={status} failed={failed} label={t('run.stages')} />}
+        {!failed && message && <p className="dk-hint bt-job__message">{message}</p>}
+        {status === 'completed' && <p className="bt-job__done" data-testid="job-finished"><Icon name="check-circle" /> {t('quantize.finished', { type: job.quantization_type })}</p>}
+        {status === 'stopped' && <p className="dk-hint">{t('quantize.stopped')}</p>}
+      </section>
 
-      {job.import_status === 'failed' && (
-        <div className="alert alert-error">Import failed: {job.import_message}</div>
+      {failed && (
+        <section className="bt-try dk-card" data-testid="job-try">
+          <h2 className="bt-h2">{t('fineTune.tryTitle')}</h2>
+          <p className="dk-hint">{t('quantize.tryText')}</p>
+          <div className="bt-try__acts">
+            <button type="button" className="dk-btn dk-btn--primary" onClick={() => onReuse(job)} data-testid="job-retry"><Icon name="refresh" /> {t('fineTune.reuse')}</button>
+          </div>
+        </section>
       )}
+
+      {(active || log.length > 0) && <JobLog lines={log} name={`quantize-${job.id?.slice(0, 8)}`} />}
+      <ResultPanel job={job} onRefresh={onRefresh} />
     </div>
   )
 }
 
-// ── Main page ────────────────────────────────────────────────────
-
 export default function Quantize() {
-  // Form state
+  const { t } = useTranslation('tools')
+  const { isAdmin } = useAuth()
+  const { resources } = useResources(10000)
+  const facts = useMemo(() => machineFacts(resources), [resources])
+
   const [model, setModel] = useState('')
   const [quantType, setQuantType] = useState(DEFAULT_QUANT)
   const [customQuantType, setCustomQuantType] = useState('')
   const [useCustomQuant, setUseCustomQuant] = useState(false)
-  const [backend, setBackend] = useState('')
+  const [backend, setBackend] = useState(FALLBACK_BACKEND)
   const [hfToken, setHfToken] = useState('')
-  const [backends, setBackends] = useState([])
+  const [backends, setBackends] = useState(null)
+  const [showMore, setShowMore] = useState(false)
 
-  // Jobs state
   const [jobs, setJobs] = useState([])
+  const [jobsLoaded, setJobsLoaded] = useState(false)
   const [selectedJob, setSelectedJob] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(null)
 
-  // Load backends and jobs
   const loadJobs = useCallback(async () => {
     try {
       const data = await quantizationApi.listJobs()
-      setJobs(data)
-      // Refresh selected job if it exists
-      if (selectedJob) {
-        const updated = data.find(j => j.id === selectedJob.id)
-        if (updated) setSelectedJob(updated)
-      }
-    } catch { /* ignore */ }
-  }, [selectedJob?.id])
+      const list = Array.isArray(data) ? data : []
+      setJobs(list)
+      setSelectedJob(prev => {
+        if (!prev) return prev
+        const fresh = list.find(j => j.id === prev.id)
+        return fresh || prev
+      })
+    } catch { /* the next poll tries again */ } finally {
+      setJobsLoaded(true)
+    }
+  }, [])
 
   useEffect(() => {
     quantizationApi.listBackends().then(b => {
-      setBackends(b.length ? b : FALLBACK_BACKENDS.map(name => ({ name })))
-      if (b.length) setBackend(b[0].name)
-      else setBackend(FALLBACK_BACKENDS[0])
-    }).catch(() => {
-      setBackends(FALLBACK_BACKENDS.map(name => ({ name })))
-      setBackend(FALLBACK_BACKENDS[0])
-    })
+      const list = Array.isArray(b) ? b : []
+      setBackends(list)
+      if (list.length) setBackend(list[0].name)
+    }).catch(() => setBackends(null))
     loadJobs()
     const interval = setInterval(loadJobs, 10000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadJobs])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -241,22 +293,16 @@ export default function Quantize() {
     try {
       const req = {
         model,
-        backend: backend || FALLBACK_BACKENDS[0],
+        backend: backend || FALLBACK_BACKEND,
         quantization_type: useCustomQuant ? customQuantType : quantType,
       }
-      if (hfToken) {
-        req.extra_options = { hf_token: hfToken }
-      }
-
+      if (hfToken) req.extra_options = { hf_token: hfToken }
       const resp = await quantizationApi.startJob(req)
       setModel('')
       await loadJobs()
-
-      // Select the new job
-      const refreshed = await quantizationApi.getJob(resp.id)
-      setSelectedJob(refreshed)
+      setSelectedJob(await quantizationApi.getJob(resp.id))
     } catch (err) {
-      setError(err.message || 'Failed to start job')
+      setError(err.message || t('quantize.startFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -267,189 +313,218 @@ export default function Quantize() {
       await quantizationApi.stopJob(jobId)
       await loadJobs()
     } catch (err) {
-      setError(err.message || 'Failed to stop job')
+      setError(err.message || t('quantize.stopFailed'))
     }
   }
 
-  const handleDelete = async (jobId) => {
+  const confirmDelete = async () => {
+    const jobId = deleting
+    setDeleting(null)
     try {
       await quantizationApi.deleteJob(jobId)
       if (selectedJob?.id === jobId) setSelectedJob(null)
       await loadJobs()
     } catch (err) {
-      setError(err.message || 'Failed to delete job')
+      setError(err.message || t('quantize.deleteFailed'))
     }
   }
 
+  // Put a job's setup back in the form.
+  const reuse = (job) => {
+    setModel(job.model || '')
+    if (job.backend) setBackend(job.backend)
+    const type = job.quantization_type || DEFAULT_QUANT
+    if (QUANT_PRESETS.includes(type)) { setUseCustomQuant(false); setQuantType(type) } else { setUseCustomQuant(true); setCustomQuantType(type) }
+    setSelectedJob(null)
+  }
+
   const effectiveQuantType = useCustomQuant ? customQuantType : quantType
+  const backendNames = backends && backends.length > 0 ? backends.map(b => b.name) : [FALLBACK_BACKEND]
+  const checks = useMemo(() => quantizeChecks({
+    form: { model, backend, useCustom: useCustomQuant, customType: customQuantType, hfToken: hfToken.trim() },
+    facts,
+    backends: { quantize: backends },
+  }), [model, backend, useCustomQuant, customQuantType, hfToken, facts, backends])
+  const stop = blocked(checks)
+  const warnings = warned(checks)
+  const firstMissing = checks.find(c => c.tone === 'fail')
+
+  const steps = [
+    { key: 'setup', label: t('steps.setup') },
+    { key: 'check', label: t('steps.check') },
+    { key: 'run', label: t('steps.run') },
+    { key: 'result', label: t('steps.result') },
+  ]
+  let current = stop ? 0 : 1
+  let failed = false
+  if (selectedJob) {
+    if (selectedJob.status === 'failed') { current = 2; failed = true } else if (TERMINAL.includes(selectedJob.status)) current = 3
+    else current = 2
+  }
+
+  const refreshSelected = useCallback(async () => {
+    if (!selectedJob) return
+    const updated = await quantizationApi.getJob(selectedJob.id)
+    setSelectedJob(updated)
+    await loadJobs()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
+  }, [selectedJob?.id, loadJobs])
 
   return (
-    <div className="page page--narrow quantize-page">
-      <div className="page-header quantize-page__header">
-        <div>
-          <h1 className="page-title">
-            <Icon name="minimize" /> Model Quantization
-          </h1>
-          <p className="page-subtitle">Quantize and import GGUF models directly into LocalAI</p>
-        </div>
-        <span className="badge badge-warning">Experimental</span>
-      </div>
+    <div className="page page--medium bt-page quantize-page" data-testid="quantize-page">
+      <PageHeader
+        title={<>{t('quantize.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
+        supporting={t('quantize.lede')}
+        actions={selectedJob && (
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setSelectedJob(null)} data-testid="job-back">
+            <Icon name="plus" /> {t('quantize.newJob')}
+          </button>
+        )}
+      />
+      <ToolSteps steps={steps} current={current} failed={failed} label={t('steps.label')} />
 
       {error && (
-        <div className="alert alert-error">
-          <Icon name="warning" /> {error}
+        <div className="bt-alert" role="alert" data-testid="tool-error">
+          <Icon name="warning" />
+          <div><p className="bt-alert__text">{error}</p></div>
         </div>
       )}
 
-      {/* ── New Job Form ── */}
-      <form onSubmit={handleSubmit} className="card quantize-form">
-        <FormSection icon="cube" title="Model">
-          <input
-            className="input btn-full"
-            placeholder="HuggingFace model name (e.g. meta-llama/Llama-3.2-1B) or local path"
-            value={model}
-            onChange={e => setModel(e.target.value)}
-            required
-          />
-        </FormSection>
+      {selectedJob ? (
+        <JobView job={selectedJob} onStop={handleStop} onReuse={reuse} onTerminal={loadJobs} onRefresh={refreshSelected} />
+      ) : (
+        <form onSubmit={handleSubmit} className="bt-form-page" data-testid="quantize-form">
+          <Section done={!!model.trim()} title={t('quantize.sectionModel')}>
+            <Field id="qz-model" label={t('quantize.model')} hint={t('quantize.modelHint')}>
+              <input id="qz-model" className="dk-input dk-input--mono" placeholder="meta-llama/Llama-3.2-1B" value={model} onChange={e => setModel(e.target.value)} required />
+            </Field>
+          </Section>
 
-        <div className="form-grid-2col">
-          <FormSection icon="sliders" title="Quantization Type">
-            <div className="quantize-form__quant-row">
-              <select
-                className="input"
-                value={useCustomQuant ? '__custom__' : quantType}
-                onChange={e => {
-                  if (e.target.value === '__custom__') {
-                    setUseCustomQuant(true)
-                  } else {
-                    setUseCustomQuant(false)
-                    setQuantType(e.target.value)
-                  }
-                }}
-              >
-                {QUANT_PRESETS.map(q => (
-                  <option key={q} value={q}>{q}</option>
-                ))}
-                <option value="__custom__">Custom...</option>
-              </select>
+          <Section done={!useCustomQuant || !!customQuantType.trim()} title={t('quantize.sectionPrecision')}>
+            <div className="bt-pair">
+              <Field id="qz-type" label={t('quantize.type')} hint={t('quantize.typeHint')}>
+                <span className="dk-select-wrap">
+                  <select
+                    id="qz-type" className="dk-select" value={useCustomQuant ? '__custom__' : quantType}
+                    onChange={e => {
+                      if (e.target.value === '__custom__') setUseCustomQuant(true)
+                      else { setUseCustomQuant(false); setQuantType(e.target.value) }
+                    }}
+                  >
+                    {QUANT_PRESETS.map(q => <option key={q} value={q}>{q}</option>)}
+                    <option value="__custom__">{t('quantize.custom')}</option>
+                  </select>
+                </span>
+              </Field>
               {useCustomQuant && (
-                <input
-                  className="input"
-                  placeholder="Custom quantization type"
-                  value={customQuantType}
-                  onChange={e => setCustomQuantType(e.target.value)}
-                  required
-                />
+                <Field id="qz-custom" label={t('quantize.customLabel')}>
+                  <input id="qz-custom" className="dk-input dk-input--mono" placeholder={t('quantize.customPlaceholder')} value={customQuantType} onChange={e => setCustomQuantType(e.target.value)} required />
+                </Field>
               )}
             </div>
-          </FormSection>
+            <div className="bt-more">
+              <button type="button" className="bt-more__toggle" onClick={() => setShowMore(v => !v)} aria-expanded={showMore} aria-controls="qz-more">
+                <Icon name={showMore ? 'chevron-down' : 'chevron-right'} />
+                <b>{t('form.more')}</b>
+                {!showMore && <span className="dk-hint">{t('quantize.moreHint')}</span>}
+              </button>
+              {showMore && (
+                <div className="bt-more__body" id="qz-more">
+                  <div className="bt-pair">
+                    <Field id="qz-backend" label={t('form.backend')}>
+                      <span className="dk-select-wrap">
+                        <select id="qz-backend" className="dk-select" value={backend} onChange={e => setBackend(e.target.value)}>
+                          {backendNames.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </span>
+                    </Field>
+                    <Field id="qz-token" label={t('form.token')} hint={t('quantize.tokenHint')}>
+                      <input id="qz-token" type="password" className="dk-input dk-input--mono" placeholder="hf_..." value={hfToken} onChange={e => setHfToken(e.target.value)} autoComplete="off" />
+                    </Field>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Section>
 
-          <FormSection icon="server" title="Backend">
-            <select
-              className="input btn-full"
-              value={backend}
-              onChange={e => setBackend(e.target.value)}
-            >
-              {backends.map(b => (
-                <option key={b.name || b} value={b.name || b}>{b.name || b}</option>
-              ))}
-            </select>
-          </FormSection>
-        </div>
+          <p className="bt-recipe" data-testid="qz-recipe">
+            {model.trim() ? t('quantize.recipe', { model: model.split('/').pop(), type: effectiveQuantType || '?' }) : t('quantize.recipeEmpty')}
+          </p>
 
-        <FormSection icon="key" title="HuggingFace Token (optional)">
-          <input
-            className="input btn-full"
-            type="password"
-            placeholder="hf_... (required for gated models)"
-            value={hfToken}
-            onChange={e => setHfToken(e.target.value)}
-          />
-        </FormSection>
+          <section className="bt-block" aria-labelledby="bt-check-title">
+            <header className="bt-block__head">
+              <h2 className="bt-h2" id="bt-check-title">{t('checks.heading')}</h2>
+              <p className="dk-hint">{t('checks.live')}</p>
+            </header>
+            <div className="dk-card bt-checks-card">
+              <Checks checks={checks} isAdmin={isAdmin} label={t('checks.heading')} />
+            </div>
+          </section>
 
-        <div className="form-group__actions">
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={submitting || !model || (useCustomQuant && !customQuantType)}
-          >
-            {submitting ? (
-              <><Icon name="spinner" spin /> <span>Starting...</span></>
-            ) : (
-              <><Icon name="play" /> <span>Quantize ({effectiveQuantType})</span></>
-            )}
-          </button>
-        </div>
-      </form>
-
-      {/* ── Selected Job Detail ── */}
-      {selectedJob && (
-        <>
-          <ProgressMonitor
-            job={selectedJob}
-            onClose={() => setSelectedJob(null)}
-          />
-          <ImportPanel
-            job={selectedJob}
-            onRefresh={async () => {
-              const updated = await quantizationApi.getJob(selectedJob.id)
-              setSelectedJob(updated)
-              await loadJobs()
-            }}
-          />
-        </>
+          <div className="bt-bar" data-testid="qz-bar">
+            <p className="bt-bar__text" role="status">
+              {stop ? t(`checks.${firstMissing.key}`) : warnings > 0 ? t('checks.barWarn', { count: warnings }) : t('checks.barOk')}
+              {' '}{t('quantize.barNote')}
+            </p>
+            <div className="bt-bar__acts">
+              <button type="submit" className="dk-btn dk-btn--primary" disabled={submitting || stop} aria-busy={submitting || undefined} data-testid="qz-start">
+                {submitting
+                  ? <><LoadingSpinner size="sm" /> {t('fineTune.starting')}</>
+                  : <><Icon name="play" /> {t('quantize.start', { type: effectiveQuantType || '' })}</>}
+              </button>
+            </div>
+          </div>
+        </form>
       )}
 
-      {/* ── Jobs List ── */}
-      {jobs.length > 0 && (
-        <div className="card quantize-jobs">
-          <h4 className="quantize-jobs__title">
-            <Icon name="list" />
-            <span>Jobs</span>
-          </h4>
-          <div className="quantize-jobs__scroll">
-            <table className="data-table">
+      <section className="bt-jobs" aria-labelledby="bt-jobs-title" data-testid="qz-jobs">
+        <header className="bt-block__head">
+          <h2 className="bt-h2" id="bt-jobs-title">{t('jobs.title')}</h2>
+          {jobs.length > 0 && <p className="dk-hint">{t('jobs.count', { count: jobs.length })}</p>}
+        </header>
+        {jobs.length === 0 ? (
+          <div className="dk-empty bt-empty-card">
+            <div className="dk-empty-icon"><Icon name="minimize" /></div>
+            <h3 className="dk-empty-title">{jobsLoaded ? t('quantize.emptyTitle') : t('jobs.loading')}</h3>
+            {jobsLoaded && <p className="dk-empty-text">{t('quantize.emptyText')}</p>}
+          </div>
+        ) : (
+          <div className="dk-table-wrap" role="region" aria-labelledby="bt-jobs-title" tabIndex={0}>
+            <table className="dk-table">
+              <caption className="dk-sr-only">{t('jobs.title')}</caption>
               <thead>
                 <tr>
-                  <th>Model</th>
-                  <th>Quant</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th className="text-right">Actions</th>
+                  <th>{t('jobs.model')}</th>
+                  <th className="dk-hide-phone">{t('quantize.type')}</th>
+                  <th>{t('jobs.status')}</th>
+                  <th className="dk-hide-phone">{t('jobs.started')}</th>
+                  <th><span className="dk-sr-only">{t('jobs.actions')}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.map(job => {
-                  const isActive = ['queued', 'downloading', 'converting', 'quantizing'].includes(job.status)
-                  const isSelected = selectedJob?.id === job.id
+                  const active = QZ_STAGES.includes(job.status)
                   return (
-                    <tr
-                      key={job.id}
-                      className={`${isSelected ? 'is-selected' : ''} clickable`}
-                      onClick={() => setSelectedJob(job)}
-                    >
-                      <td className="data-table__truncate">{job.model}</td>
-                      <td><code>{job.quantization_type}</code></td>
+                    <tr key={job.id} data-row data-selected={selectedJob?.id === job.id ? 'true' : undefined} data-error={job.status === 'failed' ? '' : undefined}>
                       <td>
-                        <span className={`badge ${statusBadgeClass[job.status] || ''}`}>{job.status}</span>
-                        {job.import_status === 'completed' && (
-                          <span className="badge badge-success ml-xs">imported</span>
-                        )}
+                        <button type="button" className="bt-linkcell" onClick={() => setSelectedJob(job)} title={t('jobs.open')}>
+                          <span className="dk-table-name">{job.model}</span>
+                        </button>
+                        {job.import_status === 'completed' && <span className="dk-table-sub">{t('quantize.imported', { name: job.import_model_name })}</span>}
+                        {job.status === 'failed' && job.message && <span className="dk-table-sub bt-jobs__msg">{job.message}</span>}
                       </td>
-                      <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-                        {new Date(job.created_at).toLocaleString()}
-                      </td>
+                      <td className="dk-hide-phone dk-mono">{job.quantization_type}</td>
+                      <td><StatusBadge status={job.status} /></td>
+                      <td className="dk-hide-phone dk-mono">{startedAt(job)}</td>
                       <td>
-                        <div className="data-table__actions" onClick={e => e.stopPropagation()}>
-                          {isActive ? (
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleStop(job.id)} title="Stop">
-                              <Icon name="stop" />
-                            </button>
+                        <div className="bt-rowacts">
+                          {active ? (
+                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => handleStop(job.id)}><Icon name="stop" /> {t('run.stop')}</button>
                           ) : (
-                            <button type="button" className="btn btn-sm btn-ghost" onClick={() => handleDelete(job.id)} title="Delete">
-                              <Icon name="trash" />
-                            </button>
+                            <>
+                              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => reuse(job)} title={t('jobs.reuseTitle')}>{t('jobs.reuse')}</button>
+                              <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => setDeleting(job.id)} aria-label={t('jobs.delete')} title={t('jobs.deleteTitle')}><Icon name="trash" /></button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -459,7 +534,24 @@ export default function Quantize() {
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </section>
+
+      {deleting && (
+        <Dialog
+          title={t('jobs.deleteDialogTitle')}
+          description={t('quantize.deleteDialogText')}
+          role="alertdialog"
+          onClose={() => setDeleting(null)}
+          testId="delete-dialog"
+          labelId="bt-delete-title"
+          foot={(
+            <>
+              <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setDeleting(null)}>{t('stop.cancelDelete')}</button>
+              <button type="button" className="dk-btn dk-btn--danger" onClick={confirmDelete} data-testid="delete-confirm">{t('jobs.delete')}</button>
+            </>
+          )}
+        />
       )}
     </div>
   )

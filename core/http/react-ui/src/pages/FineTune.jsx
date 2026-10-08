@@ -1,498 +1,346 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { fineTuneApi } from '../utils/api'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { useAuth } from '../context/AuthContext'
+import { useResources } from '../hooks/useResources'
+import { FT_STAGES, TERMINAL, appendLog, blocked, fineTuneChecks, logLines, looksLikeMemoryFailure, machineFacts, warned } from '../utils/tools'
 import PageHeader from '../components/PageHeader'
-import SectionHeading from '../components/SectionHeading'
-import StatCard from '../components/StatCard'
-import EmptyState from '../components/EmptyState'
-import Toggle from '../components/Toggle'
-import ResponsiveTable from '../components/ResponsiveTable'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
+import Dialog from '../components/Dialog'
 import Icon from '../components/Icon'
+import LoadingSpinner from '../components/LoadingSpinner'
+import ToolSteps from '../components/tools/ToolSteps'
+import Checks from '../components/tools/Checks'
+import StageLine from '../components/tools/StageLine'
+import JobLog from '../components/tools/JobLog'
+import LossChart from '../components/tools/LossChart'
+import '../components/tools/tools.css'
 
 const TRAINING_METHODS = ['sft', 'dpo', 'grpo', 'rloo', 'reward', 'kto', 'orpo']
-const TRAINING_TYPES = ['lora', 'loha', 'lokr', 'full']
-const FALLBACK_BACKENDS = ['trl']
+const ADAPTER_KINDS = ['lora', 'loha', 'lokr']
+const FALLBACK_BACKEND = 'trl'
 const OPTIMIZERS = ['adamw_torch', 'adamw_8bit', 'sgd', 'adafactor', 'prodigy']
 const MIXED_PRECISION_OPTS = ['', 'fp16', 'bf16', 'no']
+const QUANT_PRESETS = ['q4_k_m', 'q5_k_m', 'q8_0', 'f16', 'q4_0', 'q5_0']
 
 const BUILTIN_REWARDS = [
-  { name: 'format_reward', description: 'Checks <think>...</think> then answer format', params: [] },
-  { name: 'reasoning_accuracy_reward', description: 'Compares <answer> content to dataset answer column', params: [] },
-  { name: 'length_reward', description: 'Score based on proximity to target length', params: [{ key: 'target_length', default: '200', label: 'Target Length' }] },
-  { name: 'xml_tag_reward', description: 'Scores properly opened/closed XML tags', params: [] },
-  { name: 'no_repetition_reward', description: 'Penalizes n-gram repetition', params: [] },
-  { name: 'code_execution_reward', description: 'Checks Python code block syntax validity', params: [] },
+  { name: 'format_reward', params: [] },
+  { name: 'reasoning_accuracy_reward', params: [] },
+  { name: 'length_reward', params: [{ key: 'target_length', default: '200' }] },
+  { name: 'xml_tag_reward', params: [] },
+  { name: 'no_repetition_reward', params: [] },
+  { name: 'code_execution_reward', params: [] },
 ]
 
-const ACTIVE_STATUSES = ['queued', 'loading_model', 'loading_dataset', 'training', 'saving']
-const TERMINAL_STATUSES = ['completed', 'stopped', 'failed']
-
-const statusBadgeClass = {
-  queued: '',
-  loading_model: 'badge-warning',
-  loading_dataset: 'badge-warning',
-  training: 'badge-info',
-  saving: 'badge-info',
-  completed: 'badge-success',
-  failed: 'badge-error',
-  stopped: '',
+const ACTIVE_STATUSES = FT_STAGES
+const BADGE = {
+  queued: '', loading_model: 'dk-badge--warn', loading_dataset: 'dk-badge--warn', training: 'dk-badge--accent',
+  saving: 'dk-badge--accent', completed: 'dk-badge--ok', failed: 'dk-badge--error', stopped: '',
 }
+const EXTRA_HANDLED = ['max_seq_length', 'save_total_limit', 'hf_token', 'eval_strategy', 'eval_steps', 'eval_split', 'eval_dataset_source', 'eval_split_ratio', 'voice', 'val_dataset']
 
 function StatusBadge({ status }) {
-  return <span className={`badge ${statusBadgeClass[status] || ''}`}>{status}</span>
+  const { t } = useTranslation('tools')
+  return <span className={`dk-badge ${BADGE[status] || ''}`} data-status={status}>{t(`fineTune.status.${status}`, { defaultValue: String(status || '').replace(/_/g, ' ') })}</span>
 }
 
-function FormSection({ icon, title, children }) {
+function Field({ id, label, hint, className = '', children }) {
   return (
-    <section className="form-group">
-      <h4 className="form-group__title">
-        <Icon name={icon} />
+    <div className={`dk-field ${className}`.trim()}>
+      <label className="dk-label" htmlFor={id}>{label}</label>
+      {children}
+      {hint && <p className="dk-hint">{hint}</p>}
+    </div>
+  )
+}
+
+function Select({ id, value, onChange, children }) {
+  return (
+    <span className="dk-select-wrap">
+      <select id={id} className="dk-select" value={value} onChange={onChange}>{children}</select>
+    </span>
+  )
+}
+
+function Section({ done, title, children }) {
+  return (
+    <section className="bt-section" data-done={done ? 'true' : 'false'}>
+      <h2 className="bt-section__title">
+        <span className="bt-section__mark" aria-hidden="true">{done ? <Icon name="check" /> : null}</span>
         {title}
-      </h4>
-      <div className="form-group__body">{children}</div>
+      </h2>
+      <div className="bt-section__body">{children}</div>
     </section>
   )
 }
 
 function KeyValueEditor({ entries, onChange }) {
-  const addEntry = () => onChange([...entries, { key: '', value: '' }])
-  const removeEntry = (i) => onChange(entries.filter((_, idx) => idx !== i))
-  const updateEntry = (i, field, val) => {
-    onChange(entries.map((e, idx) => idx === i ? { ...e, [field]: val } : e))
-  }
-
+  const { t } = useTranslation('tools')
+  const update = (i, field, val) => onChange(entries.map((e, idx) => (idx === i ? { ...e, [field]: val } : e)))
   return (
-    <div className="ft-kv">
+    <div className="bt-kv">
       {entries.map((entry, i) => (
-        <div key={i} className="ft-kv__row">
-          <input
-            className="input ft-kv__key"
-            value={entry.key}
-            onChange={e => updateEntry(i, 'key', e.target.value)}
-            placeholder="Key"
-            aria-label={`Extra option ${i + 1} key`}
-          />
-          <input
-            className="input ft-kv__value"
-            value={entry.value}
-            onChange={e => updateEntry(i, 'value', e.target.value)}
-            placeholder="Value"
-            aria-label={`Extra option ${i + 1} value`}
-          />
-          <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEntry(i)} aria-label={`Remove extra option ${i + 1}`}>
+        <div key={i} className="bt-kv__row">
+          <input className="dk-input" value={entry.key} onChange={e => update(i, 'key', e.target.value)} placeholder={t('form.key')} aria-label={`Extra option ${i + 1} key`} />
+          <input className="dk-input" value={entry.value} onChange={e => update(i, 'value', e.target.value)} placeholder={t('form.value')} aria-label={`Extra option ${i + 1} value`} />
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => onChange(entries.filter((_, idx) => idx !== i))} aria-label={`Remove extra option ${i + 1}`}>
             <Icon name="close" />
           </button>
         </div>
       ))}
-      <button type="button" className="btn btn-sm" onClick={addEntry}>
-        <Icon name="plus" /> Add option
+      <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onChange([...entries, { key: '', value: '' }])}>
+        <Icon name="plus" /> {t('form.addOption')}
       </button>
     </div>
   )
 }
 
 function CopyButton({ text }) {
+  const { t } = useTranslation('tools')
   const [copied, setCopied] = useState(false)
-  const handleCopy = (e) => {
+  const copy = (e) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
+    navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => {})
   }
   return (
-    <button className="btn btn-sm btn-ghost" onClick={handleCopy} title="Copy to clipboard" aria-label="Copy to clipboard">
+    <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={copy} title={t('form.copy')} aria-label={t('form.copy')}>
       <Icon name={copied ? 'check' : 'copy'} />
     </button>
   )
 }
 
-function JobCard({ job, onSelect, onUseConfig, onDelete }) {
-  return (
-    <div className="card ft-job" onClick={() => onSelect(job)}>
-      <div className="ft-job__head">
-        <div className="ft-job__title">
-          <strong>{job.model}</strong>
-          <span className="ft-job__backend">{job.backend} / {job.training_method || 'sft'}</span>
-        </div>
-        <div className="row-actions">
-          <button
-            className="btn btn-sm"
-            onClick={(e) => { e.stopPropagation(); onUseConfig(job) }}
-            title="Use this job's configuration for a new job"
-          >
-            <Icon name="copy" /> Reuse
-          </button>
-          {TERMINAL_STATUSES.includes(job.status) && (
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={(e) => { e.stopPropagation(); onDelete(job.id) }}
-              title="Delete this job and its data"
-              aria-label="Delete job"
-            >
-              <Icon name="trash" />
-            </button>
-          )}
-          <StatusBadge status={job.status} />
-        </div>
-      </div>
-      <div className="ft-job__meta">
-        ID: {job.id?.slice(0, 8)}... | Created: {job.created_at}
-      </div>
-      {job.output_dir && (
-        <div className="ft-job__path">
-          <Icon name="folder" />
-          <span className="cell-truncate" title={job.output_dir}>{job.output_dir}</span>
-          <CopyButton text={job.output_dir} />
-        </div>
-      )}
-      {job.message && (
-        <div className={`ft-job__message${job.status === 'failed' ? ' ft-job__message--failed' : ''}`}>
-          <Icon name="info" /> {job.message}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function formatEta(seconds) {
-  if (!seconds || seconds <= 0) return '--'
+function etaText(t, seconds) {
+  if (!seconds || seconds <= 0) return ''
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
-  const s = Math.floor(seconds % 60)
-  if (h > 0) return `${h}h ${m}m`
-  if (m > 0) return `${m}m ${s}s`
-  return `${s}s`
+  if (h > 0) return t('run.eta', { time: `${h}h ${m}m` })
+  if (m > 0) return t('run.eta', { time: `${m} min` })
+  return t('run.etaSeconds', { seconds: Math.max(1, Math.floor(seconds)) })
 }
 
-function formatAxisValue(val, decimals) {
-  if (val >= 1) return val.toFixed(Math.min(decimals, 1))
-  if (val >= 0.01) return val.toFixed(Math.min(decimals, 3))
-  return val.toExponential(1)
+const kindOf = (job) => `${job.training_type || 'lora'}, ${job.training_method || 'sft'}`
+const startedAt = (job) => {
+  const d = new Date(job.created_at)
+  return Number.isNaN(d.getTime()) ? (job.created_at || '') : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function SingleMetricChart({ data, valueKey, label, color, formatValue, events }) {
-  const [tooltip, setTooltip] = useState(null)
-  const svgRef = useRef(null)
-
-  if (!data || data.length < 1) return null
-
-  const pad = { top: 16, right: 12, bottom: 32, left: 52 }
-  const W = 400, H = 220
-  const cw = W - pad.left - pad.right
-  const ch = H - pad.top - pad.bottom
-
-  const steps = data.map(e => e.current_step)
-  const values = data.map(e => e[valueKey])
-
-  const minStep = Math.min(...steps), maxStep = Math.max(...steps)
-  const stepRange = maxStep - minStep || 1
-  const minVal = Math.min(...values), maxVal = Math.max(...values)
-  const valRange = maxVal - minVal || 1
-  const valPad = valRange * 0.05
-  const yMin = Math.max(0, minVal - valPad), yMax = maxVal + valPad
-  const yRange = yMax - yMin || 1
-
-  const x = (step) => pad.left + ((step - minStep) / stepRange) * cw
-  const y = (val) => pad.top + (1 - (val - yMin) / yRange) * ch
-
-  const points = data.map(e => `${x(e.current_step)},${y(e[valueKey])}`).join(' ')
-
-  const xTickCount = Math.min(5, data.length)
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(minStep + (stepRange * i) / (xTickCount - 1)))
-  const yTickCount = 4
-  const yTicks = Array.from({ length: yTickCount }, (_, i) => yMin + (yRange * i) / (yTickCount - 1))
-
-  // Epoch boundaries from the full events list if provided
-  const epochBoundaries = []
-  const evts = events || data
-  for (let i = 1; i < evts.length; i++) {
-    const prevEpoch = Math.floor(evts[i - 1].current_epoch || 0)
-    const curEpoch = Math.floor(evts[i].current_epoch || 0)
-    if (curEpoch > prevEpoch && curEpoch > 0) {
-      epochBoundaries.push({ step: evts[i].current_step, epoch: curEpoch })
-    }
-  }
-
-  const fmtVal = formatValue || ((v) => formatAxisValue(v, 3))
-
-  const handleMouseMove = (e) => {
-    if (!svgRef.current) return
-    const rect = svgRef.current.getBoundingClientRect()
-    const mx = ((e.clientX - rect.left) / rect.width) * W
-    const step = minStep + ((mx - pad.left) / cw) * stepRange
-    let nearest = data[0], bestDist = Infinity
-    for (const d of data) {
-      const dist = Math.abs(d.current_step - step)
-      if (dist < bestDist) { bestDist = dist; nearest = d }
-    }
-    setTooltip({ x: x(nearest.current_step), y: y(nearest[valueKey]), data: nearest })
-  }
-
-  return (
-    <div className="ft-chart" style={{ '--ft-chart-color': color }}>
-      <div className="ft-chart__head">
-        <span className="ft-chart__key" />
-        {label}
-      </div>
-      <svg
-        ref={svgRef}
-        className="ft-chart__svg"
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label={`${label} over training steps`}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setTooltip(null)}
-      >
-        {yTicks.map((val, i) => (
-          <line key={i} x1={pad.left} x2={W - pad.right} y1={y(val)} y2={y(val)}
-            stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 3" />
-        ))}
-        {epochBoundaries.map((eb, i) => (
-          <line key={i} x1={x(eb.step)} x2={x(eb.step)} y1={pad.top} y2={H - pad.bottom}
-            stroke="currentColor" strokeOpacity={0.15} strokeDasharray="4 3" />
-        ))}
-        <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
-        <line x1={pad.left} x2={W - pad.right} y1={H - pad.bottom} y2={H - pad.bottom}
-          stroke="currentColor" strokeOpacity={0.2} />
-        {xTicks.map((step, i) => (
-          <text key={i} x={x(step)} y={H - pad.bottom + 14} textAnchor="middle"
-            fill="currentColor" fillOpacity={0.5} fontSize={9}>{step}</text>
-        ))}
-        <line x1={pad.left} x2={pad.left} y1={pad.top} y2={H - pad.bottom}
-          stroke="currentColor" strokeOpacity={0.2} />
-        {yTicks.map((val, i) => (
-          <text key={i} x={pad.left - 6} y={y(val) + 3} textAnchor="end"
-            fill="currentColor" fillOpacity={0.5} fontSize={9}>{fmtVal(val)}</text>
-        ))}
-        <text x={pad.left + cw / 2} y={H - 2} textAnchor="middle"
-          fill="currentColor" fillOpacity={0.4} fontSize={8}>Step</text>
-        {tooltip && (
-          <g>
-            <line x1={tooltip.x} x2={tooltip.x} y1={pad.top} y2={H - pad.bottom}
-              stroke={color} strokeOpacity={0.4} strokeDasharray="2 2" />
-            <circle cx={tooltip.x} cy={tooltip.y} r={3} fill={color} />
-            <rect x={Math.min(tooltip.x + 8, W - 120)} y={tooltip.y - 24} width={110} height={30} rx={3}
-              fill="var(--color-bg)" stroke="var(--color-border)" strokeWidth={1} />
-            <text x={Math.min(tooltip.x + 14, W - 114)} y={tooltip.y - 10} fill="currentColor" fontSize={9}>
-              Step {tooltip.data.current_step}
-            </text>
-            <text x={Math.min(tooltip.x + 14, W - 114)} y={tooltip.y + 2} fill={color} fontSize={9} fontWeight="bold">
-              {fmtVal(tooltip.data[valueKey])}
-            </text>
-          </g>
-        )}
-      </svg>
-    </div>
-  )
-}
-
-function ChartsGrid({ events }) {
-  const lossData = events.filter(e => e.loss > 0)
-  const evalData = events.filter(e => e.eval_loss > 0)
-  const lrData = events.filter(e => e.learning_rate != null && e.learning_rate > 0)
-  const gradNormData = events.filter(e => e.grad_norm != null && e.grad_norm > 0)
-
-  const fmtExp = (v) => v.toExponential(1)
-
-  if (lossData.length < 2 && lrData.length < 2 && gradNormData.length < 2) return null
-
-  return (
-    <div className="ft-chart-grid">
-      <SingleMetricChart data={lossData} valueKey="loss" label="Training Loss" color="var(--color-data-7)" events={events} />
-      {evalData.length >= 1 ? (
-        <SingleMetricChart data={evalData} valueKey="eval_loss" label="Eval Loss" color="var(--color-data-2)" events={events} />
-      ) : (
-        <div className="ft-chart-empty">
-          <Icon name="chart-line" />
-          Eval loss, waiting for eval data
-        </div>
-      )}
-      <SingleMetricChart data={lrData} valueKey="learning_rate" label="Learning Rate" color="var(--color-data-3)" formatValue={fmtExp} events={events} />
-      <SingleMetricChart data={gradNormData} valueKey="grad_norm" label="Gradient Norm" color="var(--color-data-6)" events={events} />
-    </div>
-  )
-}
-
-function TrainingMonitor({ job, onStop }) {
+// A running, failed or finished job: progress, the loss chart, the log, the
+// checkpoints and what to do with the result. The server streams progress
+// events while the job is active; a finished job is read from the job record.
+function JobView({ job, onStop, onReuse, onResume, onTerminal, exportCheckpoint }) {
+  const { t } = useTranslation('tools')
   const [events, setEvents] = useState([])
   const [latest, setLatest] = useState(null)
+  const [log, setLog] = useState([])
   const [connecting, setConnecting] = useState(true)
-  const eventSourceRef = useRef(null)
+  const [stopOpen, setStopOpen] = useState(false)
+  const [checkpoints, setCheckpoints] = useState([])
+  const previousRef = useRef(null)
+  const terminalRef = useRef(onTerminal)
+  terminalRef.current = onTerminal
 
   useEffect(() => {
-    if (!job || !ACTIVE_STATUSES.includes(job.status)) {
-      setConnecting(false)
-      return
-    }
-
-    setConnecting(true)
-    setLatest(null)
+    previousRef.current = null
     setEvents([])
-
-    const url = fineTuneApi.progressUrl(job.id)
-    const es = new EventSource(url)
-    eventSourceRef.current = es
-
+    setLatest(null)
+    setLog([])
+    if (!job || !ACTIVE_STATUSES.includes(job.status)) { setConnecting(false); return undefined }
+    setConnecting(true)
+    const es = new EventSource(fineTuneApi.progressUrl(job.id))
     es.onmessage = (e) => {
       try {
-        setConnecting(false)
         const data = JSON.parse(e.data)
+        setConnecting(false)
         setLatest(data)
-        if (data.loss > 0) {
-          setEvents(prev => [...prev, data])
+        setLog(prev => appendLog(prev, logLines(data, previousRef.current)))
+        previousRef.current = data
+        if (data.loss > 0 || data.eval_loss > 0 || data.learning_rate > 0 || data.grad_norm > 0) {
+          setEvents(prev => {
+            const last = prev[prev.length - 1]
+            return last && last.current_step === data.current_step ? [...prev.slice(0, -1), data] : [...prev, data]
+          })
         }
-        if (TERMINAL_STATUSES.includes(data.status)) {
-          es.close()
-        }
-      } catch (_) {}
+        if (TERMINAL.includes(data.status)) { es.close(); terminalRef.current?.() }
+      } catch (_) { /* a partial frame */ }
     }
-
-    es.onerror = () => {
-      setConnecting(false)
-      es.close()
-    }
-
-    return () => {
-      es.close()
-    }
+    es.onerror = () => { setConnecting(false); es.close() }
+    return () => es.close()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
   }, [job?.id])
 
-  if (!job) return null
-
+  const status = latest?.status || job.status
+  const active = ACTIVE_STATUSES.includes(status)
+  const failed = status === 'failed'
   const progress = Math.min(latest?.progress_percent || 0, 100)
 
-  return (
-    <section className="card">
-      <SectionHeading>
-        <Icon name="chart-line" /> Training monitor
-      </SectionHeading>
+  useEffect(() => {
+    if (!job || active) return
+    fineTuneApi.listCheckpoints(job.id).then(r => setCheckpoints(r.checkpoints || [])).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
+  }, [job?.id, active])
 
-      {connecting && !latest && (
-        <EmptyState
-          icon="broadcast"
-          title="Connecting to training stream"
-          body="Waiting for the first progress event from the backend."
-        />
+  const message = latest?.message || job.message || ''
+  const lastCheckpoint = checkpoints.length ? checkpoints[checkpoints.length - 1] : null
+  const [fixes, setFixes] = useState({ batch: true, checkpointing: true })
+
+  const stageLabels = Object.fromEntries(FT_STAGES.map(s => [s, t(`fineTune.status.${s}`)]))
+
+  return (
+    <div className="bt-stack" data-testid="job-view" data-status={status}>
+      {failed && (
+        <section className="bt-alert" role="alert" data-testid="job-failed">
+          <Icon name="alert-circle" />
+          <div>
+            <p className="bt-alert__title">
+              {latest?.current_step > 0
+                ? t('fineTune.failedAt', { step: latest.current_step, total: latest.total_steps })
+                : t('fineTune.failed')}
+            </p>
+            <p className="bt-alert__text" data-testid="job-failed-message">{message || t('fineTune.noMessage')}</p>
+          </div>
+        </section>
       )}
 
-      {latest && (
-        <>
-          <div className="stat-cards">
-            <StatCard icon="spinner" label="Status" value={latest.status} accentVar="--color-info" />
-            <StatCard icon="percent" label="Progress" value={`${latest.progress_percent?.toFixed(1)}%`} accentVar="--color-primary" />
-            <StatCard icon="footprints" label="Step" value={`${latest.current_step} / ${latest.total_steps}`} />
-            <StatCard icon="trend-down" label="Loss" value={latest.loss?.toFixed(4)} accentVar="--color-data-7" />
-            <StatCard icon="repeat" label="Epoch" value={`${latest.current_epoch?.toFixed(2)} / ${latest.total_epochs?.toFixed(0)}`} />
-            <StatCard icon="gauge" label="Learning rate" value={latest.learning_rate?.toExponential(2)} accentVar="--color-data-3" />
-            <StatCard icon="hourglass" label="ETA" value={formatEta(latest.eta_seconds)} />
-            {latest.extra_metrics?.tokens_per_second > 0 && (
-              <StatCard icon="bolt" label="Tokens/sec" value={latest.extra_metrics.tokens_per_second.toFixed(0)} accentVar="--color-success" />
+      <section className="bt-job dk-card" aria-labelledby="bt-job-title">
+        <div className="bt-job__top">
+          <div className="bt-job__who">
+            <h2 className="bt-job__title" id="bt-job-title">{job.model}</h2>
+            <p className="bt-job__meta">
+              {t('fineTune.jobMeta', { backend: job.backend || FALLBACK_BACKEND, method: job.training_method || 'sft', kind: job.training_type || 'lora', started: startedAt(job) })}
+              <span className="dk-mono"> · {job.id?.slice(0, 8)}</span>
+            </p>
+          </div>
+          <div className="bt-job__acts">
+            <StatusBadge status={status} />
+            {active && (
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setStopOpen(true)} data-testid="job-stop">
+                <Icon name="stop" /> {t('run.stop')}
+              </button>
             )}
           </div>
+        </div>
 
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-valuenow={Math.round(progress)}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Training progress"
-          >
-            <div className="progress-bar__fill" style={{ width: `${progress}%` }} />
-          </div>
-        </>
-      )}
-
-      <ChartsGrid events={events} />
-
-      {latest?.message && (
-        <p className="form-hint">
-          <Icon name="info" /> {latest.message}
-        </p>
-      )}
-
-      {ACTIVE_STATUSES.includes(latest?.status || job.status) && (
-        <button className="btn btn-danger" onClick={() => onStop(job.id)}>
-          <Icon name="stop" /> Stop training
-        </button>
-      )}
-    </section>
-  )
-}
-
-function CheckpointsPanel({ job, onResume, onExportCheckpoint }) {
-  const [checkpoints, setCheckpoints] = useState([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!job) return
-    setLoading(true)
-    fineTuneApi.listCheckpoints(job.id).then(r => {
-      setCheckpoints(r.checkpoints || [])
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [job?.id])
-
-  if (!job) return null
-  if (loading) {
-    return (
-      <section className="card">
-        <SectionHeading><Icon name="save" /> Checkpoints</SectionHeading>
-        <p className="form-hint"><LoadingSpinner size="sm" /> Loading checkpoints...</p>
+        {connecting && !latest && active ? (
+          <p className="bt-job__wait" role="status"><LoadingSpinner size="sm" /> {t('run.connecting')}</p>
+        ) : (
+          <>
+            {(latest || status === 'completed') && (
+              <div className="bt-job__figures">
+                <span className="bt-job__percent">{status === 'completed' ? '100' : progress.toFixed(0)}<small>%</small></span>
+                {latest && latest.total_steps > 0 && <span>{t('run.step')} <b className="dk-mono">{latest.current_step}</b> {t('run.of')} <b className="dk-mono">{latest.total_steps}</b></span>}
+                {latest && latest.total_epochs > 0 && <span>{t('run.epoch')} <b className="dk-mono">{latest.current_epoch?.toFixed(1)}</b> {t('run.of')} <b className="dk-mono">{latest.total_epochs?.toFixed(0)}</b></span>}
+                {active && etaText(t, latest?.eta_seconds) && <span>{etaText(t, latest.eta_seconds)}</span>}
+                {latest?.extra_metrics?.tokens_per_second > 0 && <span><b className="dk-mono">{latest.extra_metrics.tokens_per_second.toFixed(0)}</b> {t('run.tokens')}</span>}
+              </div>
+            )}
+            {(active || latest) && (
+              <div
+                className={`dk-progress${failed ? ' dk-progress--error' : status === 'completed' ? ' dk-progress--ok' : ''}`}
+                role="progressbar" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={Math.round(status === 'completed' ? 100 : progress)} aria-label={t('run.progress')}
+                style={{ '--dk-value': `${status === 'completed' ? 100 : progress}%` }}
+              >
+                <span className="dk-progress-bar" />
+              </div>
+            )}
+            {active && (
+              <StageLine stages={FT_STAGES} labels={stageLabels} status={status} failed={failed} label={t('run.stages')} />
+            )}
+            {!failed && message && <p className="dk-hint bt-job__message">{message}</p>}
+            {status === 'completed' && (
+              <p className="bt-job__done" data-testid="job-finished">
+                <Icon name="check-circle" /> {events.length && events[events.length - 1].loss > 0
+                  ? t('fineTune.finishedLoss', { loss: events[events.length - 1].loss.toFixed(4) })
+                  : t('fineTune.finished')}
+              </p>
+            )}
+            {status === 'stopped' && <p className="dk-hint">{t('fineTune.stopped')}</p>}
+          </>
+        )}
       </section>
-    )
-  }
-  if (checkpoints.length === 0) return null
 
-  return (
-    <section className="card">
-      <SectionHeading><Icon name="save" /> Checkpoints</SectionHeading>
-      <ResponsiveTable>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>Epoch</th>
-              <th>Loss</th>
-              <th>Created</th>
-              <th>Path</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {checkpoints.map(cp => (
-              <tr key={cp.path}>
-                <td>{cp.step}</td>
-                <td>{cp.epoch?.toFixed(2)}</td>
-                <td>{cp.loss?.toFixed(4)}</td>
-                <td>{cp.created_at}</td>
-                <td>
-                  <span className="cell-truncate cell-mono" title={cp.path}>{cp.path}</span>
-                  <CopyButton text={cp.path} />
-                </td>
-                <td>
-                  <div className="row-actions">
-                    <button className="btn btn-sm" onClick={() => onResume(cp)} title="Resume training from this checkpoint">
-                      <Icon name="play" /> Resume
-                    </button>
-                    <button className="btn btn-sm" onClick={() => onExportCheckpoint(cp)} title="Export this checkpoint">
-                      <Icon name="export" /> Export
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ResponsiveTable>
-    </section>
+      {failed && (
+        <section className="bt-try dk-card" data-testid="job-try">
+          <h2 className="bt-h2">{t('fineTune.tryTitle')}</h2>
+          {looksLikeMemoryFailure(message) ? (
+            <>
+              <p className="dk-hint">{t('fineTune.tryText')}</p>
+              <label className="dk-choice"><input className="dk-check" type="checkbox" checked={fixes.batch} onChange={e => setFixes({ ...fixes, batch: e.target.checked })} /> {t('fineTune.fixBatch')}</label>
+              <label className="dk-choice"><input className="dk-check" type="checkbox" checked={fixes.checkpointing} onChange={e => setFixes({ ...fixes, checkpointing: e.target.checked })} /> {t('fineTune.fixCheckpointing')}</label>
+            </>
+          ) : (
+            <p className="dk-hint">{t('fineTune.tryPlain')}</p>
+          )}
+          <div className="bt-try__acts">
+            <button type="button" className="dk-btn dk-btn--primary" onClick={() => onReuse(job, looksLikeMemoryFailure(message) ? fixes : null)} data-testid="job-retry">
+              <Icon name="refresh" /> {looksLikeMemoryFailure(message) ? t('fineTune.retryChanges') : t('fineTune.reuse')}
+            </button>
+            {lastCheckpoint && (
+              <button type="button" className="dk-btn dk-btn--secondary" onClick={() => onResume(lastCheckpoint)}>
+                <Icon name="play" /> {t('fineTune.resumeFrom', { step: lastCheckpoint.step })}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {(active || events.length > 0) && <LossChart events={events} totalSteps={latest?.total_steps} />}
+      {(active || log.length > 0) && <JobLog lines={log} name={`finetune-${job.id?.slice(0, 8)}`} />}
+
+      {!active && checkpoints.length > 0 && (
+        <section className="bt-block dk-card" aria-labelledby="bt-cp-title">
+          <h2 className="bt-h2" id="bt-cp-title">{t('checkpoints.title')}</h2>
+          <div className="dk-table-wrap" role="region" aria-labelledby="bt-cp-title" tabIndex={0}>
+            <table className="dk-table dk-table--compact" data-testid="job-checkpoints">
+              <caption className="dk-sr-only">{t('checkpoints.title')}</caption>
+              <thead><tr><th>{t('checkpoints.step')}</th><th className="dk-num dk-hide-phone">{t('checkpoints.epoch')}</th><th className="dk-num">{t('checkpoints.loss')}</th><th className="dk-hide-phone">{t('checkpoints.path')}</th><th><span className="dk-sr-only">{t('checkpoints.actions')}</span></th></tr></thead>
+              <tbody>
+                {checkpoints.map(cp => (
+                  <tr key={cp.path} data-row>
+                    <td><span className="dk-table-name">{cp.step}</span><span className="dk-table-sub">{cp.created_at}</span></td>
+                    <td className="dk-num dk-hide-phone">{cp.epoch?.toFixed(2)}</td>
+                    <td className="dk-num">{cp.loss?.toFixed(4)}</td>
+                    <td className="dk-hide-phone"><span className="bt-path dk-mono" title={cp.path}>{cp.path}</span><CopyButton text={cp.path} /></td>
+                    <td>
+                      <div className="bt-rowacts">
+                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onResume(cp)} title={t('checkpoints.resumeTitle')}><Icon name="play" /> {t('checkpoints.resume')}</button>
+                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => exportCheckpoint(cp)} title={t('checkpoints.exportTitle')}><Icon name="export" /> {t('checkpoints.export')}</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {stopOpen && (
+        <Dialog
+          title={t('stop.title')}
+          description={t('stop.text')}
+          role="alertdialog"
+          onClose={() => setStopOpen(false)}
+          testId="stop-dialog"
+          labelId="bt-stop-title"
+          foot={(
+            <>
+              <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setStopOpen(false)}>{t('stop.cancel')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary" data-testid="stop-discard" onClick={() => { setStopOpen(false); onStop(job.id, false) }}>{t('stop.discard')}</button>
+              <button type="button" className="dk-btn dk-btn--primary" data-testid="stop-keep" onClick={() => { setStopOpen(false); onStop(job.id, true) }}>{t('stop.keep')}</button>
+            </>
+          )}
+        />
+      )}
+    </div>
   )
 }
 
-const QUANT_PRESETS = ['q4_k_m', 'q5_k_m', 'q8_0', 'f16', 'q4_0', 'q5_0']
-
+// What to do with a finished job: export it as a model, then use it.
 function ExportPanel({ job, prefilledCheckpoint }) {
+  const { t } = useTranslation('tools')
   const [checkpoints, setCheckpoints] = useState([])
   const [exportFormat, setExportFormat] = useState('lora')
   const [quantMethod, setQuantMethod] = useState('q4_k_m')
@@ -501,67 +349,61 @@ function ExportPanel({ job, prefilledCheckpoint }) {
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
   const [exportedModelName, setExportedModelName] = useState('')
+  const [exportFailed, setExportFailed] = useState(false)
   const pollRef = useRef(null)
 
   useEffect(() => {
     if (!job) return
-    fineTuneApi.listCheckpoints(job.id).then(r => {
-      setCheckpoints(r.checkpoints || [])
-    }).catch(() => {})
+    fineTuneApi.listCheckpoints(job.id).then(r => setCheckpoints(r.checkpoints || [])).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
   }, [job?.id])
 
-  // Apply prefilled checkpoint when set
-  useEffect(() => {
-    if (prefilledCheckpoint) {
-      setSelectedCheckpoint(prefilledCheckpoint.path || '')
-    }
-  }, [prefilledCheckpoint])
+  useEffect(() => { if (prefilledCheckpoint) setSelectedCheckpoint(prefilledCheckpoint.path || '') }, [prefilledCheckpoint])
 
-  // Sync export state from job (e.g. on initial load or job list refresh)
+  // Sync export state from the job record (first load, list refresh).
   useEffect(() => {
     if (!job) return
     if (job.export_status === 'exporting') {
-      setExporting(true)
-      setMessage(job.export_message || 'Export in progress...')
+      setExporting(true); setExportFailed(false)
+      setMessage(job.export_message || t('export.working'))
     } else if (job.export_status === 'completed' && job.export_model_name) {
-      setExporting(false)
+      setExporting(false); setExportFailed(false)
       setExportedModelName(job.export_model_name)
-      setMessage(`Model exported and registered as "${job.export_model_name}"`)
+      setMessage(t('export.done', { name: job.export_model_name }))
     } else if (job.export_status === 'failed') {
-      setExporting(false)
-      setMessage(`Export failed: ${job.export_message || 'unknown error'}`)
+      setExporting(false); setExportFailed(true)
+      setMessage(t('export.failed', { message: job.export_message || t('export.unknown') }))
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
   }, [job?.export_status, job?.export_model_name, job?.export_message])
 
-  // Poll for export completion
   useEffect(() => {
-    if (!exporting || !job) return
-
+    if (!exporting || !job) return undefined
     pollRef.current = setInterval(async () => {
       try {
         const updated = await fineTuneApi.getJob(job.id)
         if (updated.export_status === 'completed') {
-          setExporting(false)
+          setExporting(false); setExportFailed(false)
           const name = updated.export_model_name || modelName || 'exported model'
           setExportedModelName(name)
-          setMessage(`Model exported and registered as "${name}"`)
+          setMessage(t('export.done', { name }))
           clearInterval(pollRef.current)
         } else if (updated.export_status === 'failed') {
-          setExporting(false)
-          setMessage(`Export failed: ${updated.export_message || 'unknown error'}`)
+          setExporting(false); setExportFailed(true)
+          setMessage(t('export.failed', { message: updated.export_message || t('export.unknown') }))
           clearInterval(pollRef.current)
         } else if (updated.export_status === 'exporting' && updated.export_message) {
           setMessage(updated.export_message)
         }
-      } catch (_) {}
+      } catch (_) { /* try again at the next tick */ }
     }, 3000)
-
     return () => clearInterval(pollRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the job id: the effect restarts per job, not per poll refresh
   }, [exporting, job?.id])
 
   const handleExport = async () => {
-    setExporting(true)
-    setMessage('Export in progress...')
+    setExporting(true); setExportFailed(false)
+    setMessage(t('export.working'))
     setExportedModelName('')
     try {
       await fineTuneApi.exportModel(job.id, {
@@ -571,120 +413,96 @@ function ExportPanel({ job, prefilledCheckpoint }) {
         quantization_method: exportFormat === 'gguf' ? quantMethod : '',
         model: job.model,
       })
-      // Polling will pick up completion/failure
     } catch (e) {
-      setMessage(`Export failed: ${e.message}`)
-      setExporting(false)
+      setMessage(t('export.failed', { message: e.message }))
+      setExportFailed(true); setExporting(false)
     }
   }
 
-  // Show export panel for completed, stopped, and failed jobs (checkpoints may exist)
-  if (!job || !TERMINAL_STATUSES.includes(job.status)) return null
-
-  const failed = message.includes('failed')
+  if (!job || !TERMINAL.includes(job.status)) return null
 
   return (
-    <section className="card">
-      <SectionHeading><Icon name="export" /> Export model</SectionHeading>
-
-      <div className="ft-stack">
-        {checkpoints.length > 0 && (
+    <>
+      {exportedModelName && !exportFailed && (
+        <section className="bt-next dk-card" data-testid="export-next">
+          <span className="bt-next__mark"><Icon name="check-circle" /></span>
           <div>
-            <label className="form-label" htmlFor="ft-export-checkpoint">Checkpoint</label>
-            <select id="ft-export-checkpoint" value={selectedCheckpoint} onChange={e => setSelectedCheckpoint(e.target.value)} className="input">
-              <option value="">Final model (output directory)</option>
-              {checkpoints.map(cp => (
-                <option key={cp.path} value={cp.path}>
-                  Step {cp.step} (loss: {cp.loss?.toFixed(4)})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="form-grid-2col">
-          <div>
-            <label className="form-label" htmlFor="ft-export-format">Export format</label>
-            <select id="ft-export-format" value={exportFormat} onChange={e => setExportFormat(e.target.value)} className="input">
-              <option value="lora">LoRA adapter</option>
-              <option value="merged_16bit">Merged (16-bit)</option>
-              <option value="merged_4bit">Merged (4-bit)</option>
-              <option value="gguf">GGUF</option>
-            </select>
-          </div>
-          {exportFormat === 'gguf' && (
-            <div>
-              <label className="form-label" htmlFor="ft-export-quant">Quantization</label>
-              <input
-                id="ft-export-quant"
-                list="quant-presets"
-                value={quantMethod}
-                onChange={e => setQuantMethod(e.target.value)}
-                placeholder="e.g. q4_k_m, bf16, f32"
-                className="input"
-              />
-              <datalist id="quant-presets">
-                {QUANT_PRESETS.map(q => <option key={q} value={q} />)}
-              </datalist>
+            <h2 className="bt-h2">{t('export.nextTitle', { name: exportedModelName })}</h2>
+            <p className="dk-hint">{t('export.nextText')}</p>
+            <div className="bt-next__acts">
+              <Link className="dk-btn dk-btn--primary" to={`/app/chat/${encodeURIComponent(exportedModelName)}`}><Icon name="chat" /> {t('export.chat', { name: exportedModelName })}</Link>
+              <Link className="dk-btn dk-btn--secondary" to="/app/models?view=installed"><Icon name="cube" /> {t('export.models')}</Link>
+              <a className="dk-btn dk-btn--ghost" href={fineTuneApi.downloadUrl(job.id)} download><Icon name="download" /> {t('export.archive')}</a>
             </div>
+          </div>
+        </section>
+      )}
+      <section className="bt-block dk-card" aria-labelledby="bt-export-title">
+        <h2 className="bt-h2" id="bt-export-title">{t('export.title')}</h2>
+        <p className="dk-hint">{t('export.lede')}</p>
+        <div className="bt-form">
+          {checkpoints.length > 0 && (
+            <Field id="ft-export-checkpoint" label={t('export.checkpoint')}>
+              <Select id="ft-export-checkpoint" value={selectedCheckpoint} onChange={e => setSelectedCheckpoint(e.target.value)}>
+                <option value="">{t('export.final')}</option>
+                {checkpoints.map(cp => <option key={cp.path} value={cp.path}>{t('export.checkpointOption', { step: cp.step, loss: cp.loss?.toFixed(4) })}</option>)}
+              </Select>
+            </Field>
           )}
-        </div>
-
-        <div>
-          <label className="form-label" htmlFor="ft-export-name">Model name</label>
-          <input
-            id="ft-export-name"
-            type="text"
-            value={modelName}
-            onChange={e => setModelName(e.target.value)}
-            placeholder="e.g. my-finetuned-model"
-            className="input"
-          />
-          <p className="form-hint">Leave blank to generate one from the job.</p>
-        </div>
-
-        <div className="ft-actions">
-          <button className="btn btn-primary" onClick={handleExport} disabled={exporting}>
-            {exporting
-              ? <><LoadingSpinner size="sm" /> Exporting...</>
-              : <><Icon name="download" /> Export</>}
-          </button>
-        </div>
-
-        {message && (
-          <div className={`ft-export-status${failed ? ' ft-export-status--error' : ''}`} role="status">
-            {exporting && <LoadingSpinner size="sm" />} {message}
-            {exportedModelName && !failed && (
-              <span className="ft-export-status__links">
-                <a href={`/app/chat/${encodeURIComponent(exportedModelName)}`} className="badge badge-link">
-                  Chat with {exportedModelName}
-                </a>
-                <a href={fineTuneApi.downloadUrl(job.id)} download className="btn btn-sm">
-                  <Icon name="download" /> Download archive
-                </a>
-              </span>
+          <div className="bt-pair">
+            <Field id="ft-export-format" label={t('export.format')}>
+              <Select id="ft-export-format" value={exportFormat} onChange={e => setExportFormat(e.target.value)}>
+                <option value="lora">{t('export.lora')}</option>
+                <option value="merged_16bit">{t('export.merged16')}</option>
+                <option value="merged_4bit">{t('export.merged4')}</option>
+                <option value="gguf">GGUF</option>
+              </Select>
+            </Field>
+            {exportFormat === 'gguf' && (
+              <Field id="ft-export-quant" label={t('export.quant')}>
+                <input id="ft-export-quant" className="dk-input" list="quant-presets" value={quantMethod} onChange={e => setQuantMethod(e.target.value)} placeholder="q4_k_m, bf16, f32" />
+                <datalist id="quant-presets">{QUANT_PRESETS.map(q => <option key={q} value={q} />)}</datalist>
+              </Field>
             )}
           </div>
-        )}
-      </div>
-    </section>
+          <Field id="ft-export-name" label={t('export.name')} hint={t('export.nameHint')}>
+            <input id="ft-export-name" type="text" className="dk-input" value={modelName} onChange={e => setModelName(e.target.value)} placeholder="my-finetuned-model" />
+          </Field>
+          <div className="bt-actions">
+            <button type="button" className="dk-btn dk-btn--primary" onClick={handleExport} disabled={exporting} aria-busy={exporting || undefined}>
+              {exporting ? <><LoadingSpinner size="sm" /> {t('export.exporting')}</> : <><Icon name="download" /> {t('export.go')}</>}
+            </button>
+          </div>
+          {message && (!exportedModelName || exportFailed) && (
+            <p className={`bt-status${exportFailed ? ' bt-status--error' : ''}`} role="status" data-testid="export-status">
+              {exporting && <LoadingSpinner size="sm" />} {message}
+            </p>
+          )}
+        </div>
+      </section>
+    </>
   )
 }
 
 export default function FineTune() {
+  const { t } = useTranslation('tools')
+  const { isAdmin } = useAuth()
+  const { resources } = useResources(10000)
+  const facts = useMemo(() => machineFacts(resources), [resources])
+
   const [jobs, setJobs] = useState([])
+  const [jobsLoaded, setJobsLoaded] = useState(false)
   const [selectedJob, setSelectedJob] = useState(null)
-  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [backends, setBackends] = useState([])
+  const [backends, setBackends] = useState(null)
   const [exportCheckpoint, setExportCheckpoint] = useState(null)
-  // Baseline of the assembled config for the unsaved-changes guard.
+  const [deleting, setDeleting] = useState(null)
   const initialConfigRef = useRef(null)
 
   // Form state
   const [model, setModel] = useState('')
-  const [backend, setBackend] = useState('')
+  const [backend, setBackend] = useState(FALLBACK_BACKEND)
   const [trainingMethod, setTrainingMethod] = useState('sft')
   const [trainingType, setTrainingType] = useState('lora')
   const [datasetSource, setDatasetSource] = useState('')
@@ -709,7 +527,6 @@ export default function FineTune() {
   const [seed, setSeed] = useState(0)
   const [mixedPrecision, setMixedPrecision] = useState('')
   const [extraOptions, setExtraOptions] = useState([])
-  // liquid-audio specific knobs (folded into extra_options on submit)
   const [liquidAudioVoice, setLiquidAudioVoice] = useState('')
   const [liquidAudioValDataset, setLiquidAudioValDataset] = useState('')
   const [hfToken, setHfToken] = useState('')
@@ -722,7 +539,7 @@ export default function FineTune() {
   const [evalSplit, setEvalSplit] = useState('')
   const [evalDatasetSource, setEvalDatasetSource] = useState('')
   const [evalSplitRatio, setEvalSplitRatio] = useState(0.1)
-  const [rewardFunctions, setRewardFunctions] = useState([]) // [{type, name, code?, params?}]
+  const [rewardFunctions, setRewardFunctions] = useState([])
   const [showAddCustomReward, setShowAddCustomReward] = useState(false)
   const [customRewardName, setCustomRewardName] = useState('')
   const [customRewardCode, setCustomRewardCode] = useState('')
@@ -730,8 +547,16 @@ export default function FineTune() {
   const loadJobs = useCallback(async () => {
     try {
       const data = await fineTuneApi.listJobs()
-      setJobs(data || [])
-    } catch (_) {}
+      const list = data || []
+      setJobs(list)
+      setSelectedJob(prev => {
+        if (!prev) return prev
+        const fresh = list.find(j => j.id === prev.id)
+        return fresh ? { ...prev, ...fresh } : prev
+      })
+    } catch (_) { /* the next poll tries again */ } finally {
+      setJobsLoaded(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -743,28 +568,26 @@ export default function FineTune() {
   useEffect(() => {
     fineTuneApi.listBackends()
       .then(data => {
-        const names = data && data.length > 0 ? data.map(b => b.name) : FALLBACK_BACKENDS
-        setBackends(names)
-        setBackend(prev => prev || names[0] || '')
+        const list = Array.isArray(data) ? data : []
+        setBackends(list)
+        if (list.length > 0) setBackend(prev => (list.some(b => b.name === prev) ? prev : list[0].name))
       })
-      .catch(() => {
-        setBackends(FALLBACK_BACKENDS)
-        setBackend(prev => prev || FALLBACK_BACKENDS[0])
-      })
+      .catch(() => setBackends(null))
   }, [])
+
+  const backendNames = backends && backends.length > 0 ? backends.map(b => b.name) : [FALLBACK_BACKEND]
+  const isAdapter = ADAPTER_KINDS.includes(trainingType)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     try {
       let dsSource = datasetSource
       if (datasetFile) {
         const result = await fineTuneApi.uploadDataset(datasetFile)
         dsSource = result.path
       }
-
       const extra = {}
       if (maxSeqLength) extra.max_seq_length = String(maxSeqLength)
       if (hfToken.trim()) extra.hf_token = hfToken.trim()
@@ -778,17 +601,12 @@ export default function FineTune() {
       } else {
         extra.eval_strategy = 'no'
       }
-      for (const { key, value } of extraOptions) {
-        if (key.trim()) extra[key.trim()] = value
-      }
-      // Fold liquid-audio specific fields into extra_options. The Python
-      // backend reads `voice` and `val_dataset` directly from there.
+      for (const { key, value } of extraOptions) if (key.trim()) extra[key.trim()] = value
+      // The Python backend reads `voice` and `val_dataset` from extra_options.
       if (backend === 'liquid-audio') {
         if (liquidAudioVoice) extra.voice = liquidAudioVoice
         if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
       }
-
-      const isAdapterType = ['lora', 'loha', 'lokr'].includes(trainingType)
 
       const req = {
         model,
@@ -800,10 +618,10 @@ export default function FineTune() {
         num_epochs: numEpochs,
         batch_size: batchSize,
         learning_rate: learningRate,
-        adapter_rank: isAdapterType ? adapterRank : 0,
-        adapter_alpha: isAdapterType ? adapterAlpha : 0,
-        adapter_dropout: isAdapterType && adapterDropout > 0 ? adapterDropout : undefined,
-        target_modules: isAdapterType && targetModules.trim() ? targetModules.split(',').map(s => s.trim()) : undefined,
+        adapter_rank: isAdapter ? adapterRank : 0,
+        adapter_alpha: isAdapter ? adapterAlpha : 0,
+        adapter_dropout: isAdapter && adapterDropout > 0 ? adapterDropout : undefined,
+        target_modules: isAdapter && targetModules.trim() ? targetModules.split(',').map(s => s.trim()) : undefined,
         gradient_accumulation_steps: gradAccum,
         warmup_steps: warmupSteps,
         max_steps: maxSteps > 0 ? maxSteps : undefined,
@@ -819,31 +637,29 @@ export default function FineTune() {
       }
 
       const resp = await fineTuneApi.startJob(req)
-      setShowForm(false)
       setResumeFromCheckpoint('')
       // Job submitted: rebaseline so leaving the page no longer warns.
       initialConfigRef.current = JSON.stringify(getFormConfig())
       await loadJobs()
-
-      const newJob = { ...req, id: resp.id, status: 'queued', created_at: new Date().toISOString() }
-      setSelectedJob(newJob)
+      setSelectedJob({ ...req, id: resp.id, status: 'queued', created_at: new Date().toISOString() })
     } catch (err) {
       setError(err.message)
     }
     setLoading(false)
   }
 
-  const handleStop = async (jobId) => {
+  const handleStop = async (jobId, saveCheckpoint = true) => {
     try {
-      await fineTuneApi.stopJob(jobId, true)
+      await fineTuneApi.stopJob(jobId, saveCheckpoint)
       await loadJobs()
     } catch (err) {
       setError(err.message)
     }
   }
 
-  const handleDelete = async (jobId) => {
-    if (!window.confirm('Delete this job and all its data (checkpoints, exported model)? This cannot be undone.')) return
+  const confirmDelete = async () => {
+    const jobId = deleting
+    setDeleting(null)
     try {
       await fineTuneApi.deleteJob(jobId)
       if (selectedJob?.id === jobId) setSelectedJob(null)
@@ -853,20 +669,15 @@ export default function FineTune() {
     }
   }
 
-  const isAdapter = ['lora', 'loha', 'lokr'].includes(trainingType)
-
   const getFormConfig = () => {
     const extra = {}
-    for (const { key, value } of extraOptions) {
-      if (key.trim()) extra[key.trim()] = value
-    }
+    for (const { key, value } of extraOptions) if (key.trim()) extra[key.trim()] = value
     if (backend === 'liquid-audio') {
       if (liquidAudioVoice) extra.voice = liquidAudioVoice
       if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
     }
     return {
-      model,
-      backend,
+      model, backend,
       training_method: trainingMethod,
       training_type: trainingType,
       adapter_rank: adapterRank,
@@ -884,8 +695,7 @@ export default function FineTune() {
       save_steps: saveSteps,
       weight_decay: weightDecay,
       gradient_checkpointing: gradCheckpointing,
-      optimizer,
-      seed,
+      optimizer, seed,
       mixed_precision: mixedPrecision,
       max_seq_length: maxSeqLength,
       eval_strategy: evalEnabled ? (evalStrategy || 'steps') : 'no',
@@ -907,10 +717,7 @@ export default function FineTune() {
     if (config.adapter_alpha != null) setAdapterAlpha(Number(config.adapter_alpha))
     if (config.adapter_dropout != null) setAdapterDropout(Number(config.adapter_dropout))
     if (config.target_modules != null) {
-      const modules = Array.isArray(config.target_modules)
-        ? config.target_modules.join(', ')
-        : String(config.target_modules)
-      setTargetModules(modules)
+      setTargetModules(Array.isArray(config.target_modules) ? config.target_modules.join(', ') : String(config.target_modules))
     }
     if (config.dataset_source != null) setDatasetSource(config.dataset_source)
     if (config.dataset_split != null) setDatasetSplit(config.dataset_split)
@@ -927,14 +734,14 @@ export default function FineTune() {
     if (config.seed != null) setSeed(Number(config.seed))
     if (config.mixed_precision != null) setMixedPrecision(config.mixed_precision)
 
-    // Handle max_seq_length: top-level field or inside extra_options
+    // max_seq_length is a top-level field or sits inside extra_options.
     if (config.max_seq_length != null) {
       setMaxSeqLength(Number(config.max_seq_length))
     } else if (config.extra_options?.max_seq_length != null) {
       setMaxSeqLength(Number(config.extra_options.max_seq_length))
     }
 
-    // Eval options — detect enabled state from strategy
+    // Eval options: the strategy tells whether evaluation was on.
     const restoreEval = (strategy, steps, split, src, ratio) => {
       if (strategy != null && strategy !== 'no') {
         setEvalEnabled(true)
@@ -948,41 +755,25 @@ export default function FineTune() {
       if (ratio != null) setEvalSplitRatio(Number(ratio))
     }
     restoreEval(config.eval_strategy, config.eval_steps, config.eval_split, config.eval_dataset_source, config.eval_split_ratio)
-    // Also restore from extra_options if present (overrides top-level)
+    // extra_options overrides the top level when it carries them.
     const eo = config.extra_options
     if (eo) restoreEval(eo.eval_strategy, eo.eval_steps, eo.eval_split, eo.eval_dataset_source, eo.eval_split_ratio)
+    if (eo?.save_total_limit != null) setSaveTotalLimit(Number(eo.save_total_limit))
 
-    // Handle save_total_limit from extra_options
-    if (config.extra_options?.save_total_limit != null) {
-      setSaveTotalLimit(Number(config.extra_options.save_total_limit))
-    }
+    // liquid-audio extras; they are also kept out of the free-form list below.
+    if (eo?.voice != null) setLiquidAudioVoice(String(eo.voice))
+    if (eo?.val_dataset != null) setLiquidAudioValDataset(String(eo.val_dataset))
 
-    // Restore liquid-audio specific extras (also filtered out of the
-    // freeform list below).
-    if (config.extra_options?.voice != null) setLiquidAudioVoice(String(config.extra_options.voice))
-    if (config.extra_options?.val_dataset != null) setLiquidAudioValDataset(String(config.extra_options.val_dataset))
-
-    // Convert extra_options object to [{key, value}] entries, filtering out handled keys
     if (config.extra_options && typeof config.extra_options === 'object') {
-      const entries = Object.entries(config.extra_options)
-        .filter(([k]) => !['max_seq_length', 'save_total_limit', 'hf_token', 'eval_strategy', 'eval_steps', 'eval_split', 'eval_dataset_source', 'eval_split_ratio', 'voice', 'val_dataset'].includes(k))
-        .map(([key, value]) => ({ key, value: String(value) }))
-      setExtraOptions(entries)
+      setExtraOptions(Object.entries(config.extra_options)
+        .filter(([k]) => !EXTRA_HANDLED.includes(k))
+        .map(([key, value]) => ({ key, value: String(value) })))
     }
-
-    // Restore reward functions
-    if (Array.isArray(config.reward_functions)) {
-      setRewardFunctions(config.reward_functions)
-    } else {
-      setRewardFunctions([])
-    }
+    setRewardFunctions(Array.isArray(config.reward_functions) ? config.reward_functions : [])
   }
 
   const handleExportConfig = () => {
-    const config = getFormConfig()
-    const json = JSON.stringify(config, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(new Blob([JSON.stringify(getFormConfig(), null, 2)], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url
     a.download = 'finetune-config.json'
@@ -1002,12 +793,11 @@ export default function FineTune() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         try {
-          const config = JSON.parse(ev.target.result)
-          applyFormConfig(config)
-          setShowForm(true)
+          applyFormConfig(JSON.parse(ev.target.result))
+          setSelectedJob(null)
           setError('')
         } catch {
-          setError('Failed to parse config file. Please ensure it is valid JSON.')
+          setError(t('fineTune.badConfig'))
         }
       }
       reader.readAsText(file)
@@ -1015,529 +805,492 @@ export default function FineTune() {
     input.click()
   }
 
-  const handleUseConfig = (job) => {
-    // Prefer the stored config if available, otherwise use the job fields
+  // Put a job's setup back in the form. `fixes` are the changes ticked on a
+  // memory failure: they are applied to this copy and nothing starts until the
+  // person presses Start.
+  const handleUseConfig = (job, fixes) => {
     applyFormConfig(job.config || job)
     setResumeFromCheckpoint('')
-    setShowForm(true)
+    if (fixes?.batch) setBatchSize(1)
+    if (fixes?.checkpointing) setGradCheckpointing(true)
+    setSelectedJob(null)
   }
 
   const handleResumeFromCheckpoint = (checkpoint) => {
     if (!selectedJob) return
-    // Apply the original job's config
     applyFormConfig(selectedJob.config || selectedJob)
     setResumeFromCheckpoint(checkpoint.path)
     setShowAdvanced(true)
-    setShowForm(true)
+    setSelectedJob(null)
   }
 
-  const handleExportCheckpoint = (checkpoint) => {
-    setExportCheckpoint(checkpoint)
-  }
-
-  // Lazy-init the baseline on first render; dirty when the open form diverges.
+  // Baseline for the unsaved-changes guard: lazily taken on first render.
   if (initialConfigRef.current === null) initialConfigRef.current = JSON.stringify(getFormConfig())
   const dirty = JSON.stringify(getFormConfig()) !== initialConfigRef.current
 
+  const checks = useMemo(() => fineTuneChecks({
+    form: {
+      model, datasetSource, datasetFileName: datasetFile?.name || '', backend, batchSize, maxSeqLength, gradAccum,
+      gradCheckpointing, trainingType, trainingMethod, rewardCount: rewardFunctions.length,
+      resumeFrom: resumeFromCheckpoint, hfToken: hfToken.trim(),
+    },
+    facts,
+    backends: { fineTune: backends },
+  }), [model, datasetSource, datasetFile, backend, batchSize, maxSeqLength, gradAccum, gradCheckpointing, trainingType, trainingMethod, rewardFunctions.length, resumeFromCheckpoint, hfToken, facts, backends])
+  const stop = blocked(checks)
+  const warnings = warned(checks)
+  const firstMissing = checks.find(c => c.tone === 'fail')
+
+  const steps = [
+    { key: 'setup', label: t('steps.setup') },
+    { key: 'check', label: t('steps.check') },
+    { key: 'run', label: t('steps.run') },
+    { key: 'result', label: t('steps.result') },
+  ]
+  let current = stop ? 0 : 1
+  let failed = false
+  if (selectedJob) {
+    if (selectedJob.status === 'failed') { current = 2; failed = true } else if (TERMINAL.includes(selectedJob.status)) current = 3
+    else current = 2
+  }
+
+  const kindWords = trainingType === 'full' ? t('form.summaryFull') : t(`form.summary_${trainingType}`)
+  const modelShort = model.split('/').pop() || model
+
   return (
-    <div className="page page--wide">
-      <UnsavedChangesGuard when={dirty && showForm && !loading} />
+    <div className="page page--medium bt-page" data-testid="fine-tune-page">
+      <UnsavedChangesGuard when={dirty && !selectedJob && !loading} />
       <PageHeader
-        title={<>Fine-tuning <span className="badge badge-warning ft-actions">Experimental</span></>}
-        supporting="Create and manage fine-tuning jobs"
-        actions={
-          <div>
-            <button className="btn btn-secondary" onClick={handleImportConfig}>
-              <Icon name="import" /> Import config
-            </button>
-            <button className="btn btn-secondary" onClick={() => setShowForm(!showForm)}>
-              <Icon name={showForm ? 'close' : 'plus'} />
-              {showForm ? 'Cancel' : 'New job'}
+        title={<>{t('fineTune.title')} <span className="dk-badge dk-badge--warn bt-experimental">{t('landing.experimental')}</span></>}
+        supporting={t('fineTune.lede')}
+        actions={(
+          <div className="bt-head-acts">
+            {selectedJob && (
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setSelectedJob(null)} data-testid="job-back">
+                <Icon name="plus" /> {t('fineTune.newJob')}
+              </button>
+            )}
+            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={handleImportConfig}>
+              <Icon name="upload" /> {t('fineTune.importConfig')}
             </button>
           </div>
-        }
+        )}
       />
+      <ToolSteps steps={steps} current={current} failed={failed} label={t('steps.label')} />
 
       {error && (
-        <div className="attention-callout attention-callout--error" role="alert">
-          <span><Icon name="warning" /> {error}</span>
+        <div className="bt-alert" role="alert" data-testid="tool-error">
+          <Icon name="warning" />
+          <div><p className="bt-alert__text">{error}</p></div>
         </div>
       )}
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="card ft-form">
-
+      {selectedJob ? (
+        <>
+          <JobView
+            job={selectedJob}
+            onStop={handleStop}
+            onReuse={handleUseConfig}
+            onResume={handleResumeFromCheckpoint}
+            onTerminal={loadJobs}
+            exportCheckpoint={setExportCheckpoint}
+          />
+          <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} />
+        </>
+      ) : (
+        <form onSubmit={handleSubmit} className="bt-form-page" data-testid="fine-tune-form">
           {resumeFromCheckpoint && (
-            <div className="ft-banner">
-              <Icon name="refresh" className="ft-banner__icon" />
-              <span>Resuming from checkpoint: <code>{resumeFromCheckpoint}</code></span>
-              <button type="button" className="btn btn-sm ft-banner__spacer" onClick={() => setResumeFromCheckpoint('')}>
-                <Icon name="close" /> Clear
-              </button>
+            <div className="bt-banner" role="status">
+              <Icon name="refresh" />
+              <span>{t('fineTune.resuming')} <code className="dk-mono">{resumeFromCheckpoint}</code></span>
+              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setResumeFromCheckpoint('')}><Icon name="close" /> {t('fineTune.clear')}</button>
             </div>
           )}
 
-          <FormSection icon="server" title="Model and backend">
-            <div className="ft-grid-model">
-              <div>
-                <label className="form-label" htmlFor="ft-backend">Backend</label>
-                <select id="ft-backend" value={backend} onChange={e => setBackend(e.target.value)} className="input">
-                  {backends.length === 0 ? (
-                    <option value="" disabled>No backends available</option>
-                  ) : (
-                    backends.map(b => <option key={b} value={b}>{b}</option>)
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-method">Training method</label>
-                <select id="ft-method" value={trainingMethod} onChange={e => setTrainingMethod(e.target.value)} className="input">
-                  {TRAINING_METHODS.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-model">Model</label>
-                <input id="ft-model" type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. TinyLlama/TinyLlama-1.1B-Chat-v1.0" className="input" required />
-                <p className="form-hint">A HuggingFace ID or a local path.</p>
-              </div>
+          <Section done={!!model.trim()} title={t('form.baseModel')}>
+            <Field id="ft-model" label={t('form.model')} hint={t('form.modelHint')}>
+              <input id="ft-model" type="text" className="dk-input dk-input--mono" value={model} onChange={e => setModel(e.target.value)} placeholder="TinyLlama/TinyLlama-1.1B-Chat-v1.0" required />
+            </Field>
+          </Section>
+
+          <Section done={!!(datasetSource.trim() || datasetFile)} title={t('form.data')}>
+            <div className="bt-pair bt-pair--wide">
+              <Field id="ft-dataset" label={t('form.dataset')} hint={t('form.datasetHint')}>
+                <input id="ft-dataset" type="text" className="dk-input dk-input--mono" value={datasetSource} onChange={e => setDatasetSource(e.target.value)} placeholder="tatsu-lab/alpaca" />
+              </Field>
+              <Field id="ft-split" label={t('form.split')}>
+                <input id="ft-split" type="text" className="dk-input dk-input--mono" value={datasetSplit} onChange={e => setDatasetSplit(e.target.value)} placeholder="train" />
+              </Field>
             </div>
-            <div>
-              <label className="form-label" htmlFor="ft-hf-token">HuggingFace token</label>
-              <input id="ft-hf-token" type="password" value={hfToken} onChange={e => setHfToken(e.target.value)} placeholder="hf_..." className="input" />
-              <p className="form-hint">Only needed for gated models.</p>
-            </div>
-          </FormSection>
-
-          <FormSection icon="layers" title="Training type and adapter">
-            <div className="ft-grid-auto">
-              <div>
-                <label className="form-label" htmlFor="ft-type">Training type</label>
-                <select id="ft-type" value={trainingType} onChange={e => setTrainingType(e.target.value)} className="input">
-                  {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              {isAdapter && (
-                <>
-                  <div>
-                    <label className="form-label" htmlFor="ft-rank">Rank</label>
-                    <input id="ft-rank" type="number" value={adapterRank} onChange={e => setAdapterRank(Number(e.target.value))} className="input" min={1} />
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-alpha">Alpha</label>
-                    <input id="ft-alpha" type="number" value={adapterAlpha} onChange={e => setAdapterAlpha(Number(e.target.value))} className="input" min={1} />
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-dropout">Dropout</label>
-                    <input id="ft-dropout" type="number" value={adapterDropout} onChange={e => setAdapterDropout(Number(e.target.value))} className="input" min={0} max={1} step={0.05} />
-                  </div>
-                </>
-              )}
-            </div>
-            {isAdapter && (
-              <div>
-                <label className="form-label" htmlFor="ft-target-modules">Target modules</label>
-                <input id="ft-target-modules" type="text" value={targetModules} onChange={e => setTargetModules(e.target.value)} placeholder="e.g. q_proj, v_proj, k_proj, o_proj" className="input" />
-                <p className="form-hint">Comma-separated. Leave blank for the backend default.</p>
-              </div>
-            )}
-          </FormSection>
-
-          <FormSection icon="database" title="Dataset">
-            <div className="ft-grid-dataset">
-              <div>
-                <label className="form-label" htmlFor="ft-dataset">Source</label>
-                <input id="ft-dataset" type="text" value={datasetSource} onChange={e => setDatasetSource(e.target.value)} placeholder="e.g. tatsu-lab/alpaca" className="input" />
-                <p className="form-hint">A HuggingFace ID, or leave blank and upload a file.</p>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-split">Split</label>
-                <input id="ft-split" type="text" value={datasetSplit} onChange={e => setDatasetSplit(e.target.value)} placeholder="e.g. train" className="input" />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-dataset-file">Upload file</label>
-                <input id="ft-dataset-file" type="file" onChange={e => setDatasetFile(e.target.files[0])} accept=".json,.jsonl,.csv" className="input input--file" />
-              </div>
-            </div>
-          </FormSection>
-
-          {trainingMethod === 'grpo' && (
-            <FormSection icon="trophy" title="Reward functions (GRPO)">
-              <p className="ft-hint">
-                GRPO requires at least one reward function. Select built-in functions or add custom ones.
-              </p>
-
-              <div className="ft-rewards">
-                {BUILTIN_REWARDS.map(builtin => {
-                  const isSelected = rewardFunctions.some(rf => rf.type === 'builtin' && rf.name === builtin.name)
-                  const selectedRf = rewardFunctions.find(rf => rf.type === 'builtin' && rf.name === builtin.name)
-                  return (
-                    <div key={builtin.name} className={`ft-reward${isSelected ? ' ft-reward--on' : ''}`}>
-                      <label className="ft-reward__label">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setRewardFunctions(prev => [...prev, { type: 'builtin', name: builtin.name }])
-                            } else {
-                              setRewardFunctions(prev => prev.filter(rf => !(rf.type === 'builtin' && rf.name === builtin.name)))
-                            }
-                          }}
-                        />
-                        <span>
-                          <span className="ft-reward__name">{builtin.name}</span>
-                          <span className="ft-reward__desc">{builtin.description}</span>
-                        </span>
-                      </label>
-                      {isSelected && builtin.params.length > 0 && (
-                        <div className="ft-reward__params">
-                          {builtin.params.map(param => (
-                            <div key={param.key} className="ft-reward__param">
-                              <label className="ft-reward__param-label" htmlFor={`ft-reward-${builtin.name}-${param.key}`}>
-                                {param.label}
-                              </label>
-                              <input
-                                id={`ft-reward-${builtin.name}-${param.key}`}
-                                type="text"
-                                className="input"
-                                value={selectedRf?.params?.[param.key] || param.default}
-                                onChange={e => {
-                                  setRewardFunctions(prev => prev.map(rf =>
-                                    rf.type === 'builtin' && rf.name === builtin.name
-                                      ? { ...rf, params: { ...(rf.params || {}), [param.key]: e.target.value } }
-                                      : rf
-                                  ))
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {rewardFunctions.filter(rf => rf.type === 'inline').map((rf, idx) => (
-                <div key={`inline-${idx}`} className="ft-reward ft-reward--on">
-                  <div className="ft-job__head">
-                    <span className="ft-reward__name">
-                      <Icon name="code" /> {rf.name}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      aria-label={`Remove ${rf.name}`}
-                      onClick={() => setRewardFunctions(prev => prev.filter((_, i) => i !== rewardFunctions.indexOf(rf)))}
-                    >
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                  <pre className="ft-reward__code">{rf.code}</pre>
-                </div>
-              ))}
-
-              {showAddCustomReward ? (
-                <div className="ft-reward-draft">
-                  <div>
-                    <label className="form-label" htmlFor="ft-reward-name">Function name</label>
-                    <input id="ft-reward-name" type="text" className="input" value={customRewardName} onChange={e => setCustomRewardName(e.target.value)} placeholder="e.g. my_custom_reward" />
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-reward-code">Function body</label>
-                    <textarea
-                      id="ft-reward-code"
-                      className="textarea"
-                      value={customRewardCode}
-                      onChange={e => setCustomRewardCode(e.target.value)}
-                      placeholder={"return [1.0 if '<think>' in c else 0.0 for c in completions]"}
-                      rows={4}
-                    />
-                    <p className="form-hint">
-                      Receives <code>completions, **kwargs</code> and must return <code>list[float]</code>.
-                      Available: re, math, json, string.
-                    </p>
-                  </div>
-                  <div className="ft-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={!customRewardName.trim() || !customRewardCode.trim()}
-                      onClick={() => {
-                        setRewardFunctions(prev => [...prev, {
-                          type: 'inline',
-                          name: customRewardName.trim(),
-                          code: customRewardCode,
-                        }])
-                        setCustomRewardName('')
-                        setCustomRewardCode('')
-                        setShowAddCustomReward(false)
-                      }}
-                    >
-                      <Icon name="plus" /> Add
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm"
-                      onClick={() => { setShowAddCustomReward(false); setCustomRewardName(''); setCustomRewardCode('') }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+            <div className="bt-upload">
+              <input id="ft-dataset-file" className="bt-upload__input" type="file" onChange={e => setDatasetFile(e.target.files[0] || null)} accept=".json,.jsonl,.csv" />
+              <label className="dk-btn dk-btn--secondary dk-btn--sm" htmlFor="ft-dataset-file"><Icon name="upload" /> {t('form.upload')}</label>
+              {datasetFile ? (
+                <span className="dk-chip dk-chip--sm">
+                  <span className="dk-mono">{datasetFile.name}</span>
+                  <button type="button" className="dk-chip-x" aria-label={t('form.removeFile')} onClick={() => setDatasetFile(null)}><Icon name="close" /></button>
+                </span>
               ) : (
-                <button type="button" className="btn btn-sm" onClick={() => setShowAddCustomReward(true)}>
-                  <Icon name="plus" /> Add custom reward function
-                </button>
+                <span className="dk-hint">{t('form.uploadHint')}</span>
               )}
-            </FormSection>
-          )}
+            </div>
+          </Section>
 
-          <FormSection icon="sliders" title="Hyperparameters">
-            <div className="ft-grid-auto-sm">
-              <div>
-                <label className="form-label" htmlFor="ft-epochs">Epochs</label>
-                <input id="ft-epochs" type="number" value={numEpochs} onChange={e => setNumEpochs(Number(e.target.value))} className="input" min={1} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-batch">Batch size</label>
-                <input id="ft-batch" type="number" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} className="input" min={1} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-lr">Learning rate</label>
+          <Section done title={t('form.train')}>
+            <fieldset className="bt-choices">
+              <legend className="dk-label">{t('form.kind')}</legend>
+              {[['adapter', isAdapter], ['full', trainingType === 'full']].map(([id, on]) => (
+                <label key={id} className="bt-choice" data-checked={on ? 'true' : 'false'}>
+                  <input
+                    type="radio" className="dk-radio" name="ft-kind" checked={on}
+                    onChange={() => setTrainingType(id === 'full' ? 'full' : (ADAPTER_KINDS.includes(trainingType) ? trainingType : 'lora'))}
+                  />
+                  <span><b>{t(`form.kinds.${id}.title`)}</b><span className="bt-choice__text">{t(`form.kinds.${id}.text`)}</span></span>
+                </label>
+              ))}
+            </fieldset>
+            <div className="bt-triple">
+              <Field id="ft-epochs" label={t('form.epochs')}>
+                <input id="ft-epochs" type="number" className="dk-input" value={numEpochs} onChange={e => setNumEpochs(Number(e.target.value))} min={1} />
+              </Field>
+              <Field id="ft-batch" label={t('form.batch')}>
+                <input id="ft-batch" type="number" className="dk-input" value={batchSize} onChange={e => setBatchSize(Number(e.target.value))} min={1} />
+              </Field>
+              <Field id="ft-lr" label={t('form.lr')}>
                 <input
-                  id="ft-lr"
-                  type="text"
-                  value={learningRateText}
+                  id="ft-lr" type="text" className="dk-input dk-input--mono" value={learningRateText}
                   onChange={e => {
                     setLearningRateText(e.target.value)
                     const parsed = Number(e.target.value)
                     if (!isNaN(parsed) && parsed > 0) setLearningRate(parsed)
                   }}
-                  className="input"
-                  placeholder="e.g. 5e-5 or 0.00005"
+                  placeholder="5e-5"
                 />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-grad-accum">Grad accum steps</label>
-                <input id="ft-grad-accum" type="number" value={gradAccum} onChange={e => setGradAccum(Number(e.target.value))} className="input" min={1} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-warmup">Warmup steps</label>
-                <input id="ft-warmup" type="number" value={warmupSteps} onChange={e => setWarmupSteps(Number(e.target.value))} className="input" min={0} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-seq-len">Max seq length</label>
-                <input id="ft-seq-len" type="number" value={maxSeqLength} onChange={e => setMaxSeqLength(Number(e.target.value))} className="input" min={64} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="ft-optimizer">Optimizer</label>
-                <select id="ft-optimizer" value={optimizer} onChange={e => setOptimizer(e.target.value)} className="input">
-                  {OPTIMIZERS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-              <label className="ft-checkbox">
-                <input type="checkbox" checked={gradCheckpointing} onChange={e => setGradCheckpointing(e.target.checked)} />
-                Grad checkpointing
-              </label>
+              </Field>
             </div>
-          </FormSection>
 
-          <section className="form-group">
-            <button
-              type="button"
-              className="ft-disclosure"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              aria-expanded={showAdvanced}
-            >
-              <Icon name={`chevron-${showAdvanced ? 'down' : 'right'}`} className="ft-disclosure__chevron" />
-              <Icon name="settings" className="ft-disclosure__icon" />
-              Advanced options
-            </button>
+            <div className="bt-more">
+              <button type="button" className="bt-more__toggle" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced} aria-controls="ft-more" data-testid="ft-more-toggle">
+                <Icon name={showAdvanced ? 'chevron-down' : 'chevron-right'} />
+                <b>{t('form.more')}</b>
+                {!showAdvanced && <span className="dk-hint">{t('form.moreHint')}</span>}
+              </button>
+              {showAdvanced && (
+                <div className="bt-more__body" id="ft-more">
+                  <div className="bt-grid">
+                    <Field id="ft-backend" label={t('form.backend')}>
+                      <Select id="ft-backend" value={backend} onChange={e => setBackend(e.target.value)}>
+                        {backendNames.map(b => <option key={b} value={b}>{b}</option>)}
+                      </Select>
+                    </Field>
+                    <Field id="ft-method" label={t('form.method')}>
+                      <Select id="ft-method" value={trainingMethod} onChange={e => setTrainingMethod(e.target.value)}>
+                        {TRAINING_METHODS.map(m => <option key={m} value={m}>{m.toUpperCase()}</option>)}
+                      </Select>
+                    </Field>
+                    {isAdapter && (
+                      <Field id="ft-type" label={t('form.adapterKind')}>
+                        <Select id="ft-type" value={trainingType} onChange={e => setTrainingType(e.target.value)}>
+                          {ADAPTER_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+                        </Select>
+                      </Field>
+                    )}
+                    {isAdapter && (
+                      <>
+                        <Field id="ft-rank" label={t('form.rank')}>
+                          <input id="ft-rank" type="number" className="dk-input" value={adapterRank} onChange={e => setAdapterRank(Number(e.target.value))} min={1} />
+                        </Field>
+                        <Field id="ft-alpha" label={t('form.alpha')}>
+                          <input id="ft-alpha" type="number" className="dk-input" value={adapterAlpha} onChange={e => setAdapterAlpha(Number(e.target.value))} min={1} />
+                        </Field>
+                        <Field id="ft-dropout" label={t('form.dropout')}>
+                          <input id="ft-dropout" type="number" className="dk-input" value={adapterDropout} onChange={e => setAdapterDropout(Number(e.target.value))} min={0} max={1} step={0.05} />
+                        </Field>
+                      </>
+                    )}
+                    <Field id="ft-grad-accum" label={t('form.gradAccum')}>
+                      <input id="ft-grad-accum" type="number" className="dk-input" value={gradAccum} onChange={e => setGradAccum(Number(e.target.value))} min={1} />
+                    </Field>
+                    <Field id="ft-warmup" label={t('form.warmup')}>
+                      <input id="ft-warmup" type="number" className="dk-input" value={warmupSteps} onChange={e => setWarmupSteps(Number(e.target.value))} min={0} />
+                    </Field>
+                    <Field id="ft-seq-len" label={t('form.seqLen')}>
+                      <input id="ft-seq-len" type="number" className="dk-input" value={maxSeqLength} onChange={e => setMaxSeqLength(Number(e.target.value))} min={64} />
+                    </Field>
+                    <Field id="ft-optimizer" label={t('form.optimizer')}>
+                      <Select id="ft-optimizer" value={optimizer} onChange={e => setOptimizer(e.target.value)}>
+                        {OPTIMIZERS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </Select>
+                    </Field>
+                    <Field id="ft-max-steps" label={t('form.maxSteps')} hint={t('form.maxStepsHint')}>
+                      <input id="ft-max-steps" type="number" className="dk-input" value={maxSteps} onChange={e => setMaxSteps(Number(e.target.value))} min={0} />
+                    </Field>
+                    <Field id="ft-save-steps" label={t('form.saveSteps')}>
+                      <input id="ft-save-steps" type="number" className="dk-input" value={saveSteps} onChange={e => setSaveSteps(Number(e.target.value))} min={0} />
+                    </Field>
+                    <Field id="ft-save-limit" label={t('form.saveLimit')} hint={t('form.saveLimitHint')}>
+                      <input id="ft-save-limit" type="number" className="dk-input" value={saveTotalLimit} onChange={e => setSaveTotalLimit(Number(e.target.value))} min={0} />
+                    </Field>
+                    <Field id="ft-weight-decay" label={t('form.weightDecay')}>
+                      <input id="ft-weight-decay" type="number" className="dk-input" value={weightDecay} onChange={e => setWeightDecay(Number(e.target.value))} min={0} step={0.01} />
+                    </Field>
+                    <Field id="ft-seed" label={t('form.seed')} hint={t('form.seedHint')}>
+                      <input id="ft-seed" type="number" className="dk-input" value={seed} onChange={e => setSeed(Number(e.target.value))} min={0} />
+                    </Field>
+                    <Field id="ft-precision" label={t('form.precision')}>
+                      <Select id="ft-precision" value={mixedPrecision} onChange={e => setMixedPrecision(e.target.value)}>
+                        {MIXED_PRECISION_OPTS.map(o => <option key={o} value={o}>{o || t('form.auto')}</option>)}
+                      </Select>
+                    </Field>
+                  </div>
+                  {isAdapter && (
+                    <Field id="ft-target-modules" label={t('form.targetModules')} hint={t('form.targetModulesHint')}>
+                      <input id="ft-target-modules" type="text" className="dk-input dk-input--mono" value={targetModules} onChange={e => setTargetModules(e.target.value)} placeholder="q_proj, v_proj, k_proj, o_proj" />
+                    </Field>
+                  )}
+                  <label className="dk-choice"><input className="dk-check" type="checkbox" checked={gradCheckpointing} onChange={e => setGradCheckpointing(e.target.checked)} /> {t('form.gradCheckpointing')}</label>
+                  <Field id="ft-hf-token" label={t('form.token')} hint={t('form.tokenHint')}>
+                    <input id="ft-hf-token" type="password" className="dk-input dk-input--mono" value={hfToken} onChange={e => setHfToken(e.target.value)} placeholder="hf_..." autoComplete="off" />
+                  </Field>
 
-            {showAdvanced && (
-              <div className="ft-advanced">
-                <div className="ft-grid-auto">
-                  <div>
-                    <label className="form-label" htmlFor="ft-max-steps">Max steps</label>
-                    <input id="ft-max-steps" type="number" value={maxSteps} onChange={e => setMaxSteps(Number(e.target.value))} className="input" min={0} />
-                    <p className="form-hint">0 for automatic.</p>
+                  <div className="bt-eval">
+                    <div className="bt-switchrow">
+                      <button type="button" className="dk-switch" role="switch" aria-checked={evalEnabled} aria-label={t('form.evalEnable')} onClick={() => setEvalEnabled(!evalEnabled)} />
+                      <span>{t('form.evalEnable')}</span>
+                    </div>
+                    {evalEnabled && (
+                      <div className="bt-grid">
+                        <Field id="ft-eval-strategy" label={t('form.evalStrategy')}>
+                          <Select id="ft-eval-strategy" value={evalStrategy} onChange={e => setEvalStrategy(e.target.value)}>
+                            <option value="steps">{t('form.evalSteps_')}</option>
+                            <option value="epoch">{t('form.evalEpoch')}</option>
+                          </Select>
+                        </Field>
+                        <Field id="ft-eval-steps" label={t('form.evalSteps')} hint={t('form.evalStepsHint')}>
+                          <input id="ft-eval-steps" type="number" className="dk-input" value={evalSteps} onChange={e => setEvalSteps(Number(e.target.value))} min={0} />
+                        </Field>
+                        <Field id="ft-eval-split" label={t('form.evalSplit')}>
+                          <input id="ft-eval-split" type="text" className="dk-input" value={evalSplit} onChange={e => setEvalSplit(e.target.value)} placeholder="validation" />
+                        </Field>
+                        <Field id="ft-eval-dataset" label={t('form.evalDataset')}>
+                          <input id="ft-eval-dataset" type="text" className="dk-input" value={evalDatasetSource} onChange={e => setEvalDatasetSource(e.target.value)} placeholder={t('form.evalDatasetPlaceholder')} />
+                        </Field>
+                        <Field id="ft-eval-ratio" label={t('form.evalRatio')}>
+                          <input id="ft-eval-ratio" type="number" className="dk-input" value={evalSplitRatio} onChange={e => setEvalSplitRatio(Number(e.target.value))} min={0.01} max={0.5} step={0.01} />
+                        </Field>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-save-steps">Save steps</label>
-                    <input id="ft-save-steps" type="number" value={saveSteps} onChange={e => setSaveSteps(Number(e.target.value))} className="input" min={0} />
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-save-limit">Save total limit</label>
-                    <input id="ft-save-limit" type="number" value={saveTotalLimit} onChange={e => setSaveTotalLimit(Number(e.target.value))} className="input" min={0} />
-                    <p className="form-hint">0 keeps every checkpoint.</p>
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-weight-decay">Weight decay</label>
-                    <input id="ft-weight-decay" type="number" value={weightDecay} onChange={e => setWeightDecay(Number(e.target.value))} className="input" min={0} step={0.01} />
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-seed">Seed</label>
-                    <input id="ft-seed" type="number" value={seed} onChange={e => setSeed(Number(e.target.value))} className="input" min={0} />
-                    <p className="form-hint">0 picks a random seed.</p>
-                  </div>
-                  <div>
-                    <label className="form-label" htmlFor="ft-precision">Mixed precision</label>
-                    <select id="ft-precision" value={mixedPrecision} onChange={e => setMixedPrecision(e.target.value)} className="input">
-                      {MIXED_PRECISION_OPTS.map(o => <option key={o} value={o}>{o || 'Auto'}</option>)}
-                    </select>
-                  </div>
-                </div>
 
-                <div>
-                  <div className="ft-toggle-row">
-                    <Toggle checked={evalEnabled} onChange={setEvalEnabled} />
-                    <span>Enable evaluation</span>
-                  </div>
-                  {evalEnabled && (
-                    <div className="ft-grid-auto">
-                      <div>
-                        <label className="form-label" htmlFor="ft-eval-strategy">Eval strategy</label>
-                        <select id="ft-eval-strategy" value={evalStrategy} onChange={e => setEvalStrategy(e.target.value)} className="input">
-                          <option value="steps">Steps</option>
-                          <option value="epoch">Epoch</option>
-                        </select>
+                  {trainingMethod === 'grpo' && (
+                    <div className="bt-rewards" data-testid="ft-rewards">
+                      <h3 className="bt-h3">{t('form.rewards')}</h3>
+                      <p className="dk-hint">{t('form.rewardsHint')}</p>
+                      {BUILTIN_REWARDS.map(builtin => {
+                        const selected = rewardFunctions.find(rf => rf.type === 'builtin' && rf.name === builtin.name)
+                        return (
+                          <div key={builtin.name} className="bt-reward" data-on={selected ? 'true' : 'false'}>
+                            <label className="dk-choice">
+                              <input
+                                className="dk-check" type="checkbox" checked={!!selected}
+                                onChange={e => {
+                                  if (e.target.checked) setRewardFunctions(prev => [...prev, { type: 'builtin', name: builtin.name }])
+                                  else setRewardFunctions(prev => prev.filter(rf => !(rf.type === 'builtin' && rf.name === builtin.name)))
+                                }}
+                              />
+                              <span><span className="bt-reward__name dk-mono">{builtin.name}</span><span className="bt-choice__text">{t(`rewards.${builtin.name}`)}</span></span>
+                            </label>
+                            {selected && builtin.params.map(param => (
+                              <Field key={param.key} id={`ft-reward-${builtin.name}-${param.key}`} label={t(`rewards.param_${param.key}`)}>
+                                <input
+                                  id={`ft-reward-${builtin.name}-${param.key}`} type="text" className="dk-input"
+                                  value={selected.params?.[param.key] || param.default}
+                                  onChange={e => setRewardFunctions(prev => prev.map(rf => (rf.type === 'builtin' && rf.name === builtin.name ? { ...rf, params: { ...(rf.params || {}), [param.key]: e.target.value } } : rf)))}
+                                />
+                              </Field>
+                            ))}
+                          </div>
+                        )
+                      })}
+                      {rewardFunctions.filter(rf => rf.type === 'inline').map((rf, idx) => (
+                        <div key={`inline-${idx}`} className="bt-reward" data-on="true">
+                          <div className="bt-reward__head">
+                            <span className="bt-reward__name dk-mono"><Icon name="code" /> {rf.name}</span>
+                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={`Remove ${rf.name}`} onClick={() => setRewardFunctions(prev => prev.filter(x => x !== rf))}><Icon name="close" /></button>
+                          </div>
+                          <pre className="bt-code">{rf.code}</pre>
+                        </div>
+                      ))}
+                      {showAddCustomReward ? (
+                        <div className="bt-reward-draft">
+                          <Field id="ft-reward-name" label={t('rewards.fnName')}>
+                            <input id="ft-reward-name" type="text" className="dk-input dk-input--mono" value={customRewardName} onChange={e => setCustomRewardName(e.target.value)} placeholder="my_custom_reward" />
+                          </Field>
+                          <Field id="ft-reward-code" label={t('rewards.fnBody')} hint={t('rewards.fnHint')}>
+                            <textarea id="ft-reward-code" className="dk-textarea dk-input--mono" value={customRewardCode} onChange={e => setCustomRewardCode(e.target.value)} placeholder={"return [1.0 if '<think>' in c else 0.0 for c in completions]"} rows={4} />
+                          </Field>
+                          <div className="bt-actions">
+                            <button
+                              type="button" className="dk-btn dk-btn--primary dk-btn--sm"
+                              disabled={!customRewardName.trim() || !customRewardCode.trim()}
+                              onClick={() => {
+                                setRewardFunctions(prev => [...prev, { type: 'inline', name: customRewardName.trim(), code: customRewardCode }])
+                                setCustomRewardName(''); setCustomRewardCode(''); setShowAddCustomReward(false)
+                              }}
+                            ><Icon name="plus" /> {t('rewards.add')}</button>
+                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => { setShowAddCustomReward(false); setCustomRewardName(''); setCustomRewardCode('') }}>{t('rewards.cancel')}</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setShowAddCustomReward(true)}><Icon name="plus" /> {t('rewards.custom')}</button>
+                      )}
+                    </div>
+                  )}
+
+                  {resumeFromCheckpoint && (
+                    <Field id="ft-resume" label={t('form.resume')}>
+                      <div className="bt-kv__row">
+                        <input id="ft-resume" type="text" className="dk-input dk-input--mono" value={resumeFromCheckpoint} onChange={e => setResumeFromCheckpoint(e.target.value)} />
+                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => setResumeFromCheckpoint('')} aria-label={t('form.clearCheckpoint')}><Icon name="close" /></button>
                       </div>
-                      <div>
-                        <label className="form-label" htmlFor="ft-eval-steps">Eval steps</label>
-                        <input id="ft-eval-steps" type="number" value={evalSteps} onChange={e => setEvalSteps(Number(e.target.value))} className="input" min={0} />
-                        <p className="form-hint">0 matches save steps.</p>
-                      </div>
-                      <div>
-                        <label className="form-label" htmlFor="ft-eval-split">Eval split</label>
-                        <input id="ft-eval-split" type="text" value={evalSplit} onChange={e => setEvalSplit(e.target.value)} placeholder="e.g. validation" className="input" />
-                      </div>
-                      <div>
-                        <label className="form-label" htmlFor="ft-eval-dataset">Eval dataset source</label>
-                        <input id="ft-eval-dataset" type="text" value={evalDatasetSource} onChange={e => setEvalDatasetSource(e.target.value)} placeholder="Separate HF dataset" className="input" />
-                      </div>
-                      <div>
-                        <label className="form-label" htmlFor="ft-eval-ratio">Auto-split ratio</label>
-                        <input id="ft-eval-ratio" type="number" value={evalSplitRatio} onChange={e => setEvalSplitRatio(Number(e.target.value))} className="input" min={0.01} max={0.5} step={0.01} />
+                    </Field>
+                  )}
+
+                  {backend === 'liquid-audio' && (
+                    <div className="bt-liquid">
+                      <h3 className="bt-h3">Liquid Audio</h3>
+                      <p className="dk-hint">{t('form.liquidHint')}</p>
+                      <div className="bt-pair">
+                        <Field id="ft-la-voice" label={t('form.liquidVoice')}>
+                          <Select id="ft-la-voice" value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)}>
+                            <option value="">{t('form.liquidInherit')}</option>
+                            {['us_male', 'us_female', 'uk_male', 'uk_female'].map(v => <option key={v} value={v}>{v}</option>)}
+                          </Select>
+                        </Field>
+                        <Field id="ft-la-val" label={t('form.liquidVal')}>
+                          <input id="ft-la-val" type="text" className="dk-input dk-input--mono" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="/data/jenny_tts/val" />
+                        </Field>
                       </div>
                     </div>
                   )}
-                </div>
 
-                {resumeFromCheckpoint && (
                   <div>
-                    <label className="form-label" htmlFor="ft-resume">Resume from checkpoint</label>
-                    <div className="ft-kv__row">
-                      <input id="ft-resume" type="text" value={resumeFromCheckpoint} onChange={e => setResumeFromCheckpoint(e.target.value)} className="input ft-kv__key" />
-                      <button type="button" className="btn btn-sm" onClick={() => setResumeFromCheckpoint('')} aria-label="Clear checkpoint">
-                        <Icon name="close" />
-                      </button>
-                    </div>
+                    <p className="dk-label">{t('form.extra')}</p>
+                    <p className="dk-hint">{t('form.extraHint')}</p>
+                    <KeyValueEditor entries={extraOptions} onChange={setExtraOptions} />
                   </div>
-                )}
-
-                {backend === 'liquid-audio' && (
-                  <div>
-                    <SectionHeading>Liquid Audio</SectionHeading>
-                    <p className="ft-hint">
-                      Dataset must be preprocessed by <code>LFM2AudioChatMapper</code> (a directory of
-                      LFM2DataLoader-ready arrow files). See <code>liquid_audio/examples/preprocess_jenny_tts.py</code>
-                      {' '}for the conversion recipe.
-                    </p>
-                    <div className="ft-grid-liquid">
-                      <div>
-                        <label className="form-label" htmlFor="ft-la-voice">TTS voice</label>
-                        <select id="ft-la-voice" value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)} className="input">
-                          <option value="">Inherit from system prompt</option>
-                          <option value="us_male">us_male</option>
-                          <option value="us_female">us_female</option>
-                          <option value="uk_male">uk_male</option>
-                          <option value="uk_female">uk_female</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="form-label" htmlFor="ft-la-val">Validation dataset</label>
-                        <input id="ft-la-val" type="text" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="e.g. /data/jenny_tts/val" className="input" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="form-label">Extra options</label>
-                  <p className="form-hint">Backend-specific key/value pairs.</p>
-                  <KeyValueEditor entries={extraOptions} onChange={setExtraOptions} />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          </Section>
+
+          <p className="bt-recipe" data-testid="ft-recipe">
+            {model.trim() && (datasetSource.trim() || datasetFile)
+              ? t('form.recipe', { kind: kindWords, model: modelShort, method: trainingMethod.toUpperCase(), epochs: numEpochs, data: datasetFile?.name || datasetSource })
+              : t('form.recipeEmpty')}
+          </p>
+
+          <section className="bt-block" aria-labelledby="bt-check-title">
+            <header className="bt-block__head">
+              <h2 className="bt-h2" id="bt-check-title">{t('checks.heading')}</h2>
+              <p className="dk-hint">{t('checks.live')}</p>
+            </header>
+            <div className="dk-card bt-checks-card">
+              <Checks checks={checks} isAdmin={isAdmin} label={t('checks.heading')} />
+            </div>
           </section>
 
-          <div className="ft-actions">
-            <button type="submit" className="btn btn-primary" disabled={loading || (!datasetSource && !datasetFile)}>
-              {loading
-                ? <><LoadingSpinner size="sm" /> Starting...</>
-                : resumeFromCheckpoint
-                  ? <><Icon name="refresh" /> Resume training</>
-                  : <><Icon name="play" /> Start fine-tuning</>}
-            </button>
-            <button type="button" className="btn" onClick={handleExportConfig}>
-              <Icon name="download" /> Export config
-            </button>
+          <div className="bt-bar" data-testid="ft-bar">
+            <p className="bt-bar__text" role="status">
+              {stop
+                ? t(`checks.${firstMissing.key}`)
+                : warnings > 0
+                  ? t('checks.barWarn', { count: warnings })
+                  : t('checks.barOk')}
+              {' '}{t('fineTune.barNote')}
+            </p>
+            <div className="bt-bar__acts">
+              <button type="button" className="dk-btn dk-btn--ghost" onClick={handleExportConfig}><Icon name="download" /> {t('fineTune.exportConfig')}</button>
+              <button type="submit" className="dk-btn dk-btn--primary" disabled={loading || stop} aria-busy={loading || undefined} data-testid="ft-start">
+                {loading
+                  ? <><LoadingSpinner size="sm" /> {t('fineTune.starting')}</>
+                  : resumeFromCheckpoint
+                    ? <><Icon name="refresh" /> {t('fineTune.resume')}</>
+                    : <><Icon name="play" /> {t('fineTune.start')}</>}
+              </button>
+            </div>
           </div>
         </form>
       )}
 
-      {/* Either show job detail OR job list, not side-by-side */}
-      {selectedJob ? (
-        <div className="ft-stack">
-          <div>
-            <button className="btn" onClick={() => setSelectedJob(null)}>
-              <Icon name="arrow-left" /> Back to jobs
-            </button>
+      <section className="bt-jobs" aria-labelledby="bt-jobs-title" data-testid="ft-jobs">
+        <header className="bt-block__head">
+          <h2 className="bt-h2" id="bt-jobs-title">{t('jobs.title')}</h2>
+          {jobs.length > 0 && <p className="dk-hint">{t('jobs.count', { count: jobs.length })}</p>}
+        </header>
+        {jobs.length === 0 ? (
+          <div className="dk-empty bt-empty-card">
+            <div className="dk-empty-icon"><Icon name="graduation-cap" /></div>
+            <h3 className="dk-empty-title">{jobsLoaded ? t('jobs.emptyTitle') : t('jobs.loading')}</h3>
+            {jobsLoaded && <p className="dk-empty-text">{t('jobs.emptyText')}</p>}
           </div>
-          <div className="card">
-            <div className="ft-job__head">
-              <div className="ft-job__title">
-                <strong>{selectedJob.model}</strong>
-                <div className="ft-job__meta">
-                  {selectedJob.backend} / {selectedJob.training_method || 'sft'} | ID: {selectedJob.id?.slice(0, 8)}... | {selectedJob.created_at}
-                </div>
-              </div>
-              <StatusBadge status={selectedJob.status} />
-            </div>
+        ) : (
+          <div className="dk-table-wrap" role="region" aria-labelledby="bt-jobs-title" tabIndex={0}>
+            <table className="dk-table">
+              <caption className="dk-sr-only">{t('jobs.title')}</caption>
+              <thead>
+                <tr>
+                  <th>{t('jobs.model')}</th>
+                  <th className="dk-hide-phone">{t('jobs.kind')}</th>
+                  <th>{t('jobs.status')}</th>
+                  <th className="dk-hide-phone">{t('jobs.started')}</th>
+                  <th><span className="dk-sr-only">{t('jobs.actions')}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map(job => (
+                  <tr key={job.id} data-row data-selected={selectedJob?.id === job.id ? 'true' : undefined} data-error={job.status === 'failed' ? '' : undefined}>
+                    <td>
+                      <button type="button" className="bt-linkcell" onClick={() => setSelectedJob(job)} title={t('jobs.open')}>
+                        <span className="dk-table-name">{job.model}</span>
+                      </button>
+                      <span className="dk-table-sub">{job.backend} · <span className="dk-mono">{job.id?.slice(0, 8)}</span></span>
+                      {job.status === 'failed' && job.message && <span className="dk-table-sub bt-jobs__msg">{job.message}</span>}
+                    </td>
+                    <td className="dk-hide-phone">{kindOf(job)}</td>
+                    <td><StatusBadge status={job.status} /></td>
+                    <td className="dk-hide-phone dk-mono">{startedAt(job)}</td>
+                    <td>
+                      <div className="bt-rowacts">
+                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => handleUseConfig(job)} title={t('jobs.reuseTitle')}>{t('jobs.reuse')}</button>
+                        {TERMINAL.includes(job.status) && (
+                          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => setDeleting(job.id)} aria-label={t('jobs.delete')} title={t('jobs.deleteTitle')}><Icon name="trash" /></button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <TrainingMonitor job={selectedJob} onStop={handleStop} />
-          <CheckpointsPanel job={selectedJob} onResume={handleResumeFromCheckpoint} onExportCheckpoint={handleExportCheckpoint} />
-          <ExportPanel job={selectedJob} prefilledCheckpoint={exportCheckpoint} />
-        </div>
-      ) : (
-        <div>
-          <SectionHeading>Jobs</SectionHeading>
-          {jobs.length === 0 ? (
-            <EmptyState
-              icon="graduation-cap"
-              title="No fine-tuning jobs yet"
-              body="Start one to train an adapter on your own data, then export it as a model you can chat with."
-              actions={
-                <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-                  <Icon name="plus" /> New job
-                </button>
-              }
-            />
-          ) : (
-            <div className="ft-jobs">
-              {jobs.map(job => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  onSelect={setSelectedJob}
-                  onUseConfig={handleUseConfig}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </div>
+        )}
+      </section>
+
+      {deleting && (
+        <Dialog
+          title={t('jobs.deleteDialogTitle')}
+          description={t('jobs.deleteDialogText')}
+          role="alertdialog"
+          onClose={() => setDeleting(null)}
+          testId="delete-dialog"
+          labelId="bt-delete-title"
+          foot={(
+            <>
+              <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setDeleting(null)}>{t('stop.cancelDelete')}</button>
+              <button type="button" className="dk-btn dk-btn--danger" onClick={confirmDelete} data-testid="delete-confirm">{t('jobs.delete')}</button>
+            </>
           )}
-        </div>
+        />
       )}
     </div>
   )

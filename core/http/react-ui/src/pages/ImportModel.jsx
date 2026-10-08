@@ -1,8 +1,11 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, backendsApi } from '../utils/api'
 import { formatBytes } from '../utils/format'
+import { useResources } from '../hooks/useResources'
+import { detectSource, fitFor, importChecks, importRequest, machineFacts, requestText } from '../utils/tools'
 import { createTransferRateSampler } from '../utils/transferRate'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
@@ -11,6 +14,10 @@ import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
 import ModalityChips from '../components/ModalityChips'
 import Icon from '../components/Icon'
+import ToolSteps from '../components/tools/ToolSteps'
+import Checks from '../components/tools/Checks'
+import '../components/tools/tools.css'
+import './import.css'
 
 // Fallback list used when /backends/known fails — keeps the form usable
 // with auto-detect only rather than showing an empty dropdown.
@@ -97,6 +104,15 @@ const URI_FORMATS = [
   },
 ]
 
+// Shapes to start from. Choosing one fills the field with its placeholder text.
+const EXAMPLES = [
+  'huggingface://owner/repo',
+  'https://example.com/model.gguf',
+  'file:///models/model.gguf',
+  'oci://registry.example.com/model:tag',
+  'ollama://llama3.2:3b',
+]
+
 const DEFAULT_YAML = `name: my-model
 backend: llama-cpp
 parameters:
@@ -118,7 +134,9 @@ const SPLIT_MIN_WIDTH = 1024
 export default function ImportModel() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
-  const { t } = useTranslation('importModel')
+  // The 'tools' namespace is loaded up front: the check list below uses it, and
+  // loading it on the first keystroke would suspend the page and drop the focus.
+  const { t } = useTranslation(['importModel', 'tools'])
 
   // Which kind of input the user is giving: a source to resolve, or a YAML
   // document to write. These are genuinely different inputs, unlike the
@@ -135,6 +153,11 @@ export default function ImportModel() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [yamlContent, setYamlContent] = useState(DEFAULT_YAML)
   const [estimate, setEstimate] = useState(null)
+  // The finished import: { name }. Shown as the last step instead of leaving the page.
+  const [done, setDone] = useState(null)
+  const { resources } = useResources(20000)
+  const facts = useMemo(() => machineFacts(resources), [resources])
+  const [installedNames, setInstalledNames] = useState([])
   // Full poll payload for the running job, not just its message: the endpoint
   // already reports progress, phase and byte counts, and the page used to
   // render only `message`.
@@ -206,6 +229,20 @@ export default function ImportModel() {
     return () => { cancelled = true }
   }, [addToast, t])
 
+  // The names already in use, for the name check. A failed read just leaves the
+  // check out.
+  useEffect(() => {
+    let cancelled = false
+    modelsApi.listV1()
+      .then(data => {
+        if (cancelled) return
+        const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+        setInstalledNames(list.map(m => m?.id || m?.name).filter(Boolean))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   const backendOptions = useMemo(
     () => buildBackendOptions(backends, modalityFilter, t),
     [backends, modalityFilter, t]
@@ -248,8 +285,8 @@ export default function ImportModel() {
           pollRef.current = null
           setIsSubmitting(false)
           setJob(null)
+          setDone({ name: data.gallery_element_name || '' })
           addToast(t('toasts.imported'), 'success')
-          navigate('/app/models?view=installed')
           return
         }
         if (data.error || (data.message && data.message.startsWith('error:'))) {
@@ -278,39 +315,26 @@ export default function ImportModel() {
         console.error('Error polling job status:', err)
       }
     }, 1000)
-  }, [addToast, navigate, t])
+  }, [addToast, t])
 
   const handleImport = useCallback(async (overrideBackend) => {
     if (!importUri.trim()) { addToast(t('toasts.noUri'), 'error'); return }
     setIsSubmitting(true)
     setEstimate(null)
+    setDone(null)
     try {
-      const prefsObj = {}
-      const effectiveBackend = overrideBackend !== undefined ? overrideBackend : prefs.backend
-      if (effectiveBackend) prefsObj.backend = effectiveBackend
-      if (prefs.name.trim()) prefsObj.name = prefs.name.trim()
-      if (prefs.description.trim()) prefsObj.description = prefs.description.trim()
-      if (prefs.quantizations.trim()) prefsObj.quantizations = prefs.quantizations.trim()
-      if (prefs.mmproj_quantizations.trim()) prefsObj.mmproj_quantizations = prefs.mmproj_quantizations.trim()
-      if (prefs.embeddings) prefsObj.embeddings = 'true'
-      if (prefs.type.trim()) prefsObj.type = prefs.type.trim()
-      if (prefs.pipeline_type.trim()) prefsObj.pipeline_type = prefs.pipeline_type.trim()
-      if (prefs.scheduler_type.trim()) prefsObj.scheduler_type = prefs.scheduler_type.trim()
-      if (prefs.enable_parameters.trim()) prefsObj.enable_parameters = prefs.enable_parameters.trim()
-      if (prefs.cuda) prefsObj.cuda = true
-      customPrefs.forEach(cp => {
-        if (cp.key.trim() && cp.value.trim()) prefsObj[cp.key.trim()] = cp.value.trim()
-      })
-
-      const result = await modelsApi.importUri({
-        uri: importUri.trim(),
-        preferences: Object.keys(prefsObj).length > 0 ? prefsObj : null,
-      })
+      const request = importRequest(importUri, prefs, customPrefs, overrideBackend)
+      const result = await modelsApi.importUri(request)
 
       const hasSize = result.estimated_size_display && result.estimated_size_display !== '0 B'
       const hasVram = result.estimated_vram_display && result.estimated_vram_display !== '0 B'
       if (hasSize || hasVram) {
-        setEstimate({ sizeDisplay: result.estimated_size_display || '', vramDisplay: result.estimated_vram_display || '' })
+        setEstimate({
+          sizeDisplay: result.estimated_size_display || '',
+          vramDisplay: result.estimated_vram_display || '',
+          sizeBytes: Number(result.estimated_size_bytes) || 0,
+          vramBytes: Number(result.estimated_vram_bytes) || 0,
+        })
       }
 
       const jobId = result.uuid || result.ID
@@ -425,8 +449,8 @@ export default function ImportModel() {
   const renderOptions = () => (
     <div id="import-options-panel" data-testid="import-options-panel" className="import-options__grid">
       <div className="import-field import-field--wide">
-        <span className="form-label">{t('form.backend')}</span>
-        <p className="form-hint-sm import-field__lead">{t('form.backendHint')}</p>
+        <span className="dk-label">{t('form.backend')}</span>
+        <p className="dk-hint">{t('form.backendHint')}</p>
         <ModalityChips
           value={modalityFilter}
           onChange={handleModalityChange}
@@ -442,14 +466,14 @@ export default function ImportModel() {
           disabled={isSubmitting || backendsLoading}
         />
         {backendsError && (
-          <p className="form-hint-sm text-warning">{t('form.backendErrorHint')}</p>
+          <p className="dk-hint import-warn">{t('form.backendErrorHint')}</p>
         )}
         {(() => {
           if (!prefs.backend) return null
           const selected = backends.find(b => b.name === prefs.backend)
           if (!selected || selected.installed) return null
           return (
-            <p data-testid="auto-install-note" className="form-hint-sm hstack hstack--xs">
+            <p data-testid="auto-install-note" className="dk-hint import-note">
               <Icon name="download" />
               {t('form.backendNotInstalled')}
             </p>
@@ -458,90 +482,90 @@ export default function ImportModel() {
       </div>
 
       <div className="import-field">
-        <label className="form-label" htmlFor="import-name">{t('form.modelName')}</label>
-        <input className="input" id="import-name" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
-        <p className="form-hint-sm">{t('form.modelNameHint')}</p>
+        <label className="dk-label" htmlFor="import-name">{t('form.modelName')}</label>
+        <input className="dk-input" id="import-name" type="text" value={prefs.name} onChange={e => updatePref('name', e.target.value)} placeholder={t('form.modelNamePlaceholder')} disabled={isSubmitting} />
+        <p className="dk-hint">{t('form.modelNameHint')}</p>
       </div>
 
       {showQuantizations && (
         <div className="import-field">
-          <label className="form-label" htmlFor="import-quantizations">{t('form.quantizations')}</label>
-          <input className="input" id="import-quantizations" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
-          <p className="form-hint-sm">{t('form.quantizationsHint')}</p>
+          <label className="dk-label" htmlFor="import-quantizations">{t('form.quantizations')}</label>
+          <input className="dk-input" id="import-quantizations" type="text" value={prefs.quantizations} onChange={e => updatePref('quantizations', e.target.value)} placeholder={t('form.quantizationsPlaceholder')} disabled={isSubmitting} />
+          <p className="dk-hint">{t('form.quantizationsHint')}</p>
         </div>
       )}
 
       {showMmprojQuantizations && (
         <div className="import-field">
-          <label className="form-label" htmlFor="import-mmproj">{t('form.mmprojQuantizations')}</label>
-          <input className="input" id="import-mmproj" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
-          <p className="form-hint-sm">{t('form.mmprojQuantizationsHint')}</p>
+          <label className="dk-label" htmlFor="import-mmproj">{t('form.mmprojQuantizations')}</label>
+          <input className="dk-input" id="import-mmproj" type="text" value={prefs.mmproj_quantizations} onChange={e => updatePref('mmproj_quantizations', e.target.value)} placeholder={t('form.mmprojQuantizationsPlaceholder')} disabled={isSubmitting} />
+          <p className="dk-hint">{t('form.mmprojQuantizationsHint')}</p>
         </div>
       )}
 
       {showModelType && (
         <div className="import-field">
-          <label className="form-label" htmlFor="import-type">{t('form.modelType')}</label>
-          <input className="input" id="import-type" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
-          <p className="form-hint-sm">{t('form.modelTypeHint')}</p>
+          <label className="dk-label" htmlFor="import-type">{t('form.modelType')}</label>
+          <input className="dk-input" id="import-type" type="text" value={prefs.type} onChange={e => updatePref('type', e.target.value)} placeholder={t('form.modelTypePlaceholder')} disabled={isSubmitting} />
+          <p className="dk-hint">{t('form.modelTypeHint')}</p>
         </div>
       )}
 
       {prefs.backend === 'diffusers' && (
         <>
           <div className="import-field">
-            <label className="form-label" htmlFor="import-pipeline">{t('form.pipelineType')}</label>
-            <input className="input" id="import-pipeline" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
-            <p className="form-hint-sm">{t('form.pipelineTypeHint')}</p>
+            <label className="dk-label" htmlFor="import-pipeline">{t('form.pipelineType')}</label>
+            <input className="dk-input" id="import-pipeline" type="text" value={prefs.pipeline_type} onChange={e => updatePref('pipeline_type', e.target.value)} placeholder="StableDiffusionPipeline" disabled={isSubmitting} />
+            <p className="dk-hint">{t('form.pipelineTypeHint')}</p>
           </div>
           <div className="import-field">
-            <label className="form-label" htmlFor="import-scheduler">{t('form.schedulerType')}</label>
-            <input className="input" id="import-scheduler" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
-            <p className="form-hint-sm">{t('form.schedulerTypeHint')}</p>
+            <label className="dk-label" htmlFor="import-scheduler">{t('form.schedulerType')}</label>
+            <input className="dk-input" id="import-scheduler" type="text" value={prefs.scheduler_type} onChange={e => updatePref('scheduler_type', e.target.value)} placeholder={t('form.schedulerTypePlaceholder')} disabled={isSubmitting} />
+            <p className="dk-hint">{t('form.schedulerTypeHint')}</p>
           </div>
           <div className="import-field">
-            <label className="form-label" htmlFor="import-enable-params">{t('form.enableParameters')}</label>
-            <input className="input" id="import-enable-params" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
-            <p className="form-hint-sm">{t('form.enableParametersHint')}</p>
+            <label className="dk-label" htmlFor="import-enable-params">{t('form.enableParameters')}</label>
+            <input className="dk-input" id="import-enable-params" type="text" value={prefs.enable_parameters} onChange={e => updatePref('enable_parameters', e.target.value)} placeholder={t('form.enableParametersPlaceholder')} disabled={isSubmitting} />
+            <p className="dk-hint">{t('form.enableParametersHint')}</p>
           </div>
         </>
       )}
 
       <div className="import-field import-field--wide">
-        <label className="form-label" htmlFor="import-description">{t('form.description')}</label>
-        <textarea className="textarea" id="import-description" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
-        <p className="form-hint-sm">{t('form.descriptionHint')}</p>
+        <label className="dk-label" htmlFor="import-description">{t('form.description')}</label>
+        <textarea className="dk-textarea" id="import-description" rows={2} value={prefs.description} onChange={e => updatePref('description', e.target.value)} placeholder={t('form.descriptionPlaceholder')} disabled={isSubmitting} />
+        <p className="dk-hint">{t('form.descriptionHint')}</p>
       </div>
 
       <div className="import-field import-field--wide">
-        <label className="import-check">
-          <input type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
+        <label className="dk-choice">
+          <input className="dk-check" type="checkbox" checked={prefs.embeddings} onChange={e => updatePref('embeddings', e.target.checked)} disabled={isSubmitting} />
           <span>{t('form.embeddings')}</span>
         </label>
-        <p className="form-hint-sm import-check__hint">{t('form.embeddingsHint')}</p>
+        <p className="dk-hint import-check__hint">{t('form.embeddingsHint')}</p>
         {prefs.backend === 'diffusers' && (
           <>
-            <label className="import-check">
-              <input type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
+            <label className="dk-choice">
+              <input className="dk-check" type="checkbox" checked={prefs.cuda} onChange={e => updatePref('cuda', e.target.checked)} disabled={isSubmitting} />
               <span>{t('form.cuda')}</span>
             </label>
-            <p className="form-hint-sm import-check__hint">{t('form.cudaHint')}</p>
+            <p className="dk-hint import-check__hint">{t('form.cudaHint')}</p>
           </>
         )}
       </div>
 
       <div className="import-field import-field--wide">
-        <div className="hstack hstack--between">
-          <span className="form-label">{t('form.customPreferences')}</span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={addCustomPref} disabled={isSubmitting}>
+        <div className="import-field__row">
+          <span className="dk-label">{t('form.customPreferences')}</span>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={addCustomPref} disabled={isSubmitting}>
             <Icon name="plus" /> {t('actions.addCustom')}
           </button>
         </div>
-        <p className="form-hint-sm import-field__lead">{t('form.customKeyValueHint')}</p>
+        <p className="dk-hint">{t('form.customKeyValueHint')}</p>
         {customPrefs.map((cp, i) => (
           <div key={i} className="import-custom-row">
             <input
-              className="input"
+              className="dk-input"
               type="text"
               value={cp.key}
               onChange={e => updateCustomPref(i, 'key', e.target.value)}
@@ -550,7 +574,7 @@ export default function ImportModel() {
               disabled={isSubmitting}
             />
             <input
-              className="input"
+              className="dk-input"
               type="text"
               value={cp.value}
               onChange={e => updateCustomPref(i, 'value', e.target.value)}
@@ -560,7 +584,7 @@ export default function ImportModel() {
             />
             <button
               type="button"
-              className="btn btn-secondary btn-sm text-error"
+              className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm"
               onClick={() => removeCustomPref(i)}
               disabled={isSubmitting}
               aria-label={t('form.removePref')}
@@ -585,38 +609,73 @@ export default function ImportModel() {
     ? `${formatBytes(job.bytesPerSecond)}/s`
     : ''
 
+  // What the source says about itself, from its spelling alone. Nothing has been
+  // contacted: the importer reads the repository when the import starts.
+  const source = useMemo(() => detectSource(importUri), [importUri])
+  const request = useMemo(() => importRequest(importUri, prefs, customPrefs), [importUri, prefs, customPrefs])
+  const checks = useMemo(
+    () => importChecks({ source, prefs, backends, installedNames, facts }),
+    [source, prefs, backends, installedNames, facts],
+  )
+  const chosenBackend = backends.find(b => b.name === prefs.backend)
+
+  // Where the import is: nothing typed, reviewing, running, finished.
+  let current = 0
+  if (done) current = 3
+  else if (isSubmitting || job) current = 2
+  else if (source) current = 1
+  const steps = [
+    { key: 'source', label: t('steps.source') },
+    { key: 'review', label: t('steps.review') },
+    { key: 'import', label: t('steps.import') },
+    { key: 'done', label: t('steps.done') },
+  ]
+
+  // How the estimate the server returned sits against this machine.
+  const freeMemory = facts ? (facts.cluster ? facts.cluster.total : facts.hasGpu ? facts.vramFree : facts.ramFree) : null
+  const memoryFit = estimate ? fitFor(estimate.vramBytes, freeMemory) : null
+  const diskShort = estimate && facts?.diskFree != null && estimate.sizeBytes > facts.diskFree
+
+  const resetForAnother = () => {
+    setDone(null)
+    setEstimate(null)
+    setImportUri('')
+    setPrefs(DEFAULT_PREFS)
+    setCustomPrefs([])
+  }
+
   return (
-    <div className="page page--medium import-page">
+    <div className="page page--medium import-page bt-page">
       <PageHeader
         title={t('title')}
         supporting={isYaml ? t('subtitle.yaml') : t('subtitle.source')}
         actions={
-          <div className="segmented mb-0" role="tablist" aria-label={t('tabs.ariaLabel')} data-testid="import-tabs">
+          <div className="dk-segmented" role="tablist" aria-label={t('tabs.ariaLabel')} data-testid="import-tabs">
             <button
               type="button"
               role="tab"
               aria-selected={!isYaml}
-              className={`segmented__item${!isYaml ? ' is-active' : ''}`}
+              className={`dk-seg${!isYaml ? ' is-active' : ''}`}
               onClick={() => setTab('source')}
               data-testid="import-tab-source"
             >
-              <Icon name="link" />
               {t('tabs.source')}
             </button>
             <button
               type="button"
               role="tab"
               aria-selected={isYaml}
-              className={`segmented__item${isYaml ? ' is-active' : ''}`}
+              className={`dk-seg${isYaml ? ' is-active' : ''}`}
               onClick={() => setTab('yaml')}
               data-testid="import-tab-yaml"
             >
-              <Icon name="code" />
               {t('tabs.yaml')}
             </button>
           </div>
         }
       />
+
+      {!isYaml && <ToolSteps steps={steps} current={current} label={t('steps.label')} />}
 
       {!isYaml && (
         <div className={`import-split${isSplit ? '' : ' import-split--stacked'}`}>
@@ -626,17 +685,16 @@ export default function ImportModel() {
             onSubmit={(e) => { e.preventDefault(); handleImport() }}
           >
             {/* The source field is the page. It is monospace because it holds
-                something you paste rather than something you compose, and it
-                carries its own commit button — the action used to live in the
-                page header, outside the form, with a hidden submit button
-                standing in so Enter still worked. */}
-            <div className="import-source">
-              <label className="form-label" htmlFor="import-source-input">{t('form.modelUri')}</label>
+                something you paste rather than something you compose. The
+                action sits in the bar at the foot of this form, which states
+                what it will do. */}
+            <section className="import-source dk-card">
+              <label className="dk-label" htmlFor="import-source-input">{t('form.modelUri')}</label>
               <div className="import-source__bar">
                 <input
                   id="import-source-input"
                   data-testid="import-source-input"
-                  className="import-source__input"
+                  className="dk-input dk-input--mono"
                   type="text"
                   value={importUri}
                   onChange={(e) => setImportUri(e.target.value)}
@@ -645,18 +703,22 @@ export default function ImportModel() {
                   spellCheck="false"
                   autoComplete="off"
                 />
-                <button
-                  type="submit"
-                  className="btn btn-primary import-source__btn"
-                  data-testid="import-submit"
-                  disabled={isSubmitting || !importUri.trim()}
-                >
-                  {isSubmitting
-                    ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</>
-                    : <><Icon name="import" /> {t('actions.import')}</>}
-                </button>
               </div>
-              <p className="form-hint-sm">{t('form.uriHint')}</p>
+              <p className="import-source__kind" data-testid="import-source-kind" data-kind={source?.kind || ''}>
+                {source
+                  ? <><span className={`dk-badge${source.ok ? ' dk-badge--accent' : ' dk-badge--warn'}`}>{t(`found.kind.${source.kind}`)}</span> <span className="dk-hint">{t('found.untouched')}</span></>
+                  : <span className="dk-hint">{t('form.uriHint')}</span>}
+              </p>
+              {!source && (
+                <div className="import-examples" data-testid="import-examples">
+                  <span className="dk-label">{t('found.examples')}</span>
+                  <div className="import-examples__chips">
+                    {EXAMPLES.map(example => (
+                      <button key={example} type="button" className="dk-chip dk-mono" onClick={() => setImportUri(example)} disabled={isSubmitting}>{example}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {!isSplit && (
                 <>
@@ -674,7 +736,7 @@ export default function ImportModel() {
                   {showFormats && <div id="import-formats-panel">{renderFormats()}</div>}
                 </>
               )}
-            </div>
+            </section>
 
             {ambiguity && (
               <AmbiguityAlert
@@ -686,28 +748,40 @@ export default function ImportModel() {
               />
             )}
 
-            {/* Size and VRAM answer for the field above them. They used to be a
-                banner pinned above the page header, furthest from the control
-                that produced them. */}
+            {/* Size and memory answer for the field above them. They arrive when
+                the import starts, because the server reads the repository then
+                and not before. */}
             {estimate && (
               <div className="import-estimate" data-testid="import-estimate">
-                {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
-                  <span className="import-estimate__cell">
-                    <span className="import-estimate__k">{t('estimate.downloadLabel')}</span>
-                    <span className="import-estimate__v">{estimate.sizeDisplay}</span>
-                  </span>
+                <div className="import-estimate__cells">
+                  {estimate.sizeDisplay && estimate.sizeDisplay !== '0 B' && (
+                    <span className="import-estimate__cell">
+                      <span className="import-estimate__k">{t('estimate.downloadLabel')}</span>
+                      <span className="import-estimate__v">{estimate.sizeDisplay}</span>
+                    </span>
+                  )}
+                  {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
+                    <span className="import-estimate__cell">
+                      <span className="import-estimate__k">{t('estimate.vramLabel')}</span>
+                      <span className="import-estimate__v">{estimate.vramDisplay}</span>
+                    </span>
+                  )}
+                </div>
+                {memoryFit && (
+                  <p className="import-estimate__fit" data-fit={memoryFit} data-testid="import-fit">
+                    <Icon name={memoryFit === 'fits' ? 'check-circle' : 'warning'} /> {t(`estimate.fit.${memoryFit}`, { free: formatBytes(freeMemory) })}
+                  </p>
                 )}
-                {estimate.vramDisplay && estimate.vramDisplay !== '0 B' && (
-                  <span className="import-estimate__cell">
-                    <span className="import-estimate__k">{t('estimate.vramLabel')}</span>
-                    <span className="import-estimate__v">{estimate.vramDisplay}</span>
-                  </span>
+                {diskShort && (
+                  <p className="import-estimate__fit" data-fit="over" data-testid="import-disk">
+                    <Icon name="warning" /> {t('estimate.diskShort', { free: formatBytes(facts.diskFree) })}
+                  </p>
                 )}
               </div>
             )}
 
             {job && (
-              <div className="import-progress" data-testid="import-progress">
+              <div className="import-progress dk-card" data-testid="import-progress">
                 <div className="import-progress__row">
                   <span className="import-progress__name">{jobName || t('progress.working')}</span>
                   {progressPct !== null && (
@@ -716,15 +790,15 @@ export default function ImportModel() {
                 </div>
                 {progressPct !== null && (
                   <div
-                    className="import-progress__track"
+                    className="dk-progress"
                     role="progressbar"
                     aria-valuenow={progressPct}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-label={t('progress.label')}
+                    style={{ '--dk-value': `${progressPct}%` }}
                   >
-                    {/* Runtime percentage — the one width a stylesheet cannot know. */}
-                    <span className="import-progress__fill" style={{ width: `${progressPct}%` }} />
+                    <span className="dk-progress-bar" />
                   </div>
                 )}
                 <div className="import-progress__row">
@@ -735,6 +809,63 @@ export default function ImportModel() {
                   </span>
                 </div>
               </div>
+            )}
+
+            {done && (
+              <section className="bt-next dk-card" data-testid="import-done">
+                <span className="bt-next__mark"><Icon name="check-circle" /></span>
+                <div>
+                  <h2 className="bt-h2">{done.name ? t('done.titleNamed', { name: done.name }) : t('done.title')}</h2>
+                  <p className="dk-hint">{t('done.text')}</p>
+                  <div className="bt-next__acts">
+                    {done.name && <Link className="dk-btn dk-btn--primary" to={`/app/chat/${encodeURIComponent(done.name)}`}><Icon name="chat" /> {t('done.chat', { name: done.name })}</Link>}
+                    <Link className={`dk-btn ${done.name ? 'dk-btn--secondary' : 'dk-btn--primary'}`} to="/app/models?view=installed" data-testid="import-open-models"><Icon name="cube" /> {t('done.models')}</Link>
+                    <button type="button" className="dk-btn dk-btn--ghost" onClick={resetForAnother}>{t('done.another')}</button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {source && !done && !job && !isSubmitting && (
+              <>
+                <section className="import-found dk-card" aria-labelledby="import-found-title" data-testid="import-found">
+                  <h2 className="bt-h2" id="import-found-title">{t('found.title')}</h2>
+                  <dl className="dk-kv import-found__facts">
+                    <dt>{t(`found.ref.${source.kind}`)}</dt>
+                    <dd className="dk-mono">{source.ref}</dd>
+                    {source.file && <><dt>{t('found.file')}</dt><dd className="dk-mono">{source.file}</dd></>}
+                    <dt>{t('found.backend')}</dt>
+                    <dd className="import-found__text">
+                      {prefs.backend
+                        ? <><span className="dk-mono">{prefs.backend}</span> <span className="dk-hint">{chosenBackend && !chosenBackend.installed ? t('found.backendDownload') : t('found.backendChosen')}</span></>
+                        : <span>{t('found.backendAuto')}</span>}
+                    </dd>
+                  </dl>
+                  <div className="import-found__acts">
+                    <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setShowOptions(true)} data-testid="import-adjust">
+                      <Icon name="sliders" /> {t('found.adjust')}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="import-preview" aria-labelledby="import-preview-title" data-testid="import-preview">
+                  <header className="bt-block__head">
+                    <h2 className="bt-h2" id="import-preview-title">{t('preview.title')}</h2>
+                    <p className="dk-hint">{t('preview.note')}</p>
+                  </header>
+                  <pre className="import-preview__code dk-mono" data-testid="import-preview-code">{requestText(request)}</pre>
+                </section>
+
+                <section className="bt-block" aria-labelledby="import-checks-title">
+                  <header className="bt-block__head">
+                    <h2 className="bt-h2" id="import-checks-title">{t('checks.heading')}</h2>
+                    <p className="dk-hint">{t('checks.note')}</p>
+                  </header>
+                  <div className="dk-card bt-checks-card">
+                    <Checks checks={checks} isAdmin label={t('checks.heading')} testId="import-checks" />
+                  </div>
+                </section>
+              </>
             )}
 
             <div className="import-options">
@@ -752,6 +883,31 @@ export default function ImportModel() {
               </button>
               {showOptions && renderOptions()}
             </div>
+
+            {!done && (
+            <div className="bt-bar" data-testid="import-bar">
+              <p className="bt-bar__text" role="status">
+                {isSubmitting
+                  ? t('bar.working')
+                  : source
+                    ? t('bar.ready', { ref: source.ref || importUri.trim() })
+                    : t('bar.empty')}
+              </p>
+              <div className="bt-bar__acts">
+                <button
+                  type="submit"
+                  className="dk-btn dk-btn--primary"
+                  data-testid="import-submit"
+                  disabled={isSubmitting || !importUri.trim()}
+                  aria-busy={isSubmitting || undefined}
+                >
+                  {isSubmitting
+                    ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</>
+                    : <><Icon name="import" /> {t('actions.import')}</>}
+                </button>
+              </div>
+            </div>
+            )}
           </form>
 
           {isSplit && <aside className="import-aside">{renderFormats()}</aside>}
@@ -761,21 +917,22 @@ export default function ImportModel() {
       {isYaml && (
         <div className="import-yaml" data-testid="import-yaml">
           <div className="import-yaml__head">
-            <span className="form-label mb-0">{t('form.yamlEditor')}</span>
-            <div className="hstack">
+            <span className="dk-label">{t('form.yamlEditor')}</span>
+            <div className="import-yaml__acts">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="dk-btn dk-btn--ghost dk-btn--sm"
                 onClick={() => { navigator.clipboard.writeText(yamlContent); addToast(t('toasts.copied'), 'success') }}
               >
                 <Icon name="copy" /> {t('actions.copy')}
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="dk-btn dk-btn--primary dk-btn--sm"
                 data-testid="import-create"
                 onClick={handleYamlCreate}
                 disabled={isSubmitting}
+                aria-busy={isSubmitting || undefined}
               >
                 {isSubmitting
                   ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</>
@@ -783,7 +940,8 @@ export default function ImportModel() {
               </button>
             </div>
           </div>
-          <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 320px)" />
+          <p className="dk-hint">{t('form.yamlHint')}</p>
+          <CodeEditor value={yamlContent} onChange={setYamlContent} disabled={isSubmitting} minHeight="calc(100vh - 380px)" />
         </div>
       )}
     </div>
