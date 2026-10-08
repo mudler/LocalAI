@@ -1,17 +1,20 @@
 import { test, expect } from './coverage-fixtures.js'
 
+// The backend-logging, download and gallery settings, now under their intent
+// groups. The page waits for edits to be applied, so saving is Apply.
 test.describe('Settings - Backend Logging', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/settings')
-    // Wait for settings to load
-    await expect(page.locator('h3', { hasText: 'Tracing' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('settings-page')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: /^Debugging and traces/ }).click()
   })
 
-  test('backend logging toggle is visible in tracing section', async ({ page }) => {
+  test('backend logging toggle is visible in the debugging group', async ({ page }) => {
     await expect(page.locator('text=Enable Backend Logging')).toBeVisible()
   })
 
   test('artifact download concurrency is configurable', async ({ page }) => {
+    await page.getByRole('button', { name: /^Speed and defaults/ }).click()
     const input = page.getByLabel('Artifact Download Concurrency')
     await expect(input).toBeVisible()
     await input.fill('4')
@@ -19,58 +22,34 @@ test.describe('Settings - Backend Logging', () => {
   })
 
   test('persistent VRAM cache can be toggled', async ({ page }) => {
-    const row = page.locator('.form-row', { hasText: 'Persist remote VRAM estimates' })
-    await expect(row).toBeVisible()
-
-    const checkbox = row.locator('input[type="checkbox"]')
-    const wasChecked = await checkbox.isChecked()
-    await checkbox.locator('..').click()
-    if (wasChecked) {
-      await expect(checkbox).not.toBeChecked()
-    } else {
-      await expect(checkbox).toBeChecked()
-    }
+    await page.getByRole('button', { name: /^Backends and galleries/ }).click()
+    const toggle = page.locator('.st-row', { hasText: 'Persist remote VRAM estimates' }).getByRole('switch')
+    await expect(toggle).toBeVisible()
+    const before = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
   })
 
   test('gallery startup loading and pre-warming can be toggled together', async ({ page }) => {
-    const row = page.locator('.form-row', { hasText: 'Load and pre-warm galleries on boot' })
-    await expect(row).toBeVisible()
-
-    const checkbox = row.locator('input[type="checkbox"]')
-    const wasChecked = await checkbox.isChecked()
-    await checkbox.locator('..').click()
-    if (wasChecked) {
-      await expect(checkbox).not.toBeChecked()
-    } else {
-      await expect(checkbox).toBeChecked()
-    }
+    await page.getByRole('button', { name: /^Backends and galleries/ }).click()
+    const toggle = page.locator('.st-row', { hasText: 'Load and pre-warm galleries on boot' }).getByRole('switch')
+    await expect(toggle).toBeVisible()
+    const before = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
   })
 
   test('backend logging toggle can be toggled', async ({ page }) => {
-    // Find the checkbox associated with backend logging
-    const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })
-    const checkbox = section.locator('input[type="checkbox"]').last()
-
-    // Toggle on
-    const wasChecked = await checkbox.isChecked()
-    await checkbox.locator('..').click()
-    if (wasChecked) {
-      await expect(checkbox).not.toBeChecked()
-    } else {
-      await expect(checkbox).toBeChecked()
-    }
+    const toggle = page.locator('.st-row', { hasText: 'Enable Backend Logging' }).getByRole('switch')
+    const before = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true')
   })
 
-  test('save shows toast', async ({ page }) => {
-    // Toggle a setting to enable the Save button (it's disabled when no changes)
-    const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })
-    const checkbox = section.locator('input[type="checkbox"]').last()
-    await checkbox.locator('..').click()
-
-    // Click save button
-    await page.locator('button', { hasText: /Save Changes/ }).click()
-
-    // Verify toast appears
+  test('apply shows toast', async ({ page }) => {
+    // The bar appears with the first edit and its Apply button saves.
+    await page.locator('.st-row', { hasText: 'Enable Backend Logging' }).getByRole('switch').click()
+    await page.getByRole('button', { name: 'Apply' }).click()
     await expect(page.locator('text=Settings saved successfully')).toBeVisible({ timeout: 5_000 })
   })
 })

@@ -3,7 +3,7 @@ import { test, expect } from './coverage-fixtures.js'
 test.describe('Editorial design system', () => {
   test('page titles render in the sans display font (no serif)', async ({ page }) => {
     await page.goto('/app/settings')
-    const title = page.locator('.page-title').first()
+    const title = page.locator('.page-title, .st-title').first()
     await expect(title).toBeVisible({ timeout: 15_000 })
     const family = await title.evaluate(el => getComputedStyle(el).fontFamily)
     // Editorial-grotesk direction: headings use the Geist sans family, no serif.
@@ -13,7 +13,7 @@ test.describe('Editorial design system', () => {
 
   test('active nav item is highlighted with a tinted background (no rail)', async ({ page }) => {
     await page.goto('/app/settings')
-    await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.page-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
     const active = page.locator('.sidebar-nav .nav-item.active').first()
     await expect(active).toBeVisible()
     const bg = await active.evaluate(el => getComputedStyle(el).backgroundColor)
@@ -24,7 +24,7 @@ test.describe('Editorial design system', () => {
 
   test('the current sidebar row carries an accent dot, other rows do not', async ({ page }) => {
     await page.goto('/app/settings')
-    await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.page-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
     const dot = (loc) => loc.evaluate((el) => {
       const cs = getComputedStyle(el, '::after')
       return { content: cs.content, width: cs.width, radius: cs.borderTopLeftRadius, bg: cs.backgroundColor }
@@ -50,21 +50,21 @@ test.describe('Editorial design system', () => {
     expect(display).toBe('none')
   })
 
-  test('settings stacks its section rail above the form on a phone', async ({ page }) => {
+  test('settings stacks its group list above the form on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/app/settings')
-    const label = page.locator('.set-content .form-row__label').first()
+    const label = page.locator('.st-row__main').first()
     await expect(label).toBeVisible({ timeout: 15_000 })
-    // Beside the rail the label had a few characters of width.
-    expect((await label.boundingBox()).width).toBeGreaterThan(200)
-    const rail = await page.locator('.set-rail').boundingBox()
-    const content = await page.locator('.set-content').boundingBox()
+    // Beside the list the label had a few characters of width.
+    expect((await label.boundingBox()).width).toBeGreaterThan(150)
+    const rail = await page.locator('.st-groups').boundingBox()
+    const content = await page.locator('.st-content').boundingBox()
     expect(content.y).toBeGreaterThanOrEqual(rail.y + rail.height - 1)
   })
 
-  test('the settings save button carries no icon class of its own', async ({ page }) => {
+  test('the settings history button carries no icon class of its own', async ({ page }) => {
     await page.goto('/app/settings')
-    const btn = page.locator('.set-head button.btn').first()
+    const btn = page.locator('.st-bar__history').first()
     await expect(btn).toBeVisible({ timeout: 15_000 })
     // An icon class on the button itself once put a missing glyph before the
     // label. The icon is a child svg.
@@ -107,7 +107,7 @@ test.describe('Shared UI kit theme', () => {
     test(`the ${mode} canvas reaches the legacy page variables`, async ({ page }) => {
       await page.addInitScript((m) => localStorage.setItem('localai-theme', m), mode)
       await page.goto('/app/settings')
-      await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+      await expect(page.locator('.page-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
       const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
       expect(bg).toBe(canvas[mode])
     })
@@ -133,7 +133,7 @@ test.describe('Shared UI kit theme', () => {
 
   test('the current sidebar row lifts onto a card', async ({ page }) => {
     await page.goto('/app/settings')
-    await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.page-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
     const active = page.locator('.sidebar-nav .nav-item.active').first()
     const shadow = await active.evaluate((el) => getComputedStyle(el).boxShadow)
     expect(shadow).not.toBe('none')

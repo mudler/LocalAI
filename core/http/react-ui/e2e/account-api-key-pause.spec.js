@@ -44,7 +44,7 @@ test.describe('Account API keys pause', () => {
     })
 
     await page.goto('/app/account')
-    await page.getByRole('button', { name: /API Keys/ }).click()
+    await page.getByRole('tab', { name: 'API keys' }).click()
   })
 
   test('shows paused badges and resume buttons', async ({ page }) => {
