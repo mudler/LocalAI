@@ -127,6 +127,10 @@ func (d *WorkerDialer) GRPCDialerFor(nodeID string) func(ctx context.Context, ad
 // answer is final: a third attempt would turn a stale row into a loop.
 func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o dialOptions) (net.Conn, error) {
 	stream, err := d.relayOnce(ctx, nodeID, o, false)
+	if err != nil && errors.Is(err, ErrNotOwner) && errors.Is(err, errOwnerRefused) && callerRanOut(ctx) == nil {
+		xlog.Debug("the owner of a tunnel no longer holds it, looking the owner up again", "node", nodeID)
+		stream, err = d.relayOnce(ctx, nodeID, o, true)
+	}
 	if err != nil {
 		return nil, routeFailure(nodeID, err)
 	}

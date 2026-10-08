@@ -385,6 +385,38 @@ var _ = Describe("The worker dialer", func() {
 			Expect(errors.Is(err, cluster.ErrNoConnection)).To(BeFalse(), "absence must not reach the caller")
 		})
 
+		It("looks the owner up again once when the owner says it no longer holds the tunnel", func() {
+			// The worker moved from replica-b to replica-c after the lookup of the
+			// dialer. The first owner refuses, and the second one serves.
+			Expect(clusterR.Register(ctx, "replica-c", "test", 0, "")).To(Succeed())
+			third := tunnel.NewRegistry(clusterR, "replica-c")
+			moving := &movingPeers{
+				relays: map[string]*tunnel.Relay{"replica-b": tunnel.NewRelay(other), "replica-c": tunnel.NewRelay(third)},
+				moveOnFirst: func() {
+					Expect(other.Disconnect("w1")).To(BeTrue())
+					front, back := sessionPair(tunnel.LaneInference)
+					worker.serve(back)
+					_, err := third.Attach(ctx, "w1", tunnel.LaneInference, front)
+					Expect(err).ToNot(HaveOccurred())
+				},
+			}
+			dialer := tunnel.NewWorkerDialer(tunnels, moving)
+			conn, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = conn.Close() })
+			roundTrip(conn, "after the move")
+			Expect(moving.opened()).To(Equal([]string{"replica-b", "replica-c"}))
+		})
+
+		It("looks the owner up only once more, and then reports the routing fact", func() {
+			stale := &movingPeers{relays: map[string]*tunnel.Relay{"replica-b": tunnel.NewRelay(tunnel.NewRegistry(clusterR, "replica-b"))}}
+			dialer := tunnel.NewWorkerDialer(tunnels, stale)
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNotOwner)).To(BeTrue())
+			Expect(stale.opened()).To(HaveLen(2), "one lookup and one more")
+		})
+
 		It("reports an unreachable peer as unreachable, with no ErrNoRoute and no absence", func() {
 			dialer := tunnel.NewWorkerDialer(tunnels, &downPeers{err: tunnelUnreachable()})
 			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
@@ -592,4 +624,38 @@ func (p *scriptedPeers) Open(context.Context, string) (net.Conn, error) {
 		p.onFrame(far)
 	}()
 	return near, nil
+}
+
+// movingPeers relays to the replica that a dial names. The first open can move
+// the worker to another replica before it answers, which is what a worker that
+// reconnects to a different replica does between a lookup and a dial.
+type movingPeers struct {
+	relays      map[string]*tunnel.Relay
+	moveOnFirst func()
+
+	mu    sync.Mutex
+	peers []string
+}
+
+func (m *movingPeers) Open(_ context.Context, peerID string) (net.Conn, error) {
+	m.mu.Lock()
+	first := len(m.peers) == 0
+	m.peers = append(m.peers, peerID)
+	m.mu.Unlock()
+	if first && m.moveOnFirst != nil {
+		m.moveOnFirst()
+	}
+	relay, ok := m.relays[peerID]
+	if !ok {
+		return nil, errors.New("no relay behind this fake")
+	}
+	near, far := net.Pipe()
+	go relay.Stream("replica-a", far)
+	return near, nil
+}
+
+func (m *movingPeers) opened() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.peers...)
 }
