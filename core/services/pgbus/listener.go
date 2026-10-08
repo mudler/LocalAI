@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mudler/xlog"
 )
 
@@ -240,29 +241,62 @@ func (b *Bus) listen(conn *pgx.Conn) {
 		default:
 		}
 
-		waitCtx, cancel := context.WithTimeout(b.ctx, listenPollInterval)
-		n, err := conn.WaitForNotification(waitCtx)
-		deadline := waitCtx.Err() != nil
-		cancel()
-
-		switch {
-		case b.ctx.Err() != nil:
+		switch b.poll(conn.WaitForNotification) {
+		case pollStop:
 			return
-		case deadline:
-			// The usual case: nothing arrived in the poll window. pgx keeps the
-			// connection when its read deadline passes, so this is not a failure.
-			continue
-		case err != nil:
-			xlog.Warn("Broadcast carrier lost its listen connection, dialling again", "error", err)
+		case pollRedial:
 			replacement, ok := b.redial(conn)
 			if !ok {
 				return
 			}
 			conn = replacement
-			continue
 		}
-		b.offer(n.Channel, n.Payload)
 	}
+}
+
+// pollResult tells the loop of listen what to do after one wait.
+type pollResult int
+
+const (
+	pollContinue pollResult = iota
+	pollStop
+	pollRedial
+)
+
+// waitFunc is the wait on the connection. It is a parameter so that a spec can
+// make the connection return a notification at the moment the poll window ends.
+type waitFunc func(ctx context.Context) (*pgconn.Notification, error)
+
+// poll waits one poll interval for a notification and offers it.
+//
+// A notification that WaitForNotification returned is offered whatever the poll
+// context says afterwards. The context can expire between the read and the check,
+// and a check that ran first would drop a message that was already off the wire,
+// with no log and no count.
+func (b *Bus) poll(wait waitFunc) pollResult {
+	waitCtx, cancel := context.WithTimeout(b.ctx, listenPollInterval)
+	n, err := wait(waitCtx)
+	deadline := waitCtx.Err() != nil
+	cancel()
+
+	switch {
+	case err == nil && n != nil:
+		b.offer(n.Channel, n.Payload)
+		if b.ctx.Err() != nil {
+			return pollStop
+		}
+		return pollContinue
+	case b.ctx.Err() != nil:
+		return pollStop
+	case deadline:
+		// The usual case: nothing arrived in the poll window. pgx keeps the
+		// connection when its read deadline passes, so this is not a failure.
+		return pollContinue
+	case err != nil:
+		xlog.Warn("Broadcast carrier lost its listen connection, dialling again", "error", err)
+		return pollRedial
+	}
+	return pollContinue
 }
 
 // offer hands a notification to the resolver. It never blocks: the only job of
