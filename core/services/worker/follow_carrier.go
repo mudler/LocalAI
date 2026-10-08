@@ -286,7 +286,7 @@ func (f *Follower) reportLocked() map[string]any {
 				follow = append(follow, c)
 			}
 		case !held:
-			reasons = append(reasons, fmt.Sprintf("%s: %s", c, reason))
+			reasons = append(reasons, reason)
 		}
 	}
 	// A worker holds a carrier it can follow, even before it is connected, so a

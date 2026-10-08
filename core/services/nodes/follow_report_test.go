@@ -16,10 +16,10 @@ import (
 
 var _ = Describe("The workers as the switch of the carrier sees them", func() {
 	var (
-		ctx      context.Context
-		db       *gorm.DB
-		reg      *NodeRegistry
-		workers  *SwitchWorkers
+		ctx     context.Context
+		db      *gorm.DB
+		reg     *NodeRegistry
+		workers *SwitchWorkers
 	)
 
 	register := func(name, nodeType, address string) *BackendNode {

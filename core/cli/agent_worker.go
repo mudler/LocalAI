@@ -226,7 +226,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		},
 		// MCP CI jobs run here because the frontend cannot create MCP sessions
 		// (for example stdio servers that use docker).
-		Jobs: func(ctx context.Context, consumer messaging.WorkConsumer) error {
+		Jobs: func(ctx context.Context, _ cluster.Carrier, consumer messaging.WorkConsumer) error {
 			_, err := startMCPCIConsumer(ctx, consumer, apiURL, cmd.APIToken, mcpCIJobTimeout)
 			return err
 		},
