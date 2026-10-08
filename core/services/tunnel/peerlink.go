@@ -84,9 +84,7 @@ func rejectedPeer(peerID string, cause error) error {
 // this process and says nothing about whether the peer exists.
 var ErrPoolClosed = errors.New("tunnel: peer pool is closed")
 
-// peerLinkHandshakeTimeout bounds the websocket upgrade of a peer link. It also
-// bounds how long Close waits behind a dial in progress, which holds the lock of
-// its peer.
+// peerLinkHandshakeTimeout bounds the websocket upgrade of a peer link.
 const peerLinkHandshakeTimeout = 10 * time.Second
 
 // PeerPool dials peer replicas and keeps one multiplexed session for each.
@@ -120,12 +118,45 @@ type PeerPool struct {
 // the alias keeps the callers of this package from importing both.
 type PeerCredential = cluster.PeerCredential
 
-// peerLink is the cached session for one peer and the lock that serialises
-// dialling it. The lock is per peer, so a dial to one peer that hangs does not
-// hold up the opens to another.
+// peerLink is the cached session for one peer and the gate that serialises
+// dialling it. The gate is per peer, so a dial to one peer that hangs does not
+// hold up the opens to another. It is a channel and not a mutex, so that a caller
+// waiting behind a dial leaves when its own context ends: a lock cannot be
+// abandoned, and a caller with a short budget would wait out the dial of a caller
+// that has none.
 type peerLink struct {
+	gate chan struct{}
+
+	// mu guards sess alone and is never held across a dial or an open, so that
+	// Close does not wait behind either.
 	mu   sync.Mutex
 	sess *Session
+}
+
+func newPeerLink() *peerLink { return &peerLink{gate: make(chan struct{}, 1)} }
+
+// enter takes the gate, or reports why the caller left without it.
+func (l *peerLink) enter(ctx context.Context) error {
+	select {
+	case l.gate <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (l *peerLink) leave() { <-l.gate }
+
+func (l *peerLink) session() *Session {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.sess
+}
+
+func (l *peerLink) setSession(s *Session) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.sess = s
 }
 
 // NewPeerPool returns a pool that dials peers as selfID. cred must be the value
@@ -159,11 +190,13 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		return nil, err
 	}
 
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	if err := l.enter(ctx); err != nil {
+		return nil, err
+	}
+	defer l.leave()
 
-	if l.sess != nil {
-		st, err := l.sess.OpenStream(ctx)
+	if sess := l.session(); sess != nil {
+		st, err := sess.OpenStream(ctx)
 		if err == nil {
 			return st, nil
 		}
@@ -174,8 +207,8 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		}
 		// A session that died between calls is the common case.
 		xlog.Debug("tunnel peer link session unusable, dialling again", "peer", peerID, "error", err)
-		_ = l.sess.Close()
-		l.sess = nil
+		_ = sess.Close()
+		l.setSession(nil)
 	}
 
 	sess, err := p.dial(ctx, peerID)
@@ -200,7 +233,14 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		}
 		return nil, unreachablePeer(peerID, err)
 	}
-	l.sess = sess
+	l.setSession(sess)
+	// Close ran while this open held the gate and did not see the new session.
+	if p.isClosed() {
+		_ = sess.Close()
+		l.setSession(nil)
+		_ = st.Close()
+		return nil, ErrPoolClosed
+	}
 	return st, nil
 }
 
@@ -215,7 +255,7 @@ func (p *PeerPool) link(peerID string) (*peerLink, error) {
 	}
 	l, ok := p.links[peerID]
 	if !ok {
-		l = &peerLink{}
+		l = newPeerLink()
 		p.links[peerID] = l
 	}
 	return l, nil
@@ -294,6 +334,12 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*Session, error) {
 	return sess, nil
 }
 
+func (p *PeerPool) isClosed() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.closed
+}
+
 // Close closes every cached session. It can be called twice, and an Open after it
 // reports ErrPoolClosed.
 func (p *PeerPool) Close() {
@@ -307,8 +353,8 @@ func (p *PeerPool) Close() {
 	p.links = nil
 	p.mu.Unlock()
 
-	// Each session closes under the lock of its own peer, so that closing the pool
-	// cannot deadlock against an Open that is dialling and about to take p.mu.
+	// Each session closes under the small lock of its own peer. It is never held
+	// across a dial, so closing the pool does not wait behind one.
 	for _, l := range links {
 		l.mu.Lock()
 		if l.sess != nil {
