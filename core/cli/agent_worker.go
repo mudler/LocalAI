@@ -16,10 +16,12 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/agentworker"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/cogito"
@@ -28,17 +30,19 @@ import (
 )
 
 // AgentWorkerCMD starts a dedicated agent worker process for distributed mode.
-// It registers with the frontend, subscribes to the NATS agent execution queue,
-// and executes agent chats using cogito. The worker is a pure executor — it
-// receives the full agent config and skills in the NATS job payload, so it
-// does not need direct database access.
+// It registers with the frontend, attaches to the carrier that the frontend
+// names, and executes agent chats using cogito. On NATS it subscribes to the
+// agent execution queue. On the tunnel it holds one outbound connection to the
+// frontend and serves the requests that arrive on it. The worker is a pure
+// executor — it receives the full agent config and skills in the job payload,
+// so it does not need direct database access.
 //
 // Usage:
 //
 //	localai agent-worker --nats-url nats://... --register-to http://localai:8080
 type AgentWorkerCMD struct {
 	// NATS (required)
-	NatsURL string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed while the cluster runs on NATS" group:"distributed"`
+	NatsURL string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed only while the cluster runs on NATS" group:"distributed"`
 
 	// Registration (required)
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
@@ -88,20 +92,25 @@ func validateAgentSubject(subject string) error {
 	return nil
 }
 
-// checkAgentCarrier checks that the carrier which the frontend named is one that
-// this agent worker can use. It serves its agent runs over NATS only. The flag of
-// the NATS URL cannot be required, because the carrier is known only after the
-// registration, so the check is here. A frontend that names no carrier predates
-// carriers and runs on NATS.
-func checkAgentCarrier(carrier, natsURL string) error {
-	switch carrier {
+// agentCarrier maps the carrier that the frontend named onto the one this agent
+// worker attaches to, and reports whether it is the tunnel. A frontend that names
+// none predates carriers and runs on NATS. The flag of the NATS URL cannot be
+// required, because the carrier is known only after the registration, so the
+// check is here.
+func agentCarrier(named, natsURL string) (onTunnel bool, err error) {
+	switch named {
+	case "tunnel":
+		if natsURL != "" {
+			xlog.Info("The cluster runs on the tunnel, so the NATS URL of this agent worker is not used")
+		}
+		return true, nil
 	case "", "nats":
 		if natsURL == "" {
-			return fmt.Errorf("the cluster runs on NATS and this agent worker has no NATS URL: set LOCALAI_NATS_URL")
+			return false, fmt.Errorf("the cluster runs on NATS and this agent worker has no NATS URL: set LOCALAI_NATS_URL")
 		}
-		return nil
+		return false, nil
 	default:
-		return fmt.Errorf("the cluster carrier is %q, which this agent worker cannot use: it serves agent runs over NATS only", carrier)
+		return false, fmt.Errorf("the frontend names the carrier %q, which this agent worker does not know: upgrade the agent worker", named)
 	}
 }
 
@@ -156,7 +165,8 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	nodeID := res.ID
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cmd.RegisterTo)
 
-	if err := checkAgentCarrier(res.Carrier, cmd.NatsURL); err != nil {
+	onTunnel, err := agentCarrier(res.Carrier, cmd.NatsURL)
+	if err != nil {
 		return err
 	}
 
@@ -173,6 +183,10 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
 
 	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
+
+	if onTunnel {
+		return cmd.runOnTunnel(shutdownCtx, shutdownCancel, regClient, credMgr, nodeID, apiURL)
+	}
 
 	// Resolve NATS credentials with precedence: explicit env override, then
 	// frontend-minted (auto-refreshed before expiry), then service fallback.
@@ -281,19 +295,95 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Wait for an OS signal or an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires
 	// rather than lingering unable to serve.
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	var runErr error
-	select {
-	case <-sigCh:
-	case <-shutdownCtx.Done():
-		runErr = fmt.Errorf("agent worker shutting down: NATS credentials unavailable")
-		xlog.Error("Internal shutdown requested", "error", runErr)
-	}
+	runErr := awaitShutdown(shutdownCtx, "NATS credentials unavailable")
 
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	dispatcher.Stop()
+	mcpTools.CloseAllMCPSessions()
+	regClient.GracefulDeregister(nodeID)
+	return runErr
+}
+
+// awaitShutdown blocks until the process is told to stop or the context of the
+// worker ends for a fatal reason, and returns an error in the second case so
+// that the worker restarts and registers again instead of lingering unable to
+// serve.
+func awaitShutdown(shutdownCtx context.Context, fatal string) error {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	select {
+	case <-sigCh:
+		return nil
+	case <-shutdownCtx.Done():
+		err := fmt.Errorf("agent worker shutting down: %s", fatal)
+		xlog.Error("Internal shutdown requested", "error", err)
+		return err
+	}
+}
+
+// runOnTunnel serves the agent worker on the tunnel carrier: no connection to a
+// bus, one HTTP server on loopback that the frontend reaches through the tunnel
+// of this worker, and the same handlers as on NATS. The frontend picks the worker
+// and sends the request, so the dispatcher below gets its deliveries from a
+// consumer that the control server feeds.
+func (cmd *AgentWorkerCMD) runOnTunnel(shutdownCtx context.Context, shutdownCancel context.CancelFunc, regClient *workerregistry.RegistrationClient, credMgr *workerregistry.CredentialManager, nodeID, apiURL string) error {
+	work := agentworker.NewWork()
+
+	// No bus, so no broadcaster: the events of a run are published on the
+	// publisher of its delivery, which writes them to the frontend that drives the
+	// run. The cancel of a run is its request: the frontend ends the stream.
+	eventBridge := agents.NewEventBridge(nil, nil, "agent-worker-"+nodeID)
+	dispatcher := agents.NewNATSDispatcher(work, eventBridge, nil, apiURL, cmd.APIToken, 0)
+	// The consumers are registered before the tunnel starts, so that a frontend
+	// which connects at once finds a worker that can take its first run.
+	if err := dispatcher.Start(shutdownCtx); err != nil {
+		return fmt.Errorf("starting dispatcher: %w", err)
+	}
+
+	mcpCIJobTimeout, err := time.ParseDuration(cmd.MCPCIJobTimeout)
+	if err != nil && cmd.MCPCIJobTimeout != "" {
+		xlog.Warn("invalid MCP CI job timeout, using default 10m", "input", cmd.MCPCIJobTimeout, "error", err)
+	}
+	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
+	if _, err := startMCPCIConsumer(shutdownCtx, work, apiURL, cmd.APIToken, mcpCIJobTimeout); err != nil {
+		return err
+	}
+
+	runtime, err := agentworker.Start(shutdownCtx, agentworker.Options{
+		FrontendURL: cmd.RegisterTo,
+		NodeID:      nodeID,
+		// The credential is new after every registration, so it is read at every
+		// dial and not once.
+		TunnelToken:  credMgr.TunnelToken,
+		Reauthorize:  credMgr.Reregister,
+		ControlToken: cmd.RegistrationToken,
+		Handler: agentworker.Handler(agentworker.Config{
+			MCPTool:      agentworker.Unary(handleMCPToolRequest),
+			MCPDiscovery: agentworker.Unary(handleMCPDiscoveryRequest),
+			// The node's backend stop: the agent worker has no model loader, so it
+			// drops the sessions cached for the backend that goes away.
+			BackendStop: func(_ context.Context, req workerctl.BackendStopRequest) error {
+				if req.Backend != "" {
+					mcpTools.CloseMCPSessions(req.Backend)
+				}
+				return nil
+			},
+		}, work),
+	})
+	if err != nil {
+		return err
+	}
+	xlog.Info("Agent worker ready, waiting for runs over its tunnel")
+
+	runErr := awaitShutdown(shutdownCtx, "the control plane stopped")
+	xlog.Info("Shutting down agent worker")
+	shutdownCancel()
+	dispatcher.Stop()
+	if err := runtime.Close(); err != nil {
+		xlog.Warn("Closing the agent worker tunnel failed", "error", err)
+	}
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
 	return runErr
