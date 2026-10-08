@@ -26,3 +26,22 @@ func CheckBroadcastSize(subject string, size int) error {
 	}
 	return nil
 }
+
+// MaxWorkPayloadBytes is the largest encoded payload that a WorkQueue accepts.
+// Every carrier of the queue enforces it, so a job that one carrier takes is not
+// refused by another after a change of carrier. NATS refuses a payload above the
+// max_payload of its server, which is 1 MiB unless an operator raised it, and the
+// bound is that default, for the carriers that have no limit of their own.
+const MaxWorkPayloadBytes = 1 << 20
+
+// ErrWorkPayloadTooLarge means a payload is larger than MaxWorkPayloadBytes.
+var ErrWorkPayloadTooLarge = errors.New("messaging: work payload is too large")
+
+// CheckWorkSize returns an error that wraps ErrWorkPayloadTooLarge when an
+// encoded payload of size bytes is above MaxWorkPayloadBytes.
+func CheckWorkSize(kind WorkKind, size int) error {
+	if size > MaxWorkPayloadBytes {
+		return fmt.Errorf("%w: %d bytes for kind %q, the bound is %d", ErrWorkPayloadTooLarge, size, kind, MaxWorkPayloadBytes)
+	}
+	return nil
+}
