@@ -1,6 +1,16 @@
 package messaging
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrCarrierReleased is the cause that a context is cancelled with when the
+// carrier its work ran on is released at the end of a drain. Work that sees it
+// was cut off by the change of carrier, and not by its own caller or by a
+// failure of its own, so it must not be run again on the carrier that took over:
+// it did start, and the reaper decides what happens to its job.
+var ErrCarrierReleased = errors.New("the carrier of this work was released")
 
 // WorkKind names a unit of competing-consumer work. The values match the claim
 // kinds of the self-hosted carrier so the two map one to one.

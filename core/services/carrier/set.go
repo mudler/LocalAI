@@ -13,6 +13,7 @@
 package carrier
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -56,6 +57,21 @@ type Set struct {
 	// right to a connection, and closes the idle streams that it holds. It may
 	// be nil for a carrier that caches nothing per node.
 	ForgetNode func(nodeID string)
+
+	// Start runs what the carrier needs a frontend replica to do while it is
+	// active or draining, such as claiming queued work. It is called when the
+	// carrier becomes the active one and is not called again. ctx ends the work,
+	// and stop waits until it has finished. A context that is cancelled with
+	// messaging.ErrCarrierReleased tells the work that its carrier was released
+	// and that it must not hand what it still holds to another carrier to run
+	// again. It may be nil for a carrier that needs nothing of the kind.
+	Start func(ctx context.Context) (stop func(), err error)
+
+	// Handoff moves what the carrier holds for itself onto next, when the carrier
+	// is released, such as the queued work of a carrier whose queue is a table.
+	// It runs after the work that Start began has stopped, may run more than
+	// once, and must be safe to repeat. It may be nil.
+	Handoff func(ctx context.Context, next *Set) error
 
 	// Close releases the carrier's connections. It may be nil.
 	Close func()

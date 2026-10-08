@@ -1,7 +1,9 @@
 package carrier_test
 
 import (
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -36,6 +38,42 @@ var _ = Describe("Broadcaster holder conformance", func() {
 				Fail(err.Error())
 			}
 			return messagingtest.Carrier{Bus: h, Peer: h, ServesControlRoots: true}
+		})
+	})
+
+	// The flip of a change of carrier is three calls: listen on the next set, store
+	// it, release the old one. This runs them in a loop while the suite runs, so
+	// every spec of the suite meets the holder in the middle of a flip.
+	Describe("while the carrier is swapped under it", func() {
+		messagingtest.RunBroadcasterConformance(func() messagingtest.Carrier {
+			var cur atomic.Pointer[carrier.Set]
+			sets := [2]*carrier.Set{newFakeCarrier(cluster.CarrierNATS, 1).set, newFakeCarrier(cluster.CarrierTunnel, 2).set}
+			cur.Store(sets[0])
+			h := carrier.NewBroadcaster(&cur)
+
+			stop := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Go(func() {
+				for i := 1; ; i++ {
+					select {
+					case <-stop:
+						return
+					case <-time.After(time.Millisecond):
+					}
+					old, next := sets[(i+1)%2], sets[i%2]
+					if err := h.Listen(next); err != nil {
+						Fail(err.Error())
+					}
+					cur.Store(next)
+					if err := h.Release(old); err != nil {
+						Fail(err.Error())
+					}
+				}
+			})
+			return messagingtest.Carrier{Bus: h, Peer: h, ServesControlRoots: true, Cleanup: func() {
+				close(stop)
+				wg.Wait()
+			}}
 		})
 	})
 })
