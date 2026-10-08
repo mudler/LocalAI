@@ -49,6 +49,7 @@
   padding: var(--dk-space-4) var(--spacing-xl) 0;
 }
 .studio-tab {
+  position: relative; /* contains the hidden state text so it cannot widen the scrolling row */
   display: inline-flex;
   align-items: center;
   gap: var(--dk-space-2);
