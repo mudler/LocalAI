@@ -165,6 +165,8 @@ export const API_CONFIG = {
     nodeLabelKey: (id, key) => `/api/nodes/${id}/labels/${key}`,
     nodeMaxReplicasPerModel: (id) => `/api/nodes/${id}/max-replicas-per-model`,
     nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
+    clusterCarrier: '/api/cluster/carrier',
+    clusterSettings: '/api/cluster/settings',
     nodesScheduling: '/api/nodes/scheduling',
     nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,

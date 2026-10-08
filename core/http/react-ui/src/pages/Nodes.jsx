@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ClusterOverview from '../components/nodes/ClusterOverview'
+import ClusterTransport from '../components/nodes/ClusterTransport'
 import NodeFleetTable from '../components/nodes/NodeFleetTable'
 import NodeInspector from '../components/nodes/NodeInspector'
 import ModelFleetTable from '../components/nodes/ModelFleetTable'
@@ -340,6 +341,7 @@ export default function Nodes() {
       <div role="radiogroup" aria-label="Worker type" className="segmented node-filter">
         {[['backend', 'Backend'], ['agent', 'Agent']].map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={emptyNodeType === value} className={`segmented__item${emptyNodeType === value ? ' is-active' : ''}`} onClick={() => setEmptyNodeType(value)}>{label}</button>)}
       </div>
+      <ClusterTransport addToast={addToast} />
       <WorkerHintCard addToast={addToast} nodeType={emptyNodeType} />
     </div>
   )
@@ -348,6 +350,7 @@ export default function Nodes() {
     <div className={`page page--wide nodes-fleet-page${inspectedNode || inspectedModel || drilledNode ? ' nodes-fleet-page--inspecting' : ''}`}>
       <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
       {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
+      <ClusterTransport addToast={addToast} />
       <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
 
       <section className="fleet-workbench" aria-label="Fleet workbench">
