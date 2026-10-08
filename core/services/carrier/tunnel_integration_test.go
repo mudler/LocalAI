@@ -26,8 +26,10 @@ import (
 	clusterapi "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging/messagingtest"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/mudler/LocalAI/core/services/tunnel/slowlink"
@@ -93,6 +95,7 @@ type controlPlane struct {
 	installs []workerctl.BackendInstallRequest
 	stops    []workerctl.ModelStopRequest
 	renewals int
+	ensures  []workerctl.FileEnsureRequest
 }
 
 func (c *controlPlane) handler() http.Handler {
@@ -131,6 +134,14 @@ func (c *controlPlane) handler() http.Handler {
 		c.mu.Unlock()
 		_ = json.NewEncoder(w).Encode(workerctl.OperationReply{Renewed: req.Renew, Completed: req.Complete})
 	})
+	mux.HandleFunc(workerctl.PathOf(workerctl.VerbFilesEnsure), func(w http.ResponseWriter, r *http.Request) {
+		var req workerctl.FileEnsureRequest
+		body(r, &req)
+		c.mu.Lock()
+		c.ensures = append(c.ensures, req)
+		c.mu.Unlock()
+		_ = json.NewEncoder(w).Encode(workerctl.FileEnsureReply{LocalPath: "/cache/" + req.Key})
+	})
 	mux.HandleFunc(workerctl.PathOf(workerctl.VerbBackendList), func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"backends":[]}`)
 	})
@@ -144,6 +155,12 @@ func (c *controlPlane) seenStops() []workerctl.ModelStopRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return slices.Clone(c.stops)
+}
+
+func (c *controlPlane) seenEnsures() []workerctl.FileEnsureRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.ensures)
 }
 
 func (c *controlPlane) seenRenewals() int {
@@ -166,12 +183,21 @@ type replica struct {
 	commands *carrier.Commands
 	files    *carrier.Files
 	clients  *carrier.Clients
+	agents   *carrier.Agents
+	queue    *carrier.WorkQueue
+	bus      *carrier.Broadcaster
+
+	// selector picks the agent workers, as the set does for the agent control.
+	selector *nodes.AgentSelector
+	// stopHeartbeat ends the heartbeat of the row of this replica, as the death
+	// of its process does.
+	stopHeartbeat context.CancelFunc
 }
 
 // startReplica starts one frontend: its own tunnel registry, peer link, relay and
 // carrier set, behind its own HTTP server, over the database that all replicas
 // share.
-func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clusterR *cluster.Registry, nodeReg *nodes.NodeRegistry) *replica {
+func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clusterR *cluster.Registry, nodeReg *nodes.NodeRegistry, tweak ...func(*carrier.TunnelOptions)) *replica {
 	GinkgoHelper()
 	r := &replica{id: id}
 	cred := cluster.NewPeerCredential()
@@ -189,21 +215,42 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r.url = srv.URL
 	Expect(clusterR.RegisterPeer(ctx, id, "test", 0, "", strings.TrimPrefix(srv.URL, "http://"), cred.Hash())).To(Succeed())
 
+	// The row of the replica stays live while its process lives.
+	beat, stop := context.WithCancel(ctx)
+	r.stopHeartbeat = stop
+	DeferCleanup(stop)
+	go func() {
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-beat.Done():
+				return
+			case <-t.C:
+				_ = clusterR.Register(beat, id, "test", 0, "")
+			}
+		}
+	}()
+
 	fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
 	Expect(err).ToNot(HaveOccurred())
 	DeferCleanup(fan.Close)
-	fake := newFakeCarrier(cluster.CarrierTunnel, 1)
-	set, err := carrier.NewTunnelSet(carrier.TunnelOptions{
+	r.selector = nodes.NewAgentSelector(nodeReg, clusterR, id)
+	options := carrier.TunnelOptions{
 		Epoch:          1,
 		Dialer:         tunnel.NewWorkerDialer(r.tunnels, r.pool),
 		Fanout:         fan,
-		WorkQueue:      fake.queue,
-		Agents:         fake.agents,
+		WorkQueue:      jobs.NewClaimQueue(db, fan.Broadcaster),
+		AgentSelector:  r.selector,
 		Registry:       nodeReg,
 		InstallTimeout: 30 * time.Second,
 		UpgradeTimeout: 30 * time.Second,
 		Token:          registrationToken,
-	})
+	}
+	for _, t := range tweak {
+		t(&options)
+	}
+	set, err := carrier.NewTunnelSet(options)
 	Expect(err).ToNot(HaveOccurred())
 	r.set = set
 	r.active = &atomic.Pointer[carrier.Set]{}
@@ -211,6 +258,9 @@ func startReplica(ctx context.Context, id string, db *gorm.DB, dsn string, clust
 	r.commands = carrier.NewCommands(r.active)
 	r.files = carrier.NewFiles(r.active)
 	r.clients = carrier.NewClients(r.active)
+	r.agents = carrier.NewAgents(r.active)
+	r.queue = carrier.NewWorkQueue(r.active)
+	r.bus = carrier.NewBroadcaster(r.active)
 	return r
 }
 
@@ -552,6 +602,49 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		Expect(filepath.Join(stagingDir, "models", "x.bin")).ToNot(BeAnExistingFile())
 		// The inference lane still carries a control call.
 		Expect(a.commands.PingNode(nodeID)).To(Succeed())
+	})
+
+	It("stages a file through shared object storage, with only the verbs on the tunnel, when the set is built for it", func() {
+		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).ToNot(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).ToNot(HaveOccurred())
+		s3 := startReplica(ctx, "replica-s3", db, dsn, clusterR, nodeReg, func(o *carrier.TunnelOptions) {
+			o.S3Staging, o.FileManager = true, fm
+		})
+		attach(s3.url)
+		Eventually(ownerIs(s3), "15s", "50ms").Should(BeTrue())
+
+		src := filepath.Join(GinkgoT().TempDir(), "x.bin")
+		Expect(os.WriteFile(src, []byte("shared bytes"), 0o600)).To(Succeed())
+		remote, err := s3.files.EnsureRemote(ctx, nodeID, src, "models/s3/x.bin")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(remote).To(Equal("/cache/models/s3/x.bin"))
+
+		exists, err := store.Exists(ctx, "models/s3/x.bin")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(exists).To(BeTrue(), "the frontend put the file in the shared store")
+		Expect(control.seenEnsures()).To(Equal([]workerctl.FileEnsureRequest{{Key: "models/s3/x.bin"}}))
+		Expect(filepath.Join(stagingDir, "models", "s3", "x.bin")).ToNot(BeAnExistingFile(), "no bytes went over the tunnel")
+	})
+
+	It("refuses to build a set that lacks a member of this carrier", func() {
+		whole := carrier.TunnelOptions{
+			Dialer: tunnel.NewWorkerDialer(a.tunnels, a.pool), Fanout: &carrier.Fanout{},
+			WorkQueue: a.queue, AgentSelector: a.selector,
+		}
+		for name, mutate := range map[string]func(*carrier.TunnelOptions){
+			"no dialer":                  func(o *carrier.TunnelOptions) { o.Dialer = nil },
+			"no fan-out":                 func(o *carrier.TunnelOptions) { o.Fanout = nil },
+			"no queue":                   func(o *carrier.TunnelOptions) { o.WorkQueue = nil },
+			"no agent selector":          func(o *carrier.TunnelOptions) { o.AgentSelector = nil },
+			"S3 staging with no manager": func(o *carrier.TunnelOptions) { o.S3Staging = true },
+		} {
+			o := whole
+			mutate(&o)
+			_, err := carrier.NewTunnelSet(o)
+			Expect(err).To(HaveOccurred(), name)
+		}
 	})
 
 	It("carries broadcasts between the replicas through the holders", func() {

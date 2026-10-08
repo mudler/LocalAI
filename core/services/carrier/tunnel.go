@@ -7,7 +7,6 @@ import (
 	"net"
 	"time"
 
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -17,11 +16,12 @@ import (
 
 // TunnelOptions is what NewTunnelSet needs.
 //
-// The set has seven members. Four of them belong to this carrier and are built
-// here: the control verbs, the file stager, the client factory and the dialer of
-// the HTTP server of a worker. The fan-out comes from NewPgbusFanout. The queue
-// and the agent RPC of the tunnel carrier are provided by the caller, because the
-// parts that implement them are separate from the parts that reach a worker.
+// The set has seven members. Five of them belong to this carrier and are built
+// here: the control verbs, the file stager, the client factory, the dialer of the
+// HTTP server of a worker and the agent RPC, which picks an agent worker with the
+// selector and sends the request over the same control client as the other verbs.
+// The fan-out comes from NewPgbusFanout. The queue is provided by the caller
+// (jobs.ClaimQueue), because it lives in the database and reaches no worker.
 type TunnelOptions struct {
 	// Epoch is the epoch of the cluster row the set is built for.
 	Epoch int64
@@ -32,9 +32,10 @@ type TunnelOptions struct {
 
 	// Fanout carries the broadcasts.
 	Fanout *Fanout
-	// WorkQueue and Agents are the other two members that the set needs.
+	// WorkQueue is the queue of the carrier.
 	WorkQueue messaging.WorkQueue
-	Agents    mcpTools.AgentControl
+	// AgentSelector picks the agent worker that gets an MCP request.
+	AgentSelector *nodes.AgentSelector
 
 	// Registry finds the nodes that hold a model, for the verbs that fan out.
 	Registry nodes.ModelLocator
@@ -60,6 +61,12 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 	}
 	if o.Fanout == nil {
 		return nil, errors.New("tunnel set needs a fan-out")
+	}
+	if o.WorkQueue == nil {
+		return nil, errors.New("tunnel set needs a work queue")
+	}
+	if o.AgentSelector == nil {
+		return nil, errors.New("tunnel set needs an agent selector")
 	}
 
 	// The control verbs, the logs and the health of a worker go over the
@@ -99,7 +106,7 @@ func NewTunnelSet(o TunnelOptions) (*Set, error) {
 		Files:       files,
 		Clients:     nodes.NewDialerClientFactory(o.Token, grpcDialerFor(o.Dialer)),
 		Dialer:      httpDial,
-		Agents:      o.Agents,
+		Agents:      nodes.NewAgentControlClient(o.AgentSelector, control),
 		// The control client and the HTTP stager keep one client for each node.
 		ForgetNode: func(nodeID string) {
 			control.ForgetNode(nodeID)
