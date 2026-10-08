@@ -52,6 +52,14 @@ var _ = Describe("The broadcasts that a worker may ask for", func() {
 		Entry("may not publish on a root that carries state", "state.models.delta", false),
 		Entry("may not publish on a wildcard", "jobs.*.result", false),
 		Entry("may not publish on no subject", "", false),
+		Entry("may not publish with an empty token", "jobs..progress", false),
+		Entry("may not publish with an empty token at the end", "agent.helper.events.", false),
+		Entry("may not publish with an empty agent name", "agent..events.alice", false),
+		Entry("may not publish with a trailing dot", "jobs.j1.progress.", false),
+		Entry("may not publish with a space in a token", "jobs.j 1.progress", false),
+		Entry("may not publish with a newline in a token", "jobs.j1\n.result", false),
+		Entry("may not publish with a tab in a token", "agent.hel\tper.events.alice", false),
+		Entry("may not publish with a control character", "jobs.j\x001.result", false),
 	)
 
 	It("denies a backend worker and an unknown type everything", func() {

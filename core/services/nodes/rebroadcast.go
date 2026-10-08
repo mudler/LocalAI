@@ -3,6 +3,7 @@ package nodes
 import (
 	"encoding/json"
 	"strings"
+	"unicode"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/xlog"
@@ -37,6 +38,24 @@ func mayBroadcast(nodeType, subject string) bool {
 	return mayBroadcastIn(workerBroadcastAllow, nodeType, subject)
 }
 
+// wellFormedSubject says whether every token of subject is not empty and holds
+// no white space and no control character. The filters of the table match a
+// token by position, so a subject with an empty token, or one that a log line or
+// a subscriber would read as two, must not reach them.
+func wellFormedSubject(subject string) bool {
+	for _, token := range strings.Split(subject, ".") {
+		if token == "" {
+			return false
+		}
+		for _, r := range token {
+			if unicode.IsSpace(r) || unicode.IsControl(r) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // mayBroadcastIn is mayBroadcast against a caller-supplied table.
 //
 // It exists so a spec can hold the table itself constant while varying what is
@@ -48,7 +67,7 @@ func mayBroadcastIn(table map[string][]string, nodeType, subject string) bool {
 	// is nothing here to authorise. Refusing it is not defensive tidiness: it
 	// keeps a filter that happened to match the empty string from turning every
 	// ordinary private progress tick into a publish.
-	if subject == "" || strings.ContainsAny(subject, "*>") {
+	if subject == "" || strings.ContainsAny(subject, "*>") || !wellFormedSubject(subject) {
 		// A wildcard is a filter for a subscriber. A worker that names one asks for
 		// a publish on every subject it matches, and a filter of the table would
 		// match its own text.

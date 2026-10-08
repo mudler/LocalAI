@@ -203,6 +203,8 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 		defer d.cancelled.remove(jobID)
 	}
 
+	scope := broadcastScope(kind, jobID, payload)
+
 	// started becomes true when the first line of the run comes back. From then on
 	// the job may have done work, and the claim is not released.
 	var started atomic.Bool
@@ -232,7 +234,7 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 		err = d.cfg.Control.CallStreaming(ctx, nodeID, verb, json.RawMessage(payload), &reply,
 			func(subject string, raw json.RawMessage) {
 				started.Store(true)
-				d.rebroadcast(nodeType, subject, raw)
+				d.rebroadcast(nodeType, subject, raw, scope)
 			})
 		switch {
 		case err == nil:
@@ -332,12 +334,46 @@ func (d *AgentDriver) cutOff(jobID string) error {
 	return nil
 }
 
+// broadcastScope returns the subjects that the run being driven may publish on, or
+// nil when the run names none. A worker that holds one run may ask the frontend to
+// publish the progress of that run, and not the progress or the events of another
+// job or another user: the allow list of the node type is wide, and the run is the
+// narrower right.
+func broadcastScope(kind messaging.WorkKind, jobID string, payload []byte) map[string]bool {
+	switch kind {
+	case messaging.WorkMCPCI:
+		if jobID == "" {
+			return nil
+		}
+		return map[string]bool{
+			messaging.SubjectJobProgress(jobID): true,
+			messaging.SubjectJobResult(jobID):   true,
+		}
+	case messaging.WorkAgentRun:
+		var evt struct {
+			AgentName string `json:"agent_name"`
+			UserID    string `json:"user_id"`
+		}
+		if err := json.Unmarshal(payload, &evt); err != nil || evt.AgentName == "" {
+			return nil
+		}
+		return map[string]bool{messaging.SubjectAgentEvents(evt.AgentName, evt.UserID): true}
+	}
+	return nil
+}
+
 // rebroadcast publishes the broadcast that a progress line asked for. A line with
 // no subject is meant for the caller alone, as every private tick is, and is not
 // passed on: the allow list denies the empty subject, and passing it would log a
-// refusal for each ordinary tick.
-func (d *AgentDriver) rebroadcast(nodeType, subject string, raw json.RawMessage) {
+// refusal for each ordinary tick. A line that names a subject outside the scope of
+// the run is refused. A run with no scope is held to the allow list of its node
+// type only.
+func (d *AgentDriver) rebroadcast(nodeType, subject string, raw json.RawMessage, scope map[string]bool) {
 	if subject == "" || d.cfg.Broadcast == nil {
+		return
+	}
+	if scope != nil && !scope[subject] {
+		xlog.Warn("Refusing a broadcast that a worker asked for outside the run it was given", "nodeType", nodeType, "subject", subject)
 		return
 	}
 	d.cfg.Broadcast.Handle(nodeType, subject, raw)

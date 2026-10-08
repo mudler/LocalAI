@@ -29,9 +29,9 @@ type Options struct {
 	// credential. It may be nil.
 	Reauthorize func(ctx context.Context) error
 	// ControlToken guards the control server. It is the registration token of
-	// the deployment, which the control client of the frontend presents. An empty
-	// token leaves the server open to anything that can reach it, which is the
-	// tunnel and this host.
+	// the deployment, which the control client of the frontend presents. It is
+	// required: an empty token would leave the loopback port open to every process
+	// of this host.
 	ControlToken string
 	// Handler serves the verbs. See Handler.
 	Handler http.Handler
@@ -91,6 +91,11 @@ func Start(ctx context.Context, o Options) (*Runtime, error) {
 	}
 	if o.TunnelToken == nil {
 		return nil, errors.New("starting the agent worker control plane: no way to read the tunnel credential")
+	}
+	if o.ControlToken == "" {
+		return nil, errors.New("starting the agent worker control plane: no control token. " +
+			"Set LOCALAI_REGISTRATION_TOKEN to the registration token of the deployment, on the worker and on the frontends; " +
+			"without it any process on this host could call the control port")
 	}
 	lis, err := net.Listen("tcp", loopbackBind)
 	if err != nil {

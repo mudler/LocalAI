@@ -282,6 +282,44 @@ var _ = Describe("The agent driver", func() {
 		})
 	})
 
+	Describe("the broadcasts of a run", func() {
+		lines := func(subjects ...string) {
+			control.do = func(_ context.Context, _, _ string, onProgress func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				for _, s := range subjects {
+					onProgress(s, json.RawMessage(`{}`))
+				}
+				return workerctl.RunReply{}, nil
+			}
+		}
+		published := func() []string {
+			broadcast.mu.Lock()
+			defer broadcast.mu.Unlock()
+			var out []string
+			for _, l := range broadcast.lines {
+				out = append(out, l.subject)
+			}
+			return out
+		}
+
+		It("publishes the progress and the result of the job that it drives, and no other job", func() {
+			lines("jobs.j1.progress", "jobs.j1.result", "jobs.other.progress", "jobs.other.result", "agent.a.events.u")
+			Expect(handler(messaging.WorkMCPCI)(ctx, ciPayload("j1"), nil)).To(Succeed())
+			Expect(published()).To(Equal([]string{"jobs.j1.progress", "jobs.j1.result"}))
+		})
+
+		It("publishes the events of the agent and the user that it drives, and no other", func() {
+			lines("agent.helper.events.alice", "agent.helper.events.bob", "agent.other.events.alice", "jobs.j1.progress")
+			Expect(handler(messaging.WorkAgentRun)(ctx, []byte(`{"agent_name":"helper","user_id":"alice"}`), nil)).To(Succeed())
+			Expect(published()).To(Equal([]string{"agent.helper.events.alice"}))
+		})
+
+		It("holds a run that names no scope to the allow list of its node type", func() {
+			lines("jobs.x.progress")
+			Expect(handler(messaging.WorkAgentRun)(ctx, []byte(`{}`), nil)).To(Succeed())
+			Expect(published()).To(Equal([]string{"jobs.x.progress"}))
+		})
+	})
+
 	Describe("a run whose link breaks", func() {
 		// startedThen plays a worker that sends a line of the run and then loses the link.
 		startedThen := func(err error) {

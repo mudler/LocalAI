@@ -80,15 +80,24 @@ var _ = Describe("Starting the control plane of an agent worker", func() {
 	})
 
 	It("refuses to start with no handler or no token function", func() {
-		_, err := agentworker.Start(GinkgoT().Context(), agentworker.Options{FrontendURL: "http://127.0.0.1:1", NodeID: "n", TunnelToken: func() string { return "t" }})
+		_, err := agentworker.Start(GinkgoT().Context(), agentworker.Options{FrontendURL: "http://127.0.0.1:1", NodeID: "n", TunnelToken: func() string { return "t" }, ControlToken: "secret"})
 		Expect(err).To(HaveOccurred())
-		_, err = agentworker.Start(GinkgoT().Context(), agentworker.Options{FrontendURL: "http://127.0.0.1:1", NodeID: "n", Handler: http.NotFoundHandler()})
+		_, err = agentworker.Start(GinkgoT().Context(), agentworker.Options{FrontendURL: "http://127.0.0.1:1", NodeID: "n", Handler: http.NotFoundHandler(), ControlToken: "secret"})
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("refuses to start with no control token, because the loopback port would be open to any process of the host", func() {
+		_, err := agentworker.Start(GinkgoT().Context(), agentworker.Options{
+			FrontendURL: "http://127.0.0.1:1", NodeID: "n", TunnelToken: func() string { return "t" },
+			Handler: http.NotFoundHandler(),
+		})
+		Expect(err).To(MatchError(ContainSubstring("LOCALAI_REGISTRATION_TOKEN")))
 	})
 
 	It("refuses a frontend URL that cannot be dialled", func() {
 		_, err := agentworker.Start(GinkgoT().Context(), agentworker.Options{
 			FrontendURL: "ftp://frontend", NodeID: "n", TunnelToken: func() string { return "t" }, Handler: http.NotFoundHandler(),
+			ControlToken: "secret",
 		})
 		Expect(err).To(HaveOccurred())
 	})
