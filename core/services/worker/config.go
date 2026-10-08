@@ -89,7 +89,7 @@ type Config struct {
 	FollowMaxDelay string `env:"LOCALAI_FOLLOW_MAX_DELAY" default:"10s" help:"Longest random wait before this worker attaches to the carrier that the cluster changed to" group:"registration" hidden:""`
 
 	// NATS. The URL is needed only when the cluster runs on NATS.
-	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Needed when the cluster runs on NATS; a cluster on the tunnel does not use it" group:"distributed"`
+	NatsURL         string `env:"LOCALAI_NATS_URL" help:"NATS server URL. Optional: the frontend hands over the address when the cluster runs on NATS, and this overrides it" group:"distributed"`
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`
 	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user signing seed override (normally from registration nats_user_seed)" group:"distributed"`
 	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed from registration or env" group:"distributed"`

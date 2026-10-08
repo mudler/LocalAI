@@ -38,6 +38,10 @@ type NATSLocal struct {
 	Seed     string
 	Required bool
 	TLS      messaging.TLSFiles
+	// FallbackJWT and FallbackSeed are used when the frontend minted no
+	// credential, as an operator of an agent worker may configure.
+	FallbackJWT  string
+	FallbackSeed string
 }
 
 // natsTLSFor returns the TLS files to use: the files of the operator, and the CA
@@ -66,6 +70,11 @@ func ConnectNATS(ctx context.Context, local NATSLocal, h Handover, onFatal func(
 	var opts []messaging.Option
 	if h.Creds != nil && h.Creds.HasCredentials() {
 		opts = append(opts, messaging.WithUserJWTProvider(h.Creds.Provider()))
+	} else if local.FallbackJWT != "" || local.FallbackSeed != "" {
+		if (local.FallbackJWT == "") != (local.FallbackSeed == "") {
+			return nil, errors.New("the fallback NATS JWT and seed must be set together")
+		}
+		opts = append(opts, messaging.WithUserJWT(local.FallbackJWT, local.FallbackSeed))
 	} else if local.Required {
 		return nil, errors.New("NATS JWT+seed required: set LOCALAI_NATS_JWT/LOCALAI_NATS_USER_SEED or enable frontend minting")
 	}
