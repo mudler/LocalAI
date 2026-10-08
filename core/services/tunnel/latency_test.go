@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/tunnel"
@@ -251,6 +252,16 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		bulkName   = "bulk lane: transfer on the bulk session, probe on the inference session"
 	)
 	results := map[string]probeStats{}
+
+	// The specs compare latencies, and a loaded runner moves them by more than
+	// the margin. They run when the label is asked for:
+	//   go run github.com/onsi/ginkgo/v2/ginkgo --label-filter=benchmark ./core/services/tunnel
+	BeforeAll(func() {
+		if !strings.Contains(GinkgoLabelFilter(), "benchmark") {
+			Skip("a latency benchmark; run it with --label-filter=benchmark")
+		}
+	})
+
 	// measure runs the transfer while the probes run, and records the stats of
 	// the probes.
 	measure := func(name string, transfer func() error, probe func() (time.Duration, error)) {
