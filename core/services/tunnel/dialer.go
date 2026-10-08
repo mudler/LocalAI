@@ -23,7 +23,7 @@ type PeerOpener interface {
 // worker or a relay that accepted a stream and then said nothing would otherwise
 // park the caller until the keepalive of the session killed it. A deadline of the
 // caller is used instead when it is the shorter of the two.
-const dialHandshakeTimeout = 15 * time.Second
+var dialHandshakeTimeout = 15 * time.Second
 
 // WorkerDialer opens connections to a worker through its tunnel, wherever in the
 // deployment that tunnel is held.
@@ -120,7 +120,29 @@ func (d *WorkerDialer) GRPCDialerFor(nodeID string) func(ctx context.Context, ad
 }
 
 // relay opens the stream through the replica that holds the tunnel of the worker.
+//
+// An owner that refuses with ErrNotOwner says that the worker left it after the
+// lookup, which is what a worker that reconnects to another replica does. The
+// lookup is made once more, within the budget of the caller, and the second
+// answer is final: a third attempt would turn a stale row into a loop.
 func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o dialOptions) (net.Conn, error) {
+	stream, err := d.relayOnce(ctx, nodeID, o, false)
+	if err != nil {
+		return nil, routeFailure(nodeID, err)
+	}
+	return d.handshake(ctx, stream, nodeID, tag, target)
+}
+
+// errOwnerRefused marks an ErrNotOwner that an owning replica wrote, as opposed
+// to one that this replica reached by itself. Only the first is worth a second
+// lookup.
+var errOwnerRefused = errors.New("tunnel: the owner refused the stream")
+
+// relayOnce looks the owner up and opens the stream through it, up to the end of
+// the relay reply. It returns the cause of a failure and leaves its
+// classification to the caller. again says that this is the second lookup, in
+// which the owner may be this replica: the worker moved here in the meantime.
+func (d *WorkerDialer) relayOnce(ctx context.Context, nodeID string, o dialOptions, again bool) (net.Conn, error) {
 	// Owner and not the row: a row outlives its owner by up to a liveness window,
 	// and a dial to what the unjoined read returns would reach a process that is
 	// gone and report the worker as unreachable instead of absent.
@@ -128,16 +150,29 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o 
 	if err != nil {
 		// ErrNoConnection is the ordinary answer for a worker that has not dialled
 		// in yet, and it must not get out: routeFailure keeps it in the message.
-		return nil, routeFailure(nodeID, err)
+		// A database that did not answer is another condition, and it says nothing
+		// about the worker.
+		if !isAbsenceClaim(err) && callerRanOut(ctx) == nil {
+			err = fmt.Errorf("%w: looking up the owner: %w", ErrInfrastructure, err)
+		}
+		return nil, err
 	}
 	if owner == d.tunnels.selfID {
+		if again {
+			// The worker moved to this replica while the first owner was refusing.
+			var openOpts []OpenOption
+			if o.noFallback {
+				openOpts = append(openOpts, WithoutFallback())
+			}
+			return d.tunnels.Open(ctx, nodeID, o.lane, openOpts...)
+		}
 		// The table names this replica, and the registry says that the tunnel is
 		// not held here, so the attachment went away between the claim and now.
 		// Relaying would send the request into this same process.
-		return nil, routeFailure(nodeID, fmt.Errorf("the connection row names this replica, which no longer holds the tunnel: %w", ErrNotOwner))
+		return nil, fmt.Errorf("the connection row names this replica, which no longer holds the tunnel: %w", ErrNotOwner)
 	}
 	if d.peers == nil {
-		return nil, routeFailure(nodeID, fmt.Errorf("the tunnel is held by replica %q: %w", owner, ErrNoRelayPath))
+		return nil, fmt.Errorf("the tunnel is held by replica %q: %w", owner, ErrNoRelayPath)
 	}
 
 	stream, err := d.peers.Open(ctx, owner)
@@ -145,7 +180,7 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o 
 		// ErrPeerUnreachable and ErrPoolClosed keep their identity. An owner swept
 		// between the lookup and this dial is an absence claim about a replica, and
 		// routeFailure withholds it.
-		return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: %w", owner, err))
+		return nil, fmt.Errorf("through replica %q: %w", owner, err)
 	}
 
 	// The relay frame and its reply run under the budget of the caller. An owner
@@ -155,7 +190,7 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o 
 	// a caller that cancels without one.
 	if err := stream.SetDeadline(handshakeDeadline(ctx)); err != nil {
 		_ = stream.Close()
-		return nil, routeFailure(nodeID, fmt.Errorf("arming the relay deadline: %w", err))
+		return nil, fmt.Errorf("arming the relay deadline: %w", err)
 	}
 	release := closeWhenDone(ctx, stream)
 	defer func() { _ = release() }()
@@ -164,20 +199,40 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o 
 	if err := WriteRelayRequest(stream, nodeID, relayLane(o), remainingBudget(ctx)); err != nil {
 		_ = stream.Close()
 		if blamed := callerRanOut(ctx); blamed != nil {
-			return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, blamed))
+			return nil, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, blamed)
 		}
-		return nil, routeFailure(nodeID, fmt.Errorf("naming the node on a stream to replica %q: %w", owner, err))
+		return nil, relayHopFailure(owner, "naming the node on a stream", err)
 	}
 	if err := ReadRelayReply(stream); err != nil {
 		// A refusal of the owning replica and not of the worker: the owner would
 		// not relay, which is a route that does not exist.
 		_ = stream.Close()
 		if blamed := callerRanOut(ctx); blamed != nil {
-			return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, blamed))
+			return nil, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, blamed)
 		}
-		return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: %w", owner, err))
+		err = relayHopFailure(owner, "reading the relay reply", err)
+		if errors.Is(err, ErrNotOwner) {
+			err = fmt.Errorf("%w: %w", errOwnerRefused, err)
+		}
+		return nil, err
 	}
-	return d.handshake(ctx, stream, nodeID, tag, target)
+	if release() {
+		return nil, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, cmp.Or(callerRanOut(ctx), context.Canceled))
+	}
+	return stream, nil
+}
+
+// relayHopFailure classifies a failure on the stream to the owning replica. A
+// refusal that the owner wrote, and a reply that breaks the protocol, keep their
+// identity. Everything else is the link breaking or going quiet before the owner
+// answered, which is a fact about two frontends and not about the worker.
+func relayHopFailure(owner, what string, err error) error {
+	for _, kept := range []error{ErrNotOwner, ErrRelayUnavailable, ErrRelayRequestInvalid, ErrNoBulkSession, ErrProtocol} {
+		if errors.Is(err, kept) {
+			return fmt.Errorf("through replica %q: %w", owner, err)
+		}
+	}
+	return unreachablePeer(owner, fmt.Errorf("%s: %w", what, err))
 }
 
 // handshake names the service of the worker on a stream and waits for the answer

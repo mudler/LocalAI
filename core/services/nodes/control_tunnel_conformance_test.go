@@ -4,6 +4,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -74,6 +75,23 @@ func (h *httpLoadOperationHarness) NoRoute() {
 }
 
 func (h *httpLoadOperationHarness) TimesOut() { h.setMode("hang") }
+
+// The carrier maps the errors of the tunnel before the control client sees them,
+// and the tunnel keeps these two apart from a missing route. What reaches this
+// package is a plain error that carries no ErrNoRoute.
+func (h *httpLoadOperationHarness) PathFails() {
+	h.setDialErr(errors.New("tunnel: peer \"replica-b\" unreachable: the link ended"))
+}
+
+func (h *httpLoadOperationHarness) InfrastructureFails() {
+	h.setDialErr(errors.New("tunnel: the cluster database could not answer"))
+}
+
+func (h *httpLoadOperationHarness) setDialErr(err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.dialErr = err
+}
 
 func (h *httpLoadOperationHarness) WorkerRefuses() { h.setMode("refuse") }
 

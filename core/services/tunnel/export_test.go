@@ -21,3 +21,14 @@ func SetClaimTimeout(d time.Duration) (restore func()) {
 func NewRelayWithTimeouts(tunnels *Registry, header, open time.Duration) *Relay {
 	return newRelay(tunnels, header, open)
 }
+
+// RouteFailure exposes the classification of a failed dial to the specs.
+func RouteFailure(nodeID string, cause error) error { return routeFailure(nodeID, cause) }
+
+// SetHandshakeTimeout changes the backstop of the handshake for one spec and
+// returns a function that restores it.
+func SetHandshakeTimeout(d time.Duration) (restore func()) {
+	old := dialHandshakeTimeout
+	dialHandshakeTimeout = d
+	return func() { dialHandshakeTimeout = old }
+}

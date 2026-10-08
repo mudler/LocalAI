@@ -223,7 +223,7 @@ func ReadStreamReply(r io.Reader) error {
 	}
 	rest, ok := strings.CutPrefix(payload, replyPrefixRefused)
 	if !ok {
-		return fmt.Errorf("reading a tunnel stream reply: unrecognised reply %q", payload)
+		return fmt.Errorf("reading a tunnel stream reply: %w: %q", ErrProtocol, payload)
 	}
 	code, text, _ := strings.Cut(rest, streamRequestSeparator)
 	for _, r := range streamRefusals {
@@ -234,7 +234,7 @@ func ReadStreamReply(r io.Reader) error {
 	// A code from a newer worker. It is not mapped onto the nearest known code,
 	// so that a frontend does not retry for ever against a refusal with another
 	// meaning, and so that IsWorkerAnswer is false and nothing is reaped.
-	return fmt.Errorf("tunnel stream refused with unrecognised code %q: %s", code, text)
+	return fmt.Errorf("tunnel stream refused with unrecognised code %q: %w: %s", code, ErrProtocol, text)
 }
 
 // truncateRunes cuts s to at most limit bytes on a rune boundary. A plain slice
@@ -279,7 +279,7 @@ func readFrame(r io.Reader) (string, error) {
 	}
 	n := binary.BigEndian.Uint16(size[:])
 	if int(n) > maxFrame {
-		return "", fmt.Errorf("tunnel frame declares %d bytes, over the %d-byte limit", n, maxFrame)
+		return "", fmt.Errorf("%w: tunnel frame declares %d bytes, over the %d-byte limit", ErrProtocol, n, maxFrame)
 	}
 	if n == 0 {
 		return "", nil

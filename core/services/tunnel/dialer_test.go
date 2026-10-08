@@ -3,6 +3,7 @@ package tunnel_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net"
@@ -26,6 +27,7 @@ type scriptedWorker struct {
 	requests []workerRequest
 	refuse   error
 	hold     time.Duration
+	garbage  bool
 }
 
 type workerRequest struct{ tag, target string }
@@ -45,8 +47,12 @@ func (w *scriptedWorker) serve(sess *tunnel.Session) {
 				}
 				w.mu.Lock()
 				w.requests = append(w.requests, workerRequest{tag, target})
-				refuse, hold := w.refuse, w.hold
+				refuse, hold, garbage := w.refuse, w.hold, w.garbage
 				w.mu.Unlock()
+				if garbage {
+					_, _ = st.Write(rawFrame("this is not a reply"))
+					return
+				}
 				if hold > 0 {
 					time.Sleep(hold)
 				}
@@ -178,6 +184,29 @@ var _ = Describe("The worker dialer", func() {
 			Expect(tunnel.IsWorkerAnswer(err)).To(BeFalse())
 		})
 
+		It("reports a worker that says nothing for the whole backstop as a slow path and not as a missing route", func() {
+			hold(false)
+			worker.hold = 3 * time.Second
+			DeferCleanup(tunnel.SetHandshakeTimeout(300 * time.Millisecond))
+			dialer := tunnel.NewWorkerDialer(tunnels, nil)
+
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrTransport)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse(), "a worker that is slow to answer is still held")
+			Expect(tunnel.IsWorkerAnswer(err)).To(BeFalse())
+		})
+
+		It("reports a worker that answers with something that is no reply as a protocol error and not as a missing route", func() {
+			hold(false)
+			worker.garbage = true
+			dialer := tunnel.NewWorkerDialer(tunnels, nil)
+
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrProtocol)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse())
+			Expect(tunnel.IsWorkerAnswer(err)).To(BeFalse())
+		})
+
 		It("reports a session that ended under a held entry as a route that does not exist now", func() {
 			front, _ := hold(false)
 			Expect(front.Close()).To(Succeed())
@@ -299,6 +328,30 @@ var _ = Describe("The worker dialer", func() {
 			Eventually(wedged.farClosed, 2*time.Second).Should(BeTrue())
 		})
 
+		It("reports an owner link that dies before the relay reply as an unreachable peer and not as a missing route", func() {
+			dialer := tunnel.NewWorkerDialer(tunnels, &scriptedPeers{onFrame: func(far net.Conn) { _ = far.Close() }})
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrPeerUnreachable)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse(), "a link between two frontends says nothing about the worker")
+		})
+
+		It("reports an owner that is silent for the whole backstop as an unreachable peer", func() {
+			DeferCleanup(tunnel.SetHandshakeTimeout(300 * time.Millisecond))
+			dialer := tunnel.NewWorkerDialer(tunnels, &wedgedPeers{})
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrPeerUnreachable)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse())
+		})
+
+		It("reports an owner that answers with something that is no reply as a protocol error", func() {
+			dialer := tunnel.NewWorkerDialer(tunnels, &scriptedPeers{onFrame: func(far net.Conn) {
+				_, _ = far.Write(rawFrame("hello there"))
+			}})
+			_, err := dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrProtocol)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse())
+		})
+
 		It("states the remaining budget of the caller in the relay request", func() {
 			dialer := tunnel.NewWorkerDialer(tunnels, peers)
 			budgeted, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -366,6 +419,19 @@ var _ = Describe("The worker dialer", func() {
 			_, err = dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
 			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeTrue())
 			Expect(peers.opened()).To(BeEmpty(), "relaying would send the request into this same process")
+		})
+	})
+
+	Describe("when the database cannot say which replica holds the tunnel", func() {
+		It("reports an infrastructure error and not a missing route", func() {
+			sqlDB, err := db.DB()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlDB.Close()).To(Succeed())
+
+			dialer := tunnel.NewWorkerDialer(tunnels, &fakePeers{})
+			_, err = dialer.Dial(ctx, "w1", tunnel.StreamTagGRPC, "x:1")
+			Expect(errors.Is(err, tunnel.ErrInfrastructure)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse(), "a database that does not answer is no statement about a worker")
 		})
 	})
 
@@ -499,4 +565,31 @@ func (w *wedgedPeers) farClosed() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.end
+}
+
+// rawFrame is a frame of the tunnel protocol: a two byte length and the payload.
+func rawFrame(payload string) []byte {
+	buf := make([]byte, 2+len(payload))
+	binary.BigEndian.PutUint16(buf[:2], uint16(len(payload)))
+	copy(buf[2:], payload)
+	return buf
+}
+
+// scriptedPeers hands out a stream to an owner that reads the relay frame and
+// then does what a spec says with its end of the stream.
+type scriptedPeers struct{ onFrame func(far net.Conn) }
+
+func (p *scriptedPeers) Open(context.Context, string) (net.Conn, error) {
+	near, far := net.Pipe()
+	go func() {
+		var size [2]byte
+		if _, err := io.ReadFull(far, size[:]); err != nil {
+			return
+		}
+		if _, err := io.CopyN(io.Discard, far, int64(binary.BigEndian.Uint16(size[:]))); err != nil {
+			return
+		}
+		p.onFrame(far)
+	}()
+	return near, nil
 }

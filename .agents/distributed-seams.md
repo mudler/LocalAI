@@ -329,7 +329,14 @@ identity and is no `ErrNoRoute`. A peer that does not answer is
 `tunnel.ErrPeerUnreachable` and is not `ErrNoRoute`: a link between two frontends
 says nothing about a worker, and the scheduler demotes a worker on `ErrNoRoute`. A
 bulk lane that is down is `tunnel.ErrNoBulkSession` and is not `ErrNoRoute`
-either. The budget of the caller is checked first and is never a route failure.
+either. A path that is slow (a socket deadline, a worker that takes the stream and
+says nothing) is `tunnel.ErrTransport`. A reply that breaks the protocol is
+`tunnel.ErrProtocol`. A database that cannot say who holds the tunnel is
+`tunnel.ErrInfrastructure`. An owner link that breaks before it answers is
+`tunnel.ErrPeerUnreachable`. None of them is `ErrNoRoute`, and a failure that
+`routeFailure` does not recognise is none of them either: only the listed routing
+facts demote a worker. The budget of the caller is checked first and is never a
+route failure.
 
 A dial can ask for the bulk lane (`tunnel.WithBulkLane`) and then never falls
 back to the lane of model calls. The file stager asks for it.

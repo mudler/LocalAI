@@ -36,6 +36,14 @@ type loadOperationHarness interface {
 	NoRoute()
 	// TimesOut makes every later call get no reply in time.
 	TimesOut()
+	// PathFails makes every later call fail on the way to the worker with a
+	// failure that is not a missing route: a link between two frontends that
+	// dies, a connection of the bus that is closed.
+	PathFails()
+	// InfrastructureFails makes every later call fail because something the
+	// carrier depends on, and that is not the worker, does not answer: the
+	// database that names the owner of a tunnel, the server of the bus.
+	InfrastructureFails()
 	// WorkerRefuses makes the worker answer every call with its own refusal.
 	WorkerRefuses()
 	// WorkerAnswers makes the worker answer every call with success.
@@ -81,6 +89,18 @@ func (h *natsLoadOperationHarness) NoRoute() {
 func (h *natsLoadOperationHarness) TimesOut() {
 	for _, s := range h.subjects() {
 		h.mc.scriptErr(s, nats.ErrTimeout)
+	}
+}
+
+func (h *natsLoadOperationHarness) PathFails() {
+	for _, s := range h.subjects() {
+		h.mc.scriptErr(s, nats.ErrConnectionClosed)
+	}
+}
+
+func (h *natsLoadOperationHarness) InfrastructureFails() {
+	for _, s := range h.subjects() {
+		h.mc.scriptErr(s, errors.New("the server of the bus does not answer"))
 	}
 }
 
@@ -184,6 +204,17 @@ var _ = Describe("LoadOperationControl conformance", func() {
 					err := c.run()
 					Expect(err).To(HaveOccurred(), c.verb)
 					Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: a slow worker is not an absent one", c.verb)
+				}
+			})
+
+			It("does not report a broken path or an infrastructure failure as ErrNoRoute", func() {
+				for name, fail := range map[string]func(){"a path that fails": h.PathFails, "an infrastructure that fails": h.InfrastructureFails} {
+					fail()
+					for _, c := range calls() {
+						err := c.run()
+						Expect(err).To(HaveOccurred(), "%s: %s", name, c.verb)
+						Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: %s: %v", name, c.verb, err)
+					}
 				}
 			})
 

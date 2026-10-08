@@ -189,7 +189,7 @@ func ReadRelayReply(r io.Reader) error {
 	}
 	rest, ok := strings.CutPrefix(payload, replyPrefixRefused)
 	if !ok {
-		return fmt.Errorf("reading a relay reply: unrecognised reply %q", payload)
+		return fmt.Errorf("reading a relay reply: %w: %q", ErrProtocol, payload)
 	}
 	code, text, _ := strings.Cut(rest, streamRequestSeparator)
 	switch code {
@@ -208,7 +208,7 @@ func ReadRelayReply(r io.Reader) error {
 	// A code of a newer replica. It is not mapped onto the nearest known code, so
 	// that a caller does not retry for ever against a refusal that means something
 	// else.
-	return fmt.Errorf("relay stream refused with unrecognised code %q: %s", code, text)
+	return fmt.Errorf("relay stream refused with unrecognised code %q: %w: %s", code, ErrProtocol, text)
 }
 
 // maxRelayBudgetMillis is the largest budget a peer may declare. A day is far
