@@ -24,7 +24,10 @@ const PAGES = [
   ['/app/activity', 'Activity'],
   ['/app/settings', 'Settings'],
   ['/app/nodes', 'Nodes'],
-  ['/app/scheduling', 'Scheduling'],
+  ['/app/scheduling', 'Placement rules'],
+  ['/app/failover', 'Failover'],
+  ['/app/nodes/add', 'Add a node'],
+  ['/app/p2p', 'P2P'],
   ['/app/face', 'Face recognition'],
   ['/app/voice', 'Voice recognition'],
   ['/app/fine-tune', 'Fine-tuning'],
@@ -40,7 +43,7 @@ test.describe('Page render smoke', () => {
       // .page-title for the normal header; .empty-state-title for pages that
       // render a gated/empty state (e.g. Account when auth is disabled); Talk
       // carries its own header.
-      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .talk-hd h1, .op-status__title, .op-runtime h1').first()).toBeVisible({ timeout: 15_000 })
+      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .talk-hd h1, .op-status__title, .op-runtime h1, .sw-page h1').first()).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'))
     })
   }

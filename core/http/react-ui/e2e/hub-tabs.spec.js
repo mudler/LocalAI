@@ -70,10 +70,10 @@ test.describe('Hub tabs: the right tab for each route', () => {
     await expect(tab(page, 'runtime')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('Swarm owns nodes, scheduling and p2p when distributed mode is on', async ({ page }) => {
+  test('Swarm owns nodes, placement rules, failover and p2p when distributed mode is on', async ({ page }) => {
     await mockFeatures(page, { distributed: true, agents: true, mcp: true })
     await quietOperate(page)
-    for (const path of ['/app/nodes', '/app/nodes/n1', '/app/scheduling', '/app/p2p', '/app/node-backend-logs/n1/some-model']) {
+    for (const path of ['/app/nodes', '/app/nodes/n1', '/app/nodes/add', '/app/scheduling', '/app/failover', '/app/p2p', '/app/node-backend-logs/n1/some-model']) {
       await page.goto(path)
       await expect(tab(page, 'swarm')).toHaveAttribute('aria-current', 'page')
       await expect(tab(page, 'machine')).toHaveCount(0)
