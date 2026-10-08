@@ -1553,6 +1553,20 @@ func workerLogsHost(node *nodes.BackendNode) (string, bool) {
 	return nodes.WorkerHTTPHost(node.ID, node.HTTPAddress), true
 }
 
+// workerTransport returns the transport that reaches the HTTP server of a worker
+// through the dialer of the node.
+func workerTransport(dialFor nodes.WorkerNetDialerFor, nodeID, host string) *http.Transport {
+	t := httpclient.HardenedTransport()
+	t.DialContext = dialFor(nodeID)
+	// A worker without an address is reached through a tunnel, and a proxy of the
+	// environment cannot carry that: the transport would dial the proxy through
+	// the dialer of the worker. The proxy stays for every other worker.
+	if nodes.IsTunnelOnlyHost(host) {
+		t.Proxy = nil
+	}
+	return t
+}
+
 // proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
 // The connection goes through dialFor(nodeID) because the advertised address
 // alone does not say how this frontend reaches that worker.
@@ -1569,14 +1583,7 @@ func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, no
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	t := httpclient.HardenedTransport()
-	t.DialContext = dialFor(nodeID)
-	// A worker without an address is reached through a tunnel, and a proxy of the
-	// environment cannot carry that: the transport would dial the proxy through
-	// the dialer of the worker. The proxy stays for every other worker.
-	if nodes.IsTunnelOnlyHost(httpAddress) {
-		t.Proxy = nil
-	}
+	t := workerTransport(dialFor, nodeID, httpAddress)
 	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
 }

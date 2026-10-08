@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,27 +36,26 @@ var _ = Describe("Backend logs of a worker that holds a tunnel", func() {
 	})
 
 	Describe("the proxy of the environment", func() {
-		var (
-			srv   *httptest.Server
-			mu    sync.Mutex
-			dials []string
-		)
+		dial := func(string) func(context.Context, string, string) (net.Conn, error) { return nil }
 
-		BeforeEach(func() {
-			dials = nil
-			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_, _ = io.WriteString(w, "logs for "+r.Host)
-			}))
-			DeferCleanup(srv.Close)
-			// A proxy that nothing listens on. A request that honours it fails.
-			GinkgoT().Setenv("HTTP_PROXY", "http://127.0.0.1:1")
-			GinkgoT().Setenv("http_proxy", "http://127.0.0.1:1")
-			GinkgoT().Setenv("NO_PROXY", "")
-			GinkgoT().Setenv("no_proxy", "")
+		It("is not used to reach a worker through its tunnel, so the dialer gets the stream", func() {
+			Expect(workerTransport(dial, "n1", "n1.worker.invalid").Proxy).To(BeNil())
 		})
 
-		dialer := func() nodes.WorkerNetDialerFor {
-			return func(string) func(context.Context, string, string) (net.Conn, error) {
+		It("is still used for a worker that has an address, as before", func() {
+			Expect(workerTransport(dial, "n1", "10.0.0.1:50050").Proxy).ToNot(BeNil())
+		})
+
+		It("sends the request of a worker without an address to the dialer even when the environment names a proxy", func() {
+			// The proxy of the environment is read once for the process, so this
+			// spec does not rely on it: it checks that the transport has none.
+			var (
+				srv   = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, "logs for "+r.Host) }))
+				mu    sync.Mutex
+				dials []string
+			)
+			DeferCleanup(srv.Close)
+			dialer := func(string) func(context.Context, string, string) (net.Conn, error) {
 				return func(ctx context.Context, _, addr string) (net.Conn, error) {
 					mu.Lock()
 					dials = append(dials, addr)
@@ -66,10 +64,7 @@ var _ = Describe("Backend logs of a worker that holds a tunnel", func() {
 					return d.DialContext(ctx, "tcp", srv.Listener.Addr().String())
 				}
 			}
-		}
-
-		It("is not used to reach a worker through its tunnel, so the dialer gets the stream", func() {
-			resp, err := proxyHTTPToWorker(context.Background(), dialer(), "n1", "n1.worker.invalid", "/v1/backend-logs", "token")
+			resp, err := proxyHTTPToWorker(context.Background(), dialer, "n1", "n1.worker.invalid", "/v1/backend-logs", "token")
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
@@ -78,15 +73,6 @@ var _ = Describe("Backend logs of a worker that holds a tunnel", func() {
 			defer mu.Unlock()
 			Expect(dials).To(HaveLen(1))
 			Expect(dials[0]).To(HavePrefix("n1.worker.invalid"), "the dialer was asked for the worker, not for a proxy")
-		})
-
-		It("is still used for a worker that has an address, as before", func() {
-			_, err := proxyHTTPToWorker(context.Background(), dialer(), "n1", "10.0.0.1:50050", "/v1/backend-logs", "token")
-			Expect(err).ToNot(HaveOccurred())
-			mu.Lock()
-			defer mu.Unlock()
-			Expect(dials).To(HaveLen(1))
-			Expect(strings.HasPrefix(dials[0], "127.0.0.1:1")).To(BeTrue(), "with a proxy in the environment the dial goes to the proxy: %v", dials)
 		})
 	})
 })
