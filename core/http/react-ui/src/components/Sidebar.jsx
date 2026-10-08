@@ -8,29 +8,24 @@ import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
 import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
+import { topDestinations, createDestinations } from '../utils/destinations'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-const topItems = [
-  { path: '/app', icon: 'home', labelKey: 'items.home' },
-  { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
-]
-
 // Create stays inline (frequent, one-click creative destinations). Build and
 // Operate sit under Workspace as single entries; each opens a hub whose tab
-// bar lives in hub/hubConfig.js (shared with HubLayout).
+// bar lives in hub/hubConfig.js (shared with HubLayout). The inline entries
+// are shared with the 404 page, which lists the same destinations.
+const topItems = topDestinations
+
 const sections = [
   {
     id: 'create',
     titleKey: 'sections.create',
-    items: [
-      { path: '/app/chat', icon: 'chat', labelKey: 'items.chat' },
-      { path: '/app/studio', icon: 'palette', labelKey: 'items.studio' },
-      { path: '/app/talk', icon: 'phone', labelKey: 'items.talk' },
-    ],
+    items: createDestinations,
   },
   // Items come from the hubs (hubConfig.js) and carry their own gating.
   { id: 'workspace', titleKey: 'sections.workspace', hubs: true },

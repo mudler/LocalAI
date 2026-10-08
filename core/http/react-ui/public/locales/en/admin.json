@@ -64,8 +64,8 @@
     "subtitle": "View logged API requests, responses, and backend operations"
   },
   "users": {
-    "title": "Users",
-    "subtitle": "Manage registered users, roles, and invites"
+    "title": "Users and keys",
+    "subtitle": "People, invites and API keys"
   },
   "usage": {
     "title": "Usage",
@@ -97,5 +97,10 @@
   "explorer": {
     "title": "Explorer",
     "subtitle": "Browse files and configuration"
+  },
+  "tabs": {
+    "users": "Users",
+    "invites": "Invites",
+    "keys": "API keys"
   }
 }

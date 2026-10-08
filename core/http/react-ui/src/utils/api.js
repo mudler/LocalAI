@@ -590,7 +590,8 @@ export const adminInvitesApi = {
 // API Keys
 export const apiKeysApi = {
   list: () => fetchJSON('/api/auth/api-keys'),
-  create: (name) => postJSON('/api/auth/api-keys', { name }),
+  // expiresIn is "30d", "90d" or "1y"; without it the server applies its own default.
+  create: (name, expiresIn) => postJSON('/api/auth/api-keys', expiresIn ? { name, expiresIn } : { name }),
   revoke: (id) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // pausedUntil is an RFC3339 string or null; disabled pauses until resumed.
   setPause: (id, disabled, pausedUntil = null) => fetchJSON(`/api/auth/api-keys/${encodeURIComponent(id)}`, {

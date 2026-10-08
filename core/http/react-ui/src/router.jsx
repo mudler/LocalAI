@@ -316,4 +316,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: <Navigate to="/app" replace />,
   },
+  // An address outside the app that is not a page: the same 404 page, so the
+  // visitor gets a way back instead of the router's default error.
+  { path: '*', element: <NotFound /> },
 ], { basename: routerBasename })
