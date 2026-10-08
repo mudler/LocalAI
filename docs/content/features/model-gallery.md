@@ -167,6 +167,22 @@ These entries use `stablediffusion-ggml` and include the text encoder, vision pr
 The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
 This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
 
+## Prism Coder 9B
+
+[Prism Coder 9B](https://huggingface.co/dcostenco/prism-coder-9b) is a
+Qwen3.5-9B fine-tune for tool routing and function calling. Install it with:
+
+```bash
+local-ai models install prism-coder-9b
+```
+
+The gallery offers Q4_K_M and Q8_0 GGUF variants for the `llama-cpp` backend,
+with a 32768-token context and the embedded chat template. To select Q8_0
+explicitly, use `local-ai models install prism-coder-9b --variant prism-coder-9b-q8`.
+These entries support text only because the quantization repository does not
+provide a vision projector. They load the model weights; the publisher's
+application-specific tool remapping rules are not included.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
