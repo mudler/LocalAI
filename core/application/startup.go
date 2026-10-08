@@ -521,7 +521,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// frontend runs its own pass against the shared models directory; the
 	// pass is idempotent, so no leader is needed.
 	if modelConfigResync != nil && distSvc != nil {
-		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Broadcaster)
 	}
 
 	if options.PreloadJSONModels != "" {
