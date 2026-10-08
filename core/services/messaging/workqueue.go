@@ -21,7 +21,12 @@ const (
 // apply to the queue.
 //
 // The NATS carrier ignores ctx: its publish takes none and returns once the
-// message is buffered, so there is nothing for a cancellation to interrupt.
+// message is buffered, so there is nothing for a cancellation to interrupt. The
+// claim queue (jobs.ClaimQueue) writes a row with ctx, and keeps it until the
+// work has an answer, so a nil error from it also means that the work is not
+// lost if no consumer exists yet.
+//
+// Both refuse a payload above MaxWorkPayloadBytes.
 type WorkQueue interface {
 	Enqueue(ctx context.Context, kind WorkKind, payload any) error
 }

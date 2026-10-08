@@ -1,15 +1,37 @@
 package nodes
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/xlog"
 )
+
+// syncBuffer is a log destination that handler goroutines can write to.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 // failingBroadcaster refuses every publish.
 type failingBroadcaster struct{ messaging.Broadcaster }
@@ -62,6 +84,18 @@ var _ = Describe("The broadcasts that a worker may ask for", func() {
 			ok := NewRebroadcaster(bus).Handle(NodeTypeAgent, "jobs.j1.cancel", json.RawMessage(`{}`))
 			Expect(ok).To(BeFalse())
 			Expect(bus.PublishCount("jobs.j1.cancel")).To(BeZero())
+		})
+
+		It("logs the refusal of a subject outside the list, so that a worker asking for more is seen", func() {
+			logs := &syncBuffer{}
+			xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+			DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+
+			bus := testutil.NewFakeBus()
+			Expect(NewRebroadcaster(bus).Handle(NodeTypeAgent, "nodes.n1.backend.stop", json.RawMessage(`{}`))).To(BeFalse())
+			Expect(logs.String()).To(ContainSubstring("refusing a worker's re-broadcast request"))
+			Expect(logs.String()).To(ContainSubstring("nodes.n1.backend.stop"))
+			Expect(bus.PublishCount("nodes.n1.backend.stop")).To(BeZero())
 		})
 
 		It("refuses every subject for a backend worker", func() {
