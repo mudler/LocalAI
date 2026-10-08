@@ -24,7 +24,7 @@ var _ = Describe("one poll of the listen connection", func() {
 
 	It("offers a notification that arrives together with an expired poll window", func() {
 		res := b.poll(func(ctx context.Context) (*pgconn.Notification, error) {
-			<-ctx.Done() // the window ends first ...
+			<-ctx.Done()                                                 // the window ends first ...
 			return &pgconn.Notification{Channel: "c", Payload: "p"}, nil // ... the read still won
 		})
 
