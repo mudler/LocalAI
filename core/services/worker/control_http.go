@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -63,6 +64,11 @@ func (s *httpControlServer) route(v controlVerb) (string, error) {
 	return workerctl.PathOf(string(v)), nil
 }
 
+// The handlers of a verb get a context that the caller going away does not
+// cancel, as the NATS server does with context.Background. A verb bounds its own
+// work, and an unload that stopped half way because the frontend gave up on the
+// reply would leave a backend half freed.
+
 // handle serves a verb that answers with one JSON body, or with 204 when the
 // handler returns no reply. Requests of one verb are delivered concurrently:
 // the NATS server delivers them one at a time, and the handlers are written to
@@ -77,7 +83,7 @@ func (s *httpControlServer) handle(v controlVerb, h controlHandler) error {
 		if !ok {
 			return
 		}
-		reply, undecodable := h(r.Context(), body)
+		reply, undecodable := h(context.WithoutCancel(r.Context()), body)
 		if undecodable != nil {
 			// The body is not a request of this verb. The typed refusal in reply
 			// is what the NATS server sends. Here the request failed before it
@@ -112,7 +118,7 @@ func (s *httpControlServer) handleWithProgress(v controlVerb, h progressControlH
 			return
 		}
 		stream := newNDJSONStream(w)
-		reply, undecodable := h(r.Context(), body, stream.progress)
+		reply, undecodable := h(context.WithoutCancel(r.Context()), body, stream.progress)
 		if undecodable != nil {
 			// Nothing was written yet unless a handler reported progress before it
 			// decoded, which none does. The status is still open.
