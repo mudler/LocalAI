@@ -39,6 +39,20 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Underdog Saluki 27B 1.0
+
+[Underdog Saluki](https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0)
+is a mixed IQ2 quantization of Qwen3.8-27B for chat, reasoning, and tool use.
+The gallery entry uses llama.cpp and includes the F16 vision projector for image input.
+
+```bash
+local-ai models install underdog-saluki-27b-1.0
+```
+
+The download totals approximately 8.83 GB. Runtime memory also includes the context cache and backend overhead.
+The entry defaults to a 32,768-token context and uses the embedded chat template with thinking enabled.
+It installs the publisher's single language-model quantization; no automatic variant selection applies.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

@@ -6386,6 +6386,52 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- name: underdog-saluki-27b-1.0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0
+  description: |
+    Underdog Saluki 27B 1.0 is a mixed IQ2 quantization of Qwen3.8-27B
+    for chat, reasoning, and tool use. This llama.cpp build includes the
+    F16 vision projector and uses the embedded chat template.
+    The weights and projector total approximately 8.83 GB before runtime memory.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - function-calling
+    - reasoning
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/underdog-saluki-27b-1.0/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/underdog-saluki-27b-1.0/Underdog-Saluki-27B-1.0-IQ2-mix.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: llama-cpp/models/underdog-saluki-27b-1.0/Underdog-Saluki-27B-1.0-IQ2-mix.gguf
+      uri: https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0/resolve/1336c0b5d74dfe6ad7f793577092f5effd9f97c6/Underdog-Saluki-27B-1.0-IQ2-mix.gguf
+      sha256: 4a673518b11b1c4445f9b9a9d3c40356f5ba39f6a6260dcb25f3fbfd475d9efb
+    - filename: llama-cpp/mmproj/underdog-saluki-27b-1.0/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+      uri: https://huggingface.co/ConwayResearch/Underdog-Saluki-27B-1.0/resolve/1336c0b5d74dfe6ad7f793577092f5effd9f97c6/mmproj-Underdog-Saluki-27B-1.0-F16.gguf
+      sha256: f3aa57813a513420c2ef765503b057c1946bf4c8cdf3679d266a6644fc6cfd50
 - &spark-x2-5-1-7b
   name: spark-x2.5-1.7b-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
