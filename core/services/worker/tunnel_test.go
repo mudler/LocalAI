@@ -1081,6 +1081,24 @@ var _ = Describe("Worker tunnel local services", func() {
 		})
 	})
 
+	Describe("HTTPOnlyServices, the table of a worker that runs no backend", func() {
+		It("serves the http tag and refuses to dial a backend", func() {
+			table := HTTPOnlyServices("0.0.0.0:50050")
+			Expect(table).To(HaveLen(1))
+			Expect(table).To(HaveKey(tunnel.StreamTagHTTP))
+			Expect(table).ToNot(HaveKey(tunnel.StreamTagGRPC))
+		})
+
+		It("dials its own server whatever address the frontend names", func() {
+			ln, err := net.Listen("tcp", "127.0.0.1:0")
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = ln.Close() }()
+			conn, err := HTTPOnlyServices(ln.Addr().String())[tunnel.StreamTagHTTP](ctx, "attacker.invalid:1")
+			Expect(err).ToNot(HaveOccurred())
+			_ = conn.Close()
+		})
+	})
+
 	DescribeTable("tunnelEndpoint builds the URL that the worker dials",
 		func(frontend, nodeID, want string) {
 			got, err := tunnelEndpoint(frontend, nodeID)

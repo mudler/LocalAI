@@ -1095,6 +1095,19 @@ func checkBearerToken(r *http.Request, expectedToken string) bool {
 	return subtle.ConstantTimeCompare([]byte(provided), []byte(expectedToken)) == 1
 }
 
+// RequireBearer puts the bearer check of the worker in front of next. A request
+// without the token is answered 401. An empty token lets everything through, as
+// it does for the file routes.
+func RequireBearer(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // validatePathInDir checks that targetPath is within the given base directory.
 func validatePathInDir(targetPath, baseDir string) error {
 	absBase, err := filepath.Abs(baseDir)

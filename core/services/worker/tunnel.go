@@ -930,6 +930,16 @@ func tunnelServices(cfg *Config, httpBindAddr string) map[string]LocalService {
 	}
 }
 
+// HTTPOnlyServices is the routing table of a worker that runs no backend
+// processes, such as an agent worker. It offers the http tag, which reaches the
+// server at httpBindAddr, and no gRPC tag, so the frontend has no way to name a
+// port of this host.
+func HTTPOnlyServices(httpBindAddr string) map[string]LocalService {
+	return map[string]LocalService{
+		tunnel.StreamTagHTTP: fixedService(loopbackAddr(httpBindAddr)),
+	}
+}
+
 // fixedService routes a tagged stream to one address of this worker and ignores
 // what the frontend named. A worker has one HTTP server and only the worker
 // knows where it listens, so the frontend has nothing useful to say about the
