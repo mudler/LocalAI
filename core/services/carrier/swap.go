@@ -216,6 +216,7 @@ func (s *Swapper) Run(ctx context.Context) {
 		} else if err == nil {
 			lastErr = ""
 		}
+		// #nosec G404 -- spreads the polls of the replicas apart; the value is no secret.
 		wait := time.Duration(float64(s.o.Interval) * (0.8 + 0.4*rand.Float64()))
 		timer := time.NewTimer(wait)
 		select {
