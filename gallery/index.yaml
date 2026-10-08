@@ -8766,6 +8766,82 @@
     - filename: llama-cpp/models/FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q2_K.gguf
       sha256: 490687be6493769dc8322df396cd31d412a15877eaccea4d2f16ca1f93383334
       uri: huggingface://FINAL-Bench/POCKET-26B-GGUF/POCKET-26B-Q2_K.gguf
+- name: mellum2.1-12b-a2.5b-thinking
+  variants:
+    - model: mellum2.1-12b-a2.5b-thinking-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking
+    - https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF
+  description: |
+    Mellum2.1 Thinking is a JetBrains mixture-of-experts reasoning model with
+    12 billion total parameters and 2.5 billion active parameters per token.
+    It emits reasoning in think blocks and supports a 131,072-token context.
+    This entry uses Q4_K_M GGUF weights with a 32,768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - reasoning
+  last_checked: "2026-10-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/JetBrains/Mellum2.1-12B-A2.5B-Thinking/Mellum2.1-12B-A2.5B-Thinking-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/JetBrains/Mellum2.1-12B-A2.5B-Thinking/Mellum2.1-12B-A2.5B-Thinking-Q4_K_M.gguf
+      sha256: ecc4d5b8107fc219e23c494b2d107552137637b6c6002ee713e0ba8af7fa2755
+      uri: https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF/resolve/20b439426f1e997ba575eaccaf4856ac0f76f5d5/Mellum2.1-12B-A2.5B-Thinking-Q4_K_M.gguf
+- name: mellum2.1-12b-a2.5b-thinking-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking
+    - https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF
+  description: |
+    Mellum2.1 Thinking is a JetBrains mixture-of-experts reasoning model with
+    12 billion total parameters and 2.5 billion active parameters per token.
+    It emits reasoning in think blocks and supports a 131,072-token context.
+    This entry uses Q8_0 GGUF weights with a 32,768-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - reasoning
+  last_checked: "2026-10-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/JetBrains/Mellum2.1-12B-A2.5B-Thinking/Mellum2.1-12B-A2.5B-Thinking-Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/JetBrains/Mellum2.1-12B-A2.5B-Thinking/Mellum2.1-12B-A2.5B-Thinking-Q8_0.gguf
+      sha256: 69e0ac02a16586c2c9e991f1e3b8a1eb403882e7ab9e69ea01eb23dbbbc6841f
+      uri: https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF/resolve/20b439426f1e997ba575eaccaf4856ac0f76f5d5/Mellum2.1-12B-A2.5B-Thinking-Q8_0.gguf
 - &mellum2-12b-a2-5b-instruct
   name: mellum2-12b-a2.5b-instruct
   variants:

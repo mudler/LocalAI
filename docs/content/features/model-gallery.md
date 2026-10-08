@@ -902,3 +902,27 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+### Mellum2.1 Thinking
+
+[Mellum2.1 Thinking](https://huggingface.co/JetBrains/Mellum2.1-12B-A2.5B-Thinking)
+is a JetBrains reasoning model with 12 billion total parameters and 2.5 billion
+active parameters per token. The gallery provides Q4_K_M and Q8_0 GGUF builds
+for the llama-cpp backend.
+
+Install the default entry with automatic variant selection:
+
+```bash
+local-ai models install mellum2.1-12b-a2.5b-thinking
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install mellum2.1-12b-a2.5b-thinking --variant mellum2.1-12b-a2.5b-thinking-q8
+```
+
+Both entries use the embedded chat template, temperature 0.6, top-p 0.95,
+and top-k 20. The default context is 32,768 tokens; the model supports up to
+131,072 tokens. Increasing the context requires more memory. The model emits
+reasoning inside `<think>...</think>` blocks before its final answer.
