@@ -50,7 +50,7 @@ var _ = Describe("Registry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal("replica-a"))
 			Expect(epoch).To(Equal(token))
-			Expect(registry.Held()).To(Equal([]string{"w1"}))
+			Expect(registry.Holds("w1")).To(BeTrue())
 		})
 
 		It("refuses a nil session and an unknown lane without touching the table", func() {
@@ -61,7 +61,7 @@ var _ = Describe("Registry", func() {
 			Expect(err).To(HaveOccurred())
 			_, err = owner("w1")
 			Expect(err).To(MatchError(cluster.ErrNoConnection))
-			Expect(registry.Held()).To(BeEmpty())
+			Expect(registry.Holds("w1")).To(BeFalse())
 		})
 
 		It("releases the claim and drops the entry on Detach", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Registry", func() {
 
 			_, err = owner("w1")
 			Expect(err).To(MatchError(cluster.ErrNoConnection))
-			Expect(registry.Held()).To(BeEmpty())
+			Expect(registry.Holds("w1")).To(BeFalse())
 		})
 
 		It("ignores a Detach with a token that is not the live one", func() {
@@ -91,7 +91,7 @@ var _ = Describe("Registry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal("replica-a"))
 			Expect(epoch).To(Equal(live))
-			Expect(registry.Held()).To(Equal([]string{"w1"}))
+			Expect(registry.Holds("w1")).To(BeTrue())
 		})
 
 		It("closes the session that a new dial replaced, and keeps the new one", func() {
@@ -123,7 +123,7 @@ var _ = Describe("Registry", func() {
 
 			_, err := registry.Attach(canceled, "w1", tunnel.LaneInference, frontend)
 			Expect(err).To(HaveOccurred())
-			Expect(registry.Held()).To(BeEmpty())
+			Expect(registry.Holds("w1")).To(BeFalse())
 			_, err = owner("w1")
 			Expect(err).To(MatchError(cluster.ErrNoConnection))
 		})
@@ -200,7 +200,10 @@ var _ = Describe("Registry", func() {
 			_, err = registry.Open(ctx, "w1", tunnel.LaneInference)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, tunnel.ErrNotOwner)).To(BeFalse())
-			Expect(registry.Held()).To(Equal([]string{"w1"}), "a failed open must not remove the entry")
+			id, err := owner("w1")
+			Expect(err).ToNot(HaveOccurred(), "a failed open must not release the claim")
+			Expect(id).To(Equal("replica-a"))
+			Expect(registry.Disconnect("w1")).To(BeTrue(), "a failed open must not remove the entry")
 		})
 
 		It("blames the caller and not the tunnel when the budget of the caller is spent", func() {
@@ -301,6 +304,38 @@ var _ = Describe("Registry", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("does not fall back when the caller asks for the bulk lane only", func() {
+			inference, worker := sessionPair(tunnel.LaneInference)
+			_, err := registry.Attach(ctx, "w1", tunnel.LaneInference, inference)
+			Expect(err).ToNot(HaveOccurred())
+			serveStreams(worker, echoTCP)
+
+			_, err = registry.Open(ctx, "w1", tunnel.LaneBulk, tunnel.WithoutFallback())
+			Expect(err).To(MatchError(tunnel.ErrNoBulkSession))
+			Expect(err).ToNot(MatchError(tunnel.ErrNotOwner), "the node is held here; only its bulk lane is missing")
+		})
+
+		It("does not fall back when the bulk session has ended", func() {
+			_, bulk, _, _, _, _ := attachBoth()
+			Expect(bulk.Close()).To(Succeed())
+
+			_, err := registry.Open(ctx, "w1", tunnel.LaneBulk, tunnel.WithoutFallback())
+			Expect(err).To(MatchError(tunnel.ErrNoBulkSession))
+		})
+
+		It("still opens the bulk lane when it is there, and ignores the option on the inference lane", func() {
+			_, _, inferenceWorker, bulkWorker, _, _ := attachBoth()
+			serveStreams(inferenceWorker, echoTCP)
+			serveStreams(bulkWorker, echoTCP)
+
+			st, err := registry.Open(ctx, "w1", tunnel.LaneBulk, tunnel.WithoutFallback())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(st.Close()).To(Succeed())
+			st, err = registry.Open(ctx, "w1", tunnel.LaneInference, tunnel.WithoutFallback())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(st.Close()).To(Succeed())
+		})
+
 		It("falls back to the inference lane when the bulk session has ended", func() {
 			_, bulk, inferenceWorker, _, _, _ := attachBoth()
 			serveStreams(inferenceWorker, echoTCP)
@@ -360,6 +395,89 @@ var _ = Describe("Registry", func() {
 			_, err := registry.Attach(ctx, "w1", tunnel.LaneInference, again)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(bulk.CloseChan()).Should(BeClosed())
+		})
+	})
+
+	Describe("Disconnect", func() {
+		It("ends both sessions of a node, releases the claim and drops the entry", func() {
+			inference, bulk, inferenceWorker, bulkWorker, _, _ := func() (a, b, c, d *tunnel.Session, e, f int64) {
+				a, c = sessionPair(tunnel.LaneInference)
+				b, d = sessionPair(tunnel.LaneBulk)
+				_, err := registry.Attach(ctx, "w1", tunnel.LaneInference, a)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = registry.Attach(ctx, "w1", tunnel.LaneBulk, b)
+				Expect(err).ToNot(HaveOccurred())
+				return
+			}()
+
+			Expect(registry.Disconnect("w1")).To(BeTrue())
+
+			Eventually(inference.CloseChan()).Should(BeClosed())
+			Eventually(bulk.CloseChan()).Should(BeClosed())
+			Eventually(inferenceWorker.CloseChan()).Should(BeClosed())
+			Eventually(bulkWorker.CloseChan()).Should(BeClosed())
+			_, err := owner("w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+			_, err = registry.Open(ctx, "w1", tunnel.LaneInference)
+			Expect(err).To(MatchError(tunnel.ErrNotOwner))
+		})
+
+		It("says false for a node that is not held here and touches nothing", func() {
+			other, _ := sessionPair(tunnel.LaneInference)
+			_, err := registry.Attach(ctx, "w2", tunnel.LaneInference, other)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(registry.Disconnect("w1")).To(BeFalse())
+			Expect(registry.Holds("w2")).To(BeTrue())
+		})
+
+		It("leaves the claim alone when the late Detach of the handler arrives", func() {
+			frontend, _ := sessionPair(tunnel.LaneInference)
+			token, err := registry.Attach(ctx, "w1", tunnel.LaneInference, frontend)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(registry.Disconnect("w1")).To(BeTrue())
+
+			// The goroutine that accepted the session detaches when it ends.
+			registry.Detach("w1", tunnel.LaneInference, token)
+
+			// A worker that dialled again in between keeps its claim.
+			again, _ := sessionPair(tunnel.LaneInference)
+			live, err := registry.Attach(ctx, "w1", tunnel.LaneInference, again)
+			Expect(err).ToNot(HaveOccurred())
+			registry.Detach("w1", tunnel.LaneInference, token)
+			_, epoch, err := clusterR.Owner(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(epoch).To(Equal(live))
+		})
+	})
+
+	Describe("Close", func() {
+		It("ends every session, releases every claim and refuses a later attach", func() {
+			a, aWorker := sessionPair(tunnel.LaneInference)
+			b, _ := sessionPair(tunnel.LaneInference)
+			_, err := registry.Attach(ctx, "w1", tunnel.LaneInference, a)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = registry.Attach(ctx, "w2", tunnel.LaneInference, b)
+			Expect(err).ToNot(HaveOccurred())
+
+			registry.Close()
+
+			Eventually(aWorker.CloseChan()).Should(BeClosed())
+			for _, node := range []string{"w1", "w2"} {
+				_, err := owner(node)
+				Expect(err).To(MatchError(cluster.ErrNoConnection), node)
+				Expect(registry.Holds(node)).To(BeFalse(), node)
+			}
+			late, _ := sessionPair(tunnel.LaneInference)
+			_, err = registry.Attach(ctx, "w3", tunnel.LaneInference, late)
+			Expect(err).To(MatchError(tunnel.ErrRegistryClosed))
+			_, err = owner("w3")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
+		It("can be called twice and on a registry that holds nothing", func() {
+			registry.Close()
+			registry.Close()
 		})
 	})
 

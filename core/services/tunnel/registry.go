@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"sync"
 	"time"
 
@@ -26,6 +25,17 @@ const ConnectPath = "/api/cluster/connect"
 // themselves, because "not held here" tells a dialer to look elsewhere for a
 // worker that is right here, and absence must never stand in for a failure.
 var ErrNotOwner = errors.New("tunnel: this replica does not hold the tunnel for that node")
+
+// ErrRegistryClosed means that the registry was closed and takes no new tunnel.
+// A replica that shuts down closes it, and a worker that dials during the
+// shutdown is refused and connects to another replica.
+var ErrRegistryClosed = errors.New("tunnel: the registry is closed")
+
+// ErrNoBulkSession means that this replica holds the tunnel of the node, and
+// the node holds no bulk session on it now. It is returned only to a caller that
+// asked for no fallback. It is a fact about the lane and not about the node: the
+// worker dials the bulk lane again within moments, and the caller may try again.
+var ErrNoBulkSession = errors.New("tunnel: the node holds no bulk session on this replica")
 
 // releaseTimeout bounds the release in Detach. Detach runs in the goroutine that
 // has just seen a session end, and that goroutine must not wait for a database
@@ -54,6 +64,7 @@ type Registry struct {
 	// bulkTokens numbers the attachments of the bulk lane. A bulk lane has no
 	// claim of its own, so its attachment needs its own identity for Detach.
 	bulkTokens int64
+	closed     bool
 }
 
 // heldTunnel is the tunnel of one node.
@@ -156,6 +167,12 @@ func (t *Registry) Attach(ctx context.Context, nodeID string, lane Lane, sess *S
 	if sess == nil {
 		return 0, fmt.Errorf("attaching tunnel for node %q: no session", nodeID)
 	}
+	t.mu.Lock()
+	closed := t.closed
+	t.mu.Unlock()
+	if closed {
+		return 0, fmt.Errorf("attaching tunnel for node %q: %w", nodeID, ErrRegistryClosed)
+	}
 	switch lane {
 	case LaneInference:
 		return t.attachInference(ctx, nodeID, sess)
@@ -185,6 +202,13 @@ func (t *Registry) attachInference(ctx context.Context, nodeID string, sess *Ses
 		}
 
 		t.mu.Lock()
+		if t.closed {
+			// Close ran during the claim. The row is released again and the
+			// session is not stored.
+			t.mu.Unlock()
+			t.releaseClaim(nodeID, epoch)
+			return 0, ErrRegistryClosed
+		}
 		previous = t.tunnels[nodeID]
 		t.tunnels[nodeID] = &heldTunnel{inference: sess, token: epoch, claim: epoch}
 		t.mu.Unlock()
@@ -278,10 +302,15 @@ func (t *Registry) Detach(nodeID string, lane Lane, token int64) {
 	// belong to a request or a process that set the tunnel up, and either can be
 	// cancelled by now, which would leave the row behind on every ordinary
 	// disconnect.
+	t.releaseClaim(nodeID, claim)
+}
+
+// releaseClaim releases the row of a claim. The claim, not the token: the row
+// carries the last epoch that was claimed for an attachment, and the release must
+// match the row exactly.
+func (t *Registry) releaseClaim(nodeID string, claim int64) {
 	ctx, cancel := context.WithTimeout(context.Background(), releaseTimeout)
 	defer cancel()
-	// The claim, not the token. The row carries the last epoch that was claimed
-	// for this attachment, and the release must match the row exactly.
 	if err := t.reg.Release(ctx, nodeID, t.selfID, claim); err != nil {
 		if errors.Is(err, cluster.ErrNoConnection) {
 			xlog.Debug("worker tunnel claim was already replaced", "node", nodeID, "epoch", claim)
@@ -292,12 +321,76 @@ func (t *Registry) Detach(nodeID string, lane Lane, token int64) {
 	}
 }
 
+// Disconnect ends the tunnel that this replica holds for a node, and reports
+// whether it held one.
+//
+// It is for a node that must lose its tunnel now: it was deleted or deregistered,
+// or its credential was replaced. The credential is checked when a worker dials
+// and never again, so a session that was open when the credential changed would
+// otherwise go on carrying traffic for a node that has no right to it. The
+// worker dials again, and a node that is gone or holds another credential is
+// refused at the dial.
+//
+// The claim is released here and not left to the goroutine that accepted the
+// session, so that a caller that asks for the owner of the node right after sees
+// no owner. That goroutine detaches when its session ends and finds the entry
+// gone.
+func (t *Registry) Disconnect(nodeID string) bool {
+	t.mu.Lock()
+	held, ok := t.tunnels[nodeID]
+	if !ok {
+		t.mu.Unlock()
+		return false
+	}
+	token, inference := held.token, held.inference
+	t.mu.Unlock()
+
+	t.Detach(nodeID, LaneInference, token)
+	_ = inference.Close()
+	return true
+}
+
+// Close ends every tunnel that this replica holds and releases every claim. It
+// refuses new tunnels after it. A replica calls it when it shuts down, before it
+// leaves the instances table, so that a peer that asks who owns a worker does
+// not name a replica that is gone. It can be called twice.
+func (t *Registry) Close() {
+	t.mu.Lock()
+	t.closed = true
+	nodes := make([]string, 0, len(t.tunnels))
+	for nodeID := range t.tunnels {
+		nodes = append(nodes, nodeID)
+	}
+	t.mu.Unlock()
+
+	for _, nodeID := range nodes {
+		t.Disconnect(nodeID)
+	}
+}
+
+// OpenOption changes how Open picks a session.
+type OpenOption func(*openOptions)
+
+type openOptions struct {
+	noFallback bool
+}
+
+// WithoutFallback makes a request for the bulk lane fail with ErrNoBulkSession
+// when the node has no bulk session, and not use the inference lane. A caller
+// that moves a large file asks for it: a transfer on the inference lane delays
+// every small call on it, which is what the bulk lane exists to prevent. It has
+// no effect on a request for the inference lane.
+func WithoutFallback() OpenOption {
+	return func(o *openOptions) { o.noFallback = true }
+}
+
 // Open returns a stream to the worker over the tunnel that this replica holds.
 //
 // The bulk lane falls back to the inference lane when the node has no bulk
-// session. A worker that predates the bulk lane never has one, and a worker
-// that is dialling it again has none for a moment. A transfer that works on the
-// session that is shared is better than a transfer that fails.
+// session, unless the caller passes WithoutFallback. A worker that predates the
+// bulk lane never has one, and a worker that is dialling it again has none for a
+// moment. For a small request, a call that works on the session that is shared is
+// better than a call that fails.
 //
 // ErrNotOwner means only that no tunnel of the node is held here. Any other
 // failure is returned as itself, wrapped: a session that ended under a held
@@ -307,17 +400,29 @@ func (t *Registry) Detach(nodeID string, lane Lane, token int64) {
 // A failed open does not remove the entry. Attach and Detach decide what is
 // held here, and an open that removed it would race with the goroutine that
 // owns the session and is about to detach it.
-func (t *Registry) Open(ctx context.Context, nodeID string, lane Lane) (net.Conn, error) {
+func (t *Registry) Open(ctx context.Context, nodeID string, lane Lane, opts ...OpenOption) (net.Conn, error) {
+	var o openOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	t.mu.Lock()
 	held, ok := t.tunnels[nodeID]
 	var sess *Session
+	noBulk := false
 	if ok {
 		sess = held.inference
-		if lane == LaneBulk && held.bulk != nil && !held.bulk.IsClosed() {
-			sess = held.bulk
+		if lane == LaneBulk {
+			if held.bulk != nil && !held.bulk.IsClosed() {
+				sess = held.bulk
+			} else if o.noFallback {
+				sess, noBulk = nil, true
+			}
 		}
 	}
 	t.mu.Unlock()
+	if noBulk {
+		return nil, fmt.Errorf("opening a bulk stream to node %q: %w", nodeID, ErrNoBulkSession)
+	}
 	if sess == nil {
 		return nil, fmt.Errorf("opening a stream to node %q: %w", nodeID, ErrNotOwner)
 	}
@@ -367,20 +472,6 @@ func (t *Registry) Holds(nodeID string) bool {
 	defer t.mu.Unlock()
 	held, ok := t.tunnels[nodeID]
 	return ok && !held.inference.IsClosed()
-}
-
-// Held returns the nodes whose tunnels this replica holds, sorted. It answers
-// what this process holds, which is another question than who the table says
-// owns a node. That question is Owner.
-func (t *Registry) Held() []string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	out := make([]string, 0, len(t.tunnels))
-	for nodeID := range t.tunnels {
-		out = append(out, nodeID)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // Reclaim writes a new claim for every tunnel that is still held here, and
