@@ -2,10 +2,13 @@ package application
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -603,7 +606,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// itself. Only the hash is published, in the same row as the address that
 	// the peers dial.
 	peerCred := cluster.NewPeerCredential()
-	membership, err := startMembership(cfg.Context, authDB, cfg.Distributed.InstanceID, peerAddress(cfg), peerCred)
+	advertised := peerAddress(cfg)
+	membership, err := startMembership(cfg.Context, authDB, cfg.Distributed.InstanceID, advertised, peerCred)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +623,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// If a peer sweeps this replica while it stalls, the claims of the tunnels
 	// that it still holds are written again when it registers again.
 	membership.SetReclaimer(tunnels)
-	peerPool := tunnel.NewPeerPool(cfg.Distributed.InstanceID, peerCred, clusterReg)
+	peerOpts, err := peerPoolOptions(cfg, advertised)
+	if err != nil {
+		return nil, err
+	}
+	peerPool := tunnel.NewPeerPool(cfg.Distributed.InstanceID, peerCred, clusterReg, peerOpts...)
 	peerSessions := tunnel.NewPeerSessions(tunnel.NewRelay(tunnels).Stream)
 
 	success = true
@@ -680,6 +688,51 @@ func startMembership(ctx context.Context, db *gorm.DB, instanceID, advertisedAdd
 
 func isPostgresURL(url string) bool {
 	return strings.HasPrefix(url, "postgres://") || strings.HasPrefix(url, "postgresql://")
+}
+
+// peerPoolOptions reads the TLS settings of the peer link. It also warns when the
+// link would cross a network in clear text: the credential of this replica and
+// every relayed request, prompts included, go over it.
+func peerPoolOptions(cfg *config.ApplicationConfig, advertised string) ([]tunnel.PeerPoolOption, error) {
+	d := cfg.Distributed
+	if !d.PeerTLS && d.PeerTLSCA == "" {
+		if addr := advertised; clearTextOnNetwork(addr) {
+			xlog.Warn("The peer link is clear text and this replica publishes an address that is not on this host, so the credential of this replica and the requests that other replicas relay cross the network unencrypted. "+
+				"Put the replicas behind TLS and set LOCALAI_PEER_TLS (and LOCALAI_PEER_TLS_CA for a private CA)", "address", addr)
+		}
+		return nil, nil
+	}
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if d.PeerTLSCA != "" {
+		pem, err := os.ReadFile(d.PeerTLSCA)
+		if err != nil {
+			return nil, fmt.Errorf("reading the CA file of the peer link: %w", err)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("the CA file of the peer link, %s, holds no certificate", d.PeerTLSCA)
+		}
+		tlsCfg.RootCAs = roots
+	}
+	return []tunnel.PeerPoolOption{tunnel.WithPeerTLS(tlsCfg)}, nil
+}
+
+// clearTextOnNetwork reports whether an address published for the peer link
+// names a host other than this one. An empty address is not published, so
+// nothing is dialled.
+func clearTextOnNetwork(addr string) bool {
+	if addr == "" {
+		return false
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
 }
 
 // peerAddress returns the address at which the other replicas dial this one. An

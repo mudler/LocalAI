@@ -18,7 +18,14 @@ type DistributedConfig struct {
 	// PeerAddress is the host and port at which the other frontends dial this
 	// one, to reach a worker tunnel that this one holds. Empty means that the
 	// address is found from the route to the database. LOCALAI_PEER_ADDRESS.
-	PeerAddress       string
+	PeerAddress string
+	// PeerTLS makes this frontend dial the other frontends over wss. They must sit
+	// behind TLS at the address that they publish. LOCALAI_PEER_TLS.
+	PeerTLS bool
+	// PeerTLSCA is a PEM file with the certificate authority that signs the
+	// certificate of the other frontends. Empty uses the system roots.
+	// LOCALAI_PEER_TLS_CA.
+	PeerTLSCA         string
 	NatsURL           string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
@@ -205,6 +212,15 @@ func WithDistributedInstanceID(id string) AppOption {
 func WithDistributedPeerAddress(addr string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.PeerAddress = addr
+	}
+}
+
+// WithDistributedPeerTLS makes this frontend dial its peers over wss, trusting
+// the CA in caFile, or the system roots when caFile is empty.
+func WithDistributedPeerTLS(caFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerTLS = true
+		o.Distributed.PeerTLSCA = caFile
 	}
 }
 

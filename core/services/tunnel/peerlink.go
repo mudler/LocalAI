@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -108,6 +109,8 @@ type PeerPool struct {
 	reg  *cluster.Registry
 
 	dialer *websocket.Dialer
+	// secure says that peers are dialled over wss.
+	secure bool
 
 	mu     sync.Mutex
 	links  map[string]*peerLink
@@ -166,8 +169,8 @@ func (l *peerLink) setSession(s *Session) {
 // The pool authenticates with the credential of the replica and with nothing
 // else. The registration token of the deployment opens no peer link, and an empty
 // token therefore fails no peer dial.
-func NewPeerPool(selfID string, cred PeerCredential, reg *cluster.Registry) *PeerPool {
-	return &PeerPool{
+func NewPeerPool(selfID string, cred PeerCredential, reg *cluster.Registry, opts ...PeerPoolOption) *PeerPool {
+	p := &PeerPool{
 		selfID: selfID,
 		cred:   cred,
 		reg:    reg,
@@ -175,6 +178,25 @@ func NewPeerPool(selfID string, cred PeerCredential, reg *cluster.Registry) *Pee
 		// would route it through whatever egress proxy the environment names.
 		dialer: NewDialer(peerLinkHandshakeTimeout),
 		links:  map[string]*peerLink{},
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
+}
+
+// PeerPoolOption changes how a PeerPool dials.
+type PeerPoolOption func(*PeerPool)
+
+// WithPeerTLS makes the pool dial its peers over wss and not ws, with the given
+// client configuration. The peer must then sit behind TLS at the address that it
+// publishes, for example behind the reverse proxy of the deployment. Without it
+// the credential of this replica and every relayed request cross the link in
+// clear text.
+func WithPeerTLS(cfg *tls.Config) PeerPoolOption {
+	return func(p *PeerPool) {
+		p.dialer.TLSClientConfig = cfg.Clone()
+		p.secure = true
 	}
 }
 
@@ -280,11 +302,15 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*Session, error) {
 		return nil, unreachablePeer(peerID, errors.New("peer has no advertised address"))
 	}
 
+	scheme := "ws"
+	if p.secure {
+		scheme = "wss"
+	}
 	endpoint := url.URL{
-		// Plain ws: the link is authenticated by the credential of the replica and
-		// not by the transport. A deployment that wants the link encrypted puts the
-		// replicas behind TLS.
-		Scheme:   "ws",
+		// Plain ws unless WithPeerTLS was given: the link is authenticated by the
+		// credential of the replica, and the transport is encrypted only when the
+		// operator asked for it.
+		Scheme:   scheme,
 		Host:     inst.AdvertisedAddr,
 		Path:     PeerPath,
 		RawQuery: url.Values{"id": []string{p.selfID}}.Encode(),

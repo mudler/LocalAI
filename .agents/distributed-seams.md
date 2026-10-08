@@ -317,7 +317,9 @@ any other replica relays through the owner over a link that the pool of peers
 (`tunnel.PeerSessions`, `tunnel.Relay`). A replica publishes its address and the
 hash of its own peer credential in its instances row. The credential of the
 replica is the only secret that opens a peer link; the registration token opens
-none. A relayed stream carries two request frames, the relay frame (worker, lane,
+none. The link is plain `ws` unless `--peer-tls` is set (`tunnel.WithPeerTLS`),
+and a replica that publishes an address that is not on its host warns at
+start-up while it is plain. A relayed stream carries two request frames, the relay frame (worker, lane,
 remaining budget of the caller) and then the frame of the tunnel. The relay never
 relays onward.
 
