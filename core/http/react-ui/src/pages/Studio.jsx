@@ -112,10 +112,16 @@ export default function Studio() {
             >
               <Icon name={tab.icon} />
               <span>{tab.key === 'overview' ? t('studio.tabs.overview') : t(`studio.tabs.${tab.key}`)}</span>
-              {/* Filled means a model on this machine serves the modality.
-                  Decorative on its own: the overview states the same thing in
-                  words, so a reader who cannot see the dot loses nothing. */}
-              {dot && <span className={`studio-tab__dot studio-tab__dot--${dot}`} aria-hidden="true" />}
+              {/* A filled dot means a model on this machine serves the
+                  modality, a hollow one means none does. The dot is drawn
+                  quietly in text colours; the same fact is spoken for
+                  readers who cannot see it. */}
+              {dot && (
+                <>
+                  <span className={`studio-tab__dot studio-tab__dot--${dot}`} aria-hidden="true" />
+                  <span className="sr-only">{t(`studio.tabState.${dot}`)}</span>
+                </>
+              )}
             </button>
           )
         })}

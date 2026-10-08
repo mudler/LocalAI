@@ -60,6 +60,29 @@ test.describe('Studio overview', () => {
     await expect(tabFor(page, 'sound').locator('.studio-tab__dot--off')).toBeVisible()
   })
 
+  test('the tab dots are quiet and the state is spoken, not only drawn', async ({ page }) => {
+    await mockCapabilities(page)
+    await page.goto('/app/studio')
+    await expect(tabFor(page, 'images')).toContainText('(model installed)')
+    await expect(tabFor(page, 'video')).toContainText('(no model installed)')
+    await expect(page.getByRole('button', { name: /^Images \(model installed\)$/ })).toBeVisible()
+    // Neither state is drawn in the success colour.
+    const colours = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement)
+      const success = root.getPropertyValue('--color-success').trim()
+      const probe = document.createElement('i')
+      probe.style.color = success
+      document.body.appendChild(probe)
+      const resolved = getComputedStyle(probe).color
+      probe.remove()
+      return {
+        success: resolved,
+        on: getComputedStyle(document.querySelector('.studio-tab__dot--on')).backgroundColor,
+      }
+    })
+    expect(colours.on).not.toBe(colours.success)
+  })
+
   test('a modality with no model offers a way to install one', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')

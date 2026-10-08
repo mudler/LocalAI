@@ -10,6 +10,10 @@
       "overview": "Overview",
       "diarization": "Diarization"
     },
+    "tabState": {
+      "on": "(model installed)",
+      "off": "(no model installed)"
+    },
     "overview": {
       "title": "Studio",
       "subtitle": "Images, video, 3D, speech and sound, made with the models on this machine."
