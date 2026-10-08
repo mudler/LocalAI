@@ -276,3 +276,81 @@ var _ = Describe("The router and a transport that is slow", func() {
 		Expect(reg.removeCalls).ToNot(ContainElement("n-old:m"), "a transport that is slow is not a replica that is gone")
 	})
 })
+
+// blipProbe is a backend whose first health checks fail in the transport and
+// whose later ones succeed: a relay that dropped for a moment.
+type blipProbe struct {
+	*stubBackend
+	mu    sync.Mutex
+	blips int
+	calls int
+}
+
+func (b *blipProbe) HealthCheck(context.Context) (bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.calls++
+	if b.calls <= b.blips {
+		return false, errors.New("unavailable")
+	}
+	return true, nil
+}
+
+func (b *blipProbe) LastDialError() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.calls <= b.blips {
+		return errNoTunnel
+	}
+	return nil
+}
+
+var _ = Describe("The warm path and a transport that drops for a moment", func() {
+	route := func(blips int) (*fakeModelRouter, *fakeUnloader, *blipProbe) {
+		GinkgoHelper()
+		DeferCleanup(func(old time.Duration) { warmProbeRetryDelay = old }, warmProbeRetryDelay)
+		warmProbeRetryDelay = 10 * time.Millisecond
+		probe := &blipProbe{stubBackend: &stubBackend{loadResult: &pb.Result{Success: true}}, blips: blips}
+		reg := &fakeModelRouter{
+			findAndLockNode: &BackendNode{ID: "n-old", Name: "old-node", Address: "10.0.0.70:50051"},
+			findAndLockNM:   &NodeModel{NodeID: "n-old", ModelName: "m", Address: "10.0.0.70:9001"},
+			findIdleNode:    &BackendNode{ID: "n-new", Name: "new-node", Address: "10.0.0.71:50051"},
+		}
+		unloader := &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.71:9001"}}
+		router := NewSmartRouter(&warmOnce{fakeModelRouter: reg}, SmartRouterOptions{Unloader: unloader, ClientFactory: &sameClient{probe}})
+		_, err := router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", "", nil, false)
+		Expect(err).ToNot(HaveOccurred())
+		return reg, unloader, probe
+	}
+
+	It("probes again before it loads the model a second time", func() {
+		reg, unloader, _ := route(1)
+		Expect(unloader.installCalls).To(BeEmpty(), "the replica was well; a second load would duplicate it")
+		Expect(reg.removeCalls).To(BeEmpty())
+	})
+
+	It("still falls through to a load elsewhere when the transport stays down", func() {
+		reg, unloader, _ := route(10)
+		Expect(unloader.installCalls).ToNot(BeEmpty())
+		Expect(reg.removeCalls).ToNot(ContainElement("n-old:m"), "the row of an unreachable replica stays")
+	})
+})
+
+type sameClient struct{ c grpc.Backend }
+
+func (s *sameClient) NewClient(_, _ string, _ bool) grpc.Backend { return s.c }
+
+// warmOnce finds the loaded replica for the first lookup only, so that a probe
+// that gives up leads to a load and not to a second pass over the warm path.
+type warmOnce struct {
+	*fakeModelRouter
+	asked bool
+}
+
+func (w *warmOnce) FindAndLockNodeWithModel(ctx context.Context, name string, ids []string, pref *RoutePreference) (*BackendNode, *NodeModel, error) {
+	if w.asked {
+		return nil, nil, nil
+	}
+	w.asked = true
+	return w.fakeModelRouter.FindAndLockNodeWithModel(ctx, name, ids, pref)
+}

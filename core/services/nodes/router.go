@@ -760,6 +760,11 @@ type routeAttempt struct {
 	observeChain     []uint64
 }
 
+// warmProbeRetryDelay is how long the warm path waits before it probes a replica
+// again, when the first probe could not reach the worker. A variable, so that a
+// spec does not wait for it.
+var warmProbeRetryDelay = 500 * time.Millisecond
+
 // tryWarmPath returns a route to an already-loaded, reachable replica, or nil
 // when the model has to be cold-loaded. It is the authority on readiness: a
 // waiter woken by a finished job re-runs it rather than trusting the signal,
@@ -776,7 +781,18 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	replicaIdx := nm.ReplicaIndex
 
 	// Verify the backend process is still alive via gRPC health check
-	switch r.probeHealth(ctx, node, modelAddr) {
+	verdict := r.probeHealth(ctx, node, modelAddr)
+	if verdict == probeUnknown {
+		// A relay that dropped for a moment looks the same as a worker that cannot
+		// be reached. Loading the model again at once would put a second replica
+		// beside one that is well, so the probe is repeated once first.
+		select {
+		case <-time.After(warmProbeRetryDelay):
+			verdict = r.probeHealth(ctx, node, modelAddr)
+		case <-ctx.Done():
+		}
+	}
+	switch verdict {
 	case probeUnknown:
 		// The transport failed, so nothing is known about the backend. The row
 		// stays: a replica that is loaded on a worker that cannot be reached from
