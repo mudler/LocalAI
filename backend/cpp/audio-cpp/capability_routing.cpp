@@ -13,7 +13,7 @@ struct NamedTask {
 // Short names are exactly the strings audio.cpp prints and parses in
 // framework/runtime/session.cpp, so a name pinned here survives conversion at
 // the engine boundary and a name copied out of audio.cpp is accepted here. All
-// thirteen have an upstream name; only "spk" is absent from the --task table in
+// tasks have an upstream name; only "spk" is absent from the --task table in
 // docs/usage.md.
 const NamedTask kTaskNames[] = {
     {Task::Vad, "vad"},
@@ -30,6 +30,7 @@ const NamedTask kTaskNames[] = {
     {Task::SpeakerRecognition, "spk"},
     {Task::Svc, "svc"},
     {Task::Midi, "midi"},
+    {Task::TurnDetection, "turn"},
 };
 
 // Accepted on input but never emitted. "spkrec" was this backend's own earlier
