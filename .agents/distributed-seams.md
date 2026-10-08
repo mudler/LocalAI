@@ -284,9 +284,20 @@ handler.
   wait keeps one poison row from being claimed ahead of every newer row on every
   tick). An error that wraps `jobs.ErrKeepClaim` leaves it with its replica: the
   work ran and its answer could not be recorded, and releasing would run it again.
-- There is no dead letter. The only outcomes that release a row are those where
-  nothing was learned about the work, and failing a job on them would report a
-  missing connection as the verdict of a worker.
+- A release is for work that was not started. The driver releases a claim when no
+  worker could be picked, when a worker has no slot, no route or is too old to
+  serve the verb (the next worker is tried first, with no wait), when the carrier
+  was released before the run began, and when a worker was reached and the call
+  failed before one line of the run came back. Once a line of the run has come
+  back, the claim is never released: a broken link then closes the job as failed
+  and completes the claim, because a second run could repeat a CI pipeline or the
+  side effects of an agent.
+- A row ends after `MaxFailures` failures (default 10, about five minutes of
+  trying; `DispatchConfig.MaxFailures`). Only the failures that say something about
+  the work count: a worker was reached and the run failed on it. A release for lack
+  of a worker, a route or a free slot does not count, so a fleet that is down for a
+  day keeps its queue. The consumer records the job as failed first and deletes the
+  row after.
 - A claim is settled only by the replica and the attempt that hold it, so a
   holder that was reaped and answers late cannot delete the claim of the replica
   that took the work over.
@@ -294,16 +305,43 @@ handler.
   `cluster.LiveInstanceIDsSQL` and has no age in it: a live replica that holds a
   claim for an hour has a slow job. A replica whose own row is not live claims
   nothing.
+- A replica stops the handler of a claim that is no longer its own. Every tick the
+  consumer (once for all kinds) checks that the replica is live and lists the
+  claims it holds. When the instances row is missing for as long as a peer needs to
+  reap, the handler's context is cancelled, the peer runs the work, and this
+  replica does not settle the row. When this replica registers again before a peer
+  reaped, it gives the row back to the queue itself, because a row held by a live
+  id is never reaped.
+- A process that starts to claim first releases the rows its own id holds
+  (`ReleaseOwned`). `LOCALAI_INSTANCE_ID` is stable across restarts, the id is
+  live again at once, and the reap never frees rows of a live id.
 - Delivery is at-least-once. A replica that dies in the middle of a job loses
-  nothing and the job runs again. NATS loses the job of a consumer that dies.
+  nothing and the job runs again. NATS loses the job of a consumer that dies. A
+  stall of a replica for as long as the liveness window can also run a job twice.
+  A handler for work that is not safe to repeat must record its progress.
 - `MigratePending` takes the pending rows out of the queue once, for a change to a
   carrier that has its own queue. Held rows are driven to their end where they are.
+  A row the new carrier refuses goes back to pending (`RestorePending`). Moved rows
+  stay as `migrated` for `MigratedRetention` (a day) and are then deleted with
+  their payloads.
+- Payload at rest: the payload of a row is the whole request of the work, in
+  plain text. For an MCP job it holds the job, the task and the model
+  configuration, including the configuration of its MCP servers. It stays in
+  `work_claims.payload` until the work is complete (the row is deleted) or, for a
+  moved row, until the purge. Anyone who can read the table can read it. Treat the
+  table as the place where those secrets live, and give the database role the
+  same care.
+- The poll reads the rows of a kind through `idx_work_claims_pick` (kind, state,
+  created_at) and filters the rows that wait for a backoff, so it passes over them
+  at each poll. The failure cap keeps their number small.
 - A plain task (`WorkTask`) has no worker on either carrier. The driver drops the
   claim and the job is left to the reaper (`ReapStuckJobs`), as it was on NATS.
-- `Dispatcher.Cancel` publishes `jobs.<id>.cancel`. On NATS nothing subscribes, as
-  on master, and a spec pins that. On this carrier the replica that holds the job
-  ends its stream, the run on the worker ends with its request, and the job is
-  closed as cancelled.
+- `Dispatcher.Cancel` marks the job as cancelled in the database and publishes
+  `jobs.<id>.cancel`. The mark is what stops a job that is still queued: the driver
+  reads the status before it dispatches, and again before each worker it offers the
+  run to. On NATS nothing subscribes to the subject, as on master, and a spec pins
+  that. On this carrier the replica that holds the job ends its stream, the run on
+  the worker ends with its request, and the job is closed as cancelled.
 
 ## Control verbs
 

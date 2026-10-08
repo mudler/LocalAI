@@ -64,6 +64,12 @@ func (c *ClaimWork) start(set func() *Set, selector *nodes.AgentSelector, token 
 // queue of the carrier that took over. The rows are taken out of the table first
 // and then published, so a job is lost, and not run twice, if this replica dies in
 // between. A job that is lost stays running until the reaper fails it.
+//
+// A row that the new carrier refuses goes back to pending, so that nothing is
+// lost while the new carrier is down: the rows wait in the table, and the next
+// sweep (the handoff runs again after a pause) or the next period on the tunnel
+// takes them. The rows that were moved stay as "migrated" for a day and are then
+// purged with their payloads.
 func (c *ClaimWork) handoff() func(context.Context, *Set) error {
 	return func(ctx context.Context, next *Set) error {
 		rows, err := jobs.MigratePending(ctx, c.DB)
@@ -71,16 +77,29 @@ func (c *ClaimWork) handoff() func(context.Context, *Set) error {
 			return err
 		}
 		var failed error
+		var refused []string
 		moved := 0
 		for _, r := range rows {
 			if err := next.WorkQueue.Enqueue(ctx, messaging.WorkKind(r.Kind), json.RawMessage(r.Payload)); err != nil {
 				failed = errors.Join(failed, fmt.Errorf("publishing the %s unit %s: %w", r.Kind, r.ID, err))
+				refused = append(refused, r.ID)
 				continue
 			}
 			moved++
 		}
+		if len(refused) > 0 {
+			// Not bound to ctx: the reason for the failure may be that it ended.
+			restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			if err := jobs.RestorePending(restoreCtx, c.DB, refused); err != nil {
+				failed = errors.Join(failed, fmt.Errorf("putting %d refused units back in the queue: %w", len(refused), err))
+			}
+		}
 		if len(rows) > 0 {
-			xlog.Info("Queued work moved to the carrier that took over", "carrier", next.Name, "moved", moved, "lost", len(rows)-moved)
+			xlog.Info("Queued work moved to the carrier that took over", "carrier", next.Name, "moved", moved, "kept_in_queue", len(refused))
+		}
+		if _, err := jobs.PurgeMigrated(ctx, c.DB, jobs.MigratedRetention); err != nil {
+			failed = errors.Join(failed, err)
 		}
 		return failed
 	}
