@@ -16,6 +16,10 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
+// errStreamBroken marks the failure of a streamed verb after the worker accepted
+// it: the body ended or the connection broke before the reply line.
+var errStreamBroken = errors.New("the stream of the verb broke after the worker accepted it")
+
 // ControlClient sends the control verbs of a frontend to a worker as HTTP
 // requests, over whatever dialer reaches that worker. In a tunnel deployment the
 // dialer opens a stream with the http tag, so the request reaches the HTTP
@@ -171,6 +175,15 @@ func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, verb string, 
 			// be a verdict about the backend that nothing learned.
 			if errors.Is(err, io.EOF) {
 				err = fmt.Errorf("the %s stream ended before its reply line: %w", verb, io.ErrUnexpectedEOF)
+			}
+			// A body that ends, or a connection that breaks, after the worker
+			// answered 200 is a verb that was accepted and whose reply was lost.
+			// A line that is not JSON is the worker speaking out of protocol, which
+			// is another thing.
+			var syntax *json.SyntaxError
+			var typed *json.UnmarshalTypeError
+			if !errors.As(err, &syntax) && !errors.As(err, &typed) {
+				err = fmt.Errorf("%w: %w", errStreamBroken, err)
 			}
 			return controlFailure(ctx, nodeID, err)
 		}

@@ -84,10 +84,13 @@ func (l *httpLink) requestWithProgress(ctx context.Context, nodeID, verb, opID s
 	return l.client.CallStreaming(ctx, nodeID, verb, req, reply, sink)
 }
 
-// waitExpired is true for the timeout that this link set on the request. Nothing
-// else reads as a wait that ran out: a stream that broke is not a worker that is
-// still installing.
-func (l *httpLink) waitExpired(err error) bool { return errors.Is(err, context.DeadlineExceeded) }
+// waitExpired is true for the timeout that this link set on the request, and for
+// a stream that broke after the worker accepted the verb. In both the work may
+// still be running, and the caller must not count the call as a failed attempt
+// and fire it again. A reply that cannot be read is neither.
+func (l *httpLink) waitExpired(err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, errStreamBroken)
+}
 
 // acknowledgementMissing is always false. An HTTP request has no way to tell a
 // worker that stopped the backend and did not reply from one that did not

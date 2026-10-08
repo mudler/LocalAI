@@ -356,15 +356,41 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse())
 		})
 
-		It("does not say that the worker may still be installing when the stream ends without a reply", func() {
+		It("says the worker may still be installing when the stream ends without a reply", func() {
+			// The worker accepted the install and the stream broke in the middle of
+			// it. That is the same situation as a wait that ran out on NATS: the
+			// work may be running. Counting it as a failed attempt would fire the
+			// install again.
 			worker.on(workerctl.VerbBackendInstall, func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = io.WriteString(w, `{"progress":{"op_id":"x"}}`+"\n")
 			})
 			_, err := control.InstallBackend(node, "b", "m", "", "", "", "", 0, "", nil)
 			Expect(err).To(HaveOccurred())
-			Expect(errors.Is(err, io.ErrUnexpectedEOF)).To(BeTrue())
-			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse(), "the link broke; nothing was learned about the install")
+			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
+			Expect(err.Error()).To(ContainSubstring("before its reply line"), "the cause stays in the message")
 			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse())
+		})
+
+		It("says the same of an upgrade and of the legacy install with Force", func() {
+			broken := func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, `{"progress":{"op_id":"x"}}`+"\n")
+			}
+			worker.on(workerctl.VerbBackendUpgrade, broken)
+			_, err := control.UpgradeBackend(node, "b", "", "", "", "", 0, "op", nil)
+			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
+
+			worker.on(workerctl.VerbBackendInstall, broken)
+			_, err = control.InstallBackendForce(node, "b", "", "", "", "", 0, "op", nil)
+			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
+		})
+
+		It("does not say that the worker may still be installing when its reply line is garbage", func() {
+			worker.on(workerctl.VerbBackendInstall, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, "this is not a line of the stream\n")
+			})
+			_, err := control.InstallBackend(node, "b", "m", "", "", "", "", 0, "", nil)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse(), "the worker spoke, and not in the protocol: %v", err)
 		})
 
 		It("hands a refusal of the worker back in the reply", func() {
