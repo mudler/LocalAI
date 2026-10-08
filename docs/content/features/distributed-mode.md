@@ -78,6 +78,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -649,6 +650,26 @@ Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
 judges backend compatibility against the union of the capabilities present in
 the cluster, so a CUDA-only build is offered when any worker can run it.
 
+### Model configs across frontends
+
+Every frontend keeps its own in-memory copy of the model configs in the shared models directory. When a frontend installs, edits, toggles or deletes a model, it writes the change to the directory and publishes a message on NATS. The other frontends reload the directory when they receive it.
+
+A gallery install or delete publishes this message as soon as the new config is in place, before the frontend preloads model files. The preload can take minutes on a large models directory, and other frontends do not wait for it. If the preload fails, the operation reports the error, but the config change stays applied on every frontend.
+
+NATS keeps no history of these messages. A frontend that is disconnected when a message is published never receives it. To recover, each frontend also reloads the models directory:
+
+- every `--model-config-resync-interval` (default `30s`), when a config file changed since its last pass, and
+- after each NATS reconnect.
+
+The pass is the same reconcile that a NATS message triggers, so it is idempotent. Only models whose file changed get a new [configuration revision](#model-configuration-revisions). A pass over an unchanged directory reads the config files and does nothing else.
+
+Distributed-state mode: each frontend derives this state from the shared directory, so there is no leader and nothing to replicate. The only per-frontend memory is a hash of the config files from its last pass, which only saves work. The consequence is a bounded delay: a frontend that missed a message serves the previous config for at most one interval.
+
+Two limits apply:
+
+- Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
+- The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
+
 ### Model configuration revisions
 
 Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
@@ -1191,6 +1212,17 @@ This makes an alias a stable deployment slot: the placement policy belongs to
 the slot, and the model filling it can change without rewriting the rule. The
 WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
 the model each one resolves to.
+
+Each frontend resolves the alias from its own copy of the model configs, and a
+frontend that has not yet reloaded a repointed alias still resolves it the old
+way (see [Model configs across frontends](#model-configs-across-frontends)).
+The rule's stored target therefore follows the alias only through frontends
+whose copy of the alias config matches the
+[configuration revision](#model-configuration-revisions) the cluster accepted.
+A frontend that is behind uses the stored target for the replica reconciler and
+does not write it, so two frontends cannot overwrite the rule's target against
+each other, and a frontend that is behind cannot reload the model the alias
+used to point at.
 
 Two constraints follow from replicas being shared. A single load of `llama3`
 serves both `production` and any request that names `llama3` directly, so only

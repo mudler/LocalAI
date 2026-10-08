@@ -2410,11 +2410,14 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 }
 
 // ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
+// The replica reconciler acts on these, so a rule whose alias this frontend
+// resolves from an outdated config keeps the stored target instead (see
+// applyCurrentTarget).
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
 	for i := range configs {
-		r.applyTarget(&configs[i])
+		r.applyCurrentTarget(ctx, &configs[i])
 	}
 	return configs, err
 }

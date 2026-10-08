@@ -286,6 +286,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
+	// modelConfigResync is built there too, and started only once the model
+	// configs are loaded: a pass against an empty loader would treat every
+	// model as new.
+	var modelConfigResync *modeladmin.DirectoryResync
 
 	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
 		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
@@ -399,6 +403,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.
 			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
+			modelConfigResync = modeladmin.NewDirectoryResync(application.ModelConfigLoader(), sys.Model.ModelsPath, modelRevisionLifecycle, cfgLoaderOpts...)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
@@ -507,6 +512,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if err := application.ModelConfigLoader().PreloadWithContext(options.Context, options.SystemState.Model.ModelsPath); err != nil {
 		xlog.Error("error downloading models", "error", err)
+	}
+
+	// Catch up on model config changes whose invalidation this frontend
+	// missed. NATS keeps no history, so a change published while this
+	// frontend was disconnected is otherwise never applied here. Every
+	// frontend runs its own pass against the shared models directory; the
+	// pass is idempotent, so no leader is needed.
+	if modelConfigResync != nil && distSvc != nil {
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
 	}
 
 	if options.PreloadJSONModels != "" {
