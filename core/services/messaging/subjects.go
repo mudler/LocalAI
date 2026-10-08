@@ -20,6 +20,12 @@ const (
 	QueueWorkers        = "workers"
 )
 
+// SubjectClaimWake is the hint that a unit of work was put in the claim queue.
+// A consumer that hears it looks for work at once and does not wait for its next
+// poll. The hint is a broadcast and broadcasts are at-most-once, so it can be
+// lost, and the poll finds the work then.
+const SubjectClaimWake = "jobs.claim.wake"
+
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 // These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")
 const (
