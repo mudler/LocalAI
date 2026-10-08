@@ -214,7 +214,7 @@ var _ = Describe("The swap of a replica", func() {
 	)
 
 	// join starts a replica on the carrier that the row names, as initDistributed does.
-	join := func(id string) *replicaNode {
+	join := func(id string, before ...func(*replicaNode)) *replicaNode {
 		GinkgoHelper()
 		n := &replicaNode{
 			id: id, net: net, life: &life{},
@@ -245,6 +245,9 @@ var _ = Describe("The swap of a replica", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		n.bus.OnReconnect(func() { n.reconnect.Add(1) })
+		for _, f := range before {
+			f(n)
+		}
 		n.swapper.Adopt(ctx)
 		nodes = append(nodes, n)
 		return n
@@ -808,6 +811,29 @@ var _ = Describe("The swap of a replica", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(in.ReadyReason).To(BeEmpty())
 			Expect(a.life.seen()).To(ContainElement("start:tunnel"))
+		})
+	})
+
+	Describe("the start of the work at startup", func() {
+		It("reports not ready when the work of the first carrier cannot start, and ready when a later poll starts it", func() {
+			a := join("a", func(n *replicaNode) {
+				n.startFail[cluster.CarrierNATS] = errors.New("the consumer could not start")
+			})
+			Expect(a.life.seen()).ToNot(ContainElement("start:nats"))
+
+			poll()
+			in, err := reg.Get(ctx, "a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(in.ReadyReason).To(ContainSubstring("consumer could not start"))
+
+			a.mu.Lock()
+			a.startFail[cluster.CarrierNATS] = nil
+			a.mu.Unlock()
+			poll()
+			in, err = reg.Get(ctx, "a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(in.ReadyReason).To(BeEmpty())
+			Expect(a.life.seen()).To(ContainElement("start:nats"))
 		})
 	})
 

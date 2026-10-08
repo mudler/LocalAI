@@ -216,7 +216,12 @@ func (s *Swapper) Adopt(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.base = ctx
-	s.ensureStarted(s.o.Cur.Load())
+	// ensureStarted logs why the work did not start. The first poll tries again
+	// and tells the cluster that this replica is not ready, so nothing else is
+	// done here.
+	if err := s.ensureStarted(s.o.Cur.Load()); err != nil {
+		xlog.Warn("The work of the carrier did not start; the next poll tries again", "carrier", s.o.Cur.Load().Name, "error", err)
+	}
 }
 
 // Wake asks the polling loop to look at the row now. It is the hint that the
@@ -312,6 +317,12 @@ func (s *Swapper) Reconcile(ctx context.Context, row cluster.CarrierRow) error {
 	default:
 		s.prepareSeen = time.Time{}
 		s.settle(ctx, row)
+		// A replica that said it was not ready, and can run its work now, says so
+		// even when no change is in progress. Otherwise the reason stays on the
+		// replica until the next change.
+		if s.reported.set && s.reported.reason != "" {
+			return s.report(ctx, row.Epoch, "")
+		}
 		return nil
 	}
 }
