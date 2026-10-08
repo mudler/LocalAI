@@ -80,7 +80,7 @@ func agentVerb[Req, Rep any](ctx context.Context, a *AgentControlClient, verb st
 	tried := make(map[string]bool, maxAgentPicks)
 	var last error
 	for range maxAgentPicks {
-		nodeID, _, err := a.sel.pickConnectedExcluding(callCtx, tried)
+		nodeID, _, err := a.sel.PickConnectedExcluding(callCtx, tried)
 		if err != nil {
 			if last != nil && errors.Is(err, ErrNoAgentWorker) {
 				// Every worker that holds a tunnel has failed to take the request.

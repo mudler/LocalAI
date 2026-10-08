@@ -238,11 +238,9 @@ func (c *ControlClient) do(ctx context.Context, nodeID, verb string, req any) (*
 	}
 }
 
-// ErrWorkerBusy means that the worker answered that it has no free slot for a
-// run. The worker is present and the request did not start, so it says nothing
-// about the work, and a caller may offer the run to another worker. It is not
-// ErrNoRoute: the route exists.
-var ErrWorkerBusy = errors.New("the worker has no free slot")
+// ErrWorkerBusy is workerctl.ErrWorkerBusy: the worker answered that it has no
+// free slot for a run.
+var ErrWorkerBusy = workerctl.ErrWorkerBusy
 
 // maxControlErrorBodyBytes bounds how much of an error body reaches a log line.
 const maxControlErrorBodyBytes = 512

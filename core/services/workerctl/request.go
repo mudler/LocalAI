@@ -1,6 +1,7 @@
 package workerctl
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -58,6 +59,12 @@ func WriteUnknownPath(w http.ResponseWriter, r *http.Request) {
 // run. Together with the status 503 it is how a frontend tells a worker that is
 // full from a worker that failed.
 const BusyMessage = "the worker has no free slot for this run"
+
+// ErrWorkerBusy means that a worker answered that it has no free slot for a run.
+// The worker is present and the request did not start, so it says nothing about
+// the work, and a caller may offer the run to another worker. It is not a missing
+// route: the route exists.
+var ErrWorkerBusy = errors.New("the worker has no free slot")
 
 // WriteBusy answers a run that this worker cannot take now. The worker is
 // present and routable, and the request was not started, so the frontend may

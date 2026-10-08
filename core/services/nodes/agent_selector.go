@@ -46,17 +46,14 @@ func NewAgentSelector(registry *NodeRegistry, conns AgentConnectionReader, self 
 	return &AgentSelector{registry: registry, conns: conns, self: self}
 }
 
-// PickConnected returns the id and the node type of an agent node whose tunnel a
-// live replica holds. The type comes back because the caller that publishes the
-// events of a run needs it for every line, and the selector has read the node
-// rows already.
-func (s *AgentSelector) PickConnected(ctx context.Context) (nodeID, nodeType string, err error) {
-	return s.pickConnectedExcluding(ctx, nil)
-}
-
-// pickConnectedExcluding is PickConnected without the nodes in tried. A retry
-// that could pick the worker that has just failed would be the same call again.
-func (s *AgentSelector) pickConnectedExcluding(ctx context.Context, tried map[string]bool) (string, string, error) {
+// PickConnectedExcluding returns the id and the node type of an agent node whose
+// tunnel a live replica holds, leaving out the nodes in tried. The type comes back
+// because the caller that publishes the events of a run needs it for every line,
+// and the selector has read the node rows already.
+//
+// The exclusion is for a retry: a retry that could pick the worker that has just
+// failed would be the same call again.
+func (s *AgentSelector) PickConnectedExcluding(ctx context.Context, tried map[string]bool) (string, string, error) {
 	if s == nil || s.registry == nil || s.conns == nil {
 		return "", "", fmt.Errorf("this deployment has no agent selector: %w", ErrNoAgentWorker)
 	}

@@ -146,21 +146,21 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 
 	Describe("choosing an agent worker", func() {
 		It("reports no agent worker, as a missing route, when none is registered", func() {
-			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).To(MatchError(ErrNoAgentWorker))
 			Expect(errors.Is(err, ErrNoRoute)).To(BeTrue())
 		})
 
 		It("reports no agent worker when none of the registered ones holds a tunnel", func() {
 			register("idle", NodeTypeAgent, true)
-			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).To(MatchError(ErrNoAgentWorker))
 		})
 
 		It("keeps a database error apart from a missing route", func() {
 			register("a1", NodeTypeAgent, true)
 			conns.err = errors.New("database is away")
-			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrNoAgentWorker)).To(BeFalse())
 			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse())
@@ -171,7 +171,7 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 			own := register("own", NodeTypeAgent, true)
 			conns.held[remote], conns.held[own] = false, true
 			for range 20 {
-				id, nodeType, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+				id, nodeType, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(id).To(Equal(own))
 				Expect(nodeType).To(Equal(NodeTypeAgent))
@@ -181,7 +181,7 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 		It("falls back to a worker that another replica holds", func() {
 			remote := register("remote", NodeTypeAgent, true)
 			conns.held[remote] = false
-			id, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			id, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal(remote))
 		})
@@ -194,7 +194,7 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 			for _, id := range []string{backend, pending, draining} {
 				conns.held[id] = true
 			}
-			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			_, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).To(MatchError(ErrNoAgentWorker))
 			Expect(conns.asked).ToNot(BeEmpty())
 			for _, asked := range conns.asked {
@@ -206,7 +206,7 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 			id := register("flaky", NodeTypeAgent, true)
 			Expect(reg.MarkUnhealthy(ctx, id)).To(Succeed())
 			conns.held[id] = true
-			picked, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnected(ctx)
+			picked, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(picked).To(Equal(id))
 		})
@@ -215,14 +215,14 @@ var _ = Describe("The agent control of the tunnel carrier", func() {
 			a := register("a", NodeTypeAgent, true)
 			b := register("b", NodeTypeAgent, true)
 			conns.held[a], conns.held[b] = true, true
-			picked, _, err := NewAgentSelector(reg, conns, "replica-a").pickConnectedExcluding(ctx, map[string]bool{a: true})
+			picked, _, err := NewAgentSelector(reg, conns, "replica-a").PickConnectedExcluding(ctx, map[string]bool{a: true})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(picked).To(Equal(b))
 		})
 
 		It("answers as a missing route when it was built with nothing", func() {
 			var sel *AgentSelector
-			_, _, err := sel.PickConnected(ctx)
+			_, _, err := sel.PickConnectedExcluding(ctx, nil)
 			Expect(err).To(MatchError(ErrNoAgentWorker))
 		})
 	})
