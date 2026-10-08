@@ -109,6 +109,11 @@ func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir,
 		xlog.Warn("HTTP file transfer server starting WITHOUT a registration token — read/write to models/staging/data is unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
 	}
 
+	if control != nil && token == "" {
+		xlog.Warn("The control plane of this worker has no registration token, so it serves only callers on this host. " +
+			"A frontend reaches it through the tunnel; set LOCALAI_REGISTRATION_TOKEN to serve it to a caller on the network")
+	}
+
 	mux := http.NewServeMux()
 
 	// PUT /v1/files/{key} — upload file
@@ -177,13 +182,7 @@ func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir,
 	// a tunnel. The bearer check is the one of the file routes: a verb can stop a
 	// node, so it is never served without it.
 	if control != nil {
-		mux.HandleFunc(workerctl.Prefix, func(w http.ResponseWriter, r *http.Request) {
-			if !checkBearerToken(r, token) {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			control.ServeHTTP(w, r)
-		})
+		mux.Handle(workerctl.Prefix, controlGate(token, control))
 	}
 
 	// Backend log endpoints (only registered when a log store is provided)
@@ -1079,6 +1078,45 @@ func resolveKeyToDir(key, stagingDir, modelsDir, dataDir string) (targetDir, rel
 		return dataDir, rel
 	}
 	return
+}
+
+// controlGate puts the check of the control plane in front of next.
+//
+// The file routes have always fail open on an empty token, and a worker on NATS
+// keeps that. The control verbs are worse: they install a backend from any URI,
+// stop the node and delete models. A worker on the tunnel carrier that was given
+// an address binds every interface, so a control plane that failed open would be
+// open to the network. With a token, the bearer check decides, as for the file
+// routes. Without one, only a caller on the loopback address is served, which is
+// the stream that the tunnel opens on the worker, and any other caller is
+// refused for every verb.
+func controlGate(token string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token == "" {
+			if !fromLoopback(r) {
+				http.Error(w, "the control plane needs a registration token for a caller that is not on this host", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// fromLoopback reports whether the peer of the request is on the loopback
+// interface of this host.
+func fromLoopback(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // checkBearerToken validates a Bearer token from the Authorization header

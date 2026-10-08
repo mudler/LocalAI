@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -104,5 +105,50 @@ var _ = Describe("The control plane on the file transfer server", func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
+	Describe("on a worker that has no registration token", func() {
+		It("refuses every control verb to a caller that is not on this host", func() {
+			var ran int
+			gate := controlGate("", http.HandlerFunc(func(http.ResponseWriter, *http.Request) { ran++ }))
+			for _, verb := range workerctl.AllVerbs() {
+				req := httptest.NewRequest(http.MethodPost, workerctl.PathOf(verb), strings.NewReader("{}"))
+				req.RemoteAddr = "203.0.113.7:51234"
+				rec := httptest.NewRecorder()
+				gate.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusForbidden), verb)
+			}
+			Expect(ran).To(BeZero(), "no verb may run for a caller from the network")
+		})
+
+		It("refuses a caller whose address cannot be read", func() {
+			gate := controlGate("", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+			req := httptest.NewRequest(http.MethodPost, workerctl.PathOf(workerctl.VerbNodeStop), nil)
+			req.RemoteAddr = "not an address"
+			rec := httptest.NewRecorder()
+			gate.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("serves the stream that the tunnel opens on the loopback address", func() {
+			control := http.NewServeMux()
+			control.HandleFunc(workerctl.PathOf(workerctl.VerbBackendList), func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = fmt.Fprint(w, "listed")
+			})
+			base := start("", control)
+			status, body := do(base+workerctl.PathOf(workerctl.VerbBackendList), "")
+			Expect(status).To(Equal(http.StatusOK))
+			Expect(body).To(Equal("listed"))
+		})
+
+		It("lets the bearer check decide, and not the address, when there is a token", func() {
+			gate := controlGate("secret", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+			req := httptest.NewRequest(http.MethodPost, workerctl.PathOf(workerctl.VerbNodeStop), nil)
+			req.RemoteAddr = "203.0.113.7:51234"
+			req.Header.Set("Authorization", "Bearer secret")
+			rec := httptest.NewRecorder()
+			gate.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusNoContent))
+		})
 	})
 })

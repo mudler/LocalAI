@@ -343,6 +343,12 @@ back to the lane of model calls. The file stager asks for it.
 
 ## Rules a carrier must keep
 
+- The control verbs of a worker are never served unauthenticated to the network.
+  `nodes.controlGate` checks the bearer token, and with no token it serves only a
+  caller on the loopback address, which is the stream that the tunnel opens on
+  the worker. The file routes keep their older behaviour on an empty token. An
+  agent worker binds loopback only.
+
 - Payload: a broadcast above `messaging.MaxBroadcastBytes` is refused with
   `messaging.ErrPayloadTooLarge` by every carrier.
 - Subjects: one closed set of roots, the `broadcastRoots` and `controlRoots`
