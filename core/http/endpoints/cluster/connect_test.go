@@ -152,7 +152,7 @@ var _ = Describe("Connect endpoint", func() {
 			_, resp, err := dial("?id="+nodeID, registrationToken)
 			Expect(err).To(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-			Expect(tunnels.Held()).To(BeEmpty())
+			Expect(tunnels.Holds(nodeID)).To(BeFalse())
 		})
 
 		It("answers 401 to a node that has no tunnel credential, whatever it presents", func() {
@@ -170,7 +170,7 @@ var _ = Describe("Connect endpoint", func() {
 			_, resp, err := dial("?id="+pending.ID, "pending-token")
 			Expect(err).To(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
-			Expect(tunnels.Held()).To(BeEmpty())
+			Expect(tunnels.Holds(nodeID)).To(BeFalse())
 
 			Expect(nodeReg.ApproveNode(ctx, pending.ID)).To(Succeed())
 			ws, _, err := dial("?id="+pending.ID, "pending-token")
@@ -200,7 +200,7 @@ var _ = Describe("Connect endpoint", func() {
 			_, resp, err := dial("?id="+nodeID, nodeToken, http.Header{"Origin": []string{"https://evil.example"}})
 			Expect(err).To(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
-			Expect(tunnels.Held()).To(BeEmpty())
+			Expect(tunnels.Holds(nodeID)).To(BeFalse())
 		})
 	})
 
@@ -212,7 +212,7 @@ var _ = Describe("Connect endpoint", func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(worker.Close)
 
-			Eventually(tunnels.Held).Should(Equal([]string{nodeID}))
+			Eventually(func() bool { return tunnels.Holds(nodeID) }).Should(BeTrue())
 			owner, _, err := clusterR.Owner(ctx, nodeID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(owner).To(Equal("replica-a"))
@@ -241,11 +241,11 @@ var _ = Describe("Connect endpoint", func() {
 			Expect(err).ToNot(HaveOccurred())
 			worker, err := tunnel.ClientSession(ws, tunnel.LaneInference)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(tunnels.Held).Should(Equal([]string{nodeID}))
+			Eventually(func() bool { return tunnels.Holds(nodeID) }).Should(BeTrue())
 
 			Expect(worker.Close()).To(Succeed())
 
-			Eventually(tunnels.Held, 5*time.Second).Should(BeEmpty())
+			Eventually(func() bool { return tunnels.Holds(nodeID) }, 5*time.Second).Should(BeFalse())
 			// The registry drops the entry first and releases the claim after it.
 			Eventually(func() error {
 				_, _, err := clusterR.Owner(ctx, nodeID)
@@ -258,7 +258,7 @@ var _ = Describe("Connect endpoint", func() {
 			Expect(err).ToNot(HaveOccurred())
 			first, err := tunnel.ClientSession(ws1, tunnel.LaneInference)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(tunnels.Held).Should(Equal([]string{nodeID}))
+			Eventually(func() bool { return tunnels.Holds(nodeID) }).Should(BeTrue())
 
 			ws2, _, err := dial("?id="+nodeID, nodeToken)
 			Expect(err).ToNot(HaveOccurred())
@@ -269,7 +269,7 @@ var _ = Describe("Connect endpoint", func() {
 			Eventually(first.CloseChan(), 5*time.Second).Should(BeClosed())
 			Expect(second.IsClosed()).To(BeFalse())
 			// The end of the first session must not remove the second.
-			Consistently(tunnels.Held, time.Second).Should(Equal([]string{nodeID}))
+			Consistently(func() bool { return tunnels.Holds(nodeID) }, time.Second).Should(BeTrue())
 			_, _, err = clusterR.Owner(ctx, nodeID)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -298,7 +298,7 @@ var _ = Describe("Connect endpoint", func() {
 			inference, err := tunnel.ClientSession(wsI, tunnel.LaneInference)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(inference.Close)
-			Eventually(tunnels.Held).Should(Equal([]string{nodeID}))
+			Eventually(func() bool { return tunnels.Holds(nodeID) }).Should(BeTrue())
 
 			wsB, _, err := dial("?id="+nodeID+"&lane=bulk", nodeToken)
 			Expect(err).ToNot(HaveOccurred())

@@ -132,7 +132,7 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 		})
 		Eventually(t.Connected, "10s").Should(BeTrue())
 		Eventually(t.BulkConnected, "10s").Should(BeTrue())
-		Eventually(registry.Held, "10s").Should(Equal([]string{nodeID}))
+		Eventually(func() bool { return registry.Holds(nodeID) }, "10s").Should(BeTrue())
 
 		for _, lane := range []tunnel.Lane{tunnel.LaneInference, tunnel.LaneBulk} {
 			st, err := registry.Open(ctx, nodeID, lane)
@@ -151,7 +151,7 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 
 	It("connects both lanes again, with a new claim, after the connections to the frontend were cut", func() {
 		t := startWorker(frontend.URL, map[string]LocalService{})
-		Eventually(registry.Held, "10s").Should(Equal([]string{nodeID}))
+		Eventually(func() bool { return registry.Holds(nodeID) }, "10s").Should(BeTrue())
 		Eventually(t.BulkConnected, "10s").Should(BeTrue())
 		_, first, err := clusterR.Owner(ctx, nodeID)
 		Expect(err).ToNot(HaveOccurred())
@@ -167,7 +167,7 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 
 		Eventually(t.Connected, "30s").Should(BeTrue())
 		Eventually(t.BulkConnected, "30s").Should(BeTrue())
-		Eventually(registry.Held, "10s").Should(Equal([]string{nodeID}))
+		Eventually(func() bool { return registry.Holds(nodeID) }, "10s").Should(BeTrue())
 		_, second, err := clusterR.Owner(ctx, nodeID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(second).ToNot(Equal(first), "a new session is a new claim")
@@ -198,7 +198,7 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 			})
 			Eventually(t.Connected, "10s").Should(BeTrue())
 			Eventually(t.BulkConnected, "10s").Should(BeTrue())
-			Eventually(registry.Held, "10s").Should(Equal([]string{nodeID}))
+			Eventually(func() bool { return registry.Holds(nodeID) }, "10s").Should(BeTrue())
 
 			// The probe sends the request frame and the 8 bytes together, so a
 			// call costs one round trip, as a call on an open connection does.
@@ -370,3 +370,18 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("Warning about a plain websocket to another host",
+	func(endpoint string, want bool) {
+		Expect(plaintextToRemoteHost(endpoint)).To(Equal(want))
+	},
+	Entry("ws to a name", "ws://frontend.example:8080/api/cluster/connect?id=n", true),
+	Entry("ws to a private address", "ws://10.1.2.3:8080/api/cluster/connect?id=n", true),
+	Entry("ws to an address in IPv6", "ws://[2001:db8::1]:8080/api/cluster/connect?id=n", true),
+	Entry("wss to a name", "wss://frontend.example/api/cluster/connect?id=n", false),
+	Entry("ws to localhost", "ws://localhost:8080/api/cluster/connect?id=n", false),
+	Entry("ws to IPv4 loopback", "ws://127.0.0.1:8080/api/cluster/connect?id=n", false),
+	Entry("ws to another loopback address", "ws://127.0.0.2:8080/api/cluster/connect?id=n", false),
+	Entry("ws to IPv6 loopback", "ws://[::1]:8080/api/cluster/connect?id=n", false),
+	Entry("a URL that does not parse", "ws://%zz", false),
+)

@@ -218,6 +218,11 @@ func StartTunnel(ctx context.Context, cfg TunnelConfig) (*Tunnel, error) {
 		return nil, err
 	}
 
+	if plaintextToRemoteHost(endpoint) {
+		xlog.Warn("The worker tunnel dials a frontend over plain ws, so its credential and every request that crosses it are readable on the network; "+
+			"register with an https URL", "frontend", endpoint)
+	}
+
 	// Copied, so that the routing table cannot change under the accept loop.
 	services := make(map[string]LocalService, len(cfg.Services))
 	for tag, svc := range cfg.Services {
@@ -810,6 +815,25 @@ func tunnelEndpoint(frontendURL, nodeID string) (string, error) {
 	u.Path = strings.TrimRight(u.Path, "/") + tunnel.ConnectPath
 	u.RawQuery = url.Values{"id": []string{nodeID}}.Encode()
 	return u.String(), nil
+}
+
+// plaintextToRemoteHost reports whether a websocket URL uses ws and names a host
+// that is not this machine. The credential of the node and the prompts of users
+// travel in the clear on such a link. A frontend on the same host, as in a
+// single-machine setup or a test, is not a finding.
+func plaintextToRemoteHost(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != "ws" {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return false
+	}
+	return true
 }
 
 // loopbackService routes a tagged stream to a process that listens on the
