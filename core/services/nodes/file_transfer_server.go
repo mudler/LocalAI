@@ -21,6 +21,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/safefile"
@@ -57,11 +58,21 @@ func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string,
 // StartFileTransferServerWithCapacity starts the file transfer server with a
 // worker-local guard for per-request ephemeral inputs.
 func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+// StartFileTransferServerWithControl is StartFileTransferServerWithCapacity plus
+// the control plane of the worker. A non-nil control handler serves every path
+// under workerctl.Prefix, behind the same bearer check as the file routes. The
+// handler may gain its routes after the server started, as http.ServeMux does,
+// so a worker can start the server before the supervisor that owns the verbs
+// exists.
+func StartFileTransferServerWithControl(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
+	return startFileTransferServerWithControl(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, control, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
@@ -79,6 +90,10 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 }
 
 func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithControl(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, control http.Handler, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -157,6 +172,19 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// The control plane of the worker, for a worker that a frontend reaches over
+	// a tunnel. The bearer check is the one of the file routes: a verb can stop a
+	// node, so it is never served without it.
+	if control != nil {
+		mux.HandleFunc(workerctl.Prefix, func(w http.ResponseWriter, r *http.Request) {
+			if !checkBearerToken(r, token) {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			control.ServeHTTP(w, r)
+		})
+	}
 
 	// Backend log endpoints (only registered when a log store is provided)
 	var ls *model.BackendLogStore
