@@ -126,6 +126,9 @@ func (b *Broadcaster) Release(old *Set) error {
 		return nil
 	}
 	b.listening = slices.Delete(b.listening, i, i+1)
+	// A released set is finished and is closed by the caller. The map must not keep
+	// it alive for the life of the holder.
+	delete(b.hooked, old)
 	subs := b.snapshotLocked()
 	b.mu.Unlock()
 

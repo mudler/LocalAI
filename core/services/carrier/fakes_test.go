@@ -35,7 +35,11 @@ func (r *recorder) seen() []string {
 }
 
 // fakeCommands is a nodes.NodeControl that only records the call.
-type fakeCommands struct{ recorder }
+type fakeCommands struct {
+	recorder
+	// closed, when set, makes the calls that a spec hammers fail once the set is closed.
+	closed interface{ Load() bool }
+}
 
 var _ nodes.NodeControl = (*fakeCommands)(nil)
 
@@ -63,7 +67,13 @@ func (f *fakeCommands) UnloadModelOnNode(string, string) error {
 	f.rec("UnloadModelOnNode")
 	return nil
 }
-func (f *fakeCommands) PingNode(string) error { f.rec("PingNode"); return nil }
+func (f *fakeCommands) PingNode(string) error {
+	if f.closed != nil && f.closed.Load() {
+		return errUsedAfterClose
+	}
+	f.rec("PingNode")
+	return nil
+}
 func (f *fakeCommands) InstallBackendOp(string, string, string, string, int, string, string, time.Duration, func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	f.rec("InstallBackendOp")
 	return &workerctl.BackendInstallReply{}, nil

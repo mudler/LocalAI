@@ -38,6 +38,51 @@ func newFakeNet() *fakeNet {
 	}}
 }
 
+// errUsedAfterClose is what a fake carrier answers once its set is closed. A real
+// carrier answers with an error or a panic then, and a spec about "never reaches
+// a closed set" must be able to see that.
+var errUsedAfterClose = errors.New("the carrier was used after it was closed")
+
+type closedAwareBroadcaster struct {
+	messaging.Broadcaster
+	closed *atomic.Bool
+}
+
+func (b closedAwareBroadcaster) Publish(subject string, data any) error {
+	if b.closed.Load() {
+		return errUsedAfterClose
+	}
+	return b.Broadcaster.Publish(subject, data)
+}
+
+type closedAwareQueue struct {
+	messaging.WorkQueue
+	closed *atomic.Bool
+}
+
+func (q closedAwareQueue) Enqueue(ctx context.Context, kind messaging.WorkKind, payload any) error {
+	if q.closed.Load() {
+		return errUsedAfterClose
+	}
+	return q.WorkQueue.Enqueue(ctx, kind, payload)
+}
+
+// windowSpy is the window of a replica. It notes whether the pointer to the set in
+// use still named the draining set when the window opened.
+type windowSpy struct {
+	*carrier.Window
+	n *replicaNode
+}
+
+func (w windowSpy) Open(prev *carrier.Set) {
+	if w.n.cur.Load() == prev {
+		w.n.windowRec.rec("window-open:before-the-pointer-moved")
+	} else {
+		w.n.windowRec.rec("window-open:after-the-pointer-moved")
+	}
+	w.Window.Open(prev)
+}
+
 // life records what the replica did to the sets it built.
 type life struct {
 	recorder
@@ -63,6 +108,14 @@ type replicaNode struct {
 	handedTo  []cluster.Carrier
 	attached  map[string]carrier.Attachment
 	reconnect atomic.Int32
+
+	// hangStop makes the stop of the work of a set wait for releaseStop.
+	windowRec   recorder
+	hangStop    atomic.Bool
+	releaseStop chan struct{}
+	// hangHandoff makes the hand-over wait for the end of its context.
+	hangHandoff atomic.Bool
+	startFail   map[cluster.Carrier]error
 }
 
 func (n *replicaNode) build(_ context.Context, row cluster.CarrierRow, target cluster.Carrier) (*carrier.Set, error) {
@@ -84,23 +137,39 @@ func (n *replicaNode) build(_ context.Context, row cluster.CarrierRow, target cl
 func (n *replicaNode) newSet(name cluster.Carrier, epoch int64) *carrier.Set {
 	f := newFakeCarrier(name, epoch)
 	bus := n.net.bus[name]
-	f.set.Broadcaster = bus
+	closed := &atomic.Bool{}
+	f.commands.closed = closed
+	f.set.Broadcaster = closedAwareBroadcaster{Broadcaster: bus, closed: closed}
+	f.set.WorkQueue = closedAwareQueue{WorkQueue: f.queue, closed: closed}
 	f.set.OnReconnect = bus.OnReconnect
 	f.set.Start = func(ctx context.Context) (func(), error) {
+		n.mu.Lock()
+		failure := n.startFail[name]
+		n.mu.Unlock()
+		if failure != nil {
+			return nil, failure
+		}
 		n.life.rec("start:" + string(name))
 		return func() {
+			if n.hangStop.Load() {
+				<-n.releaseStop
+			}
 			released := errors.Is(context.Cause(ctx), messaging.ErrCarrierReleased)
 			n.life.rec(fmt.Sprintf("stop:%s:released=%t", name, released))
 		}, nil
 	}
-	f.set.Handoff = func(_ context.Context, next *carrier.Set) error {
+	f.set.Handoff = func(hctx context.Context, next *carrier.Set) error {
 		n.mu.Lock()
 		n.handedTo = append(n.handedTo, next.Name)
 		n.mu.Unlock()
 		n.life.rec("handoff:" + string(name) + "->" + string(next.Name))
+		if n.hangHandoff.Load() {
+			<-hctx.Done()
+			n.life.rec("handoff-cancelled:" + string(name))
+		}
 		return nil
 	}
-	f.set.Close = func() { n.life.rec("close:" + string(name)) }
+	f.set.Close = func() { closed.Store(true); n.life.rec("close:" + string(name)) }
 	n.sets[name] = append(n.sets[name], f)
 	return f.set
 }
@@ -138,6 +207,8 @@ var _ = Describe("The swap of a replica", func() {
 		net     *fakeNet
 		nodes   []*replicaNode
 		timings cluster.Timings
+		// stopGrace and closeGrace are the bounds of the swappers that join starts.
+		stopGrace, closeGrace time.Duration
 	)
 
 	// join starts a replica on the carrier that the row names, as initDistributed does.
@@ -147,6 +218,7 @@ var _ = Describe("The swap of a replica", func() {
 			id: id, net: net, life: &life{},
 			builds: map[cluster.Carrier]int{}, buildErr: map[cluster.Carrier]error{},
 			sets: map[cluster.Carrier][]*fakeCarrier{}, attached: map[string]carrier.Attachment{},
+			releaseStop: make(chan struct{}), startFail: map[cluster.Carrier]error{},
 		}
 		row, err := store.Get(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -164,9 +236,10 @@ var _ = Describe("The swap of a replica", func() {
 		n.cmds.UseWindow(n.window)
 		n.queue = carrier.NewWorkQueue(&n.cur)
 		n.swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
-			Cur: &n.cur, Bus: n.bus, Window: n.window, Rows: store,
+			Cur: &n.cur, Bus: n.bus, Window: windowSpy{n.window, n}, Rows: store,
 			Ready: readyReporter{reg: reg, id: id}, Build: n.build,
 			Interval: time.Hour, Settle: 50 * time.Millisecond,
+			StopGrace: stopGrace, CloseGrace: closeGrace,
 		})
 		Expect(err).ToNot(HaveOccurred())
 		n.bus.OnReconnect(func() { n.reconnect.Add(1) })
@@ -236,6 +309,7 @@ var _ = Describe("The swap of a replica", func() {
 		reg = cluster.NewRegistry(db)
 		net = newFakeNet()
 		nodes = nil
+		stopGrace, closeGrace = 0, 0
 		timings = cluster.Timings{PrepareTimeout: time.Minute, TransitionWindow: time.Minute, MaxDrain: time.Minute}
 		sw, err = cluster.NewSwitch(cluster.SwitchOptions{Store: store, Registry: reg, Timings: func() cluster.Timings { return timings }})
 		Expect(err).ToNot(HaveOccurred())
@@ -243,6 +317,11 @@ var _ = Describe("The swap of a replica", func() {
 
 	AfterEach(func() {
 		for _, n := range nodes {
+			select {
+			case <-n.releaseStop:
+			default:
+				close(n.releaseStop)
+			}
 			n.swapper.Close()
 		}
 	})
@@ -627,14 +706,120 @@ var _ = Describe("The swap of a replica", func() {
 		})
 	})
 
+	Describe("the robustness of a swap", func() {
+		It("goes on to hand over and to close a set whose work does not stop", func() {
+			stopGrace = 200 * time.Millisecond
+			a := join("a")
+			a.hangStop.Store(true)
+			settle(cluster.CarrierTunnel)
+			expire()
+
+			Eventually(a.life.seen, "10s").Should(ContainElements("handoff:nats->tunnel", "close:nats"),
+				"the stop of the work hangs, and the hand-over and the close do not wait for it")
+		})
+
+		It("returns from Close in a bounded time when the hand-over does not end", func() {
+			closeGrace = 300 * time.Millisecond
+			a := join("a")
+			a.hangHandoff.Store(true)
+			settle(cluster.CarrierTunnel)
+			expire()
+			Eventually(a.life.seen, "5s").Should(ContainElement("handoff:nats->tunnel"))
+
+			closed := make(chan struct{})
+			go func() { defer close(closed); a.swapper.Close() }()
+			Eventually(closed, "5s").Should(BeClosed())
+			Eventually(a.life.seen, "5s").Should(ContainElement("handoff-cancelled:nats"), "the hand-over is told to stop")
+		})
+
+		It("opens the window before the pointer moves, so that no call meets a gap", func() {
+			a := join("a")
+			settle(cluster.CarrierTunnel)
+			Expect(a.windowRec.seen()).To(ContainElement("window-open:before-the-pointer-moved"))
+			Expect(a.windowRec.seen()).ToNot(ContainElement("window-open:after-the-pointer-moved"))
+		})
+
+		It("lets go of the reconnect hook of a set that was released", func() {
+			a := join("a")
+			base := a.bus.HookedCount()
+			settle(cluster.CarrierTunnel)
+			Expect(a.bus.HookedCount()).To(Equal(base+1), "the tunnel set is hooked, the NATS set is draining")
+			expire()
+			Eventually(a.bus.HookedCount, "5s").Should(Equal(base), "the released set is not kept")
+		})
+
+		It("lets go of the hook of a set that was built for a change that was aborted", func() {
+			a := join("a")
+			base := a.bus.HookedCount()
+			request(cluster.CarrierTunnel)
+			poll()
+			Expect(a.bus.HookedCount()).To(Equal(base + 1))
+			_, err := sw.Abort(ctx, "admin")
+			Expect(err).ToNot(HaveOccurred())
+			poll()
+			Expect(a.bus.HookedCount()).To(Equal(base))
+		})
+
+		It("attaches the draining carrier again when a replica starts during a drain, and opens the window", func() {
+			a := join("a")
+			settle(cluster.CarrierTunnel)
+			Expect(row().Draining).To(Equal(cluster.CarrierNATS))
+
+			// A replica that starts now begins on the active carrier only.
+			b := join("b")
+			b.attached["on-nats"] = carrier.Attachment{NATS: true}
+			Expect(b.window.Previous()).To(BeNil())
+			poll(b)
+
+			Expect(b.buildCount(cluster.CarrierNATS)).To(Equal(1))
+			Expect(b.window.Previous()).ToNot(BeNil())
+			Expect(b.cmds.PingNode("on-nats")).To(Succeed())
+			Expect(b.fake(cluster.CarrierNATS).commands.seen()).To(Equal([]string{"PingNode"}), "a worker that is only on the draining carrier is reached")
+
+			// The drain ends: b lets the set go like a.
+			expire()
+			Eventually(b.life.seen, "5s").Should(ContainElement("close:nats"))
+			Expect(b.window.Previous()).To(BeNil())
+			_ = a
+		})
+
+		It("says it is not ready when the work of the carrier cannot start, and is ready again when it can", func() {
+			a := join("a")
+			a.mu.Lock()
+			a.startFail[cluster.CarrierTunnel] = errors.New("the claim loop could not start")
+			a.mu.Unlock()
+			request(cluster.CarrierTunnel)
+			poll()
+			drive() // commit
+			poll()
+
+			in, err := reg.Get(ctx, "a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(in.ReadyReason).To(ContainSubstring("claim loop could not start"))
+
+			a.mu.Lock()
+			a.startFail[cluster.CarrierTunnel] = nil
+			a.mu.Unlock()
+			poll()
+			in, err = reg.Get(ctx, "a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(in.ReadyReason).To(BeEmpty())
+			Expect(a.life.seen()).To(ContainElement("start:tunnel"))
+		})
+	})
+
 	Describe("a call that runs while the set changes", func() {
 		It("never blocks and never reaches a closed set", func() {
 			a, b := join("a"), join("b")
+			// A worker that is on the carrier that drains only: its calls go to the
+			// draining set through the window, until the drain ends.
+			a.attached["on-nats"] = carrier.Attachment{NATS: true}
 			stop := make(chan struct{})
 			var wg sync.WaitGroup
 			var calls atomic.Int64
 			for range 4 {
 				wg.Go(func() {
+					defer GinkgoRecover()
 					for {
 						select {
 						case <-stop:
@@ -643,11 +828,17 @@ var _ = Describe("The swap of a replica", func() {
 						}
 						Expect(a.bus.Publish(swapSubject, "x")).To(Succeed())
 						Expect(a.queue.Enqueue(ctx, messaging.WorkMCPCI, "p")).To(Succeed())
+						// The fake carriers answer a call to a closed set with an error, as
+						// a real one does, so a call that reaches one fails this spec.
+						Expect(a.cmds.PingNode("on-nats")).To(Succeed())
 						calls.Add(1)
 					}
 				})
 			}
 			settle(cluster.CarrierTunnel)
+			time.Sleep(100 * time.Millisecond)
+			a.attached["on-nats"] = carrier.Attachment{Tunnel: true}
+			expire()
 			settle(cluster.CarrierNATS)
 			close(stop)
 			wg.Wait()
