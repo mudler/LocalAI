@@ -145,6 +145,9 @@ export const operateHub = {
       items: [
         { path: '/app/nodes', labelKey: 'items.nodes', adminOnly: true, feature: 'distributed' },
         { path: '/app/scheduling', labelKey: 'items.scheduling', adminOnly: true, feature: 'distributed' },
+        // Failover is a Swarm page on a cluster. A single install keeps it under
+        // Runtime, where its model failover chains still apply.
+        { path: '/app/failover', labelKey: 'items.failover', adminOnly: true, feature: 'distributed' },
         { path: '/app/p2p', labelKey: 'items.p2p', adminOnly: true },
       ],
       match: ['/app/node-backend-logs'],
@@ -158,7 +161,7 @@ export const operateHub = {
         { path: '/app/backends', labelKey: 'items.backends', adminOnly: true },
         { path: '/app/activity', labelKey: 'items.activity', adminOnly: true },
         { path: '/app/backend-logs', labelKey: 'items.logs', adminOnly: true },
-        { path: '/app/failover', labelKey: 'items.failover', adminOnly: true },
+        { path: '/app/failover', labelKey: 'items.failover', adminOnly: true, unlessFeature: 'distributed' },
       ],
     },
     {

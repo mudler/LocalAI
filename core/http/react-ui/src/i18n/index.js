@@ -34,6 +34,7 @@ export const NAMESPACES = [
   'tools',
   'admin',
   'operate',
+  'swarm',
   'usage',
   'explorer',
 ]

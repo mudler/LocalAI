@@ -55,7 +55,7 @@
     "voiceLibrary": "Voice Library",
     "traces": "Traces",
     "nodes": "Nodes",
-    "scheduling": "Scheduling",
+    "scheduling": "Placement rules",
     "swarm": "Swarm",
     "system": "System",
     "settings": "Settings",

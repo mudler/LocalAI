@@ -186,18 +186,6 @@
     "title": "Rastreamentos",
     "subtitle": "Ver requisições, respostas e operações de backend registradas"
   },
-  "nodes": {
-    "title": "Nós Distribuídos",
-    "subtitle": "Gerenciar nós workers de backend e de agentes"
-  },
-  "scheduling": {
-    "title": "Agendamento",
-    "subtitle": "Regras de posicionamento de modelos e réplicas no cluster"
-  },
-  "p2p": {
-    "title": "Computação de IA Distribuída",
-    "subtitle": "Escale suas cargas de trabalho de IA por vários dispositivos com distribuição ponto a ponto"
-  },
   "users": {
     "title": "Usuários",
     "subtitle": "Gerenciar usuários registrados, funções e convites"

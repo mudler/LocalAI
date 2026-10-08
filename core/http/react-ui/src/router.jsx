@@ -133,6 +133,8 @@ const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NodeDetail = page(null, () => import('./pages/NodeDetail'))
+// eslint-disable-next-line no-unused-vars
+const AddNode = page(null, () => import('./pages/AddNode'))
 const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
 const Users = page('users', () => import('./pages/Users'))
@@ -243,6 +245,7 @@ const appChildren = [
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },
       { path: 'nodes', element: <Admin><Nodes /></Admin> },
+      { path: 'nodes/add', element: <Admin><AddNode /></Admin> },
       { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
       { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },

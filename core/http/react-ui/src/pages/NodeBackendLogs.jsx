@@ -1,25 +1,30 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useParams, useOutletContext, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import Icon from '../components/Icon'
+import './operate.css'
+import './swarm.css'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}${apiUrl(path)}`
 }
 
-const STREAM_BADGE = {
-  stdout: { bg: 'var(--color-info-light)', color: 'var(--color-log-info)', label: 'stdout' },
-  stderr: { bg: 'var(--color-error-light)', color: 'var(--color-log-stderr)', label: 'stderr' },
-}
+const STREAM_LABEL = { stdout: 'out', stderr: 'err' }
 
+// The output of one backend process on one node, live over a WebSocket, with
+// the replica scope when a model has several. The page mirrors the local logs
+// page so the two read the same.
 export default function NodeBackendLogs() {
   const { nodeId, modelId = '' } = useParams()
-  const { addToast } = useOutletContext()
+  const { t } = useTranslation('swarm')
+  const { t: to } = useTranslation('operate')
   const navigate = useNavigate()
 
   // The route param can be a bare model name ("qwen3-0.6b") OR a per-replica
@@ -34,6 +39,7 @@ export default function NodeBackendLogs() {
   const [lines, setLines] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [text, setText] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [showDetails, setShowDetails] = useState(true)
   const [wsConnected, setWsConnected] = useState(false)
@@ -140,10 +146,10 @@ export default function NodeBackendLogs() {
     }
   }, [connectWebSocket])
 
-  const filteredLines = useMemo(
-    () => filter === 'all' ? lines : lines.filter(l => l.stream === filter),
-    [lines, filter]
-  )
+  const filteredLines = useMemo(() => {
+    const needle = text.trim().toLowerCase()
+    return lines.filter(l => (filter === 'all' || l.stream === filter) && (!needle || String(l.text).toLowerCase().includes(needle)))
+  }, [lines, filter, text])
 
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(filteredLines, null, 2)], { type: 'application/json' })
@@ -157,209 +163,113 @@ export default function NodeBackendLogs() {
 
   if (!nodeId || !modelId) {
     return (
-      <div className="page page--wide">
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name="terminal" /></div>
-          <h2 className="empty-state-title">No node/model selected</h2>
-          <p className="empty-state-text">
-            View backend logs from the{' '}
-            <Link to="/app/nodes" className="text-primary">Nodes page</Link>.
+      <div className="page page--wide sw-page">
+        <div className="dk-empty">
+          <div className="dk-empty-icon"><Icon name="terminal" /></div>
+          <h2 className="dk-empty-title">{t('nodeLogs.noneTitle')}</h2>
+          <p className="dk-empty-text">
+            {t('nodeLogs.noneBefore')} <Link to="/app/nodes" className="dk-link">{t('nodeLogs.noneLink')}</Link>.
           </p>
         </div>
       </div>
     )
   }
 
-  // Show the merged/per-replica toggle only when this model has > 1 replica
-  // on this node. Single-replica deployments don't see a control they can't
-  // meaningfully use.
+  // Show the merged/per-replica switch only when this model has more than one
+  // replica on this node. One replica has no choice to make.
   const showReplicaToggle = replicas.length > 1
+  const go = suffix => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName + suffix)}`)
 
   return (
-    <div className="page page--wide">
+    <div className="page page--wide sw-page lg">
+      <Link className="lg-back dk-link" to={`/app/nodes/${encodeURIComponent(nodeId)}`}><Icon name="arrow-left" /> {nodeName || t('nodeLogs.backNode')}</Link>
       <PageHeader
-        title={
+        eyebrow={null}
+        title={(
           <>
-            <Icon name="terminal" className="cell-mono" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
-            {baseModelName}
-            {!isMerged && (
-              <span
-                style={{
-                  marginLeft: 'var(--spacing-sm)',
-                  fontSize: '0.6875rem',
-                  fontWeight: 500,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-secondary)',
-                  verticalAlign: 'middle',
-                }}
-              >
-                replica {replicaIndex}
-              </span>
-            )}
-            {isMerged && replicas.length > 1 && (
-              <span
-                style={{
-                  marginLeft: 'var(--spacing-sm)',
-                  fontSize: '0.6875rem',
-                  fontWeight: 500,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-secondary)',
-                  verticalAlign: 'middle',
-                }}
-              >
-                merged · {replicas.length} replicas
-              </span>
-            )}
+            <span className="dk-mono">{baseModelName}</span>
+            {!isMerged && <span className="dk-chip dk-chip--sm sw-rep">{t('nodeLogs.replica', { n: replicaIndex })}</span>}
+            {isMerged && replicas.length > 1 && <span className="dk-chip dk-chip--sm sw-rep">{t('nodeLogs.merged', { count: replicas.length })}</span>}
           </>
-        }
-        supporting={
-          <>
-            Backend logs from node <strong>{nodeName || nodeId}</strong>
-            {' '}<Link to="/app/nodes" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }}>(back to nodes)</Link>
-          </>
-        }
+        )}
+        supporting={t('nodeLogs.supporting', { node: nodeName || nodeId })}
       />
 
       {showReplicaToggle && (
-        <div role="radiogroup" aria-label="Replica scope" className="segmented mb-sm">
+        <div className="dk-segmented" role="radiogroup" aria-label={t('nodeLogs.scope')}>
           {replicas.map(idx => (
-            <button
-              key={idx}
-              type="button"
-              role="radio"
-              aria-checked={replicaIndex === idx}
-              className={`segmented__item${replicaIndex === idx ? ' is-active' : ''}`}
-              onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName + '#' + idx)}`)}
-            >
-              Replica {idx}
+            <button key={idx} type="button" role="radio" aria-checked={replicaIndex === idx} className="dk-seg" onClick={() => go(`#${idx}`)}>
+              {t('nodeLogs.replicaN', { n: idx })}
             </button>
           ))}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={isMerged}
-            className={`segmented__item${isMerged ? ' is-active' : ''}`}
-            onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName)}`)}
-            title="Show an interleaved timeline of all replicas — useful for comparing replica behavior side-by-side"
-          >
-            <Icon name="layers" /> All merged
+          <button type="button" role="radio" aria-checked={isMerged} className="dk-seg" onClick={() => go('')} title={t('nodeLogs.mergedTitle')}>
+            <Icon name="layers" /> {t('nodeLogs.allMerged')}
           </button>
         </div>
       )}
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 2 }}>
+      <div className="lg-bar">
+        <div className="dk-segmented" role="group" aria-label={to('logs.stream')}>
           {['all', 'stdout', 'stderr'].map(f => (
-            <button
-              key={f}
-              className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setFilter(f)}
-            >
-              {f === 'all' ? 'All' : f}
+            <button key={f} type="button" className="dk-seg" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+              {f === 'all' ? to('logs.all') : f}
             </button>
           ))}
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-          <Icon name="download" /> Export
-        </button>
-        <button
-          className={`btn btn-sm ${showDetails ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={() => setShowDetails(prev => !prev)}
-          title={showDetails ? 'Hide timestamps and stream labels for easier copying' : 'Show timestamps and stream labels'}
-        >
-          <Icon name={showDetails ? 'eye-off' : 'eye'} /> {showDetails ? 'Text only' : 'Show details'}
-        </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.8125rem' }}>
-          <span style={{
-            display: 'inline-block',
-            width: 8, height: 8,
-            borderRadius: '50%',
-            background: wsConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-          }} />
-          <span className="text-secondary">
-            {wsConnected ? 'Live' : 'Reconnecting...'}
+        <input
+          className="dk-input lg-filter"
+          type="text"
+          aria-label={to('logs.filterLines')}
+          placeholder={to('logs.filterLines')}
+          value={text}
+          onChange={e => setText(e.target.value)}
+        />
+        <div className="lg-bar__right">
+          <span className="lg-live" role="status">
+            <span className={`dk-dot${wsConnected ? ' dk-dot--ok' : ''}`} aria-hidden="true" />
+            {wsConnected ? to('logs.live') : to('logs.reconnecting')}
           </span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'var(--spacing-sm)' }}>
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-            />
-            <span className="text-secondary">Auto-scroll</span>
-          </label>
+          <span className="lg-switch">
+            <button type="button" className="dk-switch" role="switch" aria-checked={autoScroll} aria-label={to('logs.follow')} onClick={() => setAutoScroll(v => !v)} />
+            <span aria-hidden="true">{to('logs.follow')}</span>
+          </span>
+          <span className="lg-switch">
+            <button type="button" className="dk-switch" role="switch" aria-checked={showDetails} aria-label={to('logs.times')} onClick={() => setShowDetails(v => !v)} />
+            <span aria-hidden="true">{to('logs.times')}</span>
+          </span>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={handleExport} disabled={filteredLines.length === 0}>
+            <Icon name="download" /> {to('logs.export')}
+          </button>
         </div>
       </div>
 
-      {/* Log output */}
       {loading ? (
         <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
       ) : filteredLines.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon"><Icon name="terminal" /></div>
-          <h2 className="empty-state-title">No log lines</h2>
-          <p className="empty-state-text">
+        <div className="dk-empty lg-empty">
+          <div className="dk-empty-icon"><Icon name="terminal" /></div>
+          <h2 className="dk-empty-title">{to('logs.emptyTitle')}</h2>
+          <p className="dk-empty-text">
             {filter !== 'all'
-              ? `No ${filter} output. Try switching to "All".`
-              : 'Log output will appear here as the backend process runs.'}
+              ? to('logs.emptyStream', { stream: filter })
+              : text.trim() ? to('logs.emptyFilter') : to('logs.emptyBody')}
           </p>
         </div>
       ) : (
-        <div
-          ref={logContainerRef}
-          style={{
-            background: 'var(--color-bg-primary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            overflow: 'auto',
-            maxHeight: 'calc(100vh - 280px)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            lineHeight: '1.5',
-          }}
-        >
-          {filteredLines.map((line, i) => {
-            const badge = STREAM_BADGE[line.stream] || STREAM_BADGE.stdout
-            return (
-              <div
-                key={i}
-                data-log-line
-                data-timestamp={line.timestamp}
-                style={{
-                  display: 'flex',
-                  gap: showDetails ? 'var(--spacing-sm)' : undefined,
-                  padding: '2px var(--spacing-sm)',
-                  borderBottom: '1px solid var(--color-border-subtle, rgba(255,255,255,0.03))',
-                  alignItems: 'flex-start',
-                }}
-              >
-                {showDetails && (<>
-                  <span style={{ color: 'var(--color-text-muted)', flexShrink: 0, minWidth: 90 }}>
-                    {formatTimestamp(line.timestamp)}
-                  </span>
-                  <span style={{
-                    background: badge.bg, color: badge.color,
-                    padding: '0 4px', borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.625rem', fontWeight: 500, flexShrink: 0,
-                    lineHeight: '1.5',
-                  }}>
-                    {badge.label}
-                  </span>
-                </>)}
-                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>
-                  {line.text}
-                </span>
-              </div>
-            )
-          })}
+        <div ref={logContainerRef} className="lg-log" role="log" aria-label={to('logs.output')} tabIndex={0}>
+          {filteredLines.map((line, i) => (
+            <div key={i} className="lg-line" data-log-line data-stream={line.stream === 'stderr' ? 'stderr' : 'stdout'} data-timestamp={line.timestamp}>
+              {showDetails && (
+                <>
+                  <span className="lg-line__time">{formatTimestamp(line.timestamp)}</span>
+                  <span className="lg-line__stream">{STREAM_LABEL[line.stream] || 'out'}</span>
+                </>
+              )}
+              <span className="lg-line__text">{line.text}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
