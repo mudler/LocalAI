@@ -62,7 +62,7 @@ func (w WorkerInfo) canFollow(target Carrier) (bool, string) {
 		return true, ""
 	}
 	if !w.Reports {
-		return false, "the worker predates carrier switching: it reports no capabilities and stays on its carrier"
+		return false, "the worker predates carrier switching: it reports no capabilities and stays on NATS"
 	}
 	if slices.Contains(w.Follow, target) {
 		return true, ""

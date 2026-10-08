@@ -91,43 +91,32 @@ func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep 
 	return nil
 }
 
-// PresenceReader says whether a worker holds a tunnel. *cluster.Registry is one.
-type PresenceReader interface {
-	Presence(ctx context.Context, nodeID string, grace time.Duration) (cluster.Presence, error)
-}
-
 // SwitchWorkers answers the questions that a change of carrier asks about the
 // workers: which are alive, which carriers each is attached to, and which it can
-// follow. A worker that reports its carriers is believed. One that does not is a
-// worker that predates carrier switching: it holds a tunnel, or it is on NATS.
+// follow. What it says comes from what the worker reports in its heartbeat, and
+// from nothing else. A worker that reports nothing predates carrier switching: it
+// has only NATS, it cannot follow, and it is on NATS.
 type SwitchWorkers struct {
-	reg      *NodeRegistry
-	presence PresenceReader
-	grace    time.Duration
-	stale    time.Duration
+	reg   *NodeRegistry
+	stale time.Duration
 }
 
 // NewSwitchWorkers returns the reader. A worker whose heartbeat is older than
-// stale is not alive for this purpose; grace is the reconnect grace of the
-// tunnel.
-func NewSwitchWorkers(reg *NodeRegistry, presence PresenceReader, grace, stale time.Duration) *SwitchWorkers {
-	return &SwitchWorkers{reg: reg, presence: presence, grace: grace, stale: stale}
+// stale is not alive for this purpose.
+func NewSwitchWorkers(reg *NodeRegistry, stale time.Duration) *SwitchWorkers {
+	return &SwitchWorkers{reg: reg, stale: stale}
 }
 
 var _ cluster.WorkerSource = (*SwitchWorkers)(nil)
 
-func (s *SwitchWorkers) attached(ctx context.Context, n *BackendNode) ([]cluster.Carrier, error) {
-	if reported := splitCarriers(n.Attached); len(reported) > 0 {
-		return reported, nil
+// attached returns the carriers a worker reported. A worker that reports its
+// capabilities and an empty list is attached to none: it is between two
+// carriers, and it is not said to be on a carrier it may not hold.
+func (s *SwitchWorkers) attached(n *BackendNode) []cluster.Carrier {
+	if n.Follow == "" {
+		return []cluster.Carrier{cluster.CarrierNATS}
 	}
-	p, err := s.presence.Presence(ctx, n.ID, s.grace)
-	if err != nil {
-		return nil, err
-	}
-	if p == cluster.PresenceConnected || p == cluster.PresenceReconnecting {
-		return []cluster.Carrier{cluster.CarrierTunnel}, nil
-	}
-	return []cluster.Carrier{cluster.CarrierNATS}, nil
+	return splitCarriers(n.Attached)
 }
 
 // Workers lists the workers that are alive.
@@ -142,10 +131,7 @@ func (s *SwitchWorkers) Workers(ctx context.Context) ([]cluster.WorkerInfo, erro
 		if n.Status == StatusPending || n.Status == StatusOffline || time.Since(n.LastHeartbeat) > s.stale {
 			continue
 		}
-		attached, err := s.attached(ctx, n)
-		if err != nil {
-			return nil, fmt.Errorf("finding the carriers of node %s: %w", n.Name, err)
-		}
+		attached := s.attached(n)
 		follow := splitCarriers(n.Follow)
 		out = append(out, cluster.WorkerInfo{
 			ID: n.ID, Name: n.Name, Type: n.NodeType,
@@ -161,7 +147,7 @@ func (s *SwitchWorkers) AttachedCarriers(ctx context.Context, nodeID string) ([]
 	if err != nil {
 		return nil, err
 	}
-	return s.attached(ctx, n)
+	return s.attached(n), nil
 }
 
 // AgentsAttached reports whether an agent worker that is alive is attached to c.
@@ -175,11 +161,7 @@ func (s *SwitchWorkers) AgentsAttached(ctx context.Context, c cluster.Carrier) (
 		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || time.Since(n.LastHeartbeat) > s.stale {
 			continue
 		}
-		attached, err := s.attached(ctx, n)
-		if err != nil {
-			return false, err
-		}
-		for _, a := range attached {
+		for _, a := range s.attached(n) {
 			if a == c {
 				return true, nil
 			}

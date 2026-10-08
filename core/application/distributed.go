@@ -390,7 +390,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// While two carriers are attached, a call to a worker goes to the carrier the
 	// worker is attached to.
-	workers := nodes.NewSwitchWorkers(registry, clusterReg, cluster.DefaultReconnectGrace, cfg.Distributed.StaleNodeThresholdOrDefault())
+	workers := nodes.NewSwitchWorkers(registry, cfg.Distributed.StaleNodeThresholdOrDefault())
 	window := carrier.NewWindow(
 		func(ctx context.Context, nodeID string) (carrier.Attachment, error) {
 			attached, err := workers.AttachedCarriers(ctx, nodeID)

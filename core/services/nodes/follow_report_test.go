@@ -19,7 +19,6 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		ctx      context.Context
 		db       *gorm.DB
 		reg      *NodeRegistry
-		presence *fakePresence
 		workers  *SwitchWorkers
 	)
 
@@ -43,8 +42,7 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		var err error
 		reg, err = NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-		presence = &fakePresence{by: map[string]cluster.Presence{}}
-		workers = NewSwitchWorkers(reg, presence, cluster.DefaultReconnectGrace, 5*time.Minute)
+		workers = NewSwitchWorkers(reg, 5*time.Minute)
 	})
 
 	It("lists the workers that are alive and leaves out the ones that are not", func() {
@@ -62,34 +60,17 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		Expect(byName(list)).To(HaveKey("live"))
 	})
 
-	It("counts a worker that reports no capabilities as one that cannot follow, and says it is on NATS when it holds no tunnel", func() {
+	It("counts a worker that reports no capabilities as one that cannot follow, and as one that is on NATS", func() {
 		register("old", NodeTypeBackend, "10.0.0.1:50051")
 		list, err := workers.Workers(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		w := byName(list)["old"]
 		Expect(w.Reports).To(BeFalse())
-		Expect(w.Attached).To(Equal([]cluster.Carrier{cluster.CarrierNATS}))
+		Expect(w.Attached).To(Equal([]cluster.Carrier{cluster.CarrierNATS}), "a worker that predates carrier switching has no other carrier")
 	})
 
-	It("says a worker that holds a tunnel is attached to the tunnel", func() {
-		n := register("tun", NodeTypeBackend, "")
-		presence.by[n.ID] = cluster.PresenceConnected
-		list, err := workers.Workers(ctx)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(byName(list)["tun"].Attached).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
-	})
-
-	It("says a worker that was attached to the tunnel a moment ago is still attached to it", func() {
-		n := register("blink", NodeTypeBackend, "")
-		presence.by[n.ID] = cluster.PresenceReconnecting
-		list, err := workers.Workers(ctx)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(byName(list)["blink"].Attached).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
-	})
-
-	It("takes what a worker reports over what can be inferred", func() {
+	It("takes the carriers a worker reports, and nothing else", func() {
 		n := register("both", NodeTypeBackend, "10.0.0.1:50051")
-		presence.by[n.ID] = cluster.PresenceConnected
 		Expect(reg.SetCarrierReport(ctx, n.ID, CarrierReport{
 			Attached: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}, AttachedEpoch: 7,
 			Follow: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}, FollowError: "",
@@ -101,6 +82,30 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		Expect(w.Reports).To(BeTrue())
 		Expect(w.Attached).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
 		Expect(w.Follow).To(ConsistOf(cluster.CarrierNATS, cluster.CarrierTunnel))
+	})
+
+	It("says that a worker which reports a tunnel is on the tunnel, and one which reports NATS is on NATS", func() {
+		a := register("tun", NodeTypeBackend, "")
+		b := register("nats", NodeTypeBackend, "10.0.0.1:50051")
+		Expect(reg.SetCarrierReport(ctx, a.ID, CarrierReport{Attached: []cluster.Carrier{cluster.CarrierTunnel}, Follow: []cluster.Carrier{cluster.CarrierTunnel}})).To(Succeed())
+		Expect(reg.SetCarrierReport(ctx, b.ID, CarrierReport{Attached: []cluster.Carrier{cluster.CarrierNATS}, Follow: []cluster.Carrier{cluster.CarrierNATS}})).To(Succeed())
+		list, err := workers.Workers(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(byName(list)["tun"].Attached).To(Equal([]cluster.Carrier{cluster.CarrierTunnel}))
+		Expect(byName(list)["nats"].Attached).To(Equal([]cluster.Carrier{cluster.CarrierNATS}))
+	})
+
+	It("does not guess a carrier for a worker that reports it is attached to none", func() {
+		n := register("between", NodeTypeBackend, "")
+		Expect(reg.SetCarrierReport(ctx, n.ID, CarrierReport{Attached: nil, Follow: []cluster.Carrier{cluster.CarrierTunnel}})).To(Succeed())
+		list, err := workers.Workers(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		w := byName(list)["between"]
+		Expect(w.Reports).To(BeTrue())
+		Expect(w.Attached).To(BeEmpty())
+		a, err := workers.AttachedCarriers(ctx, n.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(a).To(BeEmpty())
 	})
 
 	It("carries the reason a worker gives for not following", func() {
@@ -127,7 +132,7 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 	It("says whether an agent worker is attached to a carrier", func() {
 		register("backend", NodeTypeBackend, "10.0.0.1:50051")
 		agent := register("agent", NodeTypeAgent, "")
-		presence.by[agent.ID] = cluster.PresenceConnected
+		Expect(reg.SetCarrierReport(ctx, agent.ID, CarrierReport{Attached: []cluster.Carrier{cluster.CarrierTunnel}, Follow: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}})).To(Succeed())
 
 		onTunnel, err := workers.AgentsAttached(ctx, cluster.CarrierTunnel)
 		Expect(err).ToNot(HaveOccurred())
@@ -135,13 +140,6 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		onNATS, err := workers.AgentsAttached(ctx, cluster.CarrierNATS)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(onNATS).To(BeFalse(), "the backend worker is on NATS, and it is not an agent worker")
-	})
-
-	It("returns the error of the presence read and not a guess", func() {
-		n := register("w", NodeTypeBackend, "")
-		presence.err = errors.New("the database is down")
-		_, err := workers.AttachedCarriers(ctx, n.ID)
-		Expect(err).To(HaveOccurred())
 	})
 })
 

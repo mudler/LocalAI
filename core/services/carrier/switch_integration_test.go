@@ -368,7 +368,7 @@ func (rig *switchRig) startReplica(id string) *switchReplica {
 	r.cur.Store(first)
 	r.bus = carrier.NewBroadcaster(&r.cur)
 
-	workers := nodes.NewSwitchWorkers(rig.nodeReg, rig.clusterR, cluster.DefaultReconnectGrace, time.Hour)
+	workers := nodes.NewSwitchWorkers(rig.nodeReg, time.Hour)
 	r.window = carrier.NewWindow(func(ctx context.Context, nodeID string) (carrier.Attachment, error) {
 		cs, err := workers.AttachedCarriers(ctx, nodeID)
 		if err != nil {
