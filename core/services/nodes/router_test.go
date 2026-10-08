@@ -499,16 +499,21 @@ type stubBackend struct {
 
 	healthResult bool
 	healthErr    error
-	loadResult   *pb.Result
-	loadErr      error
-	loadHook     func(*pb.ModelOptions)
-	loadOpts     []*pb.ModelOptions
-	mu           sync.Mutex
+	// dialErr is what LastDialError reports: the error of the custom dialer of
+	// a client whose transport failed.
+	dialErr    error
+	loadResult *pb.Result
+	loadErr    error
+	loadHook   func(*pb.ModelOptions)
+	loadOpts   []*pb.ModelOptions
+	mu         sync.Mutex
 }
 
 func (f *stubBackend) HealthCheck(_ context.Context) (bool, error) {
 	return f.healthResult, f.healthErr
 }
+
+func (f *stubBackend) LastDialError() error { return f.dialErr }
 
 func (f *stubBackend) LoadModel(_ context.Context, opts *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.Result, error) {
 	cloned := proto.Clone(opts).(*pb.ModelOptions)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 )
@@ -193,8 +194,16 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()
+				// A dial that failed in the transport says nothing about the
+				// backend. It is not a miss, and it does not clear a streak either.
+				transportFailed := !ok && grpc.TransportFailureOf(mClient) != nil
 				if closer, ok := mClient.(io.Closer); ok {
 					closer.Close()
+				}
+				if transportFailed {
+					xlog.Debug("Model backend probe could not reach the backend, not counting it",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+					continue
 				}
 
 				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}

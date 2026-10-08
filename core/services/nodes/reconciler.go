@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,6 +34,10 @@ const (
 	// ProbeUnreachable: nothing is listening (connection refused), or the
 	// backend answered and affirmatively reported itself unhealthy.
 	ProbeUnreachable
+	// ProbeUnknown: the probe could not get a stream to the backend, because
+	// the transport failed. Nothing was learned about the backend, so it is not
+	// a vote to reap and not a proof of life.
+	ProbeUnknown
 )
 
 // ModelProber checks the state of a model's backend process.
@@ -67,6 +72,9 @@ func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) Prob
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
+	if !ok && grpc.TransportFailureOf(client) != nil {
+		return ProbeUnknown
+	}
 	return classifyProbeOutcome(ok, err)
 }
 
@@ -492,6 +500,12 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			// Bump updated_at so we don't probe this row again immediately.
 			_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
+			continue
+		case ProbeUnknown:
+			// The transport failed. This is neither a vote to reap nor proof of
+			// life, so the streak stays as it is.
+			xlog.Debug("Reconciler: model probe could not reach the backend, not counting it",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
 			continue
 		case ProbeBusy:
 			// Reachable but mid-request. Proof of life, so clear the streak.

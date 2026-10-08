@@ -56,6 +56,13 @@ func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nod
 	}
 }
 
+// Unwrap returns the client that this one decorates, so that a caller can ask it
+// why a dial failed. See grpc.BackendUnwrapper.
+func (c *InFlightTrackingClient) Unwrap() grpc.Backend {
+	backend, _ := c.ControlBackend.(grpc.Backend)
+	return backend
+}
+
 // OnFirstComplete registers a callback that fires once after the first tracked
 // inference call completes. This is used to release the initial in-flight
 // reservation (set during model load) after the triggering request finishes,
