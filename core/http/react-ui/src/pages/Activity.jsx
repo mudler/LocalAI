@@ -1,17 +1,16 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useOperations } from '../hooks/useOperations'
-import { modelsApi, backendsApi, nodesApi } from '../utils/api'
-// eslint-plugin-react is not configured here, so eslint cannot see that an
-// import used only inside JSX is used at all. Link, PageHeader and
-// OperationCard are each referenced from JSX only.
-// eslint-disable-next-line no-unused-vars
 import { Link, useOutletContext } from 'react-router-dom'
-// eslint-disable-next-line no-unused-vars
+import { useOperations } from '../hooks/useOperations'
+import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
+import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
+import { backendsApi, modelsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
-// eslint-disable-next-line no-unused-vars
 import OperationCard from '../components/OperationCard'
+import HomeUndoToast from '../components/home/HomeUndoToast'
 import Icon from '../components/Icon'
+import './operate.css'
 
 const FILTERS = [
   { id: 'all', labelKey: 'activity.filter.all' },
@@ -30,7 +29,7 @@ function matchesFilter(entry, filter) {
 }
 
 const outcomeIcon = {
-  completed: 'check',
+  completed: 'check-circle',
   failed: 'alert-circle',
   cancelled: 'ban',
 }
@@ -73,61 +72,33 @@ function recordSummary(record, t) {
   return duration ? t('activity.rowInstalled', { duration }) : t('activity.rowInstalledPlain')
 }
 
-// Retry only ever means "install this again". A failed deletion would need the
-// delete endpoint and a staging operation is driven by the router rather than
-// by a user action, so neither is retryable from here.
-function isRetryable(op) {
-  return Boolean(op.error) && !op.isDeletion && op.taskType !== 'staging'
-}
-
 export default function Activity() {
-  const { t } = useTranslation('admin')
+  const { t } = useTranslation('operate')
   const outlet = useOutletContext()
   const addToast = outlet?.addToast
-  const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation, dismissFailedOp } = useOperations()
+  const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation } = useOperations()
+  const { retry, dismiss } = useOperationActions(addToast)
   const [filter, setFilter] = useState('all')
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
 
-  const retryOperation = useCallback(async (op) => {
-    // Dismiss before reinstalling, never after: the reinstall reuses the same
-    // opcache key, and overwriting a failed entry in place skips recordTerminal
-    // so the failure would never reach the record. Dismissing first is what
-    // puts it there.
-    //
-    // By jobID, because the guarantee only holds while both calls address the
-    // same job. Two ops can share an id (a local and a node-scoped install of
-    // one backend), and dismissing by id could retire the other one instead,
-    // leaving this failure to be overwritten in place by the reinstall below.
-    await dismissFailedOp(op.jobID)
-    // fullName is the gallery-qualified id the install endpoints expect;
-    // `name` has the repo prefix stripped for display. Node-scoped ops already
-    // had their prefix removed server side, so fullName is the bare slug there.
-    const target = op.fullName || op.id
+  const cancelling = useUndoableCancel({ operations, cancel: cancelOperation })
+
+  // Starting a cancelled install again. A job that was paused kept its partial
+  // download and continues; one that was cancelled starts over. The record does
+  // not say which, so the button says what it does in both cases.
+  const startAgain = useCallback(async (record) => {
     try {
-      if (op.nodeID) {
-        await nodesApi.installBackend(op.nodeID, target)
-      } else if (op.isBackend) {
-        await backendsApi.install(target)
-      } else {
-        // The variant is not on the payload YET, so a pinned model retries as
-        // an auto-select: someone who chose a specific quant, watched it fail
-        // at 90% and pressed Retry gets a different build, with nothing on
-        // screen saying so. Worth closing, and close to closed: ui_api.go
-        // already reads ?variant= at enqueue and stores it on the ManagementOp,
-        // so it only has to reach the /api/operations payload and this call.
-        // Until then Retry stays, because nothing here distinguishes a pinned
-        // install from an unpinned one and dropping it would cost every model
-        // the button, including the common plain install that hit a network
-        // error.
-        await modelsApi.install(target)
-      }
+      if (record.nodeID) throw new Error(t('activity.startAgainNode'))
+      if (record.isBackend) await backendsApi.install(record.id || record.name)
+      else await modelsApi.install(record.id || record.name)
+      addToast?.(t('activity.startedAgain', { name: record.name }), 'info')
     } catch (err) {
       addToast?.(t('activity.retryFailed', { message: err.message }), 'error')
     }
-  }, [dismissFailedOp, addToast, t])
+  }, [addToast, t])
 
-  const live = useMemo(
+  const liveOps = useMemo(
     () => operations.filter((op) => !op.error && matchesFilter(op, filter)),
     [operations, filter],
   )
@@ -148,10 +119,7 @@ export default function Activity() {
   //
   // "Nothing running" must also not be said while a failure is waiting for a
   // decision, so both counts get a clause. Each clause is dropped when its
-  // count is zero rather than rendered as a literal 0: the ordinary happy path
-  // would otherwise put "0 needs attention" under the page title on every
-  // render, which reads as a report about failures rather than the absence of
-  // one.
+  // count is zero rather than rendered as a literal 0.
   const runningTotal = operations.filter((op) => !op.error).length
   const failingTotal = operations.length - runningTotal
   const summaryClauses = []
@@ -160,28 +128,27 @@ export default function Activity() {
   let supporting
   if (summaryClauses.length > 0) supporting = summaryClauses.join(' ')
   else if (history.length > 0) supporting = t('activity.summaryQuiet', { count: history.length })
-  // Saying "0 operations since startup" directly above "No operations since
-  // startup" states the same nothing twice.
   else supporting = t('activity.summaryIdle')
 
   return (
-    <div className="page page--wide activity-page">
+    <div className="page page--wide op-page activity-page">
       <PageHeader
+        eyebrow={null}
         title={t('activity.title')}
         supporting={supporting}
         actions={history.length > 0 ? (
-          <button type="button" className="btn btn-secondary" onClick={clearHistory}>
+          <button type="button" className="dk-btn dk-btn--ghost" onClick={clearHistory}>
             {t('activity.clearHistory')}
           </button>
         ) : null}
       />
 
-      <div className="activity-filters">
+      <div className="activity-filters" role="group" aria-label={t('activity.filterLabel')}>
         {FILTERS.map((entry) => (
           <button
             key={entry.id}
             type="button"
-            className="activity-chip"
+            className="dk-chip activity-chip"
             aria-pressed={filter === entry.id}
             onClick={() => setFilter(entry.id)}
           >
@@ -190,50 +157,72 @@ export default function Activity() {
         ))}
       </div>
 
-      {live.length > 0 && (
-        <section className="activity-section">
-          <h2 className="activity-section__title">
-            {t('activity.inProgress')} <span className="activity-section__count">{live.length}</span>
+      {liveOps.length > 0 && (
+        <section className="activity-section" aria-labelledby="activity-live">
+          <h2 className="activity-section__title" id="activity-live">
+            {t('activity.inProgress')} <span className="activity-section__count">{liveOps.length}</span>
           </h2>
-          {live.map((op) => (
-            <OperationCard key={op.jobID || op.id} operation={op} onCancel={cancelOperation} onPause={pauseOperation} />
-          ))}
+          <div className="op-list">
+            {liveOps.map((op) => (
+              <OperationCard
+                key={op.jobID || op.id}
+                operation={op}
+                cancelling={cancelling.waitingFor?.jobID === op.jobID}
+                onCancel={cancelling.request}
+                onPause={pauseOperation}
+              />
+            ))}
+          </div>
         </section>
       )}
 
       {failing.length > 0 && (
-        <section className="activity-section">
-          <h2 className="activity-section__title">
+        <section className="activity-section" aria-labelledby="activity-failing">
+          <h2 className="activity-section__title" id="activity-failing">
             {t('activity.needsAttention')} <span className="activity-section__count">{failing.length}</span>
           </h2>
-          {failing.map((op) => (
-            <OperationCard
-              key={op.jobID || op.id}
-              operation={op}
-              onDismiss={dismissFailedOp}
-              onRetry={isRetryable(op) ? retryOperation : undefined}
-            />
-          ))}
+          <div className="op-list">
+            {failing.map((op) => (
+              <OperationCard
+                key={op.jobID || op.id}
+                operation={op}
+                onDismiss={dismiss}
+                onRetry={isRetryable(op) ? retry : undefined}
+              />
+            ))}
+          </div>
         </section>
       )}
 
       {records.length > 0 && (
-        <section className="activity-section">
-          <h2 className="activity-section__title">
+        <section className="activity-section" aria-labelledby="activity-record">
+          <h2 className="activity-section__title" id="activity-record">
             {t('activity.record')} <span className="activity-section__count">{records.length}</span>
           </h2>
-          <div className="activity-rows">
+          <div className="op-list activity-rows">
             {records.map((record) => (
               <div key={record.jobID} className="activity-row">
-                <Icon name={outcomeIcon[record.outcome] || 'check'} className={`activity-row__icon activity-row__icon--${record.outcome}`} />
+                <Icon name={outcomeIcon[record.outcome] || 'check-circle'} className={`activity-row__icon activity-row__icon--${record.outcome}`} />
                 <span className="activity-row__name">
                   {record.name}
                   <small>{recordSummary(record, t)}</small>
                 </span>
                 <span className="activity-row__when">{timeOfDay(record.finishedAt)}</span>
-                <Link className="activity-row__action" to={record.isBackend ? '/app/backends' : '/app/models'}>
-                  {record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
-                </Link>
+                <span className="activity-row__acts">
+                  {record.outcome === 'cancelled' && record.taskType !== 'deletion' && record.taskType !== 'staging' && (
+                    <button
+                      type="button"
+                      className="dk-btn dk-btn--ghost dk-btn--sm activity-row__resume"
+                      title={t('activity.startAgainTitle')}
+                      onClick={() => startAgain(record)}
+                    >
+                      {t('activity.startAgain')}
+                    </button>
+                  )}
+                  <Link className="dk-link activity-row__action" to={record.isBackend ? '/app/backends' : '/app/models'}>
+                    {record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
+                  </Link>
+                </span>
               </div>
             ))}
           </div>
@@ -244,23 +233,36 @@ export default function Activity() {
       {/* A chip that matches nothing is not an empty system. Telling someone
           with three model installs on record that nothing has ever run, while
           the line above them counts those same three, is simply false. */}
-      {live.length === 0 && failing.length === 0 && records.length === 0 && (
+      {liveOps.length === 0 && failing.length === 0 && records.length === 0 && (
         filter === 'all' ? (
-          <div className="activity-empty">
-            <Icon name="download" className="activity-empty__icon" />
-            <p className="activity-empty__title">{t('activity.emptyTitle')}</p>
-            <p className="activity-empty__body">{t('activity.emptyBody')}</p>
-            <Link className="btn btn-primary" to="/app/models">{t('activity.browseModels')}</Link>
+          <div className="dk-empty activity-empty">
+            <div className="dk-empty-icon"><Icon name="download" /></div>
+            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyTitle')}</h2>
+            <p className="dk-empty-text activity-empty__body">{t('activity.emptyBody')}</p>
+            <Link className="dk-btn dk-btn--primary" to="/app/models">{t('activity.browseModels')}</Link>
           </div>
         ) : (
-          <div className="activity-empty activity-empty--filtered">
-            <Icon name="filter" className="activity-empty__icon" />
-            <p className="activity-empty__title">{t('activity.emptyFiltered')}</p>
-            <button type="button" className="btn btn-secondary" onClick={() => setFilter('all')}>
+          <div className="dk-empty activity-empty activity-empty--filtered">
+            <div className="dk-empty-icon"><Icon name="filter" /></div>
+            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyFiltered')}</h2>
+            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setFilter('all')}>
               {t('activity.showAll')}
             </button>
           </div>
         )
+      )}
+
+      {cancelling.waitingFor && (
+        <HomeUndoToast
+          key={cancelling.waitingFor.jobID}
+          message={t('activity.cancellingToast', { name: cancelling.waitingFor.name })}
+          undoLabel={t('activity.undo')}
+          dismissLabel={t('activity.cancelNow')}
+          duration={CANCEL_UNDO_MS}
+          testId="activity-undo-toast"
+          onUndo={cancelling.undo}
+          onExpire={cancelling.commit}
+        />
       )}
     </div>
   )

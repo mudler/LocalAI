@@ -1,84 +1,125 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useTranslation } from 'react-i18next'
 import ActionMenu from '../ActionMenu'
-import { SortButton } from './ModelFleetTable'
+import Icon from '../Icon'
 import { formatBytes } from './nodeStatus'
 import { uptime } from '../../utils/localHost'
+import { cssVars } from '../../utils/modelLedger'
 
-// The single-node counterpart of ModelFleetTable. A cluster row is about
-// placement (replicas, nodes, in-flight work); a row here is about one
-// process on this host, so the columns are what that process is costing.
+// The models this host has in memory, one row each. A row here is one backend
+// process, so the columns say what that process costs: its resident memory (the
+// host's RAM, not GPU memory, which LocalAI does not report per model), its
+// share of CPU, and how long it has been up.
 
-function UsageCell({ percent, label, tone, title, emptyLabel = 'No data' }) {
-  if (percent == null) return <span className="fleet-table__unknown" aria-label={title} title={title}>{emptyLabel}</span>
+function SortHead({ column, label, sort, onSortChange, className, t }) {
+  const active = sort.key === column
+  const nextDirection = active && sort.direction === 'asc' ? 'desc' : 'asc'
+  return (
+    <th
+      scope="col"
+      className={className}
+      aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+    >
+      <button
+        type="button"
+        className="dk-table-sort"
+        onClick={() => onSortChange({ key: column, direction: nextDirection })}
+        aria-label={t('machine.sortBy', { column: label.toLowerCase() }) + (active ? `, ${sort.direction}ending` : '')}
+      >
+        {label} {active && <Icon name={`arrow-${sort.direction === 'asc' ? 'up' : 'down'}`} />}
+      </button>
+    </th>
+  )
+}
+
+function Usage({ percent, label, title, emptyLabel }) {
+  if (percent == null) return <span className="op-usage__none" aria-label={title} title={title}>{emptyLabel}</span>
   const clamped = Math.min(100, Math.max(0, percent))
   return (
-    <div className={`fleet-table__resource fleet-table__resource--${tone}`} aria-label={title}>
-      <progress className="fleet-table__resource-track" max="100" value={clamped} aria-hidden="true" />
-      <span>{label}</span>
-    </div>
+    <span className="op-usage" aria-label={title} title={title}>
+      <span className="dk-meter op-usage__meter" aria-hidden="true">
+        <span className="dk-meter-seg" style={cssVars({ '--dk-w': `${clamped.toFixed(1)}%` })} />
+      </span>
+      <span className="dk-mono">{label}</span>
+    </span>
   )
 }
 
 export default function LocalModelTable({ models, onViewLogs, onStop, stoppingName, sort, onSortChange, now = Date.now() }) {
+  const { t } = useTranslation('operate')
   return (
-    <div className="fleet-table-wrap model-fleet-table-wrap">
-      <table className="fleet-table model-fleet-table local-model-table" aria-label="Models running on this machine">
-        <thead><tr>
-          <th><SortButton column="model_name" label="Model" sort={sort} onSortChange={onSortChange} /></th>
-          <th><SortButton column="backend" label="Backend" sort={sort} onSortChange={onSortChange} /></th>
-          <th><SortButton column="rss_bytes" label="Memory" sort={sort} onSortChange={onSortChange} /></th>
-          <th><SortButton column="cpu_percent" label="CPU" sort={sort} onSortChange={onSortChange} /></th>
-          <th><SortButton column="started_at" label="Up for" sort={sort} onSortChange={onSortChange} /></th>
-          <th className="model-fleet-table__actions"><span className="sr-only">Actions</span></th>
-        </tr></thead>
-        <tbody>{models.map(model => {
-          const up = uptime(model.started_at, now)
-          const stopping = stoppingName === model.model_name
-          return (
-            <tr key={model.model_name} className={`fleet-table__row${stopping ? ' is-stopping' : ''}`} data-testid="local-model-row">
-              <td>
-                <span className="fleet-table__node">{model.model_name}</span>
-                {model.pid != null && <span className="fleet-table__subvalue">PID {model.pid}</span>}
-              </td>
-              <td><div className="model-backend-list">{model.backend ? <span>{model.backend}</span> : <span className="fleet-table__unknown">Unknown</span>}</div></td>
-              <td>
-                <UsageCell percent={model.memory_percent} tone="ram"
-                  label={model.rss_bytes != null ? formatBytes(model.rss_bytes) : null}
-                  title={model.rss_bytes != null ? `${formatBytes(model.rss_bytes)} resident, ${model.memory_percent?.toFixed(1)}% of host RAM` : 'Memory not reported'} />
-              </td>
-              <td>
-                {/* CPU is a delta between two server readings, so a process seen
-                    for the first time has none yet; that is not "no data". */}
-                <UsageCell percent={model.cpu_percent} tone="cpu"
-                  label={model.cpu_percent != null ? `${model.cpu_percent.toFixed(1)}%` : null}
-                  emptyLabel={model.pid != null ? 'Measuring…' : 'No data'}
-                  title={model.cpu_percent != null ? `${model.cpu_percent.toFixed(1)}% of host CPU` : model.pid != null ? 'CPU not measured yet' : 'CPU not reported'} />
-              </td>
-              <td>{up ?? <span className="fleet-table__unknown">Unknown</span>}</td>
-              <td className="model-fleet-table__actions">
-                <ActionMenu
-                  compact
-                  ariaLabel={`${model.model_name} actions`}
-                  triggerLabel={`Actions for ${model.model_name}`}
-                  items={[{
-                    key: 'logs',
-                    icon: 'terminal',
-                    label: 'View logs',
-                    onClick: () => onViewLogs(model),
-                  }, {
-                    divider: true,
-                  }, {
-                    key: 'stop',
-                    icon: 'stop',
-                    label: stopping ? 'Stopping…' : 'Stop model…',
-                    danger: true,
-                    disabled: !!stoppingName,
-                    onClick: invoker => onStop(model, invoker),
-                  }]}
-                />
-              </td>
-            </tr>
-          )
-        })}</tbody>
+    <div className="dk-table-wrap op-modeltable">
+      <table className="dk-table dk-table--compact local-model-table" aria-label={t('machine.tableLabel')}>
+        <thead>
+          <tr>
+            <SortHead column="model_name" label={t('machine.columns.model')} sort={sort} onSortChange={onSortChange} t={t} />
+            <SortHead column="backend" label={t('machine.columns.backend')} sort={sort} onSortChange={onSortChange} className="dk-hide-phone" t={t} />
+            <SortHead column="rss_bytes" label={t('machine.columns.memory')} sort={sort} onSortChange={onSortChange} t={t} />
+            <SortHead column="cpu_percent" label={t('machine.columns.cpu')} sort={sort} onSortChange={onSortChange} className="dk-hide-phone" t={t} />
+            <SortHead column="started_at" label={t('machine.columns.uptime')} sort={sort} onSortChange={onSortChange} className="dk-hide-phone" t={t} />
+            <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('machine.columns.actions')}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {models.map(model => {
+            const up = uptime(model.started_at, now)
+            const stopping = stoppingName === model.model_name
+            return (
+              <tr key={model.model_name} data-row data-testid="local-model-row" data-busy={stopping ? 'true' : undefined}>
+                <td>
+                  <span className="dk-table-name dk-mono">{model.model_name}</span>
+                  {model.pid != null && <span className="dk-table-sub">PID {model.pid}</span>}
+                </td>
+                <td className="dk-hide-phone">{model.backend || <span className="op-usage__none">{t('machine.unknown')}</span>}</td>
+                <td>
+                  <Usage
+                    percent={model.memory_percent}
+                    label={model.rss_bytes != null ? formatBytes(model.rss_bytes) : null}
+                    emptyLabel={t('machine.noData')}
+                    title={model.rss_bytes != null
+                      ? t('machine.memoryTitle', { size: formatBytes(model.rss_bytes), percent: model.memory_percent?.toFixed(1) })
+                      : t('machine.memoryNone')}
+                  />
+                </td>
+                <td className="dk-hide-phone">
+                  {/* CPU is a delta between two server readings, so a process
+                      seen for the first time has none yet; that is not "no data". */}
+                  <Usage
+                    percent={model.cpu_percent}
+                    label={model.cpu_percent != null ? `${model.cpu_percent.toFixed(1)}%` : null}
+                    emptyLabel={model.pid != null ? t('machine.measuring') : t('machine.noData')}
+                    title={model.cpu_percent != null
+                      ? t('machine.cpuTitle', { percent: model.cpu_percent.toFixed(1) })
+                      : model.pid != null ? t('machine.cpuNotYet') : t('machine.cpuNone')}
+                  />
+                </td>
+                <td className="dk-hide-phone dk-mono">{up ?? <span className="op-usage__none">{t('machine.unknown')}</span>}</td>
+                <td className="dk-table-actions">
+                  <ActionMenu
+                    compact
+                    ariaLabel={`${model.model_name} actions`}
+                    triggerLabel={`Actions for ${model.model_name}`}
+                    items={[{
+                      key: 'logs',
+                      icon: 'terminal',
+                      label: t('machine.viewLogs'),
+                      onClick: () => onViewLogs(model),
+                    }, {
+                      divider: true,
+                    }, {
+                      key: 'stop',
+                      icon: 'stop',
+                      label: stopping ? t('machine.stopping') : t('machine.stopModel'),
+                      danger: true,
+                      disabled: !!stoppingName,
+                      onClick: invoker => onStop(model, invoker),
+                    }]}
+                  />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
       </table>
     </div>
   )

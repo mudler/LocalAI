@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { backendControlApi } from '../../utils/api'
 import { filterLocalModels, sortLocalModels } from '../../utils/localHost'
 import ConfirmDialog from '../ConfirmDialog'
@@ -8,12 +10,14 @@ import LocalModelTable from './LocalModelTable'
 import Icon from '../Icon'
 
 // Running models on this machine: search, sort, logs and stop. Takes the
-// polled data from useLocalMachine rather than fetching it, so a page that
-// also draws gauges from the same poll does not ask twice.
+// polled data from useLocalMachine (or the Operate summary) rather than
+// fetching it, so a page that also draws capacity from the same poll does not
+// ask twice.
 //
-// `limit` turns it into a preview (the Operate overview): the heaviest models
+// `limit` turns it into a preview (the Status page): the heaviest models
 // first, no search, and a link to the full view.
 export default function LocalRunningModels({ machine, addToast, limit, moreHref }) {
+  const { t } = useTranslation('operate')
   const navigate = useNavigate()
   const { rows, state, error, refresh } = machine
   const [query, setQuery] = useState('')
@@ -45,11 +49,11 @@ export default function LocalRunningModels({ machine, addToast, limit, moreHref 
     setStoppingName(model.model_name)
     try {
       await backendControlApi.shutdown({ model: model.model_name })
-      addToast?.(`Stopped ${model.model_name}`, 'success')
+      addToast?.(t('unload.done', { name: model.model_name }), 'success')
     } catch (err) {
-      addToast?.(`Could not stop ${model.model_name}: ${err.message || err}`, 'error')
+      addToast?.(t('unload.failed', { name: model.model_name, message: err.message || err }), 'error')
     } finally {
-      await refresh()
+      await refresh?.()
       setConfirmStop(null)
       setStoppingName(null)
       stoppingRef.current = false
@@ -59,36 +63,77 @@ export default function LocalRunningModels({ machine, addToast, limit, moreHref 
   const hidden = limit ? Math.max(0, rows.length - visible.length) : 0
 
   return (
-    <div className="fleet-workbench local-running" data-testid="local-running-models">
-      {/* A preview sits under its own section heading, which says this. */}
-      {!limit && <div className="model-workbench__scope">
-        <div><strong>Running models</strong><span>Loaded on this machine, with the memory and CPU each backend process is using</span></div>
-        {state === 'loaded' && <span aria-live="polite">{rows.length} running</span>}
-      </div>}
-      {state === 'loading' && <div className="model-workbench__state" role="status"><LoadingSpinner size="sm" /><strong>Loading running models…</strong></div>}
-      {state === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><Icon name="warning" /><strong>Unable to load running models</strong><span>{error}</span><button type="button" className="btn btn-secondary btn-sm" onClick={() => refresh()}>Retry</button></div>}
-      {state === 'loaded' && rows.length === 0 && (
-        <div className="model-workbench__state local-running__empty" data-testid="local-running-empty">
-          <Icon name="layers" />
-          <strong>No models running</strong>
-          <span>A model loads on its first request, or when you start it from <Link to="/app/models?view=installed">Models</Link>. It will appear here while it is in memory.</span>
+    <div className="op-running" data-testid="local-running-models">
+      {!limit && (
+        <div className="op-running__scope">
+          <div>
+            <strong>{t('machine.runningTitle')}</strong>
+            <span>{t('machine.runningBody')}</span>
+          </div>
+          {state === 'loaded' && <span aria-live="polite">{t('machine.runningCount', { count: rows.length })}</span>}
         </div>
       )}
-      {state === 'loaded' && rows.length > 0 && <>
-        {!limit && <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={query} onChange={event => setQuery(event.target.value)} /></div>}
-        <LocalModelTable models={visible} sort={sort} onSortChange={setSort} stoppingName={stoppingName}
-          onViewLogs={model => navigate(`/app/backend-logs/${encodeURIComponent(model.model_name)}`)}
-          onStop={promptStop} />
-        {moreHref && (
-          <div className="fleet-pagination local-running__more">
-            {hidden > 0 && <span>{hidden} more not shown</span>}
-            <Link to={moreHref} className="btn btn-secondary btn-sm">Open this machine <Icon name="arrow-right" /></Link>
-          </div>
-        )}
-      </>}
-      <ConfirmDialog open={!!confirmStop} title={confirmStop ? `Stop ${confirmStop.model_name}?` : 'Stop model?'}
-        message={confirmStop ? `This stops the ${confirmStop.backend || 'backend'} process serving ${confirmStop.model_name} and frees its memory. The next request that uses it loads it again.` : ''}
-        confirmLabel="Stop model" pendingLabel="Stopping…" pending={!!stoppingName} danger onConfirm={stop} onCancel={cancelStop} />
+      {state === 'loading' && (
+        <div className="op-state" role="status"><LoadingSpinner size="sm" /><strong>{t('machine.loading')}</strong></div>
+      )}
+      {state === 'error' && (
+        <div className="op-state op-state--error" role="alert">
+          <Icon name="warning" />
+          <strong>{t('machine.loadFailed')}</strong>
+          <span>{error}</span>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => refresh?.()}>{t('machine.retry')}</button>
+        </div>
+      )}
+      {state === 'loaded' && rows.length === 0 && (
+        <div className="op-state" data-testid="local-running-empty">
+          <Icon name="layers" />
+          <strong>{t('machine.emptyTitle')}</strong>
+          <span>
+            {t('machine.emptyBefore')} <Link className="dk-link" to="/app/models?view=installed">{t('machine.emptyLink')}</Link>. {t('machine.emptyAfter')}
+          </span>
+        </div>
+      )}
+      {state === 'loaded' && rows.length > 0 && (
+        <>
+          {!limit && (
+            <div className="op-running__tools">
+              <input
+                className="dk-input"
+                type="search"
+                aria-label={t('machine.searchLabel')}
+                placeholder={t('machine.searchPlaceholder')}
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+              />
+            </div>
+          )}
+          <LocalModelTable
+            models={visible}
+            sort={sort}
+            onSortChange={setSort}
+            stoppingName={stoppingName}
+            onViewLogs={model => navigate(`/app/backend-logs/${encodeURIComponent(model.model_name)}`)}
+            onStop={promptStop}
+          />
+          {moreHref && (
+            <div className="op-running__more">
+              {hidden > 0 && <span>{t('machine.moreHidden', { count: hidden })}</span>}
+              <Link to={moreHref} className="dk-btn dk-btn--secondary dk-btn--sm">{t('machine.openMachine')} <Icon name="arrow-right" /></Link>
+            </div>
+          )}
+        </>
+      )}
+      <ConfirmDialog
+        open={!!confirmStop}
+        title={confirmStop ? t('unload.title', { name: confirmStop.model_name }) : t('unload.titleFallback')}
+        message={confirmStop ? t('unload.message', { backend: confirmStop.backend || t('unload.backendFallback'), name: confirmStop.model_name }) : ''}
+        confirmLabel={t('unload.confirm')}
+        pendingLabel={t('unload.pending')}
+        pending={!!stoppingName}
+        danger
+        onConfirm={stop}
+        onCancel={cancelStop}
+      />
     </div>
   )
 }

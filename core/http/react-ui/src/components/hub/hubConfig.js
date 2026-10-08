@@ -157,9 +157,9 @@ export const operateHub = {
       items: [
         { path: '/app/backends', labelKey: 'items.backends', adminOnly: true },
         { path: '/app/activity', labelKey: 'items.activity', adminOnly: true },
+        { path: '/app/backend-logs', labelKey: 'items.logs', adminOnly: true },
         { path: '/app/failover', labelKey: 'items.failover', adminOnly: true },
       ],
-      match: ['/app/backend-logs'],
     },
     {
       id: 'traffic',

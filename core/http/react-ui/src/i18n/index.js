@@ -33,6 +33,7 @@ export const NAMESPACES = [
   'media',
   'tools',
   'admin',
+  'operate',
   'usage',
   'explorer',
 ]

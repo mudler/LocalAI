@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatBytes } from '../utils/format'
+import { cssVars } from '../utils/modelLedger'
 import Icon from './Icon'
 
 const phaseKeys = {
@@ -30,8 +32,8 @@ function formatEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
-export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry }) {
-  const { t } = useTranslation('admin')
+export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry, cancelling = false }) {
+  const { t } = useTranslation('operate')
   const nodes = Array.isArray(operation.nodes) ? operation.nodes : []
   // Holds only what the user chose. The default has to stay a live
   // expression: an operation appears in /api/operations as soon as it is
@@ -83,7 +85,9 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   // stopped where it broke and a queued one has not moved, so neither has a
   // bar worth drawing.
   const showProgress = !failed && !operation.isQueued && operation.progress > 0
-  const canCancel = operation.cancellable && !failed
+  // A cancel waiting in its undo window takes the buttons away: pressing Cancel
+  // twice would only end the window early.
+  const canCancel = operation.cancellable && !failed && !cancelling
   // Retrying means reconstructing an install call out of the operation, which
   // is page knowledge. The card offers the button only when the page handed it
   // a handler, so the control can never be present with nothing behind it.
@@ -96,26 +100,26 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   const showNodesList = nodes.length > 0 && (nodesOpen || !showNodesToggle)
 
   return (
-    <div className={`operation-card${failed ? ' operation-card--error' : ''}`}>
+    <div
+      className={`operation-card${failed ? ' operation-card--error' : ''}${cancelling ? ' operation-card--cancelling' : ''}`}
+      data-testid="operation-card"
+    >
       <div className="operation-card__main">
         {icon}
 
         <div className="operation-card__body">
           <div className="operation-card__title">
             <span className="operation-card__name">{name}</span>
-            <span className={`operation-card__tag operation-card__tag--${operation.isBackend ? 'backend' : 'model'}`}>
-              {kind}
-            </span>
+            <span className="operation-card__tag">{kind}</span>
             {nodes.length > 1 && (
-              <span className="operation-card__tag operation-card__tag--cluster">
-                {t('activity.nodeCount', { count: nodes.length })}
-              </span>
+              <span className="operation-card__tag">{t('activity.nodeCount', { count: nodes.length })}</span>
             )}
           </div>
 
           <div className="operation-card__sub">
             <span className="operation-card__verb">{verb}</span>
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
+            {cancelling && <span>{t('activity.cancelling')}</span>}
             {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
             {!failed && phaseKey && <span>{t(phaseKey)}</span>}
             {/* Phases and byte counters exist only on the managed-artifact
@@ -145,7 +149,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
               aria-valuemax={100}
               aria-label={t('activity.progressLabel', { name })}
             >
-              <span className="operation-card__fill" style={{ width: `${operation.progress}%` }} />
+              <span className="operation-card__fill" style={cssVars({ '--op-w': `${operation.progress}%` })} />
             </div>
           )}
         </div>
@@ -155,7 +159,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
           {canCancel && (
             <button
               type="button"
-              className="btn btn-sm btn-secondary operation-card__pause"
+              className="dk-btn dk-btn--ghost dk-btn--sm operation-card__pause"
               onClick={() => onPause?.(operation.jobID)}
               aria-label={t('activity.pauseLabel', { name })}
             >
@@ -167,7 +171,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
             // identical "Cancel" buttons with nothing to tell them apart.
             <button
               type="button"
-              className="btn btn-sm btn-danger operation-card__cancel"
+              className="dk-btn dk-btn--ghost dk-btn--sm operation-card__cancel"
               onClick={() => onCancel?.(operation.jobID)}
               aria-label={t('activity.cancelLabel', { name })}
             >
@@ -177,7 +181,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
           {canRetry && (
             <button
               type="button"
-              className="btn btn-sm btn-secondary operation-card__retry"
+              className="dk-btn dk-btn--secondary dk-btn--sm operation-card__retry"
               onClick={() => onRetry(operation)}
               aria-label={t('activity.retryLabel', { name })}
             >
@@ -187,12 +191,12 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
           {failed && (
             <button
               type="button"
-              className="operation-card__hide"
+              className="dk-btn dk-btn--ghost dk-btn--sm operation-card__hide"
               onClick={() => onDismiss?.(operation.jobID)}
               title={t('activity.moveToHistory')}
-              aria-label={t('activity.moveToHistory')}
+              aria-label={t('activity.dismissLabel', { name })}
             >
-              <Icon name="close" />
+              {t('activity.dismiss')}
             </button>
           )}
         </div>
@@ -239,7 +243,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
               )}
               {node.percentage > 0 && node.percentage < 100 && (
                 <div className="operation-node-bar-container">
-                  <div className="operation-node-bar" style={{ width: `${node.percentage}%` }} />
+                  <div className="operation-node-bar" style={cssVars({ '--op-w': `${node.percentage}%` })} />
                 </div>
               )}
             </li>

@@ -1,21 +1,21 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import PageHeader from '../PageHeader'
 import HostOverview from './HostOverview'
 import LocalRunningModels from './LocalRunningModels'
 import { useLocalMachine } from '../../hooks/useLocalMachine'
 import { hostAsNode } from '../../utils/localHost'
 import { summarizeFleet } from '../../utils/nodeFleet'
 import Icon from '../Icon'
+import '../../pages/operate.css'
 
-// What the Nodes page shows when distributed mode is off. It used to be only
-// an "enable distributed mode" card, which left a single-node install with no
-// page listing what was loaded and no way to stop it short of the API. The
-// host is treated as a fleet of one so the gauges and the running-models table
-// match what a cluster operator sees; the distributed setup moves behind a
-// button, since most single-node installs are single-node on purpose.
+// What the Nodes route shows when distributed mode is off: the host and what is
+// loaded on it. The host is treated as a fleet of one so the capacity readings
+// and the running-models table match what a cluster operator sees. The setup
+// for more than one machine stays behind a button, since most single-node
+// installs are single-node on purpose.
 export default function LocalMachineView({ addToast, scaleOut }) {
-  const { t } = useTranslation('admin')
+  const { t } = useTranslation('operate')
   const machine = useLocalMachine()
   const [showScaleOut, setShowScaleOut] = useState(false)
   const summary = useMemo(() => {
@@ -24,13 +24,23 @@ export default function LocalMachineView({ addToast, scaleOut }) {
   }, [machine.resources])
 
   return (
-    <div className="page page--wide nodes-fleet-page local-machine-page" data-testid="local-machine">
-      <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('localMachine.title')} supporting={t('localMachine.subtitle')}
-        actions={<button type="button" className="btn btn-secondary btn-sm" aria-expanded={showScaleOut} onClick={() => setShowScaleOut(value => !value)}>
-          <Icon name="network" /> {showScaleOut ? t('localMachine.hideScaleOut') : t('localMachine.scaleOut')}
-        </button>} />
+    <div className="page op-page op-machine" data-testid="local-machine">
+      <header className="op-machine__head">
+        <div>
+          <h1 className="op-status__title">{t('machine.title')}</h1>
+          <p className="op-status__sub">{t('machine.subtitle')}</p>
+        </div>
+        <button
+          type="button"
+          className="dk-btn dk-btn--secondary"
+          aria-expanded={showScaleOut}
+          onClick={() => setShowScaleOut(value => !value)}
+        >
+          <Icon name="plus" /> {showScaleOut ? t('machine.hideScaleOut') : t('machine.scaleOut')}
+        </button>
+      </header>
       {showScaleOut && scaleOut}
-      <HostOverview summary={summary} models={machine.rows} ramTotal={machine.resources?.ram?.total} />
+      <HostOverview summary={summary} models={machine.rows} ramTotal={machine.resources?.ram?.total} resources={machine.resources} />
       <LocalRunningModels machine={machine} addToast={addToast} />
     </div>
   )

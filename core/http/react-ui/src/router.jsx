@@ -239,6 +239,7 @@ const appChildren = [
       { path: 'activity', element: <Admin><Activity /></Admin> },
       { path: 'settings', element: <Admin><Settings /></Admin> },
       { path: 'traces', element: <Admin><Traces /></Admin> },
+      { path: 'backend-logs', element: <Admin><BackendLogs /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },
       { path: 'nodes', element: <Admin><Nodes /></Admin> },
