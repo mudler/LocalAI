@@ -198,7 +198,12 @@ type SwitchOptions struct {
 	// AvailabilityMaxAge is how old a replica's report of what it can build may
 	// be. Two minutes when zero.
 	AvailabilityMaxAge time.Duration
-	Meter              metric.Meter
+	// OnChange is called after every move of the row, with the new row. The
+	// application uses it to send a hint to the other replicas, so that they look
+	// at the row at once. It is a courtesy: a replica that never hears it reads
+	// the row at its next poll. It may be nil.
+	OnChange func(CarrierRow)
+	Meter    metric.Meter
 }
 
 // Switch is the protocol of a change of carrier.
@@ -234,6 +239,16 @@ func NewSwitch(o SwitchOptions) (*Switch, error) {
 	s.phase, _ = meter.Float64Histogram("localai_carrier_phase_duration_seconds",
 		metric.WithDescription("How long the cluster stayed in prepare and in commit"), metric.WithUnit("s"))
 	return s, nil
+}
+
+// transition is CarrierStore.Transition, and tells OnChange about a move that was
+// made.
+func (s *Switch) transition(ctx context.Context, from int64, change Change) (CarrierRow, error) {
+	row, err := s.o.Store.Transition(ctx, from, change)
+	if err == nil && s.o.OnChange != nil {
+		s.o.OnChange(row)
+	}
+	return row, err
 }
 
 func (s *Switch) count(outcome string) {
@@ -380,7 +395,7 @@ func (s *Switch) Request(ctx context.Context, req Request) (CarrierRow, Report, 
 	if req.Force && len(report.Blockers) > 0 {
 		note = fmt.Sprintf("forced past %d blocker(s)", len(report.Blockers))
 	}
-	next, err := s.o.Store.Transition(ctx, row.Epoch, Change{
+	next, err := s.transition(ctx, row.Epoch, Change{
 		Active: row.Active, State: StatePrepare, Target: req.Target,
 		Draining: row.Draining, DrainingUntil: row.DrainingUntil,
 		Force: req.Force, Note: note, By: req.By,
@@ -414,7 +429,7 @@ func (s *Switch) Abort(ctx context.Context, by string) (CarrierRow, error) {
 }
 
 func (s *Switch) abort(ctx context.Context, row CarrierRow, by, note string) (CarrierRow, error) {
-	next, err := s.o.Store.Transition(ctx, row.Epoch, Change{
+	next, err := s.transition(ctx, row.Epoch, Change{
 		Active: row.Active, State: StateStable,
 		Draining: row.Draining, DrainingUntil: row.DrainingUntil,
 		Note: note, By: by,
@@ -486,7 +501,7 @@ func (s *Switch) drivePrepare(ctx context.Context, row CarrierRow, now time.Time
 
 	commit := func(note string) error {
 		until := now.Add(t.MaxDrain)
-		_, err := s.o.Store.Transition(ctx, row.Epoch, Change{
+		_, err := s.transition(ctx, row.Epoch, Change{
 			Active: row.Target, State: StateCommit, Target: row.Target,
 			Draining: row.Active, DrainingUntil: &until,
 			Force: row.Force, Note: note, By: row.ChangedBy,
@@ -537,7 +552,7 @@ func (s *Switch) driveCommit(ctx context.Context, row CarrierRow, age time.Durat
 	if len(missing) > 0 {
 		note = strings.TrimSpace(note + " The replica did not confirm the commit within " + t.TransitionWindow.String() + ": " + strings.Join(missing, ", "))
 	}
-	_, err = s.o.Store.Transition(ctx, row.Epoch, Change{
+	_, err = s.transition(ctx, row.Epoch, Change{
 		Active: row.Active, State: StateStable,
 		Draining: row.Draining, DrainingUntil: row.DrainingUntil,
 		Force: row.Force, Note: note, By: row.ChangedBy,
@@ -557,7 +572,7 @@ func (s *Switch) driveDrain(ctx context.Context, row CarrierRow, now time.Time) 
 	if row.DrainingUntil != nil && now.Before(*row.DrainingUntil) {
 		return nil
 	}
-	_, err := s.o.Store.Transition(ctx, row.Epoch, Change{
+	_, err := s.transition(ctx, row.Epoch, Change{
 		Active: row.Active, State: StateStable, Note: "drained", By: row.ChangedBy,
 	})
 	if err == nil {

@@ -309,6 +309,32 @@ var _ = Describe("The switch of the carrier", func() {
 		})
 	})
 
+	Describe("the hint", func() {
+		It("tells the hook about every move of the row, and about no move that failed", func() {
+			var epochs []int64
+			var mu sync.Mutex
+			hinted, err := cluster.NewSwitch(cluster.SwitchOptions{
+				Store: store, Registry: reg, Workers: workers, Work: work,
+				Timings:  func() cluster.Timings { return timings },
+				OnChange: func(r cluster.CarrierRow) { mu.Lock(); epochs = append(epochs, r.Epoch); mu.Unlock() },
+			})
+			Expect(err).ToNot(HaveOccurred())
+			replica("a", "", "")
+
+			_, _, err = hinted.Request(ctx, cluster.Request{Target: cluster.CarrierTunnel, By: "admin"})
+			Expect(err).ToNot(HaveOccurred())
+			_, _, err = hinted.Request(ctx, cluster.Request{Target: cluster.CarrierTunnel, By: "admin"})
+			Expect(err).To(MatchError(cluster.ErrBusy))
+			ready("a", row().Epoch, "")
+			Expect(hinted.Drive(ctx)).To(Succeed())
+			Expect(hinted.Drive(ctx)).To(Succeed()) // nothing is due: a has not confirmed
+
+			mu.Lock()
+			defer mu.Unlock()
+			Expect(epochs).To(Equal([]int64{2, 3}))
+		})
+	})
+
 	Describe("an abort", func() {
 		It("returns a cluster in prepare to stable on the carrier it had", func() {
 			replica("a", "", "")
