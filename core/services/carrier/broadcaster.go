@@ -30,8 +30,8 @@ type Broadcaster struct {
 	cur *atomic.Pointer[Set]
 
 	mu        sync.Mutex
-	listening []*Set // sets the subscriptions are attached to
-	hooked    map[*Set]struct{}
+	listening []*Set                // sets the subscriptions are attached to
+	hooked    map[*Set]*atomic.Bool // live flag of the reconnect hook of each attached set
 	subs      map[*subscription]struct{}
 	reconnect []func()
 }
@@ -43,7 +43,7 @@ var _ messaging.Broadcaster = (*Broadcaster)(nil)
 func NewBroadcaster(cur *atomic.Pointer[Set]) *Broadcaster {
 	b := &Broadcaster{
 		cur:    cur,
-		hooked: map[*Set]struct{}{},
+		hooked: map[*Set]*atomic.Bool{},
 		subs:   map[*subscription]struct{}{},
 	}
 	first := cur.Load()
@@ -127,8 +127,13 @@ func (b *Broadcaster) Release(old *Set) error {
 	}
 	b.listening = slices.Delete(b.listening, i, i+1)
 	// A released set is finished and is closed by the caller. The map must not keep
-	// it alive for the life of the holder.
-	delete(b.hooked, old)
+	// it alive for the life of the holder. A set has no way to drop a callback, so
+	// the hook that it holds is switched off instead: a later Listen of the same
+	// set registers a new one, and only one of them is live.
+	if live, ok := b.hooked[old]; ok {
+		live.Store(false)
+		delete(b.hooked, old)
+	}
 	subs := b.snapshotLocked()
 	b.mu.Unlock()
 
@@ -164,13 +169,19 @@ func (b *Broadcaster) NotifyReconnect() {
 }
 
 // hook asks a set to tell the holder about its reconnects. The caller holds
-// b.mu or owns b exclusively. A set is hooked once for the life of the holder.
+// b.mu or owns b exclusively. A set has one live hook while it is attached.
 func (b *Broadcaster) hook(s *Set) {
 	if _, done := b.hooked[s]; done || s.OnReconnect == nil {
 		return
 	}
-	b.hooked[s] = struct{}{}
-	s.OnReconnect(b.NotifyReconnect)
+	live := &atomic.Bool{}
+	live.Store(true)
+	b.hooked[s] = live
+	s.OnReconnect(func() {
+		if live.Load() {
+			b.NotifyReconnect()
+		}
+	})
 }
 
 func (b *Broadcaster) snapshotLocked() []*subscription {
