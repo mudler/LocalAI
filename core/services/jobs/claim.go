@@ -53,6 +53,12 @@ type WorkClaim struct {
 	// that no longer matches the row, so it cannot settle the claim of the
 	// replica that took the work over.
 	Attempts int
+	// Failures counts the releases that followed a failure which says something
+	// about the work itself: a worker was reached and the run failed on it. A
+	// release for lack of a worker, a route or a free slot does not count. The
+	// count is what ends a row that can never be run (see
+	// ClaimConsumerConfig.MaxFailures).
+	Failures int
 	// NotBefore is the earliest the row may be claimed again. The database clock
 	// stamps it. NULL means now.
 	NotBefore *time.Time `gorm:"index"`
@@ -134,6 +140,7 @@ func EnqueueClaim(ctx context.Context, db *gorm.DB, kind messaging.WorkKind, pay
 		"payload":    raw,
 		"claimed_by": "",
 		"attempts":   0,
+		"failures":   0,
 		"created_at": gorm.Expr("now()"),
 	}).Error; err != nil {
 		return "", fmt.Errorf("enqueueing a %s claim: %w", kind, err)
@@ -161,7 +168,7 @@ WHERE id = (
 	FOR UPDATE SKIP LOCKED
 	LIMIT 1
 )
-RETURNING id, kind, state, payload, claimed_by, claimed_at, attempts, not_before, created_at`
+RETURNING id, kind, state, payload, claimed_by, claimed_at, attempts, failures, not_before, created_at`
 
 // ClaimNext takes the oldest pending row of kind and marks it as held by owner.
 // It returns ErrNoWork when there is none.
@@ -239,6 +246,71 @@ func ReleaseClaim(ctx context.Context, db *gorm.DB, claim *WorkClaim) (bool, err
 	return res.RowsAffected == 1, nil
 }
 
+// releaseClaimFailedSQL is releaseClaimSQL for a failure that says something
+// about the work, which it counts.
+const releaseClaimFailedSQL = `UPDATE ` + claimsTable + `
+SET state = '` + ClaimPending + `', claimed_by = '', claimed_at = NULL, attempts = attempts + 1, failures = failures + 1,
+    not_before = now() + make_interval(secs => LEAST(?, ? * power(2, LEAST(attempts, ?))))
+WHERE id = ? AND state = '` + ClaimClaimed + `' AND claimed_by = ? AND attempts = ?`
+
+// ReleaseClaimFailed is ReleaseClaim for a run that reached a worker and failed
+// there. It counts the failure, so that a row which fails every time can be ended.
+func ReleaseClaimFailed(ctx context.Context, db *gorm.DB, claim *WorkClaim) (bool, error) {
+	if err := requirePostgres(db, "releasing a claim"); err != nil {
+		return false, err
+	}
+	res := db.WithContext(ctx).Exec(releaseClaimFailedSQL,
+		claimBackoffCap.Seconds(), claimBackoffBase.Seconds(), claimBackoffMaxShift,
+		claim.ID, claim.ClaimedBy, claim.Attempts)
+	if res.Error != nil {
+		return false, fmt.Errorf("releasing claim %q: %w", claim.ID, res.Error)
+	}
+	return res.RowsAffected == 1, nil
+}
+
+// releaseOwnedSQL returns the rows of a kind that a replica holds to the pool, with
+// no wait.
+const releaseOwnedSQL = `UPDATE ` + claimsTable + `
+SET state = '` + ClaimPending + `', claimed_by = '', claimed_at = NULL, attempts = attempts + 1, not_before = NULL
+WHERE state = '` + ClaimClaimed + `' AND claimed_by = ? AND kind = ?`
+
+// ReleaseOwned returns every claim of kind that owner holds to the pool. A
+// process that starts to claim calls it first: a row that its own id holds was
+// held by an earlier process with that id, which is gone. The reap cannot see
+// that, because the id is live again, and the row would be held for ever.
+func ReleaseOwned(ctx context.Context, db *gorm.DB, owner string, kind messaging.WorkKind) (int64, error) {
+	if err := requirePostgres(db, "releasing the claims of this replica"); err != nil {
+		return 0, err
+	}
+	res := db.WithContext(ctx).Exec(releaseOwnedSQL, owner, string(kind))
+	if res.Error != nil {
+		return 0, fmt.Errorf("releasing the claims held by %q: %w", owner, res.Error)
+	}
+	return res.RowsAffected, nil
+}
+
+// HeldClaim names a claim that a replica holds now.
+type HeldClaim struct {
+	ID       string
+	Attempts int
+}
+
+// HeldBy lists the claims that owner holds. A run in flight whose claim is not in
+// the list has lost it: a reap gave the work to another replica.
+func HeldBy(ctx context.Context, db *gorm.DB, owner string) ([]HeldClaim, error) {
+	if err := requirePostgres(db, "listing the claims of this replica"); err != nil {
+		return nil, err
+	}
+	var held []HeldClaim
+	if err := db.WithContext(ctx).Model(&WorkClaim{}).
+		Select("id, attempts").
+		Where("state = ? AND claimed_by = ?", ClaimClaimed, owner).
+		Scan(&held).Error; err != nil {
+		return nil, fmt.Errorf("listing the claims held by %q: %w", owner, err)
+	}
+	return held, nil
+}
+
 // CompleteClaim deletes the row. It is what an answer of the worker does,
 // success or failure: the work ran and said what happened, so it must not run
 // again. It reports false when the claim was no longer the holder's.
@@ -309,19 +381,23 @@ func OwnerIsLive(ctx context.Context, db *gorm.DB, owner string, liveness time.D
 
 // migratePendingSQL takes the pending rows out of the queue. Rows that a replica
 // holds are not touched: the replica drives them to their end where they are.
+//
+// claimed_at holds the time of the sweep, for the purge of the rows that stay
+// behind.
 const migratePendingSQL = `UPDATE ` + claimsTable + `
-SET state = '` + ClaimMigrated + `'
+SET state = '` + ClaimMigrated + `', claimed_at = now()
 WHERE state = '` + ClaimPending + `'
-RETURNING id, kind, state, payload, claimed_by, claimed_at, attempts, not_before, created_at`
+RETURNING id, kind, state, payload, claimed_by, claimed_at, attempts, failures, not_before, created_at`
 
 // MigratePending takes every pending row out of the queue and returns it, for a
 // change to a carrier that has its own queue. A row is migrated once: the
 // statement is a compare-and-set on the state, so it never goes to a claimant and
 // to the sweep, and a second sweep returns nothing.
 //
-// The caller publishes the rows after this returns. A sweeper that dies between
-// the two loses the rows, as the queue of the new carrier loses them, and the
-// alternative, to publish first, would run a job twice.
+// The caller publishes the rows after this returns, and puts back the ones it
+// could not publish (RestorePending). A sweeper that dies between the two loses
+// the rows, as the queue of the new carrier loses them, and the alternative, to
+// publish first, would run a job twice.
 func MigratePending(ctx context.Context, db *gorm.DB) ([]*WorkClaim, error) {
 	if err := requirePostgres(db, "migrating pending work"); err != nil {
 		return nil, err
@@ -331,4 +407,43 @@ func MigratePending(ctx context.Context, db *gorm.DB) ([]*WorkClaim, error) {
 		return nil, fmt.Errorf("migrating pending work: %w", err)
 	}
 	return rows, nil
+}
+
+// RestorePending puts migrated rows back in the queue. It is for the rows that a
+// change of carrier took out and could not hand to the new carrier: they wait in
+// the table, and the next sweep takes them again, and none is lost.
+func RestorePending(ctx context.Context, db *gorm.DB, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if err := requirePostgres(db, "restoring migrated work"); err != nil {
+		return err
+	}
+	res := db.WithContext(ctx).Model(&WorkClaim{}).
+		Where("id IN ? AND state = ?", ids, ClaimMigrated).
+		Updates(map[string]any{"state": ClaimPending, "claimed_at": nil})
+	if res.Error != nil {
+		return fmt.Errorf("restoring migrated work: %w", res.Error)
+	}
+	return nil
+}
+
+// MigratedRetention is how long a row that a change of carrier moved stays in the
+// table. It is only evidence of what moved. The payload of a row is the whole
+// request of the work, so it does not stay for ever.
+const MigratedRetention = 24 * time.Hour
+
+// PurgeMigrated deletes the rows that were migrated more than olderThan ago, with
+// their payloads, and says how many.
+func PurgeMigrated(ctx context.Context, db *gorm.DB, olderThan time.Duration) (int64, error) {
+	if err := requirePostgres(db, "purging migrated work"); err != nil {
+		return 0, err
+	}
+	res := db.WithContext(ctx).Exec(`DELETE FROM `+claimsTable+
+		` WHERE state = ? AND COALESCE(claimed_at, created_at) < now() - make_interval(secs => ?)`,
+		ClaimMigrated, olderThan.Seconds())
+	if res.Error != nil {
+		return 0, fmt.Errorf("purging migrated work: %w", res.Error)
+	}
+	return res.RowsAffected, nil
 }

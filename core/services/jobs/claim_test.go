@@ -200,6 +200,27 @@ var _ = Describe("The claim table", func() {
 		})
 	})
 
+	Describe("the poll query", func() {
+		It("reads the rows of a kind through the index of the pick, in the order of the queue", func() {
+			db := newClaimDB()
+			for i := range 50 {
+				_, err := EnqueueClaim(context.Background(), db, messaging.WorkMCPCI, i)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(db.Exec("ANALYZE " + claimsTable).Error).To(Succeed())
+			var plan []string
+			Expect(db.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Exec("SET LOCAL enable_seqscan = off").Error; err != nil {
+					return err
+				}
+				return tx.Raw(`EXPLAIN SELECT id FROM ` + claimsTable + `
+					WHERE state = 'pending' AND kind = 'mcp-ci' AND (not_before IS NULL OR not_before <= now())
+					ORDER BY created_at, id LIMIT 1`).Scan(&plan).Error
+			})).To(Succeed())
+			Expect(strings.Join(plan, "\n")).To(ContainSubstring("idx_work_claims_pick"))
+		})
+	})
+
 	Describe("CompleteClaim", func() {
 		It("deletes the row", func() {
 			id, _ := EnqueueClaim(ctx, db, messaging.WorkAgentRun, 1)
