@@ -106,23 +106,30 @@ func (rt *carrierRuntime) natsClient(ctx context.Context, wait time.Duration) (*
 	if url == "" {
 		return nil, "", errors.New("no NATS URL is configured: store one in the cluster settings (nats.url) or start the frontend with --nats-url")
 	}
+	client, err := rt.natsClientAt(ctx, url, wait)
+	return client, url, err
+}
+
+// natsClientAt connects to the NATS server at url with the credentials of this
+// replica. With a wait it returns only once the server has answered.
+func (rt *carrierRuntime) natsClientAt(ctx context.Context, url string, wait time.Duration) (*messaging.Client, error) {
 	d := rt.cfg.Distributed
 	auth := d.NatsAuthConfig()
 	if auth.RequireAuth && (auth.ServiceUserJWT == "" || auth.ServiceUserSeed == "") {
-		return nil, "", errors.New("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
+		return nil, errors.New("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
 	}
 	// A URL or a credential the client cannot use stops here. A server that is
 	// not up does not, unless the caller waits for it: the client keeps trying.
 	client, err := messaging.New(url, d.NatsMessagingOptions("", "")...)
 	if err != nil {
-		return nil, "", fmt.Errorf("connecting to NATS: %w", err)
+		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
 	if wait > 0 {
 		deadline := time.Now().Add(wait)
 		for !client.IsConnected() {
 			if time.Now().After(deadline) || ctx.Err() != nil {
 				client.Close()
-				return nil, "", fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", sanitize.URL(url), wait)
+				return nil, fmt.Errorf("the NATS server at %s did not answer within %s: check the address and the credentials", sanitize.URL(url), wait)
 			}
 			select {
 			case <-ctx.Done():
@@ -130,7 +137,18 @@ func (rt *carrierRuntime) natsClient(ctx context.Context, wait time.Duration) (*
 			}
 		}
 	}
-	return client, url, nil
+	return client, nil
+}
+
+// CheckNATS says whether this replica reaches the NATS server at url with its own
+// credentials. It opens a connection and closes it.
+func (rt *carrierRuntime) CheckNATS(ctx context.Context, url string) error {
+	client, err := rt.natsClientAt(ctx, url, natsProbeWait)
+	if err != nil {
+		return err
+	}
+	client.Close()
+	return nil
 }
 
 func (rt *carrierRuntime) buildNATS(ctx context.Context, row cluster.CarrierRow, wait bool) (*carrier.Set, error) {
@@ -315,11 +333,9 @@ func (rt *carrierRuntime) wakeProbe() {
 	}
 }
 
-// ProbeReplicas asks every replica to look at what it can build, and waits until
-// the live replicas have answered or probeWait has passed. A replica that did not
-// answer shows up as stale in the preflight.
-func (rt *carrierRuntime) ProbeReplicas(ctx context.Context) {
-	asked := time.Now()
+// AskReplicas asks every replica, this one included, to look at what it can
+// build, and does not wait for the answer.
+func (rt *carrierRuntime) AskReplicas(ctx context.Context) {
 	rt.wakeProbe()
 	pubCtx, cancel := context.WithTimeout(ctx, hintPublishTimeout)
 	defer cancel()
@@ -334,6 +350,14 @@ func (rt *carrierRuntime) ProbeReplicas(ctx context.Context) {
 	case <-done:
 	case <-pubCtx.Done():
 	}
+}
+
+// ProbeReplicas asks every replica to look at what it can build, and waits until
+// the live replicas have answered or probeWait has passed. A replica that did not
+// answer shows up as stale in the preflight.
+func (rt *carrierRuntime) ProbeReplicas(ctx context.Context) {
+	asked := time.Now()
+	rt.AskReplicas(ctx)
 
 	deadline := asked.Add(probeWait)
 	for time.Now().Before(deadline) && ctx.Err() == nil {

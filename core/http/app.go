@@ -587,6 +587,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 		onPeer = d.PeerSessions.Accept
 	}
 	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
+	var clusterAdmin routes.ClusterAdmin
+	if d := application.Distributed(); d != nil {
+		clusterAdmin = routes.ClusterAdmin{Switch: d.Switch, Settings: d.Settings, Prober: d.Runtime, NATS: d.Runtime}
+	}
+	routes.RegisterClusterAdminRoutes(e, adminMiddleware, clusterAdmin)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)
 
 	// Distributed SSE routes (job progress + agent events via NATS)

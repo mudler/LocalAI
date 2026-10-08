@@ -222,4 +222,31 @@ var _ = Describe("Route auth coverage", func() {
 		app.ServeHTTP(rec, req)
 		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 	})
+
+	// The admin routes of the carrier sit under /api/cluster/, next to the two
+	// routes that skip the global authentication. The prefix must not be public:
+	// an anonymous caller gets 401 on each of them, also on a frontend that is not
+	// distributed, and they exist whatever the mode.
+	It("registers the admin routes of the carrier and refuses an anonymous caller", func() {
+		want := map[string]bool{
+			http.MethodGet + " /api/cluster/carrier":  false,
+			http.MethodPost + " /api/cluster/carrier": false,
+			http.MethodGet + " /api/cluster/settings": false,
+			http.MethodPut + " /api/cluster/settings": false,
+		}
+		for _, r := range app.Routes() {
+			if _, ok := want[r.Method+" "+r.Path]; ok {
+				want[r.Method+" "+r.Path] = true
+			}
+		}
+		for route, found := range want {
+			Expect(found).To(BeTrue(), "%s is not registered", route)
+			method, path, _ := strings.Cut(route, " ")
+			req := httptest.NewRequest(method, path, strings.NewReader(`{"target":"tunnel"}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized), route)
+		}
+	})
 })
