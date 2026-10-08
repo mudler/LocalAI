@@ -118,9 +118,10 @@ per-model readings come from the `process` block of
 [`GET /system`]({{% relref "reference/system-info" %}}); the host CPU and disk
 readings come from the `cpu` and `disk` fields of `GET /api/resources`.
 
-**Add a machine** reveals the command to start LocalAI in distributed mode. Once
-distributed mode is on, the same route becomes the Nodes page and the **This
-machine** tab gives way to the **Swarm** tab.
+**Add a machine** reveals the command to start LocalAI in distributed mode, and
+a link to the steps for adding a worker. Once distributed mode is on, the same
+route becomes the Nodes page and the **This machine** tab gives way to the
+**Swarm** tab.
 
 Models and backends no longer live under a nested Host page. Use **Models →
 Installed** for model runtime and configuration actions, and **Operate →
@@ -136,9 +137,10 @@ preserving legacy search, filter, selection, variant, and development flags.
 Operate has one row of tabs above the page: **Status** (this overview),
 **This machine**, **Swarm** (only with distributed mode on), **Runtime**,
 **Traffic** and **Settings**. A tab that holds several pages shows a second row
-of links under the bar: Runtime holds Backends, Activity, Logs and Failover; Traffic
-holds Usage, Traces and Middleware; Settings holds Settings and Users (with
-authentication on); Swarm holds Nodes, Scheduling and P2P. Every page keeps its
+of links under the bar: Runtime holds Backends, Activity, Logs and (on a single
+install) Failover; Traffic holds Usage, Traces and Middleware; Settings holds
+Settings and Users (with authentication on); Swarm holds Nodes, Placement rules,
+Failover and P2P. Adding a node opens from the Nodes page. Every page keeps its
 own URL, and a page such as a node detail keeps its tab highlighted. On a phone
 the bar scrolls sideways. The **API** link at the end of the bar opens the
 API documentation.
