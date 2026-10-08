@@ -478,41 +478,61 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		src := filepath.Join(GinkgoT().TempDir(), "big.bin")
 		Expect(os.WriteFile(src, make([]byte, 16<<20), 0o600)).To(Succeed())
 
-		var (
-			samples []time.Duration
-			stop    = make(chan struct{})
-			wg      sync.WaitGroup
-		)
-		wg.Go(func() {
-			for {
-				select {
-				case <-stop:
-					return
-				case <-time.After(10 * time.Millisecond):
+		// probeDuring probes the inference lane while transfer runs, and returns
+		// the 99th percentile of the probes and the time of the transfer.
+		probeDuring := func(transfer func() error) (time.Duration, time.Duration) {
+			GinkgoHelper()
+			var (
+				samples []time.Duration
+				stop    = make(chan struct{})
+				wg      sync.WaitGroup
+			)
+			wg.Go(func() {
+				for {
+					select {
+					case <-stop:
+						return
+					case <-time.After(10 * time.Millisecond):
+					}
+					begun := time.Now()
+					if _, err := a.commands.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{"op"}}); err != nil {
+						return
+					}
+					samples = append(samples, time.Since(begun))
 				}
-				begun := time.Now()
-				if _, err := a.commands.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{"op"}}); err != nil {
-					return
-				}
-				samples = append(samples, time.Since(begun))
-			}
-		})
-		begun := time.Now()
-		_, err = a.files.EnsureRemote(ctx, nodeID, src, "models/big.bin")
-		elapsed := time.Since(begun)
-		close(stop)
-		wg.Wait()
-		Expect(err).ToNot(HaveOccurred())
+			})
+			begun := time.Now()
+			err := transfer()
+			elapsed := time.Since(begun)
+			close(stop)
+			wg.Wait()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(elapsed).To(BeNumerically(">", 500*time.Millisecond), "the transfer must last long enough to be measured")
+			Expect(len(samples)).To(BeNumerically(">=", 10), "probes completed during the transfer")
+			slices.Sort(samples)
+			return samples[min(len(samples)-1, len(samples)*99/100)], elapsed
+		}
 
-		Expect(elapsed).To(BeNumerically(">", 500*time.Millisecond), "the transfer must last long enough to be measured")
-		Expect(len(samples)).To(BeNumerically(">=", 10), "probes completed during the transfer")
-		slices.Sort(samples)
-		p99 := samples[min(len(samples)-1, len(samples)*99/100)]
-		AddReportEntry("probe during a bulk transfer", map[string]any{
-			"transfer s": elapsed.Seconds(), "probes": len(samples), "p50 ms": samples[len(samples)/2].Milliseconds(), "p99 ms": p99.Milliseconds(),
+		// The transfer on the bulk lane, as the set does it.
+		bulkP99, bulkTime := probeDuring(func() error {
+			_, err := a.files.EnsureRemote(ctx, nodeID, src, "models/big.bin")
+			return err
 		})
-		Expect(p99).To(BeNumerically("<", 100*time.Millisecond),
-			"a probe on the inference lane must not wait behind the bytes of a transfer on the bulk lane")
+		// The same transfer on the lane of the probe, which is what the set
+		// would do if it fell back. The comparison is between two runs on the
+		// same machine, so a loaded runner moves both.
+		shared := nodes.NewHTTPFileStager(func(id string) (string, error) { return nodes.WorkerHTTPHost(id, ""), nil }, registrationToken, a.set.Dialer)
+		sharedP99, sharedTime := probeDuring(func() error {
+			_, err := shared.EnsureRemote(ctx, nodeID, src, "models/big-shared.bin")
+			return err
+		})
+		AddReportEntry("probe during a transfer", map[string]any{
+			"bulk lane p99 ms": bulkP99.Milliseconds(), "bulk transfer s": bulkTime.Seconds(),
+			"shared lane p99 ms": sharedP99.Milliseconds(), "shared transfer s": sharedTime.Seconds(),
+		})
+		Expect(bulkP99).To(BeNumerically("<", sharedP99*8/10),
+			"a probe must wait less behind a transfer on the bulk lane than behind one on its own lane: bulk %v, shared %v", bulkP99, sharedP99)
+		Expect(bulkP99).To(BeNumerically("<", 500*time.Millisecond), "a sanity bound for the probe on a loaded machine")
 	})
 
 	It("refuses a transfer when the worker has no bulk session, and sends nothing on the other lane", func() {
