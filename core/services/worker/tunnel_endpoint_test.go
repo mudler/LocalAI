@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,6 +182,14 @@ var _ = Describe("Worker tunnel against the connect endpoint", func() {
 	Describe("the delay of a small call during a transfer", Label("benchmark"), Ordered, func() {
 		const directName = "direct: transfer and probe on two TCP connections"
 		var results = map[string][]time.Duration{}
+
+		// The specs compare latencies, and a loaded runner moves them by more than
+		// the margin. They run when the label is asked for.
+		BeforeAll(func() {
+			if !strings.Contains(GinkgoLabelFilter(), "benchmark") {
+				Skip("a latency benchmark; run it with --label-filter=benchmark")
+			}
+		})
 
 		// run starts a worker behind the link, and runs a download of
 		// transferBytes on transferLane while a probe runs on the inference lane.
