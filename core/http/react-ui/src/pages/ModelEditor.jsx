@@ -26,14 +26,6 @@ const SECTION_ICONS = {
   mitm: 'user-secret', pii: 'user-shield', failover: 'shuffle', other: 'more',
 }
 
-const SECTION_COLORS = {
-  general: 'var(--color-primary)', llm: 'var(--color-accent)', parameters: 'var(--color-success)',
-  templates: 'var(--color-warning)', functions: 'var(--color-info, var(--color-primary))',
-  reasoning: 'var(--color-accent)', diffusers: 'var(--color-warning)', tts: 'var(--color-success)',
-  pipeline: 'var(--color-accent)', grpc: 'var(--color-text-muted)', agent: 'var(--color-primary)',
-  mcp: 'var(--color-accent)', router: 'var(--color-accent)', proxy: 'var(--color-info, var(--color-primary))',
-  mitm: 'var(--color-warning)', pii: 'var(--color-error)', failover: 'var(--color-accent)', other: 'var(--color-text-muted)',
-}
 
 // flattenConfig turns a parsed YAML config into a flat { 'a.b.c': value }
 // map keyed by the same dotted paths the field registry uses. leafPaths is
@@ -637,7 +629,7 @@ export default function ModelEditor() {
                   onClick={() => scrollTo(s.id)}
                   className={`set-rail__item${activeSection === s.id ? ' set-rail__item--on' : ''}`}
                 >
-                  <Icon name={SECTION_ICONS[s.id] || 'settings'} className="set-rail__icon" style={activeSection === s.id ? { color: SECTION_COLORS[s.id] || 'var(--color-primary)' } : undefined} />
+                  <Icon name={SECTION_ICONS[s.id] || 'settings'} className="set-rail__icon" />
                   {s.label}
                   <span className="ml-auto text-meta">
                     {fieldsBySection[s.id]?.length || 0}
@@ -673,12 +665,12 @@ export default function ModelEditor() {
               )}
 
               {activeSections.length === 0 && (
-                <div className="card loading-center text-center">
-                  <Icon name="sliders" className="icon-xl text-muted mb-md" />
-                  <h3 className="mb-sm">{t('forms.empty.title')}</h3>
-                  <p className="text-base text-secondary">
-                    {t('forms.empty.text')}
-                  </p>
+                // .loading-center is a flex row, which set the icon, the title and
+                // the text side by side with no gap; this is a stacked empty state.
+                <div className="dk-empty" data-testid="editor-no-fields">
+                  <div className="dk-empty-icon"><Icon name="sliders" /></div>
+                  <h3 className="dk-empty-title">{t('forms.empty.title')}</h3>
+                  <p className="dk-empty-text">{t('forms.empty.text')}</p>
                 </div>
               )}
 
@@ -692,7 +684,7 @@ export default function ModelEditor() {
                       className={`me-section-head${isCollapsed ? ' me-section-head--collapsed' : ''}`}
                     >
                       <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} className="me-chevron" />
-                      <Icon name={SECTION_ICONS[s.id] || 'settings'} style={{ color: SECTION_COLORS[s.id] || 'var(--color-primary)' }} />
+                      <Icon name={SECTION_ICONS[s.id] || 'settings'} className="me-section-icon" />
                       {s.label}
                       <span className="text-xs fw-normal text-muted">
                         ({sectionFields.length})
