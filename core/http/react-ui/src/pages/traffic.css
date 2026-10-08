@@ -142,6 +142,7 @@
 .tf-share > span { display: block; height: 100%; width: var(--dk-w, 0%); border-radius: 3px; background: var(--dk-series-1); }
 .tf-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--dk-space-1) var(--dk-space-4); margin: 0; font-size: var(--dk-text-13); }
 /* A description under a name may use the full width and wrap. */
+.tf-table--wrap .dk-table-name { white-space: normal; overflow-wrap: anywhere; }
 .tf-table--wrap .dk-table-sub { max-width: 60ch; white-space: normal; overflow: visible; }
 .tf-kv dt, .tf-kv dd { padding-block: 0; border: 0; }
 .tf-kv dt { color: var(--dk-muted); }
