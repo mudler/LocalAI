@@ -51,3 +51,12 @@ test.describe('404', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
   })
 })
+
+test.describe('404: reduced motion', () => {
+  test('hover transitions are switched off', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/app/no-such-page')
+    const seconds = await page.locator('.nf-place').first().evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))
+    expect(seconds).toBeLessThan(0.001)
+  })
+})

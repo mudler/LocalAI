@@ -206,7 +206,7 @@ test.describe('Settings: pending, diff, apply, discard and undo', () => {
     expect(state.posts).toEqual([{ watchdog_idle_timeout: '30m' }])
     await expect(page.getByTestId('settings-pending')).toHaveCount(0)
     const toast = page.getByTestId('settings-undo-toast')
-    await expect(toast).toContainText('Applied 1 change. Undo saves the old values again.')
+    await expect(toast).toContainText('Settings saved successfully (1 change). Undo saves the old values again.')
 
     await toast.getByRole('button', { name: 'Undo' }).click()
     await expect(page.getByText('Previous values saved again')).toBeVisible()
@@ -387,5 +387,18 @@ test.describe('Settings: phone', () => {
     await page.getByRole('button', { name: 'Show diff' }).click()
     await expect(page.getByTestId('settings-diff')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
+  })
+})
+
+test.describe('Settings: reduced motion', () => {
+  test('transitions on the page are switched off', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await mockSettings(page)
+    await page.goto('/app/settings')
+    await expect(page.getByTestId('settings-page')).toBeVisible()
+    const seconds = await page.locator('.st-group').first().evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))
+    expect(seconds).toBeLessThan(0.001)
+    const sw = await page.locator('.dk-switch').first().evaluate(el => parseFloat(getComputedStyle(el).transitionDuration))
+    expect(sw).toBeLessThan(0.001)
   })
 })

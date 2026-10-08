@@ -88,7 +88,7 @@ test.describe('Users and keys: users', () => {
   test('the row menu changes the role, resets a password and deletes after typing the name', async ({ page }) => {
     await page.getByLabel('Actions for carol').click()
     await page.getByRole('menuitem', { name: 'Make admin' }).click()
-    await expect(row(page, 'carol@lab.example').locator('.dk-badge', { hasText: 'admin' })).toBeVisible()
+    await expect(row(page, 'carol@lab.example').locator('td').nth(2).locator('.dk-badge', { hasText: 'admin' })).toBeVisible()
     expect(writes(state, 'PUT', '/role')[0].body).toEqual({ role: 'admin' })
 
     // OAuth people have no password to reset.
@@ -361,6 +361,11 @@ test.describe('Users and keys: phone', () => {
     await expect(page.getByTestId('users-table')).toBeVisible()
     await expect(page.getByRole('columnheader', { name: 'Sign-in' })).toBeHidden()
     await expect(page.getByRole('columnheader', { name: 'Access' })).toBeHidden()
+    // The role moves under the name, and the row's actions stay on screen.
+    await expect(page.getByRole('columnheader', { name: 'Role' })).toBeHidden()
+    await expect(row(page, 'bob@lab.example').locator('.us-role-phone')).toBeVisible()
+    await expect(row(page, 'dave@lab.example').getByRole('button', { name: 'Approve' })).toBeInViewport()
+    await expect(page.getByLabel('Actions for dave')).toBeInViewport()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
 
     await page.getByLabel('Actions for bob').click()
