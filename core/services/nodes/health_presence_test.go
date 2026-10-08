@@ -215,3 +215,95 @@ var _ = Describe("The health monitor and the connection rows of a real cluster",
 		Expect(got.Status).To(Equal(StatusHealthy))
 	})
 })
+
+var _ = Describe("The health monitor and the carriers a worker reports", func() {
+	var (
+		store   *fakeNodeHealthStore
+		factory *fakeBackendClientFactory
+		active  cluster.Carrier
+		settled bool
+		hm      *HealthMonitor
+	)
+
+	BeforeEach(func() {
+		store = newFakeNodeHealthStore()
+		factory = newFakeBackendClientFactory()
+		active, settled = cluster.CarrierNATS, true
+		hm = newTestHealthMonitor(store, factory, true, 30*time.Second)
+		hm.perModelHealthCheck = true
+		hm.UseCarrier(func() (cluster.Carrier, bool) { return active, settled })
+	})
+
+	node := func(id, status, attached, follow string) {
+		n := makeTestNode(id, id, "10.0.0.1:50051", status, freshTime())
+		n.Attached, n.Follow = attached, follow
+		store.addNode(n)
+		store.addNodeModel(id, NodeModel{NodeID: id, ModelName: "m", Address: "127.0.0.1:50053"})
+	}
+
+	It("demotes a worker that reports it is not attached to the active carrier, and reaps nothing", func() {
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusUnhealthy))
+		Expect(store.getCalls()).To(ContainElement("MarkUnhealthy:n1"))
+		Expect(store.getCalls()).ToNot(ContainElement(ContainSubstring("MarkOffline")))
+		Expect(store.getCalls()).ToNot(ContainElement(ContainSubstring("RemoveNodeModel")))
+	})
+
+	It("demotes it once and does not promote it while it stays off the active carrier", func() {
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		for range 4 {
+			hm.doCheckAll(context.Background())
+		}
+		count := 0
+		for _, c := range store.getCalls() {
+			if c == "MarkUnhealthy:n1" {
+				count++
+			}
+			Expect(c).ToNot(Equal("MarkHealthy:n1"))
+		}
+		Expect(count).To(Equal(1))
+	})
+
+	It("promotes it when it reports the active carrier", func() {
+		node("n1", StatusUnhealthy, "nats", "nats,tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getCalls()).To(ContainElement("MarkHealthy:n1"))
+	})
+
+	It("leaves a worker that is attached to both carriers alone", func() {
+		node("n1", StatusHealthy, "nats,tunnel", "nats,tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusHealthy))
+	})
+
+	It("leaves every worker alone while a change is under way or a carrier drains, because the window routes them", func() {
+		settled = false
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusHealthy))
+	})
+
+	It("leaves a worker that reports nothing alone: it predates carrier switching", func() {
+		node("n1", StatusHealthy, "", "")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusHealthy))
+	})
+
+	It("does not probe the backends of a worker that it demoted", func() {
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		factory.setClient("127.0.0.1:50053", &fakeBackendClient{healthy: false})
+		for range perModelMissThreshold + 1 {
+			hm.doCheckAll(context.Background())
+		}
+		Expect(store.getCalls()).ToNot(ContainElement(ContainSubstring("RemoveNodeModel")))
+		Expect(hm.misses).To(BeEmpty())
+	})
+
+	It("does nothing when it was not told where to read the carrier", func() {
+		hm.carrier = nil
+		node("n1", StatusHealthy, "tunnel", "tunnel")
+		hm.doCheckAll(context.Background())
+		Expect(store.getNode("n1").Status).To(Equal(StatusHealthy))
+	})
+})

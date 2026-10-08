@@ -658,6 +658,22 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return set != nil && set.Name == cluster.CarrierTunnel
 	})
 
+	// A worker that reports it is not attached to the active carrier is demoted
+	// once the cluster has settled: after a forced change it is the worker that
+	// could not follow. While two carriers are attached the window routes it, so
+	// nothing is demoted then. The check also runs when a carrier is released, so
+	// that the demotion does not wait for the next tick.
+	healthMon.UseCarrier(func() (cluster.Carrier, bool) {
+		set := active.Load()
+		if set == nil {
+			return "", false
+		}
+		return set.Name, window.Previous() == nil
+	})
+	broadcaster.OnReconnect(func() {
+		go healthMon.CheckNow(context.Background())
+	})
+
 	// The protocol of a change of carrier, and what this replica does in one. The
 	// switch tells the other replicas of each move with a hint, so that they look
 	// at the row at once. The hint is a courtesy; the poll is what counts.

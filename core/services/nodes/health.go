@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -58,6 +59,36 @@ type HealthMonitor struct {
 	presence       NodePresenceReader
 	reconnectGrace time.Duration
 	tunnelActive   func() bool
+
+	// carrier is set by UseCarrier. It is written before the loop starts.
+	carrier func() (cluster.Carrier, bool)
+}
+
+// UseCarrier makes the monitor demote a worker that reports it is not attached to
+// the active carrier, once the cluster has settled. Such a worker heartbeats over
+// HTTP, which exists on both carriers, and it cannot be reached: it could not
+// follow a change, or it has not yet. The window of a change routes it through the
+// previous carrier, so nothing is demoted while a change is under way or a carrier
+// drains.
+//
+// active returns the active carrier and whether the cluster is settled: stable,
+// with nothing draining. Call it before Start.
+func (hm *HealthMonitor) UseCarrier(active func() (cluster.Carrier, bool)) {
+	hm.carrier = active
+}
+
+// carrierDeparted reports whether a worker has told the deployment that it is not
+// attached to the active carrier. A worker that reports nothing predates carrier
+// switching and is not judged by this: the tunnel read covers it where it matters.
+func (hm *HealthMonitor) carrierDeparted(node *BackendNode) bool {
+	if hm.carrier == nil || node == nil || node.Follow == "" {
+		return false
+	}
+	active, settled := hm.carrier()
+	if !settled {
+		return false
+	}
+	return !slices.Contains(splitCarriers(node.Attached), active)
 }
 
 // UsePresence makes the monitor read the tunnel of each node while the tunnel is
@@ -149,6 +180,11 @@ func (hm *HealthMonitor) Stop() {
 		hm.cancel = nil
 	}
 }
+
+// CheckNow runs one round of checks at once. A replica calls it when a carrier is
+// released, because the workers that did not follow are unreachable from that
+// moment, and the next tick may be seconds away.
+func (hm *HealthMonitor) CheckNow(ctx context.Context) { hm.checkAll(ctx) }
 
 func (hm *HealthMonitor) run(ctx context.Context) {
 	ticker := time.NewTicker(hm.checkInterval)
@@ -245,6 +281,20 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 					"node", node.Name, "nodeID", node.ID, "type", node.NodeType, "grace", hm.reconnectGrace)
 				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
 					xlog.Error("Failed to mark a departed node unhealthy", "node", node.Name, "error", err)
+				}
+			}
+			continue
+		}
+
+		// The same holds for a worker that says it is not on the active carrier. It
+		// stays registered and it heartbeats, it is not scheduled, and nothing of it
+		// is deleted. It is promoted again when it reports the active carrier.
+		if hm.carrierDeparted(&node) {
+			if node.Status != StatusUnhealthy && node.Status != StatusOffline {
+				xlog.Warn("Node is heartbeating but is not attached to the active carrier; marking unhealthy",
+					"node", node.Name, "nodeID", node.ID, "attached", node.Attached, "followError", node.FollowError)
+				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
+					xlog.Error("Failed to mark a node that is off the active carrier unhealthy", "node", node.Name, "error", err)
 				}
 			}
 			continue
