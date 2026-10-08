@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test'
 // Shared fixtures for the Studio front page specs: the installed models, a
 // gallery that offers a model per type, a machine, believable stored history,
 // and stand-ins for the files the history points at.
@@ -222,3 +223,15 @@ export async function seedThreeD(page, entries) {
 }
 
 export const readStore = (page, key) => page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), key)
+
+// The composer has no type chips: the tabs above it are the modes. A type is
+// picked with Alt+1..7, in the order the composer lists in data-types.
+export const composer = (page) => page.getByTestId('studio-composer')
+export async function pickType(page, key) {
+  const types = (await composer(page).getAttribute('data-types')).split(' ')
+  const n = types.indexOf(key) + 1
+  await expect(async () => {
+    await page.keyboard.press(`Alt+Digit${n}`)
+    await expect(composer(page)).toHaveAttribute('data-type', key, { timeout: 1500 })
+  }).toPass({ timeout: 10_000 })
+}

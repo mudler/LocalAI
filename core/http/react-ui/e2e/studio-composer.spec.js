@@ -1,14 +1,15 @@
 import { test, expect } from './coverage-fixtures.js'
 import {
-  INSTALLED, mockStudio, readStore, sampleHistory, seedHistory, seedThreeD, stubMedia,
+  INSTALLED, composer, pickType, mockStudio, readStore, sampleHistory, seedHistory, seedThreeD, stubMedia,
 } from './studio-fixtures.js'
 
 // The Studio front page composer (src/components/studio/StudioComposer.jsx):
-// a prompt box, a chip per type, a type suggestion from the words, starters,
+// a prompt box, a type suggestion from the words, starters,
 // the options each workspace accepts, and a hand-off to that workspace.
 
-const CHIP = (key) => page => page.locator(`.studio-types .studio-type[data-type="${key}"]`)
-const chip = (page, key) => CHIP(key)(page)
+// The modes are the tabs above the composer. A dot on a tab says whether a
+// model serves it.
+const tabDot = (page, key, state) => page.locator(`.studio-tab[data-tab="${key}"] .studio-tab__dot--${state}`)
 const prompt = (page) => page.getByRole('textbox', { name: 'Prompt' })
 const hint = (page) => page.locator('[data-testid="studio-hint"]')
 // Choose a result in the "Start from" select by the words in its label.
@@ -23,19 +24,20 @@ test.describe('Studio composer: choosing a type', () => {
     await mockStudio(page)
     await page.goto('/app/studio')
     await expect(page.getByRole('heading', { name: 'What do you want to make?' })).toBeVisible()
-    await expect(chip(page, 'images')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'images')
     await expect(prompt(page)).toHaveAttribute('placeholder', /Describe the image/)
     await expect(page.locator('[data-testid="studio-starters"] button')).toHaveCount(3)
     await expect(page.locator('[data-testid="studio-model"]')).toHaveValue('flux.1-schnell')
   })
 
-  test('shows all seven types as chips, in order, each with its key', async ({ page }) => {
+  test('has no chip row: the tabs are the modes, and the composer names the one it will open', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    const types = page.locator('.studio-types .studio-type')
-    await expect(types).toHaveCount(7)
-    await expect(types).toHaveText(['Images', 'Video', '3D', 'TTS', 'Sound', 'Transform', 'Diarization'])
-    await expect(chip(page, 'sound')).toHaveAttribute('title', 'Alt+5')
+    await expect(page.locator('.studio-types')).toHaveCount(0)
+    await expect(composer(page)).toHaveAttribute('data-types', 'images video threed tts sound transform diarization')
+    await expect(page.getByTestId('studio-current-type')).toHaveText('Images')
+    await pickType(page, 'sound')
+    await expect(page.getByTestId('studio-current-type')).toHaveText('Sound')
   })
 
   test('a starter fills the prompt and the starters go away', async ({ page }) => {
@@ -51,10 +53,10 @@ test.describe('Studio composer: choosing a type', () => {
     await page.goto('/app/studio')
     await expect(page.locator('[data-testid="studio-size"]')).toBeVisible()
     await expect(page.locator('[data-testid="studio-count"]')).toBeVisible()
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await expect(page.locator('[data-testid="studio-size"]')).toBeVisible()
     await expect(page.locator('[data-testid="studio-count"]')).toHaveCount(0)
-    await chip(page, 'tts').click()
+    await pickType(page, 'tts')
     await expect(page.locator('[data-testid="studio-size"]')).toHaveCount(0)
     await expect(page.locator('[data-testid="studio-count"]')).toHaveCount(0)
   })
@@ -63,7 +65,7 @@ test.describe('Studio composer: choosing a type', () => {
     await mockStudio(page)
     await page.goto('/app/studio')
     for (const key of ['threed', 'transform', 'diarization']) {
-      await chip(page, key).click()
+      await pickType(page, key)
       await expect(prompt(page)).toHaveCount(0)
       await expect(page.locator('[data-testid="studio-file-lead"]')).toBeVisible()
       await expect(generate(page)).toContainText('Open')
@@ -78,7 +80,7 @@ test.describe('Studio composer: suggesting a type', () => {
     await prompt(page).fill('Slow dolly through a misty pine forest, drone shot')
     await expect(hint(page)).toContainText('Sounds like Video')
     await page.locator('[data-testid="studio-switch"]').click()
-    await expect(chip(page, 'video')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'video')
     await expect(prompt(page)).toHaveValue(/Slow dolly/)
     await expect(hint(page)).toHaveText('')
   })
@@ -88,7 +90,7 @@ test.describe('Studio composer: suggesting a type', () => {
     await page.goto('/app/studio')
     await prompt(page).fill('Read this aloud in a warm voice')
     await expect(hint(page)).toContainText('Sounds like TTS')
-    await expect(chip(page, 'images')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'images')
   })
 
   test('Alt+Enter takes the suggestion', async ({ page }) => {
@@ -97,7 +99,7 @@ test.describe('Studio composer: suggesting a type', () => {
     await prompt(page).fill('Lo-fi piano with rain on glass')
     await expect(hint(page)).toContainText('Sounds like Sound')
     await page.keyboard.press('Alt+Enter')
-    await expect(chip(page, 'sound')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'sound')
   })
 
   test('a short or ordinary sentence suggests nothing', async ({ page }) => {
@@ -122,7 +124,7 @@ test.describe('Studio composer: suggesting a type', () => {
     await prompt(page).fill('Slow dolly through a misty pine forest')
     await expect(hint(page)).toContainText('no Video model is installed yet')
     await page.locator('[data-testid="studio-switch"]').click()
-    await expect(chip(page, 'video')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'video')
     await expect(page.locator('[data-testid="studio-install-note"]')).toBeVisible()
     await expect(prompt(page)).toHaveValue(/Slow dolly/)
   })
@@ -150,7 +152,7 @@ test.describe('Studio composer: keys', () => {
     for (let i = 0; i < order.length; i++) {
       await expect(async () => {
         await page.keyboard.press(`Alt+Digit${i + 1}`)
-        await expect(chip(page, order[i])).toHaveAttribute('aria-pressed', 'true', { timeout: 1500 })
+        await expect(composer(page)).toHaveAttribute('data-type', order[i], { timeout: 1500 })
       }).toPass({ timeout: 10_000 })
     }
   })
@@ -181,7 +183,7 @@ test.describe('Studio composer: Generate', () => {
   test('is disabled with the install reason when the type has no model', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await prompt(page).fill('waves on black sand')
     await expect(generate(page)).toBeDisabled()
     await expect(page.locator('[data-testid="studio-why"]')).toHaveText('Install the Video model first')
@@ -232,7 +234,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
   test('Video opens with the prompt, model and size', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await prompt(page).fill('Waves rolling onto black sand, drone shot')
     await page.locator('[data-testid="studio-size"]').selectOption('1280x720')
     await generate(page).click()
@@ -245,7 +247,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
   test('TTS opens with the words in the text box', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    await chip(page, 'tts').click()
+    await pickType(page, 'tts')
     await prompt(page).fill('Welcome to the harbour tour.')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/tts\?/)
@@ -256,7 +258,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
   test('Sound opens with the description in the simple prompt', async ({ page }) => {
     await mockStudio(page)
     await page.goto('/app/studio')
-    await chip(page, 'sound').click()
+    await pickType(page, 'sound')
     await prompt(page).fill('Wind through pines, no music')
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/sound\?/)
@@ -268,7 +270,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
     await page.goto('/app/studio')
-    await chip(page, 'threed').click()
+    await pickType(page, 'threed')
     await pickSource(page, /ceramic bowls/)
     await generate(page).click()
     await expect(page).toHaveURL(/\/app\/studio\/threed\?.*from=img-bowls.*edge=to-3d/)
@@ -286,7 +288,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.goto('/app/studio')
     for (const [key, edge] of [['transform', 'transform'], ['diarization', 'diarize']]) {
       await page.goto('/app/studio')
-      await chip(page, key).click()
+      await pickType(page, key)
       await pickSource(page, /Welcome to the harbour tour/)
       await generate(page).click()
       await expect(page).toHaveURL(new RegExp(`/app/studio/${key}\\?.*edge=${edge}`))
@@ -382,13 +384,13 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 })
 
 test.describe('Studio composer: a model that is missing', () => {
-  test('the missing type is a dashed chip that opens its note only when picked', async ({ page }) => {
+  test('the missing type has a hollow tab dot and opens its note only when picked', async ({ page }) => {
     await mockStudio(page, { types: ['images', 'tts'] })
     await page.goto('/app/studio')
-    await expect(chip(page, 'video')).toHaveAttribute('data-missing', 'true')
-    await expect(chip(page, 'images')).not.toHaveAttribute('data-missing', 'true')
+    await expect(tabDot(page, 'video', 'off')).toBeVisible()
+    await expect(tabDot(page, 'images', 'on')).toBeVisible()
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toBeVisible()
     await expect(note).toContainText('No Video model installed')
@@ -400,14 +402,14 @@ test.describe('Studio composer: a model that is missing', () => {
     await expect(note).toContainText('Nothing starts until you install it')
     await expect(note.getByRole('button', { name: 'Install wan2.1-t2v-1.3b' })).toBeVisible()
     // Switching back to a type with a model closes it.
-    await chip(page, 'images').click()
+    await pickType(page, 'images')
     await expect(note).toHaveCount(0)
   })
 
   test('Install asks the gallery for that model, keeps the typed words, and the note goes when the model arrives', async ({ page }) => {
     const state = await mockStudio(page, { types: ['images'], installOnPost: true })
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await prompt(page).fill('Waves rolling onto black sand, drone shot')
     await page.locator('[data-testid="studio-install"]').click()
     await expect.poll(() => state.installs).toEqual(['wan2.1-t2v-1.3b'])
@@ -415,7 +417,7 @@ test.describe('Studio composer: a model that is missing', () => {
     await expect(prompt(page)).toHaveValue('Waves rolling onto black sand, drone shot')
     // The page polls while it installs; the model shows up and the note goes.
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0, { timeout: 15_000 })
-    await expect(chip(page, 'video')).not.toHaveAttribute('data-missing', 'true')
+    await expect(tabDot(page, 'video', 'on')).toBeVisible()
     await expect(prompt(page)).toHaveValue('Waves rolling onto black sand, drone shot')
     await expect(generate(page)).toBeEnabled()
   })
@@ -423,7 +425,7 @@ test.describe('Studio composer: a model that is missing', () => {
   test('shows the progress of the install from the operations list', async ({ page }) => {
     await mockStudio(page, { types: ['images'], operations: [{ id: 'wan2.1-t2v-1.3b', name: 'wan2.1-t2v-1.3b', jobID: 'j1', progress: 42, isBackend: false, isDeletion: false, taskType: 'installation' }] })
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('Installing wan2.1-t2v-1.3b 42%')
     await expect(note.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
@@ -433,7 +435,7 @@ test.describe('Studio composer: a model that is missing', () => {
   test('a failed install says why, in words, and offers the button again', async ({ page }) => {
     await mockStudio(page, { types: ['images'], installStatus: 500 })
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await page.locator('[data-testid="studio-install"]').click()
     await expect(page.getByRole('alert')).toContainText('The install did not start')
     await expect(page.locator('[data-testid="studio-install"]')).toBeVisible()
@@ -443,7 +445,7 @@ test.describe('Studio composer: a model that is missing', () => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models(\?.*)?$/, route => route.fulfill({ json: { models: [], total_pages: 1 } }))
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('The gallery lists no Video model')
     await expect(note.getByRole('link', { name: 'Browse all models' })).toHaveAttribute('href', /\/app\/models/)
@@ -453,7 +455,7 @@ test.describe('Studio composer: a model that is missing', () => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models(\?.*)?$/, route => route.fulfill({ status: 500, json: { error: 'down' } }))
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     await expect(page.locator('[data-testid="studio-install-note"]')).toContainText('could not be reached')
   })
 
@@ -461,7 +463,7 @@ test.describe('Studio composer: a model that is missing', () => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models\/estimate\//, route => route.fulfill({ json: {} }))
     await page.goto('/app/studio')
-    await chip(page, 'video').click()
+    await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('has no download size listed')
     await expect(note).toContainText('memory need is not listed')
@@ -470,19 +472,19 @@ test.describe('Studio composer: a model that is missing', () => {
   test('a new user with no models at all gets one honest path, not a wall', async ({ page }) => {
     await mockStudio(page, { types: [] })
     await page.goto('/app/studio')
-    await expect(page.locator('.studio-types .studio-type[data-missing="true"]')).toHaveCount(7)
+    await expect(page.locator('.studio-tab__dot--off')).toHaveCount(7)
     await expect(page.locator('[data-testid="studio-first-run"]')).toContainText('Nothing is installed yet')
     await expect(page.locator('[data-testid="studio-install-note"]')).toContainText('No Images model installed')
     await expect(page.locator('[data-testid="studio-model"]')).toBeDisabled()
     await expect(generate(page)).toBeDisabled()
   })
 
-  test('a machine with one model has that type solid and the rest dashed', async ({ page }) => {
+  test('a machine with one model has that tab filled and the rest hollow', async ({ page }) => {
     await mockStudio(page, { types: ['tts'] })
     await page.goto('/app/studio')
-    await expect(page.locator('.studio-types .studio-type[data-missing="true"]')).toHaveCount(6)
+    await expect(page.locator('.studio-tab__dot--off')).toHaveCount(6)
     // It opens on the first type that works, not on one that cannot.
-    await expect(chip(page, 'tts')).toHaveAttribute('aria-pressed', 'true')
+    await expect(composer(page)).toHaveAttribute('data-type', 'tts')
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
   })
 

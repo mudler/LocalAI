@@ -98,36 +98,9 @@
 }
 .studio-composer__head h2 { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-17) / 1.2 var(--dk-font-display); letter-spacing: -.01em; }
 .studio-composer__head span { color: var(--dk-muted); font-size: var(--dk-text-13); }
+.studio-composer__head .studio-composer__now { margin-left: auto; font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-mono); letter-spacing: .06em; text-transform: uppercase; }
 
-.studio-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--dk-space-2);
-  padding: var(--dk-space-3) var(--dk-space-4) 0;
-}
-
-/* A type whose model is missing is dashed: honest about being unavailable, and
-   still pickable, because picking it is how you learn what it needs. */
 .studio-type { height: 34px; }
-.studio-type[data-missing] {
-  background: transparent;
-  box-shadow: none;
-  border: 1.5px dashed var(--dk-control-edge);
-  color: var(--dk-muted);
-}
-.studio-type[data-missing]:hover { background: var(--dk-hover); color: var(--dk-text); }
-.studio-type[data-missing][aria-pressed="true"] {
-  background: var(--dk-card);
-  border-style: solid;
-  border-color: var(--dk-text);
-  color: var(--dk-text);
-}
-.studio-type[data-missing][aria-pressed="true"]::before { display: none; }
-.studio-type[aria-pressed="true"]:not([data-missing]) {
-  background: var(--dk-card);
-  color: var(--dk-text);
-  box-shadow: inset 0 0 0 1.5px var(--dk-text);
-}
 
 .studio-composer__box { padding: var(--dk-space-2) var(--dk-space-5) 0; }
 

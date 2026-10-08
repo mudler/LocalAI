@@ -25,11 +25,8 @@
     },
     "composer": {
       "title": "What do you want to make?",
-      "lede": "Pick a type, or describe it and Studio suggests one.",
-      "types": "What to make",
+      "lede": "Describe it and Studio suggests the type. Alt+1 to 7 picks one.",
       "startTyping": "start typing",
-      "chipKey": "Alt+{{n}}",
-      "chipMissing": "No {{type}} model installed. Pick it to see what it needs.",
       "prompt": "Prompt",
       "placeholder": {
         "images": "Describe the image you want…",

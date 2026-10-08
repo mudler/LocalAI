@@ -30,11 +30,12 @@ function isTyping(el) {
 
 // "What do you want to make?"
 //
-// One box and a row of types. The types are the seven workspaces; a type with a
-// model installed is a solid chip and a type without one is dashed, and only
-// picking the dashed one opens what it needs. Typing suggests a type from the
-// words and never switches by itself. Generate does not run anything here: it
-// opens the workspace with the prompt and the options the workspace accepts.
+// One box. The workspaces are the tabs above it, so the composer carries no
+// type control of its own: it starts on the first type with a model, shows
+// which type it will open, and suggests another from the words as a quiet hint
+// (taken with the link or Alt+Enter, or Alt+1..7 to pick directly). Typing
+// never switches by itself. Generate does not run anything here: it opens the
+// workspace with the prompt and the options the workspace accepts.
 export default function StudioComposer({
   draft, setDraft, modalities, items, onHandoff, onModelsChanged, defaultModel,
 }) {
@@ -126,31 +127,11 @@ export default function StudioComposer({
   const noneInstalled = modalities.every(m => m.installed.length === 0)
 
   return (
-    <section className="studio-composer" aria-labelledby="studio-composer-title" data-testid="studio-composer" data-type={type}>
+    <section className="studio-composer" aria-labelledby="studio-composer-title" data-testid="studio-composer" data-type={type} data-types={types.join(' ')} data-missing={missing || undefined}>
       <div className="studio-composer__head">
         <h2 id="studio-composer-title">{t('studio.composer.title')}</h2>
         <span>{t('studio.composer.lede')}</span>
-      </div>
-
-      <div className="studio-types" role="group" aria-label={t('studio.composer.types')}>
-        {types.map((key, i) => {
-          const isMissing = (infoFor(key)?.installed.length || 0) === 0
-          return (
-            <button
-              key={key}
-              type="button"
-              className="dk-chip studio-type"
-              aria-pressed={type === key}
-              data-type={key}
-              data-missing={isMissing || undefined}
-              title={isMissing ? t('studio.composer.chipMissing', { type: label(key) }) : t('studio.composer.chipKey', { n: i + 1 })}
-              onClick={() => pickType(key)}
-            >
-              <Icon name={TYPE_ICON[key]} />
-              {label(key)}
-            </button>
-          )
-        })}
+        <span className="studio-composer__now" data-testid="studio-current-type">{label(type)}</span>
       </div>
 
       <div className="studio-composer__box">

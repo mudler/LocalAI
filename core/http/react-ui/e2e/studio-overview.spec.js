@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { composer, pickType } from './studio-fixtures.js'
 
 // Studio overview (src/pages/StudioOverview.jsx).
 //
@@ -10,7 +11,6 @@ import { test, expect } from './coverage-fixtures.js'
 // a type with a model is solid, a type without one is dashed.
 
 const OVERVIEW = '[data-testid="studio-overview"]'
-const CHIP = (key) => `.studio-types .studio-type[data-type="${key}"]`
 const tabFor = (page, key) => page.locator(`.studio-tab[data-tab="${key}"]`)
 
 const model = (id, ...capabilities) => ({ id, capabilities })
@@ -86,25 +86,23 @@ test.describe('Studio overview', () => {
   test('a modality with no model offers a way to install one', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')
-    const video = page.locator(CHIP('video'))
-    await expect(video).toBeVisible()
-    // Dashed, because nothing serves it. Picking it is how you learn what it needs.
-    await expect(video).toHaveAttribute('data-missing', 'true')
+    // A hollow dot on the tab, because nothing serves it. Picking it in the
+    // composer is how you learn what it needs.
+    await expect(tabFor(page, 'video').locator('.studio-tab__dot--off')).toBeVisible()
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
-    await video.click()
+    await pickType(page, 'video')
     await expect(page.locator('[data-testid="studio-install-note"]')).toBeVisible()
   })
 
   test('a modality with a model names it instead of offering an install', async ({ page }) => {
     await mockCapabilities(page)
     await page.goto('/app/studio')
-    const images = page.locator(CHIP('images'))
-    await expect(images).not.toHaveAttribute('data-missing', 'true')
+    await expect(tabFor(page, 'images').locator('.studio-tab__dot--on')).toBeVisible()
     await expect(page.locator('[data-testid="studio-model"]')).toHaveValue('flux.1-schnell')
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
   })
 
-  test('a disabled feature gets no tab and no chip at all', async ({ page }) => {
+  test('a disabled feature gets no tab and no composer type', async ({ page }) => {
     // Switched off is a different thing from "no model installed", and
     // conflating them is how someone ends up staring at a control that cannot
     // work. 3d is a permission rather than an /api/features entry, and
@@ -120,7 +118,7 @@ test.describe('Studio overview', () => {
     await page.goto('/app/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
     await expect(tabFor(page, 'threed')).toHaveCount(0)
-    await expect(page.locator(CHIP('threed'))).toHaveCount(0)
+    await expect(composer(page)).not.toHaveAttribute('data-types', /threed/)
   })
 
   test('asks the capabilities endpoint once, not once per modality', async ({ page }) => {
@@ -141,8 +139,8 @@ test.describe('Studio overview', () => {
     await mockCapabilities(page, { data: [] })
     await page.goto('/app/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
-    await expect(page.locator('.studio-types .studio-type').first()).toBeVisible()
-    await expect(page.locator('.studio-types .studio-type[data-missing="true"]')).toHaveCount(7)
+    await expect(composer(page)).toBeVisible()
+    await expect(page.locator('.studio-tab__dot--off')).toHaveCount(7)
     await expect(page.locator('.studio-tab__dot--on')).toHaveCount(0)
   })
 
