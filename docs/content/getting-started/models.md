@@ -76,15 +76,25 @@ Visit [models.localai.io](https://models.localai.io) to browse all available mod
 
 ## Method 1.5: Import Models via WebUI
 
-The WebUI import page takes either a source to resolve or a configuration to
-write. Both live on the same page, behind the two tabs in its header.
+The WebUI import page (**Build → Import**) takes either a source to resolve or a
+configuration to write. Both live on the same page, behind the two tabs in its
+header. From a source, it is a short guided flow: source, review, import, done.
 
 ### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Click "Import Model"
-3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
-4. Press Enter, or click **Import**
+2. Open **Build**, then **Import**
+3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`), or start from one of the examples
+4. Review what the page says, then press Enter or click **Import**
+
+While you type, the page reads the spelling of the source (Hugging Face
+repository, direct URL, configuration file, OCI image, Ollama model, or a path
+on the host) and shows the request the form will send. It also runs the checks
+that can be made before the import starts: whether the name is already in use,
+whether the chosen backend is installed, and how much disk and memory are free.
+The server returns no preview of the model configuration, the size or the memory
+a model needs before the import starts, so the page does not show them. They
+appear once the import starts, next to the free memory and disk.
 
 The **What you can paste** panel beside the field lists every accepted scheme:
 `huggingface://`, `hf://`, a full Hugging Face URL, any direct `https://` URL,
@@ -108,8 +118,10 @@ vision-language models and `mlx-audio` for text-to-speech models; other MLX
 repositories use `mlx`. An explicit backend selection in the import form always
 overrides this automatic routing.
 
-Once the import starts, the page reports the current phase, the bytes
-transferred and a progress bar until the model is ready.
+Once the import starts, the page reports the download size and the memory the
+model needs against what is free, then the current phase, the bytes transferred
+and a progress bar. When the model is ready, the page names it and links to a
+chat with it and to Models.
 
 ### Writing YAML
 

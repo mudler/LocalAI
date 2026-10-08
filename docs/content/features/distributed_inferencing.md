@@ -33,6 +33,8 @@ LocalAI supports two modes of distributed inferencing via p2p:
 
 A list of global instances shared by the community is available at [explorer.localai.io](https://explorer.localai.io).
 
+A LocalAI server started with `local-ai explorer` serves the same list at `/explorer`. Each swarm shows its name, description, the types of its clusters, how many workers are online and a shortened token. **How to join** shows the whole token and, for a federated cluster, the Docker and command-line commands that start a node on it. **List a swarm** adds a swarm to the list. Listing publishes its token, so anyone who sees the list can use the swarm's workers. Only swarms with at least one online worker are listed. On a server that is not in explorer mode, the page says so.
+
 ## Usage
 
 Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 
