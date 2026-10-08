@@ -234,7 +234,7 @@ voice conversion from the same weights.
 ## Family notes
 
 - **Fish Audio voice cloning**: save a reference clip with its transcript in the
-  Voice Library, then select **Use in Text to Speech**. The backend accepts
+  Voice Library (**Build → Voices → Speech voices**), then select **Use in Text to Speech**. The backend accepts
   `params.ref_text` as an alias for `params.reference_text` in both ordinary and
   streaming speech requests. If you supply both parameters, `reference_text`
   takes precedence. For direct requests with a reference file in `voice`, supply
