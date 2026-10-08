@@ -85,7 +85,7 @@ export const FIELDS = [
     default: false, apply: 'live' },
   { key: 'size_aware_eviction', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Evict the largest model first',
     desc: 'Evict the largest loaded model first instead of the least recently used one.',
-    default: false, apply: 'live' },
+    default: false },
   { key: 'lru_eviction_max_retries', group: 'memory', was: 'watchdog', kind: 'int', label: 'Eviction retries',
     desc: 'Maximum retries while waiting for busy models to become idle before eviction.',
     placeholder: '30', default: 30, min: 0, apply: 'live' },
@@ -117,9 +117,9 @@ export const FIELDS = [
 
   // ---- Backends and galleries ----------------------------------------------
   { key: 'auto_upgrade_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Upgrade backends automatically',
-    desc: 'Upgrade backends when a new version is found.', default: false, apply: 'live' },
+    desc: 'Upgrade backends when a new version is found.', default: false },
   { key: 'prefer_development_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Prefer development backends',
-    desc: 'Show development backend versions first in the backends gallery.', default: false, apply: 'live' },
+    desc: 'Show development backend versions first in the backends gallery.', default: false },
   { key: 'autoload_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Load and pre-warm galleries on boot',
     desc: 'Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts.', default: true },
   { key: 'autoload_backend_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Autoload Backend Galleries',
