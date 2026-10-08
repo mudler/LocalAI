@@ -51,8 +51,13 @@ test.describe('Hub tabs: the right tab for each route', () => {
     ['/app/backends', 'runtime'],
     ['/app/activity', 'runtime'],
     ['/app/failover', 'runtime'],
+    ['/app/traffic', 'traffic'],
+    ['/app/traffic/models', 'traffic'],
+    ['/app/traffic/host', 'traffic'],
+    ['/app/traffic/prometheus', 'traffic'],
     ['/app/usage', 'traffic'],
     ['/app/traces', 'traffic'],
+    ['/app/traces/t1', 'traffic'],
     ['/app/middleware', 'traffic'],
     ['/app/settings', 'settings'],
   ]
@@ -93,7 +98,7 @@ test.describe('Hub tabs: the right tab for each route', () => {
   test('a tab link goes to the first route of the tab', async ({ page }) => {
     await page.goto('/app/settings')
     await tab(page, 'traffic').click()
-    await expect(page).toHaveURL(/\/app\/usage$/)
+    await expect(page).toHaveURL(/\/app\/traffic$/)
     await expect(tab(page, 'traffic')).toHaveAttribute('aria-current', 'page')
   })
 })

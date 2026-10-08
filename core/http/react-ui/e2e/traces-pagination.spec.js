@@ -70,19 +70,23 @@ test.describe('Traces - bounded list and on-demand detail', () => {
     await expect(page.locator('button', { hasText: 'API Traces' })).toContainText('842')
   })
 
-  test('fetches the full record when a row is expanded', async ({ page }) => {
-    await page.locator('tr', { hasText: '/v1/chat/completions' }).first().click()
+  test('fetches the full record when a trace is opened, and keeps the bodies closed until revealed', async ({ page }) => {
+    await page.getByRole('link', { name: '/v1/chat/completions' }).click()
+    await expect(page).toHaveURL(/\/app\/traces\/7$/)
 
-    // The bodies live only in the detail response, so seeing them proves the
-    // per-trace fetch happened and its payload is what gets rendered.
-    await expect(page.locator('text=hello from the request body')).toBeVisible()
-    await expect(page.locator('text=hello from the response body')).toBeVisible()
+    // The record is fetched, so the client address from the detail shows.
     await expect(page.locator('text=203.0.113.9').first()).toBeVisible()
+    // Bodies hold prompts and personal data: not in the page until revealed.
+    await expect(page.locator('text=hello from the request body')).toHaveCount(0)
+    await page.getByTestId('body-request').getByRole('button', { name: 'Reveal' }).click()
+    await expect(page.locator('text=hello from the request body')).toBeVisible()
+    await expect(page.locator('text=hello from the response body')).toHaveCount(0)
+    await page.getByTestId('body-response').getByRole('button', { name: 'Reveal' }).click()
+    await expect(page.locator('text=hello from the response body')).toBeVisible()
   })
 
-  test('keeps the expanded trace open when a refresh prepends a new row', async ({ page }) => {
-    await page.locator('tr', { hasText: '/v1/chat/completions' }).first().click()
-    await expect(page.locator('text=hello from the request body')).toBeVisible()
+  test('a refresh that prepends a new row keeps the older row in the list', async ({ page }) => {
+    await expect(page.getByRole('link', { name: '/v1/chat/completions' })).toBeVisible()
 
     await page.route('**/api/traces?*', (route) => {
       route.fulfill({
@@ -101,8 +105,7 @@ test.describe('Traces - bounded list and on-demand detail', () => {
 
     await page.getByRole('button', { name: 'Refresh' }).click()
 
-    await expect(page.locator('text=hello from the request body')).toBeVisible()
-    const originalRow = page.locator('tr', { hasText: '/v1/chat/completions' }).first()
-    await expect(originalRow.locator('svg[data-icon="chevron-down"]')).toBeVisible()
+    await expect(page.getByRole('link', { name: '/v1/models' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '/v1/chat/completions' })).toBeVisible()
   })
 })

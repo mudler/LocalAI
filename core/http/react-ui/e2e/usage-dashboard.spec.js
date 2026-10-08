@@ -89,9 +89,9 @@ test.describe('Usage page — single-user no-auth mode', () => {
     await expect(page.getByText('Usage tracking unavailable')).toHaveCount(0)
 
     // The total-tokens stat card is one of the first things rendered after
-    // a successful /api/usage call. We assert the formatted number "1.8K"
-    // is present (formatNumber in Usage.jsx renders 1801 as "1.8K").
-    await expect(page.getByText('1.8K').first()).toBeVisible()
+    // a successful /api/usage call. We assert the formatted number "1.8k"
+    // is present (the usage summary renders 1801 as "1.8k").
+    await expect(page.getByTestId('usage-table').getByText('1.8k').first()).toBeVisible()
   })
 })
 
@@ -142,7 +142,7 @@ test.describe('Usage page — auth on', () => {
     })
 
     await page.goto('/app/usage')
-    await expect(page.getByText('1.8K').first()).toBeVisible()
+    await expect(page.getByTestId('usage-table').getByText('1.8k').first()).toBeVisible()
     expect(authUsageHit).toBe(true)
   })
 })
