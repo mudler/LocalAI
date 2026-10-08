@@ -209,6 +209,8 @@ var _ = Describe("The swap of a replica", func() {
 		timings cluster.Timings
 		// stopGrace and closeGrace are the bounds of the swappers that join starts.
 		stopGrace, closeGrace time.Duration
+		// settleFor is how long a released set stays open.
+		settleFor time.Duration
 	)
 
 	// join starts a replica on the carrier that the row names, as initDistributed does.
@@ -238,7 +240,7 @@ var _ = Describe("The swap of a replica", func() {
 		n.swapper, err = carrier.NewSwapper(carrier.SwapperOptions{
 			Cur: &n.cur, Bus: n.bus, Window: windowSpy{n.window, n}, Rows: store,
 			Ready: readyReporter{reg: reg, id: id}, Build: n.build,
-			Interval: time.Hour, Settle: 50 * time.Millisecond,
+			Interval: time.Hour, Settle: settleFor,
 			StopGrace: stopGrace, CloseGrace: closeGrace,
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -310,6 +312,7 @@ var _ = Describe("The swap of a replica", func() {
 		net = newFakeNet()
 		nodes = nil
 		stopGrace, closeGrace = 0, 0
+		settleFor = 50 * time.Millisecond
 		timings = cluster.Timings{PrepareTimeout: time.Minute, TransitionWindow: time.Minute, MaxDrain: time.Minute}
 		sw, err = cluster.NewSwitch(cluster.SwitchOptions{Store: store, Registry: reg, Timings: func() cluster.Timings { return timings }})
 		Expect(err).ToNot(HaveOccurred())
@@ -810,6 +813,9 @@ var _ = Describe("The swap of a replica", func() {
 
 	Describe("a call that runs while the set changes", func() {
 		It("never blocks and never reaches a closed set", func() {
+			// A call that took the draining set just before the window closed gets this
+			// long to finish. It is long against the pause of a busy machine.
+			settleFor = 2 * time.Second
 			a, b := join("a"), join("b")
 			// A worker that is on the carrier that drains only: its calls go to the
 			// draining set through the window, until the drain ends.

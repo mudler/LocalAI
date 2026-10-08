@@ -538,20 +538,23 @@ func (s *Swapper) retire(old, next *Set) {
 			s.stopBounded(old.Name, m.stop)
 		}
 		s.handoff(old, next)
-		closeSet(old)
 		// Messages across the flip were not ordered, so the consumers read their
 		// tables once.
 		s.o.Bus.NotifyReconnect()
+		// The set stays open for the settle time. A call that took the old set from
+		// the window or from the pointer just before they moved is still using it,
+		// and a producer that was slow to flip can still put work on it. Closing it
+		// first would fail those calls.
 		select {
 		case <-time.After(s.o.Settle):
 		case <-s.done:
 		}
-		// A producer that was slow to flip can still have put work on the old
-		// carrier. The handoff is a compare-and-set, so a second run finds nothing
-		// that the first took.
+		// The handoff is a compare-and-set, so a second run finds nothing that the
+		// first took.
 		if cur := s.o.Cur.Load(); cur != old {
 			s.handoff(old, cur)
 		}
+		closeSet(old)
 	}()
 }
 
