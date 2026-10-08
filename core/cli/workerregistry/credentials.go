@@ -43,6 +43,12 @@ type RegisterFunc func(ctx context.Context) (*RegisterResponse, error)
 type CredentialManager struct {
 	register     RegisterFunc
 	requireCreds bool // block until credentials are present (frontend minting in use)
+	// carrier is the carrier whose credential this manager waits for. Empty
+	// means the one the frontend names as active, which is what a worker wants
+	// when it starts. A worker that follows a change asks for the carrier it
+	// attaches to, and that is not the active one yet while the change is
+	// prepared.
+	carrier string
 
 	// Tunables; defaults set by NewCredentialManager, overridable in tests.
 	initialBackoff time.Duration
@@ -57,6 +63,29 @@ type CredentialManager struct {
 	seed        string
 	nodeID      string
 	tunnelToken string
+}
+
+// NewCredentialManagerFor is NewCredentialManager for a manager that waits for the
+// credential of one carrier, whichever the cluster has active. register must ask
+// the frontend for that carrier.
+func NewCredentialManagerFor(register RegisterFunc, requireCreds bool, carrier string) *CredentialManager {
+	m := NewCredentialManager(register, requireCreds)
+	m.carrier = carrier
+	return m
+}
+
+// credentialFor is the carrier that an answer carries a credential for.
+func (m *CredentialManager) credentialFor(res *RegisterResponse) string {
+	if m.carrier != "" {
+		return m.carrier
+	}
+	return res.Carrier
+}
+
+// wrongCarrier is true when the manager asked for a carrier and the frontend
+// answered with the credential of another.
+func (m *CredentialManager) wrongCarrier(res *RegisterResponse) bool {
+	return m.carrier != "" && res.CredentialFor != "" && res.CredentialFor != m.carrier
 }
 
 // NewCredentialManager builds a manager over register. When requireCreds is
@@ -153,10 +182,13 @@ func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, err
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		case res.Carrier == carrierTunnel && res.TunnelToken == "":
+		case m.wrongCarrier(res):
+			lastReason = fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
+			xlog.Info("The frontend does not hand out the credential of that carrier yet; waiting", "asked", m.carrier, "got", res.CredentialFor, "attempt", attempt, "next_retry", backoff)
+		case m.credentialFor(res) == carrierTunnel && res.TunnelToken == "":
 			lastReason = fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
 			xlog.Info("Node registered but the tunnel credential is not minted yet; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
-		case res.Carrier == carrierTunnel:
+		case m.credentialFor(res) == carrierTunnel:
 			m.store(res)
 			return res, nil
 		case !m.requireCreds:
@@ -193,7 +225,10 @@ func (m *CredentialManager) Reregister(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if res.Carrier == carrierTunnel && res.TunnelToken == "" {
+	if m.wrongCarrier(res) {
+		return fmt.Errorf("asked for the credential of the %s carrier and got the one of the %s carrier", m.carrier, res.CredentialFor)
+	}
+	if m.credentialFor(res) == carrierTunnel && res.TunnelToken == "" {
 		return fmt.Errorf("node %s registered but the tunnel credential was not minted", res.ID)
 	}
 	m.store(res)

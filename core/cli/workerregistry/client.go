@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -71,6 +72,31 @@ type RegisterResponse struct {
 	// TunnelToken is the own credential of the node for the tunnel. It is sent
 	// once and only when the tunnel is the active carrier.
 	TunnelToken string `json:"tunnel_token,omitempty"`
+	// CarrierState, CarrierTarget and CarrierDraining say whether a change of
+	// carrier is under way. CredentialFor is the carrier that the credential in
+	// the answer is for: the one the worker asked for, when the frontend allowed
+	// it, else the active one.
+	CarrierState    string `json:"carrier_state,omitempty"`
+	CarrierTarget   string `json:"carrier_target,omitempty"`
+	CarrierDraining string `json:"carrier_draining,omitempty"`
+	CredentialFor   string `json:"credential_for,omitempty"`
+	// NatsURL is the address workers use for NATS, NatsCA the CA of the server as
+	// PEM, and NatsClientTLS says the server asks for a client certificate, which
+	// the frontend cannot hand over.
+	NatsURL       string `json:"nats_url,omitempty"`
+	NatsCA        string `json:"nats_ca,omitempty"`
+	NatsClientTLS bool   `json:"nats_client_tls,omitempty"`
+}
+
+// HeartbeatReply is the answer to a heartbeat. The carrier fields are empty when
+// the frontend predates carriers.
+type HeartbeatReply struct {
+	Carrier         string `json:"carrier,omitempty"`
+	CarrierEpoch    int64  `json:"carrier_epoch,omitempty"`
+	CarrierState    string `json:"carrier_state,omitempty"`
+	CarrierTarget   string `json:"carrier_target,omitempty"`
+	CarrierDraining string `json:"carrier_draining,omitempty"`
+	NatsClientTLS   bool   `json:"nats_client_tls,omitempty"`
 }
 
 // RegisterFull sends a single registration request and returns the full
@@ -143,24 +169,46 @@ func (c *RegistrationClient) RegisterFullWithRetry(ctx context.Context, body map
 	return nil, err
 }
 
-// Heartbeat sends a single heartbeat POST with the given body.
+// Heartbeat sends a single heartbeat POST with the given body. It fails only when
+// the request cannot be made.
 func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body map[string]any) error {
+	resp, err := c.post(ctx, nodeID, body)
+	if err != nil {
+		return err
+	}
+	return resp.Body.Close()
+}
+
+// HeartbeatFull sends a heartbeat and returns the answer, which tells the worker
+// which carrier the cluster uses. It fails when the frontend refuses the
+// heartbeat, for example for a node it does not know.
+func (c *RegistrationClient) HeartbeatFull(ctx context.Context, nodeID string, body map[string]any) (*HeartbeatReply, error) {
+	resp, err := c.post(ctx, nodeID, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("heartbeat refused with status %d", resp.StatusCode)
+	}
+	var reply HeartbeatReply
+	// An answer that is not JSON is the answer of a frontend that says nothing
+	// about carriers.
+	_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&reply)
+	return &reply, nil
+}
+
+func (c *RegistrationClient) post(ctx context.Context, nodeID string, body map[string]any) (*http.Response, error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/" + nodeID + "/heartbeat"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return fmt.Errorf("creating heartbeat request: %w", err)
+		return nil, fmt.Errorf("creating heartbeat request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
-
-	resp, err := c.httpClient().Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return c.httpClient().Do(req)
 }
 
 // HeartbeatLoop runs heartbeats at the given interval until ctx is cancelled.
