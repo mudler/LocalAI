@@ -71,6 +71,18 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
           PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
+      - name: Distributed E2E, switch of the carrier
+        # Real processes: two frontends and two workers change the carrier
+        # between NATS and the database tunnel while a model serves requests.
+        # It runs apart from the suite above so that a failure names the
+        # switch and the two logs stay short. Like the suite, it needs only the
+        # public PostgreSQL and NATS images and no secret, so a pull request
+        # from a fork runs it the same way.
+        if: ${{ !cancelled() }}
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          PATH="$PATH:$HOME/go/bin" make test-e2e-distributed-switch
       # tmate keeps the runner busy until the 6 hour job limit, so a single
       # failure costs a whole runner slot. Only open a session when someone
       # asked for one by labelling the pull request `ci-debug`, and cap the
