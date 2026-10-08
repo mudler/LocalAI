@@ -81,8 +81,18 @@ type Session struct {
 // ServerSession starts the frontend side of a session on ws. The frontend owns
 // the streams with even numbers and opens the streams. It does not accept any,
 // because only the frontend asks and the worker answers.
+//
+// The session allows no incoming stream, so yamux resets every stream that the
+// worker opens. Nothing reads such a stream. A session that accepted it would
+// keep its window of unread data for as long as the session lives, 256 KiB for
+// each stream on the inference lane and up to 4 MiB on the bulk lane, until the
+// default limit of 1000 streams: about 64 MiB and 1 GiB for a worker that
+// misbehaves. The worker side keeps the default, because it accepts the
+// streams of the frontend.
 func ServerSession(ws *websocket.Conn, lane Lane) (*Session, error) {
-	s, err := yamux.Server(websocketConn(ws), sessionConfig(lane), nil)
+	cfg := sessionConfig(lane)
+	cfg.MaxIncomingStreams = 0
+	s, err := yamux.Server(websocketConn(ws), cfg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("starting the server side of a tunnel session: %w", err)
 	}

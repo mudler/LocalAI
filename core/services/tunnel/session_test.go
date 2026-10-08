@@ -2,7 +2,9 @@ package tunnel_test
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -51,6 +53,55 @@ var _ = Describe("Buffers of the websocket", func() {
 	It("keeps the default origin check so that a browser of another origin is refused", func() {
 		Expect(tunnel.NewUpgrader().CheckOrigin).To(BeNil())
 	})
+})
+
+var _ = Describe("Streams that the worker opens", func() {
+	// The frontend reads no stream that the worker opens. A stream that the
+	// session accepted would hold its window of unread data for as long as the
+	// session lives, and a worker that opens many of them would make the
+	// frontend hold memory for each.
+	for _, lane := range []tunnel.Lane{tunnel.LaneInference, tunnel.LaneBulk} {
+		It("resets every one of them on the "+string(lane)+" lane and accepts none", func() {
+			server, client := sessionPair(lane)
+			accepted := make(chan struct{}, 1)
+			go func() {
+				if _, err := server.AcceptStream(); err == nil {
+					accepted <- struct{}{}
+				}
+			}()
+
+			// More streams than the default limit of yamux for incoming streams.
+			const streams = 1100
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			opened := make([]net.Conn, 0, streams)
+			for range streams {
+				st, err := client.OpenStream(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = st.Write([]byte("unread"))
+				Expect(err).ToNot(HaveOccurred())
+				opened = append(opened, st)
+			}
+			for i, st := range opened {
+				Expect(st.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
+				_, err := st.Read(make([]byte, 1))
+				Expect(err).To(HaveOccurred(), "stream %d", i)
+				var netErr net.Error
+				if errors.As(err, &netErr) {
+					Expect(netErr.Timeout()).To(BeFalse(), "stream %d was not reset: %v", i, err)
+				}
+			}
+			Consistently(accepted, "200ms").ShouldNot(Receive())
+
+			// The frontend still opens streams to the worker.
+			st, err := server.OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = st.Close() })
+			got, err := client.AcceptStream()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Close()).To(Succeed())
+		})
+	}
 })
 
 var _ = Describe("Lanes", func() {

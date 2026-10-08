@@ -92,6 +92,41 @@ func tcpService(handle func(net.Conn)) string {
 	return lis.Addr().String()
 }
 
+// sourceOrEchoTCP is the worker side of the transfer specs. The frontend opens
+// every stream, as it does in production. A stream that starts with 's' asks for
+// transferSize bytes in the direction from the worker to the frontend, and any
+// other stream is a probe that is echoed.
+func sourceOrEchoTCP(c net.Conn) {
+	defer func() { _ = c.Close() }()
+	kind := make([]byte, 1)
+	if _, err := io.ReadFull(c, kind); err != nil {
+		return
+	}
+	if kind[0] == 's' {
+		_ = pushBytes(c, transferSize)
+		return
+	}
+	if _, err := c.Write(kind); err != nil {
+		return
+	}
+	_, _ = io.Copy(c, c)
+}
+
+// pullTransfer opens a stream from the frontend, asks the worker for the
+// transfer and reads it to the end.
+func pullTransfer(frontend *tunnel.Session) error {
+	st, err := frontend.OpenStream(context.Background())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+	if _, err := st.Write([]byte{'s'}); err != nil {
+		return err
+	}
+	_, err = io.Copy(io.Discard, st)
+	return err
+}
+
 func pushBytes(w io.Writer, size int) error {
 	chunk := make([]byte, 256<<10)
 	for sent := 0; sent < size; sent += len(chunk) {
@@ -216,7 +251,6 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		bulkName   = "bulk lane: transfer on the bulk session, probe on the inference session"
 	)
 	results := map[string]probeStats{}
-
 	// measure runs the transfer while the probes run, and records the stats of
 	// the probes.
 	measure := func(name string, transfer func() error, probe func() (time.Duration, error)) {
@@ -285,18 +319,10 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		var frontend *tunnel.Session
 		Eventually(f.inference).Should(Receive(&frontend))
 		DeferCleanup(func() { _ = frontend.Close() })
-		serveStreams(worker, echoTCP)
-		serveStreams(frontend, sinkTCP)
+		serveStreams(worker, sourceOrEchoTCP)
 
 		measure(sharedName,
-			func() error {
-				st, err := worker.OpenStream(context.Background())
-				if err != nil {
-					return err
-				}
-				defer func() { _ = st.Close() }()
-				return pushBytes(st, transferSize)
-			},
+			func() error { return pullTransfer(frontend) },
 			streamProbe(frontend))
 	})
 
@@ -311,18 +337,11 @@ var _ = Describe("Delay of a small call during a large transfer", Label("benchma
 		Eventually(f.inference).Should(Receive(&inferenceFrontend))
 		Eventually(f.bulk).Should(Receive(&bulkFrontend))
 		DeferCleanup(func() { _ = inferenceFrontend.Close(); _ = bulkFrontend.Close() })
-		serveStreams(inferenceWorker, echoTCP)
-		serveStreams(bulkFrontend, sinkTCP)
+		serveStreams(inferenceWorker, sourceOrEchoTCP)
+		serveStreams(bulkWorker, sourceOrEchoTCP)
 
 		measure(bulkName,
-			func() error {
-				st, err := bulkWorker.OpenStream(context.Background())
-				if err != nil {
-					return err
-				}
-				defer func() { _ = st.Close() }()
-				return pushBytes(st, transferSize)
-			},
+			func() error { return pullTransfer(bulkFrontend) },
 			streamProbe(inferenceFrontend))
 	})
 

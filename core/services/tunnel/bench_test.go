@@ -3,6 +3,7 @@ package tunnel_test
 import (
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -64,35 +65,44 @@ func BenchmarkTransfer(b *testing.B) {
 		for _, dir := range []string{"push", "pull"} {
 			b.Run(dir+"/"+buf.name, func(b *testing.B) {
 				frontend, worker := benchPair(b, buf.up, buf.dial, tunnel.LaneInference)
-				sender, receiver := worker, frontend
-				if dir == "pull" {
-					sender, receiver = frontend, worker
-				}
+				// The frontend opens every stream, as it does in production, and
+				// the direction is the direction of the data. "push" is the
+				// worker sending to the frontend.
 				chunk := make([]byte, 256<<10)
+				write := func(st net.Conn) error {
+					for sent := 0; sent < size; sent += len(chunk) {
+						if _, err := st.Write(chunk); err != nil {
+							return err
+						}
+					}
+					return st.Close()
+				}
+				read := func(st net.Conn) error {
+					_, err := io.Copy(io.Discard, st)
+					_ = st.Close()
+					return err
+				}
+				opener, acceptor := read, write
+				if dir == "pull" {
+					opener, acceptor = write, read
+				}
 				b.SetBytes(size)
 				b.ResetTimer()
 				for range b.N {
 					done := make(chan error, 1)
 					go func() {
-						st, err := receiver.AcceptStream()
+						st, err := worker.AcceptStream()
 						if err != nil {
 							done <- err
 							return
 						}
-						_, err = io.Copy(io.Discard, st)
-						_ = st.Close()
-						done <- err
+						done <- acceptor(st)
 					}()
-					st, err := sender.OpenStream(context.Background())
+					st, err := frontend.OpenStream(context.Background())
 					if err != nil {
 						b.Fatal(err)
 					}
-					for sent := 0; sent < size; sent += len(chunk) {
-						if _, err := st.Write(chunk); err != nil {
-							b.Fatal(err)
-						}
-					}
-					if err := st.Close(); err != nil {
+					if err := opener(st); err != nil {
 						b.Fatal(err)
 					}
 					if err := <-done; err != nil {
