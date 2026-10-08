@@ -234,12 +234,27 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
   // Counted totals, so a dashboard does not fetch the whole list to size it.
-  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
+  // `hours` picks the window the server counts over (1 to 168).
+  summary: (hours) => fetchJSON(hours ? `${API_CONFIG.endpoints.tracesSummary}?hours=${hours}` : API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
   getBackendOne: (id) => fetchJSON(API_CONFIG.endpoints.backendTrace(id)),
   clearBackend: () => postJSON(API_CONFIG.endpoints.clearBackendTraces, {}),
+}
+
+// Prometheus exposition text from /metrics (admin only). Returns the status and
+// the text, so a page can tell a route that is off (404) from one that refused
+// the caller (401, 403) and from a network failure (status 0).
+export const metricsApi = {
+  scrape: async () => {
+    try {
+      const response = await fetch(apiUrl('/metrics'))
+      return { status: response.status, text: response.ok ? await response.text() : '' }
+    } catch {
+      return { status: 0, text: '' }
+    }
+  },
 }
 
 // P2P API
