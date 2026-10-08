@@ -191,6 +191,9 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 	for range maxDrivePicks {
 		nodeID, nodeType, err := d.cfg.Picker.PickConnectedExcluding(ctx, tried)
 		if err != nil {
+			if carrierReleased(ctx) {
+				return d.cutOff(jobID)
+			}
 			if last != nil {
 				// Every worker that was offered the run had no slot. That is the
 				// evidence, and the end of the list is not.
@@ -206,6 +209,8 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 		switch {
 		case err == nil:
 			return d.persistTerminal(&reply)
+		case carrierReleased(ctx):
+			return d.cutOff(jobID)
 		case errors.Is(err, workerctl.ErrWorkerBusy):
 			last = fmt.Errorf("offering a %s claim to agent worker %q: %w", kind, nodeID, err)
 			continue
@@ -219,6 +224,22 @@ func (d *AgentDriver) drive(ctx context.Context, kind messaging.WorkKind, verb s
 		}
 	}
 	return last
+}
+
+// carrierReleased reports that ctx ended because the carrier of the loop was
+// released at the end of a drain. It is not a stop of the replica, and not the
+// cancel of a job.
+func carrierReleased(ctx context.Context) bool {
+	return errors.Is(context.Cause(ctx), messaging.ErrCarrierReleased)
+}
+
+// cutOff settles the claim of a run that the end of the drain cut off. The claim
+// is completed, and not released: the run did start, so a carrier that took over
+// the queue must not start it a second time. The job is left as it is, and the
+// reaper fails it if it stays running, as it does for a job that lost its worker.
+func (d *AgentDriver) cutOff(jobID string) error {
+	xlog.Warn("A run was cut off by the end of the drain of its carrier; its job is left to the reaper", "job", jobID)
+	return nil
 }
 
 // rebroadcast publishes the broadcast that a progress line asked for. A line with

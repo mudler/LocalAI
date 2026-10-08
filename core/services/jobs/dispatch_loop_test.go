@@ -120,6 +120,53 @@ var _ = Describe("The dispatch loop", func() {
 		Expect(row.ClaimedBy).To(Equal("replica-a"))
 	})
 
+	Describe("when the carrier of the loop is released", func() {
+		// run starts a loop whose context the spec can end with a cause, and waits
+		// until a run is in flight on it.
+		run := func() (cancel context.CancelCauseFunc, loop *DispatchLoop) {
+			GinkgoHelper()
+			started := make(chan struct{}, 1)
+			control.do = func(ctx context.Context, _, _ string, _ func(string, json.RawMessage)) (workerctl.RunReply, error) {
+				started <- struct{}{}
+				<-ctx.Done()
+				return workerctl.RunReply{}, ctx.Err()
+			}
+			live(db, "replica-a")
+			loopCtx, cancel := context.WithCancelCause(ctx)
+			var err error
+			loop, err = NewDispatchLoop(DispatchConfig{
+				DB: db, Owner: "replica-a", Picker: picker, Control: control, Broadcast: broadcast, Store: store, Hints: bus,
+				Interval: 50 * time.Millisecond,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loop.Start(loopCtx)).To(Succeed())
+			Expect(NewClaimQueue(db, bus).Enqueue(ctx, messaging.WorkMCPCI, ci("j1"))).To(Succeed())
+			Eventually(started, 10*time.Second).Should(Receive())
+			return cancel, loop
+		}
+
+		It("completes the claim of a run that the end of the drain cut off, and leaves its job to the reaper, so the run is not offered again", func() {
+			cancel, loop := run()
+			cancel(messaging.ErrCarrierReleased)
+			loop.Stop()
+
+			Expect(rows()).To(BeZero(), "the run did start, and the carrier that took over must not start it again")
+			Expect(store.terminals()).To(BeEmpty(), "the reaper decides about the job")
+			Expect(control.seen()).To(HaveLen(1))
+		})
+
+		It("still releases the claim of a run that ends for another reason, such as the stop of the replica", func() {
+			cancel, loop := run()
+			cancel(context.Canceled)
+			loop.Stop()
+
+			var row WorkClaim
+			Expect(db.First(&row).Error).To(Succeed())
+			Expect(row.State).To(Equal(ClaimPending))
+			Expect(row.Attempts).To(Equal(1))
+		})
+	})
+
 	It("ends the run of a job that is cancelled, closes the job as cancelled and removes the claim", func() {
 		started := make(chan struct{})
 		control.do = func(ctx context.Context, _, _ string, _ func(string, json.RawMessage)) (workerctl.RunReply, error) {
