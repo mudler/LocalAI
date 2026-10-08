@@ -153,6 +153,29 @@ func dial(ctx context.Context, dsn, appName string) (*pgx.Conn, error) {
 	return pgx.ConnectConfig(ctx, connCfg)
 }
 
+// ProbeListen opens a LISTEN session, listens on a channel, and closes the
+// session. It says whether this process could run a Bus against the database
+// now: a pooler in transaction mode, a firewall, or a role that may not LISTEN
+// each fail here and not at the first subscription. It writes nothing.
+func ProbeListen(ctx context.Context, dsn string) error {
+	if dsn == "" {
+		return errors.New("pgbus: no connection string for the LISTEN connection")
+	}
+	conn, err := dial(ctx, dsn, applicationNamePrefix+"probe")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		_ = conn.Close(closeCtx)
+	}()
+	if _, err := conn.Exec(ctx, "LISTEN "+pgx.Identifier{"localai_probe"}.Sanitize()); err != nil {
+		return fmt.Errorf("pgbus: the database refused LISTEN: %w", err)
+	}
+	return nil
+}
+
 // command passes a LISTEN or UNLISTEN to the goroutine that owns the connection
 // and waits for it. To return before the server acknowledged it would lose every
 // message published in the gap.

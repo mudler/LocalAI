@@ -178,3 +178,22 @@ var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
 		})
 	})
 })
+
+var _ = Describe("The probe of the LISTEN connection", func() {
+	It("succeeds against a database that accepts LISTEN, and leaves no session behind", func() {
+		db, dsn := testutil.SetupTestDBWithDSN()
+		Expect(carrier.ProbeListen(context.Background(), dsn)).To(Succeed())
+		Eventually(func() int64 { return listeners(db) }, "5s").Should(BeZero())
+	})
+
+	It("says why it cannot connect", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := carrier.ProbeListen(ctx, "postgres://nobody@127.0.0.1:1/none?sslmode=disable&connect_timeout=1")
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("refuses an empty connection string with a reason that names the cause", func() {
+		Expect(carrier.ProbeListen(context.Background(), "")).To(MatchError(ContainSubstring("connection string")))
+	})
+})

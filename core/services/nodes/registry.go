@@ -27,11 +27,11 @@ type BackendNode struct {
 	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
 	ID                string `gorm:"primaryKey;size:36" json:"id"`
 	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`  // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                   // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`              // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
 	// TunnelTokenHash is the SHA-256 of the own credential of this node for the
 	// tunnel: the token that it presents at GET /api/cluster/connect. It is not
 	// the registration token. Registration mints a new random secret for each
@@ -43,8 +43,8 @@ type BackendNode struct {
 	// tunnel until it registers again. The column cannot be filled in, because
 	// the secret exists only in the response that minted it.
 	TunnelTokenHash string `gorm:"size:64" json:"-"`
-	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	TotalVRAM       uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM   uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -113,8 +113,13 @@ type BackendNode struct {
 	// carrier row that the worker saw when it reported. During a change of
 	// carrier a worker is attached to both, and the frontends route by this.
 	// Both are empty for a worker that does not report them.
-	Attached      string    `gorm:"column:attached;size:64" json:"attached,omitempty"`
-	AttachedEpoch int64     `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
+	Attached      string `gorm:"column:attached;size:64" json:"attached,omitempty"`
+	AttachedEpoch int64  `gorm:"column:attached_epoch;default:0" json:"attached_epoch,omitempty"`
+	// Follow lists the carriers the worker reported it can attach to, separated by
+	// commas, and FollowError is why it cannot attach to another one, in its own
+	// words. A worker that predates carrier switching reports neither.
+	Follow        string    `gorm:"column:follow;size:64" json:"follow,omitempty"`
+	FollowError   string    `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
 	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
 	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
 	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`

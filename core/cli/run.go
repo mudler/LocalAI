@@ -169,6 +169,9 @@ type RunCMD struct {
 	PeerTLS                      bool   `env:"LOCALAI_PEER_TLS" default:"false" help:"dial the other frontends over wss; they must sit behind TLS at the address they publish. Without it the peer link, which carries the credential of this replica and relayed requests, is clear text" group:"distributed"`
 	PeerTLSCA                    string `env:"LOCALAI_PEER_TLS_CA" type:"existingfile" help:"PEM file with the CA that signs the certificate of the other frontends (system roots if empty); use with --peer-tls" group:"distributed"`
 	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	CarrierPrepareTimeout        string `env:"LOCALAI_CARRIER_PREPARE_TIMEOUT" help:"How long a change of carrier waits for every frontend to be ready before it is aborted (default 1m). The cluster setting switch.prepare_timeout, when stored, wins." group:"distributed"`
+	CarrierTransitionWindow      string `env:"LOCALAI_CARRIER_TRANSITION_WINDOW" help:"How long a change of carrier waits for every frontend to confirm that it uses the new carrier (default 2m). The cluster setting switch.transition_window, when stored, wins." group:"distributed"`
+	CarrierMaxDrain              string `env:"LOCALAI_CARRIER_MAX_DRAIN" help:"How long the previous carrier stays attached after a change of carrier, so that work that started on it can finish (default 15m). Work still running after that is failed by the reaper. The cluster setting switch.max_drain, when stored, wins." group:"distributed"`
 	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
 	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
 	StorageRegion                string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
@@ -432,6 +435,26 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
+	}
+	if r.CarrierPrepareTimeout != "" || r.CarrierTransitionWindow != "" || r.CarrierMaxDrain != "" {
+		var prepare, window, drain time.Duration
+		var err error
+		for _, f := range []struct {
+			env, value string
+			into       *time.Duration
+		}{
+			{"LOCALAI_CARRIER_PREPARE_TIMEOUT", r.CarrierPrepareTimeout, &prepare},
+			{"LOCALAI_CARRIER_TRANSITION_WINDOW", r.CarrierTransitionWindow, &window},
+			{"LOCALAI_CARRIER_MAX_DRAIN", r.CarrierMaxDrain, &drain},
+		} {
+			if f.value == "" {
+				continue
+			}
+			if *f.into, err = parseDistributedDuration(f.env, f.value); err != nil {
+				return err
+			}
+		}
+		opts = append(opts, config.WithCarrierTimings(prepare, window, drain))
 	}
 	if r.ModelConfigResyncInterval != "" {
 		d, err := parseDistributedDuration("LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL", r.ModelConfigResyncInterval)

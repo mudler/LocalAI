@@ -20,6 +20,13 @@ const (
 	QueueWorkers        = "workers"
 )
 
+// SubjectCarrierChanged is the hint that the cluster carrier row moved. The
+// leader and the admin publish it after each move, on the carrier in use, and
+// every replica listens on it. It carries the new row and is only a courtesy: a
+// replica that never hears it reads the row at its next poll, and what the row
+// says is what counts.
+const SubjectCarrierChanged = "state.carrier"
+
 // SubjectClaimWake is the hint that a unit of work was put in the claim queue.
 // A consumer that hears it looks for work at once and does not wait for its next
 // poll. The hint is a broadcast and broadcasts are at-most-once, so it can be

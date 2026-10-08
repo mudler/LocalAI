@@ -11,7 +11,8 @@ import (
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
-// When Enabled is true, PostgreSQL and NATS are required.
+// When Enabled is true, PostgreSQL is required. NATS is needed only while the
+// cluster runs on the NATS carrier.
 type DistributedConfig struct {
 	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
 	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
@@ -25,10 +26,20 @@ type DistributedConfig struct {
 	// PeerTLSCA is a PEM file with the certificate authority that signs the
 	// certificate of the other frontends. Empty uses the system roots.
 	// LOCALAI_PEER_TLS_CA.
-	PeerTLSCA         string
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
-	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
-	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
+	PeerTLSCA string
+	// NatsURL is the NATS server of a deployment that uses NATS. A deployment with
+	// no URL and no row in the database runs on the tunnel carrier. The URL is
+	// copied into the cluster settings when none is stored there, and the cluster
+	// setting wins afterwards, so that every replica uses the same one.
+	NatsURL string // --nats-url / LOCALAI_NATS_URL
+	// CarrierPrepareTimeout, CarrierTransitionWindow and CarrierMaxDrain are the
+	// waits of a change of carrier on the replica that leads it, used when the
+	// cluster settings do not set them. Zero means the default.
+	CarrierPrepareTimeout   time.Duration // --carrier-prepare-timeout
+	CarrierTransitionWindow time.Duration // --carrier-transition-window
+	CarrierMaxDrain         time.Duration // --carrier-max-drain
+	StorageURL              string        // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
+	RegistrationToken       string        // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
@@ -153,9 +164,9 @@ func (c DistributedConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.NatsURL == "" {
-		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
-	}
+	// No NATS URL is required. The carrier is a setting of the cluster in the
+	// database: a new deployment with only PostgreSQL runs on the tunnel, and a
+	// deployment with a NATS URL stays on NATS.
 	// S3 credentials must be paired
 	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
@@ -198,6 +209,15 @@ func (c DistributedConfig) Validate() error {
 	}
 	if c.ModelConfigResyncInterval < 0 {
 		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
+	}
+	for name, d := range map[string]time.Duration{
+		FlagCarrierPrepareTimeout:   c.CarrierPrepareTimeout,
+		FlagCarrierTransitionWindow: c.CarrierTransitionWindow,
+		FlagCarrierMaxDrain:         c.CarrierMaxDrain,
+	} {
+		if d < 0 {
+			return fmt.Errorf("%s must not be negative", name)
+		}
 	}
 	return nil
 }
@@ -473,6 +493,24 @@ const (
 	// log line knows exactly which knob produced it.
 	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
+
+// Names of the timings of a change of carrier.
+const (
+	FlagCarrierPrepareTimeout   = "carrier-prepare-timeout"
+	FlagCarrierTransitionWindow = "carrier-transition-window"
+	FlagCarrierMaxDrain         = "carrier-max-drain"
+)
+
+// WithCarrierTimings sets the waits of a change of carrier: how long prepare
+// waits for every replica, how long commit waits for every replica to confirm,
+// and how long the previous carrier stays attached. A zero keeps the default.
+func WithCarrierTimings(prepareTimeout, transitionWindow, maxDrain time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.CarrierPrepareTimeout = prepareTimeout
+		o.Distributed.CarrierTransitionWindow = transitionWindow
+		o.Distributed.CarrierMaxDrain = maxDrain
+	}
+}
 
 // FlagModelConfigResyncInterval names the model config resync interval.
 const FlagModelConfigResyncInterval = "model-config-resync-interval"
