@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -79,6 +80,43 @@ func (rt *carrierRuntime) natsURL(ctx context.Context) (string, error) {
 		return v, nil
 	}
 	return rt.cfg.Distributed.NatsURL, nil
+}
+
+// WorkerURL is the address of the NATS server that workers are told to use: the
+// stored address for workers, else the address of the frontends, else the flag of
+// this replica. A worker may reach the server by another name than a frontend
+// does. It is empty when the deployment has no NATS.
+func (rt *carrierRuntime) WorkerURL(ctx context.Context) (string, error) {
+	v, ok, err := rt.settings.Get(ctx, cluster.SettingNATSWorkerURL)
+	if err != nil {
+		return "", err
+	}
+	if ok && v != "" {
+		return v, nil
+	}
+	return rt.natsURL(ctx)
+}
+
+// CAPEM is the private CA of the NATS server as PEM, or empty when the server has
+// none. A worker is handed it, so that it needs no file of its own to verify the
+// server.
+func (rt *carrierRuntime) CAPEM() (string, error) {
+	path := rt.cfg.Distributed.NatsTLSCA
+	if path == "" {
+		return "", nil
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("reading the NATS CA to hand to workers: %w", err)
+	}
+	return string(raw), nil
+}
+
+// ClientTLS says that this replica connects to NATS with a client certificate. A
+// worker cannot be handed such a file, so it needs its own.
+func (rt *carrierRuntime) ClientTLS() bool {
+	d := rt.cfg.Distributed
+	return d.NatsTLSCert != "" || d.NatsTLSKey != ""
 }
 
 // Build builds the set of a carrier for a change. It waits for the carrier to be

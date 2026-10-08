@@ -121,6 +121,14 @@ type RegisterNodeRequest struct {
 	// none sends false: it holds an outbound tunnel and nothing dials it. A
 	// worker that predates the field sends nothing, and that means true.
 	Routable *bool `json:"routable,omitempty"`
+	// Carrier is the carrier the worker asks the credential of. A worker that
+	// follows a change of carrier registers again to get the credential of the
+	// carrier it attaches to, which is not the active one yet while the change is
+	// being prepared. Only the active carrier, the target of a change under way
+	// and the carrier that drains can be asked for. Anything else, and a worker
+	// that sends nothing (it predates the field, or it boots), gets the credential
+	// of the active carrier.
+	Carrier string `json:"carrier,omitempty"`
 }
 
 // CarrierReader reads the row that names the carrier of the cluster.
@@ -132,6 +140,30 @@ type CarrierReader interface {
 type registerOptions struct {
 	carriers CarrierReader
 	tunnels  TunnelDisconnector
+	nats     NATSHandover
+}
+
+// NATSHandover says what a worker needs to reach NATS besides its own credential.
+// The frontend hands it over in the answer to a registration, so that a worker
+// that was never given the address of NATS, or that booted on the tunnel, can
+// attach to NATS when the cluster changes to it.
+type NATSHandover interface {
+	// WorkerURL is the address that workers use. It is empty when no NATS is
+	// configured.
+	WorkerURL(ctx context.Context) (string, error)
+	// CAPEM is the CA of the NATS server as a PEM bundle, or empty when the
+	// server does not use a private CA.
+	CAPEM() (string, error)
+	// ClientTLS says that the server asks for a client certificate. Files of that
+	// kind are not handed over, so a worker needs its own.
+	ClientTLS() bool
+}
+
+// WithNATSHandover makes a registration that hands over a NATS credential also
+// hand over the address of the server, its CA, and whether the worker needs a
+// client certificate of its own.
+func WithNATSHandover(h NATSHandover) RegisterOption {
+	return func(o *registerOptions) { o.nats = h }
 }
 
 // TunnelDisconnector ends the tunnel that this replica holds for a node.
@@ -188,6 +220,42 @@ func (o registerOptions) activeCarrier(ctx context.Context) (cluster.CarrierRow,
 	return row, true
 }
 
+// credentialCarrier is the carrier whose credential an answer carries: the one
+// the worker asked for when it may have it, else the active one.
+func credentialCarrier(row cluster.CarrierRow, asked string) cluster.Carrier {
+	c := cluster.Carrier(asked)
+	switch {
+	case c == "" || c == row.Active:
+		return row.Active
+	case row.State != cluster.StateStable && c == row.Target:
+		return c
+	case c == row.Draining:
+		return c
+	}
+	return row.Active
+}
+
+// carrierNews is what a worker is told about the carrier of the cluster, in the
+// answer to a registration and to a heartbeat. The heartbeat is the channel that
+// exists whichever carrier is active, so it is the one that carries the news.
+func carrierNews(row cluster.CarrierRow) map[string]any {
+	view := map[string]any{
+		"carrier":       row.Active,
+		"carrier_epoch": row.Epoch,
+		"carrier_state": row.State,
+	}
+	if row.Target != "" {
+		view["carrier_target"] = row.Target
+	}
+	if row.Draining != "" {
+		view["carrier_draining"] = row.Draining
+		if row.DrainingUntil != nil {
+			view["carrier_draining_until"] = row.DrainingUntil.UTC().Format(time.RFC3339)
+		}
+	}
+	return view
+}
+
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
@@ -224,7 +292,14 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 
 		ctx := c.Request().Context()
 		carrierRow, haveCarrier := opts.activeCarrier(ctx)
-		tunnelActive := haveCarrier && carrierRow.Active == cluster.CarrierTunnel
+		// The carrier whose credential this answer carries. It decides whether
+		// the address of the worker matters: a worker that asks for NATS while
+		// the tunnel is still active is about to be dialled.
+		credFor := cluster.CarrierNATS
+		if haveCarrier {
+			credFor = credentialCarrier(carrierRow, req.Carrier)
+		}
+		tunnelActive := haveCarrier && credFor == cluster.CarrierTunnel
 		// A worker that said that its address cannot be reached holds an
 		// outbound tunnel and nothing dials it. Its address is dropped and not
 		// stored: a dialable-looking endpoint that nothing may dial misleads.
@@ -349,7 +424,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
-		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier, opts.tunnels)
+		attachCarrierCredential(ctx, response, registry, node, natsCfg, carrierRow, haveCarrier, credFor, opts)
 		if tunnelActive && expectedToken == "" && autoApprove {
 			openRegistrationWarning.Do(func() {
 				xlog.Warn("Worker registration is open: there is no registration token and new nodes are approved at once, " +
@@ -407,19 +482,53 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 }
 
 // attachCarrierCredential names the active carrier in the answer and adds the
-// credential for it: the tunnel token when the tunnel is active, the NATS user
-// JWT otherwise. A deployment with no carrier row is a deployment with NATS and
-// gets the answer that it always had.
-func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool, tunnels TunnelDisconnector) {
+// credential for credFor: the tunnel token when that is the tunnel, the NATS user
+// JWT and the address of the server otherwise. A deployment with no carrier row
+// is a deployment with NATS and gets the answer that it always had.
+//
+// A credential is minted for one carrier only. A tunnel token replaces the
+// previous one and ends the session that the replica holds for the node, so a
+// worker that holds the tunnel and registers for NATS must not mint one.
+func attachCarrierCredential(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode, natsCfg natsauth.Config, row cluster.CarrierRow, haveCarrier bool, credFor cluster.Carrier, opts registerOptions) {
 	if haveCarrier {
-		response["carrier"] = row.Active
-		response["carrier_epoch"] = row.Epoch
+		for k, v := range carrierNews(row) {
+			response[k] = v
+		}
+		response["credential_for"] = credFor
 	}
-	if haveCarrier && row.Active == cluster.CarrierTunnel {
-		attachTunnelToken(ctx, response, registry, node, tunnels)
+	if haveCarrier && credFor == cluster.CarrierTunnel {
+		attachTunnelToken(ctx, response, registry, node, opts.tunnels)
 		return
 	}
 	attachNatsJWT(response, node, natsCfg)
+	attachNATSHandover(ctx, response, opts.nats)
+}
+
+// attachNATSHandover adds the address of the NATS server and what is needed to
+// verify it. A failure is logged and the answer goes out without it: the worker
+// then uses a URL of its own, or says that it cannot attach.
+func attachNATSHandover(ctx context.Context, response map[string]any, h NATSHandover) {
+	if h == nil {
+		return
+	}
+	url, err := h.WorkerURL(ctx)
+	if err != nil {
+		xlog.Warn("Reading the NATS address for a registration failed", "error", err)
+		return
+	}
+	if url == "" {
+		return
+	}
+	response["nats_url"] = url
+	ca, err := h.CAPEM()
+	if err != nil {
+		xlog.Warn("Reading the NATS CA for a registration failed", "error", err)
+	} else if ca != "" {
+		response["nats_ca"] = ca
+	}
+	if h.ClientTLS() {
+		response["nats_client_tls"] = true
+	}
 }
 
 // attachTunnelToken mints a new tunnel credential for the node, stores only its
@@ -597,7 +706,14 @@ func DeactivateNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // HeartbeatEndpoint updates the heartbeat for a node.
-func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+//
+// The answer tells the worker which carrier the cluster uses and whether a change
+// is under way. A worker follows the carrier from this answer, because the
+// heartbeat reaches the frontend whichever carrier is active. A worker that
+// reports the carriers it is attached to and the ones it can follow has them
+// stored, and the frontends route by them during a change.
+func HeartbeatEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) echo.HandlerFunc {
+	opts := newRegisterOptions(options)
 	return func(c echo.Context) error {
 		id := c.Param("id")
 
@@ -622,7 +738,21 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			xlog.Warn("Heartbeat failed for node", "id", id, "error", err)
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "heartbeat received"})
+		if report, ok := update.CarrierReport(); ok {
+			if err := registry.SetCarrierReport(ctx, id, report); err != nil {
+				xlog.Warn("Failed to store the carrier report of a node", "id", id, "error", err)
+			}
+		}
+		response := map[string]any{"message": "heartbeat received"}
+		if row, ok := opts.activeCarrier(ctx); ok {
+			for k, v := range carrierNews(row) {
+				response[k] = v
+			}
+			if opts.nats != nil && opts.nats.ClientTLS() {
+				response["nats_client_tls"] = true
+			}
+		}
+		return c.JSON(http.StatusOK, response)
 	}
 }
 

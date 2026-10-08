@@ -1162,6 +1162,31 @@ type HeartbeatUpdate struct {
 	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
 	// WorkerIncarnation is the worker process identity. See BackendNode.
 	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
+
+	// The carrier report. A worker that follows a change of carrier sends it in
+	// every heartbeat: the carriers it is attached to, the epoch of the cluster
+	// row it saw, the carriers it can attach to, and why it cannot attach to
+	// another. A worker that predates carrier switching sends none of them.
+	// FollowCapabilities is never empty in a report (a worker can follow the
+	// carrier it holds), so it tells a report from its absence.
+	Attached           []string `json:"attached,omitempty"`
+	AttachedEpoch      int64    `json:"attached_epoch,omitempty"`
+	FollowCapabilities []string `json:"follow_capabilities,omitempty"`
+	FollowError        string   `json:"follow_error,omitempty"`
+}
+
+// CarrierReport returns the carrier report of a heartbeat, and false when the
+// worker sent none.
+func (u HeartbeatUpdate) CarrierReport() (CarrierReport, bool) {
+	if len(u.FollowCapabilities) == 0 {
+		return CarrierReport{}, false
+	}
+	return CarrierReport{
+		Attached:      parseCarriers(u.Attached),
+		AttachedEpoch: u.AttachedEpoch,
+		Follow:        parseCarriers(u.FollowCapabilities),
+		FollowError:   truncateRunes(u.FollowError, followErrorMax),
+	}, true
 }
 
 func clampCPUUsage(usage float64) float64 {

@@ -572,6 +572,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		tunnels = d.Tunnels
 		registerOpts = append(registerOpts, localai.WithCarrierReader(d.Carriers))
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
+		registerOpts = append(registerOpts, localai.WithNATSHandover(d.Runtime))
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}

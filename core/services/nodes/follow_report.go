@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -23,6 +25,32 @@ type CarrierReport struct {
 	AttachedEpoch int64
 	Follow        []cluster.Carrier
 	FollowError   string
+}
+
+// followErrorMax is the size of the column that holds FollowError.
+const followErrorMax = 255
+
+// parseCarriers keeps the names of the carriers that the cluster knows, once each.
+func parseCarriers(names []string) []cluster.Carrier {
+	var out []cluster.Carrier
+	for _, n := range names {
+		c := cluster.Carrier(strings.TrimSpace(n))
+		if (c == cluster.CarrierNATS || c == cluster.CarrierTunnel) && !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// truncateRunes cuts s to at most n bytes without splitting a character.
+func truncateRunes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }
 
 func joinCarriers(cs []cluster.Carrier) string {
