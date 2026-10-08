@@ -122,7 +122,7 @@ type ReplicaStatus struct {
 	// Availability maps each carrier to the reason the replica cannot build it,
 	// empty when it can. A carrier it never looked at is absent.
 	Availability    map[Carrier]string `json:"availability,omitempty"`
-	AvailabilityAge time.Duration      `json:"availability_age_ns,omitempty"`
+	AvailabilityAge time.Duration      `json:"availability_age_ns,omitempty" swaggertype:"integer"`
 }
 
 // WorkerStatus is one worker, and whether it can follow the target.
@@ -155,7 +155,7 @@ type Report struct {
 	Timings  Timings         `json:"timings"`
 	// DrainRemaining is how long the previous carrier stays attached, when one
 	// is draining.
-	DrainRemaining time.Duration `json:"drain_remaining_ns,omitempty"`
+	DrainRemaining time.Duration `json:"drain_remaining_ns,omitempty" swaggertype:"integer"`
 }
 
 // Request asks for a change of carrier.

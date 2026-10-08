@@ -68,13 +68,13 @@ func CheckSetting(key, value string) error { return checkSetting(key, value) }
 // Timings are the waits of a change.
 type Timings struct {
 	// PrepareTimeout is how long prepare waits for every live replica.
-	PrepareTimeout time.Duration
+	PrepareTimeout time.Duration `swaggertype:"integer"`
 	// TransitionWindow is how long commit waits for every live replica to
 	// confirm.
-	TransitionWindow time.Duration
+	TransitionWindow time.Duration `swaggertype:"integer"`
 	// MaxDrain is how long the previous carrier stays attached after the commit.
 	// Work that is still running on it then is failed by the reaper.
-	MaxDrain time.Duration
+	MaxDrain time.Duration `swaggertype:"integer"`
 }
 
 // DefaultTimings are used for a timing that nothing sets.

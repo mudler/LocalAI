@@ -69,27 +69,40 @@ func carrierError(c echo.Context, status int, msg string, extra map[string]any) 
 
 // settingsView is the settings as an admin reads them. A user name, a password or a
 // query string in the address of a server is dropped.
-func settingsView(all map[string]string) map[string]any {
-	view := map[string]any{
-		"nats_url":          "",
-		"nats_worker_url":   "",
-		"prepare_timeout":   all[cluster.SettingPrepareTimeout],
-		"transition_window": all[cluster.SettingTransitionWindow],
-		"max_drain":         all[cluster.SettingMaxDrain],
+func settingsView(all map[string]string) ClusterSettingsView {
+	view := ClusterSettingsView{
+		PrepareTimeout:   all[cluster.SettingPrepareTimeout],
+		TransitionWindow: all[cluster.SettingTransitionWindow],
+		MaxDrain:         all[cluster.SettingMaxDrain],
 	}
 	if v := all[cluster.SettingNATSURL]; v != "" {
-		view["nats_url"] = cluster.PublicNATSURL(v)
+		view.NATSURL = cluster.PublicNATSURL(v)
 	}
 	if v := all[cluster.SettingNATSWorkerURL]; v != "" {
-		view["nats_worker_url"] = cluster.PublicNATSURL(v)
+		view.NATSWorkerURL = cluster.PublicNATSURL(v)
 	}
 	return view
 }
 
+// ClusterSettingsView is the settings of the cluster as an admin reads them. A
+// value that is not stored is empty and the default applies.
+type ClusterSettingsView struct {
+	// NATSURL is the NATS address that the frontends use.
+	NATSURL string `json:"nats_url"`
+	// NATSWorkerURL is the NATS address that workers are told to use. Empty means NATSURL.
+	NATSWorkerURL string `json:"nats_worker_url"`
+	// PrepareTimeout is how long a change waits for every replica to be ready (a Go duration).
+	PrepareTimeout string `json:"prepare_timeout"`
+	// TransitionWindow is how long a replica may take to confirm a commit (a Go duration).
+	TransitionWindow string `json:"transition_window"`
+	// MaxDrain is how long the previous carrier stays attached after a commit (a Go duration).
+	MaxDrain string `json:"max_drain"`
+}
+
 // carrierView is the report with the settings next to it.
-type carrierView struct {
+type CarrierStatusResponse struct {
 	cluster.Report
-	Settings map[string]any `json:"settings"`
+	Settings ClusterSettingsView `json:"settings"`
 }
 
 // GetCarrierEndpoint reports the state of the carrier of the cluster: the active
@@ -97,6 +110,13 @@ type carrierView struct {
 // the workers that could not follow a change to the other carrier and why, the
 // work in flight, and the list of live replicas for the admin to confirm before a
 // change.
+//
+// @Summary Report the transport of a distributed cluster
+// @Description Returns the active carrier (nats or tunnel), the epoch, the state of a change (stable, prepare or commit), the live replicas with their readiness, the workers and whether each could follow a change to the other carrier, the work in flight, and the cluster settings. Admin only. Answers 503 when distributed mode is off.
+// @Tags Nodes
+// @Success 200 {object} localai.CarrierStatusResponse
+// @Failure 503 {object} map[string]string "Distributed mode is not enabled"
+// @Router /api/cluster/carrier [get]
 func GetCarrierEndpoint(sw CarrierSwitchAdmin, settings ClusterSettings) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -118,11 +138,12 @@ func GetCarrierEndpoint(sw CarrierSwitchAdmin, settings ClusterSettings) echo.Ha
 		if err != nil {
 			return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
 		}
-		return c.JSON(http.StatusOK, carrierView{Report: report, Settings: settingsView(all)})
+		return c.JSON(http.StatusOK, CarrierStatusResponse{Report: report, Settings: settingsView(all)})
 	}
 }
 
-type switchRequest struct {
+// CarrierSwitchRequest is the body of POST /api/cluster/carrier.
+type CarrierSwitchRequest struct {
 	Target string `json:"target"`
 	DryRun bool   `json:"dry_run"`
 	Force  bool   `json:"force"`
@@ -138,9 +159,21 @@ type switchRequest struct {
 // when nothing blocks. The change itself is carried out by the replicas and led by
 // one of them, so the answer is 202: it says what was started and the epoch to
 // watch.
+//
+// @Summary Dry-run, start or abort a change of carrier
+// @Description Takes a target (nats or tunnel) with dry_run and force, or abort. A dry run returns the preflight report and changes nothing. A request starts the change and returns 202 with the epoch to watch. A request that a blocker stops returns 422 with the blockers; force accepts the blockers that are forceable. A change already under way returns 409, and only abort is accepted then. Admin only.
+// @Tags Nodes
+// @Param request body localai.CarrierSwitchRequest true "target, dry_run, force or abort"
+// @Success 200 {object} cluster.Report "Dry run report, or the row after an abort"
+// @Success 202 {object} map[string]interface{} "Change started: state, active, target, epoch, force, warnings, row"
+// @Failure 400 {object} map[string]string "Bad body or target"
+// @Failure 409 {object} map[string]string "A change is under way, or there is nothing to abort"
+// @Failure 422 {object} map[string]interface{} "Blocked: error, blockers, report"
+// @Failure 503 {object} map[string]string "Distributed mode is not enabled"
+// @Router /api/cluster/carrier [post]
 func SwitchCarrierEndpoint(sw CarrierSwitchAdmin, prober ReplicaProber) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var req switchRequest
+		var req CarrierSwitchRequest
 		if err := c.Bind(&req); err != nil {
 			return carrierError(c, http.StatusBadRequest, "invalid request body", nil)
 		}
@@ -197,6 +230,13 @@ func SwitchCarrierEndpoint(sw CarrierSwitchAdmin, prober ReplicaProber) echo.Han
 }
 
 // GetClusterSettingsEndpoint reads the settings of the cluster.
+//
+// @Summary Read the settings of the cluster
+// @Description Returns the NATS address of the frontends and of the workers and the waits of a change. A user name, password or query string in an address is dropped. Admin only.
+// @Tags Nodes
+// @Success 200 {object} localai.ClusterSettingsView
+// @Failure 503 {object} map[string]string "Distributed mode is not enabled"
+// @Router /api/cluster/settings [get]
 func GetClusterSettingsEndpoint(settings ClusterSettings) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		all, err := settings.All(c.Request().Context())
@@ -207,7 +247,9 @@ func GetClusterSettingsEndpoint(settings ClusterSettings) echo.HandlerFunc {
 	}
 }
 
-type settingsRequest struct {
+// ClusterSettingsRequest is the body of PUT /api/cluster/settings. A field that
+// is absent is left as it is, and an empty string clears the setting.
+type ClusterSettingsRequest struct {
 	NATSURL          *string `json:"nats_url"`
 	NATSWorkerURL    *string `json:"nats_worker_url"`
 	PrepareTimeout   *string `json:"prepare_timeout"`
@@ -237,9 +279,20 @@ type CarrierStatus interface {
 //
 // No address may carry a user name, a password or a query string: the settings
 // are shared, and the credentials of NATS stay on each replica.
+//
+// @Summary Store settings of the cluster
+// @Description Stores the NATS address, the address workers use, or the waits of a change. Saving a NATS address checks that the serving replica reaches it and makes NATS available; it does not switch the cluster. Admin only.
+// @Tags Nodes
+// @Param request body localai.ClusterSettingsRequest true "settings to store"
+// @Success 200 {object} map[string]interface{} "saved, nats.reachable when a NATS address was checked, settings"
+// @Failure 400 {object} map[string]string "Unknown setting, bad value, or a credential in an address"
+// @Failure 409 {object} map[string]string "A change of carrier is under way"
+// @Failure 422 {object} map[string]string "This replica cannot reach the NATS server"
+// @Failure 503 {object} map[string]string "Distributed mode is not enabled"
+// @Router /api/cluster/settings [put]
 func PutClusterSettingsEndpoint(settings ClusterSettings, checker NATSChecker, prober ReplicaProber, state CarrierStatus) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var req settingsRequest
+		var req ClusterSettingsRequest
 		if err := c.Bind(&req); err != nil {
 			return carrierError(c, http.StatusBadRequest, "invalid request body", nil)
 		}
