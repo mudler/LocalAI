@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/mcptransport"
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -234,8 +235,7 @@ func SessionsFromMCPConfig(
 			httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
 		)
 
-		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-		mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+		mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 		if err != nil {
 			xlog.Error("Failed to connect to MCP server", "error", err, "url", server.URL)
 			continue
@@ -344,8 +344,7 @@ func NamedSessionsFromMCPConfig(
 				httpclient.WithTransport(newBearerTokenRoundTripper(server.Token, httpclient.HardenedTransport())),
 			)
 
-			transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-			mcpSession, err := connectMCP(ctx, transport, config.DefaultMCPDiscoveryTimeout)
+			mcpSession, err := mcptransport.Connect(ctx, client, server.URL, httpClient, config.DefaultMCPDiscoveryTimeout)
 			if err != nil {
 				xlog.Error("Failed to connect to MCP server", "error", err, "name", serverName, "url", server.URL)
 				allSessions = append(allSessions, NamedSession{
