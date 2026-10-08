@@ -306,6 +306,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			nodes.WithClientFactory(distSvc.Clients),
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.

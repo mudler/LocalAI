@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,7 +63,17 @@ func WorkerHTTPHost(nodeID, addr string) string {
 	if addr != "" {
 		return addr
 	}
-	return nodeID + ".worker.invalid"
+	return nodeID + tunnelOnlyHostSuffix
+}
+
+// tunnelOnlyHostSuffix ends the host that WorkerHTTPHost gives to a worker that
+// has no address. .invalid is reserved and resolves nowhere.
+const tunnelOnlyHostSuffix = ".worker.invalid"
+
+// IsTunnelOnlyHost reports whether a host is one that WorkerHTTPHost made for a
+// worker with no address, which only a tunnel can reach.
+func IsTunnelOnlyHost(host string) bool {
+	return strings.HasSuffix(host, tunnelOnlyHostSuffix)
 }
 
 // clientFor returns the HTTP client for a node, and builds it on first use.

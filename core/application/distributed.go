@@ -61,6 +61,9 @@ type DistributedServices struct {
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     nodes.NodeControl
 	ModelCleanup *nodes.ModelCleanupService
+	// Clients builds the gRPC client for a backend of a worker through the
+	// carrier that is active.
+	Clients nodes.BackendClientFactory
 
 	// WorkerHTTPDial reaches a worker's own HTTP server for the admin
 	// backend-logs proxy, the same way the HTTP file stager does.
@@ -621,6 +624,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
 		ModelCleanup: modelCleanup,
+		Clients:      clientFactory,
 
 		WorkerHTTPDial: workerHTTPDial,
 

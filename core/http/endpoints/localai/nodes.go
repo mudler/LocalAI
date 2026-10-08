@@ -977,11 +977,12 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
+		host, ok := workerLogsHost(node)
+		if !ok {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
 		}
 
-		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, host, "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -1007,12 +1008,13 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
+		host, ok := workerLogsHost(node)
+		if !ok {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
 		}
 
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, host, path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -1060,7 +1062,7 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		}
 
 		// Dial the worker WebSocket
-		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", node.HTTPAddress, url.PathEscape(modelID))
+		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", nodes.WorkerHTTPHost(node.ID, node.HTTPAddress), url.PathEscape(modelID))
 		workerHeaders := http.Header{}
 		if registrationToken != "" {
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
@@ -1536,6 +1538,21 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
+// workerLogsHost returns the host of the URL of a request to the HTTP server of a
+// worker, and false when the node has no HTTP server to ask.
+//
+// A worker that holds a tunnel registers no address at all: nothing dials it, and
+// the dialer opens a stream on its tunnel whatever host the URL names. Its host
+// is the reserved name of nodes.WorkerHTTPHost. A worker that registered a
+// gRPC address and no HTTP address is an older worker with no log endpoint, and
+// the answer for it has not changed.
+func workerLogsHost(node *nodes.BackendNode) (string, bool) {
+	if node.HTTPAddress == "" && node.Address != "" {
+		return "", false
+	}
+	return nodes.WorkerHTTPHost(node.ID, node.HTTPAddress), true
+}
+
 // proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
 // The connection goes through dialFor(nodeID) because the advertised address
 // alone does not say how this frontend reaches that worker.
@@ -1554,6 +1571,12 @@ func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, no
 
 	t := httpclient.HardenedTransport()
 	t.DialContext = dialFor(nodeID)
+	// A worker without an address is reached through a tunnel, and a proxy of the
+	// environment cannot carry that: the transport would dial the proxy through
+	// the dialer of the worker. The proxy stays for every other worker.
+	if nodes.IsTunnelOnlyHost(httpAddress) {
+		t.Proxy = nil
+	}
 	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
 }

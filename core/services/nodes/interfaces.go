@@ -280,6 +280,32 @@ func NewTokenClientFactory(token string) BackendClientFactory {
 	return &tokenClientFactory{token: token}
 }
 
+// BackendDialerFor returns the dial function that reaches the backend processes
+// of one worker, in the shape grpc.WithContextDialer takes.
+type BackendDialerFor func(nodeID string) func(ctx context.Context, addr string) (net.Conn, error)
+
+// dialerClientFactory builds clients that reach their backend through a dialer
+// chosen by node.
+type dialerClientFactory struct {
+	token   string
+	dialFor BackendDialerFor
+}
+
+// NewDialerClientFactory returns a BackendClientFactory whose clients do not dial
+// the address they are handed. The dialer of the node opens the connection, and
+// the address becomes the name of a backend process of the worker. A tunnel
+// carrier uses it.
+//
+// The clients are lazy, as every client of pkg/grpc is: a dial that fails shows
+// up on the first call, and grpc.LastDialErrorOf reads why.
+func NewDialerClientFactory(token string, dialFor BackendDialerFor) BackendClientFactory {
+	return &dialerClientFactory{token: token, dialFor: dialFor}
+}
+
+func (f *dialerClientFactory) NewClient(nodeID, address string, parallel bool) grpc.Backend {
+	return grpc.NewClientWithDialer(address, parallel, nil, false, f.token, f.dialFor(nodeID))
+}
+
 // WorkerNetDialerFor returns the dial function that reaches one worker's own
 // HTTP server, in the shape http.Transport.DialContext and
 // websocket.Dialer.NetDialContext take. It is keyed by node id, not address,
