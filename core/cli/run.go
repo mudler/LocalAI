@@ -163,7 +163,7 @@ type RunCMD struct {
 	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	// Distributed / Horizontal Scaling
-	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
+	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL; NATS is optional)" group:"distributed"`
 	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
 	PeerAddress                  string `env:"LOCALAI_PEER_ADDRESS" help:"host:port at which the other frontends dial this one to reach a worker tunnel it holds (found from the route to the database if empty)" group:"distributed"`
 	PeerTLS                      bool   `env:"LOCALAI_PEER_TLS" default:"false" help:"dial the other frontends over wss; they must sit behind TLS at the address they publish. Without it the peer link, which carries the credential of this replica and relayed requests, is clear text" group:"distributed"`
