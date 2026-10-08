@@ -26,18 +26,14 @@ type PgbusOptions struct {
 }
 
 // Fanout is the fan-out member of a Set for a carrier that has no NATS server:
-// the broadcaster, the reconnect hook the holder reads, a ready check and the
-// close. The other members of the set come from the other parts of the carrier.
+// the broadcaster, the reconnect hook the holder reads and the close. The other
+// members of the set come from the other parts of the carrier.
 type Fanout struct {
 	// Broadcaster delivers through LISTEN and NOTIFY.
 	Broadcaster messaging.Broadcaster
 	// OnReconnect registers a callback that runs after the LISTEN connection was
 	// found again. It is the OnReconnect of the Set.
 	OnReconnect func(func())
-	// Ready reports an error when the LISTEN connection is down. The report that
-	// a replica sends for a change of carrier reads it. A caller must not decide
-	// on it anything about a worker.
-	Ready func() error
 	// Dropped reports how many broadcasts this replica received and lost.
 	Dropped func() uint64
 	// Close ends the LISTEN connection. It is the Close of the Set.
@@ -79,13 +75,7 @@ func NewPgbusFanout(ctx context.Context, o PgbusOptions) (*Fanout, error) {
 	return &Fanout{
 		Broadcaster: bus,
 		OnReconnect: bus.OnReconnect,
-		Ready: func() error {
-			if !bus.IsConnected() {
-				return errors.New("the LISTEN connection to the database is down")
-			}
-			return nil
-		},
-		Dropped: bus.Dropped,
-		Close:   bus.Close,
+		Dropped:     bus.Dropped,
+		Close:       bus.Close,
 	}, nil
 }

@@ -63,15 +63,6 @@ var _ = Describe("The pgbus fan-out of the tunnel carrier", func() {
 		Eventually(func() int64 { return listeners(db) }, 10*time.Second).Should(BeZero())
 	})
 
-	It("reports whether the LISTEN connection is up, for the ready report", func() {
-		fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(fan.Ready()).To(Succeed())
-
-		fan.Close()
-		Expect(fan.Ready()).To(HaveOccurred())
-	})
-
 	It("creates the spill table when it is built", func() {
 		fan, err := carrier.NewPgbusFanout(ctx, carrier.PgbusOptions{DB: db, DSN: dsn})
 		Expect(err).ToNot(HaveOccurred())
