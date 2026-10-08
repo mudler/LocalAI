@@ -405,7 +405,13 @@ tr[data-selected="true"] .ledger-mark {
 .ledger__pane .detail-pane__close { position: absolute; top: var(--dk-space-3); right: var(--dk-space-3); }
 .ledger__pane .detail-pane__head { padding-right: 36px; flex-wrap: wrap; }
 .ledger__pane .detail-pane__title { flex: 1 1 100%; }
-.ledger__pane .detail-pane__actions { flex-wrap: wrap; }
+.ledger__pane .detail-pane { min-width: 0; }
+.ledger__pane .detail-pane__head > * { min-width: 0; }
+/* The actions take their own row so they wrap inside the pane instead of
+   pushing past it. The primary action comes first; the rest are ghosts. */
+.ledger__pane .detail-pane__actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
+.ledger__pane .detail-pane__actions .dk-btn { max-width: 100%; }
+.ledger__pane .detail-pane__actions .inline-install { flex: 1 1 100%; min-width: 0; }
 .ledger__pane .detail-pane__name { font-size: var(--dk-text-17); }
 .ledger__pane .detail-pane__lede { color: var(--dk-muted); font-size: var(--dk-text-13); }
 .ledger__pane .detail-pane__icon { display: none; }

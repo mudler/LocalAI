@@ -1665,15 +1665,6 @@ function DiscoverDetail({
       error={failed ? t('ledger.failedInstall', { message: failed.error }) : null}
       actions={(
         <>
-          <button
-            type="button"
-            className="dk-btn dk-btn--ghost dk-btn--sm"
-            onClick={() => onOpenPage(name)}
-            data-testid="inspector-open-page"
-            aria-keyshortcuts="o"
-          >
-            <Icon name="arrow-right" /> {t('page.openDetails')}
-          </button>
           {installing ? (
             <div className="inline-install">
               <div className="inline-install__row">
@@ -1696,7 +1687,7 @@ function DiscoverDetail({
                   {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
                 </button>
               )}
-              <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onManage(name)}>
+              <button className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onManage(name)}>
                 <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
               </button>
             </>
@@ -1709,6 +1700,15 @@ function DiscoverDetail({
               <Icon name="download" /> {t('actions.install')}
             </button>
           )}
+          <button
+            type="button"
+            className="dk-btn dk-btn--ghost dk-btn--sm"
+            onClick={() => onOpenPage(name)}
+            data-testid="inspector-open-page"
+            aria-keyshortcuts="o"
+          >
+            <Icon name="arrow-right" /> {t('page.openDetails')}
+          </button>
         </>
       )}
       stats={[
