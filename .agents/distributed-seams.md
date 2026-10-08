@@ -17,11 +17,11 @@ files to that spec.
 | Seam | Interface | Lives in | Today |
 |---|---|---|---|
 | Fan-out | `messaging.Broadcaster` | `core/services/messaging` | NATS client |
-| Queues | `messaging.WorkQueue` (producer), `messaging.WorkConsumer` (worker), keyed by `messaging.WorkKind` | `core/services/messaging` (`workqueue.go`) | `NewNATSWorkQueue`, `NewNATSWorkConsumer` |
-| Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter`, `S3NATSFileStager` over NATS request/reply; `HTTPFileStager` over HTTP; `TunnelControl` over the HTTP control plane of a worker |
+| Queues | `messaging.WorkQueue` (producer), `messaging.WorkConsumer` (worker), keyed by `messaging.WorkKind` | `core/services/messaging` (`workqueue.go`) | `NewNATSWorkQueue`, `NewNATSWorkConsumer`; `jobs.ClaimQueue` and `jobs.ClaimConsumer` (the claim table); `agentworker.Work` (an agent worker on the tunnel) |
+| Control verbs, frontend half | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | `RemoteUnloaderAdapter` over NATS request/reply and `TunnelControl` over the HTTP control plane of a worker; `S3FileStager` over either (`NewS3NATSFileStager`, `NewS3TunnelFileStager`); `HTTPFileStager` over HTTP |
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer`, `httpControlServer` |
-| Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl` |
-| Agent RPC, worker half | unexported `agentRPCServer` | `core/cli/agent_worker.go` | `nodes.NATSAgentRPCServer` |
+| Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl`, `nodes.AgentControlClient` (tunnel) |
+| Agent RPC, worker half | unexported `agentRPCServer` on NATS, `agentworker.Handler` on the tunnel | `core/cli/agent_worker.go`, `core/services/agentworker` | `nodes.NATSAgentRPCServer`, `agentworker.Config` and `agentworker.Work` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
 
 Request and reply payloads of the control verbs live in
@@ -140,12 +140,66 @@ MCP CI with 1 (`startMCPCIConsumer`) and for agent runs with the dispatcher's
 An empty subject keeps `agent.execute`; an empty queue is kept and makes a
 plain subscription, as an explicitly empty `LOCALAI_AGENT_QUEUE` always did.
 
+`messagingtest.RunWorkQueueConformance` is the suite every carrier of the
+queue passes: one consumer gets a payload and a publisher for its events,
+competing consumers split the work once when nothing fails, the kinds stay apart,
+`maxInFlight` holds, `Unsubscribe` waits for the running handler, and a payload
+above `messaging.MaxWorkPayloadBytes` (1 MiB, the default `max_payload` of NATS)
+is refused. It does not state what differs between carriers: the fate of work
+whose consumer dies, and how often a failed handler is called again. A handler
+must tolerate a repeat.
+
+### The claim queue
+
+The tunnel carrier has no broker, so its queue is a table. `jobs.ClaimQueue`
+writes a row (`work_claims`) and sends a wake hint on `messaging.SubjectClaimWake`.
+`jobs.ClaimConsumer` runs on a frontend replica. It polls every two seconds,
+wakes at once on a hint for its kind, and claims into as many slots as it has with
+`FOR UPDATE SKIP LOCKED`. The hint is at-most-once, so the poll is what guarantees
+that work is found; with the poll alone a unit waits one second on average, and
+with the hint the median wait is a few milliseconds. A row stays until the work
+has an answer, so `Enqueue` succeeds while nobody consumes.
+
+A replica claims and not an agent worker, because an agent worker has no database.
+`jobs.AgentDriver` is the handler: it picks an agent worker with
+`nodes.AgentSelector`, sends the payload to the verb of the kind
+(`workerctl.VerbAgentExecute` or `VerbMCPCIRun`) and reads the stream that comes
+back. `jobs.DispatchLoop` is a consumer for the three kinds with the driver as its
+handler.
+
+- The outcome of the handler settles the row. `nil` deletes it. An error, or a
+  panic, releases it with a wait that doubles from two seconds to a minute (the
+  wait keeps one poison row from being claimed ahead of every newer row on every
+  tick). An error that wraps `jobs.ErrKeepClaim` leaves it with its replica: the
+  work ran and its answer could not be recorded, and releasing would run it again.
+- There is no dead letter. The only outcomes that release a row are those where
+  nothing was learned about the work, and failing a job on them would report a
+  missing connection as the verdict of a worker.
+- A claim is settled only by the replica and the attempt that hold it, so a
+  holder that was reaped and answers late cannot delete the claim of the replica
+  that took the work over.
+- `ReapAbandoned` returns the claims of replicas that are not live. It reads
+  `cluster.LiveInstanceIDsSQL` and has no age in it: a live replica that holds a
+  claim for an hour has a slow job. A replica whose own row is not live claims
+  nothing.
+- Delivery is at-least-once. A replica that dies in the middle of a job loses
+  nothing and the job runs again. NATS loses the job of a consumer that dies.
+- `MigratePending` takes the pending rows out of the queue once, for a change to a
+  carrier that has its own queue. Held rows are driven to their end where they are.
+- A plain task (`WorkTask`) has no worker on either carrier. The driver drops the
+  claim and the job is left to the reaper (`ReapStuckJobs`), as it was on NATS.
+- `Dispatcher.Cancel` publishes `jobs.<id>.cancel`. On NATS nothing subscribes, as
+  on master, and a spec pins that. On this carrier the replica that holds the job
+  ends its stream, the run on the worker ends with its request, and the job is
+  closed as cancelled.
+
 ## Control verbs
 
 Frontend half: `NodeCommandSender` sends the lifecycle verbs; `FileStager`
-moves files. `S3NATSFileStager` returns `nodes.ErrNoRoute` when nothing is
-listening for the node. `HTTPFileStager` reports connection failures as
-ordinary errors.
+moves files. `S3FileStager` sends the file verbs over a control link, so the same
+stager runs over NATS and over the HTTP control plane of the tunnel, and it
+returns `nodes.ErrNoRoute` when no route to the node exists. `HTTPFileStager`
+reports connection failures as ordinary errors.
 
 `NodeCommandSender` embeds `LoadOperationControl`: the load operation verbs
 (`InstallBackendOp`, `StopLoadOperation`, `OperationControl` for renewals and
@@ -201,6 +255,27 @@ cancellation, and uses the default MCP timeouts when there is none.
 `NATSAgentRPCServer` serves both in the agent-workers queue group and answers an
 undecodable body with an `unmarshal error: ` reply. It also serves the node's
 backend stop as `func(backend string)` and never replies to it.
+
+On the tunnel the frontend picks the worker. `nodes.AgentSelector` lists the agent
+nodes that may take work (not pending, not draining; a failed health probe does
+not exclude one) and asks which of them hold a tunnel, preferring one that this
+replica holds because that call needs no relay. `nodes.AgentControlClient` sends
+the request over the control client, with the same contract as NATS: a decoded
+reply is returned with a nil error, no agent worker wraps `nodes.ErrNoRoute`, and
+only the deadline of ctx applies. A request goes to a second worker (up to three)
+only when the failure proves that the first did not start it: no route, a worker
+too old to serve the verb, or a worker with no free slot. A broken stream or a
+timeout is returned, because the tool may have run.
+
+`agentworker.Handler` is the worker half on the tunnel: one HTTP server that
+binds loopback only and is reached through the tunnel (its tunnel offers the http
+tag alone). `agentworker.Work` is its `WorkConsumer`. A run is a streaming
+request: the events that the handler publishes are progress lines that name their
+subject, the result it publishes becomes the reply line, and a body that ends
+without a reply line is a link that broke. A worker that is full answers busy
+(`workerctl.WriteBusy`, `workerctl.ErrWorkerBusy`) and the frontend offers the run
+to another worker. The frontend publishes a line only if
+`nodes.Rebroadcaster` allows the subject for the node type of the worker.
 
 ## Dial
 
@@ -347,24 +422,23 @@ other seams against a real server, also through Docker.
 
 ## Open items for a second carrier
 
-- The agent worker still uses NATS directly for its connection and for agent
-  events. `agents.NewEventBridge` takes a `Broadcaster`, so the frontend's
-  bridge goes through the holder.
-- `WorkHandler` returns only an error. A carrier whose stream handler must send
-  a terminal reply derives it from the `jobs.<id>.result` event the handler
-  publishes on `events` (`handleMCPCIJob` does this).
-- Not additive: the agent-run consumer (`NATSDispatcher.runDelivery`) ignores
-  the per-delivery `events` publisher and publishes through the process-wide
-  `EventBridge`, which is bound to one `Broadcaster`. A second carrier must
-  change `NATSDispatcher` and `EventBridge`, for example by binding
-  `handleJob`'s publishes to `events` through a bridge view that shares the
-  cancel registry.
+- `WorkHandler` returns only an error. A carrier whose stream handler must send a
+  terminal reply derives it from the `jobs.<id>.result` event the handler
+  publishes on `events` (`handleMCPCIJob` does this, and `agentworker.Work`
+  builds the reply line from it).
+- The agent-run consumer (`NATSDispatcher.runDelivery`) binds the events of a run
+  to the publisher of its delivery through `EventBridge.WithPublisher`, which
+  shares the cancel registry with the bridge. On NATS that publisher is the NATS
+  client, so the subjects and payloads are the ones as before.
 - Agent cancel has no production sender (`EventBridge.CancelExecution` has no
-  caller), so it is not part of the agent RPC seam.
-- The file stager over shared object storage (`S3NATSFileStager`) sends its
-  requests over NATS. The files verbs exist on the HTTP control plane, but no
-  frontend stager uses them yet.
+  caller), so it is not part of the agent RPC seam, and the tunnel has no verb for
+  it. The cancel of a run on the tunnel is its request.
 - A worker that registers an address and holds a tunnel (a worker that can use
   either carrier) is reached by the backend-logs proxy through the host that its
   address names, and the proxy of the environment is used for it. Only a worker
   without an address skips the proxy.
+- The health monitor reads the presence of each node (`HealthMonitor.UsePresence`)
+  only while the tunnel is the active carrier: a node that heartbeats and whose
+  tunnel has been gone longer than `cluster.DefaultReconnectGrace` is demoted with
+  a status-only change, and is neither promoted nor probed until its tunnel is
+  back.

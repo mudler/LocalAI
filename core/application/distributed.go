@@ -378,6 +378,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, fmt.Errorf("initializing job store: %w", err)
 	}
+	// The claim queue is the queue of the tunnel carrier. Its table exists on
+	// every carrier, so that a change of carrier finds it.
+	if err := jobs.MigrateClaims(context.Background(), authDB); err != nil {
+		return nil, err
+	}
 	xlog.Info("Distributed job store initialized")
 
 	// Initialize job dispatcher
