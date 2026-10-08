@@ -36,9 +36,9 @@ lifecycle and has two views:
   VRAM by context length, variants, files, links, tags and licence. This is the
   default view.
 - **Installed** lists local model configurations in the same table, with their
-  running, idle, disabled, pinned, and distributed state. Load or stop a model
-  from its row, or select it to edit its configuration, open a supported use
-  case, inspect backend logs, or remove it.
+  running, idle, disabled, pinned, and distributed state and their size on disk.
+  Load or stop a model from its row, or select it to edit its configuration,
+  open a supported use case, inspect backend logs, or remove it.
 
 Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
@@ -70,7 +70,9 @@ is installed). The tabs are:
 - **Usage and history**, **Configuration** and **Logs**, for installed models.
   LocalAI does not record requests, timings, loads or configuration changes for
   each model, so the usage tab lists what it cannot show yet instead of an empty
-  chart. Configuration holds the [Placement](/advanced/model-configuration/#placement)
+  chart. The same tab lists the files the model uses on disk, with their size,
+  the other models that use them, and any file the configuration names that is
+  not on disk (see [Disk and cleanup](#disk-and-cleanup)). Configuration holds the [Placement](/advanced/model-configuration/#placement)
   section. Logs is the backend log viewer of the Operate section.
 
 The page reads the same lists as the table, so it works for a model the gallery
@@ -116,8 +118,16 @@ models only by what it can see:
   chain or an alias. These are never suggested. If an agent or task cannot be
   read, nothing is marked safe.
 
-Sizes are the sizes of the files the gallery lists, so a model that is not in the
-gallery shows no size and is not counted in what a removal frees. Before you
+For an admin, sizes are what each model uses on disk, read from
+`GET /api/models/storage`. A file that another installed model also uses stays
+on disk when you remove one of the two, so the review counts only the files a
+model does not share. It says which models share files, and the amount freed
+by a selection counts a shared file only when every model that uses it is in
+the selection. A configuration that names files that are not on disk (a download
+that did not finish, or files removed by hand) is listed as a finding. If the
+report cannot be read, for example because the user is not an admin, sizes fall
+back to the sizes of the files the gallery lists. A model that is not in the
+gallery then shows no size and is not counted in what a removal frees. Before you
 confirm, the review checks again and lists what will go, why, and how much it
 frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
@@ -255,8 +265,8 @@ This removal does not delete previously installed models. Remove that configurat
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
 
-- **Where they appear**: In the model gallery table (Size and Fit columns), in the details beside it, and after starting an import from URI (in the success message).
-- **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used.
+- **Where they appear**: In the model gallery table (Size and Fit columns), in the model inspector beside it, and after starting an import from URI (in the success message).
+- **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used. GGUF metadata lengths that exceed the file size are rejected before allocation; these files also use the size-only estimate.
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, each row shows whether the estimated memory at the chosen context length fits, using a 95% headroom rule. A model that is too big for the GPU but would run from system RAM is marked as spilling to the CPU, with how much; a model too big for both is marked as over by the shortfall.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 

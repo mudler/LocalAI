@@ -11,7 +11,9 @@
       "eyebrow": "Installed on this host",
       "summary": "{{count}} models ready to serve.",
       "summaryHint": "Select a model to inspect its runtime state and controls.",
-      "filterLabel": "Filter by state"
+      "filterLabel": "Filter by state",
+      "storageSummary": "{{total}} on disk \u00b7 {{shared}} shared across models",
+      "storageMissing": "{{count}} missing references"
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
@@ -40,6 +42,10 @@
       "description": "Description", "noDescription": "No gallery description is available for this model.",
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "size": "Size on disk", "sharesFiles": "Shares files with", "sharedBytes": "{{size}} shared with other models",
+      "storageFiles": "Files on disk",
+      "missingFiles": "Missing files",
+      "missingCount": "{{count}} referenced file missing", "missingCount_other": "{{count}} referenced files missing",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
       "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
       "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
@@ -58,6 +64,12 @@
   "title": "Models",
   "subtitle": "Browse and install AI models from the gallery",
   "models": "Models",
+  "storage": {
+    "searchPlaceholder": "Filter by file or model\u2026",
+    "columns": { "file": "File", "size": "Size", "status": "Status", "models": "Used by" },
+    "status": { "missing": "missing", "shared": "shared by {{count}}" },
+    "empty": "No referenced files."
+  },
   "recommended": {
     "title": "Best for this machine",
     "cpuNote": "No GPU detected - small models that stay responsive on CPU.",
@@ -323,6 +335,10 @@
     "installNamed": "Install {{model}}",
     "failedInstall": "Install failed: {{message}}",
     "sizeUnknownTitle": "The gallery does not list this model, so its size on disk is not known",
+    "sizeEstimateTitle": "Estimated from the gallery's file sizes. The size on disk could not be read.",
+    "sizeOnDiskTitle": "{{exact}} on disk",
+    "sharedSize": "{{size}} shared",
+    "sharedSizeTitle": "{{size}} of this model's files are also used by {{models}}. Removing this model leaves them on disk.",
     "columns": {
       "size": "Size",
       "fit": "Fit at {{context}}"
@@ -400,6 +416,16 @@
     "noUsage": {
       "title": "Usage history is not recorded yet.",
       "text": "Models are ranked by what LocalAI can see: whether one is loaded, pinned or used by an agent, task, failover chain or alias, whether another build of it is installed, and whether the gallery can download it again."
+    },
+    "sizes": {
+      "disk": "Sizes are what each model uses on disk. A file that another installed model also uses is left out, because removing one model leaves it behind.",
+      "estimate": "The size on disk could not be read, so sizes are estimated from the gallery's file sizes. A model the gallery does not list has none."
+    },
+    "sharedWith": "Shares {{size}} with {{models}}. Those files stay on disk unless that model goes too.",
+    "missing": {
+      "note": "Config points at files that are not on disk: {{models}}. A download may not have finished, or the files were removed by hand.",
+      "item": "Config points at {{count}} file that is not on disk.",
+      "item_other": "Config points at {{count}} files that are not on disk."
     },
     "unverified": "Some agents or tasks could not be read, so nothing is marked safe. Try again later.",
     "count_one": "{{count}} model",
@@ -637,6 +663,17 @@
       "notDownloaded": "Not downloaded",
       "onDisk": "On disk",
       "downloading": "Downloading {{percent}}%"
+    },
+    "files": {
+      "title": "Files on disk",
+      "view": "See the files",
+      "caption": "Files that {{model}} uses on disk, with their size and status",
+      "total": "{{size}} in {{count}} file",
+      "total_other": "{{size}} in {{count}} files",
+      "sharedWith": "Also used by",
+      "sharedNote": "A file that another installed model uses stays on disk when this one is removed.",
+      "missing": "Config points at files that are not on disk. A download may not have finished, or the files were removed by hand.",
+      "unavailable": "The size on disk is shown to admins only, or the server could not read it."
     },
     "usage": {
       "title": "Usage, last 30 days",

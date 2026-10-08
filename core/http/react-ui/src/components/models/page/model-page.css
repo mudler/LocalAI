@@ -198,6 +198,9 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 /* --- Usage ----------------------------------------------------------------------- */
 
 .modelpage-usage { display: grid; gap: var(--dk-space-6); max-width: 760px; }
+.modelpage-files__path { overflow-wrap: anywhere; white-space: normal; font-size: var(--dk-text-12); }
+.modelpage-files__note { margin-top: var(--dk-space-3); }
+.modelpage-files__shared { font-size: var(--dk-text-13); color: var(--dk-muted); overflow-wrap: anywhere; }
 .modelpage-usage__empty { padding: var(--dk-space-5); }
 .modelpage-usage__missing { list-style: none; margin: var(--dk-space-3) 0 0; padding: 0; display: grid; }
 .modelpage-usage__missing li { display: flex; justify-content: space-between; align-items: center; gap: var(--dk-space-4); padding: var(--dk-space-3) 0; border-bottom: 1px solid var(--dk-edge); font-size: var(--dk-text-13); }

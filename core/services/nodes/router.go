@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -222,7 +223,12 @@ type SmartRouter struct {
 	// identical outcome, so they share one wait instead of queueing. See
 	// load_job_runner.go.
 	loadWaitersMu sync.Mutex
-	loadWaiters   map[string]chan struct{}
+	loadWaiters   map[string]*loadWaiter
+
+	// leaseTTL overrides loadJobLeaseTTL for the owner's own deadline (tests).
+	leaseTTL time.Duration
+	// opRenewEvery overrides loadOpRenewEvery, in heartbeat ticks (tests).
+	opRenewEvery int
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -278,7 +284,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
 		modelLoadWait:        opts.ModelLoadWait,
-		loadWaiters:          map[string]chan struct{}{},
+		loadWaiters:          map[string]*loadWaiter{},
 	}
 }
 
@@ -350,6 +356,12 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
 	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
 
+	// With a database every cold load runs under a job row. Mark the path so a
+	// registry write that lost its ownership value is refused, not waved through.
+	if r.db != nil {
+		ctx = withLoadPath(ctx)
+	}
+
 	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
@@ -413,6 +425,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
+	reportLoadAddress(ctx, backendAddr)
 	client := r.buildClientForAddr(node, backendAddr, parallel)
 
 	// Load the model on the remote node
@@ -454,7 +467,9 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			// minutes past the client timeout, and each retry stacked another
 			// multi-GB loader process on the worker. Reap the replica we just
 			// abandoned before handing the failure back.
-			if loadAbandonedOnWorker(err) {
+			// A load owner stops its own work through the operation stop path,
+			// so it does not reap here as well.
+			if _, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef); !owned && loadAbandonedOnWorker(err) {
 				r.reapAbandonedLoad(node, trackingKey, replicaIndex)
 			}
 			return nil, fmt.Errorf("loading model %s on node %s: %w", modelName, node.Name, err)
@@ -598,13 +613,33 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		return nil, fmt.Errorf("unmarshalling stored model options for %s: %w", modelName, err)
 	}
 
-	// initialInFlight=0: reconciler is pre-loading, not serving a request.
-	// scheduleAndLoad picks both the node and the replica slot internally.
-	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+	// The reconciler is a load owner like a request is. It claims the job
+	// before any remote work, so a request for the same model waits for this
+	// load instead of scheduling a second copy, and a stale owner is stopped
+	// by the same loop.
+	job, claimed, err := r.registry.ClaimLoadJob(ctx, modelName, ReplicaID())
+	if err != nil {
+		return nil, fmt.Errorf("claiming the load of model %s: %w", modelName, err)
+	}
+	if !claimed {
+		return nil, fmt.Errorf("model %s is already being loaded by another owner", modelName)
+	}
+
+	var node *BackendNode
+	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
+		// initialInFlight=0: reconciler is pre-loading, not serving a request.
+		// scheduleAndLoad picks both the node and the replica slot internally.
+		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+		if err != nil {
+			return err
+		}
+		node = result.Node
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return result.Node, nil
+	return node, nil
 }
 
 // RouteResult contains the routing decision.
@@ -1367,10 +1402,24 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	// the whole time; here a cancelled ctx (typically the model-load ceiling)
 	// frees the caller promptly. The shared install keeps running in the
 	// background and still coalesces other callers via singleflight.
+	// A load owner starts the backend as an operation the worker bounds. The
+	// operation id is the load job generation, so a stop can name exactly this
+	// attempt.
+	ref, owned := ctx.Value(loadOwnershipKey{}).(LoadJobRef)
 	resCh := r.installFlight.DoChan(key, func() (any, error) {
-		reply, err := r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		var reply *workerctl.BackendInstallReply
+		var err error
+		if owned {
+			reply, err = r.unloader.InstallBackendOp(node.ID, backendType, modelID, r.galleriesJSON, replicaIndex, "", ref.Generation, r.loadOperationDeadline(), nil)
+		} else {
+			reply, err = r.unloader.InstallBackend(node.ID, backendType, modelID, r.galleriesJSON, "", "", "", replicaIndex, "", nil)
+		}
 		if err != nil {
 			return "", err
+		}
+		if owned && reply.Success && !reply.ReportsOperations {
+			// A worker that predates operations: it cannot confirm a stop.
+			markLegacyWorker(ctx)
 		}
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
@@ -2177,7 +2226,7 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 
 			// Unload outside the transaction (NATS call)
 			if r.unloader != nil {
-				if uerr := r.unloader.UnloadModelOnNode(lru.NodeID, lru.ModelName); uerr != nil {
+				if uerr := r.unloader.UnloadReplica(lru.NodeID, lru); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}
@@ -2203,4 +2252,13 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 	}
 
 	return nil, ErrEvictionBusy
+}
+
+// loadOperationDeadline is the longest a worker may keep one load running: the
+// controller's own absolute cap. Renewals are what normally end a load sooner.
+func (r *SmartRouter) loadOperationDeadline() time.Duration {
+	if r.modelLoadAbsoluteMax > 0 {
+		return r.modelLoadAbsoluteMax
+	}
+	return modelLoadAbsoluteMax
 }

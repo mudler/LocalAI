@@ -32,6 +32,19 @@ For instance, with cURL:
 curl http://localhost:8080/v1/audio/transcriptions -H "Content-Type: multipart/form-data" -F file="@<FILE_PATH>" -F model="<MODEL_NAME>"
 ```
 
+When usage statistics are enabled, successful requests to `/v1/audio/transcriptions`
+and `/audio/transcriptions` contribute request counts and elapsed time for the
+requested model name, including an alias. This includes streaming responses. Token counts remain zero
+because transcription results do not provide canonical token usage. Failed
+transcriptions, including errors reported within a stream, do not count as
+successful usage.
+
+When API tracing is enabled, multipart transcription requests appear in Traces
+with the model name, response, status, and elapsed time. The captured request
+body contains metadata marked `multipart upload omitted`; API traces do not
+store the uploaded audio. Response capture follows the configured trace size
+limit. Backend traces have their own payload capture behavior.
+
 ## Example
 
 Download one of the models from [here](https://huggingface.co/ggerganov/whisper.cpp/tree/main) in the `models` folder,

@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -57,6 +60,14 @@ type backendProcess struct {
 	// is exactly what stays the same across a reinstall.
 	backendDir   string
 	backendDirID os.FileInfo
+
+	// instance identifies this incarnation of the process. A port can be
+	// reused by a replacement under the same key, so an address alone does not
+	// say which process a stop meant.
+	instance string
+	// operationID is the load operation this process belongs to, empty when
+	// none (a legacy start, or a load that completed).
+	operationID string
 }
 
 const workerBackendFreeTimeout = 5 * time.Second
@@ -148,6 +159,17 @@ type backendSupervisor struct {
 	// the same not-yet-cached backend) are serialized here so the gallery
 	// download path doesn't race itself on the same directory.
 	backendLocks map[string]*sync.Mutex
+
+	// operations are the loads the watchdog bounds, by operation id. Guarded by
+	// mu. See operations.go.
+	operations map[string]*loadOperation
+	// ledger records started backends for the orphan sweep. nil in tests.
+	ledger *processLedger
+	// opKillTTL, opTick and readyFn are overridden only by tests; zero or nil
+	// means the defaults.
+	opKillTTL time.Duration
+	opTick    time.Duration
+	readyFn   func(addr string) bool
 }
 
 // defaultPortQuarantine is how long a released gRPC port waits before it can be
@@ -321,6 +343,51 @@ func (s *backendSupervisor) allocatePort(key string) (int, error) {
 		ErrNoFreePort, minPort, maxPort, len(s.processes), len(s.quarantinedPorts))
 }
 
+// allocateFreePort is allocatePort that also checks the port is free on the
+// host. A restarted worker can be handed a port that an orphan of its
+// predecessor still holds. The readiness poll would connect to that orphan and
+// report a backend that is not the one it started, so a busy port is set aside
+// and the next one is tried. Callers must hold s.mu.
+func (s *backendSupervisor) allocateFreePort(key string) (int, error) {
+	var busy []int
+	defer func() {
+		for _, p := range busy {
+			// Back to the allocator after the quarantine, once nothing holds it.
+			s.releasePort(p)
+		}
+	}()
+	for range 64 {
+		port, err := s.allocatePort(key)
+		if err != nil {
+			return 0, err
+		}
+		if portIsFree(port) {
+			return port, nil
+		}
+		xlog.Warn("A gRPC port is already in use on this host; skipping it", "backend", key, "port", port)
+		busy = append(busy, port)
+	}
+	return 0, fmt.Errorf("%w: every port tried was already in use", ErrNoFreePort)
+}
+
+// portIsFree reports whether nothing listens on port on this host. Two checks,
+// because neither is enough everywhere. A connect to loopback finds a listener
+// bound to a specific address, which a bind of the wildcard address can miss on
+// BSD and macOS (the listener sets SO_REUSEADDR). A bind of the wildcard address
+// finds one that does not answer a connect.
+func portIsFree(port int) bool {
+	if conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 200*time.Millisecond); err == nil {
+		_ = conn.Close()
+		return false
+	}
+	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	if err != nil {
+		return false
+	}
+	_ = lis.Close()
+	return true
+}
+
 // sweepAffinity drops claims whose window has lapsed, so their ports become
 // ordinary free ports again. Swept lazily on allocation for the same reason as
 // sweepQuarantine: the only observer is allocation itself, so a timer goroutine
@@ -462,7 +529,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		s.reapDeadProcess(backend, bp)
 	}
 
-	port, err := s.allocatePort(backend)
+	port, err := s.allocateFreePort(backend)
 	if err != nil {
 		s.mu.Unlock()
 		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
@@ -496,6 +563,10 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		backendName:  backendName,
 		backendDir:   backendDir,
 		backendDirID: dirInfo,
+		instance:     uuid.NewString(),
+	}
+	if pid, convErr := strconv.Atoi(proc.CurrentPID()); convErr == nil {
+		s.ledger.add(backend, pid)
 	}
 	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
 
@@ -521,6 +592,12 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		time.Sleep(readinessPollInterval)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		ok, healthErr := client.HealthCheck(ctx)
+		// An answer only counts when the process this worker started is still
+		// alive. A child that lost the bind to an orphan exits at once, and the
+		// orphan's answer is not its own.
+		if ok && !proc.IsAlive() {
+			ok = false
+		}
 		if ok {
 			cancel()
 			// Verify the process wasn't stopped/replaced while health-checking.
@@ -599,6 +676,7 @@ func (s *backendSupervisor) markBackendServing(key string, bp *backendProcess) b
 func (s *backendSupervisor) reapDeadProcess(key string, bp *backendProcess) {
 	xlog.Warn("Backend process died unexpectedly, restarting", "backend", key)
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	if bp == nil {
 		return
 	}
@@ -620,6 +698,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		return
 	}
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
@@ -850,7 +929,25 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	if bp == nil {
 		return nil
 	}
+	return s.finishStopping(key, bp, force)
+}
 
+// stopBackendExactBP stops exactly bp, and only if it is still the process the
+// supervisor holds under key. The watchdog uses it: it chose its victim earlier
+// and the key may have been reused since.
+func (s *backendSupervisor) stopBackendExactBP(key string, bp *backendProcess, force bool) error {
+	s.mu.Lock()
+	current, ok := s.processes[key]
+	if !ok || current != bp || bp.proc == nil || bp.stopping {
+		s.mu.Unlock()
+		return nil
+	}
+	bp.stopping = true
+	s.mu.Unlock()
+	return s.finishStopping(key, bp, force)
+}
+
+func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force bool) error {
 	if !force {
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
@@ -862,6 +959,7 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	}
 
 	xlog.Info("Stopping backend process", "backend", key, "addr", bp.addr, "force", force, "backendName", bp.backendName)
+	s.ml.NoteIntentionalStop(bp.proc)
 	stopErr := bp.proc.Stop()
 	if stopErr != nil {
 		xlog.Error("Error stopping backend process", "backend", key, "error", stopErr)
@@ -878,13 +976,20 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	s.mu.Lock()
 	bp, ok := s.processes[req.ProcessKey]
 	if !ok || bp.proc == nil {
+		if op, known := s.operations[req.OperationID]; known && req.OperationID != "" {
+			op.expired = true
+			delete(s.operations, req.OperationID)
+		}
 		s.mu.Unlock()
 		reply.Terminated = true
 		return reply
 	}
 	reply.Matched = true
 	reply.Address = bp.addr
-	if bp.addr != req.ExpectedAddress {
+	// A stop of a load operation may omit the address: the controller learns it
+	// only after the install replies. The operation, process key and instance
+	// checks below then carry the identity.
+	if bp.addr != req.ExpectedAddress && !(req.OperationID != "" && req.ExpectedAddress == "") {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
 		return reply
@@ -892,6 +997,17 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	if bp.stopping {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("process %s is already stopping", req.ProcessKey)
+		return reply
+	}
+	if req.OperationID != "" {
+		if err := s.checkOperationTarget(req, bp); err != nil {
+			s.mu.Unlock()
+			reply.Error = err.Error()
+			return reply
+		}
+	} else if req.ProcessInstance != "" && bp.instance != req.ProcessInstance {
+		s.mu.Unlock()
+		reply.Error = fmt.Sprintf("process instance mismatch for %s", req.ProcessKey)
 		return reply
 	}
 	bp.stopping = true
@@ -909,6 +1025,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 		}
 	}
 
+	s.ml.NoteIntentionalStop(bp.proc)
 	stopErr := bp.proc.Stop()
 	if stopErr == nil {
 		<-bp.proc.Done()
@@ -920,6 +1037,14 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 			reply.Error = err.Error()
 		}
 		return reply
+	}
+	if req.OperationID != "" {
+		s.mu.Lock()
+		if op, known := s.operations[req.OperationID]; known {
+			op.expired = true
+			delete(s.operations, req.OperationID)
+		}
+		s.mu.Unlock()
 	}
 	reply.Terminated = true
 	return reply
@@ -954,6 +1079,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
 	delete(s.processes, key)
+	s.ledger.remove(key)
 	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)

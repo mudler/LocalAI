@@ -78,6 +78,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--model-config-resync-interval` | `LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL` | `30s` | How often each frontend compares its model configs with the shared models directory, to apply a change whose NATS message it missed. A frontend that missed a message serves the old config for at most this long. See [Model configs across frontends](#model-configs-across-frontends). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -124,6 +125,11 @@ So the load does **not** run on the request. The first request for an unloaded m
 - It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
+- The owner of a job holds a 30 second lease, which it renews on every heartbeat. The database clock decides whether a lease has expired, so a frontend with a wrong clock cannot expire a live lease or keep a dead one. If an owner cannot renew for a whole lease, it stops its own load.
+- If an owner dies, its job is marked failed once the lease runs out, with or without a new request. A request that arrives then reads the cause. The model is held for a 2.5 minute stop window, because remote work may still run. After that the next request starts a new attempt. No manual cleanup is needed.
+- A failure that is known to have ended the remote work (an error from the backend, or a failure before a node was chosen) is kept for 15 seconds only, so every waiter reads the same cause and the next request can retry.
+- Each attempt has its own generation. If a job is replaced, the old owner notices at its next heartbeat and stops its load. Its late writes to the job and to the replica table are rejected.
+- If the job table cannot be read, a cold load fails instead of running without a job. Models that are already loaded keep serving, because routing to a loaded replica does not read the job table.
 
 When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
 
@@ -153,8 +159,53 @@ The `error` envelope keeps OpenAI clients working unchanged; `loading` is additi
 The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
 
 {{% notice note %}}
-A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
+A frontend replica that dies mid-load does not wedge the model: the job row carries a lease, and a job whose lease ran out is failed and then released. The lease is renewed on a timer, not on byte progress, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
+
+#### The worker bounds the work it runs
+
+The frontend owns the job row, but the real work runs in a backend process on a worker. The worker therefore watches each load too. A load is an **operation** named by the job's generation:
+
+- The install request carries the operation id and the longest the load may run, as a duration, so a worker clock that is wrong changes nothing. The backend starts in its own process group.
+- The frontend renews the operation every few seconds and completes it when the load finishes. The worker kills the whole process group when no renewal arrives for 90 seconds, or when the deadline passes. A backend that already reports `READY` is never killed: a lost completion message must not destroy a model that serves.
+- A stop names the operation, the process key and, when known, the address and process instance. The worker refuses unless they all match its own records. There is no fallback to "any running backend". A stop for a load that already finished leaves the serving model alone.
+- A worker that is killed cannot stop its backends. It records each backend's process group in a small file under its data directory, and the next worker kills every group listed there before it serves (Linux; the start time of the leader guards against a recycled pid). A new incarnation, reported on the next heartbeat, then confirms the failed loads on that node. The worker also skips a gRPC port that something already listens on, and a readiness answer only counts while the worker's own backend process is alive.
+- If the worker answers a renewal with "unknown operation" three times in a row, the frontend fails the load at once instead of waiting for the load budget. The worker lost the operation, so the work is gone.
+
+When a load fails after remote work may have started (a timeout, a cancel, a lost lease), the owner stops the operation immediately. An acknowledged stop shortens the hold to the 15 second report window. A silent worker keeps the hold at the stop window (2.5 minutes), and the reconciler retries the stop on every pass until the worker answers or the window ends. Nothing needs manual cleanup.
+
+| Setting | Value | Meaning |
+|---------|-------|---------|
+| Lease TTL | 30 s | How long a job's lease lasts after each renewal |
+| Worker kill TTL | 90 s | No renewal for this long: the worker kills the operation |
+| Stop window | 150 s | How long a failed load holds the model if the worker never confirms |
+| Report window | 15 s | How long a failure with confirmed-ended work is kept |
+
+A model held by a failed job answers `503` with `Retry-After` set to the seconds until the hold ends, and the real cause in the body.
+
+#### Cancelling a load
+
+`POST /api/models/{id}/load-cancel` (admin only) cancels one load attempt. The body names the exact attempt, as `GET /api/models/{id}/load-status` reports it:
+
+```json
+{"job_id": "0b6e4a3c-5c1d-4d52-8f0a-0f3c9e0b8f11"}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `200` | `state: stopped` (the worker confirmed) or `state: gone` (no such load any more) |
+| `202` | `state: stopping`. The cancel is recorded and the stop is pending. The model is released after `retry_after` seconds regardless. |
+| `400` | The body is not `{"job_id": "..."}` |
+| `404` | Unknown model, or the server is not distributed |
+| `409` | A different attempt is current. The body carries its `current_job_id`. |
+
+The call is idempotent. A repeat retries the stop and never extends the hold. A load that has not been placed on a node yet can be cancelled too. Unloading a model on a node, draining a node, and removing a node all cancel the loads placed there through the same stop path, and an unload still unloads the loaded replicas. The replica rows of a cancelled attempt are removed as soon as the worker confirms the stop. The `cancel_model_load` tool of the assistant calls the same service.
+
+`load-status` also reports `job_id`, `lease_expires_in`, `cancel_requested`, `last_error`, `stopping`, `stop_deadline` and `retry_after`. A database error is a `503`, never an empty answer.
+
+#### Rolling upgrades
+
+Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
 ### NATS JWT authentication (recommended for production)
 
@@ -552,7 +603,8 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/backends/install` | Install a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/upgrade` | Upgrade (force-reinstall) a backend on a worker |
 | `POST` | `/api/nodes/:id/backends/delete` | Delete a backend from a worker |
-| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker |
+| `POST` | `/api/nodes/:id/models/unload` | Unload a model from a worker. Cancels a load of that model on the worker first. |
+| `POST` | `/api/models/:id/load-cancel` | Cancel one load attempt (`{"job_id": "..."}`) |
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
@@ -599,6 +651,26 @@ which case every sizing surface falls back to the local host:
 Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
 judges backend compatibility against the union of the capabilities present in
 the cluster, so a CUDA-only build is offered when any worker can run it.
+
+### Model configs across frontends
+
+Every frontend keeps its own in-memory copy of the model configs in the shared models directory. When a frontend installs, edits, toggles or deletes a model, it writes the change to the directory and publishes a message on NATS. The other frontends reload the directory when they receive it.
+
+A gallery install or delete publishes this message as soon as the new config is in place, before the frontend preloads model files. The preload can take minutes on a large models directory, and other frontends do not wait for it. If the preload fails, the operation reports the error, but the config change stays applied on every frontend.
+
+NATS keeps no history of these messages. A frontend that is disconnected when a message is published never receives it. To recover, each frontend also reloads the models directory:
+
+- every `--model-config-resync-interval` (default `30s`), when a config file changed since its last pass, and
+- after each NATS reconnect.
+
+The pass is the same reconcile that a NATS message triggers, so it is idempotent. Only models whose file changed get a new [configuration revision](#model-configuration-revisions). A pass over an unchanged directory reads the config files and does nothing else.
+
+Distributed-state mode: each frontend derives this state from the shared directory, so there is no leader and nothing to replicate. The only per-frontend memory is a hash of the config files from its last pass, which only saves work. The consequence is a bounded delay: a frontend that missed a message serves the previous config for at most one interval.
+
+Two limits apply:
+
+- Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
+- The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
 
 ### Model configuration revisions
 
@@ -1143,6 +1215,17 @@ the slot, and the model filling it can change without rewriting the rule. The
 WebUI lists aliases in the model picker on the **Placement rules** page, tagged with
 the model each one resolves to.
 
+Each frontend resolves the alias from its own copy of the model configs, and a
+frontend that has not yet reloaded a repointed alias still resolves it the old
+way (see [Model configs across frontends](#model-configs-across-frontends)).
+The rule's stored target therefore follows the alias only through frontends
+whose copy of the alias config matches the
+[configuration revision](#model-configuration-revisions) the cluster accepted.
+A frontend that is behind uses the stored target for the replica reconciler and
+does not write it, so two frontends cannot overwrite the rule's target against
+each other, and a frontend that is behind cannot reload the model the alias
+used to point at.
+
 Two constraints follow from replicas being shared. A single load of `llama3`
 serves both `production` and any request that names `llama3` directly, so only
 one rule can decide where it runs: a rule whose target is already governed by
@@ -1316,7 +1399,7 @@ Notes:
 **A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
 - A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
 - The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
-- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- Each replica row names the load attempt that made it. Liveness is decided by that attempt's job lease, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer whose owner still renews its lease is never reclaimed however long it takes. A row is reclaimed when its attempt has no job: the job was released after a failure, or another attempt replaced it.
 - `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
 
 **A request fails with `nats: no responders available for request`:**

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
@@ -9,8 +9,11 @@ import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { rowKeyDown, useRestoreRowFocus } from '../components/models/rowKeys'
 import { gbLabel } from '../utils/modelLedger'
+import { diskEntry, sharedWith } from '../utils/modelStorage'
+import { formatBytes } from '../utils/format'
 import { publishWalk } from '../utils/modelWalk'
 import { useModelSizes } from '../hooks/useModelSizes'
+import { useModelStorage } from '../hooks/useModelStorage'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
@@ -133,6 +136,9 @@ export default function InstalledModels({
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)
+  // The on-disk sizes. Admin only: for anyone else, or when the read fails, the
+  // table falls back to the gallery's estimates and says so.
+  const storage = useModelStorage(true, refreshToken)
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' })
   const loadedOnce = useRef(false)
   const bodyRef = useRef(null)
@@ -230,18 +236,43 @@ export default function InstalledModels({
     )
   ))
 
-  // Sizes come from the gallery's file sizes for the models it lists; a model
-  // it does not know has none, and the cell says so rather than guessing.
-  const galleryBacked = models.filter(model => enrichModel(model.id)).map(model => model.id)
-  const sizes = useModelSizes(galleryBacked, true)
+  // A size is what the model really takes on disk. Where the server gives no
+  // such figure (the model is not in its report, or the caller may not read it),
+  // the size of the files the gallery lists stands in, and a model the gallery
+  // does not list has none: the cell says so rather than guessing. The gallery
+  // is only asked after the report has answered, and only about the rest.
+  const diskOf = id => diskEntry(storage.index, id)
+  const estimable = storage.status === 'loading'
+    ? []
+    : models.filter(model => !diskOf(model.id) && enrichModel(model.id)).map(model => model.id)
+  const sizes = useModelSizes(estimable, true)
+  const sizeOf = id => {
+    const disk = diskOf(id)
+    return disk ? disk.size : sizes[id] ?? null
+  }
+
+  // The footer line: what the models directory holds in all, counting a file
+  // that several models use once, how much of it is shared, and how many
+  // references point at nothing.
+  const totals = useMemo(() => {
+    const index = storage.index
+    if (!index) return null
+    let shared = 0
+    let missing = 0
+    for (const f of index.byPath.values()) {
+      if (f.missing) missing += 1
+      else if (f.models.length > 1) shared += f.size
+    }
+    return { total: index.total, shared, missing }
+  }, [storage.index])
 
   const direction = sort.dir === 'asc' ? 1 : -1
   const visibleModels = [...matching].sort((a, b) => {
     if (sort.key === 'size') {
       // Unknown sizes sort last in both directions: a model with no reading is
       // not the smallest one, it is the one we know least about.
-      const sa = sizes[a.id]
-      const sb = sizes[b.id]
+      const sa = sizeOf(a.id)
+      const sb = sizeOf(b.id)
       if (sa == null && sb == null) return a.id.localeCompare(b.id)
       if (sa == null) return 1
       if (sb == null) return -1
@@ -386,8 +417,15 @@ export default function InstalledModels({
             tone: running ? 'ok' : undefined,
           },
           { label: t('lifecycle.detail.backend'), value: selectedModel.backend || t('lifecycle.detail.auto') },
-          sizes[selectedModel.id]
-            ? { label: t('ledger.columns.size'), value: gbLabel(sizes[selectedModel.id]) }
+          sizeOf(selectedModel.id) != null
+            ? { label: t('ledger.columns.size'), value: gbLabel(sizeOf(selectedModel.id)) }
+            : null,
+          diskOf(selectedModel.id)?.missing.length > 0
+            ? {
+                label: t('lifecycle.detail.missingFiles'),
+                value: t('lifecycle.detail.missingCount', { count: diskOf(selectedModel.id).missing.length }),
+                tone: 'warn',
+              }
             : null,
           selectedModel.pinned
             ? { label: t('lifecycle.detail.pinned'), value: t('lifecycle.detail.yes'), tone: 'warn' }
@@ -466,6 +504,9 @@ export default function InstalledModels({
         <InstalledModelDetail
           model={selectedModel}
           enriched={enriched}
+          disk={diskOf(selectedModel.id)}
+          sharing={sharedWith(storage.index, selectedModel.id)}
+          onSelectModel={onSelect}
           distributedMode={distributedMode}
           t={t}
         />
@@ -637,6 +678,9 @@ export default function InstalledModels({
                                 {Array.isArray(model.loaded_on) && model.loaded_on.length > 0 && distributedMode && (
                                   <RowMark icon="server" label={t('lifecycle.detail.distributed')} />
                                 )}
+                                {diskOf(model.id)?.missing.length > 0 && (
+                                  <RowMark icon="alert-circle" label={t('lifecycle.detail.missingCount', { count: diskOf(model.id).missing.length })} />
+                                )}
                               </span>
                               <span className="dk-table-sub">
                                 {actionErrors[model.id] || [model.backend || t('lifecycle.detail.auto'), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
@@ -649,7 +693,13 @@ export default function InstalledModels({
                               </span>
                             </td>
                             <td className="dk-num dk-hide-phone ledger-size">
-                              {sizes[model.id] ? gbLabel(sizes[model.id]) : <span title={t('ledger.sizeUnknownTitle')}>&mdash;</span>}
+                              <SizeCell
+                                size={sizeOf(model.id)}
+                                disk={diskOf(model.id)}
+                                sharedWith={sharedWith(storage.index, model.id)}
+                                loading={storage.status === 'loading'}
+                                t={t}
+                              />
                             </td>
                             <td className="dk-table-actions ledger-status">
                               <span className="ledger-rowactions">{rowActions(model)}</span>
@@ -663,7 +713,17 @@ export default function InstalledModels({
               </div>
             )}
             {!firstLoad && models.length > 0 && (
-              <p className="ledger-bar__count ledger-bar__count--foot">{t('lifecycle.installed.count', { shown: visibleModels.length, total: models.length })}</p>
+              <p className="ledger-bar__count ledger-bar__count--foot">
+                {t('lifecycle.installed.count', { shown: visibleModels.length, total: models.length })}
+                {totals && (
+                  <span data-testid="installed-models-storage-summary">
+                    {' \u00b7 '}{t('lifecycle.installed.storageSummary', { total: gbLabel(totals.total), shared: gbLabel(totals.shared) })}
+                    {totals.missing > 0 && (
+                      <span className="ledger-bar__warn"> {'\u00b7 '}{t('lifecycle.installed.storageMissing', { count: totals.missing })}</span>
+                    )}
+                  </span>
+                )}
+              </p>
             )}
           </div>
           {selectedModel && (
@@ -687,7 +747,33 @@ export default function InstalledModels({
   )
 }
 
-function InstalledModelDetail({ model, enriched, distributedMode, t }) {
+// The Size cell. The on-disk size comes first, and what part of it other models
+// share is a line under it, since removing this model leaves that part behind.
+// Without a report the gallery's estimate stands in, marked as one; without
+// either, the cell says the size is not known.
+// eslint-disable-next-line no-unused-vars
+function SizeCell({ size, disk, sharedWith: sharing, loading, t }) {
+  if (disk) {
+    return (
+      <>
+        <span title={t('ledger.sizeOnDiskTitle', { exact: formatBytes(disk.size) })}>{gbLabel(disk.size)}</span>
+        {disk.shared > 0 && (
+          <span
+            className="dk-table-sub ledger-size__shared"
+            title={t('ledger.sharedSizeTitle', { size: formatBytes(disk.shared), models: sharing.map(s => s.model).join(', ') })}
+          >
+            {t('ledger.sharedSize', { size: gbLabel(disk.shared) })}
+          </span>
+        )}
+      </>
+    )
+  }
+  if (size != null) return <span title={t('ledger.sizeEstimateTitle')}>{gbLabel(size)}</span>
+  if (loading) return <span className="dk-skeleton dk-skeleton--line ledger-size__loading" aria-hidden="true" />
+  return <span title={t('ledger.sizeUnknownTitle')}>&mdash;</span>
+}
+
+function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, distributedMode, t }) {
   const description = enriched?.description
   const license = enriched?.license
   const tags = Array.isArray(enriched?.tags) ? enriched.tags : []
@@ -750,9 +836,28 @@ function InstalledModelDetail({ model, enriched, distributedMode, t }) {
           <dd className="cell-muted">{model.source}</dd>
         </>)}
 
-        {files.length > 0 && (<>
+        {sharing.length > 0 && (<>
+          <dt>{t('lifecycle.detail.sharesFiles')}</dt>
+          <dd>
+            <div className="badge-row">
+              {sharing.map(item => (
+                <button
+                  key={item.model}
+                  type="button"
+                  className="dk-chip dk-chip--sm"
+                  title={formatBytes(item.bytes)}
+                  onClick={() => onSelectModel(item.model)}
+                >
+                  {item.model}
+                </button>
+              ))}
+            </div>
+          </dd>
+        </>)}
+
+        {(disk || files.length > 0) && (<>
           <dt>{t('lifecycle.detail.files')}</dt>
-          <dd className="cell-muted">{t('lifecycle.detail.fileCount', { count: files.length })}</dd>
+          <dd className="cell-muted">{t('lifecycle.detail.fileCount', { count: disk ? disk.files.length : files.length })}</dd>
         </>)}
       </dl>
     </div>

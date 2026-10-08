@@ -243,7 +243,8 @@
   font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
 }
-.ledger-bar__count--foot { margin: var(--dk-space-2) 0 0; }
+.ledger-bar__count--foot { margin: var(--dk-space-2) 0 0; line-height: 1.5; }
+.ledger-bar__warn { color: var(--dk-warn-text); }
 
 .ledger-pager { flex: none; justify-content: center; margin-top: var(--dk-space-2); }
 
@@ -299,6 +300,8 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-builds::before { content: "\00a0\00b7\00a0"; }
 
 .ledger-size { color: var(--dk-text); }
+.ledger-size__shared { margin-top: 1px; white-space: nowrap; }
+.ledger-size__loading { display: inline-block; width: 48px; height: 12px; vertical-align: middle; }
 
 .ledger-fit-cell { min-width: 210px; }
 .ledger-status { white-space: nowrap; }
@@ -602,6 +605,7 @@ tr[data-selected="true"] .ledger-mark {
   overflow-wrap: anywhere;
 }
 .ledger-cr__why { font-size: var(--dk-text-13); line-height: 1.45; color: var(--dk-muted); }
+.ledger-cr__why--warn { color: var(--dk-warn-text); }
 .ledger-cr__size { font-size: var(--dk-text-13); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--dk-text); }
 .ledger-cr--locked { cursor: default; }
 .ledger-cr--locked:hover { background: none; }

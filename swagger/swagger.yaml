@@ -272,6 +272,23 @@ definitions:
           type: string
         type: array
     type: object
+  gallery.ModelStorage:
+    properties:
+      files:
+        items:
+          type: string
+        type: array
+      missing:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      shared_bytes:
+        type: integer
+      size_bytes:
+        type: integer
+    type: object
   gallery.NodeDriftInfo:
     properties:
       digest:
@@ -282,6 +299,41 @@ definitions:
         type: string
       version:
         type: string
+    type: object
+  gallery.StorageFile:
+    properties:
+      missing:
+        type: boolean
+      models:
+        items:
+          type: string
+        type: array
+      path:
+        description: Path is relative to the models directory.
+        type: string
+      size_bytes:
+        type: integer
+    type: object
+  gallery.StorageIndex:
+    properties:
+      errors:
+        description: |-
+          Errors carries per-config failures (malformed YAML, path escapes),
+          reported rather than fatal so one broken config cannot blank the
+          whole report.
+        items:
+          type: string
+        type: array
+      files:
+        items:
+          $ref: '#/definitions/gallery.StorageFile'
+        type: array
+      models:
+        items:
+          $ref: '#/definitions/gallery.ModelStorage'
+        type: array
+      total_bytes:
+        type: integer
     type: object
   gallery.UpgradeInfo:
     properties:
@@ -1793,6 +1845,24 @@ definitions:
       object:
         type: string
     type: object
+  schema.ModelLoadCancelRequest:
+    properties:
+      job_id:
+        type: string
+    type: object
+  schema.ModelLoadCancelResponse:
+    properties:
+      current_job_id:
+        type: string
+      job_id:
+        type: string
+      model:
+        type: string
+      retry_after:
+        type: integer
+      state:
+        type: string
+    type: object
   schema.ModelLoadRequest:
     properties:
       model:
@@ -1816,6 +1886,9 @@ definitions:
     properties:
       bytes_sent:
         type: integer
+      cancel_requested:
+        description: CancelRequested is true when an administrator cancelled the attempt.
+        type: boolean
       eta_seconds:
         description: |-
           ETASeconds is omitted rather than guessed until enough bytes have moved
@@ -1824,14 +1897,38 @@ definitions:
         type: integer
       file_index:
         type: integer
+      job_id:
+        description: |-
+          JobID names the load attempt. A cancel must quote it: it is the
+          precondition that keeps a cancel from hitting a replacement attempt.
+        type: string
+      last_error:
+        description: LastError is the cause of a failed attempt.
+        type: string
+      lease_expires_in:
+        description: |-
+          LeaseExpiresIn is the seconds left on the owner's lease. It is negative
+          when the lease already ran out, which means the owner is gone.
+        type: integer
       model:
         type: string
       node:
         type: string
       progress:
         type: number
+      retry_after:
+        description: RetryAfter is the seconds until a new load may start, for a failed
+          attempt.
+        type: integer
       state:
         type: string
+      stop_deadline:
+        type: string
+      stopping:
+        description: |-
+          Stopping is true while the remote work of a failed attempt is not yet
+          confirmed ended. StopDeadline is when the model is released regardless.
+        type: boolean
       total_bytes:
         type: integer
       total_files:
@@ -4194,12 +4291,70 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{id}/load-cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels the load attempt named by `job_id` and stops its remote
+        work. 200 means the attempt is gone or the worker confirmed the stop. 202
+        means the cancel is recorded and the stop is pending; the model is released
+        after `retry_after` seconds regardless. 409 means a different attempt is current
+        and carries its `current_job_id`. Repeating the call is safe and does not
+        extend the hold.
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The exact attempt to cancel
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelLoadCancelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stopped, or no such load any more
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "202":
+          description: Cancel recorded; stop pending
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A different attempt is current
+          schema:
+            $ref: '#/definitions/schema.ModelLoadCancelResponse'
+      summary: Cancel one distributed model load.
+      tags:
+      - models
   /api/models/{id}/load-status:
     get:
-      description: Returns the live state of a distributed cold load — phase, node,
-        byte progress and ETA — or 404 when no load is running for the model. This
+      description: 'Returns the live state of a distributed cold load: job id, phase,
+        node, byte progress, ETA, lease freshness, and for a failed attempt the cause,
+        whether the stop is pending and when the model is released. 404 means no load
+        exists for the model. A database error is 503, never an empty answer. This
         is the same `loading` object the 503 response carries while a model is still
-        staging.
+        staging.'
       parameters:
       - description: Model ID
         in: path
@@ -4215,6 +4370,10 @@ paths:
             $ref: '#/definitions/schema.ModelLoadingStatus'
         "404":
           description: No load is running for this model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The job table could not be read
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Report the progress of an in-flight model load.
@@ -4320,6 +4479,20 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/storage:
+    get:
+      description: Per-model disk usage, shared-file relations and missing references
+        under the models path
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: storage report
+          schema:
+            $ref: '#/definitions/gallery.StorageIndex'
+      summary: Report model storage usage on disk
+      tags:
+      - models
   /api/models/toggle-pinned/{name}/{action}:
     put:
       description: Pin or unpin a model. Pinned models stay loaded and are excluded

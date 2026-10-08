@@ -48,6 +48,15 @@ moves files. `S3NATSFileStager` returns `nodes.ErrNoRoute` when nothing is
 listening for the node. `HTTPFileStager` reports connection failures as
 ordinary errors.
 
+`NodeCommandSender` embeds `LoadOperationControl`: the load operation verbs
+(`InstallBackendOp`, `StopLoadOperation`, `OperationControl` for renewals and
+completions, `UnloadReplica`, `StopModelReplica`). A carrier implements all of
+them. Its timing and error contract is the doc comment on the interface in
+`core/services/nodes/interfaces.go`, and `load_operation_control_conformance_test.go`
+runs every carrier in `loadOperationCarriers` against it. Whether a worker
+names operations is the worker's own report (`BackendInstallReply.ReportsOperations`),
+not a property of the carrier.
+
 Worker half: each verb is a `controlVerb`. A handler is typed with `unary`,
 `withProgress` or `noReply` and registered with `handle` (one request of the
 verb at a time on NATS, panic not recovered) or `handleWithProgress` (a

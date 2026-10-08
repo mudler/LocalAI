@@ -26,43 +26,62 @@ const (
 // answering nothing.
 var preServingStates = []string{"loading", "staging"}
 
-// reclaimAbandonedLoads removes replica rows whose load will never finish.
+// reclaimAbandonedLoads applies the load job lease rules, then removes replica
+// rows whose load will never finish.
+//
+// It runs without any request. First it fails running jobs whose lease ran out
+// and releases failed jobs whose stop window is over, so a crashed owner frees
+// its model on its own. Then it removes replica rows stuck before serving.
 //
 // The other reconciler passes and the router's eviction query all filter
 // state = "loaded", and the per-model probe skips rows without an address, so
-// nothing reclaimed a row that never got that far. On a node with one replica
-// slot per model, a single interrupted transfer made the model unschedulable
-// there until an operator intervened: scheduling saw no free slot, and eviction
-// found nothing it was allowed to evict.
+// nothing else reclaims a row that never got that far. On a node with one
+// replica slot per model, a single interrupted transfer made the model
+// unschedulable there until an operator intervened.
 //
-// A row is only reclaimed when something proves the load is not progressing:
-// either a load job that has failed or stopped heartbeating, or, for a row with
-// no job at all, a node that is no longer healthy.
-//
-// The no-job case has to be conservative. Only the request path creates load
-// jobs; the reconciler's own scale-up loads a replica without one. Treating a
-// missing job as proof of abandonment would let this sweeper delete a healthy
-// reconciler-driven transfer the moment it ran past the grace period, which for
-// a multi-gigabyte checkpoint is every time. A healthy node with no job is
-// therefore left alone; when the node is gone, nothing can be progressing and
-// the row is safe to reclaim.
+// A replica row names the load attempt that created it. It is removed once that
+// attempt has no job: the job was released, or another attempt replaced it.
+// While the job exists, even a failed one, the row keeps its slot, because the
+// work behind it may still run. Rows written without a generation (an older
+// binary, or a reconciler-driven load that predates job claims) are the
+// uncertain case: they are removed when their model's job is released, or when
+// their node is gone. A healthy node with no job is left alone, because nothing
+// proves the load stopped.
 func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 	if rc.db == nil {
 		return
 	}
 
+	// Failed attempts whose remote work is not confirmed ended keep their stop
+	// retried until the worker answers or the deadline releases them.
+	rc.retryLoadStops(ctx)
+
+	sweep, err := rc.registry.SweepLoadJobs(ctx)
+	if err != nil {
+		xlog.Warn("Reconciler: failed to sweep load job leases, leaving replica slots held", "error", err)
+		return
+	}
+	if sweep.Expired > 0 || len(sweep.Released) > 0 {
+		xlog.Warn("Reconciler: applied load job lease rules", "expired", sweep.Expired, "released", len(sweep.Released))
+	}
+	released := make(map[string]bool, len(sweep.Released))
+	for _, ref := range sweep.Released {
+		released[ref.TrackingKey] = true
+	}
+
 	cutoff := time.Now().Add(-abandonedLoadGrace)
 	var stuck []NodeModel
+	// The age grace only covers rows with no generation. A row that names its
+	// attempt needs no grace: its job exists from before the row does.
 	if err := rc.db.WithContext(ctx).
-		Where("state IN ? AND updated_at < ?", preServingStates, cutoff).
+		Where("state IN ? AND (load_generation <> '' OR updated_at < ?)", preServingStates, cutoff).
 		Find(&stuck).Error; err != nil {
 		xlog.Warn("Reconciler: failed to list replicas stuck before serving", "error", err)
 		return
 	}
 
-	now := time.Now()
 	for _, row := range stuck {
-		if !rc.loadAbandoned(ctx, row, now) {
+		if !rc.loadAbandoned(ctx, row, released[row.ModelName]) {
 			continue
 		}
 		if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
@@ -80,23 +99,27 @@ func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 //
 // Every uncertain case answers false. Leaving a slot held for another pass
 // costs one scheduling opportunity; reclaiming a row out from under a live
-// transfer restarts a multi-gigabyte load and, on a single-slot node, makes the
-// model unschedulable there for as long as the retry loop runs.
-func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, now time.Time) bool {
+// transfer restarts a multi-gigabyte load.
+func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, jobReleased bool) bool {
 	job, err := rc.registry.GetLoadJob(ctx, row.ModelName)
 	switch {
 	case errors.Is(err, gorm.ErrRecordNotFound), err == nil && job == nil:
-		// No job: only the request path creates them, so this may be a healthy
-		// reconciler-driven load. Reclaim only once its node is gone.
-		return !rc.nodeHealthy(ctx, row.NodeID)
+		if row.LoadGeneration != "" {
+			// The attempt that made this row has no job any more.
+			return true
+		}
+		// No generation and no job: this may be a healthy load an older binary
+		// drives. Reclaim only once the node is gone, or the job it belonged to
+		// was just released.
+		return jobReleased || !rc.nodeHealthy(ctx, row.NodeID)
 	case err != nil:
 		xlog.Warn("Reconciler: cannot read load job, leaving the replica slot held",
 			"model", row.ModelName, "error", err)
 		return false
-	case job.State == LoadJobStateFailed:
-		return true
 	default:
-		return job.IsOrphaned(now)
+		// A job exists. The row is abandoned only if the job is another
+		// attempt's.
+		return row.LoadGeneration != "" && job.Generation != row.LoadGeneration
 	}
 }
 

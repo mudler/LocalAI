@@ -10,6 +10,7 @@ import { modelPath, walkFor } from '../utils/modelWalk'
 import { formatBytes } from '../utils/format'
 import { stripMarkdown } from '../utils/markdown'
 import { useModels } from '../hooks/useModels'
+import { useModelStorage } from '../hooks/useModelStorage'
 import { useModelActions } from '../hooks/useModelActions'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
@@ -67,6 +68,8 @@ export default function ModelPage() {
   const { models: installedList, loading: installedLoading, error: installedError, refetch: refetchInstalled } = useModels()
   const profile = installedList.find(m => m.id === id) || null
   const installed = !!profile
+  // What this model takes on disk, for an admin. Read only for an installed one.
+  const storage = useModelStorage(installed)
   const gallery = useGalleryEntry(id)
   const entry = gallery.entry
   const { loaded, refresh: refreshLoaded } = useLoadedModels()
@@ -367,6 +370,7 @@ export default function ModelPage() {
     variants, variantsState, build, buildName, pickBuild: setPickedBuild, autoBuild,
     installing, installOp, progress, failedOp, install, retryInstall, leaves,
     galleryStatus: gallery.status, location, goTab,
+    storage,
     installedIds: new Set(installedList.map(m => m.id)),
     toast: addToast,
   }

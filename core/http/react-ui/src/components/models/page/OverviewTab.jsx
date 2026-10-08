@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { useCleanupFacts } from '../../../hooks/useCleanupFacts'
 import { renderMarkdown, stripMarkdown } from '../../../utils/markdown'
 import { safeHref } from '../../../utils/url'
+import { formatBytes } from '../../../utils/format'
 import { gbLabel } from '../../../utils/modelLedger'
+import { diskEntry } from '../../../utils/modelStorage'
 import { contextLabel } from '../../../utils/placement'
 import Icon from '../../Icon'
 // eslint-disable-next-line no-unused-vars
@@ -148,7 +150,8 @@ function UsedBy({ view }) {
 }
 
 export default function OverviewTab({ view }) {
-  const { t, entry, profile, installed, running, backend, license, estimateState, useCases, lede } = view
+  const { t, entry, profile, installed, running, backend, license, estimateState, useCases, lede, storage } = view
+  const onDisk = diskEntry(storage?.index, view.id)
   // A one-line description is already the line under the title; saying it again
   // as a paragraph adds nothing. Longer prose, and anything with markup, stays.
   const description = entry?.description && !(lede && !/[\n#*_`\[]/.test(entry.description) && stripMarkdown(entry.description).trim() === lede)
@@ -207,6 +210,23 @@ export default function OverviewTab({ view }) {
                 <dd>{profile.disabled ? t('lifecycle.states.disabled') : running ? t('lifecycle.states.running') : t('lifecycle.states.idle')}</dd>
                 <dt>{t('lifecycle.detail.backend')}</dt>
                 <dd className="dk-mono">{profile.backend || t('lifecycle.detail.auto')}</dd>
+                {onDisk && (
+                  <>
+                    <dt>{t('lifecycle.detail.size')}</dt>
+                    <dd data-testid="overview-size">
+                      {formatBytes(onDisk.size)}
+                      {onDisk.shared > 0 && <span className="cell-muted"> {'\u00b7'} {t('lifecycle.detail.sharedBytes', { size: formatBytes(onDisk.shared) })}</span>}
+                      <span className="cell-muted"> {'\u00b7'} </span>
+                      <button type="button" className="dk-link" onClick={() => view.goTab('usage')}>{t('page.files.view')}</button>
+                    </dd>
+                  </>
+                )}
+                {onDisk?.missing.length > 0 && (
+                  <>
+                    <dt>{t('lifecycle.detail.missingFiles')}</dt>
+                    <dd data-testid="overview-missing"><span className="dk-badge dk-badge--warn">{t('lifecycle.detail.missingCount', { count: onDisk.missing.length })}</span></dd>
+                  </>
+                )}
                 {profile.pinned && (<><dt>{t('lifecycle.detail.pinned')}</dt><dd>{t('lifecycle.detail.yes')}</dd></>)}
                 {profile.source && (<><dt>{t('lifecycle.detail.source')}</dt><dd>{profile.source}</dd></>)}
                 {useCases.length > 0 && (

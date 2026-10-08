@@ -608,6 +608,9 @@ func (a *Application) start() error {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		if a.distributed != nil && a.distributed.Unloader != nil {
+			assistantClient.LoadStopper = a.distributed.Unloader
+		}
 		// PII filter — same nil-or-real wiring.
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents

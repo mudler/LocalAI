@@ -1,9 +1,81 @@
+// eslint-disable-next-line no-unused-vars
+import { Link } from 'react-router-dom'
 import { useCleanupFacts } from '../../../hooks/useCleanupFacts'
+import { formatBytes } from '../../../utils/format'
+import { modelPath } from '../../../utils/modelWalk'
+import { diskEntry, filesOf } from '../../../utils/modelStorage'
 // eslint-disable-next-line no-unused-vars
 import NodeDistributionChip from '../../NodeDistributionChip'
 import Icon from '../../Icon'
 
 const MISSING = ['requests', 'ttft', 'loads', 'changes']
+
+// The files this model uses on disk, with their size and who else uses them.
+// A file another installed model uses stays on disk when this one is removed,
+// and a name the config gives that is not on disk is flagged. Shown to admins,
+// who can read the report; for anyone else the section says why it is absent.
+// eslint-disable-next-line no-unused-vars
+function FilesOnDisk({ view }) {
+  const { t, id, storage } = view
+  const entry = diskEntry(storage.index, id)
+  const rows = filesOf(storage.index, id)
+  return (
+    <section aria-labelledby="modelpage-files-h" data-testid="model-page-files">
+      <div className="modelpage-section-head">
+        <h2 className="modelpage-section-title" id="modelpage-files-h">{t('page.files.title')}</h2>
+        {entry && <span className="modelpage-section-note">{t('page.files.total', { size: formatBytes(entry.size), count: entry.files.length })}</span>}
+      </div>
+      {storage.status === 'loading' ? (
+        <span className="dk-skeleton dk-skeleton--block modelpage-variants__loading" role="status" aria-label={t('page.files.title')} />
+      ) : !entry ? (
+        <p className="dk-hint" data-testid="files-on-disk-none">
+          {storage.status === 'ready' ? t('storage.empty') : t('page.files.unavailable')}
+        </p>
+      ) : (
+        <>
+          {entry.missing.length > 0 && (
+            <div className="modelpage-banner" data-tone="warn" role="status" data-testid="files-missing-banner">
+              <Icon name="alert-circle" />
+              <span>{t('page.files.missing')}</span>
+            </div>
+          )}
+          <div className="dk-table-wrap modelpage-table" role="region" aria-label={t('page.files.title')} tabIndex={0}>
+            <table className="dk-table dk-table--compact">
+              <caption className="dk-sr-only">{t('page.files.caption', { model: id })}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('storage.columns.file')}</th>
+                  <th scope="col" className="dk-num">{t('storage.columns.size')}</th>
+                  <th scope="col">{t('storage.columns.status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(f => (
+                  <tr key={f.path} data-testid="disk-file-row" data-missing={f.missing ? 'true' : 'false'}>
+                    <td className="dk-table-id dk-mono modelpage-files__path">{f.path}</td>
+                    <td className="dk-num dk-mono">{f.missing ? '\u2014' : formatBytes(f.size)}</td>
+                    <td>
+                      {f.missing && <span className="dk-badge dk-badge--warn">{t('storage.status.missing')}</span>}
+                      {!f.missing && f.others.length > 0 && (
+                        <span className="modelpage-files__shared">
+                          {t('page.files.sharedWith')}{' '}
+                          {f.others.map((other, i) => (
+                            <span key={other}>{i > 0 && ', '}<Link className="dk-link dk-mono" to={modelPath(other)}>{other}</Link></span>
+                          ))}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {entry.shared > 0 && <p className="dk-hint modelpage-files__note">{t('page.files.sharedNote')}</p>}
+        </>
+      )}
+    </section>
+  )
+}
 
 // Usage and history. The API keeps no per-model request count, no time to first
 // token and no record of loads or configuration changes, so there is nothing to
@@ -11,7 +83,8 @@ const MISSING = ['requests', 'ttft', 'loads', 'changes']
 // the server does know about the model today (its state, who uses it) is listed
 // as facts, so the tab is not empty of the truth.
 export default function UsageTab({ view }) {
-  const { t, id, profile, running } = view
+  const { t, id, profile, running, storage } = view
+  const disk = diskEntry(storage?.index, id)
   const facts = useCleanupFacts(true)
   const refs = facts.references.get(id) || []
   const kinds = ['agent', 'task', 'chain', 'alias']
@@ -55,6 +128,15 @@ export default function UsageTab({ view }) {
               <dd><NodeDistributionChip nodes={nodes} context="models" compactThreshold={20} /></dd>
             </>
           )}
+          {disk && (
+            <>
+              <dt>{t('lifecycle.detail.size')}</dt>
+              <dd data-testid="usage-size">
+                {formatBytes(disk.size)}
+                {disk.shared > 0 && <span className="cell-muted"> {'\u00b7'} {t('lifecycle.detail.sharedBytes', { size: formatBytes(disk.shared) })}</span>}
+              </dd>
+            </>
+          )}
           <dt>{t('page.usedBy.title')}</dt>
           <dd data-testid="usage-usedby">
             {!facts.loaded
@@ -65,6 +147,8 @@ export default function UsageTab({ view }) {
           </dd>
         </dl>
       </section>
+
+      <FilesOnDisk view={view} />
     </div>
   )
 }

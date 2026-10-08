@@ -407,6 +407,15 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	return grpcControlProcess, nil
 }
 
+// NoteIntentionalStop marks a process that its owner is about to stop on
+// purpose, so its exit is logged as a stop and not as a crash. Callers that stop
+// a process directly, without going through the loader, use it.
+func (ml *ModelLoader) NoteIntentionalStop(proc *process.Process) {
+	if ml != nil && proc != nil {
+		ml.stoppingProcs.Store(proc, struct{}{})
+	}
+}
+
 // forgetExitedProcess drops the model store entry of a backend that exited on
 // its own, so it is no longer reported as loaded. It shares the lifecycle lock
 // with loading and shutdown and matches the process identity, so a late exit

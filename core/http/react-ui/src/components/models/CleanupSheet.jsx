@@ -6,10 +6,12 @@ import Icon from '../Icon'
 import { useModels } from '../../hooks/useModels'
 import { useGalleryEnrichment } from '../../hooks/useGalleryEnrichment'
 import { useModelSizes } from '../../hooks/useModelSizes'
+import { useModelStorage } from '../../hooks/useModelStorage'
 import { useCleanupFacts } from '../../hooks/useCleanupFacts'
 import { useBuildDuplicates } from '../../hooks/useBuildDuplicates'
 import { systemApi } from '../../utils/api'
 import { buildCleanupPlan, totalSize, UNDO_MS } from '../../utils/cleanupPlan'
+import { diskEntry } from '../../utils/modelStorage'
 import { gbLabel } from '../../utils/modelLedger'
 
 const TIERS = ['safe', 'probably', 'call']
@@ -35,6 +37,37 @@ function useRunning(enabled, refreshToken) {
 
 function refText(t, ref) {
   return t(`cleanup.ref.${ref.kind}`, { name: ref.name })
+}
+
+// What a model gives back when removed alone: its own files. Zero is a real
+// answer when every file is shared, and reads as zero, not as "unknown".
+function sizeText(t, item) {
+  if (item.sizeSource === 'disk') return gbLabel(item.size)
+  return item.size ? gbLabel(item.size) : t('cleanup.sizeUnknown')
+}
+
+// The line under a model's reason: files it shares with other installed models
+// (they stay on disk), and files its config names that are gone.
+// eslint-disable-next-line no-unused-vars
+function FactLines({ t, item }) {
+  if (item.sharedWith.length === 0 && item.missing.length === 0) return null
+  return (
+    <>
+      {item.sharedWith.length > 0 && (
+        <span className="ledger-cr__why" data-testid="cleanup-shared">
+          {t('cleanup.sharedWith', {
+            size: gbLabel(item.sharedWith.reduce((n, s) => n + s.bytes, 0)),
+            models: item.sharedWith.map(s => s.model).join(', '),
+          })}
+        </span>
+      )}
+      {item.missing.length > 0 && (
+        <span className="ledger-cr__why ledger-cr__why--warn" data-testid="cleanup-missing-item">
+          {t('cleanup.missing.item', { count: item.missing.length })}
+        </span>
+      )}
+    </>
+  )
 }
 
 function reasonText(t, reason) {
@@ -73,6 +106,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
   const { enrichModel, loaded: galleryLoaded } = useGalleryEnrichment(open)
   const running = useRunning(open, refreshToken)
   const facts = useCleanupFacts(open)
+  const storage = useModelStorage(open, refreshToken)
   const [selected, setSelected] = useState(() => new Set())
   const [confirm, setConfirm] = useState(null)
   const [checking, setChecking] = useState(false)
@@ -96,7 +130,12 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
     () => new Set(ids.filter(id => enrichModel(id))),
     [ids, enrichModel],
   )
-  const sizes = useModelSizes(ids.filter(id => galleryIds.has(id)), open)
+  // The gallery's estimate is only asked for a model the on-disk report has
+  // nothing on, and only after that report has answered.
+  const estimable = storage.status === 'loading'
+    ? []
+    : ids.filter(id => galleryIds.has(id) && !diskEntry(storage.index, id))
+  const sizes = useModelSizes(estimable, open)
   const { duplicates, loading: dupLoading } = useBuildDuplicates(
     ids,
     id => !!enrichModel(id)?.has_variants,
@@ -113,13 +152,14 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
       running: isRunning(m),
     })),
     sizes,
+    storage: storage.index,
     references: facts.references,
     duplicates,
     galleryIds,
     verified: facts.verified,
-  }), [visible, sizes, facts.references, facts.verified, duplicates, galleryIds, isRunning])
+  }), [visible, sizes, storage.index, facts.references, facts.verified, duplicates, galleryIds, isRunning])
 
-  const ready = !modelsLoading && running.ready && facts.loaded && galleryLoaded
+  const ready = !modelsLoading && running.ready && facts.loaded && galleryLoaded && storage.status !== 'loading'
   const byId = useMemo(() => {
     const map = new Map()
     for (const tier of TIERS) for (const item of plan.groups[tier]) map.set(item.id, { ...item, tier })
@@ -184,9 +224,13 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
   })
 
   const chosen = [...selected].map(id => byId.get(id)).filter(Boolean)
-  const frees = totalSize(chosen)
+  const frees = totalSize(chosen, storage.index)
   const afterFree = disk ? disk.free + frees.bytes : null
-  const reclaimable = totalSize(TIERS.flatMap(tier => plan.groups[tier]))
+  const reclaimable = totalSize(TIERS.flatMap(tier => plan.groups[tier]), storage.index)
+  // Models whose config names files that are not on disk, safe to remove or not.
+  const brokenModels = [...TIERS.flatMap(tier => plan.groups[tier]), ...plan.protected]
+    .filter(item => item.missing.length > 0)
+    .map(item => item.id)
   const modelCount = TIERS.reduce((n, tier) => n + plan.groups[tier].length, 0)
 
   // The dry run: look again before asking. What was safe a minute ago may have
@@ -217,6 +261,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
   })()
 
   const nothingLeft = !!confirmed && confirmed.stillOk.length === 0
+  const confirmedFrees = confirmed ? totalSize(confirmed.stillOk, storage.index) : { bytes: 0, unknown: 0 }
   const confirmBody = confirmed && (nothingLeft ? (
     <div className="ledger-confirm">
       <p className="ledger-confirm__warn" role="status">
@@ -227,9 +272,9 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
     <div className="ledger-confirm">
       <p>
         {afterFree != null
-          ? t('cleanup.confirm.effect', { freed: gbLabel(totalSize(confirmed.stillOk).bytes), after: gbLabel(disk.free + totalSize(confirmed.stillOk).bytes), now: gbLabel(disk.free) })
-          : t('cleanup.confirm.effectNoDisk', { freed: gbLabel(totalSize(confirmed.stillOk).bytes) })}
-        {totalSize(confirmed.stillOk).unknown > 0 && ` ${t('cleanup.confirm.unknownSizes', { count: totalSize(confirmed.stillOk).unknown })}`}
+          ? t('cleanup.confirm.effect', { freed: gbLabel(confirmedFrees.bytes), after: gbLabel(disk.free + confirmedFrees.bytes), now: gbLabel(disk.free) })
+          : t('cleanup.confirm.effectNoDisk', { freed: gbLabel(confirmedFrees.bytes) })}
+        {confirmedFrees.unknown > 0 && ` ${t('cleanup.confirm.unknownSizes', { count: confirmedFrees.unknown })}`}
       </p>
       <table className="ledger-confirm__table" data-testid="cleanup-dry-run">
         <caption className="dk-sr-only">{t('cleanup.confirm.caption')}</caption>
@@ -238,7 +283,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
             <tr key={item.id}>
               <th scope="row">{item.id}</th>
               <td>{reasonText(t, item.reason)}</td>
-              <td className="dk-num">{item.size ? gbLabel(item.size) : t('cleanup.sizeUnknown')}</td>
+              <td className="dk-num">{sizeText(t, item)}</td>
             </tr>
           ))}
         </tbody>
@@ -327,6 +372,17 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
               <strong>{t('cleanup.noUsage.title')}</strong> {t('cleanup.noUsage.text')}
             </span>
           </p>
+          {ready && modelCount + plan.protected.length > 0 && (
+            <p className="ledger-note" data-testid="cleanup-sizes">
+              <Icon name="hard-drive" />
+              <span>{storage.status === 'ready' ? t('cleanup.sizes.disk') : t('cleanup.sizes.estimate')}</span>
+            </p>
+          )}
+          {ready && brokenModels.length > 0 && (
+            <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-missing">
+              <Icon name="alert-circle" /> <span>{t('cleanup.missing.note', { models: brokenModels.join(', ') })}</span>
+            </p>
+          )}
           {!facts.verified && facts.loaded && (
             <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-unverified">
               <Icon name="alert-circle" /> <span>{t('cleanup.unverified')}</span>
@@ -354,7 +410,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
           {ready && TIERS.map(tier => {
             const items = plan.groups[tier]
             if (items.length === 0) return null
-            const sum = totalSize(items)
+            const sum = totalSize(items, storage.index)
             const allOn = items.every(item => selected.has(item.id))
             return (
               <section key={tier} className="ledger-tier" data-testid={`cleanup-tier-${tier}`} aria-labelledby={`cleanup-tier-${tier}-h`}>
@@ -386,8 +442,9 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                             {item.backend && <span className="dk-badge">{item.backend}</span>}
                           </span>
                           <span className="ledger-cr__why">{reasonText(t, item.reason)}</span>
+                          <FactLines t={t} item={item} />
                         </span>
-                        <span className="ledger-cr__size dk-mono">{item.size ? gbLabel(item.size) : t('cleanup.sizeUnknown')}</span>
+                        <span className="ledger-cr__size dk-mono">{sizeText(t, item)}</span>
                       </label>
                     </li>
                   ))}
@@ -419,8 +476,9 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                       <span className="ledger-cr__main">
                         <span className="ledger-cr__name">{item.id}</span>
                         <span className="ledger-cr__why">{protectedText(t, item.reasons)}</span>
+                        <FactLines t={t} item={item} />
                       </span>
-                      <span className="ledger-cr__size dk-mono">{item.size ? gbLabel(item.size) : ''}</span>
+                      <span className="ledger-cr__size dk-mono">{item.sizeSource === 'disk' || item.size ? sizeText(t, item) : ''}</span>
                     </li>
                   ))}
                 </ul>

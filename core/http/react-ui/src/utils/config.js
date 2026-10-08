@@ -127,6 +127,7 @@ export const API_CONFIG = {
     modelsImportUri: '/models/import-uri',
     modelsImport: '/models/import',
     vramEstimate: '/api/models/vram-estimate',
+    modelsStorage: '/api/models/storage',
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
     modelEditGet: (name) => `/api/models/edit/${encodeURIComponent(name)}`,
     modelEdit: (name) => `/models/edit/${name}`,

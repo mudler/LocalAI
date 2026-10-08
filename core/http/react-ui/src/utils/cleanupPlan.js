@@ -10,6 +10,12 @@
 //   - is it disabled? Then its owner already turned it off.
 //   - does the gallery list it? Then it can be downloaded again.
 // Every function is pure so the rules can be tested without a page.
+//
+// Sizes are what the models directory really holds when the storage report is
+// there (an admin sees it), and the gallery's file sizes otherwise. On disk, a
+// file two installed models use is not given back by removing one of them, so
+// a model's size here is only the part it does not share.
+import { diskEntry, freedBy, ownBytes, sharedWith } from './modelStorage.js'
 
 // How long a removal waits before anything is deleted. Long enough to notice a
 // mistake after reading the toast, short enough that the disk is not held for
@@ -76,7 +82,9 @@ export function findDuplicates(installedIds, variantsByEntry = {}) {
 }
 
 // models      [{ id, disabled, pinned, source, running }]
-// sizes       Map or object, id -> bytes. Only what the gallery reports.
+// sizes       Map or object, id -> bytes. Only what the gallery reports. Used
+//             for a model the storage report has nothing on.
+// storage     indexStorage() of the on-disk report, or null.
 // references  from collectReferences
 // duplicates  from findDuplicates
 // galleryIds  Set of ids the gallery lists, so the model can be downloaded again
@@ -85,6 +93,7 @@ export function findDuplicates(installedIds, variantsByEntry = {}) {
 export function buildCleanupPlan({
   models,
   sizes = {},
+  storage = null,
   references = new Map(),
   duplicates = new Map(),
   galleryIds = new Set(),
@@ -101,7 +110,19 @@ export function buildCleanupPlan({
     // A model only the cluster knows has no files on this host to remove.
     if (model.source === 'registry-only') continue
     const refs = references.get(model.id) || []
-    const base = { id: model.id, backend: model.backend || '', size: sizeOf(model.id) }
+    const onDisk = diskEntry(storage, model.id)
+    const estimate = sizeOf(model.id)
+    const base = {
+      id: model.id,
+      backend: model.backend || '',
+      // Bytes removing this model alone gives back. Null when nothing says.
+      size: onDisk ? ownBytes(onDisk) : estimate,
+      sizeSource: onDisk ? 'disk' : estimate ? 'estimate' : null,
+      // Other installed models that use some of the same files.
+      sharedWith: onDisk ? sharedWith(storage, model.id) : [],
+      // Files the config names that are not on disk.
+      missing: onDisk ? onDisk.missing : [],
+    }
 
     const why = []
     if (model.running) why.push({ key: 'running' })
@@ -142,11 +163,17 @@ export function buildCleanupPlan({
   return { groups, protected: protectedItems }
 }
 
-// Sum of the known sizes of a list of items, and whether any size was unknown.
-export function totalSize(items) {
-  let bytes = 0
+// What removing a list of items gives back, and how many had no known size.
+//
+// With the storage report, a file counts only when every model that uses it is
+// in the list: two models that share a file give it back together, and
+// neither does alone. Without it, the sum of the sizes.
+export function totalSize(items, storage = null) {
+  const onDisk = storage ? items.filter(item => item.sizeSource === 'disk') : []
+  let bytes = onDisk.length > 0 ? (freedBy(storage, onDisk.map(item => item.id)) ?? 0) : 0
   let unknown = 0
   for (const item of items) {
+    if (onDisk.includes(item)) continue
     if (item.size) bytes += item.size
     else unknown += 1
   }

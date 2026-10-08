@@ -46,12 +46,15 @@ import (
 // distributed-aware, ModelConfigLoader manages on-disk YAML, etc.), so this
 // layer just translates between MCP DTOs and service signatures.
 type Client struct {
-	AppConfig     *config.ApplicationConfig
-	SystemState   *system.SystemState
-	ConfigLoader  *config.ModelConfigLoader
-	ModelLoader   *model.ModelLoader
-	Gallery       *galleryop.GalleryService
-	NodeRegistry  *nodes.NodeRegistry
+	AppConfig    *config.ApplicationConfig
+	SystemState  *system.SystemState
+	ConfigLoader *config.ModelConfigLoader
+	ModelLoader  *model.ModelLoader
+	Gallery      *galleryop.GalleryService
+	NodeRegistry *nodes.NodeRegistry
+	// LoadStopper stops the remote work of a cancelled load. It is the same
+	// stopper the HTTP endpoint uses, so both paths stop work the same way.
+	LoadStopper   nodes.LoadAttemptStopper
 	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the
@@ -1145,4 +1148,27 @@ func (c *Client) UnpinFailoverTarget(_ context.Context, chain string) error {
 		return errors.New("failover is not running")
 	}
 	return c.Failover.Unpin(chain)
+}
+
+// CancelModelLoad cancels one distributed load attempt through the same service
+// the load-cancel endpoint uses, with the same stopper.
+func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	result := localaitools.LoadCancelResult{Model: model, JobID: jobID}
+	if model == "" || jobID == "" {
+		return result, errors.New("model and job_id are required")
+	}
+	if c.NodeRegistry == nil {
+		return result, errors.New("load cancellation is only available in distributed mode")
+	}
+	svc := &nodes.LoadCancelService{Registry: c.NodeRegistry, Stopper: c.LoadStopper}
+	out, err := svc.Cancel(ctx, nodes.LoadJobRef{TrackingKey: model, Generation: jobID})
+	if errors.Is(err, nodes.ErrLoadCancelConflict) {
+		return result, fmt.Errorf("a different load attempt is current (job_id %s); read load-status again", out.CurrentJobID)
+	}
+	if err != nil {
+		return result, err
+	}
+	result.State = string(out.State)
+	result.RetryAfter = int(out.RetryAfter.Seconds())
+	return result, nil
 }

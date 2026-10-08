@@ -54,6 +54,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolDeleteModel:         "POST /models/delete/:name",
 	ToolEditModelConfig:     "PATCH /api/models/config-json/:name",
 	ToolReloadModels:        "POST /models/reload",
+	ToolCancelModelLoad:     "POST /api/models/:id/load-cancel",
 	ToolLoadModel:           "POST /backend/load",
 	ToolInstallBackend:      "POST /backends/apply",
 	ToolUpgradeBackend:      "POST /backends/upgrade/:name",
