@@ -190,9 +190,25 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		httpControl *httpControlServer
 		controlMux  http.Handler
 	)
-	if onTunnel {
+	// A worker on NATS gets an empty slot instead, when it could attach to a
+	// tunnel later: the plane is mounted at any time, and until then the path
+	// answers as it always did on NATS.
+	var controlSlot *nodes.ControlSlot
+	follower := newTunnelFollower(tunnelFollowerOptions{
+		Config:      cfg,
+		NodeID:      nodeID,
+		HTTPAddr:    httpAddr,
+		Token:       tunnelToken,
+		Reauthorize: reauthorize,
+	})
+	switch {
+	case onTunnel:
 		httpControl = newHTTPControlServer()
 		controlMux = httpControl
+	case follower.CanAttach():
+		controlSlot = &nodes.ControlSlot{}
+		follower.slot = controlSlot
+		controlMux = controlSlot
 	}
 	httpServer, err := nodes.StartFileTransferServerWithControl(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, controlMux, ml.BackendLogs())
 	if err != nil {
@@ -210,18 +226,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		linkDownMsg string
 	)
 	if onTunnel {
-		t, terr := StartTunnel(shutdownCtx, TunnelConfig{
-			FrontendURL: cfg.RegisterTo,
-			NodeID:      nodeID,
-			Token:       tunnelToken,
-			// A frontend that refuses the credential is told who this worker is
-			// again, so that a rotated credential does not leave it unreachable.
-			Reauthorize: reauthorize,
-			// Built by tunnelServices and not inline, so that the routing table,
-			// which is the security boundary of the tunnel, can be reached from a
-			// spec without starting a worker.
-			Services: tunnelServices(cfg, httpAddr),
-		})
+		t, terr := StartTunnel(shutdownCtx, tunnelConfig(cfg, nodeID, httpAddr, tunnelToken, reauthorize))
 		if terr != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("starting the worker tunnel: %w", terr)
@@ -322,23 +327,41 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// The watchdog stops load operations the controller no longer renews.
 	go supervisor.runOperationWatchdog(shutdownCtx)
 
+	// registerVerbs claims every verb of the worker on a control server: the
+	// NATS one, the HTTP one of a worker on the tunnel, or the HTTP one that a
+	// worker on NATS gains when it attaches to a tunnel.
+	registerVerbs := func(control controlServer) error {
+		if err := supervisor.registerLifecycleVerbs(control); err != nil {
+			return fmt.Errorf("serving the worker lifecycle verbs: %w", err)
+		}
+		// Serve the file staging verbs only when S3 is configured
+		if cfg.StorageURL != "" {
+			if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
+				return fmt.Errorf("serving the file staging verbs: %w", err)
+			}
+		}
+		return nil
+	}
 	var control controlServer
 	if natsClient != nil {
 		control = newNATSControlServer(natsClient, nodeID)
 	} else {
 		control = httpControl
 	}
-	if err := supervisor.registerLifecycleVerbs(control); err != nil {
+	if err := registerVerbs(control); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("serving the worker lifecycle verbs: %w", err)
+		return err
 	}
-
-	// Serve the file staging verbs only when S3 is configured
-	if cfg.StorageURL != "" {
-		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
-			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("serving the file staging verbs: %w", err)
-		}
+	// The hook of a worker on NATS that attaches to a tunnel later. Nothing calls
+	// it yet, so a worker on NATS behaves as it did.
+	if controlSlot != nil {
+		follower.register = registerVerbs
+		supervisor.follower = follower
+		defer func() {
+			if err := follower.Detach(); err != nil {
+				xlog.Warn("Closing the worker tunnel failed", "error", err)
+			}
+		}()
 	}
 
 	xlog.Info("Worker ready, waiting for backend.install events")

@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -182,7 +183,11 @@ func startFileTransferServerWithControl(lis net.Listener, stagingDir, modelsDir,
 	// a tunnel. The bearer check is the one of the file routes: a verb can stop a
 	// node, so it is never served without it.
 	if control != nil {
-		mux.Handle(workerctl.Prefix, controlGate(token, control))
+		if slot, ok := control.(*ControlSlot); ok {
+			mux.Handle(workerctl.Prefix, slot.gated(token))
+		} else {
+			mux.Handle(workerctl.Prefix, controlGate(token, control))
+		}
 	}
 
 	// Backend log endpoints (only registered when a log store is provided)
@@ -1078,6 +1083,49 @@ func resolveKeyToDir(key, stagingDir, modelsDir, dataDir string) (targetDir, rel
 		return dataDir, rel
 	}
 	return
+}
+
+// ControlSlot is a control plane that a worker can attach after its HTTP server
+// started, and detach again. A worker that booted on NATS has none, and a later
+// switch to the tunnel needs one without a restart.
+//
+// While nothing is attached, the path answers as a path that does not exist, so a
+// worker that never attaches behaves as it did before the slot existed. The
+// bearer check applies to what is attached, as for any control plane.
+type ControlSlot struct {
+	handler atomic.Pointer[http.Handler]
+}
+
+// Set attaches the control plane. A nil handler detaches it.
+func (s *ControlSlot) Set(h http.Handler) {
+	if h == nil {
+		s.handler.Store(nil)
+		return
+	}
+	s.handler.Store(&h)
+}
+
+// ServeHTTP serves the attached control plane, and 404 when there is none.
+func (s *ControlSlot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h := s.handler.Load(); h != nil {
+		(*h).ServeHTTP(w, r)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+// gated is the slot behind controlGate. The check of the token comes after the
+// test for an attached plane, so that a path with nothing behind it does not
+// answer 401 to a caller who could not know that it exists.
+func (s *ControlSlot) gated(token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := s.handler.Load()
+		if h == nil {
+			http.NotFound(w, r)
+			return
+		}
+		controlGate(token, *h).ServeHTTP(w, r)
+	})
 }
 
 // controlGate puts the check of the control plane in front of next.

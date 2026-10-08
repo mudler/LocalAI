@@ -122,6 +122,11 @@ type backendSupervisor struct {
 	// loopback.
 	bindHost string
 
+	// follower attaches the worker to a tunnel while it runs. It is nil for a
+	// worker that cannot attach, and nothing calls it until the worker follows
+	// the carrier of the cluster.
+	follower *tunnelFollower
+
 	cfg         *Config
 	ml          *model.ModelLoader
 	systemState *system.SystemState
