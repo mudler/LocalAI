@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"runtime"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -141,6 +144,15 @@ var _ = Describe("The health monitor and a probe that learned nothing", func() {
 		Expect(store.getCalls()).ToNot(ContainElement(ContainSubstring("RemoveNodeModel")))
 	})
 
+	It("does not count a probe that ran out of time while the dial was still running", func() {
+		store, factory, hm := build()
+		factory.setClient("127.0.0.1:50053", &fakeBackendClient{err: context.DeadlineExceeded, dialErr: grpc.ErrDialPending})
+		for range perModelMissThreshold * 3 {
+			hm.doCheckAll(context.Background())
+		}
+		Expect(store.getCalls()).ToNot(ContainElement(ContainSubstring("RemoveNodeModel")))
+	})
+
 	It("still reaps after the threshold when the host answered that the backend is gone", func() {
 		store, factory, hm := build()
 		factory.setClient("127.0.0.1:50053", &fakeBackendClient{err: fmt.Errorf("unavailable"), dialErr: backendAnswer{errors.New("gone")}})
@@ -199,5 +211,68 @@ var _ = Describe("The router and a replica it cannot reach", func() {
 		reg, _ := cached()
 		route(reg, &stubBackend{healthResult: false, healthErr: errors.New("unavailable"), dialErr: backendAnswer{errors.New("gone")}})
 		Expect(reg.removeCalls).To(ContainElement("n-old:m"))
+	})
+})
+
+// firstThenStub hands the first client it is asked for to the probe of a cached
+// replica and the stub to every client after it.
+type firstThenStub struct {
+	mu    sync.Mutex
+	first grpc.Backend
+	stub  *stubBackend
+}
+
+func (f *firstThenStub) NewClient(_, _ string, _ bool) grpc.Backend {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.first != nil {
+		c := f.first
+		f.first = nil
+		return c
+	}
+	return f.stub
+}
+
+// slowDialProbe is a stub whose health check goes through a real gRPC client
+// with a dialer that is still running when the probe gives up.
+type slowDialProbe struct {
+	*stubBackend
+	real grpc.Backend
+}
+
+func (p *slowDialProbe) HealthCheck(ctx context.Context) (bool, error) {
+	return p.real.HealthCheck(ctx)
+}
+func (p *slowDialProbe) LastDialError() error { return grpc.LastDialErrorOf(p.real) }
+func (p *slowDialProbe) Close() error {
+	if c, ok := p.real.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
+var _ = Describe("The router and a transport that is slow", func() {
+	It("keeps the row of a replica whose probe ran out of time while the dial was still running", func() {
+		release := make(chan struct{})
+		DeferCleanup(func() { close(release) })
+		real := grpc.NewClientWithDialer("10.0.0.70:9001", false, nil, false, "", func(context.Context, string) (net.Conn, error) {
+			<-release
+			return nil, errors.New("released")
+		})
+		stub := &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
+		reg := &fakeModelRouter{
+			findAndLockNode: &BackendNode{ID: "n-old", Name: "old-node", Address: "10.0.0.70:50051"},
+			findAndLockNM:   &NodeModel{NodeID: "n-old", ModelName: "m", Address: "10.0.0.70:9001"},
+			findIdleNode:    &BackendNode{ID: "n-new", Name: "new-node", Address: "10.0.0.71:50051"},
+		}
+		unloader := &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.71:9001"}}
+		router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: &firstThenStub{
+			first: &slowDialProbe{stubBackend: stub, real: real},
+			stub:  stub,
+		}})
+
+		_, err := router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", "", nil, false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg.removeCalls).ToNot(ContainElement("n-old:m"), "a transport that is slow is not a replica that is gone")
 	})
 })

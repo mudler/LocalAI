@@ -46,6 +46,7 @@ func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatch
 	// directly, which is the bypass this constructor exists to close.
 	c := buildClient(address, parallel, wd, enableWatchDog, token)
 	c.dialer = func(ctx context.Context, addr string) (net.Conn, error) {
+		c.startDial()
 		conn, err := dialer(ctx, addr)
 		c.recordDialErr(err)
 		return conn, err
@@ -61,6 +62,11 @@ func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatch
 type DialErrorReporter interface {
 	LastDialError() error
 }
+
+// ErrDialPending is what LastDialError reports while a dial has started and has
+// not finished. It is a failure of the transport and not an answer of the host:
+// the caller knows nothing about the backend yet.
+var ErrDialPending = errors.New("grpc: the dial to the backend has not finished")
 
 // BackendAnswer is implemented by the error of a custom dialer when the dial
 // reached the host of the backend and the host answered. A refusal of the worker

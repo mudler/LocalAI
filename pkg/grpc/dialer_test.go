@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,6 +60,34 @@ var _ = Describe("A client with its own dialer", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(LastDialErrorOf(client), boom)).To(BeTrue(), "gRPC flattens the error; the client keeps the value")
 		Expect(errors.Is(TransportFailureOf(client), boom)).To(BeTrue())
+	})
+
+	It("reads a dial that has not finished as a failure of the transport, and clears it when the dial succeeds", func() {
+		// gRPC hands the deadline of a call to the call and not to the dialer, so a
+		// call can time out while the dial is still running. The caller then has no
+		// error of the dial to read, and a slow transport looks like a dead backend.
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() { once.Do(func() { close(release) }) })
+		// The dialer ignores its context, as a dial that is stuck in the middle of a
+		// handshake does until the handshake ends.
+		client := NewClientWithDialer("x:1", false, nil, false, "", func(_ context.Context, _ string) (net.Conn, error) {
+			<-release
+			var d net.Dialer
+			return d.DialContext(context.Background(), "tcp", addr)
+		})
+
+		short, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		defer cancel()
+		ok, _ := client.HealthCheck(short)
+		Expect(ok).To(BeFalse())
+		Expect(TransportFailureOf(client)).ToNot(BeNil(), "the dial is still running; nothing is known about the backend")
+
+		once.Do(func() { close(release) })
+		Eventually(func() error { return TransportFailureOf(client) }, 5*time.Second).Should(BeNil())
+		ok, err := client.HealthCheck(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	})
 
 	It("clears the error when the next dial succeeds", func() {

@@ -44,8 +44,9 @@ type Client struct {
 	// guards inFlight and is taken on every call, and a dialer runs under the
 	// machinery of gRPC, where taking it again is not something this type can
 	// reason about.
-	dialErrMu   sync.Mutex
-	lastDialErr error
+	dialErrMu    sync.Mutex
+	dialsPending int
+	lastDialErr  error
 
 	sync.Mutex
 	opMutex sync.Mutex
@@ -1469,10 +1470,26 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 // its row survives one more round. A dial that succeeded clears the value, and
 // a failure of the transport reads as a failure of the backend, which is what
 // happened before the dialer existed. Neither is a new hazard.
+//
+// A dial that has started and not finished reads as ErrDialPending when no failure
+// is recorded. gRPC gives the deadline of a call to the call and not to the
+// dialer, so a call can time out while the dial still runs. Without this state
+// that caller finds no error of the dial and reads a slow transport as a backend
+// that is gone.
 func (c *Client) LastDialError() error {
 	c.dialErrMu.Lock()
 	defer c.dialErrMu.Unlock()
+	if c.lastDialErr == nil && c.dialsPending > 0 {
+		return ErrDialPending
+	}
 	return c.lastDialErr
+}
+
+// startDial notes that a dial began. The matching recordDialErr ends it.
+func (c *Client) startDial() {
+	c.dialErrMu.Lock()
+	c.dialsPending++
+	c.dialErrMu.Unlock()
 }
 
 // recordDialErr stores the outcome of one dial. A success clears the failure
@@ -1480,6 +1497,9 @@ func (c *Client) LastDialError() error {
 // that describes nothing.
 func (c *Client) recordDialErr(err error) {
 	c.dialErrMu.Lock()
+	if c.dialsPending > 0 {
+		c.dialsPending--
+	}
 	c.lastDialErr = err
 	c.dialErrMu.Unlock()
 }
