@@ -119,12 +119,13 @@ chips.forEach(c=>{
 });
 
 // ---------- WORKERS ----------
-txt(1460,30,"GENERIC WORKERS",{w:700,sz:13,ls:".2em",a:"end",fill:SOFT});
-const WX=950, WW=290, WH=132, wY=[58,214,370];
+const WX=1090, WW=290, WH=132;
+txt(WX,30,"GENERIC WORKERS",{w:700,sz:13,ls:".2em",fill:SOFT});
+const wY=[58,214,370];
 const workerChips=[
   ["llama.cpp","vLLM","whisper"],
   ["llama.cpp","stable-diff"],
-  ["MLX","vLLM","embeddings"],
+  ["MLX","vLLM","embed"],
 ];
 wY.forEach((y,i)=>{
   shadowRect(WX,y,WW,WH,"#EFE0BF",INK,3.5);
@@ -156,7 +157,7 @@ fY.forEach((y)=>{
 const natsY = SPY+SPH/2; // the carrier leaves the plane, not one chip
 wY.forEach((y)=> arrow(SPX+SPW, natsY, WX, y+WH/2, RUSTD, "2 8"));
 // label the NATS bus arrows
-const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2-26, labY=natsY-46;
+const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2, labY=natsY-labH/2;
 svg.appendChild(el("rect",{x:labX,y:labY,width:labW,height:labH,fill:PAPER,stroke:RUSTD,"stroke-width":2}));
 txt(labX+labW/2,labY+18,"active carrier",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
 
