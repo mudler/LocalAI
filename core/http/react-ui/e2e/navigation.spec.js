@@ -70,7 +70,9 @@ test.describe('Navigation', () => {
   test('the Build overview lists the tools with a line each', async ({ page }) => {
     await page.goto('/app/build')
     const list = page.getByRole('list', { name: 'Build tools' })
-    await expect(list.locator('a[href="/app/agents"]')).toContainText('Create and run agents')
+    // Each tool is a row with its sentence and an Open link.
+    const row = (path) => list.locator('li.bt-tool', { has: page.locator(`a[href="${path}"]`) })
+    await expect(row('/app/agents')).toContainText('Create and run agents')
     await expect(list.locator('a[href="/app/fine-tune"]')).toBeVisible()
   })
 
