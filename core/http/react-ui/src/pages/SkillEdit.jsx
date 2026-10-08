@@ -395,7 +395,6 @@ export default function SkillEdit() {
           color: var(--color-text-secondary);
           cursor: pointer;
           border-radius: var(--radius-md);
-          border-left: 3px solid transparent;
           transition: all var(--duration-fast) var(--ease-default);
         }
         .skilledit-sidebar-item:hover {
@@ -405,8 +404,7 @@ export default function SkillEdit() {
         .skilledit-sidebar-item.active {
           color: var(--color-primary);
           background: var(--color-primary-light);
-          border-left-color: var(--color-primary);
-          font-weight: 500;
+          font-weight: 600;
         }
         .skilledit-form-area {
           flex: 1;
@@ -485,12 +483,10 @@ export default function SkillEdit() {
             overflow-x: auto;
           }
           .skilledit-sidebar-item {
-            border-left: none;
             border-bottom: 3px solid transparent;
             white-space: nowrap;
           }
           .skilledit-sidebar-item.active {
-            border-left-color: transparent;
             border-bottom-color: var(--color-primary);
           }
         }

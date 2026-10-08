@@ -35,6 +35,26 @@ test.describe('Home console', () => {
     }
   })
 
+  test('on a phone the memory strip keeps its sentence whole and wraps the figures below it', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockHome(page)
+    await page.goto('/app')
+    const head = page.locator('.home-strip__head')
+    await expect(head).toBeVisible({ timeout: 15_000 })
+    const sentence = head.locator('> span:not([class])').first()
+    await expect(sentence).toContainText(/models loaded/)
+    // Not clipped by an ellipsis: the text fits its box.
+    const clipped = await sentence.evaluate(el => el.scrollWidth > el.clientWidth + 1)
+    expect(clipped).toBe(false)
+    // The figure sits on its own line under the sentence, inside the strip.
+    const box = await head.boundingBox()
+    const sentenceBox = await sentence.boundingBox()
+    const figure = await head.locator('.home-fig').boundingBox()
+    expect(figure.y).toBeGreaterThanOrEqual(sentenceBox.y + sentenceBox.height - 1)
+    expect(figure.x + figure.width).toBeLessThanOrEqual(box.x + box.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+
   test('loaded models sit behind the memory strip, labelled Active models', async ({ page }) => {
     await mockHome(page)
     await page.goto('/app')

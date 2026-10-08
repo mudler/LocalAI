@@ -797,17 +797,12 @@
   padding: var(--spacing-xs) var(--spacing-md);
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border-subtle);
-  border-left: 2px solid var(--color-primary);
   font-size: 0.8125rem;
   /* An install error is arbitrarily long text. This clips it; the shrinking
      is done by min-width on .main-content above and on __detail below. */
   overflow: hidden;
 }
-.operations-strip--error { border-left-color: var(--color-error); background: var(--color-error-light); }
-.operations-strip--queued { border-left-color: var(--color-text-disabled); }
-.operations-strip--staging { border-left-color: var(--color-info); }
-.operations-strip--removing { border-left-color: var(--color-warning); }
-.operations-strip--done { border-left-color: var(--color-success); }
+.operations-strip--error { background: var(--color-error-light); }
 
 .operations-strip__icon { flex: none; font-size: 0.8125rem; }
 .operations-strip--error .operations-strip__icon { color: var(--color-error); }
@@ -2905,8 +2900,7 @@ button.collapsible-header:focus-visible {
   cursor: pointer;
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
-  border-left: 3px solid transparent;
-  transition: background var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast);
+  transition: background var(--duration-fast), color var(--duration-fast);
   margin-bottom: 2px;
 }
 
@@ -2918,7 +2912,6 @@ button.collapsible-header:focus-visible {
 .chat-list-item.active {
   background: var(--color-primary-light);
   color: var(--color-primary);
-  border-left-color: var(--color-primary);
   font-weight: var(--font-weight-medium);
 }
 
@@ -3074,7 +3067,6 @@ button.collapsible-header:focus-visible {
 .chat-message-content {
   background: transparent;
   border: none;
-  border-left: 2px solid var(--color-border-strong);
   border-radius: 0;
   padding: 0 var(--spacing-md);
   font-size: var(--text-base);
@@ -3089,7 +3081,6 @@ button.collapsible-header:focus-visible {
   background: transparent;
   color: var(--color-text-primary);
   border: none;
-  border-left: 2px solid var(--color-primary);
   border-radius: 0;
   padding: 0 var(--spacing-md);
   box-shadow: none;
@@ -3374,19 +3365,9 @@ button.collapsible-header:focus-visible {
 
 /* Staging progress indicator (replaces thinking dots during model transfer) */
 
-/* Message completion flash — briefly highlights the last assistant bubble when streaming ends */
-@keyframes messageCompletionFlash {
-  0% { box-shadow: 0 0 0 0 var(--color-primary-border); }
-  40% { box-shadow: 0 0 0 3px var(--color-primary-light); }
-  100% { box-shadow: 0 0 0 0 transparent; }
-}
-.chat-message-new .chat-message-content {
-  animation: messageCompletionFlash 600ms ease-out;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .chat-message { animation: none; }
-  .chat-message-new .chat-message-content { animation: none; }
 }
 
 /* Chat empty state */
@@ -3500,10 +3481,6 @@ button.collapsible-header:focus-visible {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-  border-left: 2px solid var(--color-border-subtle);
-}
-.chat-activity-streaming {
-  border-left-color: var(--color-primary);
 }
 .chat-activity-toggle {
   display: flex;
@@ -3573,8 +3550,6 @@ button.collapsible-header:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  border-left: 2px solid transparent;
-  margin-left: -2px;
   min-width: 0;
   overflow: hidden;
 }
@@ -3614,12 +3589,6 @@ button.collapsible-header:focus-visible {
 .chat-activity-item-content code {
   word-break: break-word;
   overflow-wrap: anywhere;
-}
-.chat-activity-thinking {
-  border-left-color: var(--color-info-border);
-}
-.chat-activity-tool-call {
-  border-left-color: var(--color-warning-border);
 }
 
 /* Context window progress bar */
@@ -5631,9 +5600,16 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   .home-connect__base { display: none; }
   .home-strip__head > .home-bar,
   .home-mini { display: none; }
-  .home-strip__head { gap: 10px; }
-  .home-strip__head > .home-fig { margin-left: auto; }
-  .home-strip__head > .home-device { max-width: 110px; flex: 0 1 auto; min-width: 0; }
+  /* The sentence ("2 models loaded") is the point of the strip, so it gets the
+     first line to itself and may wrap; the memory figure and device wrap onto
+     a second line instead of squeezing it into an ellipsis. */
+  .home-strip__head { gap: 4px 10px; flex-wrap: wrap; padding-block: 10px; }
+  .home-strip__head > span:not([class]) { flex: 1 1 calc(100% - 56px); overflow: visible; white-space: normal; text-overflow: clip; }
+  .home-strip__head > .home-strip__caret { order: 1; margin-left: 0; }
+  .home-strip__head > .home-fig,
+  .home-strip__head > .home-device { order: 2; }
+  .home-strip__head > .home-fig { margin-left: 18px; }
+  .home-strip__head > .home-device { max-width: 100%; flex: 0 1 auto; min-width: 0; }
   .home-row__open { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 12px; }
   .home-row__time { display: none; }
   .home-row__model { grid-column: 1; grid-row: 2; justify-self: start; margin-top: 4px; max-width: 100%; }
@@ -6874,7 +6850,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-info-light);
   color: var(--color-text-primary);
-  border-left: 3px solid var(--color-info);
+  border: 1px solid var(--color-info-border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   margin: 0;
@@ -7504,16 +7480,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   color: var(--color-text-muted);
 }
 .action-menu__badge > .lai-icon { color: var(--color-text-muted); font-size: var(--text-xs); width: 14px; text-align: center; }
-
-/* Pulse modifier — subtle ring on the Pin button when a model is pinned, so
-   pinning is visible at a glance without a second icon next to the name. */
-.btn--pulse {
-  animation: btnPulseWarning 1.6s ease-in-out infinite;
-}
-@keyframes btnPulseWarning {
-  0%, 100% { box-shadow: 0 0 0 0 transparent; }
-  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warning) 18%, transparent); }
-}
 
 /* StatCard clickable variant — the Manage summary cards double as shortcuts
    to the relevant tab + filter, so the card needs a real button affordance. */
@@ -8493,7 +8459,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   padding: 0 12px;
   background: transparent;
   border: none;
-  border-left: 2px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text-secondary);
@@ -8508,9 +8473,11 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   background: var(--color-primary-light);
   color: var(--color-primary);
   font-weight: var(--font-weight-semibold);
-  border-left-color: var(--color-primary);
 }
 .set-rail__icon { width: 18px; text-align: center; font-size: var(--text-sm); color: var(--color-text-muted); }
+.set-rail__item--on .set-rail__icon { color: var(--color-primary); }
+/* One accent for the active section; a hue per section only decorated. */
+.me-section-icon { color: var(--color-text-muted); }
 
 /* On a phone the section rail cannot sit beside the form: the form rows were
    squeezed into a few characters. Stack the rail above the content as a
@@ -9666,9 +9633,10 @@ button.lane:hover {
 
 
 /* ─── Studio: capability dots ─────────────────────────────────────────────
-   Filled means a model on this machine serves that modality. aria-hidden,
-   because the overview states the same thing in words and a dot that changes
-   as models load would otherwise interrupt a reader mid-strip. */
+   Filled means a model on this machine serves that modality; hollow means
+   none does. Both are drawn in text colours, because a status colour on
+   every tab competes with the one thing the row is for: picking a type.
+   The dot is aria-hidden and the tab carries the same fact as hidden text. */
 .studio-tab__dot {
   width: 6px;
   height: 6px;
@@ -9677,7 +9645,7 @@ button.lane:hover {
   margin-left: var(--spacing-xs);
 }
 
-.studio-tab__dot--on { background: var(--color-success); }
+.studio-tab__dot--on { background: var(--color-text-tertiary); }
 .studio-tab__dot--off {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--color-border-strong);
