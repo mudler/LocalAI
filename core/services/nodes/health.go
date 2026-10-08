@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -32,6 +33,12 @@ type modelKey struct {
 	ReplicaIndex int
 }
 
+// NodePresenceReader says what a deployment knows about the tunnel of a worker.
+// Satisfied by *cluster.Registry.
+type NodePresenceReader interface {
+	Presence(ctx context.Context, nodeID string, grace time.Duration) (cluster.Presence, error)
+}
+
 // HealthMonitor periodically checks the health of registered backend nodes.
 type HealthMonitor struct {
 	registry            NodeHealthStore
@@ -45,6 +52,51 @@ type HealthMonitor struct {
 	misses              map[modelKey]int // consecutive failed-probe counts; reset on success or model removal
 	cancel              context.CancelFunc
 	cancelMu            sync.Mutex
+
+	// presence and tunnelActive are set by UsePresence. They are read by the
+	// loop and written before it starts.
+	presence       NodePresenceReader
+	reconnectGrace time.Duration
+	tunnelActive   func() bool
+}
+
+// UsePresence makes the monitor read the tunnel of each node while the tunnel is
+// the active carrier. A node that heartbeats over HTTP and holds no tunnel is up
+// and cannot be reached, and nothing else shows it: the heartbeat is fine, and
+// the verbs that fail with no route are a fact of one request. Without this
+// read, a scheduler that marks such a node unhealthy on a failed request sees
+// the monitor promote it again at the next tick, and the node flaps.
+//
+// tunnelActive is asked at each tick. When NATS is the active carrier no node
+// holds a tunnel and nothing is read. A grace of zero or less takes
+// cluster.DefaultReconnectGrace. Call it before Start.
+func (hm *HealthMonitor) UsePresence(reader NodePresenceReader, grace time.Duration, tunnelActive func() bool) {
+	hm.presence = reader
+	hm.reconnectGrace = cmp.Or(grace, cluster.DefaultReconnectGrace)
+	hm.tunnelActive = tunnelActive
+}
+
+// tunnelDeparted reports whether this deployment has decided that the tunnel of a
+// node is gone: no live replica holds it, and the departure is older than the
+// reconnect grace.
+//
+// Only cluster.PresenceGone answers true. Reconnecting is a worker that is
+// dialling again, unknown is a worker that never dialled or whose departure aged
+// out, and a read that fails is no answer at all. Acting on any of them would
+// demote a fleet for a reason that has nothing to do with a worker. It applies to
+// every node type, because an agent worker is reached through its tunnel and
+// nothing else.
+func (hm *HealthMonitor) tunnelDeparted(ctx context.Context, node *BackendNode) bool {
+	if hm.presence == nil || hm.tunnelActive == nil || !hm.tunnelActive() || node == nil {
+		return false
+	}
+	p, err := hm.presence.Presence(ctx, node.ID, hm.reconnectGrace)
+	if err != nil {
+		xlog.Warn("Health monitor could not read node presence; leaving the node's status alone",
+			"node", node.Name, "nodeID", node.ID, "error", err)
+		return false
+	}
+	return p == cluster.PresenceGone
 }
 
 // NewHealthMonitor creates a new HealthMonitor.
@@ -167,6 +219,33 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				}
 			} else {
 				hm.registry.MarkUnhealthy(ctx, node.ID)
+			}
+			continue
+		}
+
+		// The heartbeat is fresh, so the supervisor of the worker is alive. That is
+		// not the same as the deployment being able to reach it: the heartbeat is
+		// an HTTP call that does not use the tunnel, and a worker can send it for
+		// ever with no tunnel (a proxy that stopped upgrading websockets, a
+		// credential that was rotated, a reconnect loop longer than the grace).
+		//
+		// The node is demoted and not marked offline. MarkUnhealthy is status
+		// only, and status is enough: routing selects on status=healthy, so the
+		// loaded rows stop being chosen and the model is placed somewhere that can
+		// be reached. MarkOffline deletes the rows of the node, and deleting rows
+		// on a presence read would give any defect in that read the largest blast
+		// radius in the system.
+		//
+		// No re-promotion and no per-model probes follow: the probes would dial a
+		// worker that has no route and count none of it, and the promotion below
+		// would undo the demotion at the next tick.
+		if hm.tunnelDeparted(ctx, &node) {
+			if node.Status != StatusUnhealthy && node.Status != StatusOffline {
+				xlog.Warn("Node is heartbeating but its tunnel has been gone longer than the reconnect grace; marking unhealthy",
+					"node", node.Name, "nodeID", node.ID, "type", node.NodeType, "grace", hm.reconnectGrace)
+				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
+					xlog.Error("Failed to mark a departed node unhealthy", "node", node.Name, "error", err)
+				}
 			}
 			continue
 		}

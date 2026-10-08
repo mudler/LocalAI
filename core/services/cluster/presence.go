@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+// DefaultReconnectGrace is how long a departure must be older than before a
+// reader may call the worker gone. A worker that moves between replicas, or
+// whose network blinks, dials again within this time, and calling it gone
+// sooner would demote a worker that is on its way back. It is below
+// DepartedRetention, so the sweep keeps a departure for as long as the reader
+// needs it.
+const DefaultReconnectGrace = time.Minute
+
 // Presence is what this package can say about a worker's tunnel.
 //
 // Four values and not a boolean, because the conditions underneath are four and

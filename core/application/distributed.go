@@ -603,6 +603,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, err
 	}
 	clusterReg := cluster.NewRegistry(authDB)
+	// While the tunnel is the active carrier, a node that heartbeats and holds no
+	// tunnel is demoted once its departure is older than the grace. On NATS no
+	// node holds a tunnel, and the monitor reads nothing.
+	healthMon.UsePresence(clusterReg, cluster.DefaultReconnectGrace, func() bool {
+		set := active.Load()
+		return set != nil && set.Name == cluster.CarrierTunnel
+	})
 	tunnels := tunnel.NewRegistry(clusterReg, cfg.Distributed.InstanceID)
 	// If a peer sweeps this replica while it stalls, the claims of the tunnels
 	// that it still holds are written again when it registers again.
