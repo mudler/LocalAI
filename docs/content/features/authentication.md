@@ -174,7 +174,7 @@ The **first user** to sign in is automatically assigned the admin role. Addition
 
 ### Invite Links
 
-Admins can generate single-use, time-limited invite links from the **Users → Invites** tab in the web UI, or via the API:
+Admins can generate single-use, time-limited invite links from **Settings → Users and keys → Invites** in the web UI (choose 1, 7 or 30 days), or via the API:
 
 ```bash
 # Create an invite link (default: expires in 7 days)
@@ -192,7 +192,7 @@ curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
   -H "Authorization: Bearer <admin-key>"
 ```
 
-Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. LocalAI validates the code only when the user submits registration. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
+Share the invite URL (`/invite/<code>`) with the user. The link is shown once, when you create it: the invite list keeps only the first characters of the code, so a link you did not copy can only be revoked and made again. When the user opens it, the registration form is pre-filled with the invite code. LocalAI validates the code only when the user submits registration. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
 
 For GitHub OAuth, the invite code is passed as a query parameter to the login URL (`/api/auth/github/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
 
@@ -236,9 +236,22 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Models, the Build console (Agents, Skills, Memory, Jobs, Training, Recognition), and the Operate console (Backends, Activity, Nodes, Usage, Traces, Users, Middleware, Settings)
+- **Admins also see**: Models, the Build console (Agents, Skills, Memory, Jobs, Training, Recognition), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
+
+### Sign-in, invite and account pages
+
+The sign-in screen offers only what `GET /api/auth/status` reports:
+
+- A GitHub or SSO button appears only when that provider is configured. With `LOCALAI_DISABLE_LOCAL_AUTH=true` there is no email form.
+- Email and password sign-in asks for one field at a time: the email, then the password. Both are sent in one call, so the server still never says whether an email exists.
+- Registration asks for the email, then the name, password and (when the registration mode allows one) an invite code. A sign-up that waits for approval returns to the sign-in screen with a notice that an admin must approve it.
+- On a server with no users yet, the first screen is "Create the admin account".
+- On a server protected only by legacy API keys, the screen asks for the key and nothing else.
+- An invite link (`/invite/<code>`) opens registration with the code filled in and read-only.
+
+The **Account** page has four tabs: Profile (name and picture address), Security (change a local password; for a GitHub or SSO account it says the password is managed by the provider), API keys, and Usage (your requests, tokens by model, and the limits an admin set on you, for the last 30 days). **Settings → Users and keys** has the people, the invites and your own API keys.
 
 ### GitHub OAuth Setup
 
@@ -314,6 +327,10 @@ curl -X PATCH http://localhost:8080/api/auth/api-keys/<key-id> \
 ```
 
 The key list returns `disabled` and, when set, `pausedUntil` for each key. The Account page in the web UI has a Pause and Resume button for each key.
+
+A key can be created with a lifetime: send `expiresIn` (`30d`, `90d` or `1y`) or `expiresAt` (RFC 3339). Without either, the server applies `LOCALAI_DEFAULT_API_KEY_EXPIRY` when it is set, and the key does not expire otherwise. The full key is returned once, in the response to the create call; the list returns only its prefix, the creation time, `lastUsed` and `expiresAt`.
+
+In the web UI, the **API keys** tab of the Account page and of **Settings → Users and keys** shows the signed-in person's own keys: a new key is shown once with a Copy button, and the lifetime list sends `expiresIn`. Revoking a key waits ten seconds in the browser before it sends the `DELETE`, and Undo inside that time sends nothing; leaving the page sends a revoke that is still waiting. LocalAI lists a person's keys only to that person, so an admin cannot list or revoke other users' keys, in the UI or through the API. The Usage page can group requests by API key for everyone.
 
 ### Auth API Endpoints
 
