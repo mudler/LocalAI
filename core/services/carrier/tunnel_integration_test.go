@@ -526,10 +526,38 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		time.Sleep(time.Second)
 
 		src := filepath.Join(GinkgoT().TempDir(), "big.bin")
-		Expect(os.WriteFile(src, make([]byte, 16<<20), 0o600)).To(Succeed())
+		Expect(os.WriteFile(src, make([]byte, 32<<20), 0o600)).To(Succeed())
+
+		// percentile is the 95th percentile of a set of samples. The 99th of a few
+		// dozen samples is the largest one, which a single scheduling hiccup of a
+		// loaded machine decides.
+		percentile := func(samples []time.Duration) time.Duration {
+			sorted := slices.Clone(samples)
+			slices.Sort(sorted)
+			return sorted[min(len(sorted)-1, len(sorted)*95/100)]
+		}
+
+		// probe is one call on the inference lane.
+		probe := func() (time.Duration, error) {
+			begun := time.Now()
+			_, err := a.commands.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{"op"}})
+			return time.Since(begun), err
+		}
+
+		// The baseline of the lane: the same probe while nothing else runs. Both
+		// runs below are judged against it, so that a slow machine moves the bound
+		// with it.
+		var idle []time.Duration
+		for range 60 {
+			took, err := probe()
+			Expect(err).ToNot(HaveOccurred())
+			idle = append(idle, took)
+			time.Sleep(10 * time.Millisecond)
+		}
+		idleP95 := percentile(idle)
 
 		// probeDuring probes the inference lane while transfer runs, and returns
-		// the 99th percentile of the probes and the time of the transfer.
+		// the 95th percentile of the probes and the time of the transfer.
 		probeDuring := func(transfer func() error) (time.Duration, time.Duration) {
 			GinkgoHelper()
 			var (
@@ -544,11 +572,11 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 						return
 					case <-time.After(10 * time.Millisecond):
 					}
-					begun := time.Now()
-					if _, err := a.commands.OperationControl(nodeID, workerctl.OperationRequest{Renew: []string{"op"}}); err != nil {
+					took, err := probe()
+					if err != nil {
 						return
 					}
-					samples = append(samples, time.Since(begun))
+					samples = append(samples, took)
 				}
 			})
 			begun := time.Now()
@@ -558,13 +586,12 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 			wg.Wait()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(elapsed).To(BeNumerically(">", 500*time.Millisecond), "the transfer must last long enough to be measured")
-			Expect(len(samples)).To(BeNumerically(">=", 10), "probes completed during the transfer")
-			slices.Sort(samples)
-			return samples[min(len(samples)-1, len(samples)*99/100)], elapsed
+			Expect(len(samples)).To(BeNumerically(">=", 30), "probes completed during the transfer: %d in %v", len(samples), elapsed)
+			return percentile(samples), elapsed
 		}
 
 		// The transfer on the bulk lane, as the set does it.
-		bulkP99, bulkTime := probeDuring(func() error {
+		bulkP95, bulkTime := probeDuring(func() error {
 			_, err := a.files.EnsureRemote(ctx, nodeID, src, "models/big.bin")
 			return err
 		})
@@ -572,17 +599,19 @@ var _ = Describe("The tunnel carrier through the holders, end to end", func() {
 		// would do if it fell back. The comparison is between two runs on the
 		// same machine, so a loaded runner moves both.
 		shared := nodes.NewHTTPFileStager(func(id string) (string, error) { return nodes.WorkerHTTPHost(id, ""), nil }, registrationToken, a.set.Dialer)
-		sharedP99, sharedTime := probeDuring(func() error {
+		sharedP95, sharedTime := probeDuring(func() error {
 			_, err := shared.EnsureRemote(ctx, nodeID, src, "models/big-shared.bin")
 			return err
 		})
 		AddReportEntry("probe during a transfer", map[string]any{
-			"bulk lane p99 ms": bulkP99.Milliseconds(), "bulk transfer s": bulkTime.Seconds(),
-			"shared lane p99 ms": sharedP99.Milliseconds(), "shared transfer s": sharedTime.Seconds(),
+			"idle lane p95 ms": idleP95.Milliseconds(),
+			"bulk lane p95 ms": bulkP95.Milliseconds(), "bulk transfer s": bulkTime.Seconds(),
+			"shared lane p95 ms": sharedP95.Milliseconds(), "shared transfer s": sharedTime.Seconds(),
 		})
-		Expect(bulkP99).To(BeNumerically("<", sharedP99*8/10),
-			"a probe must wait less behind a transfer on the bulk lane than behind one on its own lane: bulk %v, shared %v", bulkP99, sharedP99)
-		Expect(bulkP99).To(BeNumerically("<", 500*time.Millisecond), "a sanity bound for the probe on a loaded machine")
+		Expect(bulkP95).To(BeNumerically("<", sharedP95*8/10),
+			"a probe must wait less behind a transfer on the bulk lane than behind one on its own lane: bulk %v, shared %v", bulkP95, sharedP95)
+		Expect(bulkP95).To(BeNumerically("<", idleP95*5+100*time.Millisecond),
+			"a transfer on the bulk lane must not slow a probe much beyond the idle lane: idle %v, bulk %v", idleP95, bulkP95)
 	})
 
 	It("refuses a transfer when the worker has no bulk session, and sends nothing on the other lane", func() {
