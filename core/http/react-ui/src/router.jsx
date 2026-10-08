@@ -6,6 +6,7 @@ import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import RequireAuthEnabled from './components/RequireAuthEnabled'
 import RequireFeature from './components/RequireFeature'
+import FeatureOff from './components/identity/FeatureOff'
 
 // Pages are code-split: each becomes its own chunk loaded on demand, so a route
 // no longer drags every other page (and its heavy deps — CodeMirror, the MCP
@@ -127,7 +128,6 @@ const Quantize = page('quantize', () => import('./pages/Quantize'))
 const Studio = page('studio', () => import('./pages/Studio'))
 const FaceRecognition = page('face', () => import('./pages/FaceRecognition'))
 const VoiceRecognition = page('voice', () => import('./pages/VoiceRecognition'))
-const VoiceLibrary = page('voice-library', () => import('./pages/VoiceLibrary'))
 const VoiceProfileCreate = page(null, () => import('./pages/VoiceProfileCreate'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
 const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
@@ -179,8 +179,8 @@ function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
 }
 
-function Feature({ feature, children }) {
-  return <RequireFeature feature={feature}>{children}</RequireFeature>
+function Feature({ feature, disabled, children }) {
+  return <RequireFeature feature={feature} disabled={disabled}>{children}</RequireFeature>
 }
 
 const appChildren = [
@@ -224,11 +224,11 @@ const appChildren = [
       { path: 'agent-jobs/tasks/:id', element: <Feature feature="mcp_jobs"><AgentTaskDetails /></Feature> },
       { path: 'fine-tune', element: <Feature feature="fine_tuning"><FineTune /></Feature> },
       { path: 'quantize', element: <Feature feature="quantization"><Quantize /></Feature> },
-      { path: 'face', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-      { path: 'face/:model', element: <Feature feature="face_recognition"><FaceRecognition /></Feature> },
-      { path: 'voice', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-      { path: 'voice/:model', element: <Feature feature="voice_recognition"><VoiceRecognition /></Feature> },
-      { path: 'voice-library', element: <Admin><VoiceLibrary /></Admin> },
+      { path: 'face', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
+      { path: 'face/:model', element: <Feature feature="face_recognition" disabled={<FeatureOff feature="face" />}><FaceRecognition /></Feature> },
+      { path: 'voice', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
+      { path: 'voice/:model', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
+      { path: 'voice-library', element: <Admin><VoiceRecognition tab="speech" /></Admin> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
     ],
   },

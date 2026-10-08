@@ -526,8 +526,9 @@
     }
   },
   "voiceLibrary": {
-    "title": "Personality Library",
-    "subtitle": "Create and manage reusable voice personalities with one or more reference recordings.",
+    "title": "Speech voices",
+    "subtitle": "A recording and its exact transcript. Text-to-speech models that accept reference audio can speak with it.",
+    "loadFailed": "Speech voices could not be loaded",
     "loading": "Loading saved personalities…",
     "listLabel": "Saved voice personalities",
     "status": {
@@ -549,15 +550,16 @@
       "allLanguages": "All languages"
     },
     "empty": {
-      "title": "Your personality library is empty",
-      "body": "Record or upload consented reference clips, add their exact transcripts, and reuse the personality across compatible TTS models."
+      "title": "No speech voices yet",
+      "body": "Record or upload a consented reference clip, add its exact transcript, and reuse the voice across compatible text-to-speech models."
     },
     "noResults": {
       "title": "No voices match these filters",
       "body": "Try a different search or show every language."
     },
     "detail": {
-      "eyebrow": "Selected voice",
+      "eyebrow": "Reference recording and exact transcript",
+      "close": "Close",
       "emptyTitle": "Select a voice to inspect it",
       "emptyBody": "Reference audio, transcript, compatibility, and consent details will appear here.",
       "referenceAudio": "Reference audio",
@@ -571,6 +573,7 @@
       "created": "Created"
     },
     "consent": {
+      "label": "Permission",
       "confirmed": "Consent confirmed",
       "confirmedAt": "Confirmed {{date}}"
     },
@@ -596,12 +599,12 @@
       "endpointNote": "The same model, input, and voice fields also work with POST /tts."
     },
     "actions": {
-      "create": "Create personality",
-      "createFirst": "Create your first personality",
+      "create": "Add a speech voice",
+      "createFirst": "Add your first speech voice",
       "retry": "Try again",
       "clearFilters": "Clear filters",
       "useInTTS": "Use in Text to Speech",
-      "delete": "Delete personality",
+      "delete": "Delete voice",
       "installModel": "Install a compatible model",
       "browseModels": "Browse all models"
     },
@@ -619,9 +622,9 @@
     }
   },
   "voiceCreate": {
-    "eyebrow": "Personality Library",
-    "title": "Create a reusable personality",
-    "subtitle": "Create a reusable personality from one or more clean reference clips and their exact transcripts.",
+    "eyebrow": "Speech voices",
+    "title": "Add a speech voice",
+    "subtitle": "A speech voice is one or more clean reference clips and their exact transcripts. Text-to-speech models that accept reference audio can speak with it.",
     "references": {
       "add": "Add another reference",
       "additional": "Reference {{number}}",
@@ -645,6 +648,7 @@
       "label": "Voice reference",
       "normalizing": "Preparing a secure PCM WAV…",
       "preview": "Normalized reference",
+      "tooLarge": "This file is larger than 50 MiB.",
       "durationError": "Reference audio must be between 1 second and 2 minutes.",
       "decodeError": "This browser could not decode the selected audio file.",
       "qualityReady": "Recommended length",

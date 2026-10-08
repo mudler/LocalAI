@@ -93,10 +93,10 @@ export const buildHub = {
       labelKey: 'items.voices',
       descriptionKey: 'hub.descriptions.voices',
       icon: 'mic',
-      items: [
-        { path: '/app/voice', labelKey: 'hub.recognition', feature: 'voice_recognition' },
-        { path: '/app/voice-library', labelKey: 'items.voiceLibrary', adminOnly: true },
-      ],
+      // One Voices page with Speakers, Speech voices and From a recording as its
+      // own tabs, so the bar has no second row.
+      items: [{ path: '/app/voice', labelKey: 'items.voices', feature: 'voice_recognition' }],
+      match: ['/app/voice-library'],
     },
     {
       id: 'faces',
