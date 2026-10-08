@@ -41,6 +41,12 @@ type NATSOptions struct {
 	// HTTPAddrFor returns the address of a worker's file transfer server, for
 	// the HTTP stager.
 	HTTPAddrFor func(nodeID string) (string, error)
+
+	// NodeHasAddress says whether a worker registered an address that can be
+	// dialled. With it, a worker that registered none (it holds a tunnel) is not
+	// dialled on a loopback address, which would name a port on the frontend and
+	// make a healthy backend look dead. Without it every address is dialled.
+	NodeHasAddress func(nodeID string) (bool, error)
 }
 
 // NewNATSSet builds the set of seam implementations that run over NATS for
@@ -58,6 +64,11 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 		files = nodes.NewHTTPFileStager(o.HTTPAddrFor, o.Token, dial)
 	}
 
+	var clients nodes.BackendClientFactory = nodes.NewTokenClientFactory(o.Token)
+	if o.NodeHasAddress != nil {
+		clients = nodes.NewGuardedDirectClientFactory(o.Token, o.NodeHasAddress)
+	}
+
 	set := &Set{
 		Name:        cluster.CarrierNATS,
 		Epoch:       o.Epoch,
@@ -66,7 +77,7 @@ func NewNATSSet(o NATSOptions) (*Set, error) {
 		WorkQueue:   messaging.NewNATSWorkQueue(o.Client),
 		Commands:    nodes.NewRemoteUnloaderAdapter(o.Registry, o.Client, o.InstallTimeout, o.UpgradeTimeout),
 		Files:       files,
-		Clients:     nodes.NewTokenClientFactory(o.Token),
+		Clients:     clients,
 		Dialer:      dial,
 		Agents:      nodes.NewNATSAgentControl(o.Client),
 		Close:       o.Client.Close,

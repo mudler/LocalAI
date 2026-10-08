@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 	"github.com/testcontainers/testcontainers-go"
@@ -67,28 +68,107 @@ var _ = Describe("distributed startup and the cluster carrier", func() {
 		Expect(row.ChangedBy).To(Equal("replica-a"))
 	})
 
-	It("refuses to start on a carrier this build does not run, and does not try NATS", func() {
-		store, err := cluster.NewCarrierStore(db)
+	It("starts a deployment with only PostgreSQL on the tunnel carrier, and opens no NATS connection", func() {
+		pg, dsn := testutil.SetupTestDBWithDSN()
+		cfg.Auth.DatabaseURL = dsn
+		cfg.Distributed.NatsURL = ""
+
+		svc, err := initDistributed(cfg, pg, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(svc.Shutdown)
+
+		store, err := cluster.NewCarrierStore(pg)
+		Expect(err).ToNot(HaveOccurred())
+		row, err := store.Get(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(row.Active).To(Equal(cluster.CarrierTunnel))
+		Expect(row.Epoch).To(Equal(int64(1)))
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+
+		// Fan-out goes through the database, and one LISTEN session exists for it.
+		var sessions int64
+		Expect(pg.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'").Scan(&sessions).Error).To(Succeed())
+		Expect(sessions).To(Equal(int64(1)))
+		got := make(chan []byte, 1)
+		_, err = svc.Broadcaster.Subscribe("jobs.carrier-spec", func(b []byte) { got <- b })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(svc.Broadcaster.Publish("jobs.carrier-spec", "hello")).To(Succeed())
+		Eventually(got, "10s").Should(Receive(Equal([]byte(`"hello"`))))
+	})
+
+	It("starts on the tunnel carrier that the row names, whatever the flags of this replica say, and does not try NATS", func() {
+		pg, dsn := testutil.SetupTestDBWithDSN()
+		cfg.Auth.DatabaseURL = dsn
+		store, err := cluster.NewCarrierStore(pg)
 		Expect(err).ToNot(HaveOccurred())
 		_, _, err = store.Seed(context.Background(), cluster.CarrierTunnel, "replica-b")
 		Expect(err).ToNot(HaveOccurred())
 
-		svc, err := initDistributed(cfg, db, nil, nil)
-		Expect(err).To(MatchError(ContainSubstring(`the cluster carrier is "tunnel"`)))
-		Expect(err.Error()).ToNot(ContainSubstring("connecting to NATS"), "no fallback to the carrier the flags name")
-		Expect(svc).To(BeNil())
-		Expect(carrierRow().Active).To(Equal(cluster.CarrierTunnel), "the row is left as it was")
+		// The NATS URL of the flag points at nothing. It is kept for a change back to
+		// NATS, and it is not dialled.
+		svc, err := initDistributed(cfg, pg, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(svc.Shutdown)
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierTunnel))
+		row, err := store.Get(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(row.Active).To(Equal(cluster.CarrierTunnel), "the row is left as it was")
+		Expect(row.ChangedBy).To(Equal("replica-b"))
+
+		url, ok, err := svc.Settings.Get(context.Background(), cluster.SettingNATSURL)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(url).To(Equal("nats://127.0.0.1:1"), "the URL of the flag is stored for a change back to NATS")
 	})
 
-	It("keeps the existing validation of a missing NATS URL", func() {
+	It("claims queued work on the tunnel carrier once the switch has started", func() {
+		pg, dsn := testutil.SetupTestDBWithDSN()
+		cfg.Auth.DatabaseURL = dsn
 		cfg.Distributed.NatsURL = ""
-		_, err := initDistributed(cfg, db, nil, nil)
-		Expect(err).To(MatchError(ContainSubstring("--nats-url")))
-
-		store, err := cluster.NewCarrierStore(db)
+		svc, err := initDistributed(cfg, pg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = store.Get(context.Background())
-		Expect(err).To(MatchError(cluster.ErrNotSeeded), "a replica that cannot start leaves no row behind")
+		DeferCleanup(svc.Shutdown)
+		svc.StartCarrierSwitch(cfg.Context, pg)
+
+		Expect(svc.WorkQueue.Enqueue(context.Background(), messaging.WorkMCPCI, map[string]string{"job_id": "j1"})).To(Succeed())
+		// No agent worker exists, so the claim goes back to the pool with a wait. That
+		// the attempt count moves shows that this replica took the row and drove it.
+		Eventually(func() int {
+			var attempts int
+			_ = pg.Raw("SELECT coalesce(max(attempts), 0) FROM work_claims").Scan(&attempts).Error
+			return attempts
+		}, "30s", "200ms").Should(BeNumerically(">=", 1))
+	})
+
+	It("seeds NATS for a deployment that has a NATS URL, and stores the URL for the whole cluster", func() {
+		// The server at that address is not there. A frontend may start before its
+		// broker, so the start goes on and the client keeps trying.
+		svc, err := initDistributed(cfg, db, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(svc.Shutdown)
+		Expect(svc.active.Load().Name).To(Equal(cluster.CarrierNATS))
+
+		row := carrierRow()
+		Expect(row.Active).To(Equal(cluster.CarrierNATS))
+		store, err := cluster.NewSettingsStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		url, ok, err := store.Get(context.Background(), cluster.SettingNATSURL)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(url).To(Equal("nats://127.0.0.1:1"))
+	})
+
+	It("uses the NATS URL stored for the cluster and not the one of the flag", func() {
+		store, err := cluster.NewSettingsStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(store.Set(context.Background(), cluster.SettingNATSURL, "nats://[::1", "admin")).To(Succeed())
+		cfg.Distributed.NatsURL = "nats://127.0.0.1:2"
+
+		_, err = initDistributed(cfg, db, nil, nil)
+		Expect(err).To(MatchError(ContainSubstring("connecting to NATS")), "the stored address, which cannot be parsed, was the one used")
+		url, _, err := store.Get(context.Background(), cluster.SettingNATSURL)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(url).To(Equal("nats://[::1"), "a flag does not overwrite a setting of the cluster")
 	})
 
 	Context("with a NATS server", func() {

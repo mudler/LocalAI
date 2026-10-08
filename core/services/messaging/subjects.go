@@ -27,6 +27,12 @@ const (
 // says is what counts.
 const SubjectCarrierChanged = "state.carrier"
 
+// SubjectCarrierProbe asks every replica to look again at which carriers it could
+// build, and to write what it finds to the instances table. A dry run of a change
+// of carrier sends it before it reads the answers. Like the other hint it is at
+// most once, and a replica that does not hear it is reported as stale.
+const SubjectCarrierProbe = "state.carrier.probe"
+
 // SubjectClaimWake is the hint that a unit of work was put in the claim queue.
 // A consumer that hears it looks for work at once and does not wait for its next
 // poll. The hint is a broadcast and broadcasts are at-most-once, so it can be
