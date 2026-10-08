@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -304,5 +305,38 @@ var _ = Describe("The requests that run on a control server", func() {
 		close(release)
 		Eventually(done, "5s").Should(BeClosed())
 		Eventually(srv.InFlight, "5s").Should(BeZero())
+	})
+})
+
+var _ = Describe("What stops a backend worker from following to NATS", func() {
+	It("is a missing address that the frontends can dial", func() {
+		reason := NATSReasons(false, NATSLocal{})(CarrierView{})
+		Expect(reason).To(ContainSubstring("--addr"))
+		Expect(NATSReasons(true, NATSLocal{})(CarrierView{})).To(BeEmpty())
+	})
+
+	It("is a NATS server that asks for a client certificate which the worker lacks", func() {
+		view := CarrierView{NATSClientTLS: true}
+		Expect(NATSReasons(true, NATSLocal{})(view)).To(ContainSubstring("client certificate"))
+		Expect(NATSReasons(true, NATSLocal{TLS: messaging.TLSFiles{Cert: "c.pem"}})(view)).To(ContainSubstring("client certificate"), "a certificate without its key is not one")
+		Expect(NATSReasons(true, NATSLocal{TLS: messaging.TLSFiles{Cert: "c.pem", Key: "k.pem"}})(view)).To(BeEmpty())
+	})
+
+	It("is nothing for the tunnel when the worker has a frontend URL, and a reason when it has none", func() {
+		with := NewBackendPlane(&Config{RegisterTo: "http://frontend:8080"}, "n1", "127.0.0.1:50050", NATSLocal{})
+		Expect(with.Cannot(true)[cluster.CarrierTunnel](CarrierView{})).To(BeEmpty())
+		Expect(with.Control()).ToNot(BeNil())
+		Expect(with.CanTunnel()).To(BeTrue())
+
+		without := NewBackendPlane(&Config{}, "n1", "127.0.0.1:50050", NATSLocal{})
+		Expect(without.Cannot(true)[cluster.CarrierTunnel](CarrierView{})).To(ContainSubstring("frontend URL"))
+		Expect(without.Control()).To(BeNil(), "a worker that cannot attach mounts no plane")
+	})
+
+	It("takes the CA that the frontend handed over only when the operator gave none", func() {
+		h := Handover{NATSCAPEM: "pem"}
+		Expect(natsTLSFor(messaging.TLSFiles{}, h).CAPEM).To(Equal([]byte("pem")))
+		Expect(natsTLSFor(messaging.TLSFiles{CA: "ca.pem"}, h).CAPEM).To(BeEmpty())
+		Expect(natsTLSFor(messaging.TLSFiles{}, Handover{}).Enabled()).To(BeFalse())
 	})
 })
