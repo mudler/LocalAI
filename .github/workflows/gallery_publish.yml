@@ -45,7 +45,7 @@ jobs:
         run: |
           go test ./scripts/build/gallery -count=1
           go run ./scripts/build/gallery . "$GALLERY_SOURCE" "$RUNNER_TEMP/gallery"
-      - uses: oras-project/setup-oras@v1
+      - uses: oras-project/setup-oras@v2
         with:
           version: '1.3.0'
       - uses: sigstore/cosign-installer@v3
