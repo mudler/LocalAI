@@ -164,6 +164,82 @@ export function installedSeed() {
   ]
 }
 
+// ---- the on-disk storage report (what GET /api/models/storage returns) ----
+
+// Build the report the way the server does, from a compact description:
+//   files   { path: sizeInBytes | { size, missing: true } }
+//   models  { name: [path, ...] }
+// A file several models list is shared; a path whose file is missing is
+// reported under its models' `missing` and never counted.
+export function makeStorage({ files = {}, models = {} } = {}) {
+  const info = (path) => {
+    const f = files[path]
+    return typeof f === 'object' && f !== null ? f : { size: f ?? 0 }
+  }
+  const users = {}
+  for (const [name, paths] of Object.entries(models)) for (const p of paths) (users[p] ||= []).push(name)
+  const fileRows = Object.keys(users).map((path) => ({
+    path,
+    size_bytes: info(path).missing ? 0 : Math.round(info(path).size),
+    ...(info(path).missing ? { missing: true } : {}),
+    models: [...users[path]].sort(),
+  }))
+  const modelRows = Object.entries(models).map(([name, paths]) => {
+    const present = paths.filter((p) => !info(p).missing)
+    const missing = paths.filter((p) => info(p).missing)
+    const size = present.reduce((n, p) => n + Math.round(info(p).size), 0)
+    const shared = present.filter((p) => users[p].length > 1).reduce((n, p) => n + Math.round(info(p).size), 0)
+    return { name, size_bytes: size, shared_bytes: shared, files: [...present].sort(), ...(missing.length ? { missing: [...missing].sort() } : {}) }
+  }).sort((a, b) => b.size_bytes - a.size_bytes || a.name.localeCompare(b.name))
+  return {
+    models: modelRows,
+    files: fileRows.sort((a, b) => b.size_bytes - a.size_bytes || a.path.localeCompare(b.path)),
+    total_bytes: fileRows.reduce((n, f) => n + f.size_bytes, 0),
+  }
+}
+
+// A believable models directory for the installed seed: every model has its
+// weights, and two share files. qwen3-14b-instruct and its q4 build use one
+// tokenizer file, and the two whisper models use one mel filter file. One model
+// has a file its config names that is not on disk.
+export function storageSpec() {
+  return {
+    files: {
+      'bge-m3.gguf': 0.6 * GB,
+      'flux.1-schnell.gguf': 12.4 * GB,
+      'gemma-3-12b-it.gguf': 12.1 * GB,
+      'kokoro-82m.onnx': 0.31 * GB,
+      'llama-3.3-70b.gguf': 23.5 * GB,
+      'mistral-small-3.2-24b.gguf': 14.3 * GB,
+      'my-finetune-q4.gguf': 4.6 * GB,
+      'qwen3-14b-instruct.gguf': 15.7 * GB,
+      'qwen3-14b-instruct-q4.gguf': 9.0 * GB,
+      'qwen3-14b.tokenizer.json': 1.2 * GB,
+      'qwen3-8b-instruct.gguf': 8.9 * GB,
+      'sdxl-turbo/unet.safetensors': 6.9 * GB,
+      'whisper-large-v3.bin': 3.1 * GB,
+      'whisper-medium.bin': 1.5 * GB,
+      'whisper.mel-filters.bin': 0.2 * GB,
+      'my-finetune-q4.mmproj.gguf': { size: 0, missing: true },
+    },
+    models: {
+      'bge-m3': ['bge-m3.gguf'],
+      'flux.1-schnell': ['flux.1-schnell.gguf'],
+      'gemma-3-12b-it': ['gemma-3-12b-it.gguf'],
+      'kokoro-82m': ['kokoro-82m.onnx'],
+      'llama-3.3-70b-instruct-iq2': ['llama-3.3-70b.gguf'],
+      'mistral-small-3.2-24b': ['mistral-small-3.2-24b.gguf'],
+      'my-finetune-q4': ['my-finetune-q4.gguf', 'my-finetune-q4.mmproj.gguf'],
+      'qwen3-14b-instruct': ['qwen3-14b-instruct.gguf', 'qwen3-14b.tokenizer.json'],
+      'qwen3-14b-instruct-q4': ['qwen3-14b-instruct-q4.gguf', 'qwen3-14b.tokenizer.json'],
+      'qwen3-8b-instruct': ['qwen3-8b-instruct.gguf'],
+      'sdxl-turbo': ['sdxl-turbo/unet.safetensors'],
+      'whisper-large-v3': ['whisper-large-v3.bin', 'whisper.mel-filters.bin'],
+      'whisper-medium': ['whisper-medium.bin', 'whisper.mel-filters.bin'],
+    },
+  }
+}
+
 // Facet key to the gallery entries it matches, as the server decides it.
 const matchesFacet = (entry, key) => (key === 'multimodal' ? entry.facets.includes('multimodal') : entry.facets.includes(key))
 
@@ -186,6 +262,12 @@ export async function mockLedger(page, options = {}) {
     operations = [],
     failResources = false,
     deleteFails = [],
+    // The report /api/models/storage answers with. The default is an empty one:
+    // the models directory says nothing about any model, so every size falls
+    // back to the gallery's estimate. Pass storageSpec() (or a makeStorage
+    // input) for real figures, or storageStatus 403 (not an admin), 500 or 404.
+    storage = { files: {}, models: {} },
+    storageStatus = 200,
   } = options
 
   const state = {
@@ -203,6 +285,9 @@ export async function mockLedger(page, options = {}) {
     tasks: [...tasks],
     agentsStatus,
     dismissed: [],
+    storage: { files: { ...storage.files }, models: { ...storage.models } },
+    storageStatus,
+    storageRequests: 0,
   }
   const installedIds = () => new Set(state.installed.map(m => m.id))
 
@@ -258,6 +343,13 @@ export async function mockLedger(page, options = {}) {
         currentPage: page_,
       }),
     })
+  })
+  await page.route('**/api/models/storage', route => {
+    state.storageRequests += 1
+    if (state.storageStatus !== 200) {
+      return route.fulfill({ status: state.storageStatus, contentType: 'application/json', body: JSON.stringify({ error: { message: 'storage report unavailable' } }) })
+    }
+    return route.fulfill({ json: makeStorage(state.storage) })
   })
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: state.installed } }))
   await page.route('**/api/models/estimate/*', route => {
@@ -320,6 +412,7 @@ export async function mockLedger(page, options = {}) {
       return route.fulfill({ status: 500, json: { error: { message: 'model is busy' } } })
     }
     state.deletes.push(name)
+    delete state.storage.models[name]
     state.installed = state.installed.filter(m => m.id !== name)
     state.loaded = state.loaded.filter(id => id !== name)
     return route.fulfill({ json: {} })
