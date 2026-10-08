@@ -79,6 +79,8 @@ func (h *httpLoadOperationHarness) WorkerRefuses() { h.setMode("refuse") }
 
 func (h *httpLoadOperationHarness) WorkerAnswers() { h.setMode("answer") }
 
+func (h *httpLoadOperationHarness) WorkerAnswersUnreadably() { h.setMode("unreadable") }
+
 func (h *httpLoadOperationHarness) setMode(m string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -147,6 +149,16 @@ func (h *httpLoadOperationHarness) serve(w http.ResponseWriter, r *http.Request)
 	h.mu.Lock()
 	h.bodies = append(h.bodies, rec)
 	h.mu.Unlock()
+
+	if mode == "unreadable" {
+		if rec.Verb == "install" {
+			w.Header().Set("Content-Type", workerctl.ContentTypeStream)
+			_, _ = io.WriteString(w, "this is not a line of the stream\n")
+			return
+		}
+		_, _ = io.WriteString(w, `"this is not a reply"`)
+		return
+	}
 
 	if mode == "hang" {
 		<-r.Context().Done()

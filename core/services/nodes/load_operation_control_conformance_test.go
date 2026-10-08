@@ -40,6 +40,9 @@ type loadOperationHarness interface {
 	WorkerRefuses()
 	// WorkerAnswers makes the worker answer every call with success.
 	WorkerAnswers()
+	// WorkerAnswersUnreadably makes the worker answer every call with a body
+	// that is no reply of the verb.
+	WorkerAnswersUnreadably()
 	// Sent returns the requests the carrier sent, in order.
 	Sent() []sentRequest
 }
@@ -87,6 +90,12 @@ func (h *natsLoadOperationHarness) WorkerRefuses() {
 	h.mc.scriptReply(messaging.SubjectNodeModelStop(node), workerctl.ModelStopReply{Matched: true, Error: "does not belong to operation"})
 	h.mc.scriptReply(messaging.SubjectNodeModelOp(node), workerctl.OperationReply{Unknown: []string{"op"}})
 	h.mc.scriptReply(messaging.SubjectNodeModelUnload(node), workerctl.ModelUnloadReply{Success: false, Error: "process was replaced during unload"})
+}
+
+func (h *natsLoadOperationHarness) WorkerAnswersUnreadably() {
+	for _, s := range h.subjects() {
+		h.mc.scriptReply(s, "this is not a reply")
+	}
 }
 
 func (h *natsLoadOperationHarness) WorkerAnswers() {
@@ -175,6 +184,24 @@ var _ = Describe("LoadOperationControl conformance", func() {
 					err := c.run()
 					Expect(err).To(HaveOccurred(), c.verb)
 					Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: a slow worker is not an absent one", c.verb)
+				}
+			})
+
+			It("does not report the budget of the caller running out as ErrNoRoute", func() {
+				h.TimesOut()
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				_, err := h.Control().StopLoadOperation(ctx, conformanceNode, workerctl.ModelStopRequest{ProcessKey: "m#0", OperationID: "op"})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "an impatient caller says nothing about the node: %v", err)
+			})
+
+			It("does not take an unreadable reply for a route that is missing, or for the answer of a worker", func() {
+				h.WorkerAnswersUnreadably()
+				for _, c := range calls() {
+					err := c.run()
+					Expect(err).To(HaveOccurred(), c.verb)
+					Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: %v", c.verb, err)
 				}
 			})
 
