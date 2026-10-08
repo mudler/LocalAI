@@ -312,7 +312,7 @@ var _ = Describe("The switch of the carrier", func() {
 	Describe("the status", func() {
 		It("reports the row, the replicas and the workers without a target, and the time the drain has to go", func() {
 			replica("a", "", "")
-			workers.set(cluster.WorkerInfo{ID: "w1", Name: "w1", Attached: []cluster.Carrier{cluster.CarrierNATS}, Reports: true, Follow: []cluster.Carrier{cluster.CarrierNATS}})
+			workers.set(cluster.WorkerInfo{ID: "w1", Name: "w1", Attached: []cluster.Carrier{cluster.CarrierNATS}, Reports: true, Follow: []cluster.Carrier{cluster.CarrierNATS, cluster.CarrierTunnel}})
 			status, err := sw.Status(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(status.Active).To(Equal(cluster.CarrierNATS))

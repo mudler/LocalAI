@@ -128,7 +128,7 @@ var _ = Describe("The window of a change of carrier", func() {
 			cmds := carrier.NewCommands(&cur)
 			cmds.UseWindow(window)
 			Expect(cmds.UnloadRemoteModel("m")).To(Succeed())
-			Expect(next.commands.seen()).To(Equal([]string{"UnloadRemoteModelContext"}))
+			Expect(next.commands.seen()).To(Equal([]string{"UnloadRemoteModel"}))
 			Expect(old.commands.seen()).To(BeEmpty(), "the active carrier did everything, so the previous one is not asked")
 		})
 

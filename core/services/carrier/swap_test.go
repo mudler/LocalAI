@@ -587,7 +587,7 @@ var _ = Describe("The swap of a replica", func() {
 			a := join("a")
 			settle(cluster.CarrierTunnel)
 			Expect(a.cmds.UnloadRemoteModel("m")).To(Succeed())
-			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(ContainElement("UnloadRemoteModelContext"))
+			Expect(a.fake(cluster.CarrierTunnel).commands.seen()).To(ContainElement("UnloadRemoteModel"))
 			Expect(a.fake(cluster.CarrierNATS).commands.seen()).To(BeEmpty(), "the active carrier did it all")
 		})
 	})

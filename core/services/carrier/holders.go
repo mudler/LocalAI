@@ -149,8 +149,15 @@ func (h *Commands) ListRunningModels(nodeID string) (*workerctl.ModelsRunningRep
 	return s.Commands.ListRunningModels(nodeID)
 }
 
+// UnloadRemoteModel stops a model on every node that holds it, as
+// UnloadRemoteModelContext does.
 func (h *Commands) UnloadRemoteModel(modelName string) error {
-	return h.UnloadRemoteModelContext(context.Background(), modelName, false)
+	cur := h.cur.Load()
+	err := cur.Commands.UnloadRemoteModel(modelName)
+	if prev := h.previous(cur); prev != nil && err != nil {
+		return prev.Commands.UnloadRemoteModel(modelName)
+	}
+	return err
 }
 
 // previous returns the set that is draining, or nil outside a change of carrier.
