@@ -109,6 +109,7 @@ const (
 const (
 	SubjectJobResultWildcard       = "jobs.*.result"
 	SubjectJobProgressWildcard     = "jobs.*.progress"
+	SubjectJobCancelWildcard       = "jobs.*.cancel"
 	SubjectAgentEventsWildcard     = "agent.*.events.*"
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"

@@ -261,7 +261,11 @@ var _ = Describe("The claim queue", func() {
 					return nil
 				})
 			}
-			Eventually(func() int { mu.Lock(); defer mu.Unlock(); return len(got[messaging.WorkMCPCI]) + len(got[messaging.WorkAgentRun]) }, 15*time.Second).Should(Equal(12))
+			Eventually(func() int {
+				mu.Lock()
+				defer mu.Unlock()
+				return len(got[messaging.WorkMCPCI]) + len(got[messaging.WorkAgentRun])
+			}, 15*time.Second).Should(Equal(12))
 			mu.Lock()
 			defer mu.Unlock()
 			Expect(got[messaging.WorkMCPCI]).To(Equal([]int{0, 1, 2, 3, 4, 5}))
@@ -582,4 +586,3 @@ var _ = Describe("The claim queue", func() {
 		})
 	})
 })
-

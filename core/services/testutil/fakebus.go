@@ -83,6 +83,18 @@ func (b *FakeBus) Publish(subject string, data any) error {
 	return nil
 }
 
+// SubscribedSubjects returns the subject of each live subscription, so a spec
+// can pin that a component listens to nothing on a subject.
+func (b *FakeBus) SubscribedSubjects() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, 0, len(b.subs))
+	for _, s := range b.subs {
+		out = append(out, s.subject)
+	}
+	return out
+}
+
 // PublishCount returns how many messages were published on the exact subject.
 func (b *FakeBus) PublishCount(subject string) int {
 	b.mu.Lock()
