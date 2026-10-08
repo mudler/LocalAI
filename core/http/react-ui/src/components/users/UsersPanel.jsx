@@ -250,9 +250,9 @@ export default function UsersPanel({ addToast, onInvite, registrationMode }) {
               <tr>
                 {sortTh('name', 'User')}
                 {sortTh('provider', 'Sign-in', 'dk-hide-phone')}
-                {sortTh('role', 'Role')}
+                {sortTh('role', 'Role', 'dk-hide-phone')}
                 <th scope="col" className="dk-hide-phone">Access</th>
-                {sortTh('status', 'Status')}
+                {sortTh('status', 'Status', 'dk-hide-phone')}
                 <th scope="col"><span className="dk-sr-only">Actions</span></th>
               </tr>
             </thead>
@@ -266,13 +266,14 @@ export default function UsersPanel({ addToast, onInvite, registrationMode }) {
                       <div className="us-who">
                         <Avatar user={u} />
                         <div className="us-who__text">
-                          <span className="dk-table-name">{u.name || '(no name)'}{self && <span className="us-you">you</span>}</span>
+                          <span className="dk-table-name">{u.name || '(no name)'}{self && <span className="us-you">you</span>}<span className={`dk-badge us-role-phone${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{u.role}</span></span>
                           <span className="dk-table-sub">{u.email}</span>
+                          <span className="us-state us-state-phone" data-state={state === 'active' ? 'active' : state === 'pending' ? 'warn' : 'muted'}>{STATE_LABELS[state]}</span>
                         </div>
                       </div>
                     </td>
                     <td className="dk-hide-phone"><span className="dk-badge">{u.provider || 'local'}</span></td>
-                    <td><span className={`dk-badge${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{u.role}</span></td>
+                    <td className="dk-hide-phone"><span className={`dk-badge${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{u.role}</span></td>
                     <td className="dk-hide-phone">
                       {u.role === 'admin' ? (
                         <span className="us-access">{accessSummary(u, featureMeta)}</span>
@@ -282,9 +283,9 @@ export default function UsersPanel({ addToast, onInvite, registrationMode }) {
                         </button>
                       )}
                     </td>
-                    <td>
+                    <td className="dk-hide-phone">
                       <span className="us-state" data-state={state === 'active' ? 'active' : state === 'pending' ? 'warn' : 'muted'}>{STATE_LABELS[state]}</span>
-                      <span className="dk-table-sub">{u.createdAt ? `Created ${new Date(u.createdAt).toLocaleDateString()}` : ''}</span>
+                      <span className="dk-table-sub dk-hide-phone">{u.createdAt ? `Created ${new Date(u.createdAt).toLocaleDateString()}` : ''}</span>
                     </td>
                     <td className="dk-num">
                       {!self && (

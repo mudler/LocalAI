@@ -44,6 +44,8 @@
 .us-avatar--initial, span.us-avatar { display: inline-grid; place-content: center; font: var(--dk-weight-semibold) var(--dk-text-13) / 1 var(--dk-font-body); color: var(--dk-accent-text); }
 .us-avatar--lg { width: 48px; height: 48px; overflow: hidden; font-size: var(--dk-text-17); }
 .us-avatar--lg img { width: 100%; height: 100%; object-fit: cover; }
+.us-state.us-state-phone { display: none; margin-top: 2px; }
+.us-role-phone { display: none; margin-left: var(--dk-space-2); vertical-align: 1px; }
 .us-you { margin-left: var(--dk-space-2); font: var(--dk-text-12) / 1 var(--dk-font-body); color: var(--dk-muted); font-weight: var(--dk-weight-regular); }
 .us-access { font-size: var(--dk-text-13); color: var(--dk-text); }
 .us-access--button { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; color: var(--dk-text); text-decoration: underline; text-decoration-color: var(--dk-control-edge); text-underline-offset: 3px; }
@@ -156,16 +158,24 @@
 .ac-limit__reset { grid-column: 1 / -1; font-size: var(--dk-text-12); color: var(--dk-muted); }
 
 /* ---- Phone ---------------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  /* The kit hides secondary columns at 900px; the role moves under the name. */
+  .us-role-phone { display: inline-flex; }
+  .us-state.us-state-phone { display: inline-flex; }
+}
 @media (max-width: 640px) {
   .us-search { max-width: none; flex-basis: 100%; }
   .us-bar__acts { margin-left: 0; width: 100%; justify-content: space-between; }
   .us-quota__fields { grid-template-columns: minmax(0, 1fr); }
   .ak-row { flex-wrap: wrap; }
-  .ak-row__acts { margin-left: calc(18px + var(--dk-space-3)); }
+  .ak-row__icon { display: none; }
+  .ak-row__main { flex-basis: 100%; }
+  .ak-row__acts { margin-left: -4px; }
   .ak-pause { margin-left: 0; }
   .ak-create .dk-field:first-child, .ak-create .dk-field:nth-child(2) { flex-basis: 100%; max-width: none; }
   .iv-link__text { max-width: 180px; }
-  .ac-figures { grid-template-columns: minmax(0, 1fr); }
+  .ac-figures { gap: var(--dk-space-3); }
+  .ac-figure dd { font-size: var(--dk-text-21); }
   .ac-limit { grid-template-columns: minmax(0, 1fr) auto; }
   .ac-limit .dk-progress { grid-column: 1 / -1; order: 3; }
 }
