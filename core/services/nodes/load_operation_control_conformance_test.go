@@ -45,7 +45,8 @@ type loadOperationHarness interface {
 }
 
 var loadOperationCarriers = map[string]func() loadOperationHarness{
-	"the NATS carrier": newNATSLoadOperationHarness,
+	"the NATS carrier":   newNATSLoadOperationHarness,
+	"the tunnel carrier": newHTTPLoadOperationHarness,
 }
 
 type natsLoadOperationHarness struct {
