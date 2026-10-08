@@ -137,13 +137,24 @@ export default function Settings() {
     if (!isDirty || saving) return
     setSaving(true)
     try {
-      await settingsApi.save(payloadFor(changes, settings))
+      const body = payloadFor(changes, settings)
+      await settingsApi.save(body)
       const before = initial
-      setInitial(structuredClone(settings))
+      let applied = settings
+      // The server makes the real token when it is sent 0; read it back so the
+      // field does not keep showing the placeholder.
+      if (body.p2p_token === '0') {
+        try {
+          const fresh = await settingsApi.get()
+          applied = { ...settings, p2p_token: fresh.p2p_token || '' }
+          setSettings(prev => ({ ...prev, p2p_token: fresh.p2p_token || '' }))
+        } catch { /* the field keeps what was typed; a reload shows the token */ }
+      }
+      setInitial(structuredClone(applied))
       setHistory(appendHistory(historyEntries(changes)))
       // Name and tagline reach the sidebar, footer and tab title without a reload.
       branding.refresh()
-      addToast(t('settings.saved'), 'success')
+      // The undo toast is the confirmation: a second toast would sit on it.
       setUndo({ changes, before, id: Date.now() })
     } catch (err) {
       addToast(t('settings.saveFailed', { message: err.message }), 'error')
@@ -325,7 +336,7 @@ export default function Settings() {
       {undo && (
         <HomeUndoToast
           key={undo.id} duration={UNDO_MS} testId="settings-undo-toast"
-          message={`Applied ${visibleChanges(undo.changes).length} ${visibleChanges(undo.changes).length === 1 ? 'change' : 'changes'}. Undo saves the old values again.`}
+          message={`${t('settings.saved')} (${visibleChanges(undo.changes).length} ${visibleChanges(undo.changes).length === 1 ? 'change' : 'changes'}). Undo saves the old values again.`}
           undoLabel="Undo" dismissLabel="Dismiss"
           onUndo={undoApply} onExpire={() => setUndo(null)}
         />
