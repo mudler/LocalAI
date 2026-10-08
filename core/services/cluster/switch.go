@@ -165,6 +165,10 @@ type Request struct {
 	By string
 	// Force goes ahead past a replica or a worker that is not ready.
 	Force bool
+	// ReportedWithin, when it is not zero, is the age under which a report of
+	// what a replica can build counts as the answer to the check that the caller
+	// has just asked for.
+	ReportedWithin time.Duration
 }
 
 // BlockedError is returned by Switch.Request when the preflight blocks it. The
@@ -270,18 +274,26 @@ func (s *Switch) observePhase(phase string, d time.Duration) {
 
 // Status reports the cluster as it is, with no target.
 func (s *Switch) Status(ctx context.Context) (Report, error) {
-	return s.report(ctx, "")
+	return s.report(ctx, "", 0)
 }
 
 // Preflight reports what a change to target would meet. It changes nothing.
 func (s *Switch) Preflight(ctx context.Context, target Carrier) (Report, error) {
+	return s.PreflightWithin(ctx, target, 0)
+}
+
+// PreflightWithin is Preflight for a caller that has just asked the replicas what
+// they can build. A replica counts as having answered only when its report is
+// younger than within, so that a report from before the question is not taken for
+// an answer to it. Zero keeps the age that the switch accepts anyway.
+func (s *Switch) PreflightWithin(ctx context.Context, target Carrier, within time.Duration) (Report, error) {
 	if !target.valid() {
 		return Report{}, fmt.Errorf("%w: %q", ErrInvalidCarrier, target)
 	}
-	return s.report(ctx, target)
+	return s.report(ctx, target, within)
 }
 
-func (s *Switch) report(ctx context.Context, target Carrier) (Report, error) {
+func (s *Switch) report(ctx context.Context, target Carrier, within time.Duration) (Report, error) {
 	row, err := s.o.Store.Get(ctx)
 	if err != nil {
 		return Report{}, err
@@ -340,12 +352,19 @@ func (s *Switch) report(ctx context.Context, target Carrier) (Report, error) {
 		r.Blockers = append(r.Blockers, Blocker{Kind: BlockerSame, Reason: fmt.Sprintf("%s is the active carrier already", target)})
 	}
 	if len(r.Blockers) == 0 {
+		maxAge := s.o.AvailabilityMaxAge
+		if within > 0 && within < maxAge {
+			maxAge = within
+		}
 		for _, in := range live {
 			reason, known := in.AvailabilityFor(target)
 			switch {
 			case !known:
 				r.Blockers = append(r.Blockers, Blocker{Kind: BlockerReplica, ID: in.ID, Forceable: true,
 					Reason: fmt.Sprintf("the replica has not reported whether it can use the %s carrier", target)})
+			case within > 0 && in.AvailabilityAge > maxAge:
+				r.Blockers = append(r.Blockers, Blocker{Kind: BlockerReplica, ID: in.ID, Forceable: true,
+					Reason: fmt.Sprintf("the replica has not answered the check for the %s carrier: its last report is %s old", target, in.AvailabilityAge.Round(time.Second))})
 			case in.AvailabilityAge > s.o.AvailabilityMaxAge:
 				r.Blockers = append(r.Blockers, Blocker{Kind: BlockerReplica, ID: in.ID, Forceable: true,
 					Reason: fmt.Sprintf("what the replica reported about the %s carrier is stale (%s old)", target, in.AvailabilityAge.Round(time.Second))})
@@ -371,7 +390,7 @@ func (s *Switch) report(ctx context.Context, target Carrier) (Report, error) {
 // blocks, moves the row to prepare. A blocker that can be forced does not block a
 // forced request. The row is unchanged when the request is refused.
 func (s *Switch) Request(ctx context.Context, req Request) (CarrierRow, Report, error) {
-	report, err := s.Preflight(ctx, req.Target)
+	report, err := s.PreflightWithin(ctx, req.Target, req.ReportedWithin)
 	if err != nil {
 		return CarrierRow{}, Report{}, err
 	}

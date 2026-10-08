@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -21,6 +22,7 @@ type fakeSwitch struct {
 	report   cluster.Report
 	row      cluster.CarrierRow
 	requests []cluster.Request
+	within   []time.Duration
 	aborts   []string
 	requestE error
 	abortE   error
@@ -44,6 +46,13 @@ func (f *fakeSwitch) Preflight(_ context.Context, target cluster.Carrier) (clust
 	return r, nil
 }
 
+func (f *fakeSwitch) PreflightWithin(ctx context.Context, target cluster.Carrier, within time.Duration) (cluster.Report, error) {
+	f.mu.Lock()
+	f.within = append(f.within, within)
+	f.mu.Unlock()
+	return f.Preflight(ctx, target)
+}
+
 func (f *fakeSwitch) Request(_ context.Context, req cluster.Request) (cluster.CarrierRow, cluster.Report, error) {
 	f.note("request")
 	f.mu.Lock()
@@ -59,9 +68,13 @@ func (f *fakeSwitch) Abort(_ context.Context, by string) (cluster.CarrierRow, er
 	return f.row, f.abortE
 }
 
-type fakeProber struct{ order *[]string }
+type fakeProber struct {
+	order *[]string
+	delay time.Duration
+}
 
 func (f fakeProber) ProbeReplicas(context.Context) {
+	time.Sleep(f.delay)
 	if f.order != nil {
 		*f.order = append(*f.order, "probe")
 	}
@@ -176,6 +189,19 @@ var _ = Describe("The admin API of the carrier", func() {
 			Expect(body["ok"]).To(BeTrue())
 			Expect(order).To(Equal([]string{"probe", "preflight"}))
 			Expect(sw.requests).To(BeEmpty())
+		})
+
+		It("counts only a report that is younger than the check it just asked for", func() {
+			slow := fakeProber{delay: 40 * time.Millisecond}
+			code, _ := call(SwitchCarrierEndpoint(sw, slow), http.MethodPost, `{"target":"tunnel","dry_run":true}`)
+			Expect(code).To(Equal(http.StatusOK))
+			Expect(sw.within).To(HaveLen(1))
+			Expect(sw.within[0]).To(BeNumerically(">=", 40*time.Millisecond), "the age that counts starts at the question")
+			Expect(sw.within[0]).To(BeNumerically("<", 5*time.Second))
+
+			code, _ = call(SwitchCarrierEndpoint(sw, slow), http.MethodPost, `{"target":"tunnel"}`)
+			Expect(code).To(Equal(http.StatusAccepted))
+			Expect(sw.requests[0].ReportedWithin).To(BeNumerically(">=", 40*time.Millisecond))
 		})
 
 		It("starts the change, and passes force on", func() {

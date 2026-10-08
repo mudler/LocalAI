@@ -19,6 +19,9 @@ import (
 type CarrierSwitchAdmin interface {
 	Status(ctx context.Context) (cluster.Report, error)
 	Preflight(ctx context.Context, target cluster.Carrier) (cluster.Report, error)
+	// PreflightWithin is Preflight where a report of what a replica can build
+	// counts only when it is younger than within.
+	PreflightWithin(ctx context.Context, target cluster.Carrier, within time.Duration) (cluster.Report, error)
 	Request(ctx context.Context, req cluster.Request) (cluster.CarrierRow, cluster.Report, error)
 	Abort(ctx context.Context, by string) (cluster.CarrierRow, error)
 }
@@ -162,17 +165,20 @@ func SwitchCarrierEndpoint(sw CarrierSwitchAdmin, prober ReplicaProber) echo.Han
 		}
 		// The replicas write what they can build when they are asked, so the answer
 		// of the preflight is about now and not about the last time they looked.
+		// A report counts as the answer only if it was written after the question.
+		asked := time.Now()
 		prober.ProbeReplicas(ctx)
+		answeredWithin := time.Since(asked)
 
 		if req.DryRun {
-			report, err := sw.Preflight(ctx, target)
+			report, err := sw.PreflightWithin(ctx, target, answeredWithin)
 			if err != nil {
 				return carrierError(c, http.StatusInternalServerError, err.Error(), nil)
 			}
 			return c.JSON(http.StatusOK, report)
 		}
 
-		row, report, err := sw.Request(ctx, cluster.Request{Target: target, By: by, Force: req.Force})
+		row, report, err := sw.Request(ctx, cluster.Request{Target: target, By: by, Force: req.Force, ReportedWithin: answeredWithin})
 		var blocked *cluster.BlockedError
 		switch {
 		case errors.As(err, &blocked):

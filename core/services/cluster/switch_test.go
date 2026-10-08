@@ -143,6 +143,32 @@ var _ = Describe("The switch of the carrier", func() {
 			)))
 		})
 
+		It("counts a report only if it is younger than the check the caller just asked for", func() {
+			replica("a", "", "")
+			time.Sleep(1200 * time.Millisecond) // the report is older than the question
+
+			plain, err := sw.Preflight(ctx, cluster.CarrierTunnel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(plain.OK).To(BeTrue(), "a report of 1 second is fresh enough for a preflight that asked nothing")
+
+			asked, err := sw.PreflightWithin(ctx, cluster.CarrierTunnel, 500*time.Millisecond)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(asked.OK).To(BeFalse())
+			Expect(asked.Blockers).To(HaveLen(1))
+			Expect(asked.Blockers[0].ID).To(Equal("a"))
+			Expect(asked.Blockers[0].Reason).To(ContainSubstring("has not answered the check"))
+			Expect(asked.Blockers[0].Forceable).To(BeTrue())
+
+			_, _, err = sw.Request(ctx, cluster.Request{Target: cluster.CarrierTunnel, By: "admin", ReportedWithin: 500 * time.Millisecond})
+			var blocked *cluster.BlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+
+			replica("a", "", "") // the replica answers the check
+			fresh, err := sw.PreflightWithin(ctx, cluster.CarrierTunnel, 500*time.Millisecond)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fresh.OK).To(BeTrue())
+		})
+
 		It("ignores what a replica reported long ago", func() {
 			replica("a", "", "")
 			Expect(db.Exec(`UPDATE instances SET availability_at = now() - interval '1 hour' WHERE id = 'a'`).Error).To(Succeed())
