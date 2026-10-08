@@ -15,6 +15,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"gorm.io/gorm"
 )
 
@@ -618,6 +621,69 @@ var _ = Describe("The swap of a replica", func() {
 		})
 	})
 
+	Describe("the metrics", func() {
+		It("report the epoch, the state, the carrier in use, the readiness and how long the drain has to go", func() {
+			reader := sdkmetric.NewManualReader()
+			meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter("spec")
+			a := join("a")
+			measured, err := carrier.NewSwapper(carrier.SwapperOptions{
+				Cur: &a.cur, Bus: a.bus, Window: a.window, Rows: store,
+				Ready: readyReporter{reg: reg, id: "a"}, Build: a.build,
+				Interval: time.Hour, Meter: meter,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(measured.Close)
+
+			gauge := func(name, attr string) float64 {
+				GinkgoHelper()
+				var rm metricdata.ResourceMetrics
+				Expect(reader.Collect(ctx, &rm)).To(Succeed())
+				for _, sm := range rm.ScopeMetrics {
+					for _, m := range sm.Metrics {
+						if m.Name != name {
+							continue
+						}
+						switch d := m.Data.(type) {
+						case metricdata.Gauge[int64]:
+							for _, p := range d.DataPoints {
+								if attr == "" || p.Attributes.Len() > 0 && attrValue(p.Attributes, attr) {
+									return float64(p.Value)
+								}
+							}
+						case metricdata.Gauge[float64]:
+							for _, p := range d.DataPoints {
+								return p.Value
+							}
+						}
+					}
+				}
+				Fail("no data point for " + name + " " + attr)
+				return 0
+			}
+
+			Expect(measured.Poll(ctx)).To(Succeed())
+			Expect(gauge("localai_carrier_epoch", "")).To(BeEquivalentTo(1))
+			Expect(gauge("localai_carrier_state", "stable")).To(BeEquivalentTo(1))
+			Expect(gauge("localai_carrier_state", "prepare")).To(BeZero())
+			Expect(gauge("localai_carrier_active", "nats")).To(BeEquivalentTo(1))
+			Expect(gauge("localai_carrier_active", "tunnel")).To(BeZero())
+
+			request(cluster.CarrierTunnel)
+			Expect(measured.Poll(ctx)).To(Succeed())
+			Expect(gauge("localai_carrier_state", "prepare")).To(BeEquivalentTo(1))
+			Expect(gauge("localai_carrier_replica_ready", "")).To(BeEquivalentTo(1))
+			drive()
+			Expect(measured.Poll(ctx)).To(Succeed())
+			Expect(gauge("localai_carrier_state", "commit")).To(BeEquivalentTo(1))
+			Expect(gauge("localai_carrier_active", "tunnel")).To(BeEquivalentTo(1))
+			ready := func() { Expect(reg.ReportReady(ctx, "a", row().Epoch, "")).To(Succeed()) }
+			ready()
+			drive()
+			Expect(measured.Poll(ctx)).To(Succeed())
+			Expect(gauge("localai_carrier_drain_remaining_seconds", "")).To(BeNumerically(">", 0), "the drain has time to go")
+		})
+	})
+
 	Describe("the polling loop", func() {
 		It("follows the row on its own, and wakes at once on a hint", func() {
 			a := join("a")
@@ -654,4 +720,14 @@ type readyReporter struct {
 
 func (r readyReporter) ReportReady(ctx context.Context, epoch int64, reason string) error {
 	return r.reg.ReportReady(ctx, r.id, epoch, reason)
+}
+
+// attrValue reports whether an attribute set holds the value.
+func attrValue(set attribute.Set, want string) bool {
+	for _, kv := range set.ToSlice() {
+		if kv.Value.AsString() == want {
+			return true
+		}
+	}
+	return false
 }

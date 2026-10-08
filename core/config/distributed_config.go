@@ -188,7 +188,11 @@ func (c DistributedConfig) Validate() error {
 	if err := c.NatsTLSFiles().Validate(); err != nil {
 		return err
 	}
-	c.NatsAuthConfig().WarnIfInsecure(true)
+	// A deployment with no NATS URL runs on the tunnel and has no NATS bus to warn
+	// about. The warning comes back when a URL is configured.
+	if c.NatsURL != "" {
+		c.NatsAuthConfig().WarnIfInsecure(true)
+	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:          c.MCPToolTimeout,

@@ -309,6 +309,33 @@ var _ = Describe("The switch of the carrier", func() {
 		})
 	})
 
+	Describe("the status", func() {
+		It("reports the row, the replicas and the workers without a target, and the time the drain has to go", func() {
+			replica("a", "", "")
+			workers.set(cluster.WorkerInfo{ID: "w1", Name: "w1", Attached: []cluster.Carrier{cluster.CarrierNATS}, Reports: true, Follow: []cluster.Carrier{cluster.CarrierNATS}})
+			status, err := sw.Status(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(status.Active).To(Equal(cluster.CarrierNATS))
+			Expect(status.Target).To(BeEmpty())
+			Expect(status.Blockers).To(BeEmpty(), "a status is not a dry run")
+			Expect(status.Replicas).To(HaveLen(1))
+			Expect(status.Workers).To(HaveLen(1))
+			Expect(status.DrainRemaining).To(BeZero())
+
+			_, _, err = request(cluster.CarrierTunnel, false)
+			Expect(err).ToNot(HaveOccurred())
+			ready("a", row().Epoch, "")
+			Expect(sw.Drive(ctx)).To(Succeed())
+			ready("a", row().Epoch, "")
+			Expect(sw.Drive(ctx)).To(Succeed())
+			status, err = sw.Status(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(status.Row.Draining).To(Equal(cluster.CarrierNATS))
+			Expect(status.DrainRemaining).To(BeNumerically(">", 0))
+			Expect(status.DrainRemaining).To(BeNumerically("<=", timings.MaxDrain))
+		})
+	})
+
 	Describe("the hint", func() {
 		It("tells the hook about every move of the row, and about no move that failed", func() {
 			var epochs []int64
