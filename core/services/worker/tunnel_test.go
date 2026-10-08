@@ -786,6 +786,37 @@ var _ = Describe("Worker tunnel client", func() {
 			Eventually(tun.BulkConnected, "10s").Should(BeTrue())
 		})
 
+		It("stops dialling soon after a run of 409 and backs off like any other failure", func() {
+			frontend = newFakeFrontend(false)
+			frontend.bulkStatus.Store(http.StatusConflict)
+			// Unbuffered, so that the loop does not run ahead of the spec.
+			delays := make(chan time.Duration)
+			start(func(c *TunnelConfig) {
+				c.sleep = func(ctx context.Context, d time.Duration) error {
+					select {
+					case delays <- d:
+						return nil
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+			})
+			session()
+			var seen []time.Duration
+			for range tunnelWrongReplicaLimit + 8 {
+				var d time.Duration
+				Eventually(delays, "10s").Should(Receive(&d))
+				seen = append(seen, d)
+			}
+			for i, d := range seen[:tunnelWrongReplicaLimit] {
+				Expect(d).To(BeNumerically("<=", tunnelWrongReplicaDelay*3/2), "wait %d is still the short one", i+1)
+			}
+			// After the limit the waits follow the backoff: the eighth wait after
+			// it is at least half of its base times 2^7, or the maximum.
+			last := seen[len(seen)-1]
+			Expect(last).To(BeNumerically(">=", tunnelBackoffMax/2), "the waits must grow after the limit")
+		})
+
 		It("connects both lanes again after the inference session ends", func() {
 			frontend = newFakeFrontend(false)
 			start(func(c *TunnelConfig) { c.sleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() } })

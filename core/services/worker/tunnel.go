@@ -67,6 +67,14 @@ const (
 	// right one, so the wait is short.
 	tunnelWrongReplicaDelay = 250 * time.Millisecond
 
+	// tunnelWrongReplicaLimit is how many answers of 409 in a row get the short
+	// wait. A load balancer that spreads dials over replicas puts one on the right
+	// one within a few tries. A run longer than this is not bad luck: the
+	// replica that holds the tunnel cannot be reached from here, or the bulk lane
+	// is not served, and a dial every few hundred milliseconds for ever helps
+	// nobody. After the limit a 409 counts as a failure and the wait grows.
+	tunnelWrongReplicaLimit = 20
+
 	// tunnelHeaderTimeout bounds how long a stream may take to send its request
 	// frame. Without a bound, a stream that sends nothing would hold a goroutine
 	// and a slot of the session for as long as the tunnel lives.
@@ -395,9 +403,19 @@ func (t *Tunnel) connectAndServe(ctx context.Context) error {
 // dial, or refuses it. Either way the worker must still serve.
 func (t *Tunnel) runBulk(ctx context.Context, streams *sync.WaitGroup) {
 	attempt := 0
+	conflicts := 0
 	for ctx.Err() == nil {
 		start := t.now()
 		sess, err := t.dial(ctx, tunnel.LaneBulk)
+		if isWrongReplica(err) {
+			conflicts++
+			if conflicts > tunnelWrongReplicaLimit {
+				// Treated as any other failed dial below.
+				err = fmt.Errorf("the frontend answered 409 %d times in a row: %w", conflicts, err)
+			}
+		} else {
+			conflicts = 0
+		}
 		var delay time.Duration
 		switch {
 		case err == nil:
@@ -414,7 +432,7 @@ func (t *Tunnel) runBulk(ctx context.Context, streams *sync.WaitGroup) {
 			attempt++
 			delay = tunnelBackoffDelay(attempt)
 			xlog.Debug("worker bulk tunnel ended", "node", t.nodeID, "retry_in", delay, "error", serveErr)
-		case isWrongReplica(err):
+		case conflicts > 0 && conflicts <= tunnelWrongReplicaLimit:
 			// The dial landed on a replica that does not hold the inference
 			// lane. Not a failure, and not an attempt for the wait.
 			delay = wrongReplicaDelay()
