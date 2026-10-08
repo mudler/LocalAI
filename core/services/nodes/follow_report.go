@@ -99,12 +99,27 @@ func (r *NodeRegistry) SetCarrierReport(ctx context.Context, nodeID string, rep 
 type SwitchWorkers struct {
 	reg   *NodeRegistry
 	stale time.Duration
+	// now is the clock that the age of a heartbeat is read on. It is the clock of
+	// the database, which every replica shares. The clock of the replica that reads
+	// is not that of the replica that wrote the heartbeat, and a skew between the
+	// two would turn a live worker into a stale one, or the other way round.
+	now func(ctx context.Context) time.Time
 }
 
 // NewSwitchWorkers returns the reader. A worker whose heartbeat is older than
 // stale is not alive for this purpose.
 func NewSwitchWorkers(reg *NodeRegistry, stale time.Duration) *SwitchWorkers {
-	return &SwitchWorkers{reg: reg, stale: stale}
+	return &SwitchWorkers{reg: reg, stale: stale, now: reg.databaseTime}
+}
+
+// databaseTime returns the time of the database. If the database does not answer it
+// returns the local time, because a change of carrier must not fail on it.
+func (r *NodeRegistry) databaseTime(ctx context.Context) time.Time {
+	var now time.Time
+	if err := r.db.WithContext(ctx).Raw("SELECT now()").Scan(&now).Error; err != nil || now.IsZero() {
+		return time.Now()
+	}
+	return now
 }
 
 var _ cluster.WorkerSource = (*SwitchWorkers)(nil)
@@ -125,10 +140,11 @@ func (s *SwitchWorkers) Workers(ctx context.Context) ([]cluster.WorkerInfo, erro
 	if err != nil {
 		return nil, err
 	}
+	now := s.now(ctx)
 	var out []cluster.WorkerInfo
 	for i := range list {
 		n := &list[i]
-		if n.Status == StatusPending || n.Status == StatusOffline || time.Since(n.LastHeartbeat) > s.stale {
+		if n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
 			continue
 		}
 		attached := s.attached(n)
@@ -156,9 +172,10 @@ func (s *SwitchWorkers) AgentsAttached(ctx context.Context, c cluster.Carrier) (
 	if err != nil {
 		return false, err
 	}
+	now := s.now(ctx)
 	for i := range list {
 		n := &list[i]
-		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || time.Since(n.LastHeartbeat) > s.stale {
+		if n.NodeType != NodeTypeAgent || n.Status == StatusPending || n.Status == StatusOffline || now.Sub(n.LastHeartbeat) > s.stale {
 			continue
 		}
 		for _, a := range s.attached(n) {

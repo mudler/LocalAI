@@ -60,6 +60,29 @@ var _ = Describe("The workers as the switch of the carrier sees them", func() {
 		Expect(byName(list)).To(HaveKey("live"))
 	})
 
+	It("reads the age of a heartbeat on the clock of the database and not on the clock of this replica", func() {
+		n := register("agent-1", NodeTypeAgent, "10.0.0.9:50051")
+		beat := time.Now()
+		Expect(db.Model(&BackendNode{}).Where("id = ?", n.ID).Update("last_heartbeat", beat).Error).To(Succeed())
+
+		// This replica's clock says the heartbeat is fresh. The clock of the database
+		// is ten minutes ahead, which makes it stale.
+		skewed := NewSwitchWorkers(reg, 5*time.Minute)
+		skewed.now = func(context.Context) time.Time { return beat.Add(10 * time.Minute) }
+		list, err := skewed.Workers(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list).To(BeEmpty())
+		on, err := skewed.AgentsAttached(ctx, cluster.CarrierNATS)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(on).To(BeFalse())
+
+		// And the other way: a clock that is ahead here does not hide a live worker.
+		real := NewSwitchWorkers(reg, 5*time.Minute)
+		list, err = real.Workers(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+	})
+
 	It("counts a worker that reports no capabilities as one that cannot follow, and as one that is on NATS", func() {
 		register("old", NodeTypeBackend, "10.0.0.1:50051")
 		list, err := workers.Workers(ctx)
