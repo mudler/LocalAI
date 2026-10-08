@@ -34529,6 +34529,66 @@
     - filename: granite-embedding-125m-english-f16.gguf
       sha256: e2950cf0228514e0e81c6f0701a62a9e4763990ce660b4a3c0329cd6a4acd4b9
       uri: huggingface://bartowski/granite-embedding-125m-english-GGUF/granite-embedding-125m-english-f16.gguf
+- name: embeddinggemma-2
+  variants:
+    - model: embeddinggemma-2-bf16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/ggml-org/embeddinggemma-2-GGUF
+  description: |
+    EmbeddingGemma 2 is Google's multilingual embedding model.
+    This Q8_0 GGUF serves the 270M-parameter text backbone through llama.cpp
+    and produces 768-dimensional embeddings for retrieval and semantic similarity.
+    This entry supports text input with an 8192-token context.
+    Use the model's task prefixes for queries and documents.
+  license: apache-2.0
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 8192
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-Q8_0.gguf
+      sha256: 2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135
+      uri: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-Q8_0.gguf
+- name: embeddinggemma-2-bf16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/google/embeddinggemma-2
+    - https://huggingface.co/ggml-org/embeddinggemma-2-GGUF
+  description: |
+    EmbeddingGemma 2 is Google's multilingual embedding model.
+    This BF16 GGUF serves the 270M-parameter text backbone through llama.cpp
+    and produces 768-dimensional embeddings for retrieval and semantic similarity.
+    This entry supports text input with an 8192-token context.
+    Use the model's task prefixes for queries and documents.
+  license: apache-2.0
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 8192
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-BF16.gguf
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2/embeddinggemma-2-BF16.gguf
+      sha256: 68bae29d62fb8c7d23e98d21fd4662753ddd636e6b62b8a70dfe059a9844f216
+      uri: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-BF16.gguf
 - name: embeddinggemma-300m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

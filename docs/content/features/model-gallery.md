@@ -23,6 +23,36 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## EmbeddingGemma 2 text embeddings
+
+[EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) is available
+for text embeddings through llama.cpp, with Q8_0 and BF16 builds.
+The entries use the 270M-parameter text backbone, return 768-dimensional vectors,
+and set an 8192-token context. They do not configure image, audio, or video input.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install embeddinggemma-2
+```
+
+To select a specific build, add `--variant embeddinggemma-2` for Q8_0
+or `--variant embeddinggemma-2-bf16` for BF16.
+
+Include the task prefix in each text input. For retrieval, use
+`task: search result | query: {query}` for queries and
+`title: {title} | text: {content}` for documents.
+Use `none` as the title when a document has no title.
+LocalAI does not add these prefixes automatically.
+
+For example, after installing the Q8_0 entry:
+
+```bash
+curl http://localhost:8080/v1/embeddings \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"embeddinggemma-2","input":"task: search result | query: How does local inference work?"}'
+```
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
