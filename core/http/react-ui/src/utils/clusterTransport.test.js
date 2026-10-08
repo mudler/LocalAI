@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { canForce, formatCountdown, otherCarrier, replicaReady, stateLabel, workerProfile } from './clusterTransport.js'
+import { canForce, followStatus, formatCountdown, otherCarrier, replicaReady, stateLabel, workerProfile } from './clusterTransport.js'
 
 test('workerProfile classifies by the carriers a worker can follow', () => {
   assert.equal(workerProfile({ follow: ['nats', 'tunnel'] }), 'dual')
@@ -34,4 +34,25 @@ test('canForce needs blockers and all of them forceable', () => {
   assert.equal(canForce({ blockers: [{ forceable: true }, { forceable: false }] }), false)
   assert.equal(canForce({ blockers: [{ forceable: true }] }), true)
   assert.equal(otherCarrier('nats'), 'tunnel')
+})
+
+test('followStatus says whether a worker can follow a change to the other carrier', () => {
+  const dual = { follow: ['nats', 'tunnel'], attached: ['nats'] }
+  assert.deepEqual(followStatus(dual, 'nats'), { ok: true, text: 'ok' })
+
+  const legacy = { attached: [] }
+  assert.equal(followStatus(legacy, 'nats').ok, false)
+  assert.match(followStatus(legacy, 'nats').text, /predates carrier switching/)
+
+  const natsOnly = { follow: ['nats'], attached: ['nats'] }
+  assert.equal(followStatus(natsOnly, 'nats').ok, false)
+  assert.match(followStatus(natsOnly, 'nats').text, /Database tunnel/)
+
+  const tunnelOnly = { follow: ['tunnel'], attached: ['tunnel'] }
+  assert.equal(followStatus(tunnelOnly, 'tunnel').ok, false)
+  assert.match(followStatus(tunnelOnly, 'tunnel').text, /NATS/)
+  assert.deepEqual(followStatus(tunnelOnly, 'nats'), { ok: true, text: 'ok' })
+
+  const reported = { follow: ['tunnel'], attached: ['tunnel'], follow_error: 'no routable address' }
+  assert.deepEqual(followStatus(reported, 'tunnel'), { ok: false, text: 'no routable address' })
 })

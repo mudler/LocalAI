@@ -80,6 +80,10 @@ test.describe('Cluster transport panel', () => {
     await expect(workers.nth(1)).toContainText('Tunnel-only')
     await expect(workers.nth(1)).toContainText('no routable address')
     await expect(workers.nth(2)).toContainText('Legacy (NATS only)')
+    // The legacy worker cannot follow a change to the tunnel, and the table says so.
+    await expect(workers.nth(2)).toContainText('predates carrier switching')
+    await expect(workers.nth(2)).not.toContainText(/\bok\b/)
+    await expect(workers.nth(0)).toContainText('ok')
     await expect(panel.getByRole('button', { name: /Abort change/ })).toHaveCount(0)
     await expect(panel.getByLabel('NATS URL', { exact: true })).toHaveValue('nats://nats:4222')
   })
@@ -222,5 +226,21 @@ test.describe('Cluster transport panel', () => {
     await expect(panel).toBeVisible({ timeout: 15_000 })
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
+  })
+
+  test('the worker hint does not ask for a NATS address', async ({ page }) => {
+    await mockCluster(page, { nodes: [] })
+    await page.goto('/app/nodes')
+    const hint = page.getByTestId('worker-hint-carrier')
+    await expect(hint).toBeVisible({ timeout: 15_000 })
+    await expect(hint).toContainText('only to override')
+    const commands = page.locator('.p2p-cmd pre')
+    await expect(commands.first()).toContainText('--register-to')
+    // One flag on each line, as a shell reads it.
+    expect(await commands.first().innerText()).toMatch(/ \\\n  --register-to .* \\\n  --registration-token /)
+    for (const command of await commands.allTextContents()) {
+      expect(command).not.toContain('nats')
+      expect(command).not.toContain('NATS')
+    }
   })
 })

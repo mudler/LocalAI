@@ -64,3 +64,20 @@ export function canForce(report) {
   const blockers = report?.blockers || []
   return blockers.length > 0 && blockers.every(b => b.forceable)
 }
+
+// Says whether a worker can follow a change to the other carrier, and why not.
+// A worker that reported why it cannot follow gives that reason. A worker that
+// predates carrier switching reports nothing and stays on NATS, so it cannot
+// follow a change to the tunnel, and the text says so. A worker whose
+// capabilities leave out the other carrier cannot follow either.
+export function followStatus(worker, active) {
+  if (worker?.follow_error) return { ok: false, text: worker.follow_error }
+  const target = otherCarrier(active)
+  if (workerProfile(worker) === 'legacy') {
+    return { ok: false, text: 'Cannot follow: predates carrier switching, stays on NATS' }
+  }
+  if (!worker.follow.includes(target) && !(worker.attached || []).includes(target)) {
+    return { ok: false, text: `Cannot follow a change to ${carrierLabel(target)}` }
+  }
+  return { ok: true, text: 'ok' }
+}

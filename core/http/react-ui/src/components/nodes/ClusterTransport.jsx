@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { clusterApi } from '../../utils/api'
 import {
   CARRIERS, PROFILE_LABELS, canForce, carrierLabel, formatCountdown, otherCarrier,
-  replicaReady, stateLabel, workerProfile,
+  followStatus, replicaReady, stateLabel, workerProfile,
 } from '../../utils/clusterTransport'
 import ConfirmDialog from '../ConfirmDialog'
 import Modal from '../Modal'
@@ -41,7 +41,7 @@ function ReplicaList({ replicas, report, label }) {
   )
 }
 
-function WorkerTable({ workers }) {
+function WorkerTable({ workers, active }) {
   if (!workers || workers.length === 0) return <p className="text-note">No worker is registered.</p>
   return (
     <div className="transport-table-wrap">
@@ -53,9 +53,12 @@ function WorkerTable({ workers }) {
               <td>{worker.name || worker.id}</td>
               <td>{PROFILE_LABELS[workerProfile(worker)]}</td>
               <td>{(worker.attached || []).length ? worker.attached.map(carrierLabel).join(' + ') : 'not reported'}</td>
-              <td>{worker.follow_error
-                ? <span className="transport-error" role="status">{worker.follow_error}</span>
-                : <span className="text-note">ok</span>}</td>
+              <td>{(() => {
+                const status = followStatus(worker, active)
+                return status.ok
+                  ? <span className="text-note">{status.text}</span>
+                  : <span className="transport-error" role="status">{status.text}</span>
+              })()}</td>
             </tr>
           ))}
         </tbody>
@@ -348,7 +351,7 @@ export default function ClusterTransport({ addToast }) {
         </div>
         <div>
           <p className="form-label">Workers</p>
-          <WorkerTable workers={report.workers} />
+          <WorkerTable workers={report.workers} active={report.active} />
         </div>
       </div>
 
