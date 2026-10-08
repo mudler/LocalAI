@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -147,9 +148,24 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string, o 
 		return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: %w", owner, err))
 	}
 
+	// The relay frame and its reply run under the budget of the caller. An owner
+	// whose session still answers the keepalive and whose handler is stuck would
+	// otherwise hold the caller, a goroutine and a stream for as long as the link
+	// lives. The deadline covers a caller that stated one, and the watcher covers
+	// a caller that cancels without one.
+	if err := stream.SetDeadline(handshakeDeadline(ctx)); err != nil {
+		_ = stream.Close()
+		return nil, routeFailure(nodeID, fmt.Errorf("arming the relay deadline: %w", err))
+	}
+	release := closeWhenDone(ctx, stream)
+	defer func() { _ = release() }()
+
 	// The remaining time of the caller, so that the owner can bound its own open.
 	if err := WriteRelayRequest(stream, nodeID, relayLane(o), remainingBudget(ctx)); err != nil {
 		_ = stream.Close()
+		if blamed := callerRanOut(ctx); blamed != nil {
+			return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: the budget of the caller ran out: %w", owner, blamed))
+		}
 		return nil, routeFailure(nodeID, fmt.Errorf("naming the node on a stream to replica %q: %w", owner, err))
 	}
 	if err := ReadRelayReply(stream); err != nil {
@@ -187,6 +203,8 @@ func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, t
 		_ = stream.Close()
 		return nil, routeFailure(nodeID, fmt.Errorf("arming the handshake deadline: %w", err))
 	}
+	release := closeWhenDone(ctx, stream)
+	defer func() { _ = release() }()
 
 	if err := WriteStreamRequest(stream, tag, target); err != nil {
 		// The tunnel broke under the request. Nothing was asked of the worker and
@@ -217,8 +235,22 @@ func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, t
 		_ = stream.Close()
 		return nil, routeFailure(nodeID, fmt.Errorf("clearing the handshake deadline: %w", err))
 	}
+	if release() {
+		// The caller gave up in the last moment and the watch closed the stream.
+		return nil, routeFailure(nodeID, fmt.Errorf("opening %q: the budget of the caller ran out: %w", tag, cmp.Or(callerRanOut(ctx), context.Canceled)))
+	}
 	xlog.Debug("opened a tunnelled stream to a worker", "node", nodeID, "tag", tag, "target", target)
 	return stream, nil
+}
+
+// closeWhenDone closes the stream when ctx ends, so that a read or a write that
+// is parked on a peer which says nothing returns at once. The deadline of the
+// socket covers a caller that stated one; this covers a caller that only
+// cancels. The returned function stops the watch and must be called when the
+// exchange is over. It reports whether the watch had already closed the stream.
+func closeWhenDone(ctx context.Context, stream net.Conn) (release func() (fired bool)) {
+	stop := context.AfterFunc(ctx, func() { _ = stream.Close() })
+	return func() bool { return !stop() }
 }
 
 // handshakeDeadline is when the handshake must be done: the deadline of the caller

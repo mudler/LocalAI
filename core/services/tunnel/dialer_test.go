@@ -263,6 +263,42 @@ var _ = Describe("The worker dialer", func() {
 			Expect(worker.seen()).To(BeEmpty(), "nothing may have crossed the inference lane")
 		})
 
+		It("gives up on an owner that took the relay frame and never answers, when the budget of the caller runs out", func() {
+			wedged := &wedgedPeers{}
+			dialer := tunnel.NewWorkerDialer(tunnels, wedged)
+			short, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			defer cancel()
+
+			done := make(chan error, 1)
+			go func() {
+				_, err := dialer.Dial(short, "w1", tunnel.StreamTagGRPC, "x:1")
+				done <- err
+			}()
+			var err error
+			Eventually(done, 2*time.Second).Should(Receive(&err), "a wedged owner must not hold the caller past its budget")
+			Expect(errors.Is(err, context.DeadlineExceeded)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, tunnel.ErrNoRoute)).To(BeFalse(), "an expired budget is not a missing route")
+			Eventually(wedged.farClosed, 2*time.Second).Should(BeTrue(), "the stream to the owner must be closed")
+		})
+
+		It("closes the stream to the owner when the caller cancels and stated no deadline", func() {
+			wedged := &wedgedPeers{}
+			dialer := tunnel.NewWorkerDialer(tunnels, wedged)
+			cancelable, cancel := context.WithCancel(ctx)
+
+			done := make(chan error, 1)
+			go func() {
+				_, err := dialer.Dial(cancelable, "w1", tunnel.StreamTagGRPC, "x:1")
+				done <- err
+			}()
+			time.Sleep(200 * time.Millisecond)
+			cancel()
+			var err error
+			Eventually(done, 2*time.Second).Should(Receive(&err))
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue(), "%v", err)
+			Eventually(wedged.farClosed, 2*time.Second).Should(BeTrue())
+		})
+
 		It("states the remaining budget of the caller in the relay request", func() {
 			dialer := tunnel.NewWorkerDialer(tunnels, peers)
 			budgeted, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -438,4 +474,29 @@ func tunnelUnreachable() error {
 	_, err := pool.Open(ctx, "ghost")
 	Expect(err).To(MatchError(tunnel.ErrPeerUnreachable))
 	return err
+}
+
+// wedgedPeers hands out a stream to an owner that reads the relay frame and
+// then says nothing, the way a replica does when its session still answers the
+// keepalive and its handler is stuck.
+type wedgedPeers struct {
+	mu  sync.Mutex
+	end bool
+}
+
+func (w *wedgedPeers) Open(context.Context, string) (net.Conn, error) {
+	near, far := net.Pipe()
+	go func() {
+		_, _ = io.Copy(io.Discard, far)
+		w.mu.Lock()
+		w.end = true
+		w.mu.Unlock()
+	}()
+	return near, nil
+}
+
+func (w *wedgedPeers) farClosed() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.end
 }
