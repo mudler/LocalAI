@@ -18,13 +18,15 @@ async function openMenu(page) {
 }
 
 test.describe('Chat conversations menu', () => {
+  const now = new Date('2026-10-09T12:00:00Z').getTime()
   test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(now)
     await mockChat(page, { models: [
       { id: 'qwen3-8b-instruct', capabilities: ['FLAG_CHAT'] },
       { id: 'gemma-4-e4b-it-qat-q4_0', capabilities: ['FLAG_CHAT'] },
       { id: 'qwen2.5-vl-7b-instruct', capabilities: ['FLAG_CHAT'] },
     ], loaded: ['qwen3-8b-instruct'] })
-    await openChat(page, sampleChats())
+    await openChat(page, sampleChats(now))
     await expect(page.getByTestId('chat-message').first()).toBeVisible()
   })
 
@@ -153,7 +155,7 @@ test.describe('Chat conversations menu', () => {
   })
 
   test('the undo time runs out by itself after six seconds', async ({ page }) => {
-    await page.clock.install()
+    await page.clock.install({ time: now })
     await page.reload()
     await page.getByTestId('chat-composer').waitFor()
     await openMenu(page)
