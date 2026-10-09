@@ -628,58 +628,74 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := systemOneBind(c, &req); err != nil {
 			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
 		}
-		if req.Model == "" {
-			return systemOneError(c, http.StatusBadRequest, "model is required")
-		}
-		if err := checkSystemOneModel(app, req.Model); err != nil {
-			return systemOneError(c, http.StatusBadRequest, err.Error())
-		}
-		if err := validateSystemOneRequest(&req); err != nil {
-			return systemOneError(c, systemOneInputStatus(err), err.Error())
-		}
-		// vllm-cpp models (kev/laya) implement the decision pipeline natively
-		// via the vllm_decide C ABI. Forward the raw request JSON through the
-		// Score RPC and return the backend's response as-is.
-		cl := app.ModelConfigLoader()
-		if cl != nil {
-			if cfg, ok := cl.GetModelConfig(req.Model); ok && systemOneUsesDecisionPipeline(cfg) {
-				reqJSON, err := json.Marshal(req)
-				if err != nil {
-					return systemOneError(c, http.StatusInternalServerError, "failed to marshal request: "+err.Error())
-				}
-				fn, err := backend.ModelSystemOne(string(reqJSON), app.ModelLoader(), cfg, app.ApplicationConfig())
-				if err != nil {
-					return systemOneError(c, http.StatusInternalServerError, err.Error())
-				}
-				return respondSystemOne(c, req.Model, fn)
-			}
-		}
-		// NER-based path (GLiNER2.5 zero-shot NER).
-		parsed, err := parseSystemOneRequest(&req)
-		if err != nil {
-			return systemOneError(c, systemOneInputStatus(err), err.Error())
-		}
-		classifier, err := resolveClassifier(app, req.Model, parsed.threshold)
-		if err != nil {
-			return systemOneError(c, http.StatusNotFound, err.Error())
-		}
-		start := time.Now()
-		entities, err := classifier.TokenClassifyWithLabels(c.Request().Context(), parsed.text, parsed.allLabels)
-		if err != nil {
-			return systemOneError(c, http.StatusInternalServerError, err.Error())
-		}
-		latencyMs := float64(time.Since(start).Microseconds()) / 1000.0
-		answers := make(map[string]schema.SystemOneAnswer, len(parsed.questions))
-		for i := range parsed.questions {
-			answers[parsed.questions[i].id] = buildSystemOneAnswer(&parsed.questions[i], entities)
-		}
-		return c.JSON(http.StatusOK, schema.SystemOneResponse{
-			Model:     req.Model,
-			Answers:   answers,
-			Usage:     schema.SystemOneUsage{InputTokens: 0, OutputTokens: 0},
-			LatencyMs: r2(latencyMs),
+		return executeSystemOne(c, app, &req, func(response string) error {
+			return respondSystemOne(c, req.Model, func(context.Context) (string, error) { return response, nil })
 		})
 	}
+}
+
+// executeSystemOne shares native and NER execution without routing through HTTP.
+// Admission and wire binding belong to each public adapter.
+func executeSystemOne(c echo.Context, app *application.Application, req *schema.SystemOneRequest, respond func(string) error) error {
+	if req.Model == "" {
+		return systemOneError(c, http.StatusBadRequest, "model is required")
+	}
+	if err := checkSystemOneModel(app, req.Model); err != nil {
+		return systemOneError(c, http.StatusBadRequest, err.Error())
+	}
+	if err := validateSystemOneRequest(req); err != nil {
+		return systemOneError(c, systemOneInputStatus(err), err.Error())
+	}
+	// vllm-cpp models (kev/laya) implement the decision pipeline natively
+	// via the vllm_decide C ABI. Forward the raw request JSON through the
+	// Score RPC and return the backend's response as-is.
+	cl := app.ModelConfigLoader()
+	if cl != nil {
+		if cfg, ok := cl.GetModelConfig(req.Model); ok && systemOneUsesDecisionPipeline(cfg) {
+			reqJSON, err := json.Marshal(req)
+			if err != nil {
+				return systemOneError(c, http.StatusInternalServerError, "failed to marshal request: "+err.Error())
+			}
+			fn, err := backend.ModelSystemOne(string(reqJSON), app.ModelLoader(), cfg, app.ApplicationConfig())
+			if err != nil {
+				return systemOneError(c, http.StatusInternalServerError, err.Error())
+			}
+			response, err := fn(c.Request().Context())
+			if err != nil {
+				return systemOneError(c, systemOneBackendStatus(err), err.Error())
+			}
+			return respond(response)
+		}
+	}
+	// NER-based path (GLiNER2.5 zero-shot NER).
+	parsed, err := parseSystemOneRequest(req)
+	if err != nil {
+		return systemOneError(c, systemOneInputStatus(err), err.Error())
+	}
+	classifier, err := resolveClassifier(app, req.Model, parsed.threshold)
+	if err != nil {
+		return systemOneError(c, http.StatusNotFound, err.Error())
+	}
+	start := time.Now()
+	entities, err := classifier.TokenClassifyWithLabels(c.Request().Context(), parsed.text, parsed.allLabels)
+	if err != nil {
+		return systemOneError(c, http.StatusInternalServerError, err.Error())
+	}
+	latencyMs := float64(time.Since(start).Microseconds()) / 1000.0
+	answers := make(map[string]schema.SystemOneAnswer, len(parsed.questions))
+	for i := range parsed.questions {
+		answers[parsed.questions[i].id] = buildSystemOneAnswer(&parsed.questions[i], entities)
+	}
+	response, err := json.Marshal(schema.SystemOneResponse{
+		Model:     req.Model,
+		Answers:   answers,
+		Usage:     schema.SystemOneUsage{InputTokens: 0, OutputTokens: 0},
+		LatencyMs: r2(latencyMs),
+	})
+	if err != nil {
+		return systemOneError(c, http.StatusInternalServerError, err.Error())
+	}
+	return respond(string(response))
 }
 
 // SystemOnePermuteEndpoint handles POST /v1/systemone/permute.
