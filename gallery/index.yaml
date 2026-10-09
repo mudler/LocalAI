@@ -47805,6 +47805,46 @@
     - filename: flux2-vae.safetensors
       sha256: 868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3
       uri: https://huggingface.co/Comfy-Org/Ideogram-4/resolve/main/vae/flux2-vae.safetensors
+- name: iris-3b-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/speridlabs/iris-3b
+    - https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF
+  description: |
+    Iris 3B is a text-to-image diffusion model using a Qwen3-VL-4B-Instruct text
+    encoder. Its Iris diffusion weights are the original F32 safetensors (~11.1
+    GiB), while the encoder is Q4_K_M (~2.3 GiB). Iris generates directly in
+    pixel space, so it does not use a VAE. Use widths and heights divisible by
+    16; output around one megapixel is recommended.
+  license: apache-2.0
+  tags:
+    - iris
+    - iris-3b
+    - text-to-image
+    - image-generation
+    - diffusion
+    - safetensors
+    - qwen
+    - qwen3-vl
+  last_checked: "2026-10-09"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 100
+    cfg_scale: 3
+    options:
+      - diffusion_model
+      - llm_path:Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      - diffusion_flash_attn:true
+      - sampler:euler
+    parameters:
+      model: iris-3b.safetensors
+  files:
+    - filename: iris-3b.safetensors
+      sha256: a90e1f4c197bac8491f82078def68884b6a3527ea7fc97a693e3e367372aa80f
+      uri: huggingface://speridlabs/iris-3b/model.safetensors
+    - filename: Qwen3VL-4B-Instruct-Q4_K_M.gguf
+      sha256: 66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a
+      uri: huggingface://Qwen/Qwen3-VL-4B-Instruct-GGUF/Qwen3VL-4B-Instruct-Q4_K_M.gguf
 - name: qwen-image-2.1-q4_k-ggml
   variants:
     - model: qwen-image-2.1-q8_0-ggml
