@@ -22,7 +22,7 @@ test('agent knowledge-base selectors filter models and save their selections', a
 
   await page.goto('/app/agents/new')
   await page.locator('#field-name').fill('research')
-  await page.locator('.agent-wizard-nav-item').filter({ hasText: 'Model Settings' }).click()
+  await page.getByRole('button', { name: /^Model Settings/ }).click()
 
   const embedding = page.locator('.form-row').filter({ has: page.getByText('Embedding Model', { exact: true }) })
   const reranker = page.locator('.form-row').filter({ has: page.getByText('Reranker Model', { exact: true }) })
@@ -37,7 +37,7 @@ test('agent knowledge-base selectors filter models and save their selections', a
   await reranker.getByRole('option', { name: /rank-model/ }).click()
 
   const saved = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/agents')
-  await page.getByRole('button', { name: /Create Agent$/ }).click()
+  await page.getByRole('button', { name: /Create Agent$/ }).first().click()
   expect((await saved).postDataJSON()).toMatchObject({
     name: 'research', model: 'chat-model', embedding_model: 'embed-model', reranker_model: 'rank-model',
   })
