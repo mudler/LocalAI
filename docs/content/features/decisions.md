@@ -17,14 +17,122 @@ endpoint (Ollama 0.35 and later). The wire contract is called SystemOne; the
 capability a model declares is called `decisions`. See
 [Compatibility with Ollama](#compatibility-with-ollama) for what differs.
 
-OpenAI announced its own Decisions API in limited preview on 2026-09-29. It has no
-public request or response schema yet, so LocalAI does not serve a `/v1/decisions`
-route.
+LocalAI also serves the OpenAI-compatible `/v1/decisions` contract with `input`
+and an ordered `questions` array. Both APIs share SystemOne execution, model
+selection, validation, admission limits, and backend support. They differ in
+request and response shape, not in the underlying model.
+
+## OpenAI-compatible decisions
+
+Use an installed local decision model, such as `julia-1-llama-cpp`:
+
+```bash
+curl http://localhost:8080/v1/decisions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "julia-1-llama-cpp",
+    "input": "My order arrived broken and I want my money back. This is the second time.",
+    "questions": [
+      {
+        "type": "predicate",
+        "name": "refund_requested",
+        "instructions": "The customer explicitly asks for a refund"
+      },
+      {
+        "type": "choice",
+        "name": "team",
+        "instructions": "Which team should handle this ticket?",
+        "choices": [
+          {"value": "billing", "description": "Payments, invoices, and refunds"},
+          {"value": "shipping", "description": "Delivery and damaged goods"},
+          {"value": "product", "description": "Questions about how the product works"}
+        ]
+      },
+      {
+        "type": "score",
+        "name": "urgency",
+        "instructions": "How urgent is this ticket?",
+        "levels": [
+          {"label": "not urgent"},
+          {"label": "somewhat urgent"},
+          {"label": "urgent"},
+          {"label": "critical"}
+        ]
+      }
+    ]
+  }'
+```
+
+The response contains `model`, an ordered `answers` array, and `usage`.
+Answers preserve question order and optional names. Named questions must have
+unique names. Each question requires `instructions`.
+
+| Question type | Input | Answer |
+|---|---|---|
+| `predicate` | A statement in `instructions` | `probability` from 0 to 1; maps to SystemOne `noul` |
+| `choice` | `choices` with unique string or boolean `value` fields and optional descriptions | Typed `choice`, `confidence`, and a `probabilities` array |
+| `score` | Ordered `levels` with required `label` fields and optional descriptions | `score`, `confidence`, and a `probabilities` array with zero-based numeric values and labels |
+
+Choice values retain their JSON types: `true` and `"true"` are different choices.
+Numbers, objects, arrays, and null are not supported choice values.
+Scores are probability-weighted sums of zero-based level indices, not necessarily integers.
+Backend refusals appear as answers with `type: "refusal"`.
+
+`usage` contains `input_tokens`, `output_tokens`, their sum as `total_tokens`,
+`input_tokens_details`, and `output_tokens_details`. Counts reflect available
+backend accounting, including explicit zero output tokens. The NER path reports
+zero token counts. Detail objects contain only backend-supplied counts and are
+empty objects when unavailable. LocalAI does not invent cached, reasoning, text,
+or image token breakdowns.
+
+### Input and compatibility limits
+
+`input` accepts a text string or an array of user messages. Each message has
+`role: "user"`, optional `type: "message"`, and `content`. Content accepts a
+string or an array of `input_text` and `input_image` parts:
+
+```json
+{
+  "input": [{
+    "role": "user",
+    "content": [
+      {"type": "input_text", "text": "Does this package look damaged?"},
+      {"type": "input_image", "image_url": "data:image/png;base64,...", "detail": "auto"}
+    ]
+  }]
+}
+```
+
+This fragment requires a complete PNG or JPEG data URL and an image-capable
+model, such as OpenJev with its projector. Image-only input is supported.
+Only omitted or default (`"auto"`) image `detail` is supported; other values
+return an error. LocalAI never fetches external image URLs or file paths.
+
+The adapter joins text parts with newlines and collects images in encounter order.
+It flattens message boundaries and text/image interleaving into SystemOne text
+and an image list. It does not preserve a conversation layout for inference.
+
+Requests support at most 64 questions. Text-only bodies have a 64 KiB limit;
+image-bearing bodies have a 16 MiB limit. The shared image limits are 8 images,
+12 MiB aggregate encoded data-URL bytes, 8 MiB aggregate decoded bytes,
+4096 pixels per dimension, and 16 million aggregate pixels.
+See [Bounded image input](#bounded-image-input) for validation and admission behavior.
+Text-only models and the NER path reject images instead of dropping them.
+Backend-specific question limits still apply, including llama.cpp's 2–10 score levels.
+
+`safety_identifier` is accepted as compatibility metadata. It does not establish
+an authentication identity or enable a safety service. Normal LocalAI
+authentication and the `decisions` permission still apply.
+
+Probabilities and confidence come from the local model and its pipeline.
+OpenAI-compatible fields do not guarantee OpenAI calibration, model quality,
+or safety behavior. Evaluate the installed model for your task.
 
 ## Endpoints
 
 | Endpoint | Method | Description |
 |---|---|---|
+| `/v1/decisions` | POST | Answer ordered predicate, choice, and score questions using the OpenAI-compatible contract |
 | `/v1/systemone` | POST | Answer all questions in one pass |
 | `/v1/systemone/permute` | POST | Re-run one choice question under `n_perm` option orders |
 | `/v1/systemone/separate` | POST | Answer each question in its own pass |
@@ -167,7 +275,7 @@ common case. These behaviors differ:
 
 ## Access control
 
-When authentication is on, the three routes need the `decisions` feature. It is
+When authentication is on, all four routes need the `decisions` feature. It is
 on by default for every user, like the other API features, and an administrator
 can turn it off per user.
 

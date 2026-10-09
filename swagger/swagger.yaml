@@ -967,6 +967,114 @@ definitions:
       summary_tokens:
         type: integer
     type: object
+  schema.DecisionAnswer:
+    properties:
+      choice:
+        description: Choice preserves the selected string or boolean value. Swagger
+          2 uses a loose object placeholder for this union.
+        type: object
+      confidence:
+        type: number
+      name:
+        type: string
+      probabilities:
+        items:
+          $ref: '#/definitions/schema.DecisionProbability'
+        type: array
+      probability:
+        type: number
+      score:
+        type: number
+      type:
+        type: string
+    type: object
+  schema.DecisionChoice:
+    properties:
+      description:
+        type: string
+      value:
+        description: Value is a string or boolean choice. Swagger 2 uses a loose object
+          placeholder for this union.
+        type: object
+    type: object
+  schema.DecisionLevel:
+    properties:
+      description:
+        type: string
+      label:
+        type: string
+    type: object
+  schema.DecisionProbability:
+    properties:
+      label:
+        type: string
+      probability:
+        type: number
+      value:
+        description: Value is a string or boolean for choices, or a zero-based integer
+          for score levels. Swagger 2 uses a loose object placeholder for this union.
+        type: object
+    type: object
+  schema.DecisionQuestion:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/schema.DecisionChoice'
+        type: array
+      instructions:
+        type: string
+      levels:
+        items:
+          $ref: '#/definitions/schema.DecisionLevel'
+        type: array
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.DecisionUsage:
+    properties:
+      input_tokens:
+        type: integer
+      input_tokens_details:
+        additionalProperties:
+          type: integer
+        type: object
+      output_tokens:
+        type: integer
+      output_tokens_details:
+        additionalProperties:
+          type: integer
+        type: object
+      total_tokens:
+        type: integer
+    type: object
+  schema.DecisionsRequest:
+    properties:
+      input:
+        description: Input is a text string or an array of user messages. Swagger
+          2 uses a loose object placeholder for this union.
+        type: object
+      model:
+        type: string
+      questions:
+        items:
+          $ref: '#/definitions/schema.DecisionQuestion'
+        type: array
+      safety_identifier:
+        type: string
+    type: object
+  schema.DecisionsResponse:
+    properties:
+      answers:
+        items:
+          $ref: '#/definitions/schema.DecisionAnswer'
+        type: array
+      model:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.DecisionUsage'
+    type: object
   schema.DepthRequest:
     properties:
       dst:
@@ -5795,6 +5903,29 @@ paths:
       summary: Generate completions for a given prompt and model.
       tags:
       - inference
+  /v1/decisions:
+    post:
+      consumes:
+      - application/json
+      description: Uses the same local decision and NER execution as SystemOne. Supports
+        inline images on capable backends; confidence is not OpenAI calibrated.
+      parameters:
+      - description: input + questions + model
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DecisionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.DecisionsResponse'
+      summary: Answer ordered predicate, choice and score questions.
+      tags:
+      - systemone
   /v1/depth:
     post:
       parameters:
