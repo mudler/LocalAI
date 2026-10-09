@@ -92,11 +92,10 @@ test.describe('Cleanup sheet - what it knows and what it does not', () => {
 
   test('each tier is ranked by size and a model with no known size goes last', async ({ page }) => {
     await openSheet(page)
-    const names = await tier(page, 'call').locator('.ledger-cr__name').evaluateAll(
-      (els) => els.map((e) => e.firstChild.textContent.trim()),
-    )
-    expect(names[0]).toBe('llama-3.3-70b-instruct-iq2')
-    expect(names[names.length - 1]).toBe('my-finetune-q4')
+    // Estimates arrive after the sheet becomes interactive and can reorder it.
+    const names = tier(page, 'call').locator('.ledger-cr__name')
+    await expect(names.first()).toContainText('llama-3.3-70b-instruct-iq2')
+    await expect(names.last()).toContainText('my-finetune-q4')
     await expect(tier(page, 'call').locator('li').last()).toContainText('size unknown')
     await expect(tier(page, 'call').locator('li').first()).toContainText(`${gb1(sizeOf('llama-3.3-70b-instruct-iq2'))} GB`)
   })
