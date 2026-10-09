@@ -135,9 +135,8 @@ test.describe('Your work', () => {
 
   test('the masonry uses fewer columns on a narrow screen', async ({ page }) => {
     await open(page)
-    const wide = await page.locator('.studio-masonry').getAttribute('data-columns')
+    await expect.poll(async () => Number(await page.locator('.studio-masonry').getAttribute('data-columns'))).toBeGreaterThan(1)
     await page.setViewportSize({ width: 390, height: 844 })
     await expect.poll(() => page.locator('.studio-masonry').getAttribute('data-columns')).toBe('1')
-    expect(Number(wide)).toBeGreaterThan(1)
   })
 })
