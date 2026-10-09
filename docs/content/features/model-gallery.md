@@ -490,6 +490,19 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml)).
 
+### Humanlike Chat quantizations
+
+Install `qwen3.8-27b-humanlike-chat` for text chat with llama.cpp. Its variant
+group offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 builds of the same step-576
+adapter merge at 0.7 strength. All four builds use a pinned publisher revision,
+a 32768-token context, and thinking disabled. They do not include a vision projector.
+
+To select Q5_K_M explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-humanlike-chat --variant qwen3.8-27b-humanlike-chat-q5
+```
+
 ### Model variants
 
 Some gallery entries offer several builds of the same model: different
