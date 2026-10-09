@@ -262,8 +262,8 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
   .modelpage-keys { display: none; }
 }
 
-.modelpage-table .dk-table-sub { max-width: none; white-space: normal; overflow-wrap: anywhere; }
-.modelpage-table .dk-table-sub .modelpage-inline-badge:first-child { margin-left: 0; }
+.modelpage-table .dk-table .dk-table-sub { max-width: none; white-space: normal; overflow-wrap: anywhere; }
+.modelpage-table .dk-table .dk-table-sub .modelpage-inline-badge:first-child { margin-left: 0; }
 
 /* A grid child is as wide as its content unless told otherwise; a table inside
    one would push the whole page sideways instead of scrolling in its own box. */
@@ -271,6 +271,8 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 .modelpage-variants__size { display: none; }
 @media (max-width: 640px) {
   .modelpage-variants__size { display: inline; }
+  /* Leave room for Fit and Install while long build names wrap. */
+  .modelpage-table .dk-table .dk-table-sub { max-width: 14ch; }
   .modelpage-table .dk-table-actions .dk-btn { padding-inline: var(--dk-space-2); }
 }
 

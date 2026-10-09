@@ -199,15 +199,17 @@ test.describe('Model page - walking and going back', () => {
     const { state } = await setup(page)
     await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
     await page.waitForTimeout(500)
-    const before = state.listingRequests.length
+    // Facet counts load in the background; they do not reload the list.
+    const listings = () => state.listingRequests.filter(search => new URLSearchParams(search).get('items') !== '1')
+    const before = listings().length
     await page.locator('[data-entity="qwen3-8b-instruct"] [data-row-open]').click()
     await expect(name(page)).toHaveText('qwen3-8b-instruct')
     await page.keyboard.press('Escape')
     await expect(rows(page).first()).toBeVisible()
     await page.waitForTimeout(500)
     // The page itself looks its own entry up once; the list asks for nothing.
-    expect(state.listingRequests.length - before).toBeLessThanOrEqual(1)
-    expect(state.listingRequests.slice(before).every(search => search.includes('term=qwen3-8b-instruct'))).toBe(true)
+    expect(listings().length - before).toBeLessThanOrEqual(1)
+    expect(listings().slice(before).every(search => search.includes('term=qwen3-8b-instruct'))).toBe(true)
   })
 
   test('changing tabs keeps the walker, and Back still leaves for the list in one step', async ({ page }) => {
