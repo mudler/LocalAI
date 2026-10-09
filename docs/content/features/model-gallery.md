@@ -133,6 +133,31 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## TwIL-LM3-Pro
+
+TwIL-LM3-Pro is a 3.66B Granite 4.2 fine-tune for formal logic, entailment,
+semantic parsing, and Lean formalization. The gallery offers Q4_K_M, Q5_K_M,
+Q6_K, and Q8_0 GGUF builds for llama.cpp, with a 32,768-token context and
+its embedded reasoning template. Q5 and Q6 provide options between Q4 and Q8
+in download size and quantization precision.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install twil-lm3-pro-q4
+```
+
+To select Q6_K explicitly:
+
+```bash
+local-ai models install twil-lm3-pro-q4 --variant twil-lm3-pro-q6
+```
+
+Use `--variant twil-lm3-pro-q5` for Q5_K_M. The
+[model license](https://huggingface.co/webAI-Official/TwIL-LM3-Pro/blob/main/LICENSE.md)
+permits noncommercial research and educational use only. See the
+[model card](https://huggingface.co/webAI-Official/TwIL-LM3-Pro) for task examples.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
