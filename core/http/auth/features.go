@@ -71,7 +71,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
 
-	// Decisions API (SystemOne wire contract)
+	// Decisions API (OpenAI and SystemOne wire contracts)
+	{"POST", "/v1/decisions", FeatureDecisions},
 	{"POST", "/v1/systemone", FeatureDecisions},
 	{"POST", "/v1/systemone/permute", FeatureDecisions},
 	{"POST", "/v1/systemone/separate", FeatureDecisions},
