@@ -44,6 +44,31 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Repairing an existing model configuration
+
+Gallery template updates do not rewrite YAML files for already installed models.
+If an older installation puts `context_size`, `f16`, or `mmap` under
+`parameters`, move those fields to the YAML root. LocalAI reads them at the
+root; nested copies are ignored. Keep `model` and sampling options under
+`parameters`.
+
+For example, the relevant fields in `models/qwen3-vl-4b-thinking.yaml` should be:
+
+```yaml
+context_size: 8192
+f16: true
+mmap: true
+parameters:
+  model: Qwen3-VL-4B-Thinking-Q4_K_M.gguf
+```
+
+Back up the installed YAML before editing it, preserve its other settings, and
+remove the misplaced nested copies. Use your configured models directory if it
+is not `models`. Preserve model-specific context values: `supra2-100m-instruct`
+uses `2048`, while `shieldstral-1.0-3b` and `shieldstral-1.0-3b-q8` use `32768`.
+Restart LocalAI after editing so it reads the repaired configuration and reloads
+the model. You do not need to download the weights again.
+
 ### A model's own page
 
 Every model also has a page of its own at `/app/models/<name>`, so it can be

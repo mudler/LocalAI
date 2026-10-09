@@ -1669,8 +1669,8 @@
     - english
   last_checked: "2026-08-11"
   overrides:
+    context_size: 2048
     parameters:
-      context_size: 2048
       model: Supra2-100M-SFT-F16.gguf
   files:
     - filename: Supra2-100M-SFT-F16.gguf
@@ -44200,8 +44200,8 @@
     mmproj: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
     options:
       - use_jinja:true
+    context_size: 32768
     parameters:
-      context_size: 32768
       model: llama-cpp/models/Shieldstral-1.0-3B/Shieldstral-1.0-3B-Q4_K_M.gguf
       temperature: 0
       max_tokens: 1
@@ -44228,8 +44228,8 @@
     mmproj: llama-cpp/mmproj/Shieldstral-1.0-3B/mmproj-F16.gguf
     options:
       - use_jinja:true
+    context_size: 32768
     parameters:
-      context_size: 32768
       model: llama-cpp/models/Shieldstral-1.0-3B-q8/Shieldstral-1.0-3B-Q8_0.gguf
       temperature: 0
       max_tokens: 1
