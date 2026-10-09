@@ -63,7 +63,7 @@ test.describe('Import: the source', () => {
       await expect(page.getByTestId('import-source-kind')).toHaveAttribute('data-kind', kind)
       await expect(page.getByTestId('import-source-kind')).toContainText(label)
       await expect(page.getByTestId('import-found')).toContainText(ref)
-      await expect(page.getByTestId('import-source-kind')).toContainText('Nothing is downloaded or contacted yet')
+      await expect(page.getByTestId('import-source-kind')).toContainText('The source has not been contacted or validated as a model.')
     })
   }
 

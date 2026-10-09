@@ -152,7 +152,7 @@
     },
     "import": {
       "sourceOk_huggingface": "Reads as a Hugging Face repository. LocalAI looks at its files when you import.",
-      "sourceOk_url": "Reads as a direct URL to a file.",
+      "sourceOk_url": "URL format recognised. Its contents have not been checked.",
       "sourceOk_config": "Reads as a model configuration file. It is read and used as it is.",
       "sourceOk_oci": "Reads as an OCI image reference.",
       "sourceOk_ollama": "Reads as an Ollama model reference.",

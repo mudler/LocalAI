@@ -23,7 +23,7 @@
     "uriPlaceholder": "huggingface://owner/repo",
     "uriHint": "Press Enter to import. LocalAI picks the backend from the source unless you choose one.",
     "supportedFormats": "What you can paste",
-    "options": "Import options",
+    "options": "Advanced options",
     "customPreferences": "Custom preferences",
     "customKeyValueHint": "Add custom key-value pairs for advanced configuration.",
     "preferenceKey": "Preference key for row {{index}}",
@@ -139,7 +139,7 @@
   },
   "found": {
     "title": "What LocalAI can tell",
-    "untouched": "Nothing is downloaded or contacted yet. LocalAI reads the repository when you import.",
+    "untouched": "Only the source format is recognised here. The source has not been contacted or validated as a model. LocalAI resolves it when you import.",
     "examples": "Or start from an example",
     "kind": {
       "huggingface": "Hugging Face repository",

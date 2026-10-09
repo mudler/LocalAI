@@ -101,14 +101,18 @@ The **What you can paste** panel beside the field lists every accepted scheme:
 `file://` and absolute paths on the host, `oci://`, `ocifile://`, and
 `ollama://`.
 
-Expanding **Import options** reveals everything you can override before the
-import runs: backend, name, description, quantizations, MMProj quantizations,
+Expand **Advanced options** directly below the request preview to override settings before importing.
+The controls include backend, name, description, quantizations, MMProj quantizations,
 model type, embeddings support, the diffusers-specific fields, and arbitrary
 custom key-value preferences. The backend list can be narrowed by modality
 first. Fields that the selected backend cannot use are hidden, and anything you
 typed into them is kept in case you switch back.
 
-Leaving the backend on auto-detect lets LocalAI choose from the source. If more
+The source format check does not contact the source or validate it as a model.
+An HTTPS URL can point to a web page rather than model weights.
+
+Leaving the backend on auto-detect lets LocalAI choose from the source.
+Selecting a backend sends an explicit backend preference in the previewed request. If more
 than one installed backend can serve the detected modality, the page says so
 and offers the candidates inline — picking one resubmits the import.
 
