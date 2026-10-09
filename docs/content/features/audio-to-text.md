@@ -321,6 +321,9 @@ The segmenter options below apply to both `vad:true` and `vad_model`. Each is op
 | `vad_min_speech` | seconds | Shorter speech runs are dropped |
 | `vad_max_segment` | seconds | Cap on the length of a piece (default 30) |
 | `vad_trim` | seconds | Each piece shrinks to its first and last speech frame plus this much. Default `0.3`; `0` keeps the whole cuts, as before this option existed |
+| `vad_run_gate` | 0 to below 1 | For the Moondream Ultra and Redux heads: a speech run is kept only if the median of its frame probabilities is at least this. Default off (`0`). Try `0.92` to `0.96` on Redux. Music still triggers the head, and Silero does not need it |
+
+`vad_run_gate` is described, with its measured effect and an example for the Redux VAD-only entry, in the [VAD endpoint page]({{%relref "features/voice-activity-detection" %}}#run-gate-for-the-ultra-and-redux-heads). It is offline only and is not sent to plain transcription or to streaming. With `vad:true` it needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`, and a set option on an older library fails the load.
 
 `vad_speech_pad` (seconds) pads each region and only affects the [VAD endpoint]({{%relref "features/voice-activity-detection" %}}). `vad_model` needs a `libparakeet.so` that exports `parakeet_capi_transcribe_path_json_vad_with`; an older library fails the load with a message that names it.
 
