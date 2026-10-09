@@ -53,7 +53,7 @@ type DecisionAnswer struct {
 }
 type DecisionProbability struct {
 	Value       json.RawMessage `json:"value"`
-	Label       string          `json:"label,omitempty"`
+	Label       *string         `json:"label,omitempty"`
 	Probability float64         `json:"probability"`
 }
 

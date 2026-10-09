@@ -120,9 +120,6 @@ func convertDecisionsRequest(req *schema.DecisionsRequest) (*schema.SystemOneReq
 				}
 				values[string(canonical)] = true
 				label := string(canonical)
-				if s, ok := v.(string); ok {
-					label = s
-				}
 				if choice.Description != "" {
 					label += ": " + choice.Description
 				}
@@ -253,7 +250,7 @@ func convertDecisionsResponse(req *schema.DecisionsRequest, raw []byte) (*schema
 					}
 				} else {
 					probability.Value = json.RawMessage(strconv.Itoa(j))
-					probability.Label = *q.Levels[j].Label
+					probability.Label = q.Levels[j].Label
 				}
 				answer.Probabilities = append(answer.Probabilities, probability)
 			}

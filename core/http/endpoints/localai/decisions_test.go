@@ -33,9 +33,34 @@ var _ = Describe("Decisions conversion", func() {
 		Expect(response.Answers[0].Probability).To(HaveValue(Equal(0.7)))
 		Expect(response.Answers[1].Choice).To(Equal(json.RawMessage(`true`)))
 		Expect(response.Answers[1].Probabilities[1].Value).To(Equal(json.RawMessage(`"true"`)))
-		Expect(response.Answers[2].Probabilities[1].Label).To(Equal("high"))
+		Expect(response.Answers[2].Probabilities[1].Label).To(HaveValue(Equal("high")))
 		Expect(response.Usage.TotalTokens).To(Equal(9))
 	})
+	DescribeTable("keeps typed choice values distinct in model-visible criteria",
+		func(description string) {
+			var req schema.DecisionsRequest
+			Expect(json.Unmarshal([]byte(`{"model":"m","input":"evidence","questions":[{"type":"choice","instructions":"pick","choices":[{"value":true},{"value":"true"},{"value":false},{"value":"false"}]}]}`), &req)).To(Succeed())
+			for i := range req.Questions[0].Choices {
+				req.Questions[0].Choices[i].Description = description
+			}
+			translated, err := convertDecisionsRequest(&req)
+			Expect(err).NotTo(HaveOccurred())
+			var criteria map[string]string
+			Expect(json.Unmarshal(translated.Questions[decisionQuestionID(0)].Criteria, &criteria)).To(Succeed())
+			suffix := ""
+			if description != "" {
+				suffix = ": " + description
+			}
+			Expect(criteria).To(Equal(map[string]string{
+				decisionChoiceID(0): `true` + suffix,
+				decisionChoiceID(1): `"true"` + suffix,
+				decisionChoiceID(2): `false` + suffix,
+				decisionChoiceID(3): `"false"` + suffix,
+			}))
+		},
+		Entry("without descriptions", ""),
+		Entry("with identical descriptions", "same description"),
+	)
 	It("rejects duplicate names and typed values", func() {
 		for _, questions := range []string{`[{"type":"predicate","name":"a","instructions":"x"},{"type":"predicate","name":"a","instructions":"x"}]`, `[{"type":"choice","instructions":"x","choices":[{"value":true},{"value":true}]}]`} {
 			var req schema.DecisionsRequest
@@ -71,6 +96,27 @@ var _ = Describe("Decisions runtime contract", func() {
 		wire, err = json.Marshal(out)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(wire)).To(ContainSubstring(`"score":0`))
+	})
+	It("serializes accepted empty score labels without labeling choice probabilities", func() {
+		req := parse()
+		empty := ""
+		req.Questions[2].Levels[0].Label = &empty
+		_, err := convertDecisionsRequest(req)
+		Expect(err).NotTo(HaveOccurred())
+		out, err := convertDecisionsResponse(req, []byte(result))
+		Expect(err).NotTo(HaveOccurred())
+		wire, err := json.Marshal(out)
+		Expect(err).NotTo(HaveOccurred())
+		var decoded struct {
+			Answers []struct {
+				Probabilities []map[string]any `json:"probabilities"`
+			} `json:"answers"`
+		}
+		Expect(json.Unmarshal(wire, &decoded)).To(Succeed())
+		Expect(decoded.Answers[2].Probabilities[0]).To(HaveKeyWithValue("label", ""))
+		for _, probability := range decoded.Answers[1].Probabilities {
+			Expect(probability).NotTo(HaveKey("label"))
+		}
 	})
 	It("rejects missing answers, malformed distributions and invalid accounting", func() {
 		for _, mutation := range [][2]string{
