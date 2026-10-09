@@ -14808,10 +14808,17 @@
       uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF/resolve/main/LFM2.5-8B-A1B-DSpark-F16.gguf
       sha256: a73be221783d3e832016c73945640fd81376f5de7a250025fd67a536435ce4b6
 - name: qwopus3.5-9b-coder-mtp
+  variants:
+    - model: qwopus3.5-9b-coder-mtp-q6
+    - model: qwopus3.5-9b-coder-mtp-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
+    - https://huggingface.co/Jackrong/Qwopus3.5-9B-v3.5
     - https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
-  description: "# \U0001F31F Qwopus3.5-9B-v3.5\n\n## \U0001F4A1 Model Overview & v3.5 Design\n\nQwopus3.5-9B-v3.5 is a **data-scaled continuation** of the Qwopus3.5-9B-v3 model.\n\nThe training data in v3.5 is expanded to cover a broader range of domains, including mathematics, programming, puzzle-solving, multilingual dialogue, instruction-following, multi-turn interactions, and STEM-related tasks.\n\nQwopus3.5-9B-v3.5 is a reasoning-enhanced model based on **Qwen3.5-9B**, designed for:\n\n  - \U0001F9E9 Structured reasoning\n  - \U0001F527 Tool-augmented workflows\n  - \U0001F501 Multi-step agentic tasks\n  - ⚡ Token-efficient inference\n\nCompared with Qwopus3.5-9B-v3, **3.5 version does not introduce a new architecture, RL stage, or template redesign**.\n\nThis version is trained with approximately **2× more SFT data**.\n\n## \U0001F3AF Motivation & Generalization Insight\n\nThe motivation behind v3.5 comes from a simple observation:\n\n> This work is motivated by the hypothesis that scaling high-quality SFT data may further enhance the generalization ability of large language models.\n\nIn earlier Qwopus3.5 experiments, structured reasoning was observed to improve both **accuracy and efficiency**:\n\n...\n"
+  description: |
+    Qwopus3.5-9B-Coder-MTP is a Qwen3.5-based 9B model for coding,
+    reasoning, and tool use. This Q4_K_M build includes the vision
+    projector and enables MTP speculative decoding with llama.cpp.
   license: apache-2.0
   tags:
     - llm
@@ -14839,11 +14846,93 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
-      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
       sha256: 9ea3ecd122a5165b8b81655f29eaf09d71daf841503e4c4212bdfadb36ab3712
     - filename: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
       sha256: f48daca405a1c768a9514e392c3955dcc4a9d66a5cf64cf45e064092b5f20ee4
-      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/main/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/mmproj-F32.gguf
+- name: qwopus3.5-9b-coder-mtp-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.5-9B-v3.5
+    - https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
+  description: |
+    Qwopus3.5-9B-Coder-MTP is a Qwen3.5-based 9B model for coding,
+    reasoning, and tool use. This Q6_K build includes the vision
+    projector and enables MTP speculative decoding with llama.cpp.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - mtp
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/9EnS13MSxNU3snpAgEiLq.jpeg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q6_K.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/Qwopus3.5-9B-Coder-MTP-Q6_K.gguf
+      sha256: 6993e21c637d79a6f359f4b7b45db67b103d73d17cbf6f3a883b2e5cb9e4e87a
+    - filename: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
+      sha256: f48daca405a1c768a9514e392c3955dcc4a9d66a5cf64cf45e064092b5f20ee4
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/mmproj-F32.gguf
+- name: qwopus3.5-9b-coder-mtp-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.5-9B-v3.5
+    - https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
+  description: |
+    Qwopus3.5-9B-Coder-MTP is a Qwen3.5-based 9B model for coding,
+    reasoning, and tool use. This Q8_0 build includes the vision
+    projector and enables MTP speculative decoding with llama.cpp.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - mtp
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66309bd090589b7c65950665/9EnS13MSxNU3snpAgEiLq.jpeg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-Q8_0.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/Qwopus3.5-9B-Coder-MTP-Q8_0.gguf
+      sha256: 0338dc2f39516982637bfb2af5c6451e1ca0feb040f3e9bdf5ca173d7ab08dd1
+    - filename: llama-cpp/mmproj/Qwopus3.5-9B-Coder-MTP-GGUF/Qwopus3.5-9B-Coder-MTP-mmproj.gguf
+      sha256: f48daca405a1c768a9514e392c3955dcc4a9d66a5cf64cf45e064092b5f20ee4
+      uri: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF/resolve/58f9bfb45380b53ef0cbd693fce9b97b21f416ae/mmproj-F32.gguf
 - name: qwopus3.6-27b-v2-mtp
   variants:
     - model: qwopus3.6-27b-v2-mtp-nvfp4

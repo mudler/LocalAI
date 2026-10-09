@@ -218,6 +218,23 @@ To select Q8_0 explicitly, run `local-ai models install mimo-v2.6-distill-qwen-9
 The configurations default to 32,768 context tokens and use the model's embedded chat template.
 See the [model card](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B) for training details.
 
+## Qwopus3.5 9B Coder MTP
+
+Install `qwopus3.5-9b-coder-mtp` for coding and reasoning with text and image input.
+The gallery groups Q4_K_M, Q6_K, and Q8_0 builds as variants.
+To select a quantization explicitly:
+
+```bash
+local-ai models install qwopus3.5-9b-coder-mtp --variant qwopus3.5-9b-coder-mtp
+local-ai models install qwopus3.5-9b-coder-mtp --variant qwopus3.5-9b-coder-mtp-q6
+local-ai models install qwopus3.5-9b-coder-mtp --variant qwopus3.5-9b-coder-mtp-q8
+```
+
+All three builds use llama.cpp, the embedded chat template, and MTP speculative decoding.
+Each build includes the publisher's `mmproj-F32.gguf` vision projector.
+Downloads use a pinned revision and SHA256 checksums.
+See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF) for model details.
+
 ## Qwopus3.8 Flash V2
 
 Install `qwopus3.8-27b-flash-v2` for the Q4_K_M GGUF build, with Q8_0 available through variant selection:
