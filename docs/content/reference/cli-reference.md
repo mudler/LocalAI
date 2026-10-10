@@ -25,6 +25,8 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 
 ## Diagnostics flags
 
+See [Profiling and request diagnostics]({{% relref "features/diagnostics" %}}) for sampling semantics, phase boundaries, and protected pod captures.
+
 These options apply only to `local-ai run`, including distributed frontends.
 Diagnostics state is per-instance, not shared between replicas. Debug logging enables neither feature.
 The profiling listener is separate from the public API and accepts only numeric loopback addresses with explicit ports.
