@@ -454,6 +454,6 @@ var _ = Describe("Upscale backend declaration", func() {
 		cap := GetBackendCapability("stablediffusion-ggml")
 		Expect(cap.GRPCMethods).To(ContainElement(MethodUpscaleImage))
 		Expect(cap.PossibleUsecases).To(ContainElement(UsecaseUpscale))
-		Expect(cap.DefaultUsecases).To(ContainElement(UsecaseUpscale))
+		Expect(cap.DefaultUsecases).NotTo(ContainElement(UsecaseUpscale))
 	})
 })

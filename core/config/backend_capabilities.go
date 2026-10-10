@@ -440,7 +440,7 @@ var BackendCapabilities = map[string]BackendCapability{
 	"stablediffusion-ggml": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage},
 		PossibleUsecases: []string{UsecaseImage, UsecaseUpscale},
-		DefaultUsecases:  []string{UsecaseImage, UsecaseUpscale},
+		DefaultUsecases:  []string{UsecaseImage},
 		Description:      "Stable Diffusion via GGML quantized models",
 	},
 
