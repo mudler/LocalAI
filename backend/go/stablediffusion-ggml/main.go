@@ -35,6 +35,10 @@ func main() {
 	}
 
 	libFuncs := []LibFuncs{
+		{&UpscalerCreate, "gosd_upscaler_create"},
+		{&UpscalerScale, "gosd_upscaler_scale"},
+		{&UpscalerRun, "gosd_upscaler_run"},
+		{&UpscalerDestroy, "gosd_upscaler_destroy"},
 		{&LoadModel, "load_model"},
 		{&GenImage, "gen_image"},
 		{&GenVideo, "gen_video"},

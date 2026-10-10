@@ -1,5 +1,7 @@
 #include "stable-diffusion.h"
 #include <cmath>
+#include <memory>
+#include <climits>
 #include <cstdint>
 #define GGML_MAX_NAME 128
 
@@ -1446,4 +1448,67 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 int unload() {
     free_sd_ctx(sd_c);
     return 0;
+}
+
+
+// Own copies even if upstream retains constructor arguments: never retain a Go
+// string pointer across the ABI call.
+struct gosd_upscaler {
+    std::string path, backend, params_backend;
+    upscaler_ctx_t* ctx = nullptr;
+    ~gosd_upscaler() { if (ctx) free_upscaler_ctx(ctx); }
+};
+
+void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size,
+                          const char* backend, const char* params_backend) {
+    if (!path || !*path || tile_size <= 0) return nullptr;
+    try {
+        auto h = std::make_unique<gosd_upscaler>();
+        h->path = path;
+        h->backend = backend ? backend : "";
+        h->params_backend = params_backend ? params_backend : "";
+        h->ctx = new_upscaler_ctx(h->path.c_str(), direct, threads, tile_size,
+                                 h->backend.c_str(), h->params_backend.c_str());
+        if (!h->ctx) return nullptr;
+        return h.release();
+    } catch (...) { return nullptr; }
+}
+
+int gosd_upscaler_scale(void* handle) {
+    if (!handle) return 0;
+    try { return get_upscale_factor(static_cast<gosd_upscaler*>(handle)->ctx); }
+    catch (...) { return 0; }
+}
+
+void gosd_upscaler_destroy(void* handle) {
+    delete static_cast<gosd_upscaler*>(handle);
+}
+
+int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale) {
+    if (!handle || !src || !*src || !dst || !*dst || scale <= 0) return 1;
+    // RAII also covers exceptions from native inference.
+    struct images {
+        sd_image_t* data = nullptr;
+        int count = 0;
+        ~images() { if (data) free_sd_images(data, count); }
+    } output;
+    int width = 0, height = 0, channels = 0;
+    std::unique_ptr<unsigned char, decltype(&stbi_image_free)> input(
+        stbi_load(src, &width, &height, &channels, 3), stbi_image_free);
+    if (!input || width <= 0 || height <= 0) return 2;
+    const uint64_t out_width = uint64_t(width) * scale;
+    const uint64_t out_height = uint64_t(height) * scale;
+    if (out_width > INT_MAX / 3 || out_height > INT_MAX ||
+        out_width * out_height > SIZE_MAX / 3) return 4;
+    sd_image_t image = {uint32_t(width), uint32_t(height), 3, input.get()};
+    try {
+        if (!upscale(static_cast<gosd_upscaler*>(handle)->ctx, image, scale,
+                     &output.data, &output.count)) return 3;
+        if (!output.data || output.count != 1 || !output.data[0].data ||
+            output.data[0].width != out_width || output.data[0].height != out_height ||
+            output.data[0].channel != 3) return 4;
+        if (!stbi_write_png(dst, int(out_width), int(out_height), 3,
+                            output.data[0].data, int(out_width) * 3)) return 5;
+        return 0;
+    } catch (...) { return 3; }
 }
