@@ -243,3 +243,82 @@ test.describe('Lineage view: phone', () => {
     }
   })
 })
+
+test.describe('Inline upscale', () => {
+  async function setup(page, { models = true, failure } = {}) {
+    await mockStudio(page)
+    if (models) await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [
+      { id: 'up-4', capabilities: ['FLAG_UPSCALE'], upscaleScale: 4 },
+      { id: 'up-2', capabilities: ['FLAG_UPSCALE'], upscaleScale: 2 },
+      { id: 'invalid', capabilities: ['FLAG_UPSCALE'], upscaleScale: 0 },
+      { id: 'text-image', capabilities: ['FLAG_IMAGE'] },
+    ] } }))
+    await stubMedia(page)
+    const history = sampleHistory()
+    if (failure === 'cross-origin') history.image.find(e => e.id === 'img-bowls').results[0].url = 'https://other.test/source.png'
+    await seedHistory(page, history)
+    if (['fetch', 'non-image', 'source-decode'].includes(failure)) {
+      await page.route('**/generated-images/bowls.png', route => route.fulfill({
+        status: failure === 'fetch' ? 500 : 200,
+        contentType: failure === 'non-image' ? 'text/html' : 'image/png', body: 'bad image',
+      }))
+    }
+    let requests = 0
+    await page.route('**/v1/images/upscale', async route => {
+      requests++
+      const request = route.request()
+      expect(request.headers()['content-type']).toContain('multipart/form-data; boundary=')
+      const body = request.postDataBuffer().toString()
+      expect(body).toContain('name="model"\r\n\r\nup-2')
+      expect(body).toContain('name="scale"\r\n\r\n2')
+      expect(body).toContain('name="image"; filename="bowls.png"')
+      await route.fulfill({ status: failure === 'api' ? 500 : 200, json: failure === 'api'
+        ? { error: 'upscale unavailable' }
+        : { data: [{ url: '/generated-images/upscaled.png', width: 99999, height: 99999 }] } })
+    })
+    if (failure === 'result-decode') await page.route('**/generated-images/upscaled.png', route => route.fulfill({ contentType: 'image/png', body: 'broken' }))
+    await page.goto('/app/studio?work=img-bowls')
+    await page.getByTestId('studio-dock-toggle').click()
+    return () => requests
+  }
+
+  test('absent without an eligible model', async ({ page }) => {
+    await setup(page, { models: false })
+    await expect(page.getByTestId('step-upscale')).toHaveCount(0)
+  })
+
+  test('filtered models, fixed scale, multipart and a persisted image child with repeat suggestions', async ({ page }) => {
+    await setup(page)
+    await page.getByTestId('step-upscale').click()
+    const composer = page.getByTestId('upscale-composer')
+    await expect(composer.locator('img')).toBeVisible()
+    await expect(composer.locator('option')).toHaveText(['up-4', 'up-2'])
+    await composer.getByLabel('Upscaling model').selectOption('up-2')
+    await expect(composer.getByLabel('Scale', { exact: true })).toHaveValue('2×')
+    await expect(composer.getByLabel('Scale', { exact: true })).toHaveAttribute('readonly', '')
+    await composer.getByRole('button', { name: 'Upscale', exact: true }).click()
+    await expect(page.getByTestId('lineage-node')).toHaveCount(2)
+    for (const edge of ['animate', 'to-3d', 'variation', 'upscale']) await expect(page.getByTestId(`step-${edge}`)).toBeVisible()
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('localai_image_history')).find(e => e.edge === 'upscale'))).toMatchObject({
+      parentId: 'img-bowls', model: 'up-2', params: { scale: 2, sourceDimensions: { width: 640, height: 420 }, outputDimensions: { width: 640, height: 420 } },
+    })
+    await expect(page.locator('.studio-edge-label')).toContainText(['upscale'])
+    await page.getByTestId('step-upscale').click()
+    await expect(page.getByTestId('upscale-composer').locator('img')).toHaveAttribute('src', '/generated-images/upscaled.png')
+  })
+
+  for (const failure of ['cross-origin', 'non-image', 'fetch', 'api', 'source-decode', 'result-decode']) {
+    test(`${failure} failure preserves selection and creates no child`, async ({ page }) => {
+      const requests = await setup(page, { failure })
+      await page.getByTestId('step-upscale').click()
+      const composer = page.getByTestId('upscale-composer')
+      await composer.getByLabel('Upscaling model').selectOption('up-2')
+      await composer.getByRole('button', { name: 'Upscale', exact: true }).click()
+      await expect(composer.getByRole('alert')).toContainText('Upscale failed')
+      await expect(page.getByTestId('lineage-node')).toHaveCount(1)
+      await expect(node(page, 'img-bowls')).toHaveAttribute('data-selected', 'true')
+      expect(requests()).toBe(['api', 'result-decode'].includes(failure) ? 1 : 0)
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem('localai_image_history')).some(e => e.edge === 'upscale'))).toBe(false)
+    })
+  }
+})

@@ -206,7 +206,8 @@
       "transform": "transform",
       "diarize": "who spoke",
       "soundtrack": "soundtrack",
-      "turntable": "turntable"
+      "turntable": "turntable",
+      "upscale": "upscale"
     },
     "steps": {
       "animate": {
@@ -240,6 +241,10 @@
       "turntable": {
         "title": "Turntable clip",
         "why": "Show the object from every side"
+      },
+      "upscale": {
+        "title": "Upscale",
+        "why": "Increase the resolution of this image."
       }
     },
     "kinds": {
@@ -364,6 +369,14 @@
         "notKept": "The recording and the transcript are not kept, so only the summary of this run is shown. Run it again with the file to see the timeline.",
         "empty": "Choose a recording to see who spoke and when"
       }
+    },
+    "upscale": {
+      "model": "Upscaling model",
+      "scale": "Scale",
+      "source": "Source image",
+      "loading": "Upscaling…",
+      "failed": "Upscale failed: {{message}}",
+      "noResult": "No output image was returned."
     }
   },
   "image": {

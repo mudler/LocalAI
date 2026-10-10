@@ -296,6 +296,13 @@ export const agentJobsApi = {
 
 // Image generation
 export const imageApi = {
+  upscale: async ({ model, image, scale }) => {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('image', image)
+    form.append('scale', String(scale))
+    return handleResponse(await fetch(apiUrl('/v1/images/upscale'), { method: 'POST', body: form }))
+  },
   generate: (body) => postJSON(API_CONFIG.endpoints.imageGenerations, body),
 }
 

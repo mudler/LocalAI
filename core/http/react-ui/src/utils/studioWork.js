@@ -39,7 +39,7 @@ const TYPE_BY_MEDIA = Object.fromEntries(
   Object.entries(TYPE_INFO).filter(([, v]) => v.media).map(([key, v]) => [v.media, key]),
 )
 
-export const EDGE_KINDS = ['take', 'animate', 'to-3d', 'variation', 'transform', 'diarize']
+export const EDGE_KINDS = ['upscale', 'take', 'animate', 'to-3d', 'variation', 'transform', 'diarize']
 
 // What each kind of result can be sent on to. `supported` is whether the
 // destination workspace accepts that result as a starting point today. The
@@ -121,7 +121,8 @@ export function parseSize(size) {
 // Width over height for a tile. Only what the entry recorded: an entry with no
 // size is drawn square rather than guessed.
 export function aspectOf(item) {
-  const size = parseSize(item?.params?.size)
+  const output = item?.params?.outputDimensions
+  const size = output?.width > 0 && output?.height > 0 ? output : parseSize(item?.params?.size)
   return size ? size.width / size.height : 1
 }
 
