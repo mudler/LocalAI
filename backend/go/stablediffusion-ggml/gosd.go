@@ -409,6 +409,28 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 	if err := utils.VerifyResolvedPath(s.path, opts.ModelPath); err != nil {
 		return s, fmt.Errorf("upscale model path is outside model path: %w", err)
 	}
+	// Lexical containment alone does not prevent a model symlink (or a
+	// symlinked parent directory) from escaping the trusted root. Resolve
+	// both, requiring an existing target, and cache only the real model path.
+	realRoot, err := filepath.EvalSymlinks(opts.ModelPath)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model root: %w", err)
+	}
+	realPath, err := filepath.EvalSymlinks(s.path)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model file: %w", err)
+	}
+	if err := utils.VerifyResolvedPath(realPath, realRoot); err != nil {
+		return s, fmt.Errorf("upscale model path is outside real model path: %w", err)
+	}
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return s, fmt.Errorf("stat upscale model file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return s, fmt.Errorf("upscale model path must be a regular file")
+	}
+	s.path = realPath
 	for _, v := range []string{s.path, s.backend, s.paramsBackend} {
 		if strings.ContainsRune(v, 0) {
 			return s, fmt.Errorf("upscale settings contain NUL")

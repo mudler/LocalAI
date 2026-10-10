@@ -451,3 +451,28 @@ var _ = Describe("effectiveThreads", func() {
 		Expect(effectiveThreads(config.ModelConfig{}, 0)).To(Equal(1))
 	})
 })
+
+var _ = Describe("grpcModelOpts upscale forwarding", func() {
+	It("forwards explicit ESRGAN settings with typed values authoritative", func() {
+		threads := 1
+		legacy := []string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:64", "known_usecases:image", "backend:CPU"}
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", UpscaleScale: 4, UpscaleTileSize: 256, KnownUsecases: config.GetUsecasesFromYAML([]string{"upscale"}), Options: legacy}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(ConsistOf("backend:CPU", "upscale_scale:4", "upscale_tile_size:256", "known_usecases:upscale"))
+		Expect(cfg.Options).To(Equal([]string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:64", "known_usecases:image", "backend:CPU"}))
+		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"upscale", "image"})
+		Expect(grpcModelOpts(cfg, "/models").Options).To(ConsistOf("backend:CPU", "upscale_scale:4", "upscale_tile_size:256", "known_usecases:upscale,image"))
+	})
+	It("does not infer upscale usecases or append unset integers", func() {
+		threads := 1
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml"}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(BeEmpty())
+		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"image"})
+		Expect(grpcModelOpts(cfg, "/models").Options).To(BeEmpty())
+		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"upscale"})
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal([]string{"known_usecases:upscale"}))
+		cfg.Options = []string{"upscale_scale:4", "upscale_tile_size:128"}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(ConsistOf("upscale_scale:4", "upscale_tile_size:128", "known_usecases:upscale"))
+		cfg.UpscaleTileSize = -1
+		Expect(grpcModelOpts(cfg, "/models").Options).To(ConsistOf("upscale_scale:4", "upscale_tile_size:-1", "known_usecases:upscale"))
+	})
+})

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -181,12 +183,19 @@ var _ = Describe("GenerateImage VAE tiling", func() {
 
 var _ = Describe("ESRGAN lifecycle", func() {
 	var sd *SDGGML
+	var root, modelPath string
 	var creates, destroys, runs, loads int
 	var scale, code int32
 	var fail bool
 	var entered, release chan struct{}
 	BeforeEach(func() {
 		sd = &SDGGML{}
+		root = GinkgoT().TempDir()
+		var err error
+		root, err = filepath.EvalSymlinks(root)
+		Expect(err).NotTo(HaveOccurred())
+		modelPath = filepath.Join(root, "esrgan.gguf")
+		Expect(os.WriteFile(modelPath, []byte("model"), 0600)).To(Succeed())
 		creates, destroys, runs, loads = 0, 0, 0, 0
 		scale, code, fail = 4, 0, false
 		entered, release = nil, nil
@@ -196,7 +205,7 @@ var _ = Describe("ESRGAN lifecycle", func() {
 		})
 		UpscalerCreate = func(path string, direct bool, threads, tile int32, backend, params string) uintptr {
 			creates++
-			Expect(path).To(Equal("/models/esrgan.gguf"))
+			Expect(path).To(Equal(modelPath))
 			Expect(tile).To(Equal(int32(128)))
 			if fail {
 				return 0
@@ -216,7 +225,7 @@ var _ = Describe("ESRGAN lifecycle", func() {
 		LoadModel = func(string, string, []uintptr, int32, int) int { loads++; return 0 }
 	})
 	load := func(extra ...string) error {
-		return sd.Load(&pb.ModelOptions{ModelPath: "/models", ModelFile: "esrgan.gguf", Options: append([]string{"upscale_scale:4", "upscale_tile_size:128"}, extra...)})
+		return sd.Load(&pb.ModelOptions{ModelPath: root, ModelFile: "esrgan.gguf", Options: append([]string{"upscale_scale:4", "upscale_tile_size:128"}, extra...)})
 	}
 	run := func(s int32) error {
 		return sd.UpscaleImage(&pb.UpscaleImageRequest{Src: "in.png", Dst: "out.png", Scale: s})
@@ -292,7 +301,8 @@ var _ = Describe("ESRGAN lifecycle", func() {
 })
 
 func TestUpscaleSettings(t *testing.T) {
-	opts := &pb.ModelOptions{ModelPath: "/models", ModelFile: "/models/esrgan.gguf", Threads: 7, Options: []string{
+	root := upscaleTestRoot(t)
+	opts := &pb.ModelOptions{ModelPath: root, ModelFile: filepath.Join(root, "model.gguf"), Threads: 7, Options: []string{
 		"known_usecases:upscale", "upscale_scale:4", "upscale_tile_size:256",
 		"upscale_direct:true", "backend:Vulkan0", "params_backend:CPU",
 	}}
@@ -315,17 +325,24 @@ func TestUpscaleSettings(t *testing.T) {
 }
 
 func TestUpscaleSettingsPathContainment(t *testing.T) {
+	root := upscaleTestRoot(t)
+	if err := os.Mkdir(filepath.Join(root, "nested"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "nested/model.gguf"), []byte("model"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		name, modelFile, want string
 		wantErr               bool
 	}{
-		{"safe nested relative path", "esrgan/models/model.gguf", "/models/esrgan/models/model.gguf", false},
+		{"safe nested relative path", "nested/model.gguf", filepath.Join(root, "nested/model.gguf"), false},
 		{"relative traversal", "../outside.gguf", "", true},
-		{"allowed in-root absolute path", "/models/esrgan/model.gguf", "/models/esrgan/model.gguf", false},
+		{"allowed in-root absolute path", filepath.Join(root, "model.gguf"), filepath.Join(root, "model.gguf"), false},
 		{"outside absolute path", "/other/model.gguf", "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: tc.modelFile, Options: []string{"upscale_scale:4"}})
+			got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: tc.modelFile, Options: []string{"upscale_scale:4"}})
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("accepted path outside model path")
@@ -343,9 +360,10 @@ func TestUpscaleSettingsPathContainment(t *testing.T) {
 }
 
 func TestUpscaleSettingsRejectsDuplicateSettings(t *testing.T) {
+	root := upscaleTestRoot(t)
 	for _, setting := range []string{"upscale_scale:4", "upscale_tile_size:128", "upscale_direct:true", "backend:Vulkan", "params_backend:CPU"} {
 		t.Run(setting, func(t *testing.T) {
-			_, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: "model.gguf", Options: []string{"upscale_scale:4", setting, setting}})
+			_, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4", setting, setting}})
 			if err == nil {
 				t.Fatalf("accepted duplicate %s", setting)
 			}
@@ -353,7 +371,77 @@ func TestUpscaleSettingsRejectsDuplicateSettings(t *testing.T) {
 	}
 	// known_usecases is aggregate metadata, not a last-wins setting; repeated
 	// entries remain valid so diffusion callers can forward their options.
-	if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: "model.gguf", Options: []string{"known_usecases:upscale", "known_usecases:upscale", "upscale_scale:4"}}); err != nil {
+	if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"known_usecases:upscale", "known_usecases:upscale", "upscale_scale:4"}}); err != nil {
 		t.Fatalf("rejected duplicate known_usecases: %v", err)
+	}
+}
+
+func upscaleTestRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "model.gguf"), []byte("model"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestUpscaleSettingsRealPathContainment(t *testing.T) {
+	root := upscaleTestRoot(t)
+	outside := upscaleTestRoot(t)
+	for _, tc := range []struct {
+		name, target string
+		wantErr      bool
+	}{
+		{"in-root symlink", filepath.Join(root, "model.gguf"), false},
+		{"outside symlink", filepath.Join(outside, "model.gguf"), true},
+		{"dangling symlink", filepath.Join(root, "missing.gguf"), true},
+		{"outside directory symlink", outside, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			link := filepath.Join(root, tc.name)
+			if err := os.Symlink(tc.target, link); err != nil {
+				t.Skipf("symlink creation unsupported: %v", err)
+			}
+			file := link
+			if tc.name == "outside directory symlink" {
+				file = filepath.Join(link, "model.gguf")
+			}
+			got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: file, Options: []string{"upscale_scale:4"}})
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("accepted unsafe symlink")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.path != tc.target {
+				t.Fatalf("cached path %q, want real path %q", got.path, tc.target)
+			}
+		})
+	}
+	t.Run("symlinked trusted root", func(t *testing.T) {
+		link := filepath.Join(t.TempDir(), "root")
+		if err := os.Symlink(root, link); err != nil {
+			t.Skipf("symlink creation unsupported: %v", err)
+		}
+		got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: link, ModelFile: "model.gguf", Options: []string{"upscale_scale:4"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.path != filepath.Join(root, "model.gguf") {
+			t.Fatalf("not resolved: %q", got.path)
+		}
+	})
+	for _, file := range []string{"missing.gguf", "."} {
+		t.Run(file, func(t *testing.T) {
+			if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: file, Options: []string{"upscale_scale:4"}}); err == nil {
+				t.Fatal("accepted missing or non-file model")
+			}
+		})
 	}
 }
