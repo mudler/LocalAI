@@ -315,8 +315,7 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	return nil
 }
 
-// Presence of the backend option upscale_scale is the explicit upscale-only marker.
-// Also honor declared usecases if a caller forwards them in Options.
+// Presence of the backend option upscale_scale selects upscale mode.
 type upscaleSettings struct {
 	enabled                bool
 	path                   string
@@ -329,19 +328,9 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 	s := upscaleSettings{threads: opts.Threads}
 	image := false
 	for _, op := range opts.Options {
-		k, v, _ := strings.Cut(op, ":")
+		k, _, _ := strings.Cut(op, ":")
 		if k == "upscale_scale" {
 			s.enabled = true
-		}
-		if k == "known_usecases" {
-			for _, u := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == '[' || r == ']' || r == ' ' }) {
-				if u == "upscale" {
-					s.enabled = true
-				}
-				if u == "image" {
-					image = true
-				}
-			}
 		}
 		if k == "diffusion_model" {
 			image = true
@@ -351,7 +340,7 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 		return s, nil
 	}
 	if image {
-		return s, fmt.Errorf("mixed image and upscale models are not supported")
+		return s, fmt.Errorf("upscale_scale cannot be combined with diffusion_model")
 	}
 	seen := make(map[string]bool)
 	for _, op := range opts.Options {

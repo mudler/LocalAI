@@ -452,26 +452,20 @@ var _ = Describe("effectiveThreads", func() {
 	})
 })
 
-var _ = Describe("grpcModelOpts upscale forwarding", func() {
-	It("preserves backend options including duplicates and invalid values", func() {
+var _ = Describe("grpcModelOpts option forwarding", func() {
+	It("preserves explicit upscale backend options exactly", func() {
 		threads := 1
-		options := []string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:-1", "known_usecases:image", "backend:CPU"}
-		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", KnownUsecases: config.GetUsecasesFromYAML([]string{"upscale"}), Options: options}
-		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(append(append([]string(nil), options...), "known_usecases:upscale")))
+		options := []string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:-1", "backend:CPU"}
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", KnownUsecases: config.GetUsecasesFromYAML([]string{"upscale", "image"}), Options: options}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(options))
 		Expect(cfg.Options).To(Equal(options))
-		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"upscale", "image"})
-		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(append(append([]string(nil), options...), "known_usecases:upscale,image")))
 	})
-	It("does not infer upscale usecases or change generic SD options", func() {
+
+	It("leaves generic SD options unchanged", func() {
 		threads := 1
 		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", Options: []string{"backend:CPU", "diffusion_model:model.gguf"}}
 		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
 		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"image"})
 		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
-		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"upscale"})
-		cfg.Options = nil
-		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal([]string{"known_usecases:upscale"}))
-		cfg.Options = []string{"upscale_scale:4", "upscale_tile_size:128"}
-		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal([]string{"upscale_scale:4", "upscale_tile_size:128", "known_usecases:upscale"}))
 	})
 })

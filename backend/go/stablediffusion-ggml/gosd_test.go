@@ -243,9 +243,8 @@ var _ = Describe("ESRGAN lifecycle", func() {
 		Expect(destroys).To(Equal(1))
 		Expect(run(4)).NotTo(Succeed())
 	})
-	It("rejects invalid configuration and mixed usecases", func() {
+	It("rejects invalid configuration", func() {
 		Expect(load("upscale_scale:0")).NotTo(Succeed())
-		Expect(load("known_usecases:image,upscale")).NotTo(Succeed())
 		Expect(load("upscale_tile_size:-1")).NotTo(Succeed())
 	})
 	It("rejects detected scale mismatch without caching", func() {
@@ -303,7 +302,7 @@ var _ = Describe("ESRGAN lifecycle", func() {
 func TestUpscaleSettings(t *testing.T) {
 	root := upscaleTestRoot(t)
 	opts := &pb.ModelOptions{ModelPath: root, ModelFile: filepath.Join(root, "model.gguf"), Threads: 7, Options: []string{
-		"known_usecases:upscale", "upscale_scale:4", "upscale_tile_size:256",
+		"upscale_scale:4", "upscale_tile_size:256",
 		"upscale_direct:true", "backend:Vulkan0", "params_backend:CPU",
 	}}
 	got, err := parseUpscaleSettings(opts)
@@ -314,7 +313,7 @@ func TestUpscaleSettings(t *testing.T) {
 		t.Fatalf("wrong settings: %+v", got)
 	}
 	for _, options := range [][]string{
-		{"known_usecases:upscale"}, {"upscale_scale:banana"}, {"upscale_scale:2147483648"},
+		{"upscale_scale:banana"}, {"upscale_scale:2147483648"},
 		{"upscale_scale:4", "upscale_tile_size:-1"},
 		{"upscale_scale:4", "diffusion_model"}, {"upscale_scale:4", "upscale_direct:maybe"},
 	} {
@@ -322,6 +321,40 @@ func TestUpscaleSettings(t *testing.T) {
 		if _, err := parseUpscaleSettings(opts); err == nil {
 			t.Fatalf("accepted invalid options %v", options)
 		}
+	}
+}
+
+func TestUpscaleModeSelection(t *testing.T) {
+	root := upscaleTestRoot(t)
+
+	upscale, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4"}})
+	if err != nil || !upscale.enabled {
+		t.Fatalf("upscale_scale did not enable upscale mode: settings=%+v err=%v", upscale, err)
+	}
+
+	knownUsecases, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"known_usecases:upscale"}})
+	if err != nil || knownUsecases.enabled {
+		t.Fatalf("known_usecases must not enable upscale mode: settings=%+v err=%v", knownUsecases, err)
+	}
+
+	if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"upscale_scale:4", "diffusion_model"}}); err == nil {
+		t.Fatal("accepted upscale_scale combined with diffusion_model")
+	}
+
+	savedLoadModel := LoadModel
+	defer func() { LoadModel = savedLoadModel }()
+	loads := 0
+	diffusion := -1
+	LoadModel = func(_ string, _ string, _ []uintptr, _ int32, diffusionModel int) int {
+		loads++
+		diffusion = diffusionModel
+		return 0
+	}
+	if err := (&SDGGML{}).Load(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"diffusion_model"}}); err != nil {
+		t.Fatalf("Load without upscale_scale: %v", err)
+	}
+	if loads != 1 || diffusion != 1 {
+		t.Fatalf("Load without upscale_scale did not use diffusion path: loads=%d diffusion=%d", loads, diffusion)
 	}
 }
 
@@ -385,11 +418,6 @@ func TestUpscaleSettingsRejectsDuplicateSettings(t *testing.T) {
 				t.Fatalf("accepted duplicate %s", setting)
 			}
 		})
-	}
-	// known_usecases is aggregate metadata, not a last-wins setting; repeated
-	// entries remain valid so diffusion callers can forward their options.
-	if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: []string{"known_usecases:upscale", "known_usecases:upscale", "upscale_scale:4"}}); err != nil {
-		t.Fatalf("rejected duplicate known_usecases: %v", err)
 	}
 }
 

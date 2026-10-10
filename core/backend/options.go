@@ -397,20 +397,6 @@ func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.S
 	return combined
 }
 
-// withExplicitUpscaleUsecases forwards explicit route classification so the
-// backend can reject mixed image/upscale configurations. Backend-specific options
-// remain untouched, including invalid or duplicate values for backend validation.
-func withExplicitUpscaleUsecases(c config.ModelConfig) []string {
-	if c.KnownUsecases == nil || *c.KnownUsecases&config.FLAG_UPSCALE == 0 {
-		return c.Options
-	}
-	usecases := "upscale"
-	if *c.KnownUsecases&config.FLAG_IMAGE != 0 {
-		usecases += ",image"
-	}
-	return append(append([]string(nil), c.Options...), "known_usecases:"+usecases)
-}
-
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	ctxSize := EffectiveContextSize(c)
 	b := EffectiveBatchSize(c)
@@ -501,7 +487,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
-		Options:              withCompanionArtifactOptions(withExplicitUpscaleUsecases(c), c.Artifacts),
+		Options:              withCompanionArtifactOptions(c.Options, c.Artifacts),
 		Overrides:            c.Overrides,
 		EngineArgs:           engineArgsJSON,
 		EnableScore:          c.HasUsecases(config.FLAG_SCORE),
