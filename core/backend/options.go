@@ -398,7 +398,7 @@ func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.S
 }
 
 // upscaleModelOptions forwards only explicit typed settings, never inferred
-// usecases. A nonzero integer is configured (zero means unset). For each typed
+// usecases. Zero is omitted so the backend uses its full-frame default. For each typed
 // setting we emit exactly one canonical option, replacing all legacy entries of
 // that name without mutating c.Options. Invalid negative values reach backend
 // validation rather than silently falling back to a legacy value.

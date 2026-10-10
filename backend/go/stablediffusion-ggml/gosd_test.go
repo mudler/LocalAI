@@ -315,11 +315,28 @@ func TestUpscaleSettings(t *testing.T) {
 	}
 	for _, options := range [][]string{
 		{"known_usecases:upscale"}, {"upscale_scale:banana"}, {"upscale_scale:2147483648"},
+		{"upscale_scale:4", "upscale_tile_size:-1"},
 		{"upscale_scale:4", "diffusion_model"}, {"upscale_scale:4", "upscale_direct:maybe"},
 	} {
 		opts.Options = options
 		if _, err := parseUpscaleSettings(opts); err == nil {
 			t.Fatalf("accepted invalid options %v", options)
+		}
+	}
+}
+
+func TestUpscaleSettingsFullFrameTile(t *testing.T) {
+	root := upscaleTestRoot(t)
+	for _, options := range [][]string{
+		{"upscale_scale:4"},
+		{"upscale_scale:4", "upscale_tile_size:0"},
+	} {
+		got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: root, ModelFile: "model.gguf", Options: options})
+		if err != nil {
+			t.Fatalf("parseUpscaleSettings(%v): %v", options, err)
+		}
+		if got.tile != 0 {
+			t.Fatalf("tile for %v = %d, want full-frame 0", options, got.tile)
 		}
 	}
 }

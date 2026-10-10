@@ -328,7 +328,7 @@ type upscaleSettings struct {
 }
 
 func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
-	s := upscaleSettings{tile: 128, threads: opts.Threads}
+	s := upscaleSettings{threads: opts.Threads}
 	image := false
 	for _, op := range opts.Options {
 		k, v, _ := strings.Cut(op, ":")
@@ -368,7 +368,10 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 		switch k {
 		case "upscale_scale", "upscale_tile_size":
 			n, err := strconv.ParseInt(v, 10, 32)
-			if err != nil || n <= 0 {
+			if err != nil || (k == "upscale_scale" && n <= 0) || (k == "upscale_tile_size" && n < 0) {
+				if k == "upscale_tile_size" {
+					return s, fmt.Errorf("%s must be a non-negative integer", k)
+				}
 				return s, fmt.Errorf("%s must be a positive integer", k)
 			}
 			if k == "upscale_scale" {
