@@ -40,7 +40,8 @@ type ElevenLabsSoundGenerationRequest struct {
 	VocalLanguage string `json:"vocal_language,omitempty" yaml:"vocal_language,omitempty"`
 	Timesignature string `json:"timesignature,omitempty" yaml:"timesignature,omitempty"`
 	// Simple mode: use text as description; optional instrumental / vocal_language
-	Instrumental *bool `json:"instrumental,omitempty" yaml:"instrumental,omitempty"`
+	Instrumental *bool             `json:"instrumental,omitempty" yaml:"instrumental,omitempty"`
+	Params       map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 func (elttsr *ElevenLabsTTSRequest) ModelName(s *string) string {

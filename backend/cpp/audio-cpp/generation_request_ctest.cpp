@@ -441,6 +441,13 @@ static void test_sound_generation_full() {
     request.set_language("en");
     request.set_timesignature("4/4");
     request.set_instrumental(true);
+    (*request.mutable_params())["style"] = "cinematic";
+    (*request.mutable_params())["cot"] = "true";
+    // Generic values lose collisions to typed fields, and src is transported as
+    // audio_input rather than leaking its filesystem path into engine options.
+    (*request.mutable_params())["lyrics"] = "generic lyrics";
+    (*request.mutable_params())["duration_seconds"] = "999";
+    request.set_src("/private/input.wav");
 
     const auto task = build_sound_generation_request(request, clip(48000, 2));
 
@@ -477,6 +484,16 @@ static void test_sound_generation_full() {
           "sound: instrumental forwarded");
     check(option_or(task.options, "language", "") == "en",
           "sound: language forwarded as an option alias");
+    check(option_or(task.options, "style", "") == "cinematic",
+          "sound: generic style parameter forwarded");
+    check(option_or(task.options, "cot", "") == "true",
+          "sound: generic cot parameter forwarded");
+    check(option_or(task.options, "lyrics", "") == "first line\nsecond line",
+          "sound: typed lyrics overrides a colliding generic parameter");
+    check(option_or(task.options, "duration_seconds", "").rfind("30.", 0) == 0,
+          "sound: typed duration overrides a colliding generic parameter");
+    check(!has_key(task.options, "src"),
+          "sound: src is not exposed as an engine option");
     check(task.text_input->language == "en",
           "sound: language reaches the transcript, which is what ace_step reads");
     check(task.audio_input.has_value() &&

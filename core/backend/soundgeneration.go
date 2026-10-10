@@ -30,6 +30,7 @@ func SoundGeneration(
 	language string,
 	timesignature string,
 	instrumental *bool,
+	params map[string]string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
@@ -75,6 +76,7 @@ func SoundGeneration(
 		Temperature:   temperature,
 		Src:           sourceFile,
 		SrcDivisor:    sourceDivisor,
+		Params:        params,
 	}
 	if think != nil {
 		req.Think = think

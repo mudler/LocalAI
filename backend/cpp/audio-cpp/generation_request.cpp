@@ -170,6 +170,12 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
         task.audio_input = std::move(*source_audio);
     }
 
+    // Generic options are copied first so typed request fields remain authoritative
+    // when callers provide the same key in both places.
+    for (const auto &param : request.params()) {
+        task.options[param.first] = param.second;
+    }
+
     // WHAT LANDS AND WHAT DOES NOT. Three families advertise AudioGeneration in
     // the pinned upstream: ace_step, heartmula and stable_audio. Every key below
     // was grepped against find_option/parse_*_option in src/ and include/ rather

@@ -49,7 +49,7 @@ func SoundGenerationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader
 			nil, nil,
 			input.Think, input.Caption, input.Lyrics, bpm, input.Keyscale,
 			language, input.Timesignature,
-			input.Instrumental,
+			input.Instrumental, input.Params,
 			ml, appConfig, *cfg)
 		if err != nil {
 			return err
