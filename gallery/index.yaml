@@ -65746,6 +65746,72 @@
     - filename: Kev-4B-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/Kev-4B-GGUF/resolve/d924f2e2c3872da8b8aaf3eb4453b4126deceb79/Kev-4B-Q4_K_M.gguf
       sha256: 33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9
+- name: clef
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: clef-q8
+  urls:
+    - https://huggingface.co/Cloudflare/clef
+    - https://huggingface.co/ggml-org/Clef-GGUF
+  license: apache-2.0
+  description: |
+    Clef is Cloudflare's 27B Qwen3.8-based model for typed decisions
+    from text and images. This Q4_K_M GGUF includes the Q8_0 vision projector
+    and uses native llama.cpp decisions through /v1/systemone and /v1/decisions.
+    It answers choice, score, and predicate questions without generating text.
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
+    parameters:
+      model: llama-cpp/models/clef/Clef-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/clef/Clef-Q4_K_M.gguf
+      uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q4_K_M.gguf
+      sha256: bd9b8ae24c5752a2bb5e2733d5168340d5f04457e02b8bf0d1bc9285ec3d4f61
+    - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+      sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
+- name: clef-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Cloudflare/clef
+    - https://huggingface.co/ggml-org/Clef-GGUF
+  license: apache-2.0
+  description: |
+    Clef is Cloudflare's 27B Qwen3.8-based model for typed decisions
+    from text and images. This Q8_0 GGUF includes the Q8_0 vision projector
+    and uses native llama.cpp decisions through /v1/systemone and /v1/decisions.
+    It answers choice, score, and predicate questions without generating text.
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
+    parameters:
+      model: llama-cpp/models/clef/Clef-Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/clef/Clef-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/Clef-Q8_0.gguf
+      sha256: 07c6410af7011e0e56873a3b0b3f4ad9e31fb176f0ca80d6fd1525fe6f036548
+    - filename: llama-cpp/mmproj/clef/mmproj-Clef-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-GGUF/resolve/63840a1a68cb7084c88610cffc328509356b04cb/mmproj-Clef-Q8_0.gguf
+      sha256: 0d901ea999ae122ba0afeb4a3f4c4ac9a90baa07f1d120df9c350082db1190a8
 - name: lev-llama-cpp
   urls:
     - https://huggingface.co/interfaze-ai/lev

@@ -341,6 +341,26 @@ tokens. LocalAI records supplied usage once; explicit zero counts are distinct
 from missing usage. Missing counts are not estimated, and invalid negative counts
 are rejected rather than billed.
 
+### Clef text and image decisions
+
+Install Cloudflare's 27B Clef decision model with its Q8_0 vision projector:
+
+```sh
+local-ai models install clef --variant clef
+```
+
+This selects the Q4_K_M build. Use `--variant clef-q8` for Q8_0,
+or omit `--variant` to let the gallery choose a build for available memory.
+Both builds use Apache-2.0 weights from
+[ggml-org/Clef-GGUF](https://huggingface.co/ggml-org/Clef-GGUF), pinned to
+revision `63840a1a68cb7084c88610cffc328509356b04cb` with SHA-256 checksums.
+
+Send requests to `/v1/systemone` or `/v1/decisions` with the installed model's
+name. Clef returns typed decisions; it does not generate chat completions.
+Image requests use the bounded base64 image contract described above and require
+the matching projector included in both builds. The gallery sets an 8192-token
+context. Use a current stock `llama-cpp` backend with Clef decision support.
+
 ### Julia-1 CPU example
 
 Install the separate stock llama.cpp entry (existing vllm-cpp entries are unchanged):
@@ -470,7 +490,7 @@ fit; context overflow remains an error. Size the context for the actual workload
 Native image decisions require both a decision format that accepts images and a
 loaded projector that supports **vision input**. A missing projector, an
 audio-only projector, or a text-only decision model does not silently fall back
-to a text decision. Other decision gallery entries remain text-only.
+to a text decision. Clef image decisions also require the matching vision projector.
 
 Direct native RPC callers receive the same image count, encoded/decoded byte,
 dimension and aggregate pixel bounds as public callers. Validation precedes
