@@ -402,7 +402,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: 1d7187c61cddbb5de503d09e92aa398a65b0c21b1a127954f1d876170575c085
+      sha256: 3d0bbac1775127de221388543176c7b36145ef597d1e7e12a08b534a3108f915
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -67253,7 +67253,7 @@
   files:
     - filename: Sharp-MiniCPM5-2B-Q6_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q6_K_XL.gguf
-      sha256: f67c038e7f1fbfb54ffa4bc5e1197cd2748700580cd1d1fd076e5998ac923ef4
+      sha256: 0722928b41fae86210ee2a78f1ba49c6eb682cd4d65ae5433d976e255ff336ca
 - name: sharp-minicpm5-2b-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -67291,7 +67291,7 @@
   files:
     - filename: Sharp-MiniCPM5-2B-Q8_K_M.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q8_K_M.gguf
-      sha256: d2e70bd38c72f6bd3c0277509150f18d8658f65e9b2a37cd977c311a914f7684
+      sha256: 0eb54d5eef75449c19fa6831c048ca6da82f65bace7efee704453cbe87a73622
 - name: redcell-26b-a4b
   variants:
     - model: redcell-26b-a4b-i-compact
