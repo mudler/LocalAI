@@ -1055,6 +1055,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "pii-pattern-list",
 			Order:       214,
 		},
+		"pii_detection.extend_to_next_word": {
+			Section:     "pii",
+			Label:       "Extend To Next Word",
+			Description: "Entity groups (e.g. ZIPCODE) whose detections also cover the word right after them on the same line, with the same action. Use it when the model tags one part of an identifying pair reliably but misses its neighbour, such as the town after a postal code.",
+			Component:   "string-list",
+			Order:       215,
+		},
 
 		// --- Cloud passthrough proxy ---
 		// These only have an effect when Backend is set to

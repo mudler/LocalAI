@@ -366,13 +366,15 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 		}
 
 		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
-		return pii.NERConfigFromRaw(
+		nc := pii.NERConfigFromRaw(
 			det,
 			cfg.PIIDetectionMinScore(),
 			cfg.PIIDetectionDefaultAction(),
 			cfg.PIIDetectionEntityActions(),
 			pii.SourceNER,
-		), true
+		)
+		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		return nc, true
 	}
 }
 

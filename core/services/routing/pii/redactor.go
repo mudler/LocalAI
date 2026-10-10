@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mudler/xlog"
 )
@@ -187,18 +189,54 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(text))
 			continue
 		}
+		end := e.End
+		if cfg.extendsToNextWord(e.Group) {
+			end = nextWordEnd(text, e.End)
+		}
 		xlog.Debug("pii/ner: detection accepted",
 			"group", e.Group, "score", e.Score, "action", action,
-			"start", e.Start, "end", e.End, "text", e.Text)
+			"start", e.Start, "end", e.End, "extended_end", end, "text", e.Text)
 		hits = append(hits, rawHit{
 			patternID: cfg.patternID(e.Group),
 			action:    action,
 			start:     e.Start,
-			end:       e.End,
+			end:       end,
 			score:     e.Score,
 		})
 	}
 	return hits, nil
+}
+
+// nextWordEnd returns the end offset of the word that follows text[:end]:
+// horizontal whitespace is skipped (a line break ends the search), then
+// letters, digits, combining marks and the in-word joiners '-', '.' and
+// the apostrophe are consumed; trailing dots are left out (sentence end). When no
+// word follows, end is returned unchanged, so a hit is never stretched
+// over bare whitespace or onto the next line.
+func nextWordEnd(text string, end int) int {
+	i := end
+	for i < len(text) {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if r == '\n' || r == '\r' || !unicode.IsSpace(r) {
+			break
+		}
+		i += size
+	}
+	wordStart := i
+	for i < len(text) {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsMark(r) && r != '-' && r != '.' && r != '\'' {
+			break
+		}
+		i += size
+	}
+	for i > wordStart && text[i-1] == '.' {
+		i--
+	}
+	if i == wordStart {
+		return end
+	}
+	return i
 }
 
 // mergeAndEmit handles the overlap-merge + masked-output step. Sorts by
