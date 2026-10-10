@@ -132,7 +132,7 @@ var _ = Describe("Chat lazy fallback authentication", func() {
 		defer func() { cancel(); Expect(app.Shutdown()).To(Succeed()) }()
 		router, err := api.API(app)
 		Expect(err).NotTo(HaveOccurred())
-		defer router.Close()
+		defer func() { Expect(router.Close()).To(Succeed()) }()
 		for _, token := range []string{"", "wrong", "secret"} {
 			events = nil
 			r := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"missing"}`))
