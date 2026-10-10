@@ -165,6 +165,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		backendLoader: config.NewModelConfigLoader(
 			appConfig.SystemState.Model.ModelsPath,
 			config.WithArtifactMaterializer(appConfig.ModelArtifactMaterializer),
+			config.WithReloadDiagnostics(appConfig.DiagnosticsRecorder),
 			config.WithPreloadDisplay(appConfig.ModelPreloadRenderMode, appConfig.DisableModelPreloadColor),
 		),
 		modelLoader:        ml,

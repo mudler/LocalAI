@@ -17,6 +17,137 @@ import (
 )
 
 var _ = Describe("Diagnostics config loader", func() {
+	It("uses explicit startup timing for early failures and preserves identity across late selection", func() {
+		for _, mode := range []string{"same", "nil", "different", "failure"} {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "a.yaml"), []byte("name: a\n"), 0600)).To(Succeed())
+			var early, late []diagnostics.Event
+			r := diagnostics.NewRecorder(func(e diagnostics.Event) { early = append(early, e) })
+			other := diagnostics.NewRecorder(func(e diagnostics.Event) { late = append(late, e) })
+			shared := NewModelConfigLoader(dir, WithReloadDiagnostics(r))
+			b := NewModelConfigLoader(dir, shared.ReloadDiagnosticsOption())
+			selected := r
+			if mode == "nil" {
+				selected = nil
+			}
+			if mode == "different" {
+				selected = other
+			}
+			calls := 0
+			if mode == "failure" {
+				b.diagnosticsReadDir = func(string) ([]os.DirEntry, error) { return nil, errors.New("enumeration") }
+			}
+			err := b.LoadModelConfigsFromPath(dir, func(o *LoadOptions) { calls++; LoadOptionDiagnostics(selected)(o) })
+			if mode == "failure" {
+				Expect(err).To(HaveOccurred())
+				Expect(calls).To(BeZero())
+				Expect(early).To(HaveLen(3))
+				Expect(early[1].Phase).To(Equal(diagnostics.PhaseReloadEnumeration))
+				Expect(early[1].Outcome).To(Equal(diagnostics.OutcomeError))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(calls).To(Equal(1))
+				if mode == "same" {
+					Expect(early).To(HaveLen(6))
+				} else {
+					Expect(early).To(HaveLen(4))
+				}
+			}
+			for _, e := range early {
+				Expect(e.ID).To(Equal(early[0].ID))
+			}
+			if mode == "different" {
+				Expect(late).To(HaveLen(2))
+				Expect(late[0].ID).NotTo(Equal(early[0].ID))
+				Expect(late[1].ID).To(Equal(late[0].ID))
+			}
+		}
+	})
+
+	It("honors composed diagnostics options and last writes after metadata exactly once", func() {
+		for _, enabled := range []bool{true, false} {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "a.yaml"), []byte("name: a\nbackend: llama-cpp\n"), 0600)).To(Succeed())
+			b := NewModelConfigLoader(dir)
+			var events []diagnostics.Event
+			r := diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
+			var order []string
+			b.diagnosticsReadDir = func(path string) ([]os.DirEntry, error) {
+				order = append(order, "enumerate")
+				entries, err := os.ReadDir(path)
+				return []os.DirEntry{diagnosticsTrackedEntry{DirEntry: entries[0], visit: func() { order = append(order, "metadata") }}}, err
+			}
+			wrap := func(label string, option ConfigLoaderOption) ConfigLoaderOption {
+				return func(o *LoadOptions) {
+					unlocked := b.TryLock()
+					if unlocked {
+						b.Unlock()
+					}
+					Expect(unlocked).To(BeFalse())
+					order = append(order, label)
+					option(o)
+				}
+			}
+			var last *diagnostics.Recorder
+			if enabled {
+				b.diagnosticsNow = func() time.Time {
+					Expect(order).To(Equal([]string{"enumerate", "metadata", "first", "last"}))
+					return time.Now()
+				}
+				last = r
+			} else {
+				b.diagnosticsNow = func() time.Time { Fail("disabled clock read"); return time.Time{} }
+			}
+			Expect(b.LoadModelConfigsFromPath(dir, LoadOptionDiagnostics(r), wrap("first", LoadOptionDiagnostics(nil)), wrap("last", LoadOptionDiagnostics(last)))).To(Succeed())
+			Expect(order).To(Equal([]string{"enumerate", "metadata", "first", "last"}))
+			if enabled {
+				Expect(events).To(HaveLen(2))
+				Expect(events[0].Phase).To(Equal(diagnostics.PhaseReloadYAMLRead))
+				Expect(events[1].Phase).To(Equal(diagnostics.PhaseReloadParseDefaults))
+			} else {
+				Expect(events).To(BeEmpty())
+			}
+		}
+	})
+
+	It("records malformed configured gallery parse errors without changing strict behavior", func() {
+		for _, strict := range []bool{false, true} {
+			dir := GinkgoT().TempDir()
+			path := filepath.Join(dir, "gallery.yaml")
+			Expect(os.WriteFile(path, []byte("[invalid"), 0600)).To(Succeed())
+			var events []diagnostics.Event
+			r := diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
+			gallery := LoadOptionGalleryFiles(Gallery{URL: "file://" + path})
+			b := NewModelConfigLoader(dir)
+			err := b.loadModelConfigsFromPath(dir, strict, gallery, LoadOptionDiagnostics(r))
+			off := NewModelConfigLoader(dir)
+			offErr := off.loadModelConfigsFromPath(dir, strict, gallery)
+			if strict {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(offErr.Error()))
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(offErr).NotTo(HaveOccurred())
+			}
+			Expect(b.GetAllModelsConfigs()).To(Equal(off.GetAllModelsConfigs()))
+			var reads, parses int
+			for _, e := range events {
+				if e.Phase == diagnostics.PhaseReloadYAMLRead {
+					reads += e.Count
+				}
+				if e.Phase == diagnostics.PhaseReloadParseDefaults {
+					parses += e.Count
+					Expect(e.Outcome).To(Equal(diagnostics.OutcomeError))
+				}
+			}
+			Expect(reads).To(Equal(1))
+			Expect(parses).To(Equal(1))
+			ok, classifyErr := classifyGalleryDocument(path)
+			Expect(ok).To(BeFalse())
+			Expect(classifyErr).NotTo(HaveOccurred())
+		}
+	})
+
 	It("applies caller options under the lock after metadata, never on enumeration failure", func() {
 		b := NewModelConfigLoader("")
 		enumerated := false
@@ -102,6 +233,7 @@ var _ = Describe("Diagnostics config loader", func() {
 		b := NewModelConfigLoader(dir)
 		var events []diagnostics.Event
 		r := diagnostics.NewRecorder(func(e diagnostics.Event) { Expect(b.TryLock()).To(BeTrue()); b.Unlock(); events = append(events, e) })
+		WithReloadDiagnostics(r)(b)
 		opts := []ConfigLoaderOption{LoadOptionDiagnostics(r), LoadOptionGalleryFiles(Gallery{URL: "file://" + gallery})}
 		Expect(b.LoadModelConfigsFromPathStrict(dir, opts...)).To(Succeed())
 		Expect(events).To(HaveLen(6))
@@ -176,6 +308,7 @@ var _ = Describe("Diagnostics config loader", func() {
 			}
 			var events []diagnostics.Event
 			r := diagnostics.NewRecorder(func(e diagnostics.Event) { Expect(b.TryLock()).To(BeTrue()); b.Unlock(); events = append(events, e) })
+			WithReloadDiagnostics(r)(b)
 			Expect(b.LoadModelConfigsFromPath(dir, LoadOptionDiagnostics(r))).To(HaveOccurred())
 			phase := diagnostics.PhaseReloadEnumeration
 			if metadata {
@@ -199,6 +332,7 @@ var _ = Describe("Diagnostics config loader", func() {
 		var mu sync.Mutex
 		var events []diagnostics.Event
 		r := diagnostics.NewRecorder(func(e diagnostics.Event) { mu.Lock(); defer mu.Unlock(); events = append(events, e) })
+		WithReloadDiagnostics(r)(b)
 		var wg sync.WaitGroup
 		for range 2 {
 			wg.Add(1)
@@ -216,6 +350,7 @@ var _ = Describe("Diagnostics config loader", func() {
 		}
 		Expect(ids).To(HaveLen(3))
 		n := len(events)
+		b = NewModelConfigLoader(dir)
 		b.diagnosticsNow = func() time.Time { Fail("disabled clock read"); return time.Time{} }
 		Expect(b.LoadModelConfigsFromPath(dir)).To(Succeed())
 		b.GetModelConfigsByFilter(nil)
@@ -230,3 +365,10 @@ func (diagnosticsBadEntry) Name() string               { return "bad.yaml" }
 func (diagnosticsBadEntry) IsDir() bool                { return false }
 func (diagnosticsBadEntry) Type() fs.FileMode          { return 0 }
 func (diagnosticsBadEntry) Info() (fs.FileInfo, error) { return nil, errors.New("metadata failed") }
+
+type diagnosticsTrackedEntry struct {
+	os.DirEntry
+	visit func()
+}
+
+func (e diagnosticsTrackedEntry) Info() (fs.FileInfo, error) { e.visit(); return e.DirEntry.Info() }

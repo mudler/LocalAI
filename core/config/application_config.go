@@ -1162,6 +1162,8 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
 		LoadOptionGalleryFiles(o.Galleries...),
+		// Select later YAML/default phases; early phases use WithReloadDiagnostics
+		// at loader construction so callbacks retain their original execution point.
 		LoadOptionDiagnostics(o.DiagnosticsRecorder),
 	}
 }

@@ -55,6 +55,7 @@ func WithPreloadDisplay(renderMode string, disableColor bool) ModelConfigLoaderO
 }
 
 type ModelConfigLoader struct {
+	reloadDiagnosticsRecorder *diagnostics.Recorder
 	// Optional per-instance test seams, configured before use.
 	diagnosticsNow       func() time.Time
 	diagnosticsReadDir   func(string) ([]os.DirEntry, error)
@@ -99,29 +100,30 @@ type LoadOptions struct {
 	galleryFiles        map[string]struct{}
 }
 
-// LoadOptionDiagnostics carries the startup recorder into each reload operation.
+// WithReloadDiagnostics sets the immutable startup recorder for lock wait/hold,
+// directory enumeration and metadata. Use only during loader construction.
+// Nil disables these early measurements, including all per-entry clocks.
+// Later YAML/read/default phases are independently selected by LoadOptionDiagnostics.
+func WithReloadDiagnostics(r *diagnostics.Recorder) ModelConfigLoaderOption {
+	return func(bcl *ModelConfigLoader) { bcl.reloadDiagnosticsRecorder = r }
+}
+
+// ReloadDiagnosticsOption copies startup observation configuration to another
+// loader (for example an authoritative snapshot). Each reload still creates its
+// own operation ID; this does not attribute the other loader's lock to this one.
+func (bcl *ModelConfigLoader) ReloadDiagnosticsOption() ModelConfigLoaderOption {
+	return WithReloadDiagnostics(bcl.reloadDiagnosticsRecorder)
+}
+
+// LoadOptionDiagnostics selects observation of YAML reads and parse/default work
+// after options execute under the lock, following enumeration and metadata.
+// Options compose normally and the last write wins. Nil disables only subsequent
+// phases, not early measurements selected by WithReloadDiagnostics. Without a
+// constructor recorder no early spans are collected or retrospectively invented.
+// Matching startup and late recorders share an operation ID; a different late
+// recorder creates a separate observation ID covering only these later phases.
 func LoadOptionDiagnostics(r *diagnostics.Recorder) ConfigLoaderOption {
-	return diagnosticsLoadOption{recorder: r}.apply
-}
-
-// A bound method gives this internal option a distinct code identity while
-// retaining the public function-option API. Only this method may run before
-// acquiring the lock: arbitrary caller callbacks retain their original order.
-type diagnosticsLoadOption struct{ recorder *diagnostics.Recorder }
-
-func (o diagnosticsLoadOption) apply(options *LoadOptions) {
-	options.diagnosticsRecorder = o.recorder
-}
-
-func reloadRecorder(options []ConfigLoaderOption) *diagnostics.Recorder {
-	var selected LoadOptions
-	diagnosticsCode := reflect.ValueOf(diagnosticsLoadOption{}.apply).Pointer()
-	for _, option := range options {
-		if reflect.ValueOf(option).Pointer() == diagnosticsCode {
-			option(&selected)
-		}
-	}
-	return selected.diagnosticsRecorder
+	return func(o *LoadOptions) { o.diagnosticsRecorder = r }
 }
 
 // loaderTimings buffers observations until the model-config mutex is released.
@@ -970,7 +972,8 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPathStrict(path string, opts .
 }
 
 func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool, opts ...ConfigLoaderOption) (resultErr error) {
-	timing := bcl.timings(reloadRecorder(opts).Reload(context.Background()))
+	timing := bcl.timings(bcl.reloadDiagnosticsRecorder.Reload(context.Background()))
+	var lateTiming *loaderTimings
 	wait := timing.start()
 	bcl.Lock()
 	hold := timing.start()
@@ -978,6 +981,9 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		timing.add(diagnostics.PhaseReloadLockHold, hold, resultErr, 1)
 		bcl.Unlock()
 		timing.emit()
+		if lateTiming != timing {
+			lateTiming.emit()
+		}
 	}()
 	if timing != nil {
 		timing.phases[diagnostics.PhaseReloadLockWait] = &diagnostics.Event{Elapsed: hold.Sub(wait), Outcome: diagnostics.OutcomeOK, Count: 1}
@@ -1005,6 +1011,13 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 	}
 	loadOptions := &LoadOptions{}
 	loadOptions.Apply(opts...)
+	if loadOptions.diagnosticsRecorder == bcl.reloadDiagnosticsRecorder {
+		lateTiming = timing
+	} else {
+		lateTiming = bcl.timings(loadOptions.diagnosticsRecorder.Reload(context.Background()))
+	}
+	// Defaults consume resolved values, not arbitrary caller callbacks again.
+	resolvedOptions := func(o *LoadOptions) { *o = *loadOptions }
 	for _, file := range files {
 		// Only load real YAML config files and ignore dotfiles or backup variants
 		ext := strings.ToLower(filepath.Ext(file.Name()))
@@ -1018,7 +1031,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 			return absErr
 		}
 		if _, gallerySource := loadOptions.galleryFiles[absolutePath]; gallerySource {
-			galleryDocument, err := classifyGalleryDocumentMeasured(filePath, timing)
+			galleryDocument, err := classifyGalleryDocumentMeasured(filePath, lateTiming)
 			if err != nil {
 				if strict {
 					return err
@@ -1037,7 +1050,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		}
 
 		// Read config(s) - handles both single and array formats
-		configs, err := readModelConfigsFromFileMeasured(filePath, timing, opts...)
+		configs, err := readModelConfigsFromFileMeasured(filePath, lateTiming, resolvedOptions)
 		if err != nil {
 			if strict {
 				return err
@@ -1141,10 +1154,17 @@ func classifyGalleryDocumentMeasured(path string, timing *loaderTimings) (_ bool
 		return false, fmt.Errorf("read YAML file %q for classification: %w", path, err)
 	}
 	start = timing.start()
-	defer func() { timing.add(diagnostics.PhaseReloadParseDefaults, start, resultErr, 1) }()
+	var parseErr error
+	defer func() {
+		if parseErr == nil {
+			parseErr = resultErr
+		}
+		timing.add(diagnostics.PhaseReloadParseDefaults, start, parseErr, 1)
+	}()
 	var document yaml.Node
-	if err := yaml.Unmarshal(data, &document); err != nil || len(document.Content) != 1 {
-		return false, nil // The model-config parser supplies the syntax error.
+	parseErr = yaml.Unmarshal(data, &document)
+	if parseErr != nil || len(document.Content) != 1 {
+		return false, nil // Preserve classification semantics; diagnostics retain the syntax error.
 	}
 	root := document.Content[0]
 	switch root.Kind {
