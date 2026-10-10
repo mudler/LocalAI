@@ -4,9 +4,12 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
+	"github.com/mudler/LocalAI/pkg/httpclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -317,5 +321,121 @@ var _ = Describe("Diagnostics preload and shutdown boundaries", func() {
 		close(release)
 		Eventually(result).Should(Receive(MatchError(context.DeadlineExceeded)))
 		Eventually(stopped).Should(BeClosed())
+	})
+})
+
+var _ = Describe("Diagnostics real profiler lifecycle", Serial, func() {
+	options := func() diagnostics.Options {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		o := diagnostics.DefaultOptions()
+		o.Pprof = true
+		o.Address = l.Addr().String()
+		Expect(l.Close()).To(Succeed())
+		return o
+	}
+	assertReleased := func(address string) {
+		Eventually(func() error {
+			l, err := net.Listen("tcp", address)
+			if err == nil {
+				l.Close()
+			}
+			return err
+		}).Should(Succeed())
+	}
+	for _, construction := range []bool{true, false} {
+		It(fmt.Sprintf("releases the real listener after API failure construction=%t", construction), func() {
+			o := options()
+			cause := errors.New("API construction or start failure")
+			calls := 0
+			err := runWithDiagnostics(context.Background(), o, diagnosticsRunHooks{
+				Init: func(context.Context) error {
+					if construction {
+						return cause
+					}
+					return nil
+				},
+				Serve: func() error { return cause },
+				Stop:  func(context.Context) error { calls++; return nil },
+			}, nil)
+			Expect(err).To(MatchError(cause))
+			Expect(calls).To(Equal(1))
+			assertReleased(o.Address)
+		})
+	}
+	for _, seconds := range []int{2, 30} {
+		It(fmt.Sprintf("shuts down during a %d second capture", seconds), func() {
+			o := options()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			ready := make(chan struct{})
+			stopped := make(chan struct{})
+			result := make(chan error, 1)
+			go func() {
+				result <- runWithDiagnostics(ctx, o, diagnosticsRunHooks{
+					Init:  func(context.Context) error { return nil },
+					Serve: func() error { close(ready); <-stopped; return http.ErrServerClosed },
+					Stop:  func(context.Context) error { close(stopped); return nil },
+				}, nil)
+			}()
+			Eventually(ready).Should(BeClosed())
+			client := httpclient.NewWithTimeout(12 * time.Second)
+			defer client.CloseIdleConnections()
+			capture := make(chan error, 1)
+			go func() {
+				response, err := client.Get(fmt.Sprintf("http://%s/debug/pprof/profile?seconds=%d", o.Address, seconds))
+				if err == nil {
+					_, err = io.Copy(io.Discard, response.Body)
+					response.Body.Close()
+					if response.StatusCode != http.StatusOK {
+						err = fmt.Errorf("profile status %d", response.StatusCode)
+					}
+				}
+				capture <- err
+			}()
+			// Observe the actual handler's stack rather than sleeping and assuming
+			// the capture reached the server. This endpoint is on the private mux.
+			Eventually(func() bool {
+				response, err := client.Get("http://" + o.Address + "/debug/pprof/goroutine?debug=2")
+				if err != nil {
+					return false
+				}
+				defer response.Body.Close()
+				body, _ := io.ReadAll(response.Body)
+				return strings.Contains(string(body), "net/http/pprof.Profile")
+			}, 3*time.Second).Should(BeTrue())
+			shutdownStarted := time.Now()
+			cancel()
+			if seconds == 2 {
+				Eventually(capture, 8*time.Second).Should(Receive(BeNil()))
+				Eventually(result).Should(Receive(MatchError(context.Canceled)))
+			} else {
+				Eventually(result, 8*time.Second).Should(Receive(MatchError(context.Canceled)))
+				Expect(time.Since(shutdownStarted)).To(BeNumerically(">=", 5*time.Second))
+				Eventually(capture).Should(Receive(Not(BeNil())))
+			}
+			Expect(stopped).To(BeClosed())
+			assertReleased(o.Address)
+		})
+	}
+	It("propagates a late profiler failure after API serving is established", func() {
+		s := &fakeDiagnosticsServer{make(chan error, 1), make(chan struct{})}
+		ready := make(chan struct{})
+		stopped := make(chan struct{})
+		result := make(chan error, 1)
+		cause := errors.New("late profiler accept failure")
+		go func() {
+			result <- runWithDiagnosticsStart(context.Background(), diagnostics.DefaultOptions(), diagnosticsRunHooks{
+				Init:  func(context.Context) error { return nil },
+				Serve: func() error { close(ready); <-stopped; return http.ErrServerClosed },
+				Stop:  func(context.Context) error { close(stopped); return nil },
+			}, nil, func(diagnostics.Options) (diagnosticsServer, error) { return s, nil })
+		}()
+		Eventually(ready).Should(BeClosed())
+		Expect(result).NotTo(Receive())
+		s.failures <- cause
+		Eventually(result).Should(Receive(MatchError(cause)))
+		Expect(stopped).To(BeClosed())
+		Expect(s.stopped).To(BeClosed())
 	})
 })
