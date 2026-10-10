@@ -443,6 +443,7 @@ static void test_sound_generation_full() {
     request.set_instrumental(true);
     (*request.mutable_params())["style"] = "cinematic";
     (*request.mutable_params())["cot"] = "true";
+    (*request.mutable_params())["src"] = "/attacker-controlled/input.wav";
     // Generic values lose collisions to typed fields, and src is transported as
     // audio_input rather than leaking its filesystem path into engine options.
     (*request.mutable_params())["lyrics"] = "generic lyrics";
@@ -493,7 +494,7 @@ static void test_sound_generation_full() {
     check(option_or(task.options, "duration_seconds", "").rfind("30.", 0) == 0,
           "sound: typed duration overrides a colliding generic parameter");
     check(!has_key(task.options, "src"),
-          "sound: src is not exposed as an engine option");
+          "sound: generic params cannot cross the reserved source-input boundary");
     check(task.text_input->language == "en",
           "sound: language reaches the transcript, which is what ace_step reads");
     check(task.audio_input.has_value() &&

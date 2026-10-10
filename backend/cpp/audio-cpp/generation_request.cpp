@@ -173,6 +173,11 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
     // Generic options are copied first so typed request fields remain authoritative
     // when callers provide the same key in both places.
     for (const auto &param : request.params()) {
+        // src is reserved for trusted, decoded source audio and must not cross
+        // the generic option boundary as a caller-controlled filesystem path.
+        if (param.first == "src") {
+            continue;
+        }
         task.options[param.first] = param.second;
     }
 
