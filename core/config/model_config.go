@@ -653,6 +653,25 @@ type PIIDetectionConfig struct {
 	// subset (validated at load). Each match is reported under its Name as the
 	// entity group, so EntityActions/DefaultAction apply by Name.
 	Patterns []PIIPattern `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// ExtendToNextWord lists entity groups (e.g. "ZIPCODE") whose accepted
+	// detections also cover the word right after them on the same line,
+	// with the same action - for a neighbour the model scores unreliably,
+	// such as the town after a postal code.
+	ExtendToNextWord []string `yaml:"extend_to_next_word,omitempty" json:"extend_to_next_word,omitempty"`
+	// ExtendToPreviousWord lists entity groups (e.g. "LASTNAME") whose accepted
+	// detections also cover the word right before them on the same line, when
+	// that word consists of letters only - for a neighbour the model scores
+	// unreliably, such as the first name before a recognised surname.
+	ExtendToPreviousWord []string `yaml:"extend_to_previous_word,omitempty" json:"extend_to_previous_word,omitempty"`
+	// ProtectedTerms are values that must pass the filter unchanged even
+	// when the model tags them (e.g. known business names read as
+	// surnames). They are hidden from the detector behind a placeholder and
+	// restored afterwards. Matched whole-word and case-insensitively.
+	ProtectedTerms []string `yaml:"protected_terms,omitempty" json:"protected_terms,omitempty"`
+	// ProtectedTermsFiles adds terms from files (one per line, '#' comments),
+	// resolved inside the models path and re-read when they change, so an
+	// external process can keep the list current without a restart.
+	ProtectedTermsFiles []string `yaml:"protected_terms_files,omitempty" json:"protected_terms_files,omitempty"`
 }
 
 // PIIPattern is one operator-defined pattern on a pattern detector model. Name
@@ -730,6 +749,31 @@ func (c *ModelConfig) PIIDetectionEntityActions() map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// PIIDetectionExtendToNextWord returns the entity groups whose detections
+// are stretched over the following word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToNextWord() []string {
+	if len(c.PIIDetection.ExtendToNextWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToNextWord...)
+}
+
+// PIIDetectionExtendToPreviousWord returns the entity groups whose detections
+// are stretched over the preceding word (a fresh copy).
+func (c *ModelConfig) PIIDetectionExtendToPreviousWord() []string {
+	if len(c.PIIDetection.ExtendToPreviousWord) == 0 {
+		return nil
+	}
+	return append([]string(nil), c.PIIDetection.ExtendToPreviousWord...)
+}
+
+// PIIDetectionProtectedTerms returns the inline protected terms and the
+// configured term files (fresh copies). The files are read by the pii
+// package (pii.LoadProtectedTerms), relative to the models path.
+func (c *ModelConfig) PIIDetectionProtectedTerms() (terms, files []string) {
+	return slices.Clone(c.PIIDetection.ProtectedTerms), slices.Clone(c.PIIDetection.ProtectedTermsFiles)
 }
 
 // IsPatternDetector reports whether this detector model matches secrets with

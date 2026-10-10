@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mudler/xlog"
 )
@@ -150,11 +152,18 @@ func RedactNERSegments(ctx context.Context, texts []string, cfgs []NERConfig) ([
 // Entities below MinScore or with no resolved action are dropped — the
 // detector doesn't know which entity groups the admin cares about, so
 // the policy filters here.
+//
+// Protected terms (NERConfig.ProtectedTerms) are swapped for a neutral
+// placeholder before the detector runs and every detection is mapped
+// back onto the original text with the placeholder parts cut out, so a
+// protected term is never masked or blocked and the detector never sees
+// it as context.
 func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, error) {
 	if cfg.Detector == nil || text == "" {
 		return nil, nil
 	}
-	entities, err := cfg.Detector.Detect(ctx, text)
+	scan, shields := shieldProtected(text, protectedMatcher(cfg.ProtectedTerms))
+	entities, err := cfg.Detector.Detect(ctx, scan)
 	if err != nil {
 		return nil, err
 	}
@@ -179,26 +188,117 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 				"start", e.Start, "end", e.End, "text", e.Text)
 			continue
 		}
-		if e.Start < 0 || e.End <= e.Start || e.End > len(text) {
+		if e.Start < 0 || e.End <= e.Start || e.End > len(scan) {
 			// Defensive: the backend should return byte offsets into the
-			// original text, but a misconfigured model could produce
+			// scanned text, but a misconfigured model could produce
 			// garbage. Skip rather than panic on slice OOB.
 			xlog.Warn("pii/ner: detection has out-of-range offsets; skipping",
-				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(text))
+				"group", e.Group, "start", e.Start, "end", e.End, "text_len", len(scan))
 			continue
 		}
-		xlog.Debug("pii/ner: detection accepted",
-			"group", e.Group, "score", e.Score, "action", action,
-			"start", e.Start, "end", e.End, "text", e.Text)
-		hits = append(hits, rawHit{
-			patternID: cfg.patternID(e.Group),
-			action:    action,
-			start:     e.Start,
-			end:       e.End,
-			score:     e.Score,
-		})
+		pieces := [][2]int{{e.Start, e.End}}
+		if shields != nil {
+			pieces = unshieldSpan(e.Start, e.End, shields)
+			if len(pieces) == 0 {
+				xlog.Debug("pii/ner: detection dropped (protected term)",
+					"group", e.Group, "score", e.Score, "start", e.Start, "end", e.End)
+				continue
+			}
+		}
+		for i, pc := range pieces {
+			start, end := pc[0], pc[1]
+			if cfg.extendsToNextWord(e.Group) && i == len(pieces)-1 {
+				end = keepExtension(end, nextWordEnd(text, end), shields)
+			}
+			if cfg.extendsToPreviousWord(e.Group) && i == 0 {
+				start = keepExtensionBefore(start, prevWordStart(text, start), shields)
+			}
+			xlog.Debug("pii/ner: detection accepted",
+				"group", e.Group, "score", e.Score, "action", action,
+				"start", start, "end", end, "detected_end", pc[1], "text", e.Text)
+			hits = append(hits, rawHit{
+				patternID: cfg.patternID(e.Group),
+				action:    action,
+				start:     start,
+				end:       end,
+				score:     e.Score,
+			})
+		}
 	}
 	return hits, nil
+}
+
+// nextWordEnd returns the end offset of the word that follows text[:end]:
+// horizontal whitespace is skipped (a line break ends the search), then
+// letters, digits, combining marks and the in-word joiners '-', '.' and
+// the apostrophe are consumed; trailing dots are left out (sentence end). When no
+// word follows, end is returned unchanged, so a hit is never stretched
+// over bare whitespace or onto the next line.
+func nextWordEnd(text string, end int) int {
+	i := end
+	for i < len(text) {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if r == '\n' || r == '\r' || !unicode.IsSpace(r) {
+			break
+		}
+		i += size
+	}
+	wordStart := i
+	for i < len(text) {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsMark(r) && r != '-' && r != '.' && r != '\'' {
+			break
+		}
+		i += size
+	}
+	for i > wordStart && text[i-1] == '.' {
+		i--
+	}
+	if i == wordStart {
+		return end
+	}
+	return i
+}
+
+// prevWordStart returns the start offset of the word that precedes
+// text[start:]: horizontal whitespace before start is skipped (a line break
+// ends the search), then letters, combining marks and the in-word joiners '-'
+// and the apostrophe are consumed backwards. The word must consist of letters:
+// when it touches a digit (an amount, a date, a code) or no word precedes,
+// start is returned unchanged, so a hit is never stretched over a number,
+// bare whitespace or onto the previous line.
+func prevWordStart(text string, start int) int {
+	i := start
+	for i > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:i])
+		if r == '\n' || r == '\r' || !unicode.IsSpace(r) {
+			break
+		}
+		i -= size
+	}
+	wordEnd := i
+	letters := 0
+	for i > 0 {
+		r, size := utf8.DecodeLastRuneInString(text[:i])
+		if unicode.IsLetter(r) {
+			letters++
+		} else if !unicode.IsMark(r) && r != '-' && r != '\'' {
+			break
+		}
+		i -= size
+	}
+	if i > 0 {
+		if r, _ := utf8.DecodeLastRuneInString(text[:i]); unicode.IsDigit(r) {
+			return start // the word is glued to a number: leave it alone
+		}
+	}
+	for i < wordEnd && (text[i] == '-' || text[i] == '\'') {
+		i++
+	}
+	if i == wordEnd || letters == 0 {
+		return start
+	}
+	return i
 }
 
 // mergeAndEmit handles the overlap-merge + masked-output step. Sorts by

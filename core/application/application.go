@@ -366,13 +366,18 @@ func (a *Application) PIINERResolver() pii.NERDetectorResolver {
 		}
 
 		det := piidetector.New(a.ModelLoader(), cfg, a.ApplicationConfig())
-		return pii.NERConfigFromRaw(
+		nc := pii.NERConfigFromRaw(
 			det,
 			cfg.PIIDetectionMinScore(),
 			cfg.PIIDetectionDefaultAction(),
 			cfg.PIIDetectionEntityActions(),
 			pii.SourceNER,
-		), true
+		)
+		nc.ExtendToNextWord = cfg.PIIDetectionExtendToNextWord()
+		nc.ExtendToPreviousWord = cfg.PIIDetectionExtendToPreviousWord()
+		terms, files := cfg.PIIDetectionProtectedTerms()
+		nc.ProtectedTerms = pii.LoadProtectedTerms(terms, files, a.ApplicationConfig().SystemState.Model.ModelsPath)
+		return nc, true
 	}
 }
 
