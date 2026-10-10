@@ -39,9 +39,11 @@ Do not combine competing sampling owners in the same process.
 There is no dynamic toggle, continuous capture, or automatic profile storage. Configuration changes require a separately approved restart or rollout.
 
 The listener binds before normal request serving. Validation or bind errors fail startup; subsequent fatal serving errors propagate through the run lifecycle.
-Shutdown permits five seconds for cleanup before force-closing profiling connections, which can interrupt an active capture.
-Application initialization or shutdown work that ignores cancellation can outlive that budget.
-With profiling disabled, diagnostics opens no socket and changes no runtime sampling settings.
+The private listener gets five seconds to drain before profiling connections are force-closed, which can interrupt an active capture.
+Its cleanup runs on startup failure, normal return, and through the existing signal handler (which exits without running deferred cleanup).
+A fatal profiler serving error cancels the run context and is returned after application cleanup.
+Application initialization or shutdown work that ignores cancellation can delay that return; the private-listener budget is not a deadline for the entire application.
+With profiling disabled, diagnostics opens no socket, starts no monitoring goroutine, and changes no runtime sampling settings.
 Disabled phase timing allocates no diagnostic identities or events and adds no diagnostic filesystem operations.
 
 ## Access and data sensitivity

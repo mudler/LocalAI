@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
@@ -253,7 +252,7 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
-func (r *RunCMD) Run(ctx *cliContext.Context) error {
+func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 
 	if r.Version {
@@ -307,9 +306,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	// CLI context holds configuration, not a cancellation context.
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+	if !r.PreloadBackendOnly {
+		defer cancelRun(nil)
+	}
 	opts := []config.AppOption{
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
-		config.WithContext(context.Background()),
+		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
@@ -798,89 +802,135 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	var recorder *diagnostics.Recorder
-	if diagnosticOpts.RequestPhaseTiming && !r.PreloadBackendOnly {
-		recorder = diagnostics.NewRecorder(diagnostics.LogEvent)
+	if r.PreloadBackendOnly {
+		_, err := application.New(opts...)
+		return err
 	}
-	var app *application.Application
-	var appHTTP *echo.Echo
+
+	var stopProfiler func() error
+	if diagnosticOpts.Pprof {
+		profiler, err := diagnostics.Start(diagnosticOpts)
+		if err != nil {
+			return err
+		}
+		monitorDone := make(chan struct{})
+		var profilerErr error
+		go func() {
+			defer close(monitorDone)
+			if err := <-profiler.Errors(); err != nil {
+				profilerErr = err
+				cancelRun(err)
+			}
+		}()
+		stopProfiler = func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := profiler.Shutdown(shutdownCtx)
+			<-monitorDone
+			return errors.Join(err, profilerErr)
+		}
+		defer func() {
+			result = errors.Join(result, stopProfiler())
+		}()
+		// Signals exit the process without running defers. Register private
+		// cleanup before application cleanup, which has no bounded shutdown.
+		signals.RegisterGracefulTerminationHandler(func() {
+			cancelRun(nil)
+			if err := stopProfiler(); err != nil {
+				xlog.Error("error while shutting down profiler", "error", err)
+			}
+		})
+	}
+	if diagnosticOpts.RequestPhaseTiming {
+		opts = append(opts, config.WithDiagnosticsRecorder(diagnostics.NewRecorder(diagnostics.LogEvent)))
+	}
+
+	app, err := application.New(opts...)
+	if err != nil {
+		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	defer func() {
+		cancelRun(nil)
+		if stopProfiler != nil {
+			// Release the bounded private resource even if app.Shutdown blocks.
+			_ = stopProfiler()
+		}
+		result = errors.Join(result, app.Shutdown())
+	}()
+	if err := runCtx.Err(); err != nil {
+		return context.Cause(runCtx)
+	}
+
+	// Refuse to bind a public-internet address without authentication unless
+	// the operator has explicitly opted in. The auth middleware degrades to
+	// pass-through when there is no auth DB and no legacy keys; on a loopback,
+	// LAN, or VPN that's the historical "trusted network" deployment, but on
+	// a public IP it makes every model, gallery install, settings change, and
+	// admin endpoint reachable by anyone who can connect to the port.
 	listenAddress := r.Address
-	return r.runConfiguredDiagnostics(context.Background(), diagnosticsRunHooks{
-		Init: func(runCtx context.Context) error {
-			opts = append(opts, config.WithContext(runCtx), config.WithDiagnosticsRecorder(recorder))
-			app, err = application.New(opts...)
-			if r.PreloadBackendOnly {
-				return err
-			}
-			if err != nil {
-				return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
-			}
+	if activatedListener != nil {
+		listenAddress = activatedListener.Addr().String()
+	}
 
-			// Refuse to bind a public-internet address without authentication unless
-			// the operator has explicitly opted in. The auth middleware degrades to
-			// pass-through when there is no auth DB and no legacy keys; on a loopback,
-			// LAN, or VPN that's the historical "trusted network" deployment, but on
-			// a public IP it makes every model, gallery install, settings change, and
-			// admin endpoint reachable by anyone who can connect to the port.
-			listenAddress = r.Address
-			if activatedListener != nil {
-				listenAddress = activatedListener.Addr().String()
-			}
+	authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
+	if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
+		return err
+	}
 
-			authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
-			if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
-				return err
-			}
+	appHTTP, err := http.API(app)
+	if err != nil {
+		xlog.Error("error during HTTP App construction", "error", err)
+		return err
+	}
 
-			appHTTP, err = http.API(app)
-			if err != nil {
-				xlog.Error("error during HTTP App construction", "error", err)
-				return err
-			}
+	if activatedListener != nil {
+		appHTTP.Listener = activatedListener
+		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
+	}
+	xlog.Info("LocalAI is started and running", "address", listenAddress)
 
-			if activatedListener != nil {
-				appHTTP.Listener = activatedListener
-				xlog.Info("Using systemd socket activation listener", "address", listenAddress)
-			}
-			xlog.Info("LocalAI is started and running", "address", listenAddress)
+	// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
+	if token != "" || app.ApplicationConfig().P2PToken != "" {
+		if err := app.StartP2P(); err != nil {
+			return err
+		}
+	}
 
-			// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
-			if token != "" || app.ApplicationConfig().P2PToken != "" {
-				if err := app.StartP2P(); err != nil {
-					return err
-				}
-			}
+	signals.RegisterGracefulTerminationHandler(func() {
+		cancelRun(nil)
+		if err := app.Shutdown(); err != nil {
+			xlog.Error("error while shutting down application", "error", err)
+		}
+	})
 
-			// Start the agent pool after the HTTP server is listening, because
-			// backends like PostgreSQL need to call the embeddings API during
-			// collection initialization.
-			go func() {
-				waitForServerReady(listenAddress, app.ApplicationConfig().Context)
-				if app.ApplicationConfig().Context.Err() == nil {
-					app.StartAgentPool()
-				}
-			}()
+	// Start the agent pool after the HTTP server is listening, because
+	// backends like PostgreSQL need to call the embeddings API during
+	// collection initialization.
+	go func() {
+		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
+		if runCtx.Err() == nil {
+			app.StartAgentPool()
+		}
+	}()
 
-			return nil
-		},
-		Serve: func() error { return appHTTP.Start(listenAddress) },
-		Stop: func(shutdownCtx context.Context) error {
-			var stopErr error
-			if appHTTP != nil {
-				stopErr = appHTTP.Shutdown(shutdownCtx)
-				if stopErr != nil {
-					_ = appHTTP.Close()
-				}
-			}
-			if activatedListener != nil {
-				_ = activatedListener.Close()
-			}
-			if app != nil {
-				stopErr = errors.Join(stopErr, app.Shutdown())
-			}
-			return stopErr
-		},
-	}, signals.RegisterGracefulTerminationHandler)
+	if !diagnosticOpts.Pprof {
+		return appHTTP.Start(listenAddress)
+	}
+	served := make(chan error, 1)
+	go func() { served <- appHTTP.Start(listenAddress) }()
+	select {
+	case err := <-served:
+		return err
+	case <-runCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := appHTTP.Shutdown(shutdownCtx); err != nil {
+			_ = appHTTP.Close()
+		}
+		<-served
+		return context.Cause(runCtx)
+	}
 }
 
 // waitForServerReady polls the given address until the HTTP server is

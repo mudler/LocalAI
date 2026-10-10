@@ -4,11 +4,13 @@ package diagnostics
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -234,4 +236,56 @@ var _ = Describe("Diagnostics server", Serial, func() {
 		Expect(s.Shutdown(context.Background())).To(Succeed())
 		Expect(runtime.SetMutexProfileFraction(-1)).To(BeZero())
 	})
+})
+
+var _ = Describe("Diagnostics real capture shutdown", Serial, func() {
+	for _, seconds := range []int{2, 30} {
+		It(fmt.Sprintf("bounds shutdown during a %d second capture", seconds), func() {
+			l, err := net.Listen("tcp", "127.0.0.1:0")
+			Expect(err).NotTo(HaveOccurred())
+			opts := enabledOptions()
+			opts.Address = l.Addr().String()
+			Expect(l.Close()).To(Succeed())
+			s, err := Start(opts)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() { _ = s.Shutdown(context.Background()) })
+			client := httpclient.NewWithTimeout(12 * time.Second)
+			defer client.CloseIdleConnections()
+			capture := make(chan error, 1)
+			go func() {
+				response, err := client.Get(fmt.Sprintf("http://%s/debug/pprof/profile?seconds=%d", s.Addr(), seconds))
+				if err == nil {
+					_, err = io.Copy(io.Discard, response.Body)
+					response.Body.Close()
+					if response.StatusCode != http.StatusOK {
+						err = fmt.Errorf("profile status %d", response.StatusCode)
+					}
+				}
+				capture <- err
+			}()
+			Eventually(func() bool {
+				response, err := client.Get("http://" + s.Addr().String() + "/debug/pprof/goroutine?debug=2")
+				if err != nil {
+					return false
+				}
+				defer response.Body.Close()
+				body, _ := io.ReadAll(response.Body)
+				return strings.Contains(string(body), "net/http/pprof.Profile")
+			}, 3*time.Second).Should(BeTrue())
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err = s.Shutdown(ctx)
+			if seconds == 2 {
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(capture).Should(Receive(BeNil()))
+			} else {
+				Expect(err).To(MatchError(context.DeadlineExceeded))
+				Eventually(capture).Should(Receive(Not(BeNil())))
+			}
+			Expect(s.Errors()).To(BeClosed())
+			l, err = net.Listen("tcp", s.Addr().String())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(l.Close()).To(Succeed())
+		})
+	}
 })
