@@ -21379,7 +21379,7 @@
     diffusers:
       pipeline_type: StableDiffusionUpscalePipeline
     known_usecases:
-      - image
+      - upscale
     parameters:
       model: stabilityai/stable-diffusion-x4-upscaler
     artifacts:

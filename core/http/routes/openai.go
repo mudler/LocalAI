@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
@@ -268,10 +270,31 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
 
-	// upscale endpoint - reuse same middleware config as images
+	// Upscaling has its own model usecase; generation models are not defaults.
+	upscaleMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
+		traceMiddleware,
+		// Default: use the first available upscaling model
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_UPSCALE)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				// The default-model filter does not validate explicitly named models.
+				cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+				if !ok || cfg == nil || !cfg.HasUsecases(config.FLAG_UPSCALE) {
+					return echo.NewHTTPError(http.StatusBadRequest, "model does not support image upscaling")
+				}
+				if err := re.SetOpenAIRequest(c); err != nil {
+					return err
+				}
+				return next(c)
+			}
+		},
+	}
+
 	upscaleHandler := openai.UpscaleEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
-	app.POST("/v1/images/upscale", upscaleHandler, imageMiddleware...)
-	app.POST("/images/upscale", upscaleHandler, imageMiddleware...)
+	app.POST("/v1/images/upscale", upscaleHandler, upscaleMiddleware...)
+	app.POST("/images/upscale", upscaleHandler, upscaleMiddleware...)
 
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))

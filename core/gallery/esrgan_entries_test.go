@@ -2,6 +2,7 @@
 package gallery_test
 
 import (
+	"github.com/mudler/LocalAI/core/config"
 	"os"
 	"strings"
 
@@ -42,5 +43,21 @@ var _ = Describe("gallery/index.yaml ESRGAN entry", func() {
 		var settings map[string]any
 		Expect(yaml.Unmarshal([]byte(example), &settings)).To(Succeed())
 		Expect(settings).To(Equal(entry.Overrides))
+	})
+})
+
+var _ = Describe("Diffusers upscaler gallery capability", func() {
+	It("explicitly declares upscaling rather than image generation", func() {
+		entries, err := loadGalleryIndex()
+		Expect(err).NotTo(HaveOccurred())
+		entry, ok := indexEntriesByName(entries)["stable-diffusion-x4-upscaler"]
+		Expect(ok).To(BeTrue())
+		data, err := yaml.Marshal(entry.Overrides)
+		Expect(err).NotTo(HaveOccurred())
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal(data, &cfg)).To(Succeed())
+		Expect(cfg.HasUsecases(config.FLAG_UPSCALE)).To(BeTrue())
+		Expect(cfg.HasUsecases(config.FLAG_IMAGE)).To(BeFalse())
+		Expect(config.GetBackendCapability(cfg.Backend).GRPCMethods).To(ContainElement(config.MethodUpscaleImage))
 	})
 })

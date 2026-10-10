@@ -262,7 +262,12 @@ curl http://localhost:8080/v1/images/upscale \
 The response uses the same format as image generation and returns the generated
 image under `/generated-images`. The `diffusers` backend uses a loaded
 `StableDiffusionUpscalePipeline` or `StableDiffusionLatentUpscalePipeline` when
-configured. Other diffusers pipelines fall back to Lanczos resizing.
+configured. Other diffusers pipelines fall back to Lanczos resizing. Upscale
+routes select models with `known_usecases: [upscale]`, not ordinary image
+generation models. If you installed the x4 upscaler before it declared this
+usecase, update its model YAML to `known_usecases: [upscale]` or reinstall the
+gallery entry. Custom Diffusers configurations intended for upscaling should
+also explicitly declare the `upscale` usecase.
 
 #### Model setup
 
