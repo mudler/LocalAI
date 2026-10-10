@@ -28,7 +28,7 @@ The Model Context Protocol is a standard for connecting AI models to external to
 - **Real-time Tool Access**: Connect to external MCP servers for live data
 - **Multiple Server Support**: Configure both remote HTTP and local stdio servers
 - **Cached Connections**: Efficient tool caching for better performance
-- **Secure Authentication**: Support for bearer token authentication
+- **Secure Authentication**: Static bearer tokens or OAuth2 `client_credentials` with automatic token refresh
 - **Multi-endpoint Support**: Works with OpenAI Chat, Anthropic Messages, and Open Responses APIs
 - **Selective Server Activation**: Use `metadata.mcp_servers` to enable only specific servers per request
 - **Server-side Tool Execution**: Tools are executed on the server and results fed back to the model automatically
@@ -93,13 +93,57 @@ In the interactive model editor, **Remote MCP Servers** and **MCP STDIO Servers*
 Configure HTTP-based MCP servers:
 
 - **`url`**: The MCP server endpoint URL
-- **`token`**: Bearer token for authentication (optional)
+- **`token`**: Static bearer token for authentication (optional)
+- **`oauth2`**: OAuth2 `client_credentials` settings (optional, mutually exclusive with `token`); see [OAuth2 client credentials](#oauth2-client-credentials-for-remote-servers)
 
 LocalAI automatically selects the transport for remote model MCP servers. It tries Streamable HTTP first, including servers that do not assign session IDs. If the initial POST returns HTTP 400, 404, or 405, LocalAI retries with legacy SSE. Both attempts share the discovery timeout and use the configured bearer token. Authentication failures and redirects do not trigger fallback.
 
 Use the endpoint URL published by your server: usually `/mcp` for Streamable HTTP or `/sse` for legacy SSE. Legacy SSE servers must advertise a message endpoint on the same origin (scheme, host, and port). No transport setting is required.
 
 Remote model MCP connections originate from the LocalAI process. If LocalAI runs in Docker, the URL must therefore resolve and be reachable **from the LocalAI container**, not only from the host browser. For another service in the same Compose project, use its Compose service name and container port. Host-only DNS names, VPN DNS, and private routes must also be made available inside the container.
+
+#### OAuth2 client credentials for remote servers
+
+When an MCP server sits behind an OpenID Connect / OAuth2 provider (for example authentik, Keycloak, Entra ID or Auth0), LocalAI can obtain short-lived access tokens with the `client_credentials` grant instead of using a long-lived static `token`:
+
+```yaml
+mcp:
+  remote: |
+    {
+      "mcpServers": {
+        "internal-tools": {
+          "url": "https://mcp.example.com/mcp",
+          "oauth2": {
+            "token_url": "https://auth.example.com/application/o/token/",
+            "client_id": "localai",
+            "client_secret_env": "MCP_INTERNAL_TOOLS_SECRET",
+            "scopes": ["mcp:tools"],
+            "endpoint_params": {"audience": "mcp-gateway"}
+          }
+        }
+      }
+    }
+```
+
+| Field | Description |
+|---|---|
+| `token_url` | Token endpoint of the identity provider (required) |
+| `client_id` / `client_id_env` | Client ID, literally or as the name of an environment variable (exactly one is required) |
+| `client_secret` / `client_secret_env` | Client secret, literally or as the name of an environment variable (exactly one is required). Prefer `client_secret_env` so the secret is not stored in the model YAML |
+| `scopes` | Scopes to request (optional) |
+| `endpoint_params` | Extra form parameters for the token request, e.g. `audience` or `resource` (RFC 8707) (optional) |
+
+Behaviour:
+
+- The token is fetched on the first request to the server, cached, and sent as `Authorization: Bearer <token>` on every request, for both streamable HTTP and SSE transports.
+- It is refreshed proactively once **half** of its lifetime (`expires_in`) has elapsed. If the provider omits `expires_in`, a lifetime of 5 minutes is assumed.
+- If a refresh fails, the current token keeps being used until 30 seconds before it expires (retries wait at least 5 seconds after a failed fetch, including the first fetch). After that, requests to the MCP server fail with an error; LocalAI never falls back to an unauthenticated request.
+- Configuring both `token` and `oauth2` for the same server is rejected when the model configuration is loaded, as are missing or duplicated `client_id`/`client_secret` sources. An environment variable named in `*_env` that is unset or empty makes the connection to that server fail, and the server is reported with an error in the server listing.
+- Debug logs of remote server entries redact static tokens and OAuth2 client secrets in both text and JSON formats.
+- Token caches and retry timers are local to each connection-owning process. Workers obtain and refresh their own tokens; this cache is not shared across the cluster.
+- The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
+
+Servers configured with a static `token` behave exactly as before.
 
 #### STDIO Servers (`stdio`)
 Configure local command-based MCP servers:
