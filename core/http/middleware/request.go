@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -47,6 +48,7 @@ const CONTEXT_LOCALS_KEY_MODEL_CONFIG = "MODEL_CONFIG"
 
 // TODO: Refactor to not return error if unchanged
 func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
+	ctx := re.diagnosticContext(c)
 	model, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 	if ok && model != "" {
 		return
@@ -67,7 +69,9 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		auth := c.Request().Header.Get("Authorization")
 		bearer := strings.TrimPrefix(auth, "Bearer ")
 		if bearer != "" && bearer != auth {
-			exists, err := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
+			end := diagnostics.Begin(ctx, diagnostics.PhaseBearerLookup)
+			exists, err := galleryop.CheckIfModelExistsContext(ctx, re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
+			end(diagnosticOutcome(ctx, err != nil), 0)
 			if err == nil && exists {
 				model = bearer
 			}
@@ -79,13 +83,16 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 
 func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModelName string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c echo.Context) (err error) {
+			finish := re.beginExtraction(c)
+			defer func() { finish(err) }()
 			re.setModelNameFromRequest(c)
 			localModelName, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 			if !ok || localModelName == "" {
 				c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, defaultModelName)
 				xlog.Debug("context local model name not found, setting to default", "defaultModelName", defaultModelName)
 			}
+			finish(nil)
 			return next(c)
 		}
 	}
@@ -93,16 +100,23 @@ func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModel
 
 func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn config.ModelConfigFilterFn) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c echo.Context) (err error) {
+			finish := re.beginExtraction(c)
+			defer func() { finish(err) }()
 			re.setModelNameFromRequest(c)
 			localModelName := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 			if localModelName != "" { // Don't overwrite existing values
+				finish(nil)
 				return next(c)
 			}
 
-			modelNames, err := galleryop.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
+			ctx := c.Request().Context()
+			end := diagnostics.Begin(ctx, diagnostics.PhaseDefaultListing)
+			modelNames, err := galleryop.ListModelsContext(ctx, re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
+			end(diagnosticOutcome(ctx, err != nil), len(modelNames))
 			if err != nil {
 				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)
+				finish(err)
 				return next(c)
 			}
 
@@ -110,11 +124,13 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 				xlog.Warn("SetDefaultModelNameToFirstAvailable used with no matching models installed")
 				// This is non-fatal - making it so was breaking the case of direct installation of raw models
 				// return errors.New("this endpoint requires at least one model to be installed")
+				finish(nil)
 				return next(c)
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, modelNames[0])
 			xlog.Debug("context local model name not found, setting to the first model", "first model name", modelNames[0])
+			finish(nil)
 			return next(c)
 		}
 	}
@@ -124,7 +140,9 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 // Otherwise, it's in its own method below for now
 func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return re.failoverRetry(func(c echo.Context) error {
+		return re.failoverRetry(func(c echo.Context) (err error) {
+			finish := re.beginExtraction(c)
+			defer func() { finish(err) }()
 			input := initializer()
 			if input == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
@@ -149,7 +167,10 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			if strings.HasSuffix(modelName, ":latest") {
 				modelName = strings.TrimSuffix(modelName, ":latest")
 			}
+			ctx := c.Request().Context()
+			endConfig := diagnostics.Begin(ctx, diagnostics.PhaseConfigLoadDefaults)
 			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(modelName, re.applicationConfig)
+			endConfig(diagnosticOutcome(ctx, err != nil), 0)
 
 			if err != nil {
 				xlog.Warn("Model Configuration File not found", "model", modelName, "error", err)
@@ -163,7 +184,9 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			// Skip the check for HuggingFace model IDs (contain "/") since backends
 			// like diffusers may download these on the fly.
 			if modelName != "" && !strings.Contains(modelName, "/") {
-				exists, existsErr := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
+				endLookup := diagnostics.Begin(ctx, diagnostics.PhaseBodyLookup)
+				exists, existsErr := galleryop.CheckIfModelExistsContext(ctx, re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
+				endLookup(diagnosticOutcome(ctx, existsErr != nil || !exists), 0)
 				if existsErr == nil && !exists {
 					return c.JSON(http.StatusNotFound, schema.ErrorResponse{
 						Error: &schema.APIError{
@@ -181,7 +204,9 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			// the alias name (input.ModelName is left unchanged); usage accounting
 			// records requested=alias / served=target.
 			if cfg != nil && cfg.IsAlias() {
+				endAlias := diagnostics.Begin(ctx, diagnostics.PhaseAliasResolution)
 				resolved, _, aliasErr := re.modelConfigLoader.ResolveAlias(cfg)
+				endAlias(diagnosticOutcome(ctx, aliasErr != nil), 0)
 				if aliasErr != nil {
 					return c.JSON(http.StatusBadRequest, schema.ErrorResponse{
 						Error: &schema.APIError{
@@ -228,12 +253,15 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
 
+			finish(nil)
 			return next(c)
 		})
 	}
 }
 
-func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
+func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
+	finish := re.beginExtraction(c)
+	defer func() { finish(err) }()
 	input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 	if !ok || input.Model == "" {
 		return echo.ErrBadRequest
@@ -253,7 +281,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 
 	// Use the request context directly - Echo properly supports context cancellation!
 	// No need for workarounds like handleConnectionCancellation
-	reqCtx := c.Request().Context()
+	reqCtx := re.diagnosticContext(c)
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 
 	// Cancel when request context is cancelled (client disconnects)
@@ -269,6 +297,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
@@ -278,7 +307,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 		return nil
 	}
 
-	err := mergeOpenAIRequestAndModelConfig(cfg, input)
+	err = mergeOpenAIRequestAndModelConfig(cfg, input)
 	if err != nil {
 		return err
 	}
@@ -698,7 +727,9 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	return nil
 }
 
-func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
+func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) {
+	finish := re.beginExtraction(c)
+	defer func() { finish(err) }()
 	input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenResponsesRequest)
 	if !ok || input.Model == "" {
 		return echo.ErrBadRequest
@@ -719,7 +750,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 	c.Response().Header().Set("x-request-id", correlationID)
 
 	// Use the request context directly - Echo properly supports context cancellation!
-	reqCtx := c.Request().Context()
+	reqCtx := re.diagnosticContext(c)
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 
 	// Cancel when request context is cancelled (client disconnects)
@@ -735,11 +766,12 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 	ctxWithCorrelationID = distributedhdr.Inherit(ctxWithCorrelationID, reqCtx)
+	ctxWithCorrelationID = diagnostics.Inherit(ctxWithCorrelationID, reqCtx)
 
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
-	err := MergeOpenResponsesConfig(cfg, input)
+	err = MergeOpenResponsesConfig(cfg, input)
 	if err != nil {
 		return err
 	}
