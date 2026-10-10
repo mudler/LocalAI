@@ -17887,6 +17887,7 @@
 - name: ced-base-q8
   variants:
     - model: ced-base-f16
+    - model: parakeet-cpp-ced-base
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
     - https://huggingface.co/mudler/ced-gguf
@@ -17935,6 +17936,7 @@
 - name: ced-tiny-q8
   variants:
     - model: ced-tiny-f16
+    - model: parakeet-cpp-ced-tiny
   url: github:mudler/LocalAI/gallery/ced.yaml@master
   urls:
     - https://huggingface.co/mudler/ced-gguf
@@ -53796,6 +53798,8 @@
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v2-f16.gguf
       sha256: f8df7f5dc7b9ceb5cd0637a81194aab5d93022ace555ce81c8969c7a694b8f3d
 - name: parakeet-cpp-tdt-0.6b-v3
+  variants:
+    - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -54033,6 +54037,8 @@
       uri: huggingface://mudler/parakeet-cpp-gguf/ultra-f16.gguf
       sha256: 5414aea5536178726e8dca20cdfc91cfa3e5443a83a65c4d08acd1c5df65323f
 - name: parakeet-cpp-moondream-ultra-q8_0
+  variants:
+    - model: parakeet-cpp-moondream-ultra-f16
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -54132,6 +54138,8 @@
       uri: huggingface://mudler/parakeet-cpp-gguf/redux-f16.gguf
       sha256: f2e2a9c412191a4ecbeb70f0c9b837749c0147489f7f2d36f3a0b4bc5d41cf79
 - name: parakeet-cpp-moondream-redux-q8_0
+  variants:
+    - model: parakeet-cpp-moondream-redux-f16
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -54165,6 +54173,8 @@
       uri: huggingface://mudler/parakeet-cpp-gguf/redux-q8_0.gguf
       sha256: 3429a4598946c406dbb4af5bb589d4dd307b069d550d98e24bef6779c4e6988f
 - name: parakeet-cpp-silero-vad-f16
+  variants:
+    - model: parakeet-cpp-vad
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://github.com/snakers4/silero-vad
@@ -54377,6 +54387,10 @@
       uri: https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/silero-vad-f16.gguf
       sha256: 8160489282352accc0e95925c2f6bf3d76fb8f7bccdce5c7e46808cb15e8443c
 - name: parakeet-cpp-nemotron-3-diarization
+  variants:
+    - model: parakeet-cpp-nemotron-3-diarization-asr
+    - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+    - model: parakeet-cpp-nemotron-3-diarization-speakers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -54805,6 +54819,9 @@
       uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
       sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
 - name: parakeet-cpp-realtime-scene
+  variants:
+    - model: parakeet-cpp-realtime-scene-base
+    - model: parakeet-cpp-realtime-scene-speakers
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -54862,6 +54879,8 @@
       uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
       sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
 - name: parakeet-cpp-realtime-scene-tdt
+  variants:
+    - model: parakeet-cpp-realtime-scene-tdt-base
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mudler/parakeet-cpp-gguf
@@ -65324,6 +65343,8 @@
       uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
 - name: nemo-speech-cpp-nemotron-3.5-asr-streaming
+  variants:
+    - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
@@ -65406,6 +65427,8 @@
       uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
 - name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
+  variants:
+    - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
