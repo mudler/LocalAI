@@ -1021,3 +1021,20 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+### Huihui Qwen3.8 27B quantizations
+
+The `huihui-qwen3.8-27b-abliterated` entry groups BF16, Q4_K, Q5_K, Q6_K,
+and Q8_0 builds for llama.cpp. Each build includes the BF16 vision projector
+and enables MTP speculative decoding. Q5_K and Q6_K provide intermediate
+quantizations between the existing Q4_K and Q8_0 builds.
+
+To select a build explicitly:
+
+```bash
+local-ai models install huihui-qwen3.8-27b-abliterated --variant huihui-qwen3.8-27b-abliterated-q5
+local-ai models install huihui-qwen3.8-27b-abliterated --variant huihui-qwen3.8-27b-abliterated-q6
+```
+
+See the [publisher's GGUF repository](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF)
+for model details and the Apache-2.0 license.

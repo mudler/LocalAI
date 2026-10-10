@@ -3405,6 +3405,8 @@
   name: huihui-qwen3.8-27b-abliterated
   variants:
     - model: huihui-qwen3.8-27b-abliterated-q4
+    - model: huihui-qwen3.8-27b-abliterated-q5
+    - model: huihui-qwen3.8-27b-abliterated-q6
     - model: huihui-qwen3.8-27b-abliterated-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -3413,8 +3415,8 @@
   description: |
     Huihui Qwen3.8 27B is an abliterated vision-language model published by
     huihui-ai. This BF16 GGUF build includes the shared BF16 vision projector
-    and enables MTP speculative decoding through llama.cpp. Q4_K and Q8_0
-    variants are available as smaller downloads.
+    and enables MTP speculative decoding through llama.cpp. Q4_K, Q5_K, Q6_K,
+    and Q8_0 variants are available as smaller downloads.
   license: apache-2.0
   tags:
     - llm
@@ -3487,6 +3489,78 @@
       sha256: 6c2c13cef89238c3604d756b07b3ef5fafebbd61095feb8553ff449c95e4c1c6
     - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
       uri: huggingface://huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/mmproj-model-bf16.gguf
+      sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
+- !!merge <<: *huihui-qwen3-8-27b
+  name: huihui-qwen3.8-27b-abliterated-q5
+  variants: []
+  description: |
+    Huihui Qwen3.8 27B in Q5_K GGUF format, with the shared BF16 vision
+    projector and MTP speculative decoding through llama.cpp.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/huihui-qwen3.8-27b-abliterated/Huihui-Qwen3.8-27B-abliterated-Q5_K.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/huihui-qwen3.8-27b-abliterated/Huihui-Qwen3.8-27B-abliterated-Q5_K.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/b146b417080fd3e0e842e9539e69921707360aae/Huihui-Qwen3.8-27B-abliterated-Q5_K.gguf
+      sha256: 917453854fc640903f89bda0b29eb7ea661cb13b9c5c9efd20a68f3ff2e9277f
+    - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/b146b417080fd3e0e842e9539e69921707360aae/mmproj-model-bf16.gguf
+      sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
+- !!merge <<: *huihui-qwen3-8-27b
+  name: huihui-qwen3.8-27b-abliterated-q6
+  variants: []
+  description: |
+    Huihui Qwen3.8 27B in Q6_K GGUF format, with the shared BF16 vision
+    projector and MTP speculative decoding through llama.cpp.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/huihui-qwen3.8-27b-abliterated/Huihui-Qwen3.8-27B-abliterated-Q6_K.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/huihui-qwen3.8-27b-abliterated/Huihui-Qwen3.8-27B-abliterated-Q6_K.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/b146b417080fd3e0e842e9539e69921707360aae/Huihui-Qwen3.8-27B-abliterated-Q6_K.gguf
+      sha256: a5c159519d7bdba523578977d649dbfc48f2e47277ec77edd77670003b5b2492
+    - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/b146b417080fd3e0e842e9539e69921707360aae/mmproj-model-bf16.gguf
       sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
 - !!merge <<: *huihui-qwen3-8-27b
   name: huihui-qwen3.8-27b-abliterated-q8
