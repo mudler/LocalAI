@@ -8,8 +8,9 @@
   description: |
     spark-s1-4b-v6 is a Qwen3.5-4B decision model (Open Spark Jev): given a state and a question with a fixed menu of options it
     returns a calibrated probability per option from the first-token logprobs of the option letters. It is not a chat model:
-    send the rendered prompt to /v1/completions with max_tokens 1 and logprobs 20, then softmax(logprob / 1.481) over the
-    option letters. Q8_0 GGUF (agrees with the bf16 model on 99.5% of held-out decisions).
+    send the rendered prompt to /v1/completions with max_tokens 1, logprobs true, and top_logprobs 20.
+    Check that every option letter appears in the returned probabilities. Then apply softmax(logprob / 1.481) over those letters.
+    Q8_0 GGUF (agrees with the bf16 model on 99.5% of held-out decisions).
   license: apache-2.0
   tags:
     - llm
