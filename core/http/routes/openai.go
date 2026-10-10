@@ -54,8 +54,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 		func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				if err := re.SetOpenAIRequest(c); err != nil {

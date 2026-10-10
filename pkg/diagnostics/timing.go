@@ -91,6 +91,18 @@ func observed(ctx context.Context) *observation {
 	return o
 }
 
+// HeaderDiagnosticID correlates an observed HTTP request with phase events.
+const HeaderDiagnosticID = "X-LocalAI-Diagnostic-ID"
+
+// RequestID returns the server-generated request UUID, or an empty string for
+// nil, unobserved, or background-operation contexts. It never creates an ID.
+func RequestID(ctx context.Context) string {
+	if o := observed(ctx); o != nil && o.kind == KindRequest {
+		return o.id
+	}
+	return ""
+}
+
 func (r *Recorder) Request(ctx context.Context) context.Context {
 	if r == nil {
 		return ctx

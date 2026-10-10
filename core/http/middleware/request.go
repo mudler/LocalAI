@@ -52,6 +52,7 @@ func (re *RequestExtractor) getRequestContext(c echo.Context) context.Context {
 	observed := re.applicationConfig.DiagnosticsRecorder.Request(ctx)
 	if observed != ctx {
 		c.SetRequest(c.Request().WithContext(observed))
+		c.Response().Header().Set(diagnostics.HeaderDiagnosticID, diagnostics.RequestID(observed))
 	}
 	return observed
 }
@@ -153,6 +154,17 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 // TODO: If context and cancel above belong on all methods, move that part of above into here!
 // Otherwise, it's in its own method below for now
 func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
+	return re.setModelAndConfig(initializer, nil)
+}
+
+// SetModelAndConfigWithDefault defers legacy model discovery until binding has
+// established that the request has no model. Binding stays inside each retry.
+func (re *RequestExtractor) SetModelAndConfigWithDefault(initializer func() schema.LocalAIRequest, filter config.ModelConfigFilterFn) echo.MiddlewareFunc {
+	fallback := re.BuildFilteredFirstAvailableDefaultModel(filter)(func(echo.Context) error { return nil })
+	return re.setModelAndConfig(initializer, fallback)
+}
+
+func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIRequest, fallback echo.HandlerFunc) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		retry := re.failoverRetry(func(c echo.Context) (err error) {
 			finish := re.beginExtraction(c)
@@ -163,6 +175,12 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			}
 			if err := c.Bind(input); err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+			}
+
+			if input.ModelName(nil) == "" && fallback != nil {
+				if err := fallback(c); err != nil {
+					return err
+				}
 			}
 
 			// If this request doesn't have an associated model name, fetch it from earlier in the middleware chain

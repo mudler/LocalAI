@@ -49,6 +49,137 @@ var _ = Describe("Diagnostics extraction", func() {
 		}
 		return out
 	}
+	It("skips chat fallback discovery for a bound model but retains body validation", func() {
+		e := echo.New()
+		e.POST("/", func(c echo.Context) error { return c.NoContent(204) },
+			re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, nil))
+		req := httptest.NewRequest("POST", "/", strings.NewReader(`{"model":"sentinel-model"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer not-a-model")
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(204))
+		Expect(ends(diagnostics.PhaseBearerLookup)).To(BeEmpty())
+		Expect(ends(diagnostics.PhaseDefaultListing)).To(BeEmpty())
+		Expect(ends(diagnostics.PhaseBodyLookup)).To(HaveLen(1))
+	})
+	It("preserves lazy fallback precedence and malformed JSON behavior", func() {
+		for _, tc := range []struct {
+			body, path, query, bearer, local string
+			listing, lookup, code            int
+		}{
+			{body: `{}`, listing: 1, code: 204},
+			{body: `{}`, bearer: "sentinel-model", lookup: 1, code: 204},
+			{body: `{}`, bearer: "not-a-model", lookup: 1, listing: 1, code: 204},
+			{body: `{}`, query: "?model=sentinel-model", bearer: "not-a-model", code: 204},
+			{body: `{}`, path: "sentinel-model", query: "?model=missing", code: 204},
+			{body: `{}`, local: "sentinel-model", path: "missing", code: 204},
+			{body: `{"model":"sentinel-model"}`, bearer: "missing", local: "missing", code: 204},
+			{body: `{`, bearer: "sentinel-model", code: 400},
+			{body: `{"model":"missing"}`, bearer: "sentinel-model", code: 404},
+		} {
+			events = nil
+			e := echo.New()
+			r := httptest.NewRequest("POST", "/"+tc.query, strings.NewReader(tc.body))
+			r.Header.Set("Content-Type", "application/json")
+			if tc.bearer != "" {
+				r.Header.Set("Authorization", "Bearer "+tc.bearer)
+			}
+			w := httptest.NewRecorder()
+			c := e.NewContext(r, w)
+			c.SetParamNames("model")
+			c.SetParamValues(tc.path)
+			c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, tc.local)
+			h := re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, nil)(func(c echo.Context) error {
+				Expect(c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest).Model).To(Equal("sentinel-model"))
+				return c.NoContent(204)
+			})
+			if err := h(c); err != nil {
+				e.HTTPErrorHandler(err, c)
+			}
+			Expect(w.Code).To(Equal(tc.code))
+			Expect(ends(diagnostics.PhaseDefaultListing)).To(HaveLen(tc.listing))
+			Expect(ends(diagnostics.PhaseBearerLookup)).To(HaveLen(tc.lookup))
+		}
+	})
+	It("retains alias, disabled, regex existence, and form behavior on the lazy path", func() {
+		disabled := true
+		a := config.ModelConfig{Name: "alias", Alias: "sentinel-model"}
+		d := config.ModelConfig{Name: "disabled", Disabled: &disabled}
+		d.Model = d.Name
+		target := config.ModelConfig{Name: "sentinel-model"}
+		target.Model = target.Name
+		bcl.ReplaceModelConfigs([]config.ModelConfig{target, a, d})
+		// Run the unchanged eager API as the compatibility reference as well.
+		for _, lazy := range []bool{false, true} {
+			for _, tc := range []struct {
+				body, contentType, served string
+				code                      int
+			}{
+				{`{"model":"alias"}`, "application/json", "sentinel-model", 204},
+				{`{"model":"disabled"}`, "application/json", "", 403},
+				{`{"model":"sentinel-.*"}`, "application/json", "", 204},
+				{"model=sentinel-model", "application/x-www-form-urlencoded", "sentinel-model", 204},
+			} {
+				events = nil
+				e := echo.New()
+				chain := []echo.MiddlewareFunc{re.BuildFilteredFirstAvailableDefaultModel(nil), re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) })}
+				if lazy {
+					chain = []echo.MiddlewareFunc{re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, nil)}
+				}
+				e.POST("/", func(c echo.Context) error {
+					Expect(c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig).Name).To(Equal(tc.served))
+					return c.NoContent(204)
+				}, chain...)
+				r := httptest.NewRequest("POST", "/", strings.NewReader(tc.body))
+				r.Header.Set("Content-Type", tc.contentType)
+				r.Header.Set("Authorization", "Bearer missing")
+				w := httptest.NewRecorder()
+				e.ServeHTTP(w, r)
+				Expect(w.Code).To(Equal(tc.code))
+				if lazy {
+					Expect(ends(diagnostics.PhaseBearerLookup)).To(BeEmpty())
+					Expect(ends(diagnostics.PhaseDefaultListing)).To(BeEmpty())
+				}
+			}
+		}
+	})
+
+	It("sets the same ID before a streaming flush and emits no header when disabled", func() {
+		recorder := ac.DiagnosticsRecorder
+		for _, enabled := range []bool{false, true} {
+			ac.DiagnosticsRecorder = nil
+			if enabled {
+				ac.DiagnosticsRecorder = recorder
+			}
+			e := echo.New()
+			e.POST("/", func(c echo.Context) error {
+				id := diagnostics.RequestID(c.Request().Context())
+				Expect(c.Response().Header().Get(diagnostics.HeaderDiagnosticID)).To(Equal(id))
+				Expect(id != "").To(Equal(enabled))
+				c.Response().WriteHeader(200)
+				c.Response().Flush()
+				return nil
+			}, re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, nil))
+			Expect(postJSON(e, "/", `{"model":"sentinel-model"}`).Code).To(Equal(200))
+		}
+	})
+
+	It("exposes the diagnostic UUID before early errors and ignores client spoofing", func() {
+		e := echo.New()
+		e.POST("/", func(c echo.Context) error { return c.NoContent(204) },
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
+		req := httptest.NewRequest("POST", "/", strings.NewReader(`{`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-LocalAI-Diagnostic-ID", "spoof")
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(400))
+		Expect(events).NotTo(BeEmpty())
+		Expect(rec.Header().Get("X-LocalAI-Diagnostic-ID")).To(Equal(events[0].ID))
+		Expect(events[0].ID).NotTo(Equal("spoof"))
+	})
+
 	It("preserves anonymous default, JSON, bearer and query selection with timing off and on", func() {
 		for _, tc := range []struct {
 			body, query, bearer string
@@ -174,10 +305,11 @@ var _ = Describe("Diagnostics extraction", func() {
 				}
 				diagnostics.Mark(c.Request().Context(), diagnostics.PhaseModelInit)
 				if cfg.Name == primary.Name {
+					input.Prompt = "mutated"
 					return echo.ErrBadGateway
 				}
 				return c.String(http.StatusOK, cfg.Name)
-			}, re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
+			}, re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, nil))
 			response := postJSON(e, "/", `{"model":"sentinel-chain","prompt":"sentinel-prompt"}`)
 			Expect(attempts).To(Equal([]string{primary.Name, fallback.Name}))
 			Expect(response.Code).To(Equal(http.StatusOK))
@@ -186,10 +318,12 @@ var _ = Describe("Diagnostics extraction", func() {
 			Expect(response.Header().Get(HeaderFailover)).To(Equal("fallback"))
 			if !enabled {
 				Expect(events).To(BeEmpty())
+				Expect(response.Header().Get(diagnostics.HeaderDiagnosticID)).To(BeEmpty())
 				continue
 			}
 			Expect(ends(diagnostics.PhaseExtraction)).To(HaveLen(2))
 			id := events[0].ID
+			Expect(response.Header().Get(diagnostics.HeaderDiagnosticID)).To(Equal(id))
 			_, err := uuid.Parse(id)
 			Expect(err).NotTo(HaveOccurred())
 			for _, event := range events {
