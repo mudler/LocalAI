@@ -140,7 +140,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 // Otherwise, it's in its own method below for now
 func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return re.failoverRetry(func(c echo.Context) (err error) {
+		retry := re.failoverRetry(func(c echo.Context) (err error) {
 			finish := re.beginExtraction(c)
 			defer func() { finish(err) }()
 			input := initializer()
@@ -256,6 +256,12 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			finish(nil)
 			return next(c)
 		})
+		return func(c echo.Context) error {
+			// Retries restore the entry request, so attach its observation before
+			// failover captures it. Extraction spans remain per attempt above.
+			re.diagnosticContext(c)
+			return retry(c)
+		}
 	}
 }
 

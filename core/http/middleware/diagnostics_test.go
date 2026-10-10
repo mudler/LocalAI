@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -135,6 +136,67 @@ var _ = Describe("Diagnostics extraction", func() {
 			if strings.Contains(tc.body, "alias") {
 				Expect(ends(diagnostics.PhaseAliasResolution)[0].Outcome).To(Equal(diagnostics.OutcomeError))
 			}
+		}
+	})
+	It("retains one identity across real failover attempts without default middleware", func() {
+		primary := config.ModelConfig{Name: "sentinel-primary"}
+		primary.Model = primary.Name
+		fallback := config.ModelConfig{Name: "sentinel-fallback"}
+		fallback.Model = fallback.Name
+		chain := config.ModelConfig{Name: "sentinel-chain", Failover: &config.FailoverConfig{
+			Targets: []config.FailoverTarget{{Model: primary.Name}, {Model: fallback.Name}},
+		}}
+		bcl.ReplaceModelConfigs([]config.ModelConfig{primary, fallback, chain})
+		recorder := ac.DiagnosticsRecorder
+		for _, enabled := range []bool{false, true} {
+			events = nil
+			ac.DiagnosticsRecorder = nil
+			if enabled {
+				ac.DiagnosticsRecorder = recorder
+			}
+			manager := failover.New(bcl)
+			manager.Sync()
+			re.SetFailoverManager(manager)
+			var attempts []string
+			e := echo.New()
+			e.POST("/", func(c echo.Context) error {
+				cfg := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+				attempts = append(attempts, cfg.Name)
+				input := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+				Expect(input.Model).To(Equal(chain.Name))
+				Expect(input.Prompt).To(Equal("sentinel-prompt"))
+				if enabled {
+					Expect(ends(diagnostics.PhaseExtraction)).To(HaveLen(len(attempts)))
+					last := events[len(events)-1]
+					Expect(last.Phase).To(Equal(diagnostics.PhaseExtraction))
+					Expect(last.State).To(Equal(diagnostics.StateEnd))
+					Expect(last.Outcome).To(Equal(diagnostics.OutcomeOK))
+				}
+				diagnostics.Mark(c.Request().Context(), diagnostics.PhaseModelInit)
+				if cfg.Name == primary.Name {
+					return echo.ErrBadGateway
+				}
+				return c.String(http.StatusOK, cfg.Name)
+			}, re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
+			response := postJSON(e, "/", `{"model":"sentinel-chain","prompt":"sentinel-prompt"}`)
+			Expect(attempts).To(Equal([]string{primary.Name, fallback.Name}))
+			Expect(response.Code).To(Equal(http.StatusOK))
+			Expect(response.Body.String()).To(Equal(fallback.Name))
+			Expect(response.Header().Get(HeaderServedModel)).To(Equal(fallback.Name))
+			Expect(response.Header().Get(HeaderFailover)).To(Equal("fallback"))
+			if !enabled {
+				Expect(events).To(BeEmpty())
+				continue
+			}
+			Expect(ends(diagnostics.PhaseExtraction)).To(HaveLen(2))
+			id := events[0].ID
+			_, err := uuid.Parse(id)
+			Expect(err).NotTo(HaveOccurred())
+			for _, event := range events {
+				Expect(event.ID).To(Equal(id))
+				Expect(event.Kind).To(Equal(diagnostics.KindRequest))
+			}
+			Expect(fmt.Sprint(events)).NotTo(ContainSubstring("sentinel"))
 		}
 	})
 	It("retains identity across repeated segments and records cancellation before downstream", func() {
