@@ -13980,6 +13980,100 @@
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
       sha256: 7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578
+- name: gemma-4-e4b-heretic-q4
+  variants:
+    - model: gemma-4-e4b-heretic-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic
+    - https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  description: |
+    Gemma 4 E4B Heretic is llmfan46's abliterated version of Gemma 4 E4B IT.
+    This entry uses the Q4_K_M GGUF and BF16 vision projector for chat
+    and image input, with a 32,768-token context by default.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-heretic/gemma-4-E4B-it-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-heretic/gemma-4-E4B-it-ultra-uncensored-heretic-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-heretic/gemma-4-E4B-it-ultra-uncensored-heretic-Q4_K_M.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF/resolve/1465f37b7dbd15e91241ae78ffebecb9f25e15de/gemma-4-E4B-it-ultra-uncensored-heretic-Q4_K_M.gguf
+      sha256: f9dbbe3bdf396f65aec4e801516a1b868a510d96225417a8aa06763e3c5b97dc
+    - filename: llama-cpp/mmproj/gemma-4-e4b-heretic/gemma-4-E4B-it-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF/resolve/1465f37b7dbd15e91241ae78ffebecb9f25e15de/gemma-4-E4B-it-mmproj-BF16.gguf
+      sha256: ffa64aebf7144bbadd5a1e143b77794d88e76a81cc0168d91de0770eb49e88e0
+- name: gemma-4-e4b-heretic-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic
+    - https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  description: |
+    Gemma 4 E4B Heretic is llmfan46's abliterated version of Gemma 4 E4B IT.
+    This entry uses the Q8_0 GGUF and BF16 vision projector for chat
+    and image input, with a 32,768-token context by default.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-heretic/gemma-4-E4B-it-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-heretic/gemma-4-E4B-it-ultra-uncensored-heretic-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-heretic/gemma-4-E4B-it-ultra-uncensored-heretic-Q8_0.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF/resolve/1465f37b7dbd15e91241ae78ffebecb9f25e15de/gemma-4-E4B-it-ultra-uncensored-heretic-Q8_0.gguf
+      sha256: c1543610bcceeba8f51bd7cf38f373d2a002265f8873149aecae8a200b8fe4ba
+    - filename: llama-cpp/mmproj/gemma-4-e4b-heretic/gemma-4-E4B-it-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic-GGUF/resolve/1465f37b7dbd15e91241ae78ffebecb9f25e15de/gemma-4-E4B-it-mmproj-BF16.gguf
+      sha256: ffa64aebf7144bbadd5a1e143b77794d88e76a81cc0168d91de0770eb49e88e0
 - name: gemma-4-e4b-hauhaucs-aggressive-q4
   variants:
     - model: gemma-4-e4b-hauhaucs-aggressive-q5

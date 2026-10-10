@@ -158,6 +158,25 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## Gemma 4 E4B Heretic
+
+[Gemma 4 E4B Heretic](https://huggingface.co/llmfan46/gemma-4-E4B-it-ultra-uncensored-heretic)
+is an abliterated version of Gemma 4 E4B IT. The gallery includes Q4_K_M and Q8_0
+GGUF builds for llama.cpp. Both include the BF16 vision projector for image input
+and use the embedded chat template with a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install gemma-4-e4b-heretic-q4
+```
+
+To select the Q8_0 build explicitly:
+
+```bash
+local-ai models install --variant gemma-4-e4b-heretic-q8 gemma-4-e4b-heretic-q4
+```
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
