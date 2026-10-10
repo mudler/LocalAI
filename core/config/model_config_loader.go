@@ -1016,8 +1016,6 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 	} else {
 		lateTiming = bcl.timings(loadOptions.diagnosticsRecorder.Reload(context.Background()))
 	}
-	// Defaults consume resolved values, not arbitrary caller callbacks again.
-	resolvedOptions := func(o *LoadOptions) { *o = *loadOptions }
 	for _, file := range files {
 		// Only load real YAML config files and ignore dotfiles or backup variants
 		ext := strings.ToLower(filepath.Ext(file.Name()))
@@ -1050,7 +1048,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		}
 
 		// Read config(s) - handles both single and array formats
-		configs, err := readModelConfigsFromFileMeasured(filePath, lateTiming, resolvedOptions)
+		configs, err := readModelConfigsFromFileMeasured(filePath, lateTiming, opts...)
 		if err != nil {
 			if strict {
 				return err

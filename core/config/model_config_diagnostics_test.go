@@ -17,6 +17,34 @@ import (
 )
 
 var _ = Describe("Diagnostics config loader", func() {
+	DescribeTable("preserves stateful caller options for each model's defaults",
+		func(enabled bool) {
+			dir := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(dir, "models.yaml"), []byte("- name: a\n- name: b\n"), 0600)).To(Succeed())
+			var events []diagnostics.Event
+			var recorder *diagnostics.Recorder
+			if enabled {
+				recorder = diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
+			}
+			b := NewModelConfigLoader(dir, WithReloadDiagnostics(recorder))
+			calls := 0
+			Expect(b.LoadModelConfigsFromPath(dir, func(o *LoadOptions) {
+				calls++
+				LoadOptionThreads(calls)(o)
+			}, LoadOptionDiagnostics(recorder))).To(Succeed())
+			Expect(calls).To(Equal(3))
+			Expect(*b.configs["a"].Threads).To(Equal(2))
+			Expect(*b.configs["b"].Threads).To(Equal(3))
+			if enabled {
+				Expect(events).NotTo(BeEmpty())
+			} else {
+				Expect(events).To(BeEmpty())
+			}
+		},
+		Entry("with diagnostics enabled", true),
+		Entry("with diagnostics disabled", false),
+	)
+
 	It("uses explicit startup timing for early failures and preserves identity across late selection", func() {
 		for _, mode := range []string{"same", "nil", "different", "failure"} {
 			dir := GinkgoT().TempDir()
@@ -46,7 +74,7 @@ var _ = Describe("Diagnostics config loader", func() {
 				Expect(early[1].Outcome).To(Equal(diagnostics.OutcomeError))
 			} else {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(calls).To(Equal(1))
+				Expect(calls).To(Equal(2))
 				if mode == "same" {
 					Expect(early).To(HaveLen(6))
 				} else {
@@ -64,7 +92,7 @@ var _ = Describe("Diagnostics config loader", func() {
 		}
 	})
 
-	It("honors composed diagnostics options and last writes after metadata exactly once", func() {
+	It("honors composed diagnostics options and last writes at each original application site", func() {
 		for _, enabled := range []bool{true, false} {
 			dir := GinkgoT().TempDir()
 			Expect(os.WriteFile(filepath.Join(dir, "a.yaml"), []byte("name: a\nbackend: llama-cpp\n"), 0600)).To(Succeed())
@@ -91,7 +119,10 @@ var _ = Describe("Diagnostics config loader", func() {
 			var last *diagnostics.Recorder
 			if enabled {
 				b.diagnosticsNow = func() time.Time {
-					Expect(order).To(Equal([]string{"enumerate", "metadata", "first", "last"}))
+					Expect(order).To(Or(
+						Equal([]string{"enumerate", "metadata", "first", "last"}),
+						Equal([]string{"enumerate", "metadata", "first", "last", "first", "last"}),
+					))
 					return time.Now()
 				}
 				last = r
@@ -99,7 +130,7 @@ var _ = Describe("Diagnostics config loader", func() {
 				b.diagnosticsNow = func() time.Time { Fail("disabled clock read"); return time.Time{} }
 			}
 			Expect(b.LoadModelConfigsFromPath(dir, LoadOptionDiagnostics(r), wrap("first", LoadOptionDiagnostics(nil)), wrap("last", LoadOptionDiagnostics(last)))).To(Succeed())
-			Expect(order).To(Equal([]string{"enumerate", "metadata", "first", "last"}))
+			Expect(order).To(Equal([]string{"enumerate", "metadata", "first", "last", "first", "last"}))
 			if enabled {
 				Expect(events).To(HaveLen(2))
 				Expect(events[0].Phase).To(Equal(diagnostics.PhaseReloadYAMLRead))
