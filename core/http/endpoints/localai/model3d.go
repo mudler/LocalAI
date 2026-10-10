@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/pixal3d"
 
 	"github.com/mudler/xlog"
 
@@ -53,7 +54,17 @@ func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 			return echo.ErrBadRequest
 		}
 
-		if input.Image == "" {
+		isPixal := config.Backend == "pixal3dcpp"
+		if isPixal {
+			if err := pixal3d.ValidateRequest(input.Image, input.Images, input.MeshScale, input.Quality, input.Background); err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+			if input.Step != 0 || input.CFGScale != 0 || input.TextureSteps != 0 || input.Seed != 0 || len(input.Params) != 0 {
+				return echo.NewHTTPError(http.StatusBadRequest, "Pixal3D supports images, mesh_scale and quality 1024; sampling overrides and params are not supported")
+			}
+		} else if len(input.Images) != 0 || input.MeshScale != 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "images and mesh_scale require the pixal3dcpp backend")
+		} else if input.Image == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "image is required: 3D generation is image-conditioned")
 		}
 		// Reject unknown enum values here rather than surfacing an opaque
@@ -65,11 +76,38 @@ func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid background %q: must be one of auto, keep, black, white", input.Background))
 		}
 
-		src, err := stageVideoMediaWithLimit(c.Request().Context(), appConfig.GeneratedContentDir, input.Image, max3DInputBytes)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid image: %v", err))
+		var src string
+		var images []string
+		var err error
+		defer func() {
+			if src != "" {
+				_ = os.Remove(src)
+			}
+			for _, path := range images {
+				_ = os.Remove(path)
+			}
+		}()
+		if isPixal {
+			for i, view := range input.Images {
+				path, stageErr := stageVideoMediaWithLimit(c.Request().Context(), appConfig.GeneratedContentDir, view, max3DInputBytes)
+				if stageErr != nil {
+					return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid view %d: %v", i, stageErr))
+				}
+				images = append(images, path)
+				data, readErr := os.ReadFile(path) // #nosec G304 -- stageVideoMediaWithLimit returns a server-created temporary file
+				if readErr != nil {
+					return readErr
+				}
+				if err := pixal3d.ValidatePNG(data); err != nil {
+					return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid view %d: %v", i, err))
+				}
+			}
+		} else {
+			src, err = stageVideoMediaWithLimit(c.Request().Context(), appConfig.GeneratedContentDir, input.Image, max3DInputBytes)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid image: %v", err))
+			}
 		}
-		defer func() { _ = os.Remove(src) }()
 
 		xlog.Debug("Parameter Config", "config", config)
 
@@ -78,11 +116,11 @@ func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 		}
 
 		step := input.Step
-		if step == 0 && config.Step != 0 {
+		if !isPixal && step == 0 && config.Step != 0 {
 			step = int32(config.Step)
 		}
 		cfgScale := input.CFGScale
-		if cfgScale == 0 && config.CFGScale != 0 {
+		if !isPixal && cfgScale == 0 && config.CFGScale != 0 {
 			cfgScale = config.CFGScale
 		}
 
@@ -133,6 +171,8 @@ func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 		fn, err := backend.Model3DGeneration(
 			backend.Model3DGenerationOptions{
 				Image:        src,
+				Images:       images,
+				MeshScale:    input.MeshScale,
 				Destination:  output,
 				Seed:         input.Seed,
 				Step:         step,

@@ -188,14 +188,14 @@ const always = () => true;
 //   go list -deps ./backend/go/... | grep LocalAI/pkg
 //
 // returns exactly pkg/audio, pkg/grpc (+ base, grpcerrors, proto), pkg/httpclient,
-// pkg/sound, pkg/store and pkg/utils — identical for GOOS/GOARCH in
+// pkg/pixal3d, pkg/sound, pkg/store and pkg/utils — identical for GOOS/GOARCH in
 // {linux,darwin} x {amd64,arm64}, so one list covers both matrices. Notably
 // absent: pkg/model, pkg/downloader, pkg/functions and the other ~21 pkg
 // subtrees, which are core-server-only.
 //
 // Enumerating rather than taking all of pkg/ is the whole point. All of pkg/
 // changes in ~8.6% of commits and would fire a 199-entry Go matrix that often;
-// these six subtrees change in 2.0%, which is the same order as the already
+// the original six subtrees changed in 2.0%, the same order as the already
 // accepted scripts/build/ rule (1.9%). If the enumeration ever drifts from the
 // `go list` output the tests pin both directions — a listed subtree must
 // trigger, an unlisted one must not.
@@ -203,6 +203,7 @@ const GO_BACKEND_PKG_PREFIXES = [
   "pkg/audio/",
   "pkg/grpc/", // covers base/, grpcerrors/ and the generated proto/
   "pkg/httpclient/",
+  "pkg/pixal3d/",
   "pkg/sound/",
   "pkg/store/",
   "pkg/utils/",
