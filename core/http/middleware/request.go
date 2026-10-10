@@ -42,13 +42,27 @@ func NewRequestExtractor(modelConfigLoader *config.ModelConfigLoader, modelLoade
 	}
 }
 
+// getRequestContext returns the request context, adding optional diagnostics
+// once and retaining them on the request for subsequent middleware and retries.
+func (re *RequestExtractor) getRequestContext(c echo.Context) context.Context {
+	ctx := c.Request().Context()
+	if re.applicationConfig == nil || re.applicationConfig.DiagnosticsRecorder == nil {
+		return ctx
+	}
+	observed := re.applicationConfig.DiagnosticsRecorder.Request(ctx)
+	if observed != ctx {
+		c.SetRequest(c.Request().WithContext(observed))
+	}
+	return observed
+}
+
 const CONTEXT_LOCALS_KEY_MODEL_NAME = "MODEL_NAME"
 const CONTEXT_LOCALS_KEY_LOCALAI_REQUEST = "LOCALAI_REQUEST"
 const CONTEXT_LOCALS_KEY_MODEL_CONFIG = "MODEL_CONFIG"
 
 // TODO: Refactor to not return error if unchanged
 func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
-	ctx := re.diagnosticContext(c)
+	ctx := re.getRequestContext(c)
 	model, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 	if ok && model != "" {
 		return
@@ -259,7 +273,7 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 		return func(c echo.Context) error {
 			// Retries restore the entry request, so attach its observation before
 			// failover captures it. Extraction spans remain per attempt above.
-			re.diagnosticContext(c)
+			re.getRequestContext(c)
 			return retry(c)
 		}
 	}
@@ -287,7 +301,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) (err error) {
 
 	// Use the request context directly - Echo properly supports context cancellation!
 	// No need for workarounds like handleConnectionCancellation
-	reqCtx := re.diagnosticContext(c)
+	reqCtx := re.getRequestContext(c)
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 
 	// Cancel when request context is cancelled (client disconnects)
@@ -756,7 +770,7 @@ func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) (err error) 
 	c.Response().Header().Set("x-request-id", correlationID)
 
 	// Use the request context directly - Echo properly supports context cancellation!
-	reqCtx := re.diagnosticContext(c)
+	reqCtx := re.getRequestContext(c)
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 
 	// Cancel when request context is cancelled (client disconnects)

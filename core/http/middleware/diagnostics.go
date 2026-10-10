@@ -8,18 +8,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 )
 
-func (re *RequestExtractor) diagnosticContext(c echo.Context) context.Context {
-	ctx := c.Request().Context()
-	if re.applicationConfig == nil || re.applicationConfig.DiagnosticsRecorder == nil {
-		return ctx
-	}
-	observed := re.applicationConfig.DiagnosticsRecorder.Request(ctx)
-	if observed != ctx {
-		c.SetRequest(c.Request().WithContext(observed))
-	}
-	return observed
-}
-
 func diagnosticOutcome(ctx context.Context, failed bool) diagnostics.Outcome {
 	if ctx.Err() != nil {
 		return diagnostics.OutcomeCanceled
@@ -36,7 +24,7 @@ func diagnosticOutcome(ctx context.Context, failed bool) diagnostics.Outcome {
 func noopExtractionEnd(error) {}
 
 func (re *RequestExtractor) beginExtraction(c echo.Context) func(error) {
-	ctx := re.diagnosticContext(c)
+	ctx := re.getRequestContext(c)
 	if !diagnostics.Enabled(ctx) {
 		return noopExtractionEnd
 	}
