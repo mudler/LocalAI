@@ -1,7 +1,9 @@
 package galleryop
 
 import (
+	"context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -14,7 +16,22 @@ const (
 	ALWAYS_INCLUDE
 )
 
+// discoveryFiles is a call-local seam for verifying discovery operation counts.
+type discoveryFiles interface {
+	ListFilesInModelPathContext(context.Context) ([]string, error)
+	ExistsInModelPath(string) bool
+}
+
 func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
+	return ListModelsContext(context.Background(), bcl, ml, filter, looseFilePolicy)
+}
+
+// ListModelsContext carries diagnostics through config and loose-file discovery.
+func ListModelsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
+	return listModelsContext(ctx, bcl, ml, filter, looseFilePolicy)
+}
+
+func listModelsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml discoveryFiles, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
 
 	// Callers (e.g. the Ollama /api/tags handler) pass nil to mean "no
 	// filtering". Without this guard the loose-file loop below dereferences
@@ -30,7 +47,9 @@ func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter con
 
 	// Start with known configurations
 
-	for _, c := range bcl.GetModelConfigsByFilter(filter) {
+	configs := bcl.GetModelConfigsByFilterContext(ctx, filter)
+	end := diagnostics.Begin(ctx, diagnostics.PhaseLooseFilter)
+	for _, c := range configs {
 		// Is this better than looseFilePolicy <= SKIP_IF_CONFIGURED ? less performant but more readable?
 		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
 			skipMap[c.Model] = struct{}{}
@@ -40,30 +59,43 @@ func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter con
 		}
 	}
 
+	end(diagnostics.OutcomeOK, len(configs))
+
 	// Then iterate through the loose files if requested.
 	if looseFilePolicy != SKIP_ALWAYS {
 
-		models, err := ml.ListFilesInModelPath()
+		models, err := ml.ListFilesInModelPathContext(ctx)
 		if err != nil {
 			return nil, err
 		}
+		end = diagnostics.Begin(ctx, diagnostics.PhaseLooseFilter)
 		for _, m := range models {
 			// And only adds them if they shouldn't be skipped.
 			if _, exists := skipMap[m]; !exists && filter(m, nil) {
 				dataModels = append(dataModels, m)
 			}
 		}
+		end(diagnostics.OutcomeOK, len(models))
 	}
 
 	return dataModels, nil
 }
 
 func CheckIfModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
+	return CheckIfModelExistsContext(context.Background(), bcl, ml, modelName, looseFilePolicy)
+}
+
+// CheckIfModelExistsContext observes the existing lookup and weight-file fallback.
+func CheckIfModelExistsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
+	return checkIfModelExistsContext(ctx, bcl, ml, modelName, looseFilePolicy)
+}
+
+func checkIfModelExistsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml discoveryFiles, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
 	filter, err := config.BuildNameFilterFn(modelName)
 	if err != nil {
 		return false, err
 	}
-	models, err := ListModels(bcl, ml, filter, looseFilePolicy)
+	models, err := listModelsContext(ctx, bcl, ml, filter, looseFilePolicy)
 	if err != nil {
 		return false, err
 	}
@@ -74,7 +106,11 @@ func CheckIfModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, mo
 	// ListModels may not find raw model weight files (e.g. .ggml, .gguf)
 	// because ListFilesInModelPath skips known weight-file extensions.
 	// Fall back to checking if the file exists directly in the model path.
-	if ml.ExistsInModelPath(modelName) {
+	end := diagnostics.Begin(ctx, diagnostics.PhaseExistenceFallback)
+	exists := ml.ExistsInModelPath(modelName)
+	// ExistsInModelPath exposes only a boolean, not an underlying filesystem error.
+	end(diagnostics.OutcomeOK, 1)
+	if exists {
 		return true, nil
 	}
 

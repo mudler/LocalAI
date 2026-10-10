@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -14,6 +15,9 @@ import (
 )
 
 type ApplicationConfig struct {
+	// DiagnosticsRecorder is startup-only and local to this frontend process.
+	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
+
 	// ProxyAPIKeyEnvLookup resolves upstream credentials at the CLI boundary.
 	ProxyAPIKeyEnvLookup func(string) string `json:"-" yaml:"-"`
 
@@ -1158,6 +1162,9 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
 		LoadOptionGalleryFiles(o.Galleries...),
+		// Select later YAML/default phases; early phases use WithReloadDiagnostics
+		// at loader construction so callbacks retain their original execution point.
+		LoadOptionDiagnostics(o.DiagnosticsRecorder),
 	}
 }
 
@@ -1232,4 +1239,9 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 // WithRouterDecisionLog retains routing decisions independently of billing stats.
 func WithRouterDecisionLog(enabled bool) AppOption {
 	return func(o *ApplicationConfig) { o.RouterDecisionLog = enabled }
+}
+
+// WithDiagnosticsRecorder installs the optional startup-only timing recorder.
+func WithDiagnosticsRecorder(r *diagnostics.Recorder) AppOption {
+	return func(o *ApplicationConfig) { o.DiagnosticsRecorder = r }
 }

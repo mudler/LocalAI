@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -30,6 +33,12 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
 	NoColor   string   `env:"NO_COLOR" hidden:""`
@@ -244,12 +253,17 @@ func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
 	return d, nil
 }
 
-func (r *RunCMD) Run(ctx *cliContext.Context) error {
+func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	warnDeprecatedFlags()
 
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
+	}
+
+	diagnosticOpts := r.diagnosticsOptions()
+	if err := diagnosticOpts.Validate(); err != nil {
+		return err
 	}
 
 	if ctx.CredentialsFile == "" {
@@ -293,9 +307,14 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	// CLI context holds configuration, not a cancellation context.
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+	if !r.PreloadBackendOnly {
+		defer cancelRun(nil)
+	}
 	opts := []config.AppOption{
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
-		config.WithContext(context.Background()),
+		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
@@ -789,9 +808,59 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	var stopProfiler func() error
+	if diagnosticOpts.Pprof {
+		profiler, err := diagnostics.Start(diagnosticOpts)
+		if err != nil {
+			return err
+		}
+		monitorDone := make(chan struct{})
+		var profilerErr error
+		go func() {
+			defer close(monitorDone)
+			if err := <-profiler.Errors(); err != nil {
+				profilerErr = err
+				cancelRun(err)
+			}
+		}()
+		stopProfiler = func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := profiler.Shutdown(shutdownCtx)
+			<-monitorDone
+			return errors.Join(err, profilerErr)
+		}
+		defer func() {
+			result = errors.Join(result, stopProfiler())
+		}()
+		// Signals exit the process without running defers. Register private
+		// cleanup before application cleanup, which has no bounded shutdown.
+		signals.RegisterGracefulTerminationHandler(func() {
+			cancelRun(nil)
+			if err := stopProfiler(); err != nil {
+				xlog.Error("error while shutting down profiler", "error", err)
+			}
+		})
+	}
+	if diagnosticOpts.RequestPhaseTiming {
+		opts = append(opts, config.WithDiagnosticsRecorder(diagnostics.NewRecorder(diagnostics.LogEvent)))
+	}
+
 	app, err := application.New(opts...)
 	if err != nil {
 		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	defer func() {
+		cancelRun(nil)
+		if stopProfiler != nil {
+			// Release the bounded private resource even if app.Shutdown blocks.
+			_ = stopProfiler()
+		}
+		result = errors.Join(result, app.Shutdown())
+	}()
+	if err := runCtx.Err(); err != nil {
+		return context.Cause(runCtx)
 	}
 
 	// Refuse to bind a public-internet address without authentication unless
@@ -830,6 +899,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
+		cancelRun(nil)
 		if err := app.Shutdown(); err != nil {
 			xlog.Error("error while shutting down application", "error", err)
 		}
@@ -840,10 +910,33 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	// collection initialization.
 	go func() {
 		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
-		app.StartAgentPool()
+		if runCtx.Err() == nil {
+			app.StartAgentPool()
+		}
 	}()
 
-	return appHTTP.Start(listenAddress)
+	if !diagnosticOpts.Pprof {
+		return appHTTP.Start(listenAddress)
+	}
+	served := make(chan error, 1)
+	go func() { served <- appHTTP.Start(listenAddress) }()
+	select {
+	case err := <-served:
+		return errors.Join(err, context.Cause(runCtx))
+	case <-runCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownErr := appHTTP.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, appHTTP.Close())
+		}
+		serveErr := <-served
+		// Only intentional shutdown makes ErrServerClosed an expected result.
+		if errors.Is(serveErr, nethttp.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
+	}
 }
 
 // waitForServerReady polls the given address until the HTTP server is

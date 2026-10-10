@@ -23,6 +23,33 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 | `--credentials-file` | | YAML file with credentials for private registries, galleries and download hosts. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) | `$LOCALAI_CREDENTIALS_FILE` |
 | `--debug` | `false` | **DEPRECATED** - Use `--log-level=debug` instead. Enable debug logging | `$LOCALAI_DEBUG`, `$DEBUG` |
 
+## Diagnostics flags
+
+See [Profiling and request diagnostics]({{% relref "features/diagnostics" %}}) for sampling semantics, phase boundaries, and protected pod captures.
+
+These options apply only to `local-ai run`, including distributed frontends.
+Diagnostics state is per-instance, not shared between replicas. Debug logging enables neither feature.
+The profiling listener is separate from the public API and accepts only numeric loopback addresses with explicit ports.
+`--preload-backend-only` validates these options but does not start profiling or sampling.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--pprof` | `false` | Enable the private loopback profiling listener | `$LOCALAI_PPROF` |
+| `--pprof-address` | `127.0.0.1:6060` | Numeric loopback IP and port (1–65535), including bracketed IPv6; validated even when disabled | `$LOCALAI_PPROF_ADDRESS` |
+| `--pprof-mutex-profile-fraction` | `0` | Nonnegative mutex sampling fraction; nonzero requires pprof | `$LOCALAI_PPROF_MUTEX_PROFILE_FRACTION` |
+| `--pprof-block-profile-rate` | `0` | Nonnegative block sampling rate in nanoseconds; nonzero requires pprof | `$LOCALAI_PPROF_BLOCK_PROFILE_RATE` |
+| `--request-phase-timing` | `false` | Emit sanitized phase timing at Info, independently of pprof; warn/error filtering suppresses events | `$LOCALAI_REQUEST_PHASE_TIMING` |
+
+Sampling adds overhead. The process applies configured rates once and resets them to zero on shutdown.
+There is no runtime toggle, continuous capture, or public API route for diagnostics.
+The private listener has no authentication: other processes in the same network namespace can access profiles.
+Profiles can contain secrets; protect captured files. The `/debug/pprof/cmdline` endpoint is unavailable.
+Shutdown allows five seconds for cleanup, then force-closes profiling connections.
+Existing application initialization operations may not promptly observe cancellation.
+The signal callback still returns after its cleanup budget expires.
+If initialization fails without returning an application handle, this lifecycle cannot shut down resources created inside that failed initialization.
+Application shutdown has no context parameter; work that ignores cancellation can outlive the cleanup budget.
+
 ## Storage Flags
 
 | Parameter | Default | Description | Environment Variable |

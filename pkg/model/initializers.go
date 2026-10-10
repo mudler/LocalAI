@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	processManager "github.com/mudler/go-processmanager"
@@ -74,7 +75,17 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		ml.mu.Unlock()
 		if router != nil {
 			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
-			return router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
+			// This measures the callback, not transport or worker execution.
+			end := diagnostics.Begin(o.context, diagnostics.PhaseModelRouterCallback)
+			model, err := router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
+			outcome := diagnostics.OutcomeOK
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				outcome = diagnostics.OutcomeCanceled
+			} else if err != nil {
+				outcome = diagnostics.OutcomeError
+			}
+			end(outcome, 0)
+			return model, err
 		}
 
 		uri := ml.GetAllExternalBackends(o)[backend]
@@ -444,6 +455,7 @@ func (ml *ModelLoader) updateModelLastUsed(m *Model) {
 
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	o := NewOptions(opts...)
+	diagnostics.Mark(o.context, diagnostics.PhaseModelInit)
 
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil

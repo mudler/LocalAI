@@ -13,9 +13,11 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -53,6 +55,10 @@ func WithPreloadDisplay(renderMode string, disableColor bool) ModelConfigLoaderO
 }
 
 type ModelConfigLoader struct {
+	reloadDiagnosticsRecorder *diagnostics.Recorder
+	// Optional per-instance test seams, configured before use.
+	diagnosticsNow       func() time.Time
+	diagnosticsReadDir   func(string) ([]os.DirEntry, error)
 	configs              map[string]ModelConfig
 	modelPath            string
 	artifactMaterializer ArtifactMaterializer
@@ -86,11 +92,90 @@ func NewModelConfigLoader(modelPath string, options ...ModelConfigLoaderOption) 
 }
 
 type LoadOptions struct {
-	modelPath        string
-	debug            bool
-	threads, ctxSize int
-	f16              bool
-	galleryFiles     map[string]struct{}
+	diagnosticsRecorder *diagnostics.Recorder
+	modelPath           string
+	debug               bool
+	threads, ctxSize    int
+	f16                 bool
+	galleryFiles        map[string]struct{}
+}
+
+// WithReloadDiagnostics sets the immutable startup recorder for lock wait/hold,
+// directory enumeration and metadata. Use only during loader construction.
+// Nil disables these early measurements, including all per-entry clocks.
+// Later YAML/read/default phases are independently selected by LoadOptionDiagnostics.
+func WithReloadDiagnostics(r *diagnostics.Recorder) ModelConfigLoaderOption {
+	return func(bcl *ModelConfigLoader) { bcl.reloadDiagnosticsRecorder = r }
+}
+
+// ReloadDiagnosticsOption copies startup observation configuration to another
+// loader (for example an authoritative snapshot). Each reload still creates its
+// own operation ID; this does not attribute the other loader's lock to this one.
+func (bcl *ModelConfigLoader) ReloadDiagnosticsOption() ModelConfigLoaderOption {
+	return WithReloadDiagnostics(bcl.reloadDiagnosticsRecorder)
+}
+
+// LoadOptionDiagnostics selects observation of YAML reads and parse/default work
+// after options execute under the lock, following enumeration and metadata.
+// Options compose normally and the last write wins. Nil disables only subsequent
+// phases, not early measurements selected by WithReloadDiagnostics. Without a
+// constructor recorder no early spans are collected or retrospectively invented.
+// Matching startup and late recorders share an operation ID; a different late
+// recorder creates a separate observation ID covering only these later phases.
+func LoadOptionDiagnostics(r *diagnostics.Recorder) ConfigLoaderOption {
+	return func(o *LoadOptions) { o.diagnosticsRecorder = r }
+}
+
+// loaderTimings buffers observations until the model-config mutex is released.
+// A nil accumulator performs no clock reads, allocation, or synchronization.
+type loaderTimings struct {
+	ctx    context.Context
+	now    func() time.Time
+	phases map[diagnostics.Phase]*diagnostics.Event
+	order  []diagnostics.Phase
+}
+
+func (bcl *ModelConfigLoader) timings(ctx context.Context) *loaderTimings {
+	if !diagnostics.Enabled(ctx) {
+		return nil
+	}
+	now := bcl.diagnosticsNow
+	if now == nil {
+		now = time.Now
+	}
+	return &loaderTimings{ctx: ctx, now: now, phases: make(map[diagnostics.Phase]*diagnostics.Event)}
+}
+func (t *loaderTimings) start() time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return t.now()
+}
+func (t *loaderTimings) add(phase diagnostics.Phase, start time.Time, err error, count int) {
+	if t == nil {
+		return
+	}
+	elapsed := t.now().Sub(start)
+	e := t.phases[phase]
+	if e == nil {
+		e = &diagnostics.Event{Phase: phase, Outcome: diagnostics.OutcomeOK}
+		t.phases[phase] = e
+		t.order = append(t.order, phase)
+	}
+	e.Elapsed += elapsed
+	e.Count += count
+	if err != nil {
+		e.Outcome = diagnostics.OutcomeError
+	}
+}
+func (t *loaderTimings) emit() {
+	if t == nil {
+		return
+	}
+	for _, phase := range t.order {
+		e := t.phases[phase]
+		diagnostics.Record(t.ctx, phase, e.Elapsed, e.Outcome, e.Count)
+	}
 }
 
 func LoadOptionDebug(debug bool) ConfigLoaderOption {
@@ -159,11 +244,19 @@ func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
 // ModelConfig or an array of ModelConfigs. It tries to unmarshal as an array first,
 // then falls back to a single config if that fails.
 func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*ModelConfig, error) {
+	return readModelConfigsFromFileMeasured(file, nil, opts...)
+}
+
+func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts ...ConfigLoaderOption) (_ []*ModelConfig, resultErr error) {
+	start := timing.start()
 	f, err := os.ReadFile(file)
+	timing.add(diagnostics.PhaseReloadYAMLRead, start, err, 1)
 	if err != nil {
 		return nil, fmt.Errorf("readModelConfigsFromFile cannot read config file %q: %w", file, err)
 	}
 
+	start = timing.start()
+	defer func() { timing.add(diagnostics.PhaseReloadParseDefaults, start, resultErr, 1) }()
 	// Try to unmarshal as array first
 	var configs []*ModelConfig
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
@@ -342,8 +435,38 @@ func (bcl *ModelConfigLoader) GetAllModelsConfigs() []ModelConfig {
 }
 
 func (bcl *ModelConfigLoader) GetModelConfigsByFilter(filter ModelConfigFilterFn) []ModelConfig {
+	return bcl.GetModelConfigsByFilterContext(context.Background(), filter)
+}
+
+// GetModelConfigsByFilterContext measures request-owned lock and filter work.
+func (bcl *ModelConfigLoader) GetModelConfigsByFilterContext(ctx context.Context, filter ModelConfigFilterFn) []ModelConfig {
+	timing := bcl.timings(ctx)
+	wait := timing.start()
 	bcl.Lock()
-	defer bcl.Unlock()
+	hold := timing.start()
+	count := 0
+	completed := false
+	defer func() {
+		var err error
+		if !completed {
+			err = errors.New("filter panic")
+		}
+		timing.add(diagnostics.PhaseConfigLockHold, hold, err, count)
+		bcl.Unlock()
+		timing.emit()
+	}()
+	if timing != nil {
+		timing.phases[diagnostics.PhaseConfigLockWait] = &diagnostics.Event{Elapsed: hold.Sub(wait), Outcome: diagnostics.OutcomeOK, Count: 1}
+		timing.order = append(timing.order, diagnostics.PhaseConfigLockWait)
+	}
+	start := timing.start()
+	defer func() {
+		var err error
+		if !completed {
+			err = errors.New("filter panic")
+		}
+		timing.add(diagnostics.PhaseConfigFilter, start, err, count)
+	}()
 	var res []ModelConfig
 
 	if filter == nil {
@@ -351,11 +474,13 @@ func (bcl *ModelConfigLoader) GetModelConfigsByFilter(filter ModelConfigFilterFn
 	}
 
 	for n, v := range bcl.configs {
+		count++
 		if filter(n, &v) {
 			res = append(res, v)
 		}
 	}
 
+	completed = true
 	// TODO: I don't think this one needs to Sort on name... but we'll see what breaks.
 
 	return res
@@ -846,17 +971,39 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPathStrict(path string, opts .
 	return bcl.loadModelConfigsFromPath(path, true, opts...)
 }
 
-func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool, opts ...ConfigLoaderOption) error {
+func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool, opts ...ConfigLoaderOption) (resultErr error) {
+	timing := bcl.timings(bcl.reloadDiagnosticsRecorder.Reload(context.Background()))
+	var lateTiming *loaderTimings
+	wait := timing.start()
 	bcl.Lock()
-	defer bcl.Unlock()
-
-	entries, err := os.ReadDir(path)
+	hold := timing.start()
+	defer func() {
+		timing.add(diagnostics.PhaseReloadLockHold, hold, resultErr, 1)
+		bcl.Unlock()
+		timing.emit()
+		if lateTiming != timing {
+			lateTiming.emit()
+		}
+	}()
+	if timing != nil {
+		timing.phases[diagnostics.PhaseReloadLockWait] = &diagnostics.Event{Elapsed: hold.Sub(wait), Outcome: diagnostics.OutcomeOK, Count: 1}
+		timing.order = append(timing.order, diagnostics.PhaseReloadLockWait)
+	}
+	start := timing.start()
+	readDir := os.ReadDir
+	if bcl.diagnosticsReadDir != nil {
+		readDir = bcl.diagnosticsReadDir
+	}
+	entries, err := readDir(path)
+	timing.add(diagnostics.PhaseReloadEnumeration, start, err, 1)
 	if err != nil {
 		return fmt.Errorf("LoadModelConfigsFromPath cannot read directory '%s': %w", path, err)
 	}
 	files := make([]fs.FileInfo, 0, len(entries))
 	for _, entry := range entries {
+		start := timing.start()
 		info, err := entry.Info()
+		timing.add(diagnostics.PhaseReloadMetadata, start, err, 1)
 		if err != nil {
 			return err
 		}
@@ -864,6 +1011,11 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 	}
 	loadOptions := &LoadOptions{}
 	loadOptions.Apply(opts...)
+	if loadOptions.diagnosticsRecorder == bcl.reloadDiagnosticsRecorder {
+		lateTiming = timing
+	} else {
+		lateTiming = bcl.timings(loadOptions.diagnosticsRecorder.Reload(context.Background()))
+	}
 	for _, file := range files {
 		// Only load real YAML config files and ignore dotfiles or backup variants
 		ext := strings.ToLower(filepath.Ext(file.Name()))
@@ -877,7 +1029,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 			return absErr
 		}
 		if _, gallerySource := loadOptions.galleryFiles[absolutePath]; gallerySource {
-			galleryDocument, err := classifyGalleryDocument(filePath)
+			galleryDocument, err := classifyGalleryDocumentMeasured(filePath, lateTiming)
 			if err != nil {
 				if strict {
 					return err
@@ -896,7 +1048,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		}
 
 		// Read config(s) - handles both single and array formats
-		configs, err := readModelConfigsFromFile(filePath, opts...)
+		configs, err := readModelConfigsFromFileMeasured(filePath, lateTiming, opts...)
 		if err != nil {
 			if strict {
 				return err
@@ -989,13 +1141,28 @@ var galleryMetadataKeys = map[string]struct{}{
 // document subject to the complete shape check; malformed or mixed documents
 // are errors rather than silently disappearing from an authoritative snapshot.
 func classifyGalleryDocument(path string) (bool, error) {
+	return classifyGalleryDocumentMeasured(path, nil)
+}
+
+func classifyGalleryDocumentMeasured(path string, timing *loaderTimings) (_ bool, resultErr error) {
+	start := timing.start()
 	data, _, err := safefile.ReadRegularAt(filepath.Dir(path), filepath.Base(path))
+	timing.add(diagnostics.PhaseReloadYAMLRead, start, err, 1)
 	if err != nil {
 		return false, fmt.Errorf("read YAML file %q for classification: %w", path, err)
 	}
+	start = timing.start()
+	var parseErr error
+	defer func() {
+		if parseErr == nil {
+			parseErr = resultErr
+		}
+		timing.add(diagnostics.PhaseReloadParseDefaults, start, parseErr, 1)
+	}()
 	var document yaml.Node
-	if err := yaml.Unmarshal(data, &document); err != nil || len(document.Content) != 1 {
-		return false, nil // The model-config parser supplies the syntax error.
+	parseErr = yaml.Unmarshal(data, &document)
+	if parseErr != nil || len(document.Content) != 1 {
+		return false, nil // Preserve classification semantics; diagnostics retain the syntax error.
 	}
 	root := document.Content[0]
 	switch root.Kind {

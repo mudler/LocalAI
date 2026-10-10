@@ -28,7 +28,7 @@ func ApplyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, models
 }
 
 func applyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, modelsPath string, evt messaging.CacheInvalidateEvent, lifecycle ModelRevisionLifecycle, opts ...config.ConfigLoaderOption) error {
-	authoritative := config.NewModelConfigLoader(modelsPath)
+	authoritative := config.NewModelConfigLoader(modelsPath, cl.ReloadDiagnosticsOption())
 	if err := authoritative.LoadModelConfigsFromPathStrict(modelsPath, opts...); err != nil {
 		return err
 	}
