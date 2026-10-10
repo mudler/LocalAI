@@ -98,6 +98,31 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		}
 	})
 
+	It("exposes lowercase upscale and backend option scale without text modalities", func() {
+		writeConfig("upscaler", "name: upscaler\nbackend: stablediffusion-ggml\nknown_usecases: [upscale]\noptions:\n  - upscale_scale:4\n")
+		entry := entryFor(call(), "upscaler")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.Capabilities).To(Equal([]string{"upscale"}))
+		Expect(entry.InputModalities).To(Equal([]string{"image"}))
+		Expect(entry.OutputModalities).To(Equal([]string{"image"}))
+		Expect(entry.UpscaleScale).To(Equal(4))
+		raw, err := json.Marshal(entry)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"upscale_scale":4`))
+	})
+
+	It("omits absent or invalid backend scale metadata", func() {
+		for _, options := range []string{"", "options: [upscale_scale:bad]\n", "options: [upscale_scale:0]\n", "options: [upscale_scale:-1]\n", "options: [upscale_scale:2147483648]\n", "options: [upscale_scale:4, upscale_scale:4]\n"} {
+			writeConfig("upscaler", "name: upscaler\nbackend: stablediffusion-ggml\nknown_usecases: [upscale]\n"+options)
+			entry := entryFor(call(), "upscaler")
+			Expect(entry).NotTo(BeNil())
+			Expect(entry.UpscaleScale).To(BeZero())
+			raw, err := json.Marshal(entry)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(raw)).NotTo(ContainSubstring(`"upscale_scale"`))
+		}
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))

@@ -28,11 +28,11 @@ import '../components/studio/studio.css'
 //   modelsLoading  true until the first answer about installed models
 //   modelsError    set when that answer could not be read
 //   refetchModels  ask again, used while a model installs
-export default function StudioOverview({ modalities, modelsLoading, modelsError, refetchModels }) {
+export default function StudioOverview({ modalities, upscalers, modelsLoading, modelsError, refetchModels }) {
   const { t } = useTranslation('media')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { items, ready, toggleFavourite, clearHistory } = useStudioWork()
+  const { items, ready, addImageEntry, toggleFavourite, clearHistory } = useStudioWork()
   const [filter, setFilter] = useState('all')
   const [group, setGroup] = useState(true)
   // The composer's state lives here, so opening a lineage and coming back, or a
@@ -63,6 +63,8 @@ export default function StudioOverview({ modalities, modelsLoading, modelsError,
           <LineageView
             key={workId}
             items={items}
+            upscalers={upscalers}
+            onAddImage={addImageEntry}
             workId={workId}
             modalities={modalities}
             defaultModel={defaultModel}

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -17,6 +18,9 @@ import (
 
 type SDGGML struct {
 	base.SingleThread
+	upscaleMu    sync.Mutex
+	upscaler     uintptr
+	upscale      upscaleSettings
 	threads      int
 	sampleMethod string
 	cfgScale     float32
@@ -25,9 +29,13 @@ type SDGGML struct {
 }
 
 var (
-	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
-	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
-	GenVideo  func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string) int
+	UpscalerCreate  func(string, bool, int32, int32, string, string) uintptr
+	UpscalerScale   func(uintptr) int32
+	UpscalerRun     func(uintptr, string, string, int32) int32
+	UpscalerDestroy func(uintptr)
+	LoadModel       func(model, model_apth string, options []uintptr, threads int32, diff int) int
+	GenImage        func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
+	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -154,6 +162,22 @@ func CString(name string) *byte {
 }
 
 func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	if opts == nil {
+		return fmt.Errorf("missing model options")
+	}
+	settings, err := parseUpscaleSettings(opts)
+	if err != nil {
+		return err
+	}
+	if sd.upscaler != 0 {
+		return fmt.Errorf("free the existing upscaler before loading another model")
+	}
+	sd.upscale = settings
+	if settings.enabled {
+		return nil
+	}
 
 	sd.threads = int(opts.Threads)
 
@@ -334,5 +358,177 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	if ret != 0 {
 		return fmt.Errorf("video inference failed (code %d)", ret)
 	}
+	return nil
+}
+
+// Presence of the backend option upscale_scale selects upscale mode.
+type upscaleSettings struct {
+	enabled                bool
+	path                   string
+	scale, tile, threads   int32
+	direct                 bool
+	backend, paramsBackend string
+}
+
+func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
+	s := upscaleSettings{threads: opts.Threads}
+	image := false
+	for _, op := range opts.Options {
+		k, _, _ := strings.Cut(op, ":")
+		if k == "upscale_scale" {
+			s.enabled = true
+		}
+		if k == "diffusion_model" {
+			image = true
+		}
+	}
+	if !s.enabled {
+		return s, nil
+	}
+	if image {
+		return s, fmt.Errorf("upscale_scale cannot be combined with diffusion_model")
+	}
+	seen := make(map[string]bool)
+	for _, op := range opts.Options {
+		k, v, _ := strings.Cut(op, ":")
+		switch k {
+		case "upscale_scale", "upscale_tile_size", "upscale_direct", "backend", "params_backend":
+			if seen[k] {
+				return s, fmt.Errorf("duplicate upscale setting %q", k)
+			}
+			seen[k] = true
+		}
+		switch k {
+		case "upscale_scale", "upscale_tile_size":
+			n, err := strconv.ParseInt(v, 10, 32)
+			if err != nil || (k == "upscale_scale" && n <= 0) || (k == "upscale_tile_size" && n < 0) {
+				if k == "upscale_tile_size" {
+					return s, fmt.Errorf("%s must be a non-negative integer", k)
+				}
+				return s, fmt.Errorf("%s must be a positive integer", k)
+			}
+			if k == "upscale_scale" {
+				s.scale = int32(n)
+			} else {
+				s.tile = int32(n)
+			}
+		case "upscale_direct":
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return s, fmt.Errorf("invalid upscale_direct: %w", err)
+			}
+			s.direct = b
+		case "backend":
+			s.backend = v
+		case "params_backend":
+			s.paramsBackend = v
+		}
+	}
+	if s.scale <= 0 {
+		return s, fmt.Errorf("upscale_scale must be configured and positive")
+	}
+	modelFile := opts.ModelFile
+	if modelFile == "" {
+		return s, fmt.Errorf("upscale model path is empty")
+	}
+	if filepath.IsAbs(modelFile) {
+		s.path = filepath.Clean(modelFile)
+	} else {
+		// Verify the untrusted relative name before joining, then verify the
+		// resolved result as well. VerifyPath intentionally treats absolute
+		// inputs as relative, so absolute model files use VerifyResolvedPath.
+		if err := utils.VerifyPath(modelFile, opts.ModelPath); err != nil {
+			return s, fmt.Errorf("upscale model path is outside model path: %w", err)
+		}
+		s.path = filepath.Join(opts.ModelPath, modelFile)
+	}
+	if err := utils.VerifyResolvedPath(s.path, opts.ModelPath); err != nil {
+		return s, fmt.Errorf("upscale model path is outside model path: %w", err)
+	}
+	// Lexical containment alone does not prevent a model symlink (or a
+	// symlinked parent directory) from escaping the trusted root. Resolve
+	// both, requiring an existing target, and cache only the real model path.
+	realRoot, err := filepath.EvalSymlinks(opts.ModelPath)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model root: %w", err)
+	}
+	realPath, err := filepath.EvalSymlinks(s.path)
+	if err != nil {
+		return s, fmt.Errorf("resolve upscale model file: %w", err)
+	}
+	if err := utils.VerifyResolvedPath(realPath, realRoot); err != nil {
+		return s, fmt.Errorf("upscale model path is outside real model path: %w", err)
+	}
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return s, fmt.Errorf("stat upscale model file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return s, fmt.Errorf("upscale model path must be a regular file")
+	}
+	s.path = realPath
+	for _, v := range []string{s.path, s.backend, s.paramsBackend} {
+		if strings.ContainsRune(v, 0) {
+			return s, fmt.Errorf("upscale settings contain NUL")
+		}
+	}
+	return s, nil
+}
+
+func (sd *SDGGML) UpscaleImage(opts *pb.UpscaleImageRequest) error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	s := sd.upscale
+	if !s.enabled {
+		return fmt.Errorf("no upscale-only model loaded (configure upscale_scale)")
+	}
+	if opts == nil || opts.Scale <= 0 || opts.Src == "" || opts.Dst == "" || strings.ContainsRune(opts.Src, 0) || strings.ContainsRune(opts.Dst, 0) {
+		return fmt.Errorf("upscale requires source, destination and positive requested scale")
+	}
+	if sd.upscaler == 0 {
+		h := UpscalerCreate(s.path, s.direct, s.threads, s.tile, s.backend, s.paramsBackend)
+		runtime.KeepAlive(s)
+		if h == 0 {
+			return fmt.Errorf("could not initialize ESRGAN upscaler")
+		}
+		detected := UpscalerScale(h)
+		if detected <= 0 || detected != s.scale {
+			UpscalerDestroy(h)
+			return fmt.Errorf("configured upscale scale %d differs from detected native scale %d", s.scale, detected)
+		}
+		sd.upscaler = h
+	}
+	if opts.Scale != s.scale {
+		return fmt.Errorf("requested upscale scale %d differs from native scale %d", opts.Scale, s.scale)
+	}
+	code := UpscalerRun(sd.upscaler, opts.Src, opts.Dst, opts.Scale)
+	runtime.KeepAlive(opts)
+	switch code {
+	case 0:
+		return nil
+	case 1:
+		return fmt.Errorf("invalid native upscale arguments")
+	case 2:
+		return fmt.Errorf("upscale source decode failed")
+	case 3:
+		return fmt.Errorf("upscale inference failed")
+	case 4:
+		return fmt.Errorf("upscale output validation failed")
+	case 5:
+		return fmt.Errorf("upscale PNG write failed")
+	default:
+		return fmt.Errorf("upscale failed (native code %d)", code)
+	}
+}
+
+func (sd *SDGGML) Free() error {
+	sd.upscaleMu.Lock()
+	defer sd.upscaleMu.Unlock()
+	if sd.upscaler != 0 {
+		UpscalerDestroy(sd.upscaler)
+		sd.upscaler = 0
+	}
+	sd.upscale = upscaleSettings{}
+	// Deliberately leave the existing diffusion sd_c lifecycle unchanged.
 	return nil
 }

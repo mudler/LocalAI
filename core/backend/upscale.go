@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -24,7 +25,7 @@ func ImageUpscale(ctx context.Context, src, dst string, scale int, loader *model
 			return err
 		}
 		defer release()
-		_, err = inferenceModel.UpscaleImage(
+		result, err := inferenceModel.UpscaleImage(
 			ctx,
 			&proto.UpscaleImageRequest{
 				Src:   src,
@@ -32,7 +33,19 @@ func ImageUpscale(ctx context.Context, src, dst string, scale int, loader *model
 				Scale: int32(scale),
 			},
 		)
-		return err
+		if err != nil {
+			return err
+		}
+		if result == nil {
+			return fmt.Errorf("image upscale returned nil result")
+		}
+		if !result.Success {
+			if result.Message != "" {
+				return fmt.Errorf("image upscale failed: %s", result.Message)
+			}
+			return fmt.Errorf("image upscale failed")
+		}
+		return nil
 	}
 
 	return fn, nil

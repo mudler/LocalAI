@@ -275,6 +275,7 @@ type ModelsDataResponse struct {
 // served by the LocalAI-specific /v1/models/capabilities endpoint so clients can
 // route attachments (image/audio/video) to a model only when it can handle them.
 type ModelCapabilities struct {
+	UpscaleScale     int               `json:"upscale_scale,omitempty"`
 	ThreeDOperations []ThreeDOperation `json:"three_d_operations,omitempty"`
 	ID               string            `json:"id"`
 	Object           string            `json:"object"`

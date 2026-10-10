@@ -5,6 +5,13 @@
 extern "C" {
 #endif
 
+// Opaque ESRGAN context. Run returns 0, or argument/decode/inference/output/write
+// errors (1..5); all image allocations remain native.
+void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size, const char* backend, const char* params_backend);
+int gosd_upscaler_scale(void* handle);
+int gosd_upscaler_run(void* handle, const char* src, const char* dst, int scale);
+void gosd_upscaler_destroy(void* handle);
+
 void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled);
 void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_w, int tile_size_h);
 void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_w, float rel_size_h);

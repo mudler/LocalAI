@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+// eslint-disable-next-line no-unused-vars
+import UpscaleComposer from './UpscaleComposer'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import InstallNote from './InstallNote'
@@ -31,10 +33,10 @@ function isTyping(el) {
 // are installed.
 //
 // "Run as a new take" and "Branch from here" open the workspace with the source
-// and the words filled in. They do not run anything here. A step the destination
+// and the words filled in. Upscale instead runs in the inline composer. A step the destination
 // workspace cannot start from yet is listed but disabled, with the reason.
 export default function LineageView({
-  items, workId, modalities, defaultModel, onClose, onToggleFavourite, onHandoff, onModelsChanged,
+  items, workId, modalities, upscalers = [], onAddImage, defaultModel, onClose, onToggleFavourite, onHandoff, onModelsChanged,
 }) {
   const { t } = useTranslation('media')
   const members = useMemo(() => projectOf(items, workId), [items, workId])
@@ -137,7 +139,7 @@ export default function LineageView({
   }
 
   const root = members[0]
-  const steps = NEXT_STEPS[selected.type] || []
+  const steps = [...(NEXT_STEPS[selected.type] || []), ...(selected.type === 'images' && upscalers.length ? [{ to: 'images', edge: 'upscale', supported: true }] : [])]
   const takeOk = canTake(selected)
   const branchStep = suggestion || steps.find(s => s.supported) || null
   const draftInstalled = draft ? installed.has(draft.to) : true
@@ -189,7 +191,7 @@ export default function LineageView({
               )
             }
             if (n.kind === 'ghost') {
-              const missing = !installed.has(n.ghost.to)
+              const missing = n.ghost.edge !== 'upscale' && !installed.has(n.ghost.to)
               return (
                 <button
                   key={n.id}
@@ -257,9 +259,9 @@ export default function LineageView({
             {draft ? (
               <>
                 <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setDraft(null)} data-testid="studio-draft-cancel">{t('studio.lineage.cancel')}</button>
-                <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={!canOpenDraft} onClick={openDraft} data-testid="studio-draft-open">
+                {draft.edge !== 'upscale' && <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={!canOpenDraft} onClick={openDraft} data-testid="studio-draft-open">
                   <Icon name="sparkles" /> {t('studio.lineage.openIn', { type: label(draft.to) })}
-                </button>
+                </button>}
               </>
             ) : (
               <>
@@ -284,7 +286,13 @@ export default function LineageView({
           </p>
         )}
 
-        {expanded && (draft ? (
+        {expanded && (draft?.edge === 'upscale' ? (
+          <UpscaleComposer key={selected.id} source={selected} upscalers={upscalers} onSuccess={entry => {
+            const id = onAddImage(entry)
+            setSelectedId(id)
+            setDraft(null)
+          }} />
+        ) : draft ? (
           <div className="studio-dock__body studio-draft" data-testid="studio-draft">
             <span className="studio-eyebrow">{t('studio.lineage.makeFrom')}</span>
             <div className="studio-draft__targets" role="group" aria-label={t('studio.lineage.targets')}>
@@ -296,7 +304,7 @@ export default function LineageView({
                     type="button"
                     className="dk-chip studio-type"
                     aria-pressed={draft.edge === step.edge}
-                    data-missing={(!installed.has(step.to)) || undefined}
+                    data-missing={(step.edge !== 'upscale' && !installed.has(step.to)) || undefined}
                     disabled={bad}
                     data-testid={`draft-target-${step.edge}`}
                     onClick={() => startDraft(step)}
@@ -330,7 +338,7 @@ export default function LineageView({
                 {steps.length === 0 && <li className="studio-steps__none">{t('studio.lineage.noBranch', { type: label(selected.type) })}</li>}
                 {steps.map(step => {
                   const bad = !step.supported
-                  const missing = !bad && !installed.has(step.to)
+                  const missing = !bad && step.edge !== 'upscale' && !installed.has(step.to)
                   return (
                     <li key={step.edge}>
                       <button type="button" className="studio-step" disabled={bad} onClick={() => startDraft(step)} data-testid={`step-${step.edge}`} data-state={bad ? 'unsupported' : missing ? 'missing' : 'ready'}>

@@ -822,6 +822,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			NodeStatus string `json:"node_status"`
 		}
 		type modelCapability struct {
+			UpscaleScale     int                            `json:"upscaleScale,omitempty"`
 			ThreeDOperations []schema.ThreeDOperation       `json:"three_d_operations,omitempty"`
 			ID               string                         `json:"id"`
 			Capabilities     []string                       `json:"capabilities"`
@@ -873,6 +874,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			result = append(result, modelCapability{
 				ID:               cfg.Name,
 				Capabilities:     cfg.KnownUsecaseStrings,
+				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
 				ThreeDOperations: cfg.ThreeDOperations(),
 				Backend:          cfg.Backend,
 				Disabled:         cfg.IsDisabled(),

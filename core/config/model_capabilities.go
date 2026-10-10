@@ -162,6 +162,7 @@ func (c *ModelConfig) Capabilities() []string {
 	add(c.HasUsecases(FLAG_TTS), UsecaseTTS)
 	add(c.HasUsecases(FLAG_SOUND_GENERATION), UsecaseSoundGeneration)
 	add(c.HasUsecases(FLAG_IMAGE), UsecaseImage)
+	add(c.HasUsecases(FLAG_UPSCALE), UsecaseUpscale)
 	add(c.HasUsecases(FLAG_VIDEO), UsecaseVideo)
 	add(c.HasUsecases(FLAG_3D), Usecase3D)
 	add(c.HasUsecases(FLAG_3D_ANIMATION), Usecase3DAnimation)
@@ -207,7 +208,7 @@ func (c *ModelConfig) InputModalities() []string {
 	// Ollama surface); detection/depth/face/3D models consume images directly.
 	imageIn := (chatish && c.VisionSupported()) || c.LimitMMPerPrompt.LimitImagePerPrompt > 0 ||
 		c.HasUsecases(FLAG_DETECTION) || c.HasUsecases(FLAG_DEPTH) || c.HasUsecases(FLAG_FACE_RECOGNITION) ||
-		c.HasUsecases(FLAG_3D)
+		c.HasUsecases(FLAG_3D) || c.HasUsecases(FLAG_UPSCALE)
 
 	audioIn := c.AudioInputSupported() || c.HasUsecases(FLAG_TRANSCRIPT) || c.HasUsecases(FLAG_AUDIO_TRANSFORM) ||
 		c.HasUsecases(FLAG_REALTIME_AUDIO) || c.HasUsecases(FLAG_VAD) || c.HasUsecases(FLAG_DIARIZATION) ||
@@ -228,7 +229,7 @@ func (c *ModelConfig) OutputModalities() []string {
 	modalities := declaredModalities(c.KnownOutputModalities)
 	textOut := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION) || c.HasUsecases(FLAG_EDIT) ||
 		c.HasUsecases(FLAG_TRANSCRIPT)
-	imageOut := c.HasUsecases(FLAG_IMAGE)
+	imageOut := c.HasUsecases(FLAG_IMAGE) || c.HasUsecases(FLAG_UPSCALE)
 	audioOut := c.HasUsecases(FLAG_TTS) || c.HasUsecases(FLAG_SOUND_GENERATION) ||
 		c.HasUsecases(FLAG_AUDIO_TRANSFORM) || c.HasUsecases(FLAG_REALTIME_AUDIO)
 	videoOut := c.HasUsecases(FLAG_VIDEO)

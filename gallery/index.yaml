@@ -21331,6 +21331,36 @@
     - filename: llama-cpp/models/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
       sha256: 013af4e9d2f84e484f77c7bae2a02652607f0f0179bd2815ffdf401c3ada5184
       uri: https://huggingface.co/DevQuasar/deepseek-ai.DeepSeek-V3.2-GGUF/resolve/main/deepseek-ai.DeepSeek-V3.2.Q4_K_M-00029-of-00029.gguf
+# Official PyTorch checkpoint recommended by stable-diffusion.cpp docs/esrgan.md.
+# SHA256 measured from the release download (17,938,799 bytes).
+- name: realesrgan-x4plus-anime-6b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://github.com/xinntao/Real-ESRGAN
+    - https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.2.4
+    - https://github.com/xinntao/Real-ESRGAN/blob/v0.2.2.4/LICENSE
+    - https://github.com/leejet/stable-diffusion.cpp/blob/f89d9b13d730eabeede7314ce49dacd18d3c90c2/docs/esrgan.md
+  description: |
+    RealESRGAN x4plus anime 6B is a six-block ESRGAN model for anime images,
+    with a native 4x scale. Uses the official PyTorch .pth checkpoint through
+    stable-diffusion.cpp, without conversion. Upscale-only: not a text-to-image model.
+  license: BSD-3-Clause
+  tags:
+    - image-upscaling
+    - super-resolution
+    - stablediffusion-ggml
+  overrides:
+    backend: stablediffusion-ggml
+    known_usecases: [upscale]
+    options:
+      - upscale_scale:4
+      - upscale_tile_size:128
+    parameters:
+      model: RealESRGAN_x4plus_anime_6B.pth
+  files:
+    - filename: RealESRGAN_x4plus_anime_6B.pth
+      uri: https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth
+      sha256: f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da
 - name: stable-diffusion-x4-upscaler
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -21350,7 +21380,7 @@
     diffusers:
       pipeline_type: StableDiffusionUpscalePipeline
     known_usecases:
-      - image
+      - upscale
     parameters:
       model: stabilityai/stable-diffusion-x4-upscaler
     artifacts:

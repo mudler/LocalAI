@@ -445,3 +445,15 @@ var _ = Describe("AllBackendNames", func() {
 		Expect(slices.IsSorted(names)).To(BeTrue())
 	})
 })
+
+var _ = Describe("Upscale backend declaration", func() {
+	It("maps upscale to its dedicated RPC and advertises SD GGML support", func() {
+		info := UsecaseInfoMap[UsecaseUpscale]
+		Expect(info.Flag).To(Equal(FLAG_UPSCALE))
+		Expect(info.GRPCMethod).To(Equal(MethodUpscaleImage))
+		cap := GetBackendCapability("stablediffusion-ggml")
+		Expect(cap.GRPCMethods).To(ContainElement(MethodUpscaleImage))
+		Expect(cap.PossibleUsecases).To(ContainElement(UsecaseUpscale))
+		Expect(cap.DefaultUsecases).NotTo(ContainElement(UsecaseUpscale))
+	})
+})

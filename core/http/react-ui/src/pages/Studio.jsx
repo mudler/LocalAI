@@ -14,6 +14,7 @@ import { useModels } from '../hooks/useModels'
 import {
   CAP_DIARIZATION, CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
+import { upscaleModels } from '../utils/upscale'
 import Icon from '../components/Icon'
 import '../components/studio/studio.css'
 
@@ -132,6 +133,7 @@ export default function Studio() {
       ) : (
         <StudioOverview
           modalities={modalities}
+          upscalers={upscaleModels(models)}
           modelsLoading={modelsLoading}
           modelsError={modelsError}
           refetchModels={refetchModels}

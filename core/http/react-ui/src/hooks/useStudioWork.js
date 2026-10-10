@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { clearAllMediaHistory, FAVOURITES_KEY, readAllMediaHistory } from './useMediaHistory'
+import { clearAllMediaHistory, FAVOURITES_KEY, readAllMediaHistory, useMediaHistory } from './useMediaHistory'
 import { use3DHistory } from './use3DHistory'
 import { collectWork, pruneIds, toggleId } from '../utils/studioWork'
 
@@ -21,12 +21,14 @@ function writeFavourites(ids) {
 
 // Everything the Studio front page shows as "your work": the entries each
 // workspace stored, in one list, with favourites. The browser-storage lists are
-// read once on mount (they change only while a workspace is open, and this page
-// mounts fresh when you come back); 3D arrives asynchronously from IndexedDB.
+// read once on mount, except images: inline upscaling writes through the same
+// image history hook and merges its live entries. 3D arrives from IndexedDB.
 //
 // `ready` is false until 3D has answered, so the page can show a skeleton
 // instead of flashing an empty state for work that is a moment away.
 export function useStudioWork() {
+  const { addEntry: addImageEntry, historyProps: imageHistory } = useMediaHistory('image')
+  const clearImages = imageHistory.onClearAll
   const [media, setMedia] = useState(() => readAllMediaHistory())
   const [favourites, setFavourites] = useState(readFavourites)
   const { entries: threeD, clearAll: clearThreeD } = use3DHistory()
@@ -41,8 +43,8 @@ export function useStudioWork() {
   useEffect(() => { if (threeD.length > 0) setReady(true) }, [threeD])
 
   const items = useMemo(
-    () => collectWork(media, threeD, { favourites }),
-    [media, threeD, favourites],
+    () => collectWork({ ...media, image: imageHistory.entries }, threeD, { favourites }),
+    [media, imageHistory.entries, threeD, favourites],
   )
 
   const toggleFavourite = useCallback((id) => {
@@ -54,11 +56,12 @@ export function useStudioWork() {
   }, [items])
 
   const clearHistory = useCallback(async () => {
+    clearImages()
     clearAllMediaHistory()
     setMedia(readAllMediaHistory())
     setFavourites([])
     await clearThreeD()
-  }, [clearThreeD])
+  }, [clearThreeD, clearImages])
 
-  return { items, ready, toggleFavourite, clearHistory }
+  return { items, ready, addImageEntry, toggleFavourite, clearHistory }
 }
