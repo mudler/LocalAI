@@ -907,6 +907,7 @@ message SoundGenerationRequest {
   //
   // Empty means "no identity supplied" and backends MUST skip the check.
   string ModelIdentity = 18;
+  map<string, string> params = 19;
 }
 
 message TokenizationResponse {

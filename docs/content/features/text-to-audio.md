@@ -411,6 +411,28 @@ The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound gen
 | `vocal_language`    | `string` | No       | Vocal language (fallback if `language` is empty) |
 | `timesignature`     | `string` | No       | Time signature (for example `4`)                |
 | `instrumental`      | `bool`   | No       | Generate instrumental audio (no vocals)         |
+| `params`            | `object` | No       | Backend-specific options with string keys and string values |
+
+Use `params` to pass backend-specific string options that do not have fixed request
+fields. Every value in `params` must be a string. Existing fixed fields remain
+authoritative when a fixed field and `params` contain the same option.
+
+Install the YuE2 gallery model and generate a song:
+
+```bash
+local-ai models install audio-cpp-yue2-3b
+
+curl http://localhost:8080/v1/sound-generation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "audio-cpp-yue2-3b",
+    "lyrics": "[Verse]\nMorning light across the bay\nCarry every cloud away",
+    "params": {
+      "style": "acoustic folk, warm vocals, gentle guitar",
+      "cot": "off"
+    }
+  }' --output yue2.wav
+```
 
 Error responses: `400` for a missing or invalid model or request parameters, and `500` for a backend error during sound generation.
 
