@@ -47978,6 +47978,104 @@
     - filename: qwen_image_2.1_vae_bf16.safetensors
       sha256: bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9
       uri: https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors
+- name: qwen-image-2.1-anime-fusal-gguf
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image-2.1
+    - https://huggingface.co/leejet/Qwen-Image-2.1-GGUF
+    - https://huggingface.co/DreamFast/Qwen3-VL-8B-Heretic-1.3.0
+    - https://huggingface.co/MicksHF/Qwen-Image-2.1-Anime-Fusal
+    - https://huggingface.co/LocalAI-io/Qwen-Image-2.1-Anime-Fusal-GGUF
+  description: |
+    Qwen-Image 2.1 Anime FUSAL runtime assembly with a Q5_0 denoiser, Heretic Q4_K_M text encoder, BF16 VAE, and separate rank-80 FUSAL adapter. Downloads total about 10.4 GiB; allow at least that much combined RAM/VRAM plus runtime overhead.
+
+    This assembly has mixed licensing: the Qwen-derived denoiser, VAE, and FUSAL adapter are under the Qwen Research License and are limited to non-commercial research or evaluation unless separately authorized; the Heretic encoder is Apache-2.0. Review the repository notices for NSFW content and third-party-rights responsibilities.
+
+    Use 30 steps, Euler sampling, and CFG 1.0. The adapter is applied at runtime, so prompts must use `fusal style. [TASK: TEXT_TO_IMAGE] DESCRIPTION<lora:fusal-qwen-image-2.1-stack-exact-r80:1.0>`, replacing DESCRIPTION with the image description. This practical encoder omits vision weights, so this entry is text-to-image only and does not support reference-image editing.
+  license: other
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  tags:
+    - qwen
+    - qwen-image
+    - text-to-image
+    - anime
+    - gguf
+    - quantized
+    - diffusion
+    - lora
+  last_checked: "2026-10-10"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 30
+    cfg_scale: 1
+    options:
+      - diffusion_model
+      - llm_path:qwen3-vl-8b-heretic-1.3.0-Q4_K_M.gguf
+      - vae_path:qwen_image_2.1_vae_bf16.safetensors
+      - sampler:euler
+      - offload_params_to_cpu:true
+    parameters:
+      model: qwen_image_2.1-Q5_0.gguf
+  files:
+    - filename: qwen_image_2.1-Q5_0.gguf
+      sha256: 8dfeb1ee091a5d7c7d8191f69723254f031de8fe67ec219a21bf7df57590ab43
+      uri: https://huggingface.co/LocalAI-io/Qwen-Image-2.1-Anime-Fusal-GGUF/resolve/b183680b3f0e705017781d93b050d00305c2a482/qwen_image_2.1-Q5_0.gguf
+    - filename: qwen3-vl-8b-heretic-1.3.0-Q4_K_M.gguf
+      sha256: fe3510473630bfb8092f94900eec3d4847f7658caaaf577981205af29b438292
+      uri: https://huggingface.co/LocalAI-io/Qwen-Image-2.1-Anime-Fusal-GGUF/resolve/b183680b3f0e705017781d93b050d00305c2a482/qwen3-vl-8b-heretic-1.3.0-Q4_K_M.gguf
+    - filename: qwen_image_2.1_vae_bf16.safetensors
+      sha256: bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9
+      uri: https://huggingface.co/LocalAI-io/Qwen-Image-2.1-Anime-Fusal-GGUF/resolve/b183680b3f0e705017781d93b050d00305c2a482/qwen_image_2.1_vae_bf16.safetensors
+    - filename: fusal-qwen-image-2.1-stack-exact-r80.safetensors
+      sha256: 397e4e6f9d69942f901b0d7a7fcecbb25cc3002c1534e90b90380b0ce95b0836
+      uri: https://huggingface.co/LocalAI-io/Qwen-Image-2.1-Anime-Fusal-GGUF/resolve/b183680b3f0e705017781d93b050d00305c2a482/fusal-qwen-image-2.1-stack-exact-r80.safetensors
+- name: qwen-image-2.1-turbo-uncensored-gguf
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image-2.1
+    - https://huggingface.co/AtomicChat/Qwen-Image-2.1-Turbo-GGUF
+    - https://huggingface.co/AtomicChat/Qwen-Image-2.1-Turbo-Uncensored-GGUF
+    - https://huggingface.co/Comfy-Org/Qwen-Image-2.1
+  description: |
+    Qwen-Image 2.1 Turbo text-to-image assembly with AtomicChat's AD-Q5_K denoiser, Q8_0 abliterated text encoder, and the Qwen Image 2.1 BF16 VAE. It uses the Turbo runtime's exact eight-step sigma schedule with Euler sampling and CFG 1.0.
+
+    The denoiser and VAE are governed by the Qwen Research License; the separately modified encoder is Apache-2.0. The complete image runtime is therefore not Apache-2.0. AtomicChat reports that changing the encoder's refusal direction produced no measured category-outcome change in its image tests, so this entry does not promise broader image capability.
+
+    This bundle has no vision projector and supports text-to-image only, not reference-image editing.
+  license: other
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  tags:
+    - qwen
+    - qwen-image
+    - text-to-image
+    - uncensored
+    - gguf
+    - quantized
+    - diffusion
+  last_checked: "2026-10-10"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 8
+    cfg_scale: 1
+    options:
+      - diffusion_model
+      - llm_path:Qwen-Image-2.1-Turbo-Abliterated-Uncensored-Q8_0.gguf
+      - vae_path:qwen_image_2.1_vae_bf16.safetensors
+      - sampler:euler
+      - custom_sigmas:1.0,0.978453,0.95418,0.926626,0.89508,0.845148,0.704534,0.414568,0.0
+      - offload_params_to_cpu:true
+    parameters:
+      model: Qwen-Image-2.1-Turbo-AD-Q5_K.gguf
+  files:
+    - filename: Qwen-Image-2.1-Turbo-AD-Q5_K.gguf
+      sha256: c56db41508c4c3c0d5782e40e4f153c38a1154ac9466c1c5c50a6e4bd09f6a69
+      uri: https://huggingface.co/AtomicChat/Qwen-Image-2.1-Turbo-GGUF/resolve/bb25d06bc74119c12207243d68917951e6d9c232/Qwen-Image-2.1-Turbo-AD-Q5_K.gguf
+    - filename: Qwen-Image-2.1-Turbo-Abliterated-Uncensored-Q8_0.gguf
+      sha256: f8f9f6276b726db5291f4a5343089612cb5fd08aa81e8f0791dc66d2c03d07ca
+      uri: https://huggingface.co/AtomicChat/Qwen-Image-2.1-Turbo-Uncensored-GGUF/resolve/e3b01e9bfacc373148bdb93824496e0c72643250/Qwen-Image-2.1-Turbo-Abliterated-Uncensored-Q8_0.gguf
+    - filename: qwen_image_2.1_vae_bf16.safetensors
+      sha256: bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9
+      uri: https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/df94239739eef7205973a145ffa6f441f7b64e84/vae/qwen_image_2.1_vae_bf16.safetensors
 - name: whisper-1
   url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
   urls:

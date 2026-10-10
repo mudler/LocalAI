@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"unsafe"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,6 +13,27 @@ func TestStableDiffusionGGML(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "stablediffusion-ggml backend test suite")
 }
+
+var _ = DescribeTable("parseCustomSigmas",
+	func(options []string, want []float32, wantErr string) {
+		got, err := parseCustomSigmas(options)
+		if wantErr != "" {
+			Expect(err).To(MatchError(ContainSubstring(wantErr)))
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(want))
+	},
+	Entry("valid schedule", []string{"custom_sigmas:1.0,0.5,0.0"}, []float32{1, 0.5, 0}, ""),
+	Entry("trims whitespace", []string{"custom_sigmas: 1.0, 0.5 , 0.0 "}, []float32{1, 0.5, 0}, ""),
+	Entry("absent", []string{"sampler:euler"}, nil, ""),
+	Entry("empty element", []string{"custom_sigmas:1.0,,0.0"}, nil, "value 2 is empty"),
+	Entry("non-numeric value", []string{"custom_sigmas:1.0,nope"}, nil, `value 2 "nope" is not a number`),
+	Entry("NaN", []string{"custom_sigmas:1.0,NaN"}, nil, "value 2 must be finite"),
+	Entry("positive infinity", []string{"custom_sigmas:1.0,+Inf"}, nil, "value 2 must be finite"),
+	Entry("negative infinity", []string{"custom_sigmas:1.0,-Inf"}, nil, "value 2 must be finite"),
+	Entry("one value", []string{"custom_sigmas:1.0"}, nil, "at least 2 values"),
+)
 
 var _ = DescribeTable("parseVAETiling enablement",
 	func(options []string, want bool) {
@@ -76,12 +98,14 @@ var _ = DescribeTable("parseVAETiling target overlap",
 // available here; every one the code under test touches must be set or the
 // call panics on a nil func.
 type fakeSDLib struct {
-	tilingEnabled bool
-	tileSizeCalls int
-	tileSizeX     int
-	tileSizeY     int
-	overlapCalls  int
-	targetOverlap float32
+	tilingEnabled     bool
+	tileSizeCalls     int
+	tileSizeX         int
+	tileSizeY         int
+	overlapCalls      int
+	targetOverlap     float32
+	customSigmasCalls int
+	customSigmas      []float32
 }
 
 // install points the bindings at the recorder and restores them afterwards, so
@@ -91,6 +115,7 @@ func (f *fakeSDLib) install() {
 	savedImgGenParamsSetPrompts := ImgGenParamsSetPrompts
 	savedImgGenParamsSetDimensions := ImgGenParamsSetDimensions
 	savedImgGenParamsSetSeed := ImgGenParamsSetSeed
+	savedImgGenParamsSetCustomSigmas := ImgGenParamsSetCustomSigmas
 	savedImgGenParamsGetVaeTilingParams := ImgGenParamsGetVaeTilingParams
 	savedTilingParamsSetEnabled := TilingParamsSetEnabled
 	savedTilingParamsSetTileSizes := TilingParamsSetTileSizes
@@ -103,6 +128,7 @@ func (f *fakeSDLib) install() {
 		ImgGenParamsSetPrompts = savedImgGenParamsSetPrompts
 		ImgGenParamsSetDimensions = savedImgGenParamsSetDimensions
 		ImgGenParamsSetSeed = savedImgGenParamsSetSeed
+		ImgGenParamsSetCustomSigmas = savedImgGenParamsSetCustomSigmas
 		ImgGenParamsGetVaeTilingParams = savedImgGenParamsGetVaeTilingParams
 		TilingParamsSetEnabled = savedTilingParamsSetEnabled
 		TilingParamsSetTileSizes = savedTilingParamsSetTileSizes
@@ -115,6 +141,10 @@ func (f *fakeSDLib) install() {
 	ImgGenParamsSetPrompts = func(uintptr, string, string) {}
 	ImgGenParamsSetDimensions = func(uintptr, int, int) {}
 	ImgGenParamsSetSeed = func(uintptr, int64) {}
+	ImgGenParamsSetCustomSigmas = func(_ uintptr, sigmas uintptr, count int) {
+		f.customSigmasCalls++
+		f.customSigmas = append([]float32(nil), unsafe.Slice((*float32)(unsafe.Pointer(sigmas)), count)...)
+	}
 	ImgGenParamsGetVaeTilingParams = func(uintptr) uintptr { return 2 }
 	TilingParamsSetEnabled = func(_ uintptr, enabled bool) { f.tilingEnabled = enabled }
 	TilingParamsSetTileSizes = func(_ uintptr, x, y int) {
@@ -144,6 +174,20 @@ var _ = Describe("GenerateImage VAE tiling", func() {
 		Expect(sd.Load(&pb.ModelOptions{Options: options})).To(Succeed())
 		Expect(sd.GenerateImage(&pb.GenerateImageRequest{Width: 1024, Height: 1024})).To(Succeed())
 	}
+
+	It("forwards custom sigmas to image generation", func() {
+		generate([]string{"custom_sigmas:1.0,0.5,0.0"})
+
+		Expect(fake.customSigmasCalls).To(Equal(1))
+		Expect(fake.customSigmas).To(Equal([]float32{1, 0.5, 0}))
+	})
+
+	It("does not set custom sigmas when the option is absent", func() {
+		generate([]string{"sampler:euler"})
+
+		Expect(fake.customSigmasCalls).To(BeZero())
+		Expect(fake.customSigmas).To(BeNil())
+	})
 
 	It("enables tiling when the model asks for it", func() {
 		generate([]string{"vae_tiling:true"})

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +20,7 @@ type SDGGML struct {
 	threads      int
 	sampleMethod string
 	cfgScale     float32
+	customSigmas []float32
 	vaeTiling    vaeTiling
 }
 
@@ -36,6 +38,7 @@ var (
 	ImgGenParamsSetPrompts         func(params uintptr, prompt string, negativePrompt string)
 	ImgGenParamsSetDimensions      func(params uintptr, width int, height int)
 	ImgGenParamsSetSeed            func(params uintptr, seed int64)
+	ImgGenParamsSetCustomSigmas    func(params uintptr, sigmas uintptr, count int)
 	ImgGenParamsGetVaeTilingParams func(params uintptr) uintptr
 
 	VidGenParamsNew            func() uintptr
@@ -52,6 +55,40 @@ type vaeTiling struct {
 	hasTileSize   bool
 	targetOverlap float32
 	hasOverlap    bool
+}
+
+func parseCustomSigmas(options []string) ([]float32, error) {
+	for _, op := range options {
+		name, value, found := strings.Cut(op, ":")
+		if name != "custom_sigmas" {
+			continue
+		}
+		if !found {
+			return nil, fmt.Errorf("custom_sigmas requires a comma-separated value")
+		}
+
+		values := strings.Split(value, ",")
+		if len(values) < 2 {
+			return nil, fmt.Errorf("custom_sigmas requires at least 2 values")
+		}
+		sigmas := make([]float32, len(values))
+		for i, value := range values {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				return nil, fmt.Errorf("custom_sigmas value %d is empty", i+1)
+			}
+			parsed, err := strconv.ParseFloat(value, 32)
+			if err != nil {
+				return nil, fmt.Errorf("custom_sigmas value %d %q is not a number", i+1, value)
+			}
+			if math.IsNaN(parsed) || math.IsInf(parsed, 0) {
+				return nil, fmt.Errorf("custom_sigmas value %d must be finite", i+1)
+			}
+			sigmas[i] = float32(parsed)
+		}
+		return sigmas, nil
+	}
+	return nil, nil
 }
 
 func parseVAETiling(options []string) vaeTiling {
@@ -158,6 +195,11 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	}
 
 	sd.cfgScale = opts.CFGScale
+	sigmas, err := parseCustomSigmas(opts.Options)
+	if err != nil {
+		return fmt.Errorf("invalid model option: %w", err)
+	}
+	sd.customSigmas = sigmas
 	// Read from the unfiltered list: none of the tiling options name a path, so
 	// the resolution pass above neither rewrites nor drops them.
 	sd.vaeTiling = parseVAETiling(opts.Options)
@@ -209,6 +251,9 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	ImgGenParamsSetPrompts(p, t, negative)
 	ImgGenParamsSetDimensions(p, int(opts.Width), int(opts.Height))
 	ImgGenParamsSetSeed(p, int64(opts.Seed))
+	if len(sd.customSigmas) > 0 {
+		ImgGenParamsSetCustomSigmas(p, uintptr(unsafe.Pointer(&sd.customSigmas[0])), len(sd.customSigmas))
+	}
 	// Tiling decodes the latent in overlapping tiles, so the VAE compute buffer
 	// scales with the tile rather than with the image. That is the difference
 	// between working and failing on any device that caps a single allocation
@@ -227,6 +272,7 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	}
 
 	ret := GenImage(p, int(opts.Step), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
+	runtime.KeepAlive(sd.customSigmas)
 	runtime.KeepAlive(keepAlive)
 	fmt.Fprintf(os.Stderr, "GenImage: %d\n", ret)
 	if ret != 0 {
