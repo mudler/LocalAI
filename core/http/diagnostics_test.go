@@ -66,7 +66,7 @@ var _ = Describe("Diagnostics public API isolation", Serial, func() {
 					defer func() { cancel(); Expect(app.Shutdown()).To(Succeed()) }()
 					router, err := api.API(app)
 					Expect(err).NotTo(HaveOccurred())
-					defer router.Close()
+					defer func() { Expect(router.Close()).To(Succeed()) }()
 					Expect(app.ApplicationConfig().APIAddress).To(Equal(publicListener.Addr().String()))
 					Expect(app.ApplicationConfig().APIAddress).NotTo(Equal(opts.Address))
 					for _, route := range router.Routes() {
