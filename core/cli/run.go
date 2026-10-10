@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -921,15 +922,20 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	go func() { served <- appHTTP.Start(listenAddress) }()
 	select {
 	case err := <-served:
-		return err
+		return errors.Join(err, context.Cause(runCtx))
 	case <-runCtx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := appHTTP.Shutdown(shutdownCtx); err != nil {
-			_ = appHTTP.Close()
+		shutdownErr := appHTTP.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, appHTTP.Close())
 		}
-		<-served
-		return context.Cause(runCtx)
+		serveErr := <-served
+		// Only intentional shutdown makes ErrServerClosed an expected result.
+		if errors.Is(serveErr, nethttp.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
 	}
 }
 

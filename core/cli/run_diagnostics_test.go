@@ -2,14 +2,25 @@
 package cli
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/alecthomas/kong"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -148,5 +159,98 @@ var _ = Describe("Diagnostics inline startup", Serial, func() {
 		l, err = net.Listen("tcp", address)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(l.Close()).To(Succeed())
+	})
+})
+
+// Fail the real private listener only once Run has constructed the public API.
+// The subprocess isolates the logger, signal registrations and socket operation.
+type diagnosticsListenerFailure struct {
+	slog.Handler
+	port       int
+	failed     chan error
+	canceled   chan struct{}
+	cancelOnce sync.Once
+}
+
+func (h *diagnosticsListenerFailure) Handle(ctx context.Context, record slog.Record) error {
+	if record.Message == "Context canceled, shutting down" {
+		h.cancelOnce.Do(func() { close(h.canceled) })
+	}
+	if record.Message == "LocalAI is started and running" {
+		entries, err := os.ReadDir("/proc/self/fd")
+		if err != nil {
+			h.failed <- err
+			return nil
+		}
+		for _, entry := range entries {
+			fd, err := strconv.Atoi(entry.Name())
+			if err != nil {
+				continue
+			}
+			address, err := syscall.Getsockname(fd)
+			if err != nil {
+				continue
+			}
+			if address, ok := address.(*syscall.SockaddrInet4); ok && address.Port == h.port {
+				if err := syscall.Shutdown(fd, syscall.SHUT_RDWR); err != nil {
+					h.failed <- err
+					return nil
+				}
+				// Application's cancellation log acknowledges the real run context,
+				// without sleeps or a production lifecycle injection point.
+				select {
+				case <-h.canceled:
+					h.failed <- nil
+				case <-time.After(5 * time.Second):
+					h.failed <- fmt.Errorf("run context was not canceled")
+				}
+				return nil
+			}
+		}
+		h.failed <- fmt.Errorf("private listener not found")
+	}
+	return nil
+}
+
+var _ = Describe("Diagnostics concurrent public bind failure", Serial, func() {
+	It("retains the occupied API port error alongside cancellation", func() {
+		if runtime.GOOS != "linux" {
+			Skip("socket failure fixture uses /proc/self/fd")
+		}
+		if os.Getenv("LOCALAI_DIAGNOSTICS_BIND_CHILD") != "1" {
+			executable, err := os.Executable()
+			Expect(err).NotTo(HaveOccurred())
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, executable, "-test.run=TestCLI", "-ginkgo.focus=Diagnostics concurrent public bind failure", "-ginkgo.fail-on-empty")
+			cmd.Env = append(os.Environ(), "LOCALAI_DIAGNOSTICS_BIND_CHILD=1")
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			return
+		}
+		occupied, err := net.Listen("tcp4", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		defer occupied.Close()
+		private, err := net.Listen("tcp4", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		address := private.Addr().String()
+		port := private.Addr().(*net.TCPAddr).Port
+		Expect(private.Close()).To(Succeed())
+		failure := &diagnosticsListenerFailure{Handler: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug}), port: port, failed: make(chan error, 1), canceled: make(chan struct{})}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(failure, xlog.LogLevelDebug))
+		dir := GinkgoT().TempDir()
+		r := &RunCMD{
+			Pprof: true, PprofAddress: address, Address: occupied.Addr().String(),
+			ModelsPath: filepath.Join(dir, "models"), BackendsPath: filepath.Join(dir, "backends"),
+			BackendsSystemPath: filepath.Join(dir, "system"), DataPath: filepath.Join(dir, "data"),
+			GeneratedContentPath: filepath.Join(dir, "generated"), UploadPath: filepath.Join(dir, "uploads"),
+			Galleries: "[]", BackendGalleries: "[]", DisableAgents: true, DisableLocalAIAssistant: true,
+			DisableMCP: true, DisableMetricsEndpoint: true, DisableWebUI: true,
+		}
+		err = r.Run(&cliContext.Context{CredentialsFile: "unused"})
+		Expect(failure.failed).To(Receive(BeNil()))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("accept"))
+		Expect(err.Error()).To(ContainSubstring("address already in use"))
 	})
 })
