@@ -13390,6 +13390,80 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- name: lythri-4b-a2b-q4
+  variants:
+    - model: lythri-4b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Lythri/Lythri-4B-A2B
+    - https://huggingface.co/bartowski/Lythri_Lythri-4B-A2B-GGUF
+  license: apache-2.0
+  description: |
+    Lythri 4B A2B is a Gemma 4 E2B fine-tune for conversational companionship.
+    This Q4_K_M GGUF build runs text chat through llama.cpp with the embedded
+    chat template and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+  last_checked: "2026-10-10"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Lythri_Lythri-4B-A2B-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 64
+      repeat_penalty: 1.05
+  files:
+    - filename: Lythri_Lythri-4B-A2B-Q4_K_M.gguf
+      uri: https://huggingface.co/bartowski/Lythri_Lythri-4B-A2B-GGUF/resolve/45d48872368ec757aa24f77461fd8da3467d3a6c/Lythri_Lythri-4B-A2B-Q4_K_M.gguf
+      sha256: 55313cc969edfff9b7bc9a1b56ac38d3eec9b51f6103191b13dcd40859ebee09
+- name: lythri-4b-a2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Lythri/Lythri-4B-A2B
+    - https://huggingface.co/bartowski/Lythri_Lythri-4B-A2B-GGUF
+  license: apache-2.0
+  description: |
+    Lythri 4B A2B is a Gemma 4 E2B fine-tune for conversational companionship.
+    This Q8_0 GGUF build runs text chat through llama.cpp with the embedded
+    chat template and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+  last_checked: "2026-10-10"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Lythri_Lythri-4B-A2B-Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 64
+      repeat_penalty: 1.05
+  files:
+    - filename: Lythri_Lythri-4B-A2B-Q8_0.gguf
+      uri: https://huggingface.co/bartowski/Lythri_Lythri-4B-A2B-GGUF/resolve/45d48872368ec757aa24f77461fd8da3467d3a6c/Lythri_Lythri-4B-A2B-Q8_0.gguf
+      sha256: a9ef4373627d9aa863b6823f0911b15aa0eb0a3089c76ef9a21dd571ceada060
 - &gemma-4-31b-ortenzya
   name: gemma-4-31b-ortenzya-q4
   variants:
