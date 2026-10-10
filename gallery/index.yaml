@@ -21352,8 +21352,9 @@
   overrides:
     backend: stablediffusion-ggml
     known_usecases: [upscale]
-    upscale_scale: 4
-    upscale_tile_size: 128
+    options:
+      - upscale_scale:4
+      - upscale_tile_size:128
     parameters:
       model: RealESRGAN_x4plus_anime_6B.pth
   files:

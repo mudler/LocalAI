@@ -163,14 +163,17 @@ backend: stablediffusion-ggml
 parameters:
   model: RealESRGAN_x4plus_anime_6B.pth
 known_usecases: [upscale]
-upscale_scale: 4
-upscale_tile_size: 128
+options:
+  - upscale_scale:4
+  - upscale_tile_size:128
 ```
 
-`upscale_scale` is a positive YAML integer, not a string. Keep `known_usecases`
-explicitly set to `[upscale]`: do not add `image` or `diffusion_model` options to
-this configuration. Normal model loading forwards the typed scale, tile size,
-and declared usecase to the backend; they do not need duplicate `options` entries.
+`upscale_scale` and `upscale_tile_size` are backend options, expressed as
+`key:value` strings in `options`, not root-level configuration fields.
+`upscale_scale` must be a positive integer. Keep `known_usecases` explicitly
+set to `[upscale]`: do not add `image` or `diffusion_model` options to this
+configuration. Options are forwarded unchanged; the backend rejects invalid
+or duplicate recognized settings.
 
 The multipart fields `model`, `image`, and **`scale` are required**. The HTTP
 endpoint accepts only integer scales from **1 through 16**, rejecting missing,

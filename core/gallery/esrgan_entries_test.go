@@ -21,9 +21,9 @@ var _ = Describe("gallery/index.yaml ESRGAN entry", func() {
 		Expect(entry.License).To(Equal("BSD-3-Clause"))
 		Expect(entry.Overrides["backend"]).To(Equal("stablediffusion-ggml"))
 		Expect(entry.Overrides["known_usecases"]).To(ConsistOf("upscale"))
-		Expect(entry.Overrides["upscale_scale"]).To(Equal(4))
-		Expect(entry.Overrides["upscale_tile_size"]).To(Equal(128))
-		Expect(entry.Overrides).NotTo(HaveKey("options"))
+		Expect(entry.Overrides).NotTo(HaveKey("upscale_scale"))
+		Expect(entry.Overrides).NotTo(HaveKey("upscale_tile_size"))
+		Expect(entry.Overrides["options"]).To(ConsistOf("upscale_scale:4", "upscale_tile_size:128"))
 		Expect(entry.AdditionalFiles).To(HaveLen(1))
 		file := entry.AdditionalFiles[0]
 		Expect(file.Filename).To(Equal("RealESRGAN_x4plus_anime_6B.pth"))

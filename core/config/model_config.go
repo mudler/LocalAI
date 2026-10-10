@@ -93,8 +93,6 @@ type ModelConfig struct {
 	// that usecases alone cannot express, such as image- or audio-conditioned video.
 	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
 	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
-	UpscaleScale          int      `yaml:"upscale_scale,omitempty" json:"upscale_scale,omitempty"`
-	UpscaleTileSize       int      `yaml:"upscale_tile_size,omitempty" json:"upscale_tile_size,omitempty"`
 	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`

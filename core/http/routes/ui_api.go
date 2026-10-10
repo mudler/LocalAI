@@ -874,7 +874,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			result = append(result, modelCapability{
 				ID:               cfg.Name,
 				Capabilities:     cfg.KnownUsecaseStrings,
-				UpscaleScale:     cfg.UpscaleScale,
+				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
 				ThreeDOperations: cfg.ThreeDOperations(),
 				Backend:          cfg.Backend,
 				Disabled:         cfg.IsDisabled(),

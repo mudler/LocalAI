@@ -24,12 +24,22 @@ func TestUIUpscaleCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	cl := config.NewModelConfigLoader(dir)
-	path := filepath.Join(dir, "upscaler.yaml")
-	if err := os.WriteFile(path, []byte("name: upscaler\nbackend: stablediffusion-ggml\nknown_usecases: [upscale]\nupscale_scale: 4\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := cl.ReadModelConfig(path); err != nil {
-		t.Fatal(err)
+	for name, options := range map[string]string{
+		"upscaler":    "options: [upscale_scale:4]\n",
+		"absent":      "",
+		"malformed":   "options: [upscale_scale:bad]\n",
+		"nonpositive": "options: [upscale_scale:0]\n",
+		"negative":    "options: [upscale_scale:-1]\n",
+		"overflow":    "options: [upscale_scale:2147483648]\n",
+		"duplicate":   "options: [upscale_scale:4, upscale_scale:4]\n",
+	} {
+		path := filepath.Join(dir, name+".yaml")
+		if err := os.WriteFile(path, []byte("name: "+name+"\nbackend: stablediffusion-ggml\nknown_usecases: [upscale]\n"+options), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := cl.ReadModelConfig(path); err != nil {
+			t.Fatal(err)
+		}
 	}
 	ac := config.NewApplicationConfig()
 	ac.SystemState = st
@@ -46,19 +56,25 @@ func TestUIUpscaleCapabilities(t *testing.T) {
 		Data []struct {
 			ID           string   `json:"id"`
 			Capabilities []string `json:"capabilities"`
-			Scale        int      `json:"upscaleScale"`
+			Scale        *int     `json:"upscaleScale"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
+	if len(response.Data) != 7 {
+		t.Fatalf("unexpected model count: %d", len(response.Data))
+	}
 	for _, entry := range response.Data {
+		if len(entry.Capabilities) != 1 || entry.Capabilities[0] != "FLAG_UPSCALE" {
+			t.Fatalf("unexpected capabilities: %+v", entry)
+		}
 		if entry.ID == "upscaler" {
-			if entry.Scale != 4 || len(entry.Capabilities) != 1 || entry.Capabilities[0] != "FLAG_UPSCALE" {
-				t.Fatalf("unexpected entry: %+v", entry)
+			if entry.Scale == nil || *entry.Scale != 4 {
+				t.Fatalf("unexpected scale: %+v", entry)
 			}
-			return
+		} else if entry.Scale != nil {
+			t.Fatalf("invalid scale exposed: %+v", entry)
 		}
 	}
-	t.Fatal("upscaler missing from response")
 }

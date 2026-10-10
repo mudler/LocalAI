@@ -397,34 +397,18 @@ func withCompanionArtifactOptions(options []string, artifacts []modelartifacts.S
 	return combined
 }
 
-// upscaleModelOptions forwards only explicit typed settings, never inferred
-// usecases. Zero is omitted so the backend uses its full-frame default. For each typed
-// setting we emit exactly one canonical option, replacing all legacy entries of
-// that name without mutating c.Options. Invalid negative values reach backend
-// validation rather than silently falling back to a legacy value.
-func upscaleModelOptions(c config.ModelConfig) []string {
-	options := append([]string(nil), c.Options...)
-	set := func(key, value string) {
-		options = slices.DeleteFunc(options, func(option string) bool {
-			name, _, _ := strings.Cut(option, ":")
-			return name == key
-		})
-		options = append(options, key+":"+value)
+// withExplicitUpscaleUsecases forwards explicit route classification so the
+// backend can reject mixed image/upscale configurations. Backend-specific options
+// remain untouched, including invalid or duplicate values for backend validation.
+func withExplicitUpscaleUsecases(c config.ModelConfig) []string {
+	if c.KnownUsecases == nil || *c.KnownUsecases&config.FLAG_UPSCALE == 0 {
+		return c.Options
 	}
-	if c.UpscaleScale != 0 {
-		set("upscale_scale", strconv.Itoa(c.UpscaleScale))
+	usecases := "upscale"
+	if *c.KnownUsecases&config.FLAG_IMAGE != 0 {
+		usecases += ",image"
 	}
-	if c.UpscaleTileSize != 0 {
-		set("upscale_tile_size", strconv.Itoa(c.UpscaleTileSize))
-	}
-	if c.KnownUsecases != nil && *c.KnownUsecases&config.FLAG_UPSCALE != 0 {
-		usecases := "upscale"
-		if *c.KnownUsecases&config.FLAG_IMAGE != 0 {
-			usecases += ",image"
-		}
-		set("known_usecases", usecases)
-	}
-	return options
+	return append(append([]string(nil), c.Options...), "known_usecases:"+usecases)
 }
 
 func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
@@ -517,7 +501,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		IMG2IMG:              c.Diffusers.IMG2IMG,
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
-		Options:              withCompanionArtifactOptions(upscaleModelOptions(c), c.Artifacts),
+		Options:              withCompanionArtifactOptions(withExplicitUpscaleUsecases(c), c.Artifacts),
 		Overrides:            c.Overrides,
 		EngineArgs:           engineArgsJSON,
 		EnableScore:          c.HasUsecases(config.FLAG_SCORE),

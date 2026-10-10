@@ -52,20 +52,20 @@ parameters:
 		Expect(valid).To(BeTrue())
 	})
 
-	It("parses typed upscale settings and usecase from YAML", func() {
+	It("parses upscale backend options and explicit usecase from YAML", func() {
 		raw := []byte(`
 name: realesrgan
 backend: stablediffusion-ggml
 known_usecases: [upscale]
-upscale_scale: 4
-upscale_tile_size: 128
+options:
+  - upscale_scale:4
+  - upscale_tile_size:128
 parameters:
   model: realesrgan-x4plus.gguf
 `)
 		var cfg ModelConfig
 		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
-		Expect(cfg.UpscaleScale).To(Equal(4))
-		Expect(cfg.UpscaleTileSize).To(Equal(128))
+		Expect(cfg.Options).To(Equal([]string{"upscale_scale:4", "upscale_tile_size:128"}))
 		Expect(cfg.KnownUsecases).NotTo(BeNil())
 		Expect(*cfg.KnownUsecases & FLAG_UPSCALE).To(Equal(FLAG_UPSCALE))
 		Expect(cfg.KnownUsecaseStrings).To(ContainElement("FLAG_UPSCALE"))
