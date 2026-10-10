@@ -315,9 +315,7 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	return nil
 }
 
-// ModelOptions does not carry KnownUsecases or the typed upscale settings.
-// Presence of upscale_scale in Options is the explicit upscale-only marker;
-// callers must forward the typed setting through that existing option list.
+// Presence of the backend option upscale_scale is the explicit upscale-only marker.
 // Also honor declared usecases if a caller forwards them in Options.
 type upscaleSettings struct {
 	enabled                bool
