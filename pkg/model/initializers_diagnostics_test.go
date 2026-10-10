@@ -135,7 +135,7 @@ var _ = Describe("Diagnostics model initialization", func() {
 		cached := NewModelWithClient("cached", "unused", &diagnosticsHealthyBackend{})
 		cached.MarkHealthy()
 		ml.store.Set("cached", cached)
-		for _, c := range []context.Context{context.Background(), ctx} {
+		for _, c := range []context.Context{nil, context.Background(), ctx} {
 			got, err := ml.Load(WithContext(c), WithModelID("cached"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got).NotTo(BeNil())

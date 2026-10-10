@@ -84,6 +84,9 @@ type observation struct {
 }
 
 func observed(ctx context.Context) *observation {
+	if ctx == nil {
+		return nil
+	}
 	o, _ := ctx.Value(observationKey{}).(*observation)
 	return o
 }

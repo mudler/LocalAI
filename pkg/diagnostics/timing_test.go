@@ -35,6 +35,42 @@ var _ = Describe("Diagnostics timing", func() {
 			Record(ctx, PhaseConfigFilter, 0, OutcomeOK, 0)
 		})).To(BeZero())
 	})
+	Describe("nil contexts", func() {
+		It("keeps Mark inert", func() {
+			Expect(func() { Mark(nil, PhaseModelInit) }).NotTo(Panic())
+		})
+		It("returns an inert Begin closure", func() {
+			Expect(func() { Begin(nil, PhaseExtraction)(OutcomeOK, 0) }).NotTo(Panic())
+		})
+		It("keeps Record inert", func() {
+			Expect(func() { Record(nil, PhaseConfigFilter, time.Second, OutcomeOK, 1) }).NotTo(Panic())
+		})
+		It("reports timing disabled", func() {
+			Expect(Enabled(nil)).To(BeFalse())
+		})
+		It("leaves the inheritance destination unchanged", func() {
+			type key struct{}
+			dst, cancel := context.WithCancel(context.WithValue(context.Background(), key{}, "destination"))
+			cancel()
+			Expect(Inherit(dst, nil)).To(BeIdenticalTo(dst))
+			Expect(Inherit(dst, nil).Err()).To(Equal(context.Canceled))
+			Expect(Inherit(dst, nil).Value(key{})).To(Equal("destination"))
+			Expect(Enabled(Inherit(dst, nil))).To(BeFalse())
+		})
+		It("emits no events and allocates nothing", func() {
+			var events []Event
+			dst := NewRecorder(func(e Event) { events = append(events, e) }).Request(context.Background())
+			Expect(testing.AllocsPerRun(100, func() {
+				Mark(nil, PhaseModelInit)
+				Begin(nil, PhaseExtraction)(OutcomeOK, 0)
+				Record(nil, PhaseConfigFilter, time.Second, OutcomeOK, 1)
+				Enabled(nil)
+				Inherit(dst, nil)
+			})).To(BeZero())
+			Expect(Inherit(dst, nil)).To(BeIdenticalTo(dst))
+			Expect(events).To(BeEmpty())
+		})
+	})
 	It("records exact nested durations and aggregate outcomes without summing", func() {
 		var events []Event
 		r := NewRecorder(func(e Event) { events = append(events, e) })
