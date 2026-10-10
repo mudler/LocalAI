@@ -44,6 +44,7 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 					cfg.ContextSize = &appConfig.ContextSize
 				}
 				entry.Capabilities = cfg.Capabilities()
+				entry.UpscaleScale = cfg.UpscaleScale
 				// Generation aliases inherit target capabilities, but the router's
 				// native classifier loads the named config directly (no alias resolution).
 				original, exists := bcl.GetModelConfig(m)

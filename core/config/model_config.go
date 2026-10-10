@@ -93,6 +93,8 @@ type ModelConfig struct {
 	// that usecases alone cannot express, such as image- or audio-conditioned video.
 	KnownInputModalities  []string `yaml:"known_input_modalities,omitempty" json:"known_input_modalities,omitempty"`
 	KnownOutputModalities []string `yaml:"known_output_modalities,omitempty" json:"known_output_modalities,omitempty"`
+	UpscaleScale          int      `yaml:"upscale_scale,omitempty" json:"upscale_scale,omitempty"`
+	UpscaleTileSize       int      `yaml:"upscale_tile_size,omitempty" json:"upscale_tile_size,omitempty"`
 	Pipeline              Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	PromptStrings, InputStrings                []string       `yaml:"-" json:"-"`
@@ -2088,6 +2090,9 @@ const (
 	// pickers it cannot serve.
 	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
 
+	// Marks a model as an image upscaler served by the UpscaleImage RPC.
+	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2151,6 +2156,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
+		"FLAG_UPSCALE":              FLAG_UPSCALE,
 	}
 }
 
@@ -2179,7 +2185,7 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY, FLAG_DECISIONS and FLAG_UPSCALE: when the operator
 // declared any of them, they reserved the model for a direct-decode primitive
 // (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
@@ -2191,7 +2197,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS | FLAG_UPSCALE)) != 0 {
 			return false
 		}
 	}
@@ -2202,6 +2208,10 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	// Upscaling requires a dedicated model declaration, not just an image backend.
+	if u&FLAG_UPSCALE != 0 {
+		return false
+	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",

@@ -85,6 +85,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     ModalityOptions,
 			Order:       8,
 		},
+		"upscale_scale": {
+			Section:     "general",
+			Label:       "Upscale Scale",
+			Description: "Native integer scale factor declared by an image upscaler model",
+			Component:   "number",
+			Order:       9,
+		},
+		"upscale_tile_size": {
+			Section:     "general",
+			Label:       "Upscale Tile Size",
+			Description: "Optional tile size for image upscaling; zero uses full-frame processing",
+			Component:   "number",
+			Advanced:    true,
+			Order:       10,
+		},
 		"artifacts": {
 			Section:     "general",
 			Label:       "Managed Model Artifacts",

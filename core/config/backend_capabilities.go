@@ -17,6 +17,7 @@ const (
 	UsecaseEmbeddings          = "embeddings"
 	UsecaseTokenize            = "tokenize"
 	UsecaseImage               = "image"
+	UsecaseUpscale             = "upscale"
 	UsecaseVideo               = "video"
 	Usecase3D                  = "3d"
 	Usecase3DAnimation         = "3d_animation"
@@ -121,6 +122,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_TOKENIZE,
 		GRPCMethod:  MethodTokenizeString,
 		Description: "Tokenization via the TokenizeString RPC without running inference.",
+	},
+	UsecaseUpscale: {
+		Flag:        FLAG_UPSCALE,
+		GRPCMethod:  MethodUpscaleImage,
+		Description: "Image upscaling via the UpscaleImage RPC.",
 	},
 	UsecaseImage: {
 		Flag:        FLAG_IMAGE,
@@ -406,7 +412,7 @@ var BackendCapabilities = map[string]BackendCapability{
 	// --- Image/video generation backends ---
 	"diffusers": {
 		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage, MethodGenerateVideo, MethodSoundGeneration},
-		PossibleUsecases: []string{UsecaseImage, UsecaseVideo, UsecaseSoundGeneration},
+		PossibleUsecases: []string{UsecaseImage, UsecaseUpscale, UsecaseVideo, UsecaseSoundGeneration},
 		DefaultUsecases:  []string{UsecaseImage},
 		Description:      "HuggingFace diffusers — image, video, and sound generation",
 	},
@@ -432,9 +438,9 @@ var BackendCapabilities = map[string]BackendCapability{
 		Description:      "Stable Diffusion native backend",
 	},
 	"stablediffusion-ggml": {
-		GRPCMethods:      []GRPCMethod{MethodGenerateImage},
-		PossibleUsecases: []string{UsecaseImage},
-		DefaultUsecases:  []string{UsecaseImage},
+		GRPCMethods:      []GRPCMethod{MethodGenerateImage, MethodUpscaleImage},
+		PossibleUsecases: []string{UsecaseImage, UsecaseUpscale},
+		DefaultUsecases:  []string{UsecaseImage, UsecaseUpscale},
 		Description:      "Stable Diffusion via GGML quantized models",
 	},
 

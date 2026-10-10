@@ -207,3 +207,17 @@ var _ = Describe("Model capabilities derivation", func() {
 		})
 	})
 })
+
+var _ = Describe("Upscale capabilities", func() {
+	It("keeps dedicated upscalers image-only without guessing generation", func() {
+		for _, backend := range []string{"stablediffusion-ggml", "llama-cpp", ""} {
+			cfg := &ModelConfig{Backend: backend, KnownUsecases: GetUsecasesFromYAML([]string{"upscale"})}
+			Expect(cfg.Capabilities()).To(Equal([]string{UsecaseUpscale}))
+			Expect(cfg.InputModalities()).To(Equal([]string{ModalityImage}))
+			Expect(cfg.OutputModalities()).To(Equal([]string{ModalityImage}))
+			Expect(cfg.HasUsecases(FLAG_IMAGE)).To(BeFalse())
+			Expect((&ModelConfig{Backend: backend}).HasUsecases(FLAG_UPSCALE)).To(BeFalse())
+		}
+		Expect(*GetUsecasesFromYAML([]string{"FLAG_UPSCALE"})).To(Equal(FLAG_UPSCALE))
+	})
+})

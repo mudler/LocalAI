@@ -98,6 +98,19 @@ var _ = Describe("ListModelCapabilitiesEndpoint", func() {
 		}
 	})
 
+	It("exposes lowercase upscale and typed scale without text modalities", func() {
+		writeConfig("upscaler", "name: upscaler\nbackend: stablediffusion-ggml\nknown_usecases: [upscale]\nupscale_scale: 4\n")
+		entry := entryFor(call(), "upscaler")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.Capabilities).To(Equal([]string{"upscale"}))
+		Expect(entry.InputModalities).To(Equal([]string{"image"}))
+		Expect(entry.OutputModalities).To(Equal([]string{"image"}))
+		Expect(entry.UpscaleScale).To(Equal(4))
+		raw, err := json.Marshal(entry)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"upscale_scale":4`))
+	})
+
 	It("returns the list envelope even with no models", func() {
 		resp := call()
 		Expect(resp.Object).To(Equal("list"))
