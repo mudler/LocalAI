@@ -30,6 +30,19 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+### VoxCPM on CUDA 12
+
+The `cuda12-voxcpm` backend pins VoxCPM 2.0.3, Torch and TorchAudio 2.8.0
+with CUDA 12.8, TorchCodec 0.7.0, and Transformers 4.57.3.
+These pins prevent dependency resolution from selecting a CUDA 13 Torch wheel.
+The installer also preserves the upstream attention implementation for this
+runtime instead of applying the legacy tensor-shape workaround.
+
+If an older installation produces noise, reinstall a backend built with these
+pins into a fresh environment, then restart LocalAI.
+Updating individual packages in the existing virtual environment might leave
+incompatible dependencies behind.
+
 ## List available voices
 
 Use `GET /v1/audio/voices` to list named voices for installed TTS models:
