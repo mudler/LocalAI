@@ -23,6 +23,21 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## FrogNano coding model
+
+`frognano-4b-2609` offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds
+through llama.cpp. The Q5 and Q6 variants provide intermediate sizes between
+the Q4 and Q8 builds. To select one explicitly:
+
+```bash
+local-ai models install frognano-4b-2609 --variant frognano-4b-2609-q5
+local-ai models install frognano-4b-2609 --variant frognano-4b-2609-q6
+```
+
+All builds use the embedded chat template and a 32,768-token default context.
+They are configured for text-based coding and tool use. The publisher does
+not support the checkpoint's inherited image and video components.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete

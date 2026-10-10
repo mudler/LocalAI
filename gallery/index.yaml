@@ -69428,6 +69428,8 @@
 - name: frognano-4b-2609
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   variants:
+    - model: frognano-4b-2609-q5
+    - model: frognano-4b-2609-q6
     - model: frognano-4b-2609-q8
   urls:
     - https://huggingface.co/microsoft/FrogNano-4B-2609
@@ -69466,6 +69468,84 @@
     - filename: FrogNano-4B-2609-Q4_K_M.gguf
       uri: https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF/resolve/dfbb801e04ddf045ffd245b9f1a546ed0c7d960f/FrogNano-4B-2609-Q4_K_M.gguf
       sha256: 01fba00c57e2976399ae4947f0b4fdde4623d3e410a435bf2ae39ddf164e9b0a
+- name: frognano-4b-2609-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/FrogNano-4B-2609
+    - https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF
+  description: |
+    FrogNano is Microsoft's Qwen3.5-4B derivative for repository-level coding
+    and tool use. This Q5_K_M GGUF build uses the embedded chat template
+    with a 32K-token default context. Configured for text input; upstream
+    does not evaluate or support its inherited image and video components.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-10-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: FrogNano-4B-2609-Q5_K_M.gguf
+      temperature: 0.6
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: FrogNano-4B-2609-Q5_K_M.gguf
+      uri: https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF/resolve/dfbb801e04ddf045ffd245b9f1a546ed0c7d960f/FrogNano-4B-2609-Q5_K_M.gguf
+      sha256: f37ff83a6229a127866c1deb414ae36f6c9c30e1b21d8e0bbe313f826cb23601
+- name: frognano-4b-2609-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/FrogNano-4B-2609
+    - https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF
+  description: |
+    FrogNano is Microsoft's Qwen3.5-4B derivative for repository-level coding
+    and tool use. This Q6_K GGUF build uses the embedded chat template
+    with a 32K-token default context. Configured for text input; upstream
+    does not evaluate or support its inherited image and video components.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-10-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: FrogNano-4B-2609-Q6_K.gguf
+      temperature: 0.6
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: FrogNano-4B-2609-Q6_K.gguf
+      uri: https://huggingface.co/bartowski/FrogNano-4B-2609-GGUF/resolve/dfbb801e04ddf045ffd245b9f1a546ed0c7d960f/FrogNano-4B-2609-Q6_K.gguf
+      sha256: 855278f785dc23fc4c150bf74e20ca6ed53036c06fb04abfd0ddc60d02116b6a
 - name: frognano-4b-2609-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
