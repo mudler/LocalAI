@@ -1,4 +1,82 @@
 ---
+- name: adavar-3b-q4
+  variants:
+    - model: adavar-3b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ZejunLi/AdaVaR-3B
+    - https://huggingface.co/mradermacher/AdaVaR-3B-GGUF
+  description: |
+    AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
+    through text or image-grounded coordinates. This Q4_K_M GGUF build
+    includes the F16 vision projector. Adaptive reasoning uses the publisher's
+    system prompt and question suffix; see the model card for these prompts.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - reasoning
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: AdaVaR-3B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: AdaVaR-3B.Q4_K_M.gguf
+  files:
+    - filename: AdaVaR-3B.Q4_K_M.gguf
+      sha256: ab333b48b080d3f251d955c639a390691f7a44105c164fe58fa7a8d33b4fe51a
+      uri: https://huggingface.co/mradermacher/AdaVaR-3B-GGUF/resolve/580d869e53b6338bf3dbafc5d8488217cbd28265/AdaVaR-3B.Q4_K_M.gguf
+    - filename: AdaVaR-3B.mmproj-f16.gguf
+      sha256: 1ac6d198b191101cf7e84977f1770b60190adbfa33cefaaf6a5ece6ea9270d98
+      uri: https://huggingface.co/mradermacher/AdaVaR-3B-GGUF/resolve/580d869e53b6338bf3dbafc5d8488217cbd28265/AdaVaR-3B.mmproj-f16.gguf
+- name: adavar-3b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ZejunLi/AdaVaR-3B
+    - https://huggingface.co/mradermacher/AdaVaR-3B-GGUF
+  description: |
+    AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
+    through text or image-grounded coordinates. This Q8_0 GGUF build
+    includes the F16 vision projector. Adaptive reasoning uses the publisher's
+    system prompt and question suffix; see the model card for these prompts.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - vision
+    - reasoning
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: AdaVaR-3B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: AdaVaR-3B.Q8_0.gguf
+  files:
+    - filename: AdaVaR-3B.Q8_0.gguf
+      sha256: 23495169a352b076dee53ffb74da1861b3f9670c7a081cbecd37788774c4b205
+      uri: https://huggingface.co/mradermacher/AdaVaR-3B-GGUF/resolve/580d869e53b6338bf3dbafc5d8488217cbd28265/AdaVaR-3B.Q8_0.gguf
+    - filename: AdaVaR-3B.mmproj-f16.gguf
+      sha256: 1ac6d198b191101cf7e84977f1770b60190adbfa33cefaaf6a5ece6ea9270d98
+      uri: https://huggingface.co/mradermacher/AdaVaR-3B-GGUF/resolve/580d869e53b6338bf3dbafc5d8488217cbd28265/AdaVaR-3B.mmproj-f16.gguf
 - name: spark-s1-4b-v6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
