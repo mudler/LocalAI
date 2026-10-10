@@ -86,13 +86,34 @@ var _ = Describe("Diagnostics timing", func() {
 		cancelDst()
 		Expect(Inherit(dstCanceled, src).Err()).To(Equal(context.Canceled))
 	})
-	It("generates fresh reload identities and does not reuse another recorder's request", func() {
+	It("reuses another recorder's request identity and original observer", func() {
+		var originalEvents, otherEvents []Event
+		original := NewRecorder(func(e Event) { originalEvents = append(originalEvents, e) })
+		other := NewRecorder(func(e Event) { otherEvents = append(otherEvents, e) })
+		req := original.Request(context.Background())
+		Mark(req, PhaseExtraction)
+
+		reused := other.Request(req)
+		Expect(reused).To(BeIdenticalTo(req))
+		Expect(observed(reused)).To(BeIdenticalTo(observed(req)))
+		Expect(observed(reused).recorder).To(BeIdenticalTo(original))
+		Mark(reused, PhaseModelInit)
+		Expect(originalEvents).To(HaveLen(2))
+		Expect(originalEvents[1].ID).To(Equal(originalEvents[0].ID))
+		Expect(otherEvents).To(BeEmpty())
+		Expect(testing.AllocsPerRun(100, func() { other.Request(req) })).To(BeZero())
+
+		var disabled *Recorder
+		Expect(disabled.Request(req)).To(BeIdenticalTo(req))
+		Expect(disabled.Reload(req)).To(BeIdenticalTo(req))
+	})
+	It("generates fresh reload identities and a fresh request after reload", func() {
 		var events []Event
 		sink := func(e Event) { events = append(events, e) }
 		r := NewRecorder(sink)
 		req := r.Request(context.Background())
 		reload := r.Reload(req)
-		for _, ctx := range []context.Context{req, reload, r.Reload(reload), r.Request(reload), NewRecorder(sink).Request(req)} {
+		for _, ctx := range []context.Context{req, reload, r.Reload(reload), r.Request(reload)} {
 			Mark(ctx, PhaseExtraction)
 		}
 		ids := map[string]bool{}

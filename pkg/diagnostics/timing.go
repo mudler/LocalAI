@@ -92,7 +92,7 @@ func (r *Recorder) Request(ctx context.Context) context.Context {
 	if r == nil {
 		return ctx
 	}
-	if o := observed(ctx); o != nil && o.kind == KindRequest && o.recorder == r {
+	if o := observed(ctx); o != nil && o.kind == KindRequest {
 		return ctx
 	}
 	return r.attach(ctx, KindRequest)
