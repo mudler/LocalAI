@@ -6415,6 +6415,84 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- name: spark-x2.5-4b-heretic-jp-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: spark-x2.5-4b-heretic-jp-q8
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/soyaakinohara/Spark-X2.5-4B-Heretic-jp-gguf
+  description: |
+    Spark-X2.5-4B Heretic JP is a Japanese adaptation of Spark-X2.5-4B with
+    continued pretraining, instruction tuning, and tool-call training.
+    This Q4_K_M GGUF uses the embedded chat template and an 8K-token default
+    context. Allow at least 1024 output tokens for thinking and the answer.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - japanese
+  last_checked: "2026-10-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b-heretic-jp/Spark-X2.5-4B-Heretic-jp-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b-heretic-jp/Spark-X2.5-4B-Heretic-jp-Q4_K_M.gguf
+      uri: https://huggingface.co/soyaakinohara/Spark-X2.5-4B-Heretic-jp-gguf/resolve/f01809e437fb3046ae9afd31d684556f9ae5dd46/Spark-X2.5-4B-Heretic-jp-Q4_K_M.gguf
+      sha256: 8700b9cb4be2ddf1a6b4a9230f7b9d030aeb923d0528301bc546bb5a74f21cd7
+- name: spark-x2.5-4b-heretic-jp-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/soyaakinohara/Spark-X2.5-4B-Heretic-jp-gguf
+  description: |
+    Spark-X2.5-4B Heretic JP is a Japanese adaptation of Spark-X2.5-4B with
+    continued pretraining, instruction tuning, and tool-call training.
+    This Q8_0 GGUF uses the embedded chat template and an 8K-token default
+    context. Allow at least 1024 output tokens for thinking and the answer.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - japanese
+  last_checked: "2026-10-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b-heretic-jp/Spark-X2.5-4B-Heretic-jp-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b-heretic-jp/Spark-X2.5-4B-Heretic-jp-Q8_0.gguf
+      uri: https://huggingface.co/soyaakinohara/Spark-X2.5-4B-Heretic-jp-gguf/resolve/f01809e437fb3046ae9afd31d684556f9ae5dd46/Spark-X2.5-4B-Heretic-jp-Q8_0.gguf
+      sha256: ad25031816957ee29ff1b4c7f735f7ba785c345cd6d3f404a581110c228eb81a
 - &spark-x2-5-1-7b
   name: spark-x2.5-1.7b-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
