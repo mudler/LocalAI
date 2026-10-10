@@ -101,6 +101,59 @@ but leaves the text unchanged. The entity-group names are whatever the model
 emits (the privacy-filter family uses uppercase names like `EMAIL`,
 `PASSWORD`, `CREDITCARD`).
 
+#### Extending a detection to the next word
+
+Some identifying values come in pairs where the model reliably tags one half
+and misses the other. The typical case is an address line: the postal code is
+detected with high confidence, the town right after it is tagged with a low
+score or not at all, and masking the code alone leaves the town in the clear
+(`[REDACTED:ner:ZIPCODE] Ludwigshafen`). `extend_to_next_word` lists entity
+groups whose accepted detections also cover the word that directly follows
+them on the same line, with the same action and group:
+
+```yaml
+pii_detection:
+  min_score: 0.4
+  extend_to_next_word:
+    - ZIPCODE                 # "67059 Ludwigshafen" -> "[REDACTED:ner:ZIPCODE]"
+```
+
+A word is a run of letters, digits, combining marks, `-`, `'` and inner dots
+(a trailing dot is left out). The extension skips spaces and tabs but never a
+line break, and it does nothing when no word follows. Only one word is added,
+so a multi-word town ("Frankfurt am Main") keeps its tail.
+
+#### Protected terms
+
+The opposite failure is a value the model tags although it must reach the
+upstream model: a business name read as a surname (`Hotel Seeblick` ->
+`Hotel [REDACTED:ner:LASTNAME]`) turns an invoice into one the model cannot
+categorise. `protected_terms` lists such values; `protected_terms_files`
+adds files inside the models path with one term per line (`#` starts a
+comment), re-read whenever they change, so an external process can keep the
+list current without a restart:
+
+```yaml
+pii_detection:
+  protected_terms:
+    - Hotel Seeblick
+  protected_terms_files:
+    - privacy-filter/known-suppliers.txt
+```
+
+Each whole-word, case-insensitive occurrence (whitespace inside a term
+matches any whitespace run) is replaced by a neutral placeholder before the
+detector runs and restored afterwards. The detector never sees the value,
+so it cannot tag it or let it colour the context around it, and the parts
+of a detection that fall on the placeholder are cut out. Event offsets
+still address the original text. Terms shorter than three characters are
+ignored, and a missing or unreadable file is skipped with a warning (fewer
+protected terms means more masking, never less).
+
+A protected term passes **everywhere** in the text: if the same string is
+also a person's name, that occurrence passes too. Keep the list to values
+that are safe to send.
+
 ### Pattern detector tier
 
 NER is the wrong tool for high-entropy, highly-regular **secrets** - API keys,
