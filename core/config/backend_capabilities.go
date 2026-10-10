@@ -941,6 +941,8 @@ var nonLlamaSamplerBackends = map[string]struct{}{
 	"mlx":             {},
 	"mlx-vlm":         {},
 	"mlx-distributed": {},
+	// gufo applies its own sampler defaults when a field is unset.
+	"gufo": {},
 }
 
 // UsesLlamaSamplerDefaults reports whether a backend should receive llama.cpp's

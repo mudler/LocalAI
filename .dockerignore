@@ -52,6 +52,14 @@ backend/cpp/audio-cpp/build
 backend/cpp/audio-cpp/grpc-server
 backend/cpp/audio-cpp/package
 
+# gufo: same in-place pattern. A host checkout carries its stamp file, so the
+# Makefile would skip the fetch and reuse it, together with gufo/build/ whose
+# CMakeCache.txt records host paths (often the cpu-test preset).
+backend/cpp/gufo/gufo
+backend/cpp/gufo/build
+backend/cpp/gufo/grpc-server
+backend/cpp/gufo/package
+
 # Rust backend build output (sources are tracked; target/ is generated)
 backend/rust/*/target
 

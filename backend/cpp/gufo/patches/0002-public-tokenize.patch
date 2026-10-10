@@ -1,0 +1,36 @@
+diff --git a/src/cli/serve/inference_backend.cpp b/src/cli/serve/inference_backend.cpp
+index 33db853..7e0bda2 100644
+--- a/src/cli/serve/inference_backend.cpp
++++ b/src/cli/serve/inference_backend.cpp
+@@ -3719,4 +3719,17 @@ std::size_t InferenceBackend::count_tokens(std::string_view text) const {
+ #endif
+ }
+ 
++std::vector<std::uint32_t> InferenceBackend::tokenize(std::string_view text) const {
++#if defined(ENGINE_ENABLE_HIP)
++  const auto state = impl_->Snapshot();
++  if (state == nullptr) {
++    return {};
++  }
++  return state->scheduler->runner().Tokenize(text);
++#else
++  (void)text;
++  return {};
++#endif
++}
++
+ }  // namespace gufo::server
+diff --git a/src/cli/serve/inference_backend.hpp b/src/cli/serve/inference_backend.hpp
+index b0dd075..9ee762c 100644
+--- a/src/cli/serve/inference_backend.hpp
++++ b/src/cli/serve/inference_backend.hpp
+@@ -161,6 +161,9 @@ public:
+   /// Token count of raw text (no generation).
+   [[nodiscard]] std::size_t count_tokens(std::string_view text) const override;
+ 
++  /// Token ids of raw text, for callers that need the ids rather than the count.
++  [[nodiscard]] std::vector<std::uint32_t> tokenize(std::string_view text) const;
++
+ private:
+   struct Impl;
+   std::unique_ptr<Impl> impl_;

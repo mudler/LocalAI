@@ -176,6 +176,7 @@ backend uses:
 | `llama-cpp` | `overrides.options` contains `spec_type:draft-dflash` or `spec_type:draft-mtp` |
 | `ds4` | `overrides.options` contains `mtp_path:` / `mtp_draft:` |
 | `sglang` | the referenced `gallery/*.yaml` sets `speculative_algorithm:` |
+| `gufo` | `overrides.options` contains `speculative:dflash2` or `speculative:mtp` |
 
 That check is curation-time only. `spec_type` is llama.cpp's config vocabulary,
 and a cross-backend ranking decision must not depend on one backend's option
