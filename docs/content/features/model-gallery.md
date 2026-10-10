@@ -547,6 +547,14 @@ ones, or both.
 
 Sizes are measured from the model's weights rather than downloaded, and cached.
 
+For example, `xing4.0-29b-a4b` offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0
+GGUF builds through llama.cpp. All four builds enable multi-token prediction.
+To install a specific build directly, use its gallery name:
+
+```bash
+local-ai models install xing4.0-29b-a4b-q6
+```
+
 The gallery listing only flags which entries offer variants, with a
 `has_variants` field. It deliberately does not describe them: measuring a
 variant is a network round trip per referenced build, so describing every

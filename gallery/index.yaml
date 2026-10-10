@@ -69683,27 +69683,23 @@
       sha256: ddf46c21d7078e95338cfc22306b19b276a29a5ad089023449dd54d4b6170a51
       uri: https://huggingface.co/EldanRing/Winnow-E4B/resolve/b29f0a445f0b2b6207300b1bc6c3bed23ada8c91/gguf/mmproj-Winnow-E4B.gguf
 - name: xing4.0-29b-a4b
+  variants:
+    - model: xing4.0-29b-a4b-q5
+    - model: xing4.0-29b-a4b-q6
+    - model: xing4.0-29b-a4b-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
+    - https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B
     - https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF
   description: |
-    # Xing4.0-29B-A4B
-
-    > [!Note]
-    > This repository provides the model weights and configuration files for Xing4.0-29B-A4B in Hugging Face Transformers format, compatible with Transformers, vLLM, SGLang, KTransformers, and other mainstream inference frameworks.
-
-    **Xing4.0-29B-A4B** is a next-generation large language model in the Xing series (formerly TeleChat), developed by China Telecom Artificial Intelligence Technology Co., Ltd. With 29B total parameters and only 4B activated per token, it natively supports a 256K context length, extensible to 512K. It is the first model of this scale trained entirely on the Ascend NPU platform with the MindSpore framework, and deeply optimized for complex engineering tasks.
-
-    For more information, please refer to our GitHub repository.
-
-    ## Highlights
-
-    ...
+    Xing4.0 is a 29B mixture-of-experts model with 4B active parameters for reasoning, coding, and tool use.
+    This Q4_K_M GGUF build uses llama.cpp with the embedded chat template and multi-token prediction.
   license: apache-2.0
   tags:
     - llm
     - gguf
     - mtp
+  last_checked: "2026-10-09"
   overrides:
     backend: llama-cpp
     function:
@@ -69724,7 +69720,112 @@
   files:
     - filename: llama-cpp/models/Xing4.0-29B-A4B-Q4_K_M/Xing4.0-29B-A4B-Q4_K_M.gguf
       sha256: 09148c314610aa3f341b64023cf806342ee7702ba8857cfdfecfc09443de71f2
-      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/main/Xing4.0-29B-A4B-Q4_K_M.gguf
+      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/845d645bfa2be61b7774f2a12a8bec9e2231ec5d/Xing4.0-29B-A4B-Q4_K_M.gguf
+- name: xing4.0-29b-a4b-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B
+    - https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF
+  description: |
+    Xing4.0 is a 29B mixture-of-experts model with 4B active parameters for reasoning, coding, and tool use.
+    This Q5_K_M GGUF build uses llama.cpp with the embedded chat template and multi-token prediction.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - mtp
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Xing4.0-29B-A4B-Q5_K_M/Xing4.0-29B-A4B-Q5_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Xing4.0-29B-A4B-Q5_K_M/Xing4.0-29B-A4B-Q5_K_M.gguf
+      sha256: 5dd24e9330791bb74de51488a96c9402fec5cb552115bc1a3ff29ddc28d83cde
+      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/845d645bfa2be61b7774f2a12a8bec9e2231ec5d/Xing4.0-29B-A4B-Q5_K_M.gguf
+- name: xing4.0-29b-a4b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B
+    - https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF
+  description: |
+    Xing4.0 is a 29B mixture-of-experts model with 4B active parameters for reasoning, coding, and tool use.
+    This Q6_K GGUF build uses llama.cpp with the embedded chat template and multi-token prediction.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - mtp
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Xing4.0-29B-A4B-Q6_K/Xing4.0-29B-A4B-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Xing4.0-29B-A4B-Q6_K/Xing4.0-29B-A4B-Q6_K.gguf
+      sha256: ebbb73a92993c2de6aa1a089515c287b5ba7d58e40f91b0bbaca55e81054c71b
+      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/845d645bfa2be61b7774f2a12a8bec9e2231ec5d/Xing4.0-29B-A4B-Q6_K.gguf
+- name: xing4.0-29b-a4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XingChen-AGI/Xing4.0-29B-A4B
+    - https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF
+  description: |
+    Xing4.0 is a 29B mixture-of-experts model with 4B active parameters for reasoning, coding, and tool use.
+    This Q8_0 GGUF build uses llama.cpp with the embedded chat template and multi-token prediction.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - mtp
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Xing4.0-29B-A4B-Q8_0/Xing4.0-29B-A4B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Xing4.0-29B-A4B-Q8_0/Xing4.0-29B-A4B-Q8_0.gguf
+      sha256: 2ebec362780b96c299f5a062966dcab41de41e96fbab92eee3f4e2b35f623244
+      uri: https://huggingface.co/Venastine-Research/Xing4.0-29B-A4B-GGUF/resolve/845d645bfa2be61b7774f2a12a8bec9e2231ec5d/Xing4.0-29B-A4B-Q8_0.gguf
 - name: artemis-31b-v1.2-q4
   variants:
     - model: artemis-31b-v1.2-q8
