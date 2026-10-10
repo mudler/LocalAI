@@ -1324,6 +1324,10 @@ definitions:
         type: string
       model_id:
         type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
       prompt_influence:
         type: number
       text:

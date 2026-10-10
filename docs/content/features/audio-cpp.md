@@ -243,6 +243,11 @@ voice conversion from the same weights.
   streaming speech requests. If you supply both parameters, `reference_text`
   takes precedence. For direct requests with a reference file in `voice`, supply
   its transcript in one of these parameters.
+- **YuE2**: the `audio-cpp-yue2-3b` gallery entry installs a model
+  directory containing the Q8_0 main model, the F16 VAE, and four required
+  sidecar files. Each request requires a non-empty `params.style` string. Set
+  the `params.cot` string to `off`, `melody`, or `full`. The model and GGUF
+  package are licensed under CC-BY-NC-4.0 for non-commercial use.
 - **Supertonic**: use the `orig` GGUF package, whose weights are f32. The f16 package was
   observed to reach `ggml_concat` with mismatched operand types and take the backend
   process down with `SIGABRT` on the first request, rather than returning an error.

@@ -6355,6 +6355,12 @@ const docTemplate = `{
                 "model_id": {
                     "type": "string"
                 },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "prompt_influence": {
                     "type": "number"
                 },
