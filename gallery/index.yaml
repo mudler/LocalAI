@@ -6662,6 +6662,94 @@
     - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q8_0.gguf
       uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q8_0.gguf
       sha256: 58a4fc627cc2b2cbea02f81fb22960938e86bf3e62a2b3ae01c55a678481d46b
+- &qwen3-8-27b-coder390
+  name: qwen3.8-27b-coder390-q6
+  variants:
+    - model: qwen3.8-27b-coder390-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  description: |
+    Coder390 EfficientThink is Nerkyor's 27B Qwen3.8 post-trained model for
+    coding and reasoning. This Q6_K GGUF includes the Q8_0 vision projector
+    for image input. A Q8_0 weights variant is available. Both entries use
+    an 8192-token context and the embedded chat template. The weights carry
+    MTP heads, but these entries do not enable speculative decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - coding
+    - reasoning
+    - vision
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/models/coder390/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/coder390/Qwen3.8-27B-Coder390-EfficientThink-Q6_K-MTP.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/coder390/Qwen3.8-27B-Coder390-EfficientThink-Q6_K-MTP.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2/resolve/1e72992e54b602eb71afe4fe2beb5dc2ac88928c/GGUF/Qwen3.8-27B-Coder390-EfficientThink-Q6_K-MTP.gguf
+      sha256: 302597c53d1b00f7230b53a8a050831390a4371e92a80c1ac644fa920af76ab1
+    - filename: llama-cpp/models/coder390/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2/resolve/1e72992e54b602eb71afe4fe2beb5dc2ac88928c/GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
+- !!merge <<: *qwen3-8-27b-coder390
+  name: qwen3.8-27b-coder390-q8
+  variants: []
+  description: |
+    Coder390 EfficientThink 27B in Q8_0 GGUF format, with the Q8_0 vision
+    projector for image input. Uses an 8192-token context and the embedded
+    chat template. Speculative decoding is not enabled.
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/models/coder390/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/coder390/Qwen3.8-27B-Coder390-EfficientThink-Q8_0-MTP.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/coder390/Qwen3.8-27B-Coder390-EfficientThink-Q8_0-MTP.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2/resolve/1e72992e54b602eb71afe4fe2beb5dc2ac88928c/GGUF/Qwen3.8-27B-Coder390-EfficientThink-Q8_0-MTP.gguf
+      sha256: b24e8c5fe3f2b282cce841400c740fcaca48afcdcf9e991f7bbe9a59a78cabfe
+    - filename: llama-cpp/models/coder390/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-Coder390-EfficientThink-Opus5.5-GPT6Astra-Grok4.7-DSV4Pro-K3-SFT-RLOO-MTP-DFlash2/resolve/1e72992e54b602eb71afe4fe2beb5dc2ac88928c/GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
 - &qwen3-8-9b
   name: qwen3.8-9b-q4
   variants:
