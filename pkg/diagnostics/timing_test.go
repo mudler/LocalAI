@@ -19,6 +19,17 @@ import (
 )
 
 var _ = Describe("Diagnostics timing", func() {
+	It("returns only an existing request ID without allocating", func() {
+		Expect(RequestID(nil)).To(BeEmpty())
+		Expect(RequestID(context.Background())).To(BeEmpty())
+		r := NewRecorder(func(Event) {})
+		Expect(RequestID(r.Reload(context.Background()))).To(BeEmpty())
+		ctx := r.Request(context.Background())
+		Expect(RequestID(ctx)).NotTo(BeEmpty())
+		Expect(RequestID(r.Request(ctx))).To(Equal(RequestID(ctx)))
+		Expect(testing.AllocsPerRun(100, func() { RequestID(context.Background()); RequestID(nil); RequestID(ctx) })).To(BeZero())
+	})
+
 	It("keeps disabled calls inert and allocation free", func() {
 		ctx := context.Background()
 		var r *Recorder

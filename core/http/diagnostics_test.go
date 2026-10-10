@@ -115,3 +115,47 @@ var _ = Describe("Diagnostics public API isolation", Serial, func() {
 		}
 	}
 })
+
+var _ = Describe("Chat lazy fallback authentication", func() {
+	It("rejects unauthenticated explicit models before extraction", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		dir := GinkgoT().TempDir()
+		state, err := system.GetSystemState(system.WithModelPath(dir), system.WithBackendPath(dir))
+		Expect(err).NotTo(HaveOccurred())
+		var events []diagnostics.Event
+		app, err := application.New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(dir, "data")), config.DisableRuntimeSettings, config.DisableAgentPool, config.DisableMCP, config.DisableMetricsEndpoint, config.WithDisableStats(true), config.WithApiKeys([]string{"secret"}), func(c *config.ApplicationConfig) {
+			c.DisableLocalAIAssistant = true
+			c.DiagnosticsRecorder = diagnostics.NewRecorder(func(e diagnostics.Event) { events = append(events, e) })
+		})
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { cancel(); Expect(app.Shutdown()).To(Succeed()) }()
+		router, err := api.API(app)
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { Expect(router.Close()).To(Succeed()) }()
+		for _, token := range []string{"", "wrong", "secret"} {
+			events = nil
+			r := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"missing"}`))
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set(diagnostics.HeaderDiagnosticID, "spoof")
+			if token != "" {
+				r.Header.Set("Authorization", "Bearer "+token)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+			if token != "secret" {
+				Expect(w.Code).To(Equal(http.StatusUnauthorized))
+				Expect(events).To(BeEmpty())
+				Expect(w.Header().Get(diagnostics.HeaderDiagnosticID)).To(BeEmpty())
+			} else {
+				Expect(w.Code).To(Equal(http.StatusNotFound))
+				Expect(events).NotTo(BeEmpty())
+				Expect(w.Header().Get(diagnostics.HeaderDiagnosticID)).To(Equal(events[0].ID))
+				for _, event := range events {
+					Expect(event.Phase).NotTo(Equal(diagnostics.PhaseBearerLookup))
+					Expect(event.Phase).NotTo(Equal(diagnostics.PhaseDefaultListing))
+				}
+			}
+		}
+	})
+})

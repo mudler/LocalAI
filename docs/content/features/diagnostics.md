@@ -183,3 +183,30 @@ They retain every preexisting invocation, including each parsed model's `ModelCo
 
 See the [CLI reference]({{% relref "reference/cli-reference" %}}) for other server options.
 The [troubleshooting guide]({{% relref "getting-started/troubleshooting" %}}) covers broader operational checks.
+
+### Response correlation
+
+With `--request-phase-timing` (`LOCALAI_REQUEST_PHASE_TIMING=true`), requests that reach model extraction receive `X-LocalAI-Diagnostic-ID`.
+The header contains the same server-generated UUID v4 as that request's phase events.
+LocalAI sets it before extraction errors or streaming output can write the response.
+Repeated extraction and failover attempts retain one ID for the logical request.
+
+Client-supplied diagnostic or correlation headers do not select this ID.
+The ID contains no model name, authentication token, or request content.
+It is a correlation value, not an authorization credential or a distributed trace ID.
+Requests rejected before extraction, including global authentication failures, do not receive this header.
+Disabling request-phase timing emits no diagnostic header and creates no diagnostic identity.
+Enabling pprof or debug logging alone does not enable the header.
+
+Go callers can use `diagnostics.RequestID(ctx)` to read the existing request ID without creating one.
+The accessor returns an empty string for nil contexts, unobserved contexts, and background reload observations.
+
+### Chat model fallback
+
+OpenAI chat completions bind the request before considering legacy model discovery.
+An explicit bound model skips Bearer-as-model lookup and default candidate listing; model existence validation still runs.
+If the bound model is empty, extraction retains context, path, query, form, Bearer, and first-available fallback precedence.
+The existing candidate filter and ordering still select the default.
+Malformed JSON returns a parsing error without fallback discovery.
+Each failover attempt binds fresh input from the replayed body.
+Other API routes retain their existing extraction order.
