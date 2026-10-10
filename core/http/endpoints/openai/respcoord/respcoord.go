@@ -122,6 +122,8 @@ type Event interface {
 type Start struct {
 	ID     ResponseID
 	Source Source
+	// IfIdle skips this attempt when a response is already active.
+	IfIdle bool
 }
 
 // Finished reports that the response goroutine for ID reached its own terminal.
@@ -152,7 +154,7 @@ func (Shutdown) String() string   { return "Shutdown" }
 // Returning effects as data (rather than firing callbacks inside the
 // transition) keeps Next pure and exhaustively testable, and lets the
 // Coordinator decide how/when to perform them. Exhaustively:
-// CancelResponse | StartResponse | EmitTerminal.
+// CancelResponse | StartResponse | SkipResponse | EmitTerminal.
 type Effect interface {
 	isEffect()
 	String() string
@@ -164,6 +166,10 @@ type CancelResponse struct{ ID ResponseID }
 // StartResponse: spawn the response goroutine for ID.
 type StartResponse struct{ ID ResponseID }
 
+// SkipResponse keeps the active response. The sink must release the skipped
+// attempt's resources; a committed audio turn can still retain its transcript.
+type SkipResponse struct{ ID ResponseID }
+
 // EmitTerminal: send response.done for ID with Status.
 type EmitTerminal struct {
 	ID     ResponseID
@@ -172,10 +178,12 @@ type EmitTerminal struct {
 
 func (CancelResponse) isEffect() {}
 func (StartResponse) isEffect()  {}
+func (SkipResponse) isEffect()   {}
 func (EmitTerminal) isEffect()   {}
 
 func (e CancelResponse) String() string { return fmt.Sprintf("CancelResponse(%d)", e.ID) }
 func (e StartResponse) String() string  { return fmt.Sprintf("StartResponse(%d)", e.ID) }
+func (e SkipResponse) String() string   { return fmt.Sprintf("SkipResponse(%d)", e.ID) }
 func (e EmitTerminal) String() string {
 	return fmt.Sprintf("EmitTerminal(%d,%s)", e.ID, e.Status)
 }
@@ -213,6 +221,9 @@ func Next(s State, e Event) (State, []Effect, error) {
 	case Active:
 		switch ev := e.(type) {
 		case Start:
+			if ev.IfIdle {
+				return st, []Effect{SkipResponse{ID: ev.ID}}, nil
+			}
 			return Active{ID: ev.ID}, []Effect{
 				CancelResponse{ID: st.ID},
 				EmitTerminal{ID: st.ID, Status: StatusCancelled},

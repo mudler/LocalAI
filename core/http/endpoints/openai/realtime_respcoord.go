@@ -58,11 +58,17 @@ func newResponseSink() *responseSink {
 // race. Non-blocking: the superseded response drains concurrently and its later
 // Finished is ignored as stale.
 func (s *responseSink) issue(parent context.Context, source respcoord.Source, run func(ctx context.Context)) {
+	s.issueWithPolicy(parent, source, false, run)
+}
+
+// issueWithPolicy checks IfIdle inside the coordinator's serialized transition,
+// avoiding a race between checking for an active response and starting one.
+func (s *responseSink) issueWithPolicy(parent context.Context, source respcoord.Source, ifIdle bool, run func(ctx context.Context)) {
 	id := respcoord.ResponseID(s.seq.Add(1))
 	s.mu.Lock()
 	s.bodies[id] = responseBody{parent: parent, run: run}
 	s.mu.Unlock()
-	if err := s.coord.Apply(respcoord.Start{ID: id, Source: source}); err != nil {
+	if err := s.coord.Apply(respcoord.Start{ID: id, Source: source, IfIdle: ifIdle}); err != nil {
 		xlog.Error("respcoord: start failed", "error", err)
 	}
 }
@@ -102,33 +108,9 @@ func (s *responseSink) shutdown() {
 func (s *responseSink) Perform(e respcoord.Effect) {
 	switch eff := e.(type) {
 	case respcoord.StartResponse:
-		s.mu.Lock()
-		body := s.bodies[eff.ID]
-		delete(s.bodies, eff.ID)
-		parent := body.parent
-		if parent == nil {
-			parent = context.Background()
-		}
-		ctx, cancel := context.WithCancel(parent)
-		s.cancels[eff.ID] = cancel
-		s.mu.Unlock()
-
-		s.wg.Go(func() {
-			defer func() {
-				s.mu.Lock()
-				delete(s.cancels, eff.ID)
-				s.mu.Unlock()
-				// Report completion. If this response was superseded/cancelled
-				// the id is stale and the coordinator ignores it (so the
-				// terminal is never emitted twice).
-				if err := s.coord.Apply(respcoord.Finished{ID: eff.ID}); err != nil {
-					xlog.Error("respcoord: finished apply failed", "error", err)
-				}
-			}()
-			if body.run != nil {
-				body.run(ctx)
-			}
-		})
+		s.runBody(eff.ID, false)
+	case respcoord.SkipResponse:
+		s.runBody(eff.ID, true)
 	case respcoord.CancelResponse:
 		s.mu.Lock()
 		cancel := s.cancels[eff.ID]
@@ -140,4 +122,44 @@ func (s *responseSink) Perform(e respcoord.Effect) {
 		// No-op for now: the response body still emits its own response.done.
 		// Wiring the authoritative single terminal here is the next step.
 	}
+}
+
+// runBody runs under the coordinator lock, just like Perform.
+func (s *responseSink) runBody(id respcoord.ResponseID, skipped bool) {
+	s.mu.Lock()
+	body := s.bodies[id]
+	delete(s.bodies, id)
+	parent := body.parent
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	if skipped {
+		// Commit bodies use the session context for transcription and this cancelled
+		// response context to append the user item without generating a response.
+		cancel()
+	} else {
+		s.cancels[id] = cancel
+	}
+	s.mu.Unlock()
+
+	s.wg.Go(func() {
+		defer cancel()
+		defer func() {
+			s.mu.Lock()
+			delete(s.cancels, id)
+			s.mu.Unlock()
+			// Report completion. If this response was superseded/cancelled
+			// the id is stale and the coordinator ignores it (so the
+			// terminal is never emitted twice).
+			if !skipped {
+				if err := s.coord.Apply(respcoord.Finished{ID: id}); err != nil {
+					xlog.Error("respcoord: finished apply failed", "error", err)
+				}
+			}
+		}()
+		if body.run != nil {
+			body.run(ctx)
+		}
+	})
 }

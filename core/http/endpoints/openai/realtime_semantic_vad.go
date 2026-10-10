@@ -389,3 +389,19 @@ func defaultTurnDetection(cfg *config.ModelConfig) *types.TurnDetectionUnion {
 		},
 	}
 }
+
+// interruptResponseEnabled treats omission as true while preserving an explicit
+// false. The session lock also makes updates visible to the VAD goroutine.
+func (s *Session) interruptResponseEnabled() bool {
+	sessionLock.Lock()
+	defer sessionLock.Unlock()
+	var enabled *bool
+	if td := s.TurnDetection; td != nil {
+		if td.ServerVad != nil {
+			enabled = td.ServerVad.InterruptResponse
+		} else if td.SemanticVad != nil {
+			enabled = td.SemanticVad.InterruptResponse
+		}
+	}
+	return enabled == nil || *enabled
+}
