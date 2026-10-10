@@ -125,7 +125,21 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 }
 
 // ImportModelEndpoint handles creating new model configurations
-func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+// @Summary Import a model from a raw YAML or JSON configuration
+// @Description Writes the posted model configuration. A config referencing
+// @Description remote assets (download_files entries, URI-valued model/mmproj)
+// @Description is enqueued on the gallery job queue and answered with a job id
+// @Description plus status URL to poll, like a gallery install; a config with
+// @Description no downloads is written synchronously and answered with a
+// @Description plain success response.
+// @Tags models
+// @Accept json
+// @Produce json
+// @Param request body object true "model configuration (YAML or JSON body)"
+// @Success 200 {object} schema.GalleryResponse "remote assets present: job id and status URL"
+// @Failure 400 {object} localai.ModelResponse "invalid or incomplete configuration"
+// @Router /models/import [post]
+func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, opcache *galleryop.OpCache) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// Get the raw body
 		body, err := io.ReadAll(c.Request().Body)
@@ -226,6 +240,59 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryServ
 			return c.JSON(http.StatusInternalServerError, response)
 		}
 
+		// A config whose assets are not on disk yet is a download, not just
+		// a file write: route it through the gallery op queue so the UI
+		// tracks it like a gallery install (job UUID + /models/jobs/{uuid})
+		// instead of acquiring synchronously inside this request. The op
+		// writes the config file and reloads once acquisition finishes;
+		// configs needing no acquisition keep the fast synchronous path.
+		//
+		// WHICH acquisition is the artifact resolver's call, not a string
+		// test: a managed artifact (explicit artifacts:, an hf:// repo or
+		// bare owner/repo on a directory-consuming backend) must enqueue
+		// with NO files, so the worker's InstallModel runs the same binding
+		// and repository materializer as a gallery install — flattening a
+		// repository into file entries would send it to the single-file
+		// downloader and skip the materializer. Plain remote files
+		// (download_files, URL model/mmproj on single-file backends) ride
+		// as file entries through the same downloader preload would use.
+		// (A URL mmproj on an artifact config stays preload's job, as it
+		// was before queued imports.)
+		_, _, hasArtifact, err := modelConfig.PrimaryArtifactSpec(appConfig.SystemState.Model.ModelsPath)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Invalid model reference: " + err.Error()})
+		}
+		var queueFiles []gallery.File
+		if !hasArtifact {
+			queueFiles = remoteAssetFiles(&modelConfig)
+		}
+		if gs != nil && (hasArtifact || len(queueFiles) > 0) {
+			jobUUID, err := uuid.NewUUID()
+			if err != nil {
+				return err
+			}
+			if opcache != nil {
+				opcache.Set(modelConfig.Name, jobUUID.String())
+			}
+			gs.EnqueueModelOp(galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+				Req:                gallery.GalleryModel{Overrides: map[string]any{}},
+				ID:                 jobUUID.String(),
+				GalleryElementName: modelConfig.Name,
+				GalleryElement: &gallery.ModelConfig{
+					Name:       modelConfig.Name,
+					ConfigFile: string(yamlData),
+					// nil for artifact configs: InstallModel's empty-Files
+					// branch re-resolves and binds the artifact itself.
+					Files: queueFiles,
+				},
+				BackendGalleries: appConfig.BackendGalleries,
+			})
+			return c.JSON(200, schema.GalleryResponse{
+				ID:        jobUUID.String(),
+				StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), jobUUID.String()),
+			})
+		}
+
 		// Write the file
 		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
 			response := ModelResponse{
@@ -266,4 +333,23 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryServ
 		}
 		return c.JSON(200, response)
 	}
+}
+
+// remoteAssetFiles lists the downloads a config implies: explicit
+// download_files entries, and URI-valued model/mmproj fields under the
+// same on-disk names the config loader's preload would give them — so
+// the later preload finds the files present and the config needs no
+// rewriting.
+func remoteAssetFiles(c *config.ModelConfig) []gallery.File {
+	var files []gallery.File
+	for _, f := range c.DownloadFiles {
+		files = append(files, gallery.File{Filename: f.Filename, SHA256: f.SHA256, URI: string(f.URI)})
+	}
+	if c.IsModelURL() {
+		files = append(files, gallery.File{Filename: c.ModelFileName(), URI: c.Model})
+	}
+	if c.IsMMProjURL() {
+		files = append(files, gallery.File{Filename: c.MMProjFileName(), URI: c.MMProj})
+	}
+	return files
 }

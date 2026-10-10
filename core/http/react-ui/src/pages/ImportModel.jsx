@@ -280,7 +280,26 @@ export default function ImportModel() {
     pollRef.current = setInterval(async () => {
       try {
         const data = await modelsApi.getJobStatus(jobId)
-        if (data.completed) {
+        if (data.cancelled || data.error || (data.message && data.message.startsWith('error:'))) {
+          transferRateRef.current.reset(jobId)
+          clearInterval(pollRef.current)
+          pollRef.current = null
+          setIsSubmitting(false)
+          setJob(null)
+          let msg = 'Unknown error'
+          if (data.cancelled) msg = 'Import cancelled'
+          else if (typeof data.error === 'string') msg = data.error
+          else if (data.error?.message) msg = data.error.message
+          else if (data.message) msg = data.message
+          if (msg.startsWith('error: ')) msg = msg.substring(7)
+          addToast(t('toasts.importFailed', { message: msg }), 'error')
+          return
+        }
+        // The raw /models/jobs endpoint reports `processed`, not the
+        // `completed` the /api/models/job shim synthesizes — checking
+        // only `completed` left the poll spinning after the job ended.
+        // Errors are handled above: failed jobs also set `processed`.
+        if (data.completed || data.processed) {
           transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
@@ -288,20 +307,6 @@ export default function ImportModel() {
           setJob(null)
           setDone({ name: data.gallery_element_name || '' })
           addToast(t('toasts.imported'), 'success')
-          return
-        }
-        if (data.error || (data.message && data.message.startsWith('error:'))) {
-          transferRateRef.current.reset(jobId)
-          clearInterval(pollRef.current)
-          pollRef.current = null
-          setIsSubmitting(false)
-          setJob(null)
-          let msg = 'Unknown error'
-          if (typeof data.error === 'string') msg = data.error
-          else if (data.error?.message) msg = data.error.message
-          else if (data.message) msg = data.message
-          if (msg.startsWith('error: ')) msg = msg.substring(7)
-          addToast(t('toasts.importFailed', { message: msg }), 'error')
           return
         }
         // Keep the whole status. /api/operations carries the same job (the
@@ -408,12 +413,22 @@ export default function ImportModel() {
     if (!yamlContent.trim()) { addToast(t('toasts.noYaml'), 'error'); return }
     setIsSubmitting(true)
     try {
-      await modelsApi.importConfig(yamlContent, 'application/x-yaml')
+      const result = await modelsApi.importConfig(yamlContent, 'application/x-yaml')
+      // A config referencing remote assets comes back as a queued job
+      // (same shape as the URI import) and startJobPolling owns the
+      // submitting state until the job ends; a config-only import
+      // completes synchronously and navigates straight to the model list.
+      const jobId = result?.uuid || result?.ID
+      if (jobId) {
+        addToast(t('toasts.started'), 'success')
+        startJobPolling(jobId)
+        return
+      }
       addToast(t('toasts.importedYaml'), 'success')
       navigate('/app/models?view=installed')
+      setIsSubmitting(false)
     } catch (err) {
       addToast(t('toasts.importFailed', { message: err.message }), 'error')
-    } finally {
       setIsSubmitting(false)
     }
   }

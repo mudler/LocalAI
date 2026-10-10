@@ -143,6 +143,24 @@ This is especially useful for:
 - Setting up complex model setups
 - Editing existing model configurations
 
+When the configuration references remote assets — a URL in
+`parameters.model` or `mmproj`, or `download_files` entries — **Create**
+does not download them inside the request: the import is queued like a
+gallery installation, and the page reports the job's progress until the
+model is ready. The configuration file is written once every download
+has finished, so a failed download never leaves a config pointing at
+files that do not exist. A configuration that only references files
+already on disk is written immediately, as before.
+
+The same split applies to the API behind the page: `POST /models/import`
+answers a queued import with a job id and a status URL to poll
+(`/models/jobs/{id}` — the same shape gallery installs use), and a
+download-free import with a plain success response.
+
+If you cancel a queued import, the import page and model editor report the
+cancellation and stay on the current page. They report success only after the
+job succeeds.
+
 ## Method 2: Installing from Hugging Face
 
 LocalAI can directly install models from Hugging Face:
