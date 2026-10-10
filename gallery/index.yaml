@@ -69878,3 +69878,91 @@
     - filename: llama-cpp/models/diarizationlm-gemma-4-e4b-v1/DiarizationLM-Gemma-4-E4B-v1-q4_0.gguf
       uri: https://huggingface.co/google/DiarizationLM-Gemma-4-E4B-v1/resolve/91b7c06adae025090dc7fcec3afcc1cb145c7302/DiarizationLM-Gemma-4-E4B-v1-q4_0.gguf
       sha256: 297238b1dbfe8bb061f5e4cc79be0e2d607a4539d7bc6dc00d75cc0428f6a264
+
+- name: xiaomi-ocr-0-q4-k-m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0
+    - https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF
+  license: apache-2.0
+  description: |
+    Xiaomi-OCR-0 is a 0.8B Qwen3.5 model for document parsing,
+    visual question answering, and key information extraction.
+    This Q4_K_M GGUF includes the BF16 vision projector for llama.cpp.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - ocr
+    - qwen3.5
+    - cpu
+    - gpu
+  variants:
+    - model: xiaomi-ocr-0-q6-k
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/xiaomi-ocr-0/Xiaomi-OCR-0.mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/xiaomi-ocr-0/Xiaomi-OCR-0.Q4_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/xiaomi-ocr-0/Xiaomi-OCR-0.Q4_K_M.gguf
+      uri: https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF/resolve/0f0e77db7c97c409bb87347e6c2f151829651947/Xiaomi-OCR-0.Q4_K_M.gguf
+      sha256: 1e497ff06b91a3d822c543066df3e9ef69c62c5423be09d739dfa1db55630d3a
+    - filename: llama-cpp/mmproj/xiaomi-ocr-0/Xiaomi-OCR-0.mmproj-bf16.gguf
+      uri: https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF/resolve/0f0e77db7c97c409bb87347e6c2f151829651947/Xiaomi-OCR-0.mmproj-bf16.gguf
+      sha256: 634d6bc95781ebf4a3f06570a59859fa5082d488db540fd474bc6b4061aec90e
+
+- name: xiaomi-ocr-0-q6-k
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0
+    - https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF
+  license: apache-2.0
+  description: |
+    Xiaomi-OCR-0 is a 0.8B Qwen3.5 model for document parsing,
+    visual question answering, and key information extraction.
+    This Q6_K GGUF includes the BF16 vision projector for llama.cpp.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - ocr
+    - qwen3.5
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/xiaomi-ocr-0/Xiaomi-OCR-0.mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/xiaomi-ocr-0/Xiaomi-OCR-0.Q6_K.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/xiaomi-ocr-0/Xiaomi-OCR-0.Q6_K.gguf
+      uri: https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF/resolve/0f0e77db7c97c409bb87347e6c2f151829651947/Xiaomi-OCR-0.Q6_K.gguf
+      sha256: 6da9896bd738852ec01d463612e463656f43b68e6cfbe09d3b0a3ed6f4ad9fd3
+    - filename: llama-cpp/mmproj/xiaomi-ocr-0/Xiaomi-OCR-0.mmproj-bf16.gguf
+      uri: https://huggingface.co/prithivMLmods/Xiaomi-OCR-0-GGUF/resolve/0f0e77db7c97c409bb87347e6c2f151829651947/Xiaomi-OCR-0.mmproj-bf16.gguf
+      sha256: 634d6bc95781ebf4a3f06570a59859fa5082d488db540fd474bc6b4061aec90e
