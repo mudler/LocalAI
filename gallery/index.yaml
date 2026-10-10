@@ -69049,6 +69049,76 @@
     - filename: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q8_0.gguf
       sha256: 4bf595a8977539b1d5ff87a0284dd795a8b4f79dfb11172195e86d5cd6d84402
       uri: https://huggingface.co/mradermacher/Index-Homura-2B-GGUF/resolve/0b340d2d01d6787e23f09b67bfdde943bbb63e47/Index-Homura-2B.Q8_0.gguf
+- name: index-translate-2b
+  variants:
+    - model: index-translate-2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-2B
+    - https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF
+  description: |
+    Index-Translate-2B is a Qwen3.5-based text translation model for 150 languages,
+    with support for terminology, formatting, style, and context instructions.
+    This Q4_K_M GGUF uses llama.cpp with thinking disabled and greedy decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-2b/Index-Translate-2B.Q4_K_M.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-2b/Index-Translate-2B.Q4_K_M.gguf
+      sha256: 044b313d29342bd3b2c77cbb64023ca0d209bd9b3247763f9d162767ef2d746a
+      uri: https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF/resolve/449c9e6457b3632d328c6cbb78ae8e8e0c8059a5/Index-Translate-2B.Q4_K_M.gguf
+- name: index-translate-2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-2B
+    - https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF
+  description: |
+    Index-Translate-2B is a Qwen3.5-based text translation model for 150 languages,
+    with support for terminology, formatting, style, and context instructions.
+    This Q8_0 GGUF uses llama.cpp with thinking disabled and greedy decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - translation
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-2b/Index-Translate-2B.Q8_0.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-2b/Index-Translate-2B.Q8_0.gguf
+      sha256: a09d287f41d297206947a2e51acc29dd03c8b22356111fdb1e289c0c97c173f3
+      uri: https://huggingface.co/IndexTeam/Index-Translate-2B-GGUF/resolve/449c9e6457b3632d328c6cbb78ae8e8e0c8059a5/Index-Translate-2B.Q8_0.gguf
 - name: index-translate-9b
   variants:
     - model: index-translate-9b-q8
