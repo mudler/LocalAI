@@ -1780,6 +1780,57 @@
     - filename: llama-cpp/models/llm-jp-4-33b-thinking/llm-jp-4-33b-thinking-BF16.gguf
       uri: huggingface://llm-jp/llm-jp-4-33b-thinking-gguf/llm-jp-4-33b-thinking-BF16.gguf
       sha256: 7bb8465702b5c4a5d94e03e62921d5917181a2eda56da31edfdcd47fab2e9964
+- name: pocket-darwin-180b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/FINAL-Bench/Darwin-180B-RSI-R3
+    - https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF
+  description: |
+    POCKET-Darwin-180B is a text-only reasoning model based on
+    Qwen3.8-Flash-Next. This UD-Q4_K_XL GGUF build uses llama.cpp and
+    downloads all four shards (about 111.3 GB). It uses the embedded
+    chat template, an 8192-token default context, and the publisher's
+    recommended sampling settings. Weights use Qwen Community License 1.0.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/pocket-darwin-180b/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+      presence_penalty: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/pocket-darwin-180b/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf
+      sha256: 8dd7789f02ff62e07f3a4dbd546d21fa6dc45cdbaac367631571d80cac8206a5
+      uri: https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/71f3b4d3a68af20812af27b2e611501ab43baf1e/POCKET-Darwin-180B-UD-Q4_K_XL-00001-of-00004.gguf
+    - filename: llama-cpp/models/pocket-darwin-180b/POCKET-Darwin-180B-UD-Q4_K_XL-00002-of-00004.gguf
+      sha256: 8d2a48cace8791b2655173f8b507eb985471834511908006da6b4166b2155794
+      uri: https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/71f3b4d3a68af20812af27b2e611501ab43baf1e/POCKET-Darwin-180B-UD-Q4_K_XL-00002-of-00004.gguf
+    - filename: llama-cpp/models/pocket-darwin-180b/POCKET-Darwin-180B-UD-Q4_K_XL-00003-of-00004.gguf
+      sha256: 0adc56c67b89cbfcaa67780e78fc0a15666ef2a1ebf5cdc51611fc1198ae256f
+      uri: https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/71f3b4d3a68af20812af27b2e611501ab43baf1e/POCKET-Darwin-180B-UD-Q4_K_XL-00003-of-00004.gguf
+    - filename: llama-cpp/models/pocket-darwin-180b/POCKET-Darwin-180B-UD-Q4_K_XL-00004-of-00004.gguf
+      sha256: 0f45b1445b2a4d032d44766936107031d2f503b6bc7eb7fcf80f35232477ab5b
+      uri: https://huggingface.co/FINAL-Bench/POCKET-Darwin-180B-GGUF/resolve/71f3b4d3a68af20812af27b2e611501ab43baf1e/POCKET-Darwin-180B-UD-Q4_K_XL-00004-of-00004.gguf
+
 - name: huihui-qwen3.8-flash-next-abliterated-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
