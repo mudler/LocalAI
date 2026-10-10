@@ -27255,6 +27255,92 @@
     - filename: Zero-Qwen3-8B-OpenZero-Q5_K_M.gguf
       sha256: 390464f750b5cb53da298848adc05839c1fd40404a74cd5f800cad9612d17d59
       uri: huggingface://shafire/Zero-Qwen3-8B-OpenZero-GGUF/Zero-Qwen3-8B-OpenZero-Q5_K_M.gguf
+- name: astabrief-8b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/allenai/AstaBrief_8B
+    - https://huggingface.co/mradermacher/AstaBrief_8B-GGUF
+  description: |
+    AstaBrief-8B is Ai2's Qwen3-8B fine-tune for writing cited research reports
+    from a question and supplied scientific literature excerpts. This Q4_K_M
+    GGUF build uses llama.cpp and the embedded chat template. Provide the
+    upstream research prompt and references in the user message; the model
+    does not retrieve papers itself.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3
+    - research
+    - en
+  variants:
+    - model: astabrief-8b-q8
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    context_size: 32768
+    mmap: true
+    f16: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/astabrief-8b/AstaBrief_8B.Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 0
+    stopwords:
+      - <|im_end|>
+  files:
+    - filename: llama-cpp/models/astabrief-8b/AstaBrief_8B.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/AstaBrief_8B-GGUF/resolve/a40b9eb85c6e349898737726b4b9ee69688b63a3/AstaBrief_8B.Q4_K_M.gguf
+      sha256: 1df1265b9715fc5118134010abcd3d297fd4be08a9b2294c7a467c79f161ccce
+- name: astabrief-8b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/allenai/AstaBrief_8B
+    - https://huggingface.co/mradermacher/AstaBrief_8B-GGUF
+  description: |
+    AstaBrief-8B is Ai2's Qwen3-8B fine-tune for writing cited research reports
+    from a question and supplied scientific literature excerpts. This Q8_0
+    GGUF build uses llama.cpp and the embedded chat template. Provide the
+    upstream research prompt and references in the user message; the model
+    does not retrieve papers itself.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3
+    - research
+    - en
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    context_size: 32768
+    mmap: true
+    f16: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/astabrief-8b/AstaBrief_8B.Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 0
+    stopwords:
+      - <|im_end|>
+  files:
+    - filename: llama-cpp/models/astabrief-8b/AstaBrief_8B.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/AstaBrief_8B-GGUF/resolve/a40b9eb85c6e349898737726b4b9ee69688b63a3/AstaBrief_8B.Q8_0.gguf
+      sha256: c199cbac2cccdbe16e6ca3aed60c9868216ed1ed90a157f2451de37bba074d2a
 - name: qwen3-8b
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:

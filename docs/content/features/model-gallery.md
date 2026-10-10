@@ -272,6 +272,28 @@ MTP speculative decoding is not enabled by these entries.
 The weights use [PolyForm Small Business 1.0.0 with a personal-use grant](https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/blob/main/LICENSE).
 Review that license for permitted use.
 
+## AstaBrief-8B
+
+[AstaBrief-8B](https://huggingface.co/allenai/AstaBrief_8B) is Ai2's Qwen3-8B
+fine-tune for writing cited reports from scientific literature excerpts.
+Install the llama.cpp GGUF entry with:
+
+```bash
+local-ai models install astabrief-8b-q4
+```
+
+The entry offers Q4_K_M and Q8_0 builds. To select a specific build, use
+`--variant astabrief-8b-q4` or `--variant astabrief-8b-q8` during installation.
+Both use the embedded chat template, a 32,768-token context, temperature `0.7`,
+and top-p `0.95`.
+
+Use the upstream [research prompt](https://huggingface.co/datasets/allenai/AstaBrief_prompts/blob/main/sft_prompt.txt).
+Replace `[QUERY]` with your question and `[SECTION_REFERENCES]` with the cited
+excerpts, then send the completed prompt as a user message to
+`/v1/chat/completions`. The model writes from the material you supply; this
+gallery entry does not search for or retrieve papers. The upstream example
+uses `max_tokens: 4096` for the report.
+
 ## Hemmingway-1
 
 Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
