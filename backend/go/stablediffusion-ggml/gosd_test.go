@@ -292,7 +292,7 @@ var _ = Describe("ESRGAN lifecycle", func() {
 })
 
 func TestUpscaleSettings(t *testing.T) {
-	opts := &pb.ModelOptions{ModelFile: "/models/esrgan.gguf", Threads: 7, Options: []string{
+	opts := &pb.ModelOptions{ModelPath: "/models", ModelFile: "/models/esrgan.gguf", Threads: 7, Options: []string{
 		"known_usecases:upscale", "upscale_scale:4", "upscale_tile_size:256",
 		"upscale_direct:true", "backend:Vulkan0", "params_backend:CPU",
 	}}
@@ -311,5 +311,49 @@ func TestUpscaleSettings(t *testing.T) {
 		if _, err := parseUpscaleSettings(opts); err == nil {
 			t.Fatalf("accepted invalid options %v", options)
 		}
+	}
+}
+
+func TestUpscaleSettingsPathContainment(t *testing.T) {
+	for _, tc := range []struct {
+		name, modelFile, want string
+		wantErr               bool
+	}{
+		{"safe nested relative path", "esrgan/models/model.gguf", "/models/esrgan/models/model.gguf", false},
+		{"relative traversal", "../outside.gguf", "", true},
+		{"allowed in-root absolute path", "/models/esrgan/model.gguf", "/models/esrgan/model.gguf", false},
+		{"outside absolute path", "/other/model.gguf", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: tc.modelFile, Options: []string{"upscale_scale:4"}})
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("accepted path outside model path")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.path != tc.want {
+				t.Fatalf("path = %q, want %q", got.path, tc.want)
+			}
+		})
+	}
+}
+
+func TestUpscaleSettingsRejectsDuplicateSettings(t *testing.T) {
+	for _, setting := range []string{"upscale_scale:4", "upscale_tile_size:128", "upscale_direct:true", "backend:Vulkan", "params_backend:CPU"} {
+		t.Run(setting, func(t *testing.T) {
+			_, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: "model.gguf", Options: []string{"upscale_scale:4", setting, setting}})
+			if err == nil {
+				t.Fatalf("accepted duplicate %s", setting)
+			}
+		})
+	}
+	// known_usecases is aggregate metadata, not a last-wins setting; repeated
+	// entries remain valid so diffusion callers can forward their options.
+	if _, err := parseUpscaleSettings(&pb.ModelOptions{ModelPath: "/models", ModelFile: "model.gguf", Options: []string{"known_usecases:upscale", "known_usecases:upscale", "upscale_scale:4"}}); err != nil {
+		t.Fatalf("rejected duplicate known_usecases: %v", err)
 	}
 }

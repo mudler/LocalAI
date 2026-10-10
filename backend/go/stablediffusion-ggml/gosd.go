@@ -355,8 +355,16 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 	if image {
 		return s, fmt.Errorf("mixed image and upscale models are not supported")
 	}
+	seen := make(map[string]bool)
 	for _, op := range opts.Options {
 		k, v, _ := strings.Cut(op, ":")
+		switch k {
+		case "upscale_scale", "upscale_tile_size", "upscale_direct", "backend", "params_backend":
+			if seen[k] {
+				return s, fmt.Errorf("duplicate upscale setting %q", k)
+			}
+			seen[k] = true
+		}
 		switch k {
 		case "upscale_scale", "upscale_tile_size":
 			n, err := strconv.ParseInt(v, 10, 32)
@@ -383,12 +391,23 @@ func parseUpscaleSettings(opts *pb.ModelOptions) (upscaleSettings, error) {
 	if s.scale <= 0 {
 		return s, fmt.Errorf("upscale_scale must be configured and positive")
 	}
-	s.path = opts.ModelFile
-	if s.path == "" {
+	modelFile := opts.ModelFile
+	if modelFile == "" {
 		return s, fmt.Errorf("upscale model path is empty")
 	}
-	if !filepath.IsAbs(s.path) {
-		s.path = filepath.Join(opts.ModelPath, s.path)
+	if filepath.IsAbs(modelFile) {
+		s.path = filepath.Clean(modelFile)
+	} else {
+		// Verify the untrusted relative name before joining, then verify the
+		// resolved result as well. VerifyPath intentionally treats absolute
+		// inputs as relative, so absolute model files use VerifyResolvedPath.
+		if err := utils.VerifyPath(modelFile, opts.ModelPath); err != nil {
+			return s, fmt.Errorf("upscale model path is outside model path: %w", err)
+		}
+		s.path = filepath.Join(opts.ModelPath, modelFile)
+	}
+	if err := utils.VerifyResolvedPath(s.path, opts.ModelPath); err != nil {
+		return s, fmt.Errorf("upscale model path is outside model path: %w", err)
 	}
 	for _, v := range []string{s.path, s.backend, s.paramsBackend} {
 		if strings.ContainsRune(v, 0) {
