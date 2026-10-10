@@ -42089,6 +42089,74 @@
     - filename: MN-Tiramisu-12B.Q5_K_M.gguf
       sha256: 100c78b08a0f4fc5a5a65797e1498ff5fd6fc9daf96b0898d2de731c35fa4e3e
       uri: huggingface://MaziyarPanahi/MN-Tiramisu-12B-GGUF/MN-Tiramisu-12B.Q5_K_M.gguf
+- name: mn-charthink-12b-base-q4
+  variants:
+    - model: mn-charthink-12b-base-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SvalTek/MN-CharThink-12B-Base
+    - https://huggingface.co/SvalTek/MN-CharThink-12B-Base-GGUF
+  description: >-
+    MN-CharThink is a 12B Mistral fine-tune for character roleplay. Its think blocks represent
+    in-character thoughts, memories, and emotional responses. This entry uses the Q4_K_M GGUF
+    quantization.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - chat
+    - mistral
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mn-charthink-12b-base/MN-CharThink-12B-Base.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mn-charthink-12b-base/MN-CharThink-12B-Base.Q4_K_M.gguf
+      sha256: 86a43ec1e00d08af1300f9956440b63bb27b0a2433e56429f41ee98c3d443ea1
+      uri: >-
+        https://huggingface.co/SvalTek/MN-CharThink-12B-Base-GGUF/resolve/b28bcc80c4efa55013b038584505ac869a5cea0d/MN-CharThink-12B-Base.Q4_K_M.gguf
+- name: mn-charthink-12b-base-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/SvalTek/MN-CharThink-12B-Base
+    - https://huggingface.co/SvalTek/MN-CharThink-12B-Base-GGUF
+  description: >-
+    MN-CharThink is a 12B Mistral fine-tune for character roleplay. Its think blocks represent
+    in-character thoughts, memories, and emotional responses. This entry uses the Q6_K GGUF
+    quantization.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - chat
+    - mistral
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/mn-charthink-12b-base/MN-CharThink-12B-Base.Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/mn-charthink-12b-base/MN-CharThink-12B-Base.Q6_K.gguf
+      sha256: caddabf35479ab5e492649ff98a3474b9bf9cedbc5125a1f14c2c300bed58aff
+      uri: >-
+        https://huggingface.co/SvalTek/MN-CharThink-12B-Base-GGUF/resolve/b28bcc80c4efa55013b038584505ac869a5cea0d/MN-CharThink-12B-Base.Q6_K.gguf
 - name: mistral-nemo-prism-12b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master
   urls:
