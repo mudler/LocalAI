@@ -68169,6 +68169,8 @@
 - name: twil-lm3-pro-q4
   variants:
     - model: twil-lm3-pro-q8
+    - model: twil-lm3-pro-q5
+    - model: twil-lm3-pro-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/ibm-granite/granite-4.2-3b
@@ -68238,6 +68240,76 @@
     - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q8_0.gguf
       uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q8_0.gguf
       sha256: 4b4ba4a94bc5cbe4783f43be3ae428be9b5d9e3dffb725c36ae4908d27067906
+- name: twil-lm3-pro-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+    - https://huggingface.co/webAI-Official/TwIL-LM3-Pro
+  description: |
+    TwIL-LM3-Pro is a 3.66B Granite 4.2 fine-tune for formal logic,
+    entailment, semantic parsing, and Lean formalization. This Q5_K_M GGUF
+    uses llama.cpp with the embedded reasoning template and greedy sampling.
+    The model license permits noncommercial research and educational use only.
+  license: webai-non-commercial-license-ver.-1.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - formal-logic
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q5_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q5_K_M.gguf
+      uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q5_K_M.gguf
+      sha256: 7c367c005c5fb8af641434165220d476352704860bd1f66fd61dd0cf56936d4d
+- name: twil-lm3-pro-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+    - https://huggingface.co/webAI-Official/TwIL-LM3-Pro
+  description: |
+    TwIL-LM3-Pro is a 3.66B Granite 4.2 fine-tune for formal logic,
+    entailment, semantic parsing, and Lean formalization. This Q6_K GGUF
+    uses llama.cpp with the embedded reasoning template and greedy sampling.
+    The model license permits noncommercial research and educational use only.
+  license: webai-non-commercial-license-ver.-1.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - formal-logic
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q6_K.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q6_K.gguf
+      uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q6_K.gguf
+      sha256: 0d1c2333e2bc60840f1e6df63cef935b0d1d0434e98c8b5f0e4fb20f2c3a6a63
 - name: gemma-4-e4b-obliterated-q4
   variants:
     - model: gemma-4-e4b-obliterated-q8
