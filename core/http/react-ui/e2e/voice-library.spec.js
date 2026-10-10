@@ -36,6 +36,7 @@ const profile = {
 
 async function mockVoiceAPIs(page) {
   const state = { createdMultipart: null }
+  await page.route('**/api/auth/status', route => route.fulfill({ json: { authEnabled: false } }))
   await page.route('**/api/models/capabilities', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -215,4 +216,127 @@ test.describe('Speech voices', () => {
     expect(apiState.createdMultipart.readUInt32LE(wavOffset + 24)).toBe(24000)
     expect(apiState.createdMultipart.readUInt16LE(wavOffset + 34)).toBe(16)
   })
+})
+
+test.describe('Voice design', () => {
+  let apiState
+  test.beforeEach(async ({ page }) => { apiState = await mockVoiceAPIs(page) })
+
+  async function openDesign(page) {
+    await page.goto('/app/voice-library/new')
+    await page.getByRole('button', { name: 'Design a voice', exact: true }).click()
+  }
+
+  test('previews generated audio and saves its matching transcript', async ({ page }) => {
+    let speechRequest
+    await page.route('**/tts', route => {
+      speechRequest = route.request().postDataJSON()
+      return route.fulfill({ status: 200, contentType: 'audio/wav', body: pcmWav(2) })
+    })
+    await openDesign(page)
+    const generate = page.getByRole('button', { name: 'Generate reference', exact: true })
+    await expect(generate).toBeDisabled()
+    await page.getByLabel('Voice instructions').fill('  A warm narrator.  ')
+    await expect(generate).toBeDisabled()
+    await page.getByLabel('Sample text').fill('  Welcome to the documentary.  ')
+    await generate.click()
+    await expect(page.getByText('Normalized reference')).toBeVisible()
+    expect(speechRequest).toEqual({ model: 'qwen-base', input: 'Welcome to the documentary.', instructions: 'A warm narrator.' })
+    await expect(page.getByLabel('Exact transcript')).toHaveValue(speechRequest.input)
+    expect(apiState.createdMultipart).toBeNull()
+    await page.getByLabel('Voice name', { exact: true }).fill('Designed narrator')
+    await expect(page.getByRole('button', { name: 'Save voice', exact: true })).toBeDisabled()
+    await page.getByText('I confirm that this voice may be cloned').click()
+    await page.getByRole('button', { name: 'Save voice', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/app/voice-library\\?selected=${VOICE_ID}$`))
+    expect(apiState.createdMultipart.toString()).toContain('name="transcript"\r\n\r\nWelcome to the documentary.')
+    const wavOffset = apiState.createdMultipart.indexOf(Buffer.from('RIFF'))
+    expect(wavOffset).toBeGreaterThanOrEqual(0)
+    expect(apiState.createdMultipart.readUInt32LE(wavOffset + 24)).toBe(24000)
+    expect(apiState.createdMultipart.readUInt16LE(wavOffset + 22)).toBe(1)
+    expect(apiState.createdMultipart.readUInt16LE(wavOffset + 34)).toBe(16)
+  })
+
+  test('requires regeneration after edits and disables save during generation', async ({ page }) => {
+    let releaseSpeech
+    await page.route('**/tts', async route => {
+      await new Promise(resolve => { releaseSpeech = resolve })
+      await route.fulfill({ status: 200, contentType: 'audio/wav', body: pcmWav(2) })
+    })
+    await openDesign(page)
+    await page.getByLabel('Voice instructions').fill('Warm narrator')
+    await page.getByLabel('Sample text').fill('First sample.')
+    await page.getByLabel('Voice name', { exact: true }).fill('Narrator')
+    await page.getByText('I confirm that this voice may be cloned').click()
+    const generate = page.getByRole('button', { name: 'Generate reference', exact: true })
+    const save = page.getByRole('button', { name: 'Save voice', exact: true })
+    await generate.click()
+    await expect.poll(() => !!releaseSpeech).toBe(true)
+    await expect(save).toBeDisabled()
+    await expect(page.getByLabel('Sample text')).toBeDisabled()
+    releaseSpeech()
+    await expect(save).toBeEnabled()
+    await page.getByLabel('Sample text').fill('Second sample.')
+    await expect(save).toBeDisabled()
+    await expect(page.getByText('Normalized reference')).toBeHidden()
+    releaseSpeech = null
+    await generate.click()
+    await expect.poll(() => !!releaseSpeech).toBe(true)
+    releaseSpeech()
+    await expect(save).toBeEnabled()
+    await expect(page.getByLabel('Exact transcript')).toHaveValue('Second sample.')
+    await page.getByRole('group', { name: 'Voice design model', exact: true }).getByRole('button').click()
+    await page.getByRole('option', { name: 'piper-default', exact: true }).click()
+    await expect(save).toBeDisabled()
+    await expect(page.getByText('Normalized reference')).toBeHidden()
+    releaseSpeech = null
+    await generate.click()
+    await expect.poll(() => !!releaseSpeech).toBe(true)
+    releaseSpeech()
+    await expect(save).toBeEnabled()
+    await page.getByLabel('Voice instructions').fill('Bright narrator')
+    await expect(save).toBeDisabled()
+    await page.getByRole('button', { name: 'Upload or record', exact: true }).click()
+    await expect(page.locator('#voice-profile-audio-file')).toBeAttached()
+    await expect(save).toBeDisabled()
+  })
+
+  test('reports generation failures and permits retry', async ({ page }) => {
+    let attempts = 0
+    await page.route('**/tts', route => {
+      attempts += 1
+      return attempts === 1
+        ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Voice design unavailable' } }) })
+        : route.fulfill({ status: 200, contentType: 'audio/wav', body: pcmWav(2) })
+    })
+    await openDesign(page)
+    await page.getByLabel('Voice instructions').fill('Warm narrator')
+    await page.getByLabel('Sample text').fill('Try this sample.')
+    await page.getByRole('button', { name: 'Generate reference', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText('Voice design unavailable')
+    await expect(page.getByRole('button', { name: 'Save voice', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Generate reference', exact: true }).click()
+    await expect(page.getByText('Normalized reference')).toBeVisible()
+    await expect(page.getByLabel('Exact transcript')).toHaveValue('Try this sample.')
+  })
+
+  test('cannot generate without an installed TTS model', async ({ page }) => {
+    await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [] } }))
+    await openDesign(page)
+    await page.getByLabel('Voice instructions').fill('Warm narrator')
+    await page.getByLabel('Sample text').fill('Hello there.')
+    await expect(page.getByRole('button', { name: 'Generate reference', exact: true })).toBeDisabled()
+  })
+
+  test('rejects generated audio outside the reference duration limit', async ({ page }) => {
+    await page.route('**/tts', route => route.fulfill({ status: 200, contentType: 'audio/wav', body: pcmWav(0.5) }))
+    await openDesign(page)
+    await page.getByLabel('Voice instructions').fill('Warm narrator')
+    await page.getByLabel('Sample text').fill('Hi.')
+    await page.getByRole('button', { name: 'Generate reference', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText('Reference audio must be between 1 second and 2 minutes.')
+    await expect(page.getByText('Normalized reference')).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Save voice', exact: true })).toBeDisabled()
+  })
+
 })
