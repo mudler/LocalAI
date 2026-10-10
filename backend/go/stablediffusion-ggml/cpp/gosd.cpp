@@ -1461,7 +1461,7 @@ struct gosd_upscaler {
 
 void* gosd_upscaler_create(const char* path, bool direct, int threads, int tile_size,
                           const char* backend, const char* params_backend) {
-    if (!path || !*path || tile_size <= 0) return nullptr;
+    if (!path || !*path || tile_size < 0) return nullptr;
     try {
         auto h = std::make_unique<gosd_upscaler>();
         h->path = path;
