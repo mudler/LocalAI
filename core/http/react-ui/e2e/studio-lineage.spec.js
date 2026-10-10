@@ -246,13 +246,12 @@ test.describe('Lineage view: phone', () => {
 
 test.describe('Inline upscale', () => {
   async function setup(page, { models = true, failure } = {}) {
-    await mockStudio(page)
-    if (models) await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [
+    await mockStudio(page, { capabilityModels: models ? [
       { id: 'up-4', capabilities: ['FLAG_UPSCALE'], upscaleScale: 4 },
       { id: 'up-2', capabilities: ['FLAG_UPSCALE'], upscaleScale: 2 },
       { id: 'invalid', capabilities: ['FLAG_UPSCALE'], upscaleScale: 0 },
       { id: 'text-image', capabilities: ['FLAG_IMAGE'] },
-    ] } }))
+    ] : [] })
     await stubMedia(page)
     const history = sampleHistory()
     if (failure === 'cross-origin') history.image.find(e => e.id === 'img-bowls').results[0].url = 'https://other.test/source.png'

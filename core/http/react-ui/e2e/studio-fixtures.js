@@ -54,11 +54,13 @@ export const GPU_RESOURCES = {
 }
 
 // Stub everything the front page reads. `types` are the types that have a
-// model. `installs` collects the names POSTed to the install endpoint; after an
-// install the type gains its model on the next capabilities read when
-// `installOnPost` is set.
+// model; `capabilityModels` supplies complete capability records when a test
+// needs fields beyond a model type. `installs` collects the names POSTed to the
+// install endpoint; after an install the type gains its model on the next
+// capabilities read when `installOnPost` is set.
 export async function mockStudio(page, {
   types = ALL_TYPES,
+  capabilityModels,
   resources = GPU_RESOURCES,
   operations = [],
   installOnPost = false,
@@ -69,7 +71,7 @@ export async function mockStudio(page, {
   await page.route('**/api/models/capabilities', route => {
     state.capabilityCalls += 1
     if (capabilitiesStatus !== 200) return route.fulfill({ status: capabilitiesStatus, json: { error: 'down' } })
-    return route.fulfill({ json: capabilities(state.types) })
+    return route.fulfill({ json: { data: capabilityModels || capabilities(state.types).data } })
   })
   // The v1 list is the fallback useModels takes when the capabilities call
   // fails; make it fail too so an error state is reachable.
