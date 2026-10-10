@@ -101,6 +101,35 @@ The gallery importer will still append `tool_parser:` and `reasoning_parser:` en
 
 Supported parser families: `hermes`/`json_tools`, `mistral`, `gemma4`, `glm47`, `kimi_k2`, `longcat`, `minimax_m2`, `pythonic`, `qwen3_coder`, `function_gemma`.
 
+#### MLX prefix caching
+
+The `mlx` backend reuses shared chat prefixes for hybrid models whose recurrent
+state cannot be trimmed. With `use_tokenizer_template: true`, the backend saves
+an independent checkpoint before the first user message diverges. This can reuse
+the leading system messages and tool definitions across requests with different
+user messages. Both streaming and non-streaming requests use these checkpoints.
+Repetition, presence, and frequency penalties include the full prompt history,
+including the shared prefix, on both cold requests and cache hits.
+
+The backend verifies the prefix against the actual prompt tokens, including the
+template's tool and thinking settings. Raw prompts and templates that reject an
+empty user message still generate normally, without creating these checkpoints.
+This optimization does not cache arbitrary conversation turns or generated answers
+for hybrid models. Models with trimmable attention caches retain their existing
+cache behavior.
+
+Set `max_cache_entries` in the model's `options` to control the LRU capacity
+(default: `10`; `0` disables storage):
+
+```yaml
+options:
+  - max_cache_entries:10
+```
+
+Checkpoints use model memory. They stay local to each backend process and disappear
+when the model unloads or the process restarts. Multiple backend processes warm
+their caches independently; routing to another process can require a fresh prefill.
+
 
 ## Usage example
 
