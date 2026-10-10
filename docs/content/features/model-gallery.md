@@ -44,6 +44,19 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Coder390 EfficientThink
+
+Install `qwen3.8-27b-coder390-q6` for coding, reasoning, and image input with
+llama.cpp. The entry groups Q6_K and Q8_0 weights as variants; both include
+the vision projector and use an 8192-token context. To select Q8_0 explicitly:
+
+```bash
+local-ai models install --variant qwen3.8-27b-coder390-q8 qwen3.8-27b-coder390-q6
+```
+
+These entries use the embedded chat template. They do not enable MTP or
+DFlash speculative decoding.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
