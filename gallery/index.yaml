@@ -1,4 +1,32 @@
 ---
+- name: spark-s1-4b-v6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/abhishek085/spark-s1-4b-v6
+    - https://huggingface.co/abhishek085/spark-s1-4b-v6-GGUF
+    - https://github.com/abhishek085/open-spark-jev
+  description: |
+    spark-s1-4b-v6 is a Qwen3.5-4B decision model (Open Spark Jev): given a state and a question with a fixed menu of options it
+    returns a calibrated probability per option from the first-token logprobs of the option letters. It is not a chat model:
+    send the rendered prompt to /v1/completions with max_tokens 1 and logprobs 20, then softmax(logprob / 1.481) over the
+    option letters. Q8_0 GGUF (agrees with the bf16 model on 99.5% of held-out decisions).
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - classification
+  overrides:
+    backend: llama-cpp
+    context_size: 16384
+    parameters:
+      model: spark-s1-4b-v6-Q8_0.gguf
+      temperature: 0
+  files:
+    - filename: spark-s1-4b-v6-Q8_0.gguf
+      sha256: 05c34c9cfa4b18583fa3b9144a8aee5b9f8a5f0fc236c3eb4f23e914e080633e
+      uri: https://huggingface.co/abhishek085/spark-s1-4b-v6-GGUF/resolve/01395673bbd6f54353af8316eec47f44c4b26a4d/spark-s1-4b-v6-Q8_0.gguf
 - name: ternary-bonsai-2-27b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
