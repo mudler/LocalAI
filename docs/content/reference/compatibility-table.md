@@ -155,3 +155,23 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 Note: any backend name listed above can be used in the `backend` field of the model configuration file (See [the advanced section]({{%relref "advanced" %}})).
 
 - \* Only for CUDA and OpenVINO CPU/XPU acceleration.
+
+### vLLM Omni package versions
+
+The `vllm-omni` backend packages matched vLLM and vLLM Omni releases:
+
+| Build profile | vLLM | vLLM Omni source tag |
+| --- | --- | --- |
+| CUDA 12 and ROCm | 0.14.0 | v0.14.0 |
+| CUDA 13 and Jetson L4T 13 (aarch64) | 0.20.0 | v0.20.0 |
+
+The installer pins each Omni source revision and installs a regular package.
+The backend can therefore move from the build directory to its runtime directory
+without requiring the original source checkout. These releases support the
+`stage_configs_path` model option for LLM and TTS models. Do not replace Omni
+with an unpinned upstream checkout: newer releases can remove this option or
+change the vLLM APIs that the backend uses.
+
+The package includes platform-specific stage configurations, including ROCm
+batching defaults. Installation checks that all upstream YAML resources are
+present in the installed package before removing the source checkout.

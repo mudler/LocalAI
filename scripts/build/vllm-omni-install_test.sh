@@ -50,7 +50,7 @@ assert_file_equals() {
 mkdir -p "$WORK/bin"
 
 # Any unexpected fetch or clone must fail immediately.
-for tool in git curl wget pip3; do
+for tool in curl wget pip3; do
     cat > "$WORK/bin/$tool" <<'EOF'
 #!/bin/bash
 echo "Unexpected provisioning command: $(basename "$0") $*" >&2
@@ -58,6 +58,25 @@ exit 99
 EOF
     chmod +x "$WORK/bin/$tool"
 done
+
+cat > "$WORK/bin/git" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+case "$*" in
+    init) cp -R "$SOURCE_FIXTURE/." . ;;
+    'fetch --depth 1 https://github.com/vllm-project/vllm-omni.git '*|'checkout --detach FETCH_HEAD'|'tag v'*) ;;
+    *) echo "Unexpected git invocation: $*" >&2; exit 99 ;;
+esac
+EOF
+cat > "$WORK/bin/python" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+if [ "${DELEGATE_LOCAL_INSTALL:-}" = 1 ]; then
+    exec "$VENV_PYTHON" "$@"
+fi
+cat >/dev/null
+EOF
+chmod +x "$WORK/bin/git" "$WORK/bin/python"
 
 cat > "$WORK/bin/pkg-install" <<'EOF'
 #!/bin/bash
@@ -100,7 +119,7 @@ for arg in "$@"; do
     esac
 done
 
-if [ "$is_vllm" = 1 ]; then
+if [ "$is_vllm" = 1 ] && [ "$is_local" = 0 ]; then
     echo "install-vllm $*" >> "${EVENT_LOG}"
     exit 0
 fi
@@ -124,7 +143,7 @@ if [ "$is_local" = 1 ]; then
         exec "${VENV_PYTHON}" -m pip install \
             --no-index --no-build-isolation --no-deps \
             --disable-pip-version-check \
-            "$@"
+            .
     fi
     exit 0
 fi
@@ -173,6 +192,7 @@ version = "0.0.0"
 include = ["vllm_omni*"]
 EOF
     printf '%s\n' '# fixture' > "$root/vllm_omni/__init__.py"
+    printf '%s\n' 'fixture: true' > "$root/vllm_omni/stages.yaml"
     printf '%s\n' '# fixture' > "$root/vllm_omni/entrypoints/__init__.py"
     cat > "$root/vllm_omni/entrypoints/omni.py" <<'EOF'
 class Omni:
@@ -185,6 +205,7 @@ setup_backend_dir() {
     mkdir -p "$dir/common" "$dir/vllm-omni"
     cp "$installer" "$dir/install.sh"
     write_libbackend_fixture "$dir/common/libbackend.sh"
+    write_fixture_package "$dir"
 }
 
 disable_system_site() {
@@ -216,6 +237,7 @@ run_install() {
         FAIL_LOCAL_INSTALL="${FAIL_LOCAL_INSTALL:-}" \
         DELEGATE_LOCAL_INSTALL="${DELEGATE_LOCAL_INSTALL:-}" \
         VENV_PYTHON="${VENV_PYTHON:-}" \
+        SOURCE_FIXTURE="$backend/vllm-omni" \
         PIP_NO_INDEX=1 \
         UV_OFFLINE=1 \
         bash ./install.sh
@@ -262,21 +284,21 @@ run_installer_case() {
     expected_events=$(printf '%s\n' \
         "installRequirements" \
         "install-vllm ${expected_vllm}" \
-        "install-local --no-build-isolation ." \
+        "install-local --no-build-isolation . ${expected_vllm}" \
         "regular" \
         "runProtogen")
     expected_cmds=$(printf '%s\n' \
         "${expected_tool} install ${expected_vllm}" \
-        "${expected_tool} install --no-build-isolation .")
+        "${expected_tool} install --no-build-isolation . ${expected_vllm}")
 
     assert_file_equals "$expected_events" "$EVENT_LOG" "$name event log"
     assert_file_equals "$expected_cmds" "$CMD_LOG" "$name command log"
 }
 
-run_installer_case cuda12-pip true cublas cublas12 12 "vllm==0.14.0 --torch-backend=auto"
+run_installer_case cuda12-pip true cublas cublas12 12 "vllm==0.14.0"
 run_installer_case cuda12-uv false cublas cublas12 12 "vllm==0.14.0 --torch-backend=auto"
-run_installer_case cuda13-pip true cublas cublas13 13 "vllm --torch-backend=auto"
-run_installer_case cuda13-uv false cublas cublas13 13 "vllm --torch-backend=auto"
+run_installer_case cuda13-pip true cublas cublas13 13 "vllm==0.20.0"
+run_installer_case cuda13-uv false cublas cublas13 13 "vllm==0.20.0 --torch-backend=auto"
 
 echo "PASS: vllm-omni installer uses a regular local package install (pip/uv, CUDA 12/13)"
 
@@ -306,7 +328,7 @@ if grep -qx runProtogen "$EVENT_LOG"; then
     cat "$EVENT_LOG" >&2
     fail "runProtogen ran after a failed local package install"
 fi
-if ! grep -qx 'install-local --no-build-isolation .' "$EVENT_LOG"; then
+if ! grep -qx 'install-local --no-build-isolation . vllm==0.14.0' "$EVENT_LOG"; then
     cat "$EVENT_LOG" >&2
     fail "failed local package install was not attempted"
 fi
