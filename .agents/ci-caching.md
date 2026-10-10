@@ -176,7 +176,7 @@ Deliberately **not** applied to:
 
 | Workflow | Why it must keep seeing `backend/**` |
 |---|---|
-| `test.yml` | `TEST_PATHS` explicitly includes `./backend/go/cloud-proxy/...`, `./backend/go/local-store/...` and `./backend/go/valkey-store/...` |
+| `test.yml` | `TEST_PATHS` explicitly includes `./backend/go/cloud-proxy/...`, `./backend/go/local-store/...`, `./backend/go/valkey-store/...` and `./backend/go/qdrant-store/...` |
 | `lint.yml` | `.golangci.yml` carries `backend/`-scoped rules, so golangci-lint covers that tree |
 | `tests-e2e.yml` | The e2e suite drives real backends over gRPC |
 | `backend_pr.yml` | This is the workflow whose entire job is to rebuild the changed backend |
