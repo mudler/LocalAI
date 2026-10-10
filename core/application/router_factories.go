@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
+	"github.com/mudler/LocalAI/pkg/reasoning"
 	"gopkg.in/yaml.v3"
 )
 
@@ -119,7 +120,14 @@ func (a *Application) EmbedderFingerprint(modelName string) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("embedding model %q not available", modelName)
 	}
-	raw, err := yaml.Marshal(cfg)
+	// Reasoning never changes the embedding space, but a chat request against
+	// this model may persist probed reasoning slots into the shared config
+	// (persistProbedReasoning). Hashing them would move the fingerprint on
+	// such a request and leave every knn router built on this embedder failing
+	// with ErrLiveEmbeddingMismatch until restart.
+	hashed := *cfg
+	hashed.ReasoningConfig = reasoning.Config{}
+	raw, err := yaml.Marshal(&hashed)
 	if err != nil {
 		return "", fmt.Errorf("fingerprint embedding model %q config: %w", modelName, err)
 	}
