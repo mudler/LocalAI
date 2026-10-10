@@ -17,7 +17,8 @@ test.describe('Traffic models', () => {
     await expect(bge.locator('td.dk-num').last()).toHaveText('-')
     // The failed load of flux-dev is in the backend-operation buffer.
     await expect(page.locator('tr[data-entity="flux-dev"]')).toContainText('1')
-    await expect(page.getByText(/p50|p95|p99/)).toHaveCount(0)
+    // A row's concatenated text can contain llama-cpp followed by 99 requests.
+    await expect(page.getByText(/\bp(?:50|95|99)\b/i)).toHaveCount(0)
   })
 
   test('a row opens in place with the split, the buffer and the links', async ({ page }) => {

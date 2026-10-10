@@ -317,9 +317,11 @@ test.describe('Home in a cluster', () => {
 })
 
 test.describe('Home resume list', () => {
+  const now = new Date('2026-10-09T12:00:00Z').getTime()
   test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(now)
     await mockHome(page)
-    await seedChats(page)
+    await seedChats(page, sampleChats(now))
   })
 
   test('groups conversations by day, one card per day', async ({ page }) => {
@@ -408,7 +410,7 @@ test.describe('Home resume list', () => {
   })
 
   test('without undo the delete becomes final when the time ends', async ({ page }) => {
-    await page.clock.install()
+    await page.clock.install({ time: now })
     await ready(page)
     const row = page.getByTestId('home-conversation').filter({ hasText: 'invoice' })
     await row.hover()
@@ -430,12 +432,12 @@ test.describe('Home resume list', () => {
   })
 
   test('old conversations wait behind one button', async ({ page }) => {
-    const chats = sampleChats()
+    const chats = sampleChats(now)
     const old = Array.from({ length: 8 }, (_, i) => ({
       ...chats[0],
       id: `old-${i}`,
       name: `Old chat ${i}`,
-      updatedAt: Date.now() - (10 + i) * 24 * 60 * 60 * 1000,
+      updatedAt: now - (10 + i) * 24 * 60 * 60 * 1000,
     }))
     await page.addInitScript(([key, data]) => localStorage.setItem(key, JSON.stringify(data)),
       [CHATS_KEY, { chats: [...chats, ...old], activeChatId: chats[0].id }])

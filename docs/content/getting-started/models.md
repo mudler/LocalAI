@@ -74,6 +74,9 @@ Note: The galleries available in LocalAI can be customized to point to a differe
 
 Visit [models.localai.io](https://models.localai.io) to browse all available models in your browser.
 
+On a phone, the model page wraps build descriptions in the **Variants** table
+to keep the fit status and install buttons visible.
+
 ## Method 1.5: Import Models via WebUI
 
 The WebUI import page (**Build → Import**) takes either a source to resolve or a
