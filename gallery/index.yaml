@@ -66841,6 +66841,80 @@
     - filename: mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
       sha256: 4568f7e9f79ef5b942be9acc8be717156482d0659a6fde111df660f57a1875c8
       uri: https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF/resolve/2770acba861928558b9d706cc06462e6a6f30b7b/mmproj-Qwen3.8-3.6-27B-blend-BF16.gguf
+- name: prism-coder-9b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/dcostenco/prism-coder-9b
+    - https://huggingface.co/mradermacher/prism-coder-9b-GGUF
+  description: |
+    Prism Coder 9B is a Qwen3.5-9B fine-tune for tool routing and function
+    calling. This Q4_K_M GGUF uses the embedded chat template and a 32768-token
+    context. This entry supports text only; the quantization repository does
+    not provide a vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - function-calling
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/prism-coder-9b/prism-coder-9b.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: prism-coder-9b-q8
+  files:
+    - filename: llama-cpp/models/prism-coder-9b/prism-coder-9b.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/prism-coder-9b-GGUF/resolve/edf75a38dfa056195f1632a9694ff2e0f79054c6/prism-coder-9b.Q4_K_M.gguf
+      sha256: 8143b554f879953b55514c07df0d729e184c0031c93b938cce9b8aa278305821
+- name: prism-coder-9b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/dcostenco/prism-coder-9b
+    - https://huggingface.co/mradermacher/prism-coder-9b-GGUF
+  description: |
+    Prism Coder 9B is a Qwen3.5-9B fine-tune for tool routing and function
+    calling. This Q8_0 GGUF uses the embedded chat template and a 32768-token
+    context. This entry supports text only; the quantization repository does
+    not provide a vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - function-calling
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/prism-coder-9b/prism-coder-9b.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/prism-coder-9b/prism-coder-9b.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/prism-coder-9b-GGUF/resolve/edf75a38dfa056195f1632a9694ff2e0f79054c6/prism-coder-9b.Q8_0.gguf
+      sha256: e9ec3446685a5076a1595b2c85fd180271ee8e3e069fd0db5816c3f68465328c
 - name: qwen3.8-27b-humanlike-chat
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
