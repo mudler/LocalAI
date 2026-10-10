@@ -802,6 +802,11 @@ void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
     params->seed = seed;
 }
 
+void sd_img_gen_params_set_custom_sigmas(sd_img_gen_params_t *params, float *sigmas, int count) {
+    params->sample_params.custom_sigmas = sigmas;
+    params->sample_params.custom_sigmas_count = count;
+}
+
 int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
     sd_image_t* results;

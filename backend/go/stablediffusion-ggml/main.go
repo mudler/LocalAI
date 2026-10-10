@@ -47,6 +47,7 @@ func main() {
 		{&ImgGenParamsSetPrompts, "sd_img_gen_params_set_prompts"},
 		{&ImgGenParamsSetDimensions, "sd_img_gen_params_set_dimensions"},
 		{&ImgGenParamsSetSeed, "sd_img_gen_params_set_seed"},
+		{&ImgGenParamsSetCustomSigmas, "sd_img_gen_params_set_custom_sigmas"},
 		{&ImgGenParamsGetVaeTilingParams, "sd_img_gen_params_get_vae_tiling_params"},
 
 		{&VidGenParamsNew, "sd_vid_gen_params_new"},
