@@ -187,6 +187,25 @@ To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q
 Both configurations use the embedded chat template and default to 32,768 context tokens.
 The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
 
+## Qwen3.8-27B Pi
+
+The `qwen3.8-27b-pi` entry offers Q4_K_M, Q5_K_M, Q6_K, Q8_0, and
+Q4_K_M with MTP builds for llama.cpp. This fine-tune targets coding and
+tool use in the Pi agent harness. Each build includes the BF16 vision
+projector and uses the embedded chat template.
+
+To select one of the intermediate quantizations explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-pi --variant qwen3.8-27b-pi-q5
+local-ai models install qwen3.8-27b-pi --variant qwen3.8-27b-pi-q6
+```
+
+The Q5 and Q6 builds use a 32,768-token context and do not enable MTP.
+Downloads are pinned to a revision and checked with SHA256. See the
+[publisher's model card](https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF)
+for model details.
+
 ## Qwen3.8-27B Agention Precision
 
 The gallery includes Agention Precision IQ4_XS and Q4_K_M GGUF builds of

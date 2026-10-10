@@ -67816,6 +67816,8 @@
       sha256: 82b7adb44411dbb298b1c689567804e5ed0790d80f308ed8b5b6b8ac0527d2ac
 - name: qwen3.8-27b-pi
   variants:
+    - model: qwen3.8-27b-pi-q5
+    - model: qwen3.8-27b-pi-q6
     - model: qwen3.8-27b-pi-q8
     - model: qwen3.8-27b-pi-q4-mtp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -67861,6 +67863,100 @@
     - filename: llama-cpp/models/qwen3.8-27b-pi/Qwen3.8-27B-pi-Q4_K_M.gguf
       sha256: ddda633d1ecafccb6e77ff55de2d5f78d90a53ab4fed87ca67bc161de75af9f9
       uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/Qwen3.8-27B-pi-Q4_K_M.gguf
+    - filename: llama-cpp/models/qwen3.8-27b-pi/mmproj-Qwen3.8-27B-pi-BF16.gguf
+      sha256: 6086d2fb198687fbd5961f9b4e5847979dfd3ac73420aada6ce72d4fc9d80f2a
+      uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/mmproj-Qwen3.8-27B-pi-BF16.gguf
+- name: qwen3.8-27b-pi-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/bytkim/Qwen3.8-27B-pi
+    - https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF
+  description: |
+    Qwen3.8-27B-pi is a 27B fine-tune for coding and tool use in the Pi agent harness.
+    This Q5_K_M GGUF build uses llama.cpp, the embedded chat template, and the BF16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-27b-pi/mmproj-Qwen3.8-27B-pi-BF16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-pi/Qwen3.8-27B-pi-Q5_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-pi/Qwen3.8-27B-pi-Q5_K_M.gguf
+      sha256: c6a9a66cd17a3627948fd1cf4730835423379aee926b33c0cfa94963b1968fd1
+      uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/Qwen3.8-27B-pi-Q5_K_M.gguf
+    - filename: llama-cpp/models/qwen3.8-27b-pi/mmproj-Qwen3.8-27B-pi-BF16.gguf
+      sha256: 6086d2fb198687fbd5961f9b4e5847979dfd3ac73420aada6ce72d4fc9d80f2a
+      uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/mmproj-Qwen3.8-27B-pi-BF16.gguf
+- name: qwen3.8-27b-pi-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/bytkim/Qwen3.8-27B-pi
+    - https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF
+  description: |
+    Qwen3.8-27B-pi is a 27B fine-tune for coding and tool use in the Pi agent harness.
+    This Q6_K GGUF build uses llama.cpp, the embedded chat template, and the BF16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-09"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/qwen3.8-27b-pi/mmproj-Qwen3.8-27B-pi-BF16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-pi/Qwen3.8-27B-pi-Q6_K.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-pi/Qwen3.8-27B-pi-Q6_K.gguf
+      sha256: 8a7e614810ad9da748903753c07b5beba2f99b355170fe36832eb0acee5183f3
+      uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/Qwen3.8-27B-pi-Q6_K.gguf
     - filename: llama-cpp/models/qwen3.8-27b-pi/mmproj-Qwen3.8-27B-pi-BF16.gguf
       sha256: 6086d2fb198687fbd5961f9b4e5847979dfd3ac73420aada6ce72d4fc9d80f2a
       uri: https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF/resolve/97caacb971d9246520fa8db5282a06bd36b103df/mmproj-Qwen3.8-27B-pi-BF16.gguf
