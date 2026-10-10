@@ -128,7 +128,7 @@ func (s *turnSink) Perform(e turncoord.Effect) {
 		// Issue through the shared commit-ordering boundary (slot claim +
 		// issue under one lock, shared with the client commit path) so slot
 		// order == issue order across both producers (issue #12445).
-		s.session.issueCommit(s.vadContext, respcoord.SourceVAD, func(ctx context.Context, slot *commitSlot) {
+		s.session.issueCommit(s.vadContext, respcoord.SourceVAD, nil, func(ctx context.Context, slot *commitSlot) {
 			commitUtteranceWithTranscript(ctx, audio, live, gated, itemID, s.session, conv, s.transport, slot)
 		})
 	case turncoord.DiscardTurn:
