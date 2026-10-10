@@ -1162,6 +1162,7 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
 		LoadOptionGalleryFiles(o.Galleries...),
+		LoadOptionDiagnostics(o.DiagnosticsRecorder),
 	}
 }
 
