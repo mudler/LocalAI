@@ -450,6 +450,38 @@ probes also check serialized escaping before allocation. The separate 64 KiB tex
 request limit is unchanged. Anthropic conversion preserves typed content blocks
 through both native selection and fallback, including ordered text and images.
 
+### LiquidAI d1-3B
+
+The `d1-3b-q4` gallery entry installs LiquidAI d1-3B Q4_K_M with its Q8_0
+vision projector. It offers `d1-3b-q8` as a higher-precision variant.
+Both use native `llama-cpp` decisions for text, JSON, and images.
+The weights use the [Liquid AI LFM Open License v1.0](https://huggingface.co/LiquidAI/d1-3B-GGUF/blob/bb1e436ea78eb96a3f1acb6da865f70c2fbeb563/LICENSE).
+
+Install a specific build:
+
+```bash
+local-ai models install d1-3b-q4 --variant d1-3b-q4
+```
+
+Use `d1-3b-q4` as the model in the `/v1/decisions` example above, or send
+a SystemOne request:
+
+```bash
+curl http://localhost:8080/v1/systemone \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "d1-3b-q4",
+    "state": "I was charged twice. Please refund the duplicate charge.",
+    "questions": {
+      "refund": {"type": "noul", "instructions": "Is the customer asking for a refund?"}
+    }
+  }'
+```
+
+Both builds use an 8192-token context. Image requests follow the bounds above
+and require the installed projector. These entries declare the `decisions`
+usecase and do not appear as chat models.
+
 ### OpenJev image decisions
 
 The `openjev-llama-cpp` gallery entry installs OpenJev Q4_K_M and its pinned
@@ -470,7 +502,7 @@ fit; context overflow remains an error. Size the context for the actual workload
 Native image decisions require both a decision format that accepts images and a
 loaded projector that supports **vision input**. A missing projector, an
 audio-only projector, or a text-only decision model does not silently fall back
-to a text decision. Other decision gallery entries remain text-only.
+to a text decision. Gallery entries without a vision projector remain text-only.
 
 Direct native RPC callers receive the same image count, encoded/decoded byte,
 dimension and aggregate pixel bounds as public callers. Validation precedes

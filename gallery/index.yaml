@@ -65555,6 +65555,74 @@
     - filename: lev-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
       sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
+- name: d1-3b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/d1-3B
+    - https://huggingface.co/LiquidAI/d1-3B-GGUF
+  description: |
+    LiquidAI d1-3B is a 3B decision model based on LFM2.5-VL.
+    Answers typed choice, score, and noul questions over text, JSON, or images
+    through the native llama.cpp Decisions API. Includes Q4_K_M weights and
+    the Q8_0 vision projector. Licensed under the Liquid AI LFM Open License v1.0.
+  license: other
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  last_checked: "2026-10-10"
+  variants:
+    - model: d1-3b-q8
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: mmproj-d1-3B-Q8_0.gguf
+    parameters:
+      model: d1-3B-Q4_K_M.gguf
+  files:
+    - filename: d1-3B-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/d1-3B-GGUF/resolve/bb1e436ea78eb96a3f1acb6da865f70c2fbeb563/d1-3B-Q4_K_M.gguf
+      sha256: 16aff27ea2eefdc32b9897f43854a5d3170c1dc8dccb9c756905af30a4e22402
+    - filename: mmproj-d1-3B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/d1-3B-GGUF/resolve/bb1e436ea78eb96a3f1acb6da865f70c2fbeb563/mmproj-d1-3B-Q8_0.gguf
+      sha256: 2505920ce464b7c54acd8b7b74a931c0c671f06d0c8833760b2fbceeb253e92a
+- name: d1-3b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/LiquidAI/d1-3B
+    - https://huggingface.co/LiquidAI/d1-3B-GGUF
+  description: |
+    LiquidAI d1-3B is a 3B decision model based on LFM2.5-VL.
+    Answers typed choice, score, and noul questions over text, JSON, or images
+    through the native llama.cpp Decisions API. Includes Q8_0 weights and
+    the Q8_0 vision projector. Licensed under the Liquid AI LFM Open License v1.0.
+  license: other
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  last_checked: "2026-10-10"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: mmproj-d1-3B-Q8_0.gguf
+    parameters:
+      model: d1-3B-Q8_0.gguf
+  files:
+    - filename: d1-3B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/d1-3B-GGUF/resolve/bb1e436ea78eb96a3f1acb6da865f70c2fbeb563/d1-3B-Q8_0.gguf
+      sha256: 2f0942d5a5f64cf69c3356d2be439b71644b1f0eb3a580912a5a0179eeaba77d
+    - filename: mmproj-d1-3B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/d1-3B-GGUF/resolve/bb1e436ea78eb96a3f1acb6da865f70c2fbeb563/mmproj-d1-3B-Q8_0.gguf
+      sha256: 2505920ce464b7c54acd8b7b74a931c0c671f06d0c8833760b2fbceeb253e92a
 - name: openjev-llama-cpp
   urls:
     - https://huggingface.co/openjev/openjev
