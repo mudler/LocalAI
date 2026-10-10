@@ -65584,6 +65584,72 @@
     - filename: lev-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/lev-GGUF/resolve/3e9286a79ae857b4e1de051c92fab6dc574581ce/lev-Q4_K_M.gguf
       sha256: 3f61b27c00a098dbc79ed099cca3985cbe0b63d17ac7fedebf2dca1d84f7f3a8
+- name: clef-flash
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: clef-flash-q8
+  urls:
+    - https://huggingface.co/Cloudflare/clef-flash
+    - https://huggingface.co/ggml-org/Clef-Flash-GGUF
+  license: apache-2.0
+  description: |
+    Clef-Flash is Cloudflare's 9B Qwen3.5-based model for typed decisions
+    from text and images. This Q4_K_M GGUF includes the Q8_0 vision projector
+    and uses native llama.cpp decisions through /v1/systemone and /v1/decisions.
+    It answers choice, score, and predicate questions without generating text.
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
+    parameters:
+      model: llama-cpp/models/clef-flash/Clef-Flash-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/clef-flash/Clef-Flash-Q4_K_M.gguf
+      uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q4_K_M.gguf
+      sha256: fd3e90605e8103307dca37cb5a8cdb036267e2fe3cb2d908d80a8ceb9ec0638c
+    - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+      sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
+- name: clef-flash-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Cloudflare/clef-flash
+    - https://huggingface.co/ggml-org/Clef-Flash-GGUF
+  license: apache-2.0
+  description: |
+    Clef-Flash is Cloudflare's 9B Qwen3.5-based model for typed decisions
+    from text and images. This Q8_0 GGUF includes the Q8_0 vision projector
+    and uses native llama.cpp decisions through /v1/systemone and /v1/decisions.
+    It answers choice, score, and predicate questions without generating text.
+  tags:
+    - decisions
+    - systemone
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - decisions
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
+    parameters:
+      model: llama-cpp/models/clef-flash/Clef-Flash-Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/clef-flash/Clef-Flash-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/Clef-Flash-Q8_0.gguf
+      sha256: d7c352faf1bdd9ea24d0b9347e8eb1eb4bbadeff6c02383bf750215a74f2f1f1
+    - filename: llama-cpp/mmproj/clef-flash/mmproj-Clef-Flash-Q8_0.gguf
+      uri: https://huggingface.co/ggml-org/Clef-Flash-GGUF/resolve/4a192915ef971886004b5b13294f2b4c7a7fc39d/mmproj-Clef-Flash-Q8_0.gguf
+      sha256: 3fbc646617c56c35ba48e06f0fbe8693a83bde49eb31e2a3bf59ba0a308c9e25
 - name: openjev-llama-cpp
   urls:
     - https://huggingface.co/openjev/openjev

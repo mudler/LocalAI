@@ -450,6 +450,26 @@ probes also check serialized escaping before allocation. The separate 64 KiB tex
 request limit is unchanged. Anthropic conversion preserves typed content blocks
 through both native selection and fallback, including ordered text and images.
 
+### Clef-Flash text and image decisions
+
+Install Cloudflare's 9B Clef-Flash decision model with its Q8_0 vision projector:
+
+```sh
+local-ai models install clef-flash --variant clef-flash
+```
+
+This selects the Q4_K_M build. Use `--variant clef-flash-q8` for Q8_0,
+or omit `--variant` to let the gallery choose a build for available memory.
+Both builds use Apache-2.0 weights from
+[ggml-org/Clef-Flash-GGUF](https://huggingface.co/ggml-org/Clef-Flash-GGUF),
+pinned to revision `4a192915ef971886004b5b13294f2b4c7a7fc39d` with SHA-256 checksums.
+
+Send requests to `/v1/systemone` or `/v1/decisions` with the installed model's
+name. Clef-Flash returns typed decisions; it does not generate chat completions.
+Image requests use the same bounded base64 image contract described above.
+The gallery sets an 8192-token context. Use a current stock `llama-cpp` backend
+with Clef decision support.
+
 ### OpenJev image decisions
 
 The `openjev-llama-cpp` gallery entry installs OpenJev Q4_K_M and its pinned
@@ -470,7 +490,7 @@ fit; context overflow remains an error. Size the context for the actual workload
 Native image decisions require both a decision format that accepts images and a
 loaded projector that supports **vision input**. A missing projector, an
 audio-only projector, or a text-only decision model does not silently fall back
-to a text decision. Other decision gallery entries remain text-only.
+to a text decision. Image support also requires a matching projector for Clef-Flash.
 
 Direct native RPC callers receive the same image count, encoded/decoded byte,
 dimension and aggregate pixel bounds as public callers. Validation precedes
