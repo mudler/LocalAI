@@ -11,7 +11,7 @@ Let's say the user wants to build a particular backend for a given platform. For
   - Use `.github/backend-matrix.yml` as a reference — it's the data-only YAML that lists every backend variant's `build-type`, `base-image`, `platforms`, etc. (`backend.yml` and `backend_pr.yml` consume it via `scripts/changed-backends.js`).
   - l4t and cublas also require the CUDA major and minor version.
   - For llama-cpp / ik-llama-cpp / turboquant the matrix also sets `builder-base-image` pointing at a prebuilt `quay.io/go-skynet/ci-cache:base-grpc-*` tag. Local `make backends/<name>` defaults to `BUILDER_TARGET=builder-fromsource` and doesn't need it — the Dockerfile's from-source stage installs everything itself.
-- You can pretty print a command like `DOCKER_MAKEFLAGS=-j$(nproc --ignore=1) BUILD_TYPE=hipblas BASE_IMAGE=rocm/dev-ubuntu-24.04:7.2.1 make docker-build-coqui`
+- You can pretty print a command like `DOCKER_MAKEFLAGS=-j$(nproc --ignore=1) BUILD_TYPE=hipblas BASE_IMAGE=rocm/dev-ubuntu-24.04:7.14.0-full make docker-build-coqui`
 - Unless the user specifies that they want you to run the command, then just print it because not all agent frontends handle long running jobs well and the output may overflow your context
 - The user may say they want to build AMD or ROCM instead of hipblas, or Intel instead of SYCL or NVIDIA insted of l4t or cublas. Ask for confirmation if there is ambiguity.
 - Sometimes the user may need extra parameters to be added to `docker build` (e.g. `--platform` for cross-platform builds or `--progress` to view the full logs), in which case you can generate the `docker build` command directly.
