@@ -91,8 +91,13 @@ LocalAI changes only config files that are inside the models directory. If the f
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `parameters.model` | string | Path to the model file (relative to models directory) or URL |
+| `parameters.model` | string | Local model path relative to the models directory, a supported shorthand such as `huggingface://`, or a backend-specific model identifier |
 | `download_files` | array | List of files to download. Each entry has `filename`, `uri`, and optional `sha256` |
+
+For a direct `http://` or `https://` model file URL, use `download_files`.
+Set `parameters.model` to the same local filename as the download entry.
+LocalAI does not automatically download direct HTTP(S) URLs in `parameters.model`.
+With a file-based backend such as `llama-cpp`, that configuration fails when the backend tries to open the URL as a local path.
 
 **Example:**
 ```yaml
@@ -102,8 +107,11 @@ parameters:
 download_files:
   - filename: my-model.gguf
     uri: https://example.com/model.gguf
-    sha256: abc123...
+    # Optional: set sha256 to the file's complete SHA-256 checksum.
 ```
+
+Choose a filename that does not belong to another model in the models directory.
+Without a checksum, LocalAI can reuse an existing file with that name without checking its contents.
 
 ## Model artifacts
 
