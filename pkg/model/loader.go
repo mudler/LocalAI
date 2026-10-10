@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -395,11 +396,35 @@ var knownModelsNameSuffixToSkip []string = []string{
 }
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
-	files, err := os.ReadDir(ml.ModelPath)
+	return ml.ListFilesInModelPathContext(context.Background())
+}
+
+// ListFilesInModelPathContext preserves discovery behavior while observing the caller's phases.
+func (ml *ModelLoader) ListFilesInModelPathContext(ctx context.Context) ([]string, error) {
+	return ml.listFilesInModelPathContext(ctx, os.ReadDir)
+}
+
+// The operation seam is call-local: no request or filesystem hooks live on shared state.
+func (ml *ModelLoader) listFilesInModelPathContext(ctx context.Context, readDir func(string) ([]os.DirEntry, error)) ([]string, error) {
+	observed := diagnostics.Enabled(ctx)
+	var start time.Time
+	if observed {
+		start = time.Now()
+	}
+	files, err := readDir(ml.ModelPath)
+	if observed {
+		elapsed := time.Since(start)
+		outcome := diagnostics.OutcomeOK
+		if err != nil {
+			outcome = diagnostics.OutcomeError
+		}
+		diagnostics.Record(ctx, diagnostics.PhaseFSEnumeration, elapsed, outcome, 1)
+	}
 	if err != nil {
 		return []string{}, err
 	}
 
+	end := diagnostics.Begin(ctx, diagnostics.PhaseLooseFilter)
 	models := []string{}
 FILE:
 	for _, file := range files {
@@ -431,6 +456,7 @@ FILE:
 		models = append(models, file.Name())
 	}
 
+	end(diagnostics.OutcomeOK, len(files))
 	return models, nil
 }
 
