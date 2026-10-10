@@ -3291,6 +3291,40 @@
                 }
             }
         },
+        "/v1/decisions": {
+            "post": {
+                "description": "Uses the same local decision and NER execution as SystemOne. Supports inline images on capable backends; confidence is not OpenAI calibrated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer ordered predicate, choice and score questions.",
+                "parameters": [
+                    {
+                        "description": "input + questions + model",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DecisionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DecisionsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/depth": {
             "post": {
                 "tags": [
@@ -5805,6 +5839,164 @@
                 },
                 "summary_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.DecisionAnswer": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "description": "Choice preserves the selected string or boolean value. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "probabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionProbability"
+                    }
+                },
+                "probability": {
+                    "type": "number"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionChoice": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value is a string or boolean choice. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                }
+            }
+        },
+        "schema.DecisionLevel": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionProbability": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "probability": {
+                    "type": "number"
+                },
+                "value": {
+                    "description": "Value is a string or boolean for choices, or a zero-based integer for score levels. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                }
+            }
+        },
+        "schema.DecisionQuestion": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionChoice"
+                    }
+                },
+                "instructions": {
+                    "type": "string"
+                },
+                "levels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionLevel"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens_details": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens_details": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.DecisionsRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "description": "Input is a text string or an array of user messages. Swagger 2 uses a loose object placeholder for this union.",
+                    "type": "object"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionQuestion"
+                    }
+                },
+                "safety_identifier": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DecisionsResponse": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.DecisionAnswer"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.DecisionUsage"
                 }
             }
         },
