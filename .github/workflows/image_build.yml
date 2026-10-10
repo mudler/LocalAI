@@ -201,7 +201,7 @@ jobs:
 
       - name: Upload digest artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           # `--` separator + 'single' placeholder for empty platform-tag —
           # same pattern as backend_build.yml. Prevents prefix collisions

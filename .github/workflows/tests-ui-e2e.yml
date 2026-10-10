@@ -62,14 +62,14 @@ jobs:
         run: PATH="$PATH:$HOME/go/bin" make test-ui-coverage-check
       - name: Upload Playwright report
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: core/http/react-ui/playwright-report/
           retention-days: 7
       - name: Upload UI coverage report
         if: ${{ always() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: ui-coverage
           path: core/http/react-ui/coverage/

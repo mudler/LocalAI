@@ -283,7 +283,7 @@ jobs:
           key: pyenv-darwin-${{ inputs.backend }}-${{ steps.weekly.outputs.bucket }}-${{ hashFiles(format('backend/python/{0}/requirements*.txt', inputs.backend)) }}
 
       - name: Upload ${{ inputs.backend }}.tar
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.backend }}-tar
           path: backend-images/${{ inputs.backend }}.tar
