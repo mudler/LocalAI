@@ -7,7 +7,6 @@ import { formatBytes } from '../utils/format'
 import { useResources } from '../hooks/useResources'
 import { detectSource, fitFor, importChecks, importRequest, machineFacts, requestText } from '../utils/tools'
 import { createTransferRateSampler } from '../utils/transferRate'
-import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
@@ -148,6 +147,8 @@ export default function ImportModel() {
   const [showOptions, setShowOptions] = useState(() => {
     try { return localStorage.getItem('import-form-options') === 'open' } catch { return false }
   })
+
+  const optionsToggleRef = useRef(null)
 
   const [importUri, setImportUri] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -842,7 +843,11 @@ export default function ImportModel() {
                     </dd>
                   </dl>
                   <div className="import-found__acts">
-                    <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setShowOptions(true)} data-testid="import-adjust">
+                    <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => {
+                      setShowOptions(true)
+                      optionsToggleRef.current?.focus()
+                      optionsToggleRef.current?.scrollIntoView({ block: 'start' })
+                    }} aria-controls="import-options-panel" aria-expanded={showOptions} data-testid="import-adjust">
                       <Icon name="sliders" /> {t('found.adjust')}
                     </button>
                   </div>
@@ -855,21 +860,12 @@ export default function ImportModel() {
                   </header>
                   <pre className="import-preview__code dk-mono" data-testid="import-preview-code">{requestText(request)}</pre>
                 </section>
-
-                <section className="bt-block" aria-labelledby="import-checks-title">
-                  <header className="bt-block__head">
-                    <h2 className="bt-h2" id="import-checks-title">{t('checks.heading')}</h2>
-                    <p className="dk-hint">{t('checks.note')}</p>
-                  </header>
-                  <div className="dk-card bt-checks-card">
-                    <Checks checks={checks} isAdmin label={t('checks.heading')} testId="import-checks" />
-                  </div>
-                </section>
               </>
             )}
 
             <div className="import-options">
               <button
+                ref={optionsToggleRef}
                 type="button"
                 className="import-disclosure"
                 data-testid="import-options-toggle"
@@ -883,6 +879,18 @@ export default function ImportModel() {
               </button>
               {showOptions && renderOptions()}
             </div>
+
+            {source && !done && !job && !isSubmitting && (
+              <section className="bt-block" aria-labelledby="import-checks-title">
+                <header className="bt-block__head">
+                  <h2 className="bt-h2" id="import-checks-title">{t('checks.heading')}</h2>
+                  <p className="dk-hint">{t('checks.note')}</p>
+                </header>
+                <div className="dk-card bt-checks-card">
+                  <Checks checks={checks} isAdmin label={t('checks.heading')} testId="import-checks" />
+                </div>
+              </section>
+            )}
 
             {!done && (
             <div className="bt-bar" data-testid="import-bar">
@@ -902,7 +910,7 @@ export default function ImportModel() {
                   aria-busy={isSubmitting || undefined}
                 >
                   {isSubmitting
-                    ? <><LoadingSpinner size="sm" /> {t('actions.importing')}</>
+                    ? t('actions.importing')
                     : <><Icon name="import" /> {t('actions.import')}</>}
                 </button>
               </div>
@@ -935,7 +943,7 @@ export default function ImportModel() {
                 aria-busy={isSubmitting || undefined}
               >
                 {isSubmitting
-                  ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</>
+                  ? t('actions.saving')
                   : <><Icon name="plus" /> {t('actions.create')}</>}
               </button>
             </div>
