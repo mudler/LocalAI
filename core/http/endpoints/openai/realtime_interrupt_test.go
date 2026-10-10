@@ -61,7 +61,7 @@ var _ = Describe("realtime interrupt_response", func() {
 			ctx := holdResponse(s)
 			conv, tr := &Conversation{}, &fakeTransport{}
 			committed := make(chan struct{})
-			s.issueCommit(context.Background(), respcoord.SourceVAD, func(turnCtx context.Context, slot *commitSlot) {
+			s.issueCommit(context.Background(), respcoord.SourceVAD, nil, func(turnCtx context.Context, slot *commitSlot) {
 				commitUtteranceWithTranscript(turnCtx, []byte{1, 2, 3, 4}, nil, nil, "", s, conv, tr, slot)
 				close(committed)
 			})
@@ -86,7 +86,7 @@ var _ = Describe("realtime interrupt_response", func() {
 		holdResponse(s)
 		conv, tr := &Conversation{}, &fakeTransport{}
 		committed := make(chan struct{})
-		s.issueCommit(context.Background(), respcoord.SourceVAD, func(turnCtx context.Context, slot *commitSlot) {
+		s.issueCommit(context.Background(), respcoord.SourceVAD, nil, func(turnCtx context.Context, slot *commitSlot) {
 			commitUtteranceWithTranscript(turnCtx, []byte{1, 2, 3, 4}, nil, nil, "", s, conv, tr, slot)
 			close(committed)
 		})
@@ -115,7 +115,7 @@ var _ = Describe("realtime interrupt_response", func() {
 			s := &Session{TurnDetection: decode("server_vad", `,"interrupt_response":false`), respSink: newResponseSink()}
 			DeferCleanup(s.respSink.shutdown)
 			started := make(chan context.Context, 1)
-			s.issueCommit(context.Background(), source, func(ctx context.Context, slot *commitSlot) {
+			s.issueCommit(context.Background(), source, nil, func(ctx context.Context, slot *commitSlot) {
 				defer close(slot.done)
 				started <- ctx
 				<-ctx.Done()
@@ -132,7 +132,7 @@ var _ = Describe("realtime interrupt_response", func() {
 		s := &Session{TurnDetection: decode("server_vad", `,"interrupt_response":false`), respSink: newResponseSink()}
 		ctx := holdResponse(s)
 		done := make(chan struct{})
-		s.issueCommit(context.Background(), respcoord.SourceClient, func(_ context.Context, slot *commitSlot) {
+		s.issueCommit(context.Background(), respcoord.SourceClient, nil, func(_ context.Context, slot *commitSlot) {
 			close(slot.done)
 			close(done)
 		})

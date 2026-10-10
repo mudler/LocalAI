@@ -121,7 +121,7 @@ var _ = Describe("realtime commit order and transcription lifetime (issue #12445
 	// real respcoord supersession — NOT a direct
 	// commitUtteranceWithTranscript call.
 	issue := func(session *Session, parent context.Context, source respcoord.Source, conv *Conversation, tr *fakeTransport) {
-		session.issueCommit(parent, source, func(ctx context.Context, slot *commitSlot) {
+		session.issueCommit(parent, source, nil, func(ctx context.Context, slot *commitSlot) {
 			commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, tr, slot)
 		})
 	}
