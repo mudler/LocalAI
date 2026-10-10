@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -10,12 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -30,6 +33,12 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
+	Pprof                     bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress              string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
 	NoColor   string   `env:"NO_COLOR" hidden:""`
@@ -250,6 +259,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.Version {
 		fmt.Println(internal.Version)
 		return nil
+	}
+
+	diagnosticOpts := r.diagnosticsOptions()
+	if err := diagnosticOpts.Validate(); err != nil {
+		return err
 	}
 
 	if ctx.CredentialsFile == "" {
@@ -784,66 +798,89 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	if r.PreloadBackendOnly {
-		_, err := application.New(opts...)
-		return err
+	var recorder *diagnostics.Recorder
+	if diagnosticOpts.RequestPhaseTiming && !r.PreloadBackendOnly {
+		recorder = diagnostics.NewRecorder(diagnostics.LogEvent)
 	}
-
-	app, err := application.New(opts...)
-	if err != nil {
-		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
-	}
-
-	// Refuse to bind a public-internet address without authentication unless
-	// the operator has explicitly opted in. The auth middleware degrades to
-	// pass-through when there is no auth DB and no legacy keys; on a loopback,
-	// LAN, or VPN that's the historical "trusted network" deployment, but on
-	// a public IP it makes every model, gallery install, settings change, and
-	// admin endpoint reachable by anyone who can connect to the port.
+	var app *application.Application
+	var appHTTP *echo.Echo
 	listenAddress := r.Address
-	if activatedListener != nil {
-		listenAddress = activatedListener.Addr().String()
-	}
+	return r.runConfiguredDiagnostics(context.Background(), diagnosticsRunHooks{
+		Init: func(runCtx context.Context) error {
+			opts = append(opts, config.WithContext(runCtx), config.WithDiagnosticsRecorder(recorder))
+			app, err = application.New(opts...)
+			if r.PreloadBackendOnly {
+				return err
+			}
+			if err != nil {
+				return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+			}
 
-	authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
-	if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
-		return err
-	}
+			// Refuse to bind a public-internet address without authentication unless
+			// the operator has explicitly opted in. The auth middleware degrades to
+			// pass-through when there is no auth DB and no legacy keys; on a loopback,
+			// LAN, or VPN that's the historical "trusted network" deployment, but on
+			// a public IP it makes every model, gallery install, settings change, and
+			// admin endpoint reachable by anyone who can connect to the port.
+			listenAddress = r.Address
+			if activatedListener != nil {
+				listenAddress = activatedListener.Addr().String()
+			}
 
-	appHTTP, err := http.API(app)
-	if err != nil {
-		xlog.Error("error during HTTP App construction", "error", err)
-		return err
-	}
+			authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
+			if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
+				return err
+			}
 
-	if activatedListener != nil {
-		appHTTP.Listener = activatedListener
-		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
-	}
-	xlog.Info("LocalAI is started and running", "address", listenAddress)
+			appHTTP, err = http.API(app)
+			if err != nil {
+				xlog.Error("error during HTTP App construction", "error", err)
+				return err
+			}
 
-	// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
-	if token != "" || app.ApplicationConfig().P2PToken != "" {
-		if err := app.StartP2P(); err != nil {
-			return err
-		}
-	}
+			if activatedListener != nil {
+				appHTTP.Listener = activatedListener
+				xlog.Info("Using systemd socket activation listener", "address", listenAddress)
+			}
+			xlog.Info("LocalAI is started and running", "address", listenAddress)
 
-	signals.RegisterGracefulTerminationHandler(func() {
-		if err := app.Shutdown(); err != nil {
-			xlog.Error("error while shutting down application", "error", err)
-		}
-	})
+			// Start P2P if token was provided via CLI/env or loaded from runtime_settings.json
+			if token != "" || app.ApplicationConfig().P2PToken != "" {
+				if err := app.StartP2P(); err != nil {
+					return err
+				}
+			}
 
-	// Start the agent pool after the HTTP server is listening, because
-	// backends like PostgreSQL need to call the embeddings API during
-	// collection initialization.
-	go func() {
-		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
-		app.StartAgentPool()
-	}()
+			// Start the agent pool after the HTTP server is listening, because
+			// backends like PostgreSQL need to call the embeddings API during
+			// collection initialization.
+			go func() {
+				waitForServerReady(listenAddress, app.ApplicationConfig().Context)
+				if app.ApplicationConfig().Context.Err() == nil {
+					app.StartAgentPool()
+				}
+			}()
 
-	return appHTTP.Start(listenAddress)
+			return nil
+		},
+		Serve: func() error { return appHTTP.Start(listenAddress) },
+		Stop: func(shutdownCtx context.Context) error {
+			var stopErr error
+			if appHTTP != nil {
+				stopErr = appHTTP.Shutdown(shutdownCtx)
+				if stopErr != nil {
+					_ = appHTTP.Close()
+				}
+			}
+			if activatedListener != nil {
+				_ = activatedListener.Close()
+			}
+			if app != nil {
+				stopErr = errors.Join(stopErr, app.Shutdown())
+			}
+			return stopErr
+		},
+	}, signals.RegisterGracefulTerminationHandler)
 }
 
 // waitForServerReady polls the given address until the HTTP server is
