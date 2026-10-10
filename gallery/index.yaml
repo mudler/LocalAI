@@ -66880,6 +66880,8 @@
       use_tokenizer_template: true
   variants:
     - model: qwen3.8-27b-humanlike-chat-q8
+    - model: qwen3.8-27b-humanlike-chat-q5
+    - model: qwen3.8-27b-humanlike-chat-q6
   files:
     - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
       uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
@@ -66925,6 +66927,88 @@
     - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
       uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
       sha256: 41226a5023819696db229d4ab99cb2bce3a56da6929a8250de5fbeaa6afa2fef
+- name: qwen3.8-27b-humanlike-chat-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    - https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF
+  description: |
+    Humanlike Chat is a 27B Qwen3.8 adaptation for roleplay, personal chat,
+    and interactive fiction. This text-only Q5_K_M GGUF has the publisher's
+    step-576 adapter merged at 0.7 strength. It uses the embedded chat
+    template with thinking disabled and a 32768-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - roleplay
+    - creative-writing
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    chat_template_kwargs:
+      enable_thinking: false
+    options:
+      - use_jinja:true
+      - reasoning_budget:0
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      presence_penalty: 1.5
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
+      uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q5_K_M.gguf
+      sha256: c6aeee219c352ea6b66dcb0c2c6904ceb5b21464c8bec549fab0894555e73c99
+- name: qwen3.8-27b-humanlike-chat-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    - https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF
+  description: |
+    Humanlike Chat is a 27B Qwen3.8 adaptation for roleplay, personal chat,
+    and interactive fiction. This text-only Q6_K GGUF has the publisher's
+    step-576 adapter merged at 0.7 strength. It uses the embedded chat
+    template with thinking disabled and a 32768-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - roleplay
+    - creative-writing
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    chat_template_kwargs:
+      enable_thinking: false
+    options:
+      - use_jinja:true
+      - reasoning_budget:0
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+      temperature: 0.7
+      top_p: 0.8
+      top_k: 20
+      presence_penalty: 1.5
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+      uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+      sha256: 4a7f4d1695f458e5e80425782e4c4e9958cc2007db94b670146f70a7f66e9807
 - name: lensvlm-9b
   variants:
     - model: lensvlm-9b-q8
