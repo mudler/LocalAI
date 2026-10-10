@@ -91,8 +91,8 @@ You can configure these settings via the web UI or through environment variables
 ### API Security
 
 - **CORS**: Enable Cross-Origin Resource Sharing
-- **CORS Allow Origins**: Comma-separated list of allowed CORS origins
-- **CSRF**: Enable CSRF protection middleware. Cross-site browser requests are exempt only when the server successfully authenticates a credential from `Authorization`, `x-api-key`, or `xi-api-key`. Supplying an arbitrary header when authentication is disabled does not bypass protection; cookie authentication also does not grant this exemption. Requests without `Sec-Fetch-Site` (such as CLI clients) remain allowed by this middleware.
+- **CORS Allow Origins**: Comma-separated list of allowed CORS origins. When CORS is explicitly enabled with a nonempty allowlist, matching origins are also trusted by CSRF protection for cross-site state-changing requests. Explicit wildcard patterns apply to both policies. The default permissive HTTP CORS policy does not bypass CSRF; authentication and permissions still apply.
+- **CSRF**: Enable CSRF protection middleware. Outside explicitly trusted CORS origins, cross-site browser requests are exempt only when the server successfully authenticates a credential from `Authorization`, `x-api-key`, or `xi-api-key`. Supplying an arbitrary header when authentication is disabled does not bypass protection; cookie authentication also does not grant this exemption. Requests without `Sec-Fetch-Site` (such as CLI clients) remain allowed by this middleware.
 - **API Keys**: Manage API keys for authentication (one per line or comma-separated)
 
 For multi-user authentication with roles, OAuth, and usage tracking, see [Authentication & Authorization]({{%relref "features/authentication" %}}).

@@ -24,6 +24,7 @@ type instructionDef struct {
 }
 
 var instructionDefs = []instructionDef{
+	{Name: "motion", Description: "Live human pose capture with Protobuf over WebSocket.", Tags: []string{"motion"}, Intro: "Create /api/motion/sessions and negotiate localai.motion.v2 on /poses for binary Protobuf RGB uploads and pose outputs with JSON flow credits. Browsers can POST /api/motion/sessions/{id}/tickets for a single-use 30-second WebSocket ticket. No SONIC controller or offline export."},
 	{
 		Name:        "chat-inference",
 		Description: "OpenAI-compatible chat completions, text completions, and embeddings",

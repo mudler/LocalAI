@@ -41,6 +41,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		c.URLs = []string{"doc.json"}
 	}))
 
+	motion := localai.NewMotionEndpoints(app)
+	router.POST("/api/motion/sessions", motion.Create)
+	router.GET("/api/motion/sessions/:id", motion.Get)
+	router.DELETE("/api/motion/sessions/:id", motion.Delete)
+	router.GET("/api/motion/sessions/:id/poses", motion.Poses)
+	router.POST("/api/motion/sessions/:id/tickets", motion.Ticket)
+
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page

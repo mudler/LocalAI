@@ -251,3 +251,7 @@ func memoryUsage() *pb.MemoryUsageData {
 func (llm *Base) Free() error {
 	return nil
 }
+
+func (*Base) MotionStream(context.Context, func() (*pb.MotionRequest, error), func(*pb.MotionResponse) error) error {
+	return fmt.Errorf("motion streaming is not supported")
+}
