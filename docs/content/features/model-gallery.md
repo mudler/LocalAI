@@ -205,6 +205,26 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Swift 1.5 Qwen3.8-27B Heretic GSQ-RCO
+
+Install this community modification of Swift 1.5 for text and image chat with llama.cpp:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq3-s
+```
+
+The gallery groups IQ3_S, IQ3_XXS, and IQ2_S builds with a shared F16 vision projector.
+To select the smaller IQ2_S build explicitly, run:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq3-s --variant swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq2-s
+```
+
+All builds use the embedded chat template, a 32,768-token default context, and MTP decoding with up to three draft tokens.
+The publisher recommends IQ3_S; the smaller builds trade quality for size.
+See the [model card](https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF)
+and [Swift Open License v1.0](https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/blob/main/LICENSE) for details and usage terms.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

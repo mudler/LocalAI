@@ -6120,6 +6120,165 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 52228402ce4823f10705d901813cd43ced71859524cf2d8bf83305ad6b7dcbc2
+- name: "swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq3-s"
+  variants:
+    - model: swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq3-xxs
+    - model: swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq2-s
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    A community Heretic modification of Swift 1.5 Qwen3.8-27B for reasoning,
+    coding, and image chat. This IQ3_S GGUF uses GSQ-RCO mixed-precision
+    quantization and includes the matching F16 vision projector.
+    Uses llama.cpp with MTP decoding and the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_S-mtp.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_S-mtp.gguf
+      sha256: 00f5763c0bc549478cfe27e76bd939c6008ac8179b256580e647e5c5d9998838
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_S-mtp.gguf
+    - filename: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+      sha256: b409acbc885f5c852a8f9149b9bb808014b3aef5ecf91ae72e59599ee8fbce23
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+- name: "swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq3-xxs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    A community Heretic modification of Swift 1.5 Qwen3.8-27B for reasoning,
+    coding, and image chat. This IQ3_XXS GGUF uses GSQ-RCO mixed-precision
+    quantization and includes the matching F16 vision projector.
+    Uses llama.cpp with MTP decoding and the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_XXS-mtp.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_XXS-mtp.gguf
+      sha256: a9d571cd9a072b58eec2f6651df2cbdd68f3736fafadc623af7bdd8521fee4bd
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ3_XXS-mtp.gguf
+    - filename: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+      sha256: b409acbc885f5c852a8f9149b9bb808014b3aef5ecf91ae72e59599ee8fbce23
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+- name: "swift-1.5-qwen3.8-27b-heretic-gsq-rco-iq2-s"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    A community Heretic modification of Swift 1.5 Qwen3.8-27B for reasoning,
+    coding, and image chat. This IQ2_S GGUF uses GSQ-RCO mixed-precision
+    quantization and includes the matching F16 vision projector.
+    Uses llama.cpp with MTP decoding and the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ2_S-mtp.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ2_S-mtp.gguf
+      sha256: 7f3e481d8ca31d67cc97f4dc3b8c3b469a9d4ee6cfca7f1d099682d11f691fd5
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-IQ2_S-mtp.gguf
+    - filename: llama-cpp/mmproj/swift-1.5-qwen3.8-27b-heretic-gsq-rco/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
+      sha256: b409acbc885f5c852a8f9149b9bb808014b3aef5ecf91ae72e59599ee8fbce23
+      uri: https://huggingface.co/jegreene/Swift-1.5-Qwen3.8-27B-heretic-GSQ-RCO-GGUF/resolve/a1e8a6359d32cb83ab4e20e8b194a7f78f546f36/Swift-1.5-Qwen3.8-27B-heretic-mmproj-F16.gguf
 - name: swift-1.5-qwen3.8-27b-gsq-rco
   variants:
     - model: swift-1.5-qwen3.8-27b-gsq-rco-iq2-s
