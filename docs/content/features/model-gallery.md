@@ -158,6 +158,28 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## RuntimeLabs Kayak screenshot grounding
+
+[RuntimeLabs Kayak](https://huggingface.co/ayushadarsh7/RuntimeLabs-Kayak-Qwen3-VL-4B)
+is a Qwen3-VL-4B fine-tune for locating controls in Kayak flight-search screenshots.
+The gallery offers Q4_K_M and Q8_0 GGUF variants for llama.cpp, each with the
+matching F16 vision projector and an 8,192-token context.
+
+Install the Q4_K_M build explicitly:
+
+```bash
+local-ai models install runtimelabs-kayak-qwen3-vl-4b-q4 --variant runtimelabs-kayak-qwen3-vl-4b-q4
+```
+
+Send a screenshot and one instruction through `/v1/chat/completions`. Use the
+prompt format in the publisher's [inference script](https://huggingface.co/ayushadarsh7/RuntimeLabs-Kayak-Qwen3-VL-4B/blob/main/infer.py),
+with `temperature: 0` and `max_tokens: 128`. Fill instructions can include the
+text to enter. The response contains an action and, when applicable, a bounding
+box in `[x, y, width, height]` format on a 0–1000 scale; x and y identify its
+top-left corner. The model predicts coordinates; your application executes the
+action. Its training covers Kayak interfaces, so performance on other sites or
+changed layouts is unverified.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

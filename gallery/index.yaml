@@ -22675,6 +22675,94 @@
     - filename: mmproj/mmproj-F16.gguf
       sha256: 7c5d39a9dc4645fc49a39a1c5a96157825af4d1c6e0961bed5d667a65b4b9572
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
+- name: runtimelabs-kayak-qwen3-vl-4b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ayushadarsh7/RuntimeLabs-Kayak-Qwen3-VL-4B
+    - https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF
+  license: apache-2.0
+  description: |
+    RuntimeLabs Kayak is a 4B Qwen3-VL fine-tune for screenshot grounding on Kayak flight-search interfaces.
+    It predicts a single action and a normalized bounding box from an image and instruction.
+    This Q4_K_M GGUF build includes the F16 vision projector and uses an 8,192-token context with llama.cpp.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3-vl
+    - multimodal
+    - vision
+    - screenshot-grounding
+  variants:
+    - model: runtimelabs-kayak-qwen3-vl-4b-q8
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    known_input_modalities:
+      - text
+      - image
+    mmproj: mmproj/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: RuntimeLabs-Kayak-Qwen3-VL-4B.Q4_K_M.gguf
+      temperature: 0
+    mmap: true
+  files:
+    - filename: RuntimeLabs-Kayak-Qwen3-VL-4B.Q4_K_M.gguf
+      sha256: 0286db34a9417e41361da1650364708000d437c782355fa15ae9395f1782abdc
+      uri: https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF/resolve/4228a5ebf59c63b1f809fd553fdde19ede7ac104/RuntimeLabs-Kayak-Qwen3-VL-4B.Q4_K_M.gguf
+    - filename: mmproj/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
+      sha256: 519eeb6616f5d014af407f28bfaad6ce5930468fadadaaf0c3cbfff270b763ad
+      uri: https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF/resolve/4228a5ebf59c63b1f809fd553fdde19ede7ac104/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
+- name: runtimelabs-kayak-qwen3-vl-4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ayushadarsh7/RuntimeLabs-Kayak-Qwen3-VL-4B
+    - https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF
+  license: apache-2.0
+  description: |
+    RuntimeLabs Kayak is a 4B Qwen3-VL fine-tune for screenshot grounding on Kayak flight-search interfaces.
+    It predicts a single action and a normalized bounding box from an image and instruction.
+    This Q8_0 GGUF build includes the F16 vision projector and uses an 8,192-token context with llama.cpp.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3-vl
+    - multimodal
+    - vision
+    - screenshot-grounding
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    known_input_modalities:
+      - text
+      - image
+    mmproj: mmproj/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: RuntimeLabs-Kayak-Qwen3-VL-4B.Q8_0.gguf
+      temperature: 0
+    mmap: true
+  files:
+    - filename: RuntimeLabs-Kayak-Qwen3-VL-4B.Q8_0.gguf
+      sha256: 1e0109e2a5b92f3e369937f35e354652b5c7b4fb0dac040a459556e6af07b036
+      uri: https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF/resolve/4228a5ebf59c63b1f809fd553fdde19ede7ac104/RuntimeLabs-Kayak-Qwen3-VL-4B.Q8_0.gguf
+    - filename: mmproj/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
+      sha256: 519eeb6616f5d014af407f28bfaad6ce5930468fadadaaf0c3cbfff270b763ad
+      uri: https://huggingface.co/mradermacher/RuntimeLabs-Kayak-Qwen3-VL-4B-GGUF/resolve/4228a5ebf59c63b1f809fd553fdde19ede7ac104/RuntimeLabs-Kayak-Qwen3-VL-4B.mmproj-f16.gguf
 - name: qwen3-vl-4b-instruct
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
