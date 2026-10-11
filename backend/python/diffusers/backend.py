@@ -882,6 +882,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     prompt = prompt,
                 )
 
+            # remove negative_prompt that may have been added earlier from options to avoid conflict
+            # errors from passing both negative_prompt and negative_prompt_embeds
+            kwargs.pop('negative_prompt', None)
+
             image = self.pipe(
                 guidance_scale=self.cfg_scale,
                 **kwargs
