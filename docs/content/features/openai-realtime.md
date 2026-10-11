@@ -93,6 +93,11 @@ The endpoint is not realtime-specific - it pre-loads any model. See [Backend Mon
 
 ### Turn detection
 
+For client-controlled turns, set `turn_detection` to `null` in `session.update`.
+After sending audio, send `input_audio_buffer.commit`, followed by `response.create`.
+If transcription is still running, the response waits for the committed user item before starting the LLM.
+A standalone `response.create` with no pending client commit starts without this wait.
+
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
 
 - **`server_vad`** (default): silence-based. The VAD model watches the audio and the turn commits after `silence_duration_ms` (default 500 ms) of silence. Simple and model-agnostic, but a fixed silence window must trade interrupting mid-sentence pauses against sluggish responses.
