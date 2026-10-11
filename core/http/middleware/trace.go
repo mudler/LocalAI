@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/xlog"
 )
 
@@ -264,6 +265,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			if !multipartTranscription {
 				var err error
 				body, err = io.ReadAll(c.Request().Body)
+				diagnostics.Dispatch(c.Request().Context()).MarkOnce(diagnostics.PhaseBodyRead, diagnosticOutcome(c.Request().Context(), err != nil))
 				if err != nil {
 					xlog.Error("Failed to read request body")
 					return err
@@ -276,6 +278,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 
 			startTime := time.Now()
+			diagnostics.Dispatch(c.Request().Context()).MarkOnce(diagnostics.PhaseTraceStart, diagnosticOutcome(c.Request().Context(), false))
 
 			// Cap captured payload size. Without this, /embeddings and
 			// streaming /chat/completions blow the in-memory buffer into the

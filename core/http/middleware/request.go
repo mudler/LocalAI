@@ -49,12 +49,7 @@ func (re *RequestExtractor) getRequestContext(c echo.Context) context.Context {
 	if re.applicationConfig == nil || re.applicationConfig.DiagnosticsRecorder == nil {
 		return ctx
 	}
-	observed := re.applicationConfig.DiagnosticsRecorder.Request(ctx)
-	if observed != ctx {
-		c.SetRequest(c.Request().WithContext(observed))
-		c.Response().Header().Set(diagnostics.HeaderDiagnosticID, diagnostics.RequestID(observed))
-	}
-	return observed
+	return attachDiagnostics(c, re.applicationConfig.DiagnosticsRecorder)
 }
 
 const CONTEXT_LOCALS_KEY_MODEL_NAME = "MODEL_NAME"

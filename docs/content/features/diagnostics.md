@@ -186,15 +186,15 @@ The [troubleshooting guide]({{% relref "getting-started/troubleshooting" %}}) co
 
 ### Response correlation
 
-With `--request-phase-timing` (`LOCALAI_REQUEST_PHASE_TIMING=true`), requests that reach model extraction receive `X-LocalAI-Diagnostic-ID`.
+With `--request-phase-timing` (`LOCALAI_REQUEST_PHASE_TIMING=true`), HTTP requests receive `X-LocalAI-Diagnostic-ID`.
 The header contains the same server-generated UUID v4 as that request's phase events.
-LocalAI sets it before extraction errors or streaming output can write the response.
+LocalAI sets it at the first application middleware, before authentication, path rewriting, extraction errors, or streaming output can write the response.
 Repeated extraction and failover attempts retain one ID for the logical request.
 
 Client-supplied diagnostic or correlation headers do not select this ID.
 The ID contains no model name, authentication token, or request content.
 It is a correlation value, not an authorization credential or a distributed trace ID.
-Requests rejected before extraction, including global authentication failures, do not receive this header.
+Requests rejected before extraction, including global authentication failures, retain this header.
 Disabling request-phase timing emits no diagnostic header and creates no diagnostic identity.
 Enabling pprof or debug logging alone does not enable the header.
 
@@ -213,8 +213,22 @@ Other API routes retain their existing extraction order.
 
 ### Dispatch contract for Go integrations
 
-The dispatch helpers are available for instrumentation; this contract alone does
-not add HTTP, routing, gRPC, worker, or streaming observation sites.
+HTTP admission records `http_entry` at the first application middleware and an
+`auth` span ending immediately before the authenticated, exempt, or auth-disabled
+handoff (or at rejection). Downstream inference time and errors are not auth work.
+When existing API tracing reads a JSON body, `body_read` marks that read's
+completion, including errors; `trace_start` marks the existing trace start after
+a successful read. Disabled tracing and excluded bodies add no reads or marks.
+These are application boundaries, not socket arrival or universal body ingestion.
+
+The outer HTTP middleware drains the bounded dispatch collection after handler
+and middleware unwinding, outside application locks. This is final for HTTP
+admission producers; it is not a guarantee that detached inference callbacks have
+finished. Joined streaming work is included. Future asynchronous observation
+sites must arrange their own completion flush after their producers finish,
+including early stream write failures; do not flush from cancellation alone.
+Tracing's asynchronous persistence consumer produces no dispatch events.
+No routing, gRPC, worker, or SSE observation sites are added here.
 There is no request sampling control: all requests with an enabled recorder are
 eligible. The mutex and block sampling settings above apply only to pprof.
 Existing `Begin`, `Mark`, `Record`, and `Sink` calls remain synchronous, and legacy

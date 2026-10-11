@@ -271,6 +271,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	e.HideBanner = true
 	e.HidePort = true
 
+	e.Pre(httpMiddleware.DispatchMiddleware(application.ApplicationConfig().DiagnosticsRecorder))
+
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
 
@@ -423,7 +425,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Auth is applied to _all_ endpoints. Filtering out endpoints to bypass is
 	// the role of the exempt-path logic inside the middleware.
-	e.Use(authMiddleware)
+	e.Use(httpMiddleware.DispatchAuth(authMiddleware))
 
 	// Feature and model access control (after auth middleware, before routes)
 	if application.AuthDB() != nil {

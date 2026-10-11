@@ -145,8 +145,13 @@ var _ = Describe("Chat lazy fallback authentication", func() {
 			router.ServeHTTP(w, r)
 			if token != "secret" {
 				Expect(w.Code).To(Equal(http.StatusUnauthorized))
-				Expect(events).To(BeEmpty())
-				Expect(w.Header().Get(diagnostics.HeaderDiagnosticID)).To(BeEmpty())
+				Expect(events).To(HaveLen(4))
+				Expect(events[0].Phase).To(Equal(diagnostics.PhaseHTTPEntry))
+				Expect(events[2].Phase).To(Equal(diagnostics.PhaseAuth))
+				Expect(events[2].Outcome).To(Equal(diagnostics.OutcomeError))
+				Expect(events[3].Phase).To(Equal(diagnostics.PhaseDispatchSummary))
+				Expect(w.Header().Get(diagnostics.HeaderDiagnosticID)).To(Equal(events[0].ID))
+				Expect(events[0].ID).NotTo(Equal("spoof"))
 			} else {
 				Expect(w.Code).To(Equal(http.StatusNotFound))
 				Expect(events).NotTo(BeEmpty())
