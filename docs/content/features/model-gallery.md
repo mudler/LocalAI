@@ -257,6 +257,30 @@ Weights and projector downloads are pinned to a Hugging Face revision and verifi
 This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
 See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
 
+## Qwen3.8-27B Fable 5 Coding Distilled
+
+This Qwen3.8 fine-tune targets coding, debugging, and agentic reasoning. The
+gallery offers Q4_K_M and Q8_0 GGUF builds for llama.cpp. Both include the F16
+vision projector, use the embedded chat template, and default to a 32,768-token
+context.
+
+Install the model with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-fable-5-coding-distilled
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-fable-5-coding-distilled --variant qwen3.8-27b-fable-5-coding-distilled-q8
+```
+
+See the [model card](https://huggingface.co/khazarai/Qwen3.8-27B-Fable-5-Coding-Distilled)
+for intended use and limitations, and the
+[GGUF repository](https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF)
+for the Apache-2.0 license declaration and available quantizations.
+
 ## ThinkingCap Qwen3.8-27B
 
 Install `thinkingcap-qwen3.8-27b` for a 27B reasoning model with text and image input.
