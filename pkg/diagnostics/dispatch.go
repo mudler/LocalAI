@@ -108,7 +108,8 @@ type milestoneKey struct {
 }
 type dispatchCollection struct {
 	mu                                     sync.Mutex
-	flushing                               sync.Mutex
+	flushing                               bool
+	flushPending                           bool
 	events                                 []Event
 	milestones                             map[milestoneKey]bool
 	accepted, spans, attempts, connections uint32
@@ -123,12 +124,26 @@ type DispatchScope struct {
 	span, parent, attempt, connection uint32
 }
 
+type dispatchScopeKey struct{}
+
+// Context retains span/attempt parents without changing request identity or lifetime.
+// Cross-request scopes and disabled scopes cannot attach an observation.
+func (s DispatchScope) Context(ctx context.Context) context.Context {
+	if s.o == nil || observed(ctx) != s.o {
+		return ctx
+	}
+	return context.WithValue(ctx, dispatchScopeKey{}, s)
+}
+
 // Dispatch returns a request scope. Reload and disabled contexts remain inert.
 // All enabled requests are observed; there is no request sampling control.
 func Dispatch(ctx context.Context) DispatchScope {
 	o := observed(ctx)
 	if o == nil || o.kind != KindRequest {
 		return DispatchScope{}
+	}
+	if s, ok := ctx.Value(dispatchScopeKey{}).(DispatchScope); ok && s.o == o {
+		return s
 	}
 	o.dispatchMu.Lock()
 	defer o.dispatchMu.Unlock()
@@ -253,7 +268,8 @@ type DispatchStats struct {
 // locks, then emits a summary (outside the event budget). Call outside application
 // locks and after producers finish for a complete report. It does not close the
 // collection or replenish its lifetime budget. Concurrent/reentrant flushes return
-// the current stats without draining. Legacy Begin/Mark/Record remain synchronous.
+// current stats and request that the active owner drain again before relinquishing
+// ownership. Legacy Begin/Mark/Record remain synchronous.
 func FlushDispatch(ctx context.Context) DispatchStats {
 	o := observed(ctx)
 	if o == nil {
@@ -265,28 +281,40 @@ func FlushDispatch(ctx context.Context) DispatchStats {
 	if c == nil {
 		return DispatchStats{}
 	}
-	if !c.flushing.TryLock() {
+	c.mu.Lock()
+	if c.flushing {
+		c.flushPending = true
+		stats := c.stats
+		c.mu.Unlock()
+		return stats
+	}
+	c.flushing = true
+	for {
+		c.flushPending = false
+		events := c.events
+		c.events = nil
+		c.mu.Unlock()
+		var elapsed time.Duration
+		for _, e := range events {
+			start := o.recorder.now()
+			o.recorder.sink(e)
+			elapsed += o.recorder.now().Sub(start)
+		}
 		c.mu.Lock()
-		defer c.mu.Unlock()
-		return c.stats
+		c.stats.Emitted += uint64(len(events))
+		c.stats.SinkElapsed += elapsed
+		stats := c.stats
+		c.mu.Unlock()
+		o.recorder.sink(Event{ID: o.id, Kind: KindRequest, Phase: PhaseDispatchSummary, State: StateMark, Outcome: OutcomeOK,
+			Dispatch: &DispatchFields{Offset: o.recorder.now().Sub(o.origin), Dropped: stats.Dropped, Emitted: stats.Emitted, SinkElapsed: stats.SinkElapsed}})
+		c.mu.Lock()
+		// The current owner drains events requested by concurrent/reentrant completion
+		// flushes. Checking and handing off ownership under mu avoids a lost wakeup.
+		if c.flushPending && len(c.events) != 0 {
+			continue
+		}
+		c.flushing = false
+		c.mu.Unlock()
+		return stats
 	}
-	defer c.flushing.Unlock()
-	c.mu.Lock()
-	events := c.events
-	c.events = nil
-	c.mu.Unlock()
-	var elapsed time.Duration
-	for _, e := range events {
-		start := o.recorder.now()
-		o.recorder.sink(e)
-		elapsed += o.recorder.now().Sub(start)
-	}
-	c.mu.Lock()
-	c.stats.Emitted += uint64(len(events))
-	c.stats.SinkElapsed += elapsed
-	stats := c.stats
-	c.mu.Unlock()
-	o.recorder.sink(Event{ID: o.id, Kind: KindRequest, Phase: PhaseDispatchSummary, State: StateMark, Outcome: OutcomeOK,
-		Dispatch: &DispatchFields{Offset: o.recorder.now().Sub(o.origin), Dropped: stats.Dropped, Emitted: stats.Emitted, SinkElapsed: stats.SinkElapsed}})
-	return stats
 }

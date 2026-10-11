@@ -288,8 +288,35 @@ Call `FlushDispatch` outside application locks, after all producers finish for a
 complete report. It synchronously drains buffered events to the existing sink
 and emits `dispatch_summary` outside the event budget. Repeat flushes can report
 later drops or drain late producers. Concurrent or reentrant flushes return the
-current statistics without draining. The caller must arrange a final flush;
-there is no automatic lifecycle hook in this contract.
+current statistics and ask the active owner to drain again before relinquishing
+ownership. This also supports sink reentry without deadlock. Producers must
+still request a flush on completion; cancellation is not completion.
+
+Routing emits nested revision, reservation, health-cache/probe, and last-used
+boundaries. `health_cache` reports `skipped` when this caller used a cached or
+coalesced result (these cannot be distinguished without modifying the cache),
+`ok` for its successful probe, and `error` for an unhealthy result. Only the
+caller actually probing emits `health_probe`. Last-used `ok` means the void
+registry call returned; the interface does not expose database errors.
+
+Metadata decision spans count calls to the backend interface, not actual wire
+RPCs. Empty means a nil or zero-size protobuf response; errors have no empty or
+nonempty marker. The concrete gRPC client owns actual RPC observations.
+No metadata result is cached by diagnostics.
+
+Tracking increments and completion decrements are separate spans. Reservation
+release is recorded once inside the existing release guard. Tracking completion
+and explicit route teardown flush after registry and release locks are released,
+including when HTTP has already returned. They do not wait for cancellation or
+change inference synchronization. Later gRPC instrumentation owns flushing any
+producer that outlives the backend method; frontend/SSE instrumentation owns its
+own completion flush after its final callback or write, including early failure.
+These flushes share a bounded per-request collection and may emit cumulative
+summaries before other producers have finished.
+
+`DispatchScope.Context(ctx)` retains span and attempt parents only when the
+scope and destination have the identical request observation. It preserves
+context lifetime and values; disabled and cross-request attachment are no-ops.
 
 `DispatchStats` contains cumulative `Emitted`, `Dropped`, and `SinkElapsed`.
 Sink time measures synchronous dispatch event writes only, excluding summary

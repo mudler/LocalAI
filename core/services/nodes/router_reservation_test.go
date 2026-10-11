@@ -50,7 +50,7 @@ var _ = Describe("SmartRouter routing reservation", func() {
 	newResult := func() *RouteResult {
 		raw := &stubBackend{}
 		tracked := NewInFlightTrackingClient(raw, registry, node.ID, "m", 0)
-		return router.newRouteResult(node, "m", 0, raw, tracked)
+		return router.newRouteResult(context.Background(), node, "m", 0, raw, tracked)
 	}
 
 	It("releases the reservation when the route is torn down without any inference", func() {

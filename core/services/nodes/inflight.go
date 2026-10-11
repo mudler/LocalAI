@@ -2,9 +2,11 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -35,8 +37,9 @@ type InFlightTrackingClient struct {
 	modelName           string
 	replicaIndex        int
 
-	firstOnce       sync.Once // guards onFirstComplete
-	onFirstComplete func()    // called once after the first tracked inference call completes
+	firstOnce        sync.Once       // guards onFirstComplete
+	onFirstComplete  func()          // called once after the first tracked inference call completes
+	routeDiagnostics context.Context // route reservation may belong to a different observation
 }
 
 // Compile-time contract: *InFlightTrackingClient must implement the FULL backend
@@ -64,15 +67,34 @@ func (c *InFlightTrackingClient) OnFirstComplete(fn func()) {
 	c.onFirstComplete = fn
 }
 
+func dispatchOutcome(err error) diagnostics.Outcome {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return diagnostics.OutcomeCanceled
+	}
+	if err != nil {
+		return diagnostics.OutcomeError
+	}
+	return diagnostics.OutcomeOK
+}
+
 func (c *InFlightTrackingClient) track(ctx context.Context) func() {
-	if err := c.registry.IncrementInFlight(ctx, c.nodeID, c.modelName, c.replicaIndex); err != nil {
+	_, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseInflightIncrement)
+	err := c.registry.IncrementInFlight(ctx, c.nodeID, c.modelName, c.replicaIndex)
+	end(dispatchOutcome(err), 1)
+	if err != nil {
 		xlog.Warn("Failed to increment in-flight counter", "node", c.nodeID, "model", c.modelName, "replica", c.replicaIndex, "error", err)
-		return func() {}
+		return func() { diagnostics.FlushDispatch(ctx) }
 	}
 	return func() {
+		// Completion, not cancellation, owns late-event flushing. This runs after
+		// firstOnce and registry locks are released, including detached calls.
+		defer diagnostics.FlushDispatch(ctx)
+		defer diagnostics.FlushDispatch(c.routeDiagnostics)
 		decCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex)
+		_, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseInflightDecrement)
+		err := c.registry.DecrementInFlight(decCtx, c.nodeID, c.modelName, c.replicaIndex)
+		end(dispatchOutcome(err), 1)
 		// Release the initial reservation after the first inference call completes
 		if c.onFirstComplete != nil {
 			c.firstOnce.Do(c.onFirstComplete)

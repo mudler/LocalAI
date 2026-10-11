@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -392,7 +393,10 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		// flight. Its cleanup intent is durable and must not be erased by the
 		// ordinary failed-load cleanup path.
 		if configRevision != "" {
-			if current, err := r.registry.GetModelConfigRevision(cleanupCtx, trackingKey); err == nil && current != configRevision {
+			_, endRevision := diagnostics.Dispatch(cleanupCtx).Start(diagnostics.PhaseRouteRevision)
+			current, err := r.registry.GetModelConfigRevision(cleanupCtx, trackingKey)
+			endRevision(dispatchOutcome(err), 1)
+			if err == nil && current != configRevision {
 				return
 			}
 		}
@@ -481,7 +485,10 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 
 	// Record the model as loaded on this node (specific replica slot). From
 	// here the row is authoritative; the failure-cleanup defer must not touch it.
-	if err := r.setNodeModelState(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight, configRevision, effectiveOptionsHash); err != nil {
+	_, endReservation := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseReservation)
+	err = r.setNodeModelState(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight, configRevision, effectiveOptionsHash)
+	endReservation(dispatchOutcome(err), 1)
+	if err != nil {
 		if errors.Is(err, ErrStaleModelConfigRevision) {
 			lifecycleSettled = true
 			r.cleanupStaleLoad(ctx, node, trackingKey, replicaIndex, backendAddr, configRevision, effectiveOptionsHash)
@@ -522,7 +529,10 @@ func (r *SmartRouter) cleanupStaleLoad(ctx context.Context, node *BackendNode, m
 
 func (r *SmartRouter) setNodeModelState(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, hash string) error {
 	if revision == "" {
-		if _, err := r.registry.GetModelConfigRevision(ctx, modelName); err == nil {
+		_, endRevision := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseRouteRevision)
+		_, err := r.registry.GetModelConfigRevision(ctx, modelName)
+		endRevision(dispatchOutcome(err), 1)
+		if err == nil {
 			return ErrStaleModelConfigRevision
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -660,20 +670,30 @@ type RouteResult struct {
 // modelID is the logical model identifier used for DB tracking (e.g. "qwen_qwen3.5-0.8b").
 // modelName is the model file path used for gRPC LoadModel (e.g. "llama-cpp/models/Qwen_...gguf").
 // When modelID is empty, modelName is used for both purposes (backward compat).
-func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType, configRevision string, modelOpts *pb.ModelOptions, parallel bool) (*RouteResult, error) {
+func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType, configRevision string, modelOpts *pb.ModelOptions, parallel bool) (result *RouteResult, routeErr error) {
+	scope, endRoute := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseRoute)
+	ctx = scope.Context(ctx)
+	defer func() { endRoute(dispatchOutcome(routeErr), 1) }()
 	// Use modelID for DB tracking; fall back to modelName if empty
 	trackingKey := modelID
 	if trackingKey == "" {
 		trackingKey = modelName
 	}
+	_, endRevision := scope.Start(diagnostics.PhaseRouteRevision)
 	if configRevision != "" {
-		if err := r.registry.EstablishModelConfigRevision(ctx, trackingKey, configRevision); err != nil {
+		err := r.registry.EstablishModelConfigRevision(ctx, trackingKey, configRevision)
+		endRevision(dispatchOutcome(err), 1)
+		if err != nil {
 			return nil, fmt.Errorf("establishing config revision for %s: %w", trackingKey, err)
 		}
-	} else if _, err := r.registry.GetModelConfigRevision(ctx, trackingKey); err == nil {
-		return nil, fmt.Errorf("routing %s without a config revision: %w", trackingKey, ErrStaleModelConfigRevision)
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("reading config revision for %s: %w", trackingKey, err)
+	} else {
+		_, err := r.registry.GetModelConfigRevision(ctx, trackingKey)
+		endRevision(dispatchOutcome(err), 1)
+		if err == nil {
+			return nil, fmt.Errorf("routing %s without a config revision: %w", trackingKey, ErrStaleModelConfigRevision)
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("reading config revision for %s: %w", trackingKey, err)
+		}
 	}
 	if modelOpts != nil {
 		modelOpts = proto.Clone(modelOpts).(*pb.ModelOptions)
@@ -765,7 +785,15 @@ type routeAttempt struct {
 // waiter woken by a finished job re-runs it rather than trusting the signal,
 // because the model may have been evicted between ready and wake.
 func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *RouteResult {
+	scope := diagnostics.Dispatch(ctx).NewAttempt()
+	ctx = scope.Context(ctx)
+	_, endReservation := scope.Start(diagnostics.PhaseReservation)
 	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, att.trackingKey, att.candidateNodeIDs, att.pref)
+	outcome := dispatchOutcome(err)
+	if err == nil && node == nil {
+		outcome = diagnostics.OutcomeSkipped
+	}
+	endReservation(outcome, 1)
 	if err != nil || node == nil {
 		return nil
 	}
@@ -778,7 +806,10 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	// Verify the backend process is still alive via gRPC health check
 	if !r.probeHealth(ctx, node, modelAddr) {
 		// Stale — roll back the increment, remove the specific replica row, fall through
-		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+		_, endRelease := scope.Start(diagnostics.PhaseReservationRelease)
+		err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx)
+		endRelease(dispatchOutcome(err), 1)
+		if err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
 				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
 		}
@@ -793,7 +824,10 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 
 	// Verify node still matches scheduling constraints
 	if !r.nodeMatchesScheduling(ctx, node, att.sched) {
-		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+		_, endRelease := scope.Start(diagnostics.PhaseReservationRelease)
+		err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx)
+		endRelease(dispatchOutcome(err), 1)
+		if err != nil {
 			xlog.Warn("Failed to release unmatched routing reservation",
 				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
 		}
@@ -806,11 +840,14 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	// reservation. InFlightTrackingClient handles per-inference tracking, and its
 	// onFirstComplete callback releases the reservation after the first inference
 	// call finishes, so in-flight returns to 0 when idle.
+	_, endTouch := scope.Start(diagnostics.PhaseLastUsed)
 	r.registry.TouchNodeModel(ctx, node.ID, att.trackingKey, replicaIdx)
+	// The registry interface intentionally exposes no update error.
+	endTouch(diagnostics.OutcomeOK, 1)
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
 	grpcClient := r.buildClientForAddr(node, modelAddr, att.parallel)
 	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
-	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
+	return r.newRouteResult(ctx, node, att.trackingKey, replicaIdx, grpcClient, tracked)
 }
 
 // coldLoad schedules the model onto a node and loads it, returning a route to
@@ -827,7 +864,7 @@ func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialIn
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
 
 	tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, att.trackingKey, result.ReplicaIndex)
-	return r.newRouteResult(result.Node, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
+	return r.newRouteResult(ctx, result.Node, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
 }
 
 // newColdLoadContext builds the detached, progress-extended context a cold load
@@ -2044,15 +2081,33 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
 func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+	scope, endCache := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseHealthCache)
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
+	probed := false
+	ok := r.probeCache.DoOrCached(key, func() bool {
+		probed = true
+		probe, endProbe := scope.Start(diagnostics.PhaseHealthProbe)
 		client := r.buildClientForAddr(node, addr, false)
 		defer closeClient(client)
-		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		checkCtx, cancel := context.WithTimeout(probe.Context(ctx), 2*time.Second)
 		defer cancel()
-		ok, _ := client.HealthCheck(checkCtx)
+		ok, err := client.HealthCheck(checkCtx)
+		outcome := dispatchOutcome(err)
+		if !ok && err == nil {
+			outcome = diagnostics.OutcomeError
+		}
+		endProbe(outcome, 1)
 		return ok
 	})
+	outcome := diagnostics.OutcomeSkipped // cached or coalesced: no probe by this caller
+	if probed {
+		outcome = diagnostics.OutcomeOK
+	}
+	if !ok {
+		outcome = diagnostics.OutcomeError
+	}
+	endCache(outcome, 1)
+	return ok
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.
@@ -2066,11 +2121,14 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 // disconnect, handler error, validation failure after load) previously left
 // in_flight pinned at 1 forever, and every eviction query requires
 // in_flight = 0, so that replica's VRAM could never be reclaimed.
-func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
+func (r *SmartRouter) newRouteResult(ctx context.Context, node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
 	var once sync.Once
 	release := func() {
 		once.Do(func() {
-			if err := r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx); err != nil {
+			_, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseReservationRelease)
+			err := r.registry.DecrementInFlight(context.Background(), node.ID, trackingKey, replicaIdx)
+			end(dispatchOutcome(err), 1)
+			if err != nil {
 				// Worth surfacing: a reservation that fails to come back is
 				// exactly what the leak sweeper later has to clean up.
 				xlog.Warn("Failed to release routing in-flight reservation",
@@ -2078,11 +2136,13 @@ func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, repl
 			}
 		})
 	}
+	tracked.routeDiagnostics = ctx
 	tracked.OnFirstComplete(release)
 	return &RouteResult{
 		Node:   node,
 		Client: tracked,
 		Release: func() {
+			defer diagnostics.FlushDispatch(ctx)
 			release()
 			closeClient(raw)
 		},

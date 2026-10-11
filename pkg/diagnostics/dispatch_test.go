@@ -142,9 +142,9 @@ var _ = Describe("Dispatch contract", func() {
 		})
 		ctx = r.Request(context.Background())
 		Dispatch(ctx).MarkOnce(PhaseHTTPEntry, OutcomeOK)
-		Expect(FlushDispatch(ctx).Emitted).To(Equal(uint64(1)))
 		Expect(FlushDispatch(ctx).Emitted).To(Equal(uint64(2)))
-		Expect(events).To(HaveLen(4))
+		Expect(FlushDispatch(ctx).Emitted).To(Equal(uint64(2)))
+		Expect(events).To(HaveLen(5))
 		Expect(events[2].Phase).To(Equal(PhaseTraceStart))
 	})
 	It("isolates concurrent canceled requests and emits each milestone once", func() {

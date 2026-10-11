@@ -2,6 +2,9 @@ package config
 
 import (
 	"context"
+	"errors"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc"
@@ -151,6 +154,10 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 // The results are stored in cfg.SupportsThinking and cfg.ThinkingForcedOpen.
 // The backend-reported multimodal marker is also captured into cfg.MediaMarker.
 func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, backendClient grpc.Backend, modelOptions *pb.ModelOptions) {
+	scope, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseMetadataDecision)
+	ctx = scope.Context(ctx)
+	outcome, count := diagnostics.OutcomeSkipped, 0
+	defer func() { end(outcome, count) }()
 	if backendClient == nil {
 		xlog.Debug("[gguf] DetectThinkingSupportFromBackend: backend client is nil, skipping detection")
 		return
@@ -171,12 +178,24 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 		return
 	}
 
+	outcome, count = diagnostics.OutcomeOK, 1
 	metadata, err := backendClient.ModelMetadata(ctx, modelOptions)
 	if err != nil {
+		outcome = diagnostics.OutcomeError
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			outcome = diagnostics.OutcomeCanceled
+		}
 		xlog.Warn("[gguf] DetectThinkingSupportFromBackend: failed to get model metadata", "error", err)
 		return
 	}
 
+	// Empty describes the protobuf result, not whether config defaults changed.
+	// The concrete gRPC client owns actual RPC invocation events.
+	if metadata == nil || proto.Size(metadata) == 0 {
+		scope.MarkOnce(diagnostics.PhaseMetadataEmpty, diagnostics.OutcomeOK)
+	} else {
+		scope.MarkOnce(diagnostics.PhaseMetadataNonempty, diagnostics.OutcomeOK)
+	}
 	if metadata != nil {
 		// The multimodal media marker is backend-controlled (llama.cpp may pick a
 		// random per-server string). Empty means "no mtmd context" — Go falls back

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/xlog"
 )
 
@@ -22,10 +23,17 @@ const maxNodeLivenessRetries = 3
 // to consult and every node is treated as reachable, which preserves the
 // behaviour of deployments that do not run one.
 func (r *SmartRouter) nodeAnswersOnBus(node *BackendNode) bool {
+	return r.nodeAnswersOnBusObserved(context.Background(), node)
+}
+
+func (r *SmartRouter) nodeAnswersOnBusObserved(ctx context.Context, node *BackendNode) bool {
+	_, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseHealthProbe)
 	if r.unloader == nil || node == nil {
+		end(diagnostics.OutcomeSkipped, 0)
 		return true
 	}
 	err := r.unloader.PingNode(node.ID)
+	end(dispatchOutcome(err), 1)
 	return !errors.Is(err, ErrNoRoute)
 }
 
@@ -42,7 +50,8 @@ func (r *SmartRouter) pickReachableNode(ctx context.Context, selectNode func() *
 		if node == nil {
 			return nil
 		}
-		if r.nodeAnswersOnBus(node) {
+		scope := diagnostics.Dispatch(ctx).NewAttempt()
+		if r.nodeAnswersOnBusObserved(scope.Context(ctx), node) {
 			return node
 		}
 		xlog.Warn("Scheduled node is not answering on the bus, marking unhealthy and re-scheduling",

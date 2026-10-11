@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
@@ -178,6 +179,9 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		config.DetectThinkingSupportFromBackend(ctx, c, inferenceModel, modelOpts)
 		// Update the config in the loader so it persists for future requests
 		persistProbedReasoning(cl, c.Name, c, persistDisableReasoning, persistDisableTagPrefill)
+	} else {
+		_, end := diagnostics.Dispatch(ctx).Start(diagnostics.PhaseMetadataDecision)
+		end(diagnostics.OutcomeSkipped, 0)
 	}
 
 	var protoMessages []*proto.Message
