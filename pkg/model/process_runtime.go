@@ -29,6 +29,9 @@ type backendProcessRuntime struct {
 	once    sync.Once
 	// diagnosticsDone closes after the exit watcher has read the state files.
 	diagnosticsDone chan struct{}
+	// tree tracks the backend's whole process tree. The implementation is
+	// chosen at build time; see the processTree interface.
+	tree processTree
 }
 
 func backendRuntimeRoot() string {
@@ -88,6 +91,7 @@ func newBackendProcessRuntime() (*backendProcessRuntime, error) {
 		tempDir:         tempDir,
 		lock:            runtimeLock,
 		diagnosticsDone: make(chan struct{}),
+		tree:            newProcessTree(),
 	}, nil
 }
 
@@ -130,6 +134,7 @@ func (r *backendProcessRuntime) cleanup() {
 		return
 	}
 	r.once.Do(func() {
+		r.terminateProcessTree()
 		r.cleanupScratch()
 		if err := r.lock.Unlock(); err != nil {
 			xlog.Warn("Failed to unlock backend process runtime", "dir", r.dir, "error", err)
@@ -138,6 +143,28 @@ func (r *backendProcessRuntime) cleanup() {
 			xlog.Warn("Failed to remove backend process runtime", "dir", r.dir, "error", err)
 		}
 	})
+}
+
+// trackProcessTree records the OS state needed to later reap the backend's
+// whole process tree. It is best-effort: a host that already placed the
+// backend in a tree we cannot take over makes assignment fail, which is logged
+// as a warning rather than failing the backend load.
+func (r *backendProcessRuntime) trackProcessTree(pid int) {
+	if r == nil || r.tree == nil {
+		return
+	}
+	if err := r.tree.assign(pid); err != nil {
+		xlog.Warn("Failed to track the backend process tree; an abrupt LocalAI exit may leave orphaned backend processes", "pid", pid, "error", err)
+	}
+}
+
+// terminateProcessTree kills the backend's whole process tree and releases its
+// handles. Idempotent, so concurrent stops of the same backend are safe.
+func (r *backendProcessRuntime) terminateProcessTree() {
+	if r == nil || r.tree == nil {
+		return
+	}
+	r.tree.terminate()
 }
 
 func (r *backendProcessRuntime) cleanupScratch() {

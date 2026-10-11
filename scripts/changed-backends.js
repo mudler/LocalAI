@@ -16,11 +16,12 @@ import {
 const matrixYml = yaml.load(fs.readFileSync(BACKEND_MATRIX_FILE, "utf8"));
 const includes = matrixYml.include;
 const includesDarwin = matrixYml.includeDarwin;
+const includesWindows = matrixYml.includeWindows || [];
 
 const eventPath = process.env.GITHUB_EVENT_PATH;
 const event = JSON.parse(fs.readFileSync(eventPath, "utf8"));
 
-const allBackendPaths = getAllBackendPaths(includes, includesDarwin);
+const allBackendPaths = getAllBackendPaths(includes, includesDarwin, includesWindows);
 
 const token = process.env.GITHUB_TOKEN;
 const octokit = new Octokit({ auth: token });
@@ -107,6 +108,7 @@ async function getPreviousMatrix(event) {
     return {
       include: previous.include || [],
       includeDarwin: previous.includeDarwin || [],
+      includeWindows: previous.includeWindows || [],
     };
   } catch (err) {
     console.log(
@@ -267,9 +269,11 @@ function emitFullMatrix() {
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${multiarch.length > 0 ? 'true' : 'false'}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=true\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-windows=true\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: includesDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-windows=${JSON.stringify({ include: includesWindows })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
   emitSinglearchShards(singlearch);
   for (const backend of allBackendPaths.keys()) {
@@ -280,9 +284,10 @@ function emitFullMatrix() {
 function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
   console.log("Changed files:", changedFiles);
 
-  const { filtered, filteredDarwin, changedBackends } = filterMatrix({
+  const { filtered, filteredDarwin, filteredWindows, changedBackends } = filterMatrix({
     includes,
     includesDarwin,
+    includesWindows,
     changedFiles,
     previousMatrix,
     protoRevisions,
@@ -290,13 +295,16 @@ function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
 
   console.log("Filtered files:", filtered);
   console.log("Filtered files Darwin:", filteredDarwin);
+  console.log("Filtered files Windows:", filteredWindows);
 
   const { multiarch, singlearch } = splitByArch(filtered);
   const hasBackendsMultiarch = multiarch.length > 0 ? 'true' : 'false';
   const hasBackendsDarwin = filteredDarwin.length > 0 ? 'true' : 'false';
+  const hasBackendsWindows = filteredWindows.length > 0 ? 'true' : 'false';
   console.log("Has single-arch backends?:", singlearch.length > 0 ? 'true' : 'false');
   console.log("Has multi-arch backends?:", hasBackendsMultiarch);
   console.log("Has Darwin backends?:", hasBackendsDarwin);
+  console.log("Has Windows backends?:", hasBackendsWindows);
 
   const mergeMatrixMultiarch = computeMergeMatrix(multiarch);
   const hasMergesMultiarch = mergeMatrixMultiarch.include.length > 0 ? 'true' : 'false';
@@ -304,9 +312,11 @@ function emitFilteredMatrix(changedFiles, previousMatrix, protoRevisions) {
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `run-all=false\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-multiarch=${hasBackendsMultiarch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-windows=${hasBackendsWindows}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-merges-multiarch=${hasMergesMultiarch}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-multiarch=${JSON.stringify({ include: multiarch })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-windows=${JSON.stringify({ include: filteredWindows })}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge-matrix-multiarch=${JSON.stringify(mergeMatrixMultiarch)}\n`);
   emitSinglearchShards(singlearch);
 
