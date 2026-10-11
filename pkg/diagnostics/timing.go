@@ -3,6 +3,7 @@ package diagnostics
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,13 +49,14 @@ const (
 
 // Event deliberately has no free-form payload or error field.
 type Event struct {
-	ID      string
-	Kind    Kind
-	Phase   Phase
-	State   State
-	Outcome Outcome
-	Elapsed time.Duration
-	Count   int
+	ID       string
+	Kind     Kind
+	Phase    Phase
+	State    State
+	Outcome  Outcome
+	Elapsed  time.Duration
+	Count    int
+	Dispatch *DispatchFields
 }
 
 // Sink must be safe for concurrent calls. Calls are synchronous; callers should
@@ -78,9 +80,12 @@ func NewRecorder(sink Sink) *Recorder {
 
 type observationKey struct{}
 type observation struct {
-	recorder *Recorder
-	id       string
-	kind     Kind
+	recorder   *Recorder
+	id         string
+	kind       Kind
+	origin     time.Time
+	dispatchMu sync.Mutex
+	dispatch   *dispatchCollection
 }
 
 func observed(ctx context.Context) *observation {
@@ -121,7 +126,7 @@ func (r *Recorder) Reload(ctx context.Context) context.Context {
 }
 
 func (r *Recorder) attach(ctx context.Context, kind Kind) context.Context {
-	return context.WithValue(ctx, observationKey{}, &observation{recorder: r, id: uuid.NewString(), kind: kind})
+	return context.WithValue(ctx, observationKey{}, &observation{recorder: r, id: uuid.NewString(), kind: kind, origin: r.now()})
 }
 
 // Inherit transfers only diagnostic identity, leaving destination lifetime and
@@ -178,11 +183,11 @@ func validPhase(p Phase) bool {
 		PhaseReloadEnumeration, PhaseReloadMetadata, PhaseReloadYAMLRead, PhaseReloadParseDefaults:
 		return true
 	}
-	return false
+	return validDispatchPhase(p)
 }
 
 func validEvent(e Event) bool {
-	if !validPhase(e.Phase) {
+	if !validPhase(e.Phase) || !validDispatchFields(e) {
 		return false
 	}
 	switch e.Kind {

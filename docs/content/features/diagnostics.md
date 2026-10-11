@@ -210,3 +210,117 @@ The existing candidate filter and ordering still select the default.
 Malformed JSON returns a parsing error without fallback discovery.
 Each failover attempt binds fresh input from the replayed body.
 Other API routes retain their existing extraction order.
+
+### Dispatch contract for Go integrations
+
+The dispatch helpers are available for instrumentation; this contract alone does
+not add HTTP, routing, gRPC, worker, or streaming observation sites.
+There is no request sampling control: all requests with an enabled recorder are
+eligible. The mutex and block sampling settings above apply only to pprof.
+Existing `Begin`, `Mark`, `Record`, and `Sink` calls remain synchronous, and legacy
+log records keep their existing fields.
+
+Dispatch state is per-request and per-instance. It is not replicated between
+frontends. `Inherit` shares that request's identity, origin, and collection while
+preserving destination cancellation and values. Cancellation never suppresses
+collection; callers supply the categorical outcome explicitly.
+
+```go
+func (r *Recorder) AttachRequest(ctx context.Context, id string) (context.Context, bool)
+func Dispatch(ctx context.Context) DispatchScope
+func (s DispatchScope) NewAttempt() DispatchScope
+func (s DispatchScope) NewConnection() DispatchScope
+func (s DispatchScope) Start(phase Phase) (DispatchScope, func(Outcome, int))
+func (s DispatchScope) MarkOnce(phase Phase, outcome Outcome)
+func (s DispatchScope) Record(phase Phase, elapsed time.Duration, outcome Outcome, count int)
+func FlushDispatch(ctx context.Context) DispatchStats
+```
+
+`AttachRequest` accepts only canonical lowercase RFC4122 UUID v4 values. It does
+not replace an existing request with a conflicting identity. Invalid values,
+nil contexts, and nil recorders return the unchanged context and false. Use it
+only at an independently enabled worker boundary, never to accept an HTTP
+client's choice of diagnostic identity. Validation is not authentication.
+`RequestID` reads the attached identity without allocating a new one.
+
+`Dispatch` returns an immutable scope; the zero value and disabled or reload
+contexts are inert. Retain returned scopes explicitly when crossing helpers.
+`NewAttempt` and `NewConnection` allocate numeric request-local identities;
+reuse the connection scope for the same actual connection. Neither creates or
+changes a transport. Zero means unspecified. Identities are not comparable
+between requests or processes.
+
+`Start` returns a child span and an exactly-once end closure. Its first end call
+wins, including an invalid call (which emits nothing). `MarkOnce` accepts the
+first valid milestone per phase/span/attempt/connection. `Record` buffers an
+aggregate with the actual operation count. Invalid enums, negative durations,
+and negative counts are rejected, not logged as raw errors.
+
+Dispatch events add `offset`, `span`, `parent`, `attempt`, `connection`, `dropped`,
+`emitted`, and `sink_elapsed` through the optional `Event.Dispatch` fields.
+Offsets use the local monotonic request origin captured at attachment; span
+elapsed times overlap and must not be summed as disjoint work. External UUID
+attachment starts a new local clock origin. Never subtract these offsets across
+hosts. Boundaries are captured before buffering or sink calls; log order is not
+execution order under concurrency.
+
+`MaxDispatchEvents` is 256 for the lifetime of a request, including start, end,
+and milestone records. Span, attempt, and connection identities each have the
+same limit. Exhausted identity allocation returns an inert scope. Overflow
+increments a saturating drop counter; flushing does not restore capacity.
+Milestone keys are bounded by accepted events. Collection starts no goroutines.
+
+Call `FlushDispatch` outside application locks, after all producers finish for a
+complete report. It synchronously drains buffered events to the existing sink
+and emits `dispatch_summary` outside the event budget. Repeat flushes can report
+later drops or drain late producers. Concurrent or reentrant flushes return the
+current statistics without draining. The caller must arrange a final flush;
+there is no automatic lifecycle hook in this contract.
+
+`DispatchStats` contains cumulative `Emitted`, `Dropped`, and `SinkElapsed`.
+Sink time measures synchronous dispatch event writes only, excluding summary
+writes, collection overhead, and legacy event writes. It is a partial overhead
+measurement, not a correction to subtract from nested timings. Slow sinks still
+block the flushing caller. Measure remaining instrumentation uncertainty
+separately. Missing boundaries after overflow do not establish absent work.
+
+The closed dispatch vocabulary reserves the following boundaries. Availability
+requires an integration at the actual operation; a phase name does not prove
+that a transport hook can observe it.
+
+| Phase | Intended boundary |
+|-------|-------------------|
+| `http_entry` | Application entry, not socket arrival. |
+| `auth` | Authentication only, ending before downstream work. |
+| `body_read` | Body-read completion. |
+| `trace_start` | Existing trace entry. |
+| `route` | Route entry and exit. |
+| `route_revision` | Revision check. |
+| `reservation` | Reservation operation. |
+| `health_probe` | Actual health probe. |
+| `health_cache` | Health-cache decision. |
+| `last_used` | Last-used update. |
+| `metadata_decision` | Decision to probe metadata. |
+| `metadata_rpc` | Actual metadata RPC and call count. |
+| `metadata_empty` | Categorical empty metadata result. |
+| `metadata_nonempty` | Categorical nonempty metadata result. |
+| `inflight_increment` | Synchronous tracking increment. |
+| `inflight_decrement` | Completion tracking decrement. |
+| `reservation_release` | Reservation release, separate from decrement. |
+| `client_lock_wait` | Client lock acquisition wait. |
+| `dial_attempt` | Actual dial attempt, only when safely observable. |
+| `transport_ready` | Passively observed readiness, not ClientConn creation or the whole handshake. |
+| `rpc` | RPC invocation through completion. |
+| `rpc_headers` | First received headers. |
+| `rpc_first_message` | First received RPC message. |
+| `worker_receive` | Actual worker request receive. |
+| `worker_preparation` | Worker preparation. |
+| `worker_submit` | Task submission. |
+| `worker_write` | First response write attempt through completion, not client delivery. |
+| `frontend_message` | First frontend received message. |
+| `frontend_callback` | First frontend callback. |
+| `sse_role` | Role-only SSE event. |
+| `sse_content` | First nonempty content event. |
+| `sse_reasoning` | First nonempty reasoning event. |
+| `sse_flush` | Flush attempt through completion. |
+| `dispatch_summary` | Cumulative collection drops, emissions, and measured sink time. |

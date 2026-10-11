@@ -53,6 +53,17 @@ var _ = Describe("Diagnostics documentation", func() {
 			Expect(doc).To(ContainSubstring("| `" + wire[1] + "` |"))
 		}
 	})
+	It("documents and accepts every dispatch phase constant", func() {
+		doc := readDoc("features/diagnostics.md")
+		source, err := os.ReadFile("dispatch.go")
+		Expect(err).NotTo(HaveOccurred())
+		wires := regexp.MustCompile(`(?m)^\s*Phase\w+\s+Phase\s*=\s*"([^"]+)"`).FindAllStringSubmatch(string(source), -1)
+		Expect(wires).NotTo(BeEmpty())
+		for _, wire := range wires {
+			Expect(validDispatchPhase(Phase(wire[1]))).To(BeTrue())
+			Expect(doc).To(ContainSubstring("| `" + wire[1] + "` |"))
+		}
+	})
 	It("links both entry points to the feature page", func() {
 		readDoc("features/diagnostics.md")
 		for _, path := range []string{"reference/cli-reference.md", "getting-started/troubleshooting.md"} {
