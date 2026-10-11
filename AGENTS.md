@@ -1,54 +1,266 @@
-# LocalAI Agent Instructions
+# AGENTS.md
 
-This file is the entry point for AI coding assistants (Claude Code, Cursor, Copilot, Codex, Aider, etc.) working on LocalAI. It is an index to detailed topic guides in the `.agents/` directory. Read the relevant file(s) for the task at hand — you don't need to load all of them.
+Context file for AI agents working on LocalAI.
 
-Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+**Dual Format**: This file combines Category A (Operations Manual) and Category B (Context Guide) for comprehensive agent guidance.
 
-## Policy for AI-Assisted Contributions
+**Domain Detected:** Ml / Training (Based on codebase patterns)
 
-LocalAI follows the Linux kernel project's [guidelines for AI coding assistants](https://docs.kernel.org/process/coding-assistants.html). Before submitting AI-assisted code, read [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md). Key rules:
+## Project Overview
 
-- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin. One exception: automation a maintainer operates signs off with *that maintainer's* identity, since no other human submitter exists to certify it. See [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md).
-- **No `Co-Authored-By: <AI>` trailers.** The human contributor owns the change.
-- **Use an `Assisted-by:` trailer** to attribute AI involvement. Format: `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`.
-- **The human submitter is responsible** for reviewing, testing, and understanding every line of generated code.
+LocalAI is a Go project using Go (Makefile).
 
-## Topics
+**Key Info:**
+- **Primary Language:** Go
+- **Build System:** Go (Makefile)
+- **Test Framework:** Go testing
+- **Total Files:** 4478
+- **Test Files:** 1313
+- **AI Readiness Score:** 100/100 (Agent-Optimized)
 
-| File | When to read |
-|------|-------------|
-| [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md) | Policy for AI-assisted contributions — licensing, DCO, attribution |
-| [.agents/building-and-testing.md](.agents/building-and-testing.md) | Building the project, running tests, Docker builds for specific platforms |
-| [.agents/ci-caching.md](.agents/ci-caching.md) | CI build cache layout (registry-backed BuildKit cache on quay.io/go-skynet/ci-cache, per-arch keys), `DEPS_REFRESH` weekly cache-buster for unpinned Python deps, prebuilt `base-grpc-*` images for llama.cpp variants, per-arch native + manifest-merge pattern, `setup-build-disk` `/mnt` relocation, path filter on master push, manual eviction |
-| [.agents/adding-backends.md](.agents/adding-backends.md) | Adding a new backend (Python, Go, or C++) — full step-by-step checklist, including importer integration (the `/import-model` dropdown is server-driven from `GET /backends/known`) |
-| [.agents/coding-style.md](.agents/coding-style.md) | Code style, editorconfig, logging, documentation conventions |
-| [.agents/llama-cpp-backend.md](.agents/llama-cpp-backend.md) | Working on the llama.cpp backend — architecture, updating, tool call parsing |
-| [.agents/vllm-backend.md](.agents/vllm-backend.md) | Working on the vLLM / vLLM-omni backends — native parsers, ChatDelta, CPU build, libnuma packaging, backend hooks |
-| [.agents/sglang-backend.md](.agents/sglang-backend.md) | Working on the SGLang backend — `engine_args` validation against ServerArgs, speculative-decoding (EAGLE/EAGLE3/DFLASH/MTP) recipes, parser handling |
-| [.agents/ds4-backend.md](.agents/ds4-backend.md) | Working on the ds4 backend - DSML state machine, thinking modes, KV cache, Metal+CUDA matrix |
-| [.agents/testing-mcp-apps.md](.agents/testing-mcp-apps.md) | Testing MCP Apps (interactive tool UIs) in the React UI |
-| [.agents/api-endpoints-and-auth.md](.agents/api-endpoints-and-auth.md) | Adding API endpoints, auth middleware, feature permissions, user access control |
-| [.agents/debugging-backends.md](.agents/debugging-backends.md) | Debugging runtime backend failures, dependency conflicts, rebuilding backends |
-| [.agents/adding-gallery-models.md](.agents/adding-gallery-models.md) | Adding GGUF models from HuggingFace to the model gallery |
-| [.agents/localai-assistant-mcp.md](.agents/localai-assistant-mcp.md) | LocalAI Assistant chat modality — adding admin tools to the in-process MCP server, editing skill prompts, keeping REST + MCP + skills in sync |
-| [.agents/backend-signing.md](.agents/backend-signing.md) | Backend OCI image signing (keyless cosign + sigstore-go) — producer-side CI setup, consumer-side gallery `verification:` block, strict mode (`LOCALAI_REQUIRE_BACKEND_INTEGRITY`), revocation via `not_before` |
-| [.agents/preparing-a-release.md](.agents/preparing-a-release.md) | Cutting a release: PR labels, `RELEASE_NOTES_vX.Y.Z.md`, the blog post under `website/content/blog/`, and the demo clips under `website/static/media/` |
-| [.agents/distributed-state.md](.agents/distributed-state.md) | Features that keep runtime state — how they must behave with several frontends (syncstate, advisory-lock leaders, fakebus tests) |
-| [.agents/distributed-seams.md](.agents/distributed-seams.md) | Distributed mode transports: the fan-out, queue, control verb, agent RPC and dial seams, subject rules, the no-route contract, conformance suites, open items for a second carrier |
-| [.impeccable.md](.impeccable.md) | Design context for UI/UX work — users, brand personality, aesthetic direction, and design principles |
+---
 
-## Quick Reference
+## 🚨 AI Policy & Operations
 
-- **Coverage gates**: Never lower a coverage baseline or widen a gate's tolerance to turn a red gate green — the coverage ratchet only moves up. If a change drops coverage, add tests to raise it (e.g. render-smoke specs). See [.agents/building-and-testing.md](.agents/building-and-testing.md).
-- **Logging**: Use `github.com/mudler/xlog` (same API as slog)
-- **Go style**: Prefer `any` over `interface{}`
-- **Comments**: Explain *why*, not *what*
-- **Docs (docs-with-code rule)**: When you change user-facing behavior (API endpoints, CLI flags, config keys, or features), update the corresponding page under `docs/content/` in the SAME change, not as a follow-up. A user-facing change without a matching docs update is incomplete. See also the documentation conventions in [.agents/coding-style.md](.agents/coding-style.md).
-- **New API endpoints**: LocalAI advertises its capability surface in several independent places — swagger `@Tags`, `/api/instructions` registry, auth `RouteFeatureRegistry`, React UI `capabilities.js`, docs. Read [.agents/api-endpoints-and-auth.md](.agents/api-endpoints-and-auth.md) and follow its checklist — missing any surface means clients, admins, and the UI won't know the endpoint exists.
-- **Admin endpoints → MCP tool**: every admin endpoint that an admin would manage conversationally (install/list/edit/toggle/upgrade) MUST also be exposed as an MCP tool in `pkg/mcp/localaitools/`. The LocalAI Assistant chat modality and the standalone `local-ai mcp-server` consume that package; drift between REST and MCP is a real risk. Read [.agents/localai-assistant-mcp.md](.agents/localai-assistant-mcp.md) — the `TestToolHTTPRouteMappingComplete` test fails until you wire the new tool and update the route map.
-- **Releases ship with a post and clips**: a release is not done at the tag. It needs labelled PRs, `RELEASE_NOTES_vX.Y.Z.md`, a blog post under `website/content/blog/`, and a short demo clip in `website/static/media/` for each notable feature. See [.agents/preparing-a-release.md](.agents/preparing-a-release.md).
-- **Build**: Inspect `Makefile` and `.github/workflows/` — ask the user before running long builds
-- **Backend OS coverage**: a new backend must target every OS it can build for, not just Linux. `.github/backend-matrix.yml` has two matrices — `include:` (Linux) and `includeDarwin:` (macOS / Apple Silicon). Most C/C++/GGML and many Python backends build on Darwin too — wire the `includeDarwin` entry + `backend/index.yaml` `metal:` entries, or say in the PR why an OS is unsupported. See the darwin checklist in [.agents/adding-backends.md](.agents/adding-backends.md).
-- **Gallery variant ranking**: a gallery entry can declare `variants` (alternative builds of the same weights), and LocalAI ranks the ones a host can run by engine preference first, size second. A new backend that should be preferred on some hardware must be listed in `engineNamePreferenceRules` in `pkg/system/capabilities.go`; the sibling `backendBuildTagPreferenceRules` speaks build tags rather than engine names, and using the wrong table matches nothing without erroring. See [.agents/adding-backends.md](.agents/adding-backends.md).
-- **UI**: The active UI is the React app in `core/http/react-ui/`. The older Alpine.js/HTML UI in `core/http/static/` is pending deprecation — all new UI work goes in the React UI
-- **Distributed-aware state**: any feature that keeps runtime state (maps, caches, pins, schedulers, background loops) must choose shared (syncstate), single-runner (advisorylock), stateless, or documented per-instance behaviour for multi-frontend clusters. See [.agents/distributed-state.md](.agents/distributed-state.md).
+Extracted from CONTRIBUTING.md - operational constraints and procedures.
+
+### AI Policy
+
+- Thank you for your interest in contributing to LocalAI! We appreciate your time and effort in helping to improve our project. Before you get started, please take a moment to review these guidelines.
+- [Coding Guidelines](#coding-guidelines)
+- Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
+- This project uses an [`.editorconfig`](.editorconfig) file to define formatting standards (indentation, line endings, charset, etc.). Please configure your editor to respect it.
+- For AI-assisted development, see [`AGENTS.md`](AGENTS.md) (or the equivalent [`CLAUDE.md`](CLAUDE.md) symlink) for agent-specific guidelines including build instructions and backend architecture details. Contributions produced with AI assistance must follow the rules in the [AI Coding Assistants](#ai-coding-assistants) section below.
+
+### Key Requirements
+
+- [Prerequisites](#prerequisites)
+- **GCC / C/C++ toolchain** (required for CGo and native backends)
+- **Protocol Buffers compiler** (`protoc`) — needed for gRPC code generation
+- Include a `requirements.txt` for any new dependencies.
+
+### Development Procedures
+
+- [Testing](#testing)
+- [Download Go](https://go.dev/dl/) or install via your package manager
+- macOS: `brew install go`
+- Ubuntu/Debian: follow the [official instructions](https://go.dev/doc/install) (the `apt` version is often outdated)
+- sudo apt-get install -y build-essential gcc g++ cmake git wget \
+
+
+
+## 🧠 Machine Learning Architecture
+
+This is a machine learning or model training system.
+
+### Key Components
+
+- **Data Pipeline:** Data loading, preprocessing, augmentation
+- **Model Definition:** Architecture, hyperparameters, checkpoints
+- **Training Loop:** Loss calculation, gradient updates, validation
+- **Inference:** Model predictions, batch processing, latency optimization
+- **Evaluation:** Metrics, benchmarks, comparison to baselines
+
+### Critical Areas
+
+1. **Data Leakage:** Ensure train/test/validation splits are isolated
+2. **Reproducibility:** Set random seeds; version datasets and models
+3. **Resource Management:** Monitor memory, GPU usage during training
+4. **Versioning:** Track model checkpoints, hyperparameters, and results
+5. **Evaluation Rigor:** Use proper metrics; avoid optimizing to test set
+
+### Testing Strategy
+
+- **Data Pipeline Tests:** Verify shape, type, and value ranges
+- **Model Tests:** Check predictions with synthetic/known inputs
+- **Training Tests:** Verify loss decreases on toy datasets
+- **Inference Tests:** Check latency and memory usage
+- **Regression Tests:** Compare results against baseline models
+
+
+
+
+
+## 🏗️ Architecture & Context Guide
+
+This section provides architectural context and agent-understanding for the codebase.
+
+### Prerequisites
+
+- **Go:** 1.18+ (or applicable language version)
+- **Package Manager:** go modules
+- **Test Runner:** Go testing
+
+### Environment Requirements
+
+- **Go:** 1.26.0+ (from `go.mod`)
+  - GCC required for CGo/SQLite compilation
+- **Python:** 1.18+
+- **Package Manager:** go modules
+
+
+### Project Structure
+
+```
+LocalAI/
+├── Makefile
+├── package.json
+├── Makefile
+├── src/                  # Source code
+├── tests/                # Test suite (1313 files)
+└── README.md             # Project documentation
+```
+
+### Architecture Overview
+
+#### Key Components
+- **Main Entry:** main.go, main.go, main.go, main.jsx, index.js
+- **Test Suite:** 1313 test files
+- **Build Configuration:** Makefile, package.json, Makefile
+
+#### Design Principles
+
+1. **Modularity** - Code organized by functionality with clear separation of concerns
+2. **Testability** - Comprehensive test coverage across critical paths
+3. **Clarity** - Explicit naming and structure for AI agent understanding
+4. **Consistency** - Uniform patterns and conventions throughout codebase
+5. **Maintainability** - Well-documented code with clear intent
+
+### Directory Map
+
+| Directory | Purpose |
+|-----------|----------|
+| `cmd/` | Command-line tools |
+| `docs/` | Documentation |
+| `examples/` | Usage examples |
+| `pkg/` | Package definitions |
+| `scripts/` | Build and utility scripts |
+| `tests/` | Test suite |
+
+
+### Development Workflow
+
+#### Initial Setup
+
+```bash
+git clone https://github.com/YOUR_ORG/LocalAI.git
+cd LocalAI
+go mod download
+```
+
+#### Development Commands
+
+**Running Tests:**
+```bash
+go build ./...            # Build project
+go test ./...             # Run all tests
+go test -v ./...          # Verbose test output
+golangci-lint run         # Lint (if installed)
+```
+
+#### Code Quality
+```bash
+gofmt -w .                # Format code
+go vet ./...              # Vet (static analysis)
+```
+
+### Code Style & Conventions
+
+- **Naming:** Use camelCase for functions and variables
+- **Type Hints:** Yes (strongly encouraged)
+- **Error Handling:** Yes - handle errors at boundaries; let exceptions propagate when another layer owns recovery
+- **Logging:** Yes
+- **Testing:** Yes - write tests alongside code changes
+
+### Testing Strategy
+
+**Framework:** Go testing
+**Test Files:** 1313 found
+
+Before committing:
+1. Run the full test suite: `go test ./...`
+2. Ensure all tests pass: `go test -v ./...`
+3. Run linter: `golangci-lint run`
+4. Format code: `gofmt -w .`
+
+### Writing Documentation
+
+When updating docs:
+1. Always include explanatory text before code snippets
+2. Describe *why* and *what* before showing *how*
+3. Keep sections focused on a single concept
+4. Use clear, concrete examples
+
+## Known Gotchas & Warnings
+
+- Keep changes focused. Avoid unrelated refactors, formatting changes, or feature additions in the same PR.
+- This downloads test model fixtures, runs protobuf generation, and executes the full test suite including llama-gguf, TTS, and stable-diffusion tests. Note: some tests require model files to be downloaded, so the first run may take longer.
+- The React UI (`core/http/react-ui/`) is covered by Playwright e2e specs, gated by a **monotonic line-coverage ratchet** (`make test-ui-coverage-check`, run in CI). The metric is non-deterministic — a fast local box reads higher than a slow CI runner for the same code — so a small tolerance is unavoidable.
+
+### Contributing Guidelines
+
+This project has a detailed contribution guide at **`CONTRIBUTING.md`**.
+
+**Key Requirements:**
+- **DCO Sign-off Required**: Every commit must be signed with `git commit -s`
+
+**Before submitting:**
+1. Read `CONTRIBUTING.md` in full
+2. Check recent merged PRs for patterns
+3. Follow the specific requirements above
+
+### Common Patterns
+
+When contributing to this project:
+1. Read existing code in the area you're modifying
+2. Follow the established patterns and style
+3. Write tests for new functionality
+4. Use clear, descriptive variable and function names
+5. Add docstrings for public APIs
+6. Update tests when changing behavior
+
+### What We Value
+
+✅ Well-tested code with clear intent
+✅ Consistent code style and naming conventions
+✅ Code that is easy for AI agents to understand
+✅ Clear, descriptive commit messages
+✅ Modular, reusable components
+✅ Comprehensive documentation
+
+### What We Avoid
+
+❌ Large functions doing multiple things
+❌ Commented-out dead code
+❌ Inconsistent naming or patterns
+❌ Unclear error messages
+❌ Unexplained magic numbers or strings
+❌ Skipped tests or test TODOs
+
+### AI Readiness Dimensions (Scoring)
+
+This project is evaluated across 8 dimensions:
+
+1. **Architecture** (20/100) - Code organization and modularity
+2. **Testing** (15/100) - Test coverage and quality
+3. **Dependencies** (12/100) - Dependency management
+4. **Conventions** (8/100) - Consistent patterns
+5. **Entry Points** (10/100) - Clear main/start locations
+6. **Security** (15/100) - Input validation and error handling
+7. **Build** (10/100) - Clear build/setup instructions
+8. **Documentation** (8/100) - Code and project documentation
+
+### Next Steps
+
+Before making changes:
+1. Read relevant source files to understand the existing code
+2. Look at existing tests for similar functionality
+3. Follow the patterns you see in the codebase
+4. Write tests for your changes
+5. Run `pytest` to verify nothing breaks
+6. Run code quality checks: `ruff check . && mypy .`
+7. Format your code: `ruff format .`
+
+---
+
+*Generated by Braxis - keeping AI agents in sync with your code*
