@@ -1783,6 +1783,9 @@ public:
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
+#if LOCALAI_HAS_CHAT_SESSION
+            common_chat_session chat_session;
+#endif
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
@@ -2038,7 +2041,12 @@ public:
                     }
                 }
 
+#if LOCALAI_HAS_CHAT_SESSION
+                json parsed_data = oaicompat_chat_params_parse(
+                        ctx_server.impl->vocab, body_json, ctx_server.impl->chat_params, files, chat_session);
+#else
                 json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
+#endif
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -2158,6 +2166,10 @@ public:
                         ctx_server.get_meta().logit_bias_eog,
                         data);
 #endif
+#if LOCALAI_HAS_CHAT_SESSION
+                // The parser now keeps grammar, stops and message spans in the session.
+                task.apply_chat_session(chat_session);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
@@ -2171,7 +2183,11 @@ public:
                 tasks.push_back(std::move(task));
             }
 
+#if LOCALAI_HAS_CHAT_SESSION
+            rd.post_tasks(std::move(tasks), chat_session);
+#else
             rd.post_tasks(std::move(tasks));
+#endif
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
@@ -2368,6 +2384,9 @@ public:
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
+#if LOCALAI_HAS_CHAT_SESSION
+            common_chat_session chat_session;
+#endif
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_params.tmpls != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
@@ -2624,7 +2643,12 @@ public:
                     }
                 }
 
+#if LOCALAI_HAS_CHAT_SESSION
+                json parsed_data = oaicompat_chat_params_parse(
+                        ctx_server.impl->vocab, body_json, ctx_server.impl->chat_params, files, chat_session);
+#else
                 json parsed_data = oaicompat_chat_params_parse(body_json, ctx_server.impl->chat_params, files);
+#endif
 
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
@@ -2747,6 +2771,10 @@ public:
                         ctx_server.get_meta().logit_bias_eog,
                         data);
 #endif
+#if LOCALAI_HAS_CHAT_SESSION
+                // The parser now keeps grammar, stops and message spans in the session.
+                task.apply_chat_session(chat_session);
+#endif
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat: enable autoparser (PEG-based chat parsing) so that
@@ -2758,7 +2786,11 @@ public:
                 tasks.push_back(std::move(task));
             }
 
+#if LOCALAI_HAS_CHAT_SESSION
+            rd.post_tasks(std::move(tasks), chat_session);
+#else
             rd.post_tasks(std::move(tasks));
+#endif
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
