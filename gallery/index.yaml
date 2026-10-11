@@ -13419,6 +13419,100 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- name: gemma-4-31b-fable-coder-q4
+  variants:
+    - model: gemma-4-31b-fable-coder-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/DavidrPatton/Gemma-4-31B-Fable-Coder
+    - https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  description: |
+    Gemma-4-31B-Fable-Coder is DavidrPatton's Gemma 4 31B fine-tune for
+    coding and visual interface tasks. This entry uses the Q4_K_M GGUF
+    with the F16 vision projector and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - coding
+    - multimodal
+    - vision
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    known_input_modalities:
+      - text
+      - image
+    mmproj: Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Gemma-4-31B-Fable-Coder.Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Gemma-4-31B-Fable-Coder.Q4_K_M.gguf
+      sha256: d3478deae9adc2b34e8cfcb64d83bc53b337af9325097aa6debabe0aff831bbd
+      uri: https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF/resolve/03ec4e8b402d3b07a6c34c33b7e5c5852a83bcf1/Gemma-4-31B-Fable-Coder.Q4_K_M.gguf
+    - filename: Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
+      sha256: f3e8c962662d749df606563144ef5b5c5e07f389c9ff69910bb21cc13c599f30
+      uri: https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF/resolve/03ec4e8b402d3b07a6c34c33b7e5c5852a83bcf1/Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
+- name: gemma-4-31b-fable-coder-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/DavidrPatton/Gemma-4-31B-Fable-Coder
+    - https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  description: |
+    Gemma-4-31B-Fable-Coder is DavidrPatton's Gemma 4 31B fine-tune for
+    coding and visual interface tasks. This entry uses the Q8_0 GGUF
+    with the F16 vision projector and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - coding
+    - multimodal
+    - vision
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    known_input_modalities:
+      - text
+      - image
+    mmproj: Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Gemma-4-31B-Fable-Coder.Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Gemma-4-31B-Fable-Coder.Q8_0.gguf
+      sha256: 29a93cfd521234094cc3e152ed80032eabd5f51f059bf8c2d1370332cc98ba79
+      uri: https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF/resolve/03ec4e8b402d3b07a6c34c33b7e5c5852a83bcf1/Gemma-4-31B-Fable-Coder.Q8_0.gguf
+    - filename: Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
+      sha256: f3e8c962662d749df606563144ef5b5c5e07f389c9ff69910bb21cc13c599f30
+      uri: https://huggingface.co/mradermacher/Gemma-4-31B-Fable-Coder-GGUF/resolve/03ec4e8b402d3b07a6c34c33b7e5c5852a83bcf1/Gemma-4-31B-Fable-Coder.mmproj-f16.gguf
 - &gemma-4-31b-ortenzya
   name: gemma-4-31b-ortenzya-q4
   variants:

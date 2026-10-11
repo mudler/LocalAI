@@ -23,6 +23,29 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Gemma 4 31B Fable Coder
+
+[Gemma-4-31B-Fable-Coder](https://huggingface.co/DavidrPatton/Gemma-4-31B-Fable-Coder)
+is a Gemma 4 fine-tune for coding and visual interface tasks. The gallery offers
+Q4_K_M and Q8_0 builds for llama.cpp, both with an F16 vision projector.
+They use the embedded chat template and a 32,768-token context.
+
+Install the grouped entry and let LocalAI select a build that fits the host:
+
+```bash
+local-ai models install gemma-4-31b-fable-coder-q4
+```
+
+To select the Q8_0 build explicitly:
+
+```bash
+local-ai models install gemma-4-31b-fable-coder-q4 --variant gemma-4-31b-fable-coder-q8
+```
+
+Place image content before text in multimodal messages, as the publisher recommends.
+The supplied template supports chat and vision; it does not implement tool-role
+messages for an OpenAI tool-calling conversation.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
