@@ -608,6 +608,29 @@ options:
 
 A per-request `seed` can also be supplied through the `params` map alongside `ref_text`.
 
+#### Duration and postprocessing
+
+For `omnivoice-cpp`, set these request-local controls in `params`, not as top-level fields:
+
+```json
+{
+  "model": "omnivoice-cpp",
+  "input": "Hello world.",
+  "params": {"duration":"2.5","postprocess":"false"}
+}
+```
+
+- `duration` accepts a finite numeric string of seconds greater than zero and at most `30`, inclusive. Whitespace, empty strings, and nonfinite values are invalid.
+- The backend uses `max(1, floor(seconds * 25))` generation frames. Each frame represents 40 milliseconds at the bundled codec rate. Thus, `2.5` selects 62 frames; tiny positive values select one frame.
+- `postprocess` accepts only the exact strings `"true"` and `"false"`. Buffered synthesis accepts either value, with or without `duration`.
+- Omitted controls preserve engine defaults. Omitted duration leaves duration estimation and chunking unchanged.
+
+A supplied duration forces single-shot generation and bypasses chunking. The 30-second cap is a conservative wrapper resource policy, aligned with the engine's default chunk threshold. It is not an engine positional limit or a guarantee of available memory or successful synthesis.
+
+Duration controls generation frames, not playback speed or guaranteed final WAV duration. Buffered postprocessing can trim or pad audio. With `postprocess="false"`, buffered output preserves the raw decoded frame length; reference loudness matching remains active. Quantization does not guarantee perceptual accuracy.
+
+Streaming accepts `duration` and explicit `postprocess="true"`. It rejects `postprocess="false"` before reference reads, native synthesis, or audio output because the streaming engine always postprocesses audio.
+
 ### Pocket TTS
 
 [Pocket TTS](https://github.com/kyutai-labs/pocket-tts) is a lightweight text-to-speech model designed to run efficiently on CPUs. It supports voice cloning through HuggingFace voice URLs or local audio files.
