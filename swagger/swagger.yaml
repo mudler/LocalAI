@@ -1947,6 +1947,8 @@ definitions:
         items:
           $ref: '#/definitions/schema.ThreeDOperation'
         type: array
+      upscale_scale:
+        type: integer
     type: object
   schema.ModelCapabilitiesResponse:
     properties:
@@ -6203,9 +6205,11 @@ paths:
         name: image
         required: true
         type: file
-      - description: 'Upscale factor: 2 or 4 (default 2)'
+      - description: 'Upscale factor: integer from 1 to 16; must match the model native
+          scale'
         in: formData
         name: scale
+        required: true
         type: integer
       produces:
       - application/json

@@ -3756,9 +3756,10 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Upscale factor: 2 or 4 (default 2)",
+                        "description": "Upscale factor: integer from 1 to 16; must match the model native scale",
                         "name": "scale",
-                        "in": "formData"
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -7242,6 +7243,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ThreeDOperation"
                     }
+                },
+                "upscale_scale": {
+                    "type": "integer"
                 }
             }
         },
