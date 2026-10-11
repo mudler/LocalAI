@@ -27,6 +27,8 @@ enum class Task {
     Svc,
     Midi,
     TurnDetection,
+    WakeWord,
+    AudioClassification,
 };
 
 // Mirrors engine::runtime::RunMode.
@@ -79,7 +81,7 @@ struct Route {
 Route resolve_route(Rpc rpc, const RequestShape &shape, const Capabilities &caps);
 
 // Canonical audio.cpp short names: gen, tts, clon, vc, svc, s2s, asr, align,
-// vad, diar, sep, vdes, spk, midi, turn. parse_task_name additionally accepts "spkrec" as
+// vad, diar, sep, vdes, spk, midi, turn, wake, cls. parse_task_name additionally accepts "spkrec" as
 // a legacy alias; task_name only ever emits "spk".
 const char *task_name(Task task);
 const char *mode_name(Mode mode);

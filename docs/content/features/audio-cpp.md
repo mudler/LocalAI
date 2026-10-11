@@ -224,6 +224,9 @@ unaffected.
 The upstream `turn` task performs turn detection. LocalAI has no RPC for this
 task, so requests to a model that only advertises `turn` are refused. It is not
 routed through voice activity detection (`vad`).
+The upstream `wake` (wake-word detection) and `cls` (audio classification) tasks
+are reported in capability diagnostics. They cannot serve LocalAI audio RPCs,
+including VAD, even when selected with the `task` option.
 
 Two routes are unreachable by auto-routing and need `task:` in the model config, because
 nothing in a request distinguishes them from a task the same family also advertises:
