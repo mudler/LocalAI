@@ -402,7 +402,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: 3d0bbac1775127de221388543176c7b36145ef597d1e7e12a08b534a3108f915
+      sha256: 0886e15ad7636dab94c9de8bb90959d6659fa0e227859d7969518eba91ccacd1
 - name: qwopus3.8-27b-flash-v2
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -65792,7 +65792,7 @@
   files:
     - filename: OpenJev-Q4_K_M.gguf
       uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/OpenJev-Q4_K_M.gguf
-      sha256: 38b512277edaeec6cd251d146bff6d97bc328fa9db19755401d6e9ab1ccbcba5
+      sha256: 43b8d9cb89851f27c9d6bed8f073f917327bec05471da462eea77cbf896aa891
     - filename: mmproj-OpenJev-Q8_0.gguf
       uri: https://huggingface.co/ggml-org/OpenJev-GGUF/resolve/10840f375658dea7afc5ff4711127bca8218b560/mmproj-OpenJev-Q8_0.gguf
       sha256: e372cdbf59fdd6bd2504cb64c988b31c7a42ac406a8f711df4b7a7acd9216f1e
