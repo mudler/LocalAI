@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	d "github.com/mudler/LocalAI/pkg/diagnostics"
@@ -15,15 +16,28 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// At most 16 asynchronous flush owners process-wide; there is no waiting queue.
+const maxDiagnosticFlushes = 16
+
+var diagnosticFlushSlots = make(chan struct{}, maxDiagnosticFlushes)
+var diagnosticFlushDrops atomic.Uint64
+
+// DiagnosticFlushDrops returns the process-local cumulative number of gRPC
+// handlers whose asynchronous drain was abandoned on admission saturation or
+// after exhausting its bounded redrain passes.
+// It does not call a sink and remains available while sinks are stalled.
+// Counts handlers, not events or unique requests; resets on process restart.
+func DiagnosticFlushDrops() uint64 { return diagnosticFlushDrops.Load() }
+
 const diagnosticMetadataKey = "localai-diagnostic-id"
 
 // A handler belongs to one per-call ClientConn, not to the shared Client.
 // Connection contexts do not inherit the RPC context; retain correlation here.
 type rpcDiagnostics struct {
-	ctx                         context.Context
-	scope                       d.DispatchScope
-	mu                          sync.Mutex
-	released, flushing, pending bool
+	ctx                                    context.Context
+	scope                                  d.DispatchScope
+	mu                                     sync.Mutex
+	released, flushing, pending, abandoned bool
 }
 type rpcObservation struct {
 	scope     d.DispatchScope
@@ -62,11 +76,14 @@ func (h *rpcDiagnostics) finish() {
 	h.lateFlush()
 }
 
-// Coalesce asynchronous drains: no sink runs on a grpc callback stack or under
-// the client lock. A callback racing the final drain hands work to its owner.
+// Coalesce asynchronous drains without waiting for sink capacity. Admission
+// precedes goroutine creation. Rejected handlers never retry, even on late
+// callbacks; no queue or goroutine retains their context on behalf of the drain.
+// An admitted owner can live as long as the synchronous sink blocks (possibly
+// forever), but there can only be maxDiagnosticFlushes such owners process-wide.
 func (h *rpcDiagnostics) lateFlush() {
 	h.mu.Lock()
-	if !h.released {
+	if !h.released || h.abandoned {
 		h.mu.Unlock()
 		return
 	}
@@ -75,18 +92,32 @@ func (h *rpcDiagnostics) lateFlush() {
 		h.mu.Unlock()
 		return
 	}
+	select {
+	case diagnosticFlushSlots <- struct{}{}:
+	default:
+		h.abandoned = true
+		diagnosticFlushDrops.Add(1)
+		h.mu.Unlock()
+		return
+	}
 	h.flushing = true
 	h.mu.Unlock()
 	go func() {
-		for {
+		defer func() { <-diagnosticFlushSlots }()
+		// Bound redrains too, even if a callback source continues after completion.
+		for pass := 0; pass <= d.MaxDispatchEvents; pass++ {
 			h.mu.Lock()
 			h.pending = false
 			h.mu.Unlock()
 			d.FlushDispatch(h.ctx)
 			h.mu.Lock()
 			if h.pending {
-				h.mu.Unlock()
-				continue
+				if pass < d.MaxDispatchEvents {
+					h.mu.Unlock()
+					continue
+				}
+				h.abandoned = true
+				diagnosticFlushDrops.Add(1)
 			}
 			h.flushing = false
 			h.mu.Unlock()

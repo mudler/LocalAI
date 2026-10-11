@@ -262,12 +262,34 @@ completion. These transport events are not frontend callback or SSE delivery
 measurements. No addresses, headers, payloads or credentials enter events.
 
 Collection is bounded by the dispatch lifetime budget. After the wrapper releases
-its locks and closes its connection, an asynchronous drain owns completion;
-late stats producers schedule a coalesced subsequent drain. Sinks never execute
-on transport callbacks and no inference work waits for diagnostic flushing.
-Consequently events may be logged after the HTTP summary or caller return, and
-process termination can lose pending events. Use offsets and identities rather
-than log order, and account for sink time and dropped events.
+its locks and closes its connection, an asynchronous drain attempts nonblocking
+admission to a **process-wide limit of 16 owners, with no waiting queue**.
+Admission happens before goroutine creation. Late stats callbacks coalesce with
+an active owner or attempt fresh admission after that owner exits. Saturation
+permanently abandons that handler's asynchronous flushing; callbacks do not retry
+admission for an abandoned handler. No goroutine is created for rejected work.
+Each owner performs at most 257 drain passes before abandoning repeated pending
+work. This is per-instance diagnostic state, not shared across frontend replicas.
+
+`grpc.DiagnosticFlushDrops()` reads an atomic process-local cumulative count of
+abandoned handlers (saturation or exhausted drain passes), without calling the
+sink. It remains accessible when the sink stalls, resets at process restart, and
+counts neither events nor unique requests (one request can use multiple handlers).
+It is separate from per-request `dispatch_summary` collection-budget drops; no
+new log or HTTP endpoint is introduced. Abandonment does not discard the shared
+request collection: another explicit synchronous flush may still emit it.
+
+The synchronous sink cannot be canceled: up to 16 owners and their retained
+request contexts/collections can remain alive indefinitely if it never returns.
+There are zero queued request contexts; active RPCs retain their own state as
+usual. This is a bound on asynchronous ownership, not a wall-clock lifetime
+promise or a bound on all active requests. Capacity recovers when sinks return;
+there is no timeout goroutine, background retry or shutdown drain guarantee.
+Sinks never execute on transport callbacks and no gRPC inference work waits for
+this flushing. The existing synchronous diagnostics APIs are unchanged and can
+still block their callers. Events may be logged after the HTTP summary or caller
+return, and process termination can lose pending events. Use offsets and
+identities rather than log order, and account for sink time and both drop counts.
 
 ### Dispatch contract for Go integrations
 

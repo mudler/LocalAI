@@ -17,31 +17,37 @@ import (
 
 type diagnosticServer struct {
 	pb.UnimplementedBackendServer
-	mu   sync.Mutex
-	seen []metadata.MD
+	mu      sync.Mutex
+	seen    []metadata.MD
+	methods []string
 }
 
-func (s *diagnosticServer) capture(ctx context.Context) {
+func (s *diagnosticServer) capture(ctx context.Context, method string) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.seen = append(s.seen, md.Copy())
+	s.methods = append(s.methods, method)
 }
 func (s *diagnosticServer) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply, error) {
-	s.capture(ctx)
+	s.capture(ctx, "Predict")
 	time.Sleep(15 * time.Millisecond)
 	return &pb.Reply{Message: []byte("one")}, nil
 }
 func (s *diagnosticServer) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
-	s.capture(ctx)
+	s.capture(ctx, "Health")
 	return &pb.Reply{Message: []byte("OK")}, nil
 }
 func (s *diagnosticServer) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
-	s.capture(ctx)
+	s.capture(ctx, "ModelMetadata")
 	return &pb.ModelMetadataResponse{}, nil
 }
 func (s *diagnosticServer) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
-	s.capture(stream.Context())
+	s.capture(stream.Context(), "PredictStream")
+	if err := stream.SendHeader(metadata.Pairs("fixture", "headers")); err != nil {
+		return err
+	}
+	time.Sleep(40 * time.Millisecond)
 	for _, v := range []string{"one", "two"} {
 		if err := stream.Send(&pb.Reply{Message: []byte(v)}); err != nil {
 			return err
@@ -78,8 +84,10 @@ var _ = Describe("Passive dispatch diagnostics", func() {
 		Expect(replies).To(Equal([]string{"one", "two"}))
 		backend.mu.Lock()
 		seen := append([]metadata.MD(nil), backend.seen...)
+		methods := append([]string(nil), backend.methods...)
 		backend.mu.Unlock()
 		Expect(seen).To(HaveLen(4))
+		Expect(methods).To(Equal([]string{"ModelMetadata", "Health", "Predict", "PredictStream"}))
 		for _, md := range seen {
 			Expect(md.Get("localai-diagnostic-id")).To(Equal([]string{d.RequestID(ctx)}))
 			Expect(md.Get("authorization")).To(ContainElements("custom", "Bearer secret"))
@@ -98,6 +106,26 @@ var _ = Describe("Passive dispatch diagnostics", func() {
 		}).Should(Equal(4))
 		mu.Lock()
 		defer mu.Unlock()
+		var streamSpan uint32
+		for _, e := range events {
+			if e.Phase == d.PhaseRPCPredictStream {
+				streamSpan = e.Dispatch.Parent
+			}
+		}
+		Expect(streamSpan).NotTo(BeZero())
+		var headers, message time.Duration
+		for _, e := range events {
+			if e.Dispatch != nil && e.Dispatch.Span == streamSpan {
+				if e.Phase == d.PhaseRPCHeaders {
+					headers = e.Dispatch.Offset
+				}
+				if e.Phase == d.PhaseRPCFirstMessage {
+					message = e.Dispatch.Offset
+				}
+			}
+		}
+		Expect(headers).To(BeNumerically(">", 0))
+		Expect(message - headers).To(BeNumerically(">=", 30*time.Millisecond))
 		connections := map[uint32]bool{}
 		for _, e := range events {
 			if e.Phase == d.PhaseTransportReady {
