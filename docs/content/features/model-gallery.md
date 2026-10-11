@@ -158,6 +158,23 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## Mira v1.23 RLVR
+
+The gallery includes [Mira v1.23 RLVR](https://huggingface.co/Lambent/Mira-v1.23-27B-rlvr),
+a Gemma 3 27B fine-tune for creative writing, roleplay, and problem-solving.
+The llama.cpp entries include the matching F16 vision projector and use a
+32,768-token context by default. The model uses the Gemma license.
+
+Install the Q4_K_M build explicitly:
+
+```bash
+local-ai models install --variant mira-v1.23-27b-rlvr mira-v1.23-27b-rlvr
+```
+
+Use `--variant mira-v1.23-27b-rlvr-q8` for Q8_0. Without `--variant`,
+LocalAI chooses a build based on available memory. Both builds use the
+model's embedded chat template for text and image conversations.
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

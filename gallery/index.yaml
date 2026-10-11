@@ -32271,6 +32271,80 @@
     - filename: yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
       sha256: 7531456d8886419d36ce103b1205cdc820865016bddc0b4671ec9910ba87071f
       uri: huggingface://bartowski/yanolja_YanoljaNEXT-Rosetta-12B-2510-GGUF/yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
+- name: mira-v1.23-27b-rlvr
+  variants:
+    - model: mira-v1.23-27b-rlvr-q8
+  url: github:mudler/LocalAI/gallery/gemma.yaml@master
+  urls:
+    - https://huggingface.co/Lambent/Mira-v1.23-27B-rlvr
+    - https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF
+  description: |
+    Mira v1.23 RLVR is a 27B Gemma 3 fine-tune trained on creative writing,
+    roleplay, and problem-solving scenarios. This Q4_K_M GGUF build includes
+    the F16 vision projector for image input and uses the embedded chat template.
+  license: gemma
+  tags:
+    - llm
+    - chat
+    - vision
+    - gemma
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmproj: Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Mira-v1.23-27B-rlvr.Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.23-27B-rlvr.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF/resolve/2aa3732dd7eee3c37f25d32cbc4b4341fa6fdf60/Mira-v1.23-27B-rlvr.Q4_K_M.gguf
+      sha256: 4de9289481a98bcf0f09a6967f06b758166bb31aca5f185cc6f54fb7a8954705
+    - filename: Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF/resolve/2aa3732dd7eee3c37f25d32cbc4b4341fa6fdf60/Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+      sha256: f71c9725dfe77b30e578c153f4ae207c51a98dbf93990cc4b22c4c693cc5fe71
+
+- name: mira-v1.23-27b-rlvr-q8
+  url: github:mudler/LocalAI/gallery/gemma.yaml@master
+  urls:
+    - https://huggingface.co/Lambent/Mira-v1.23-27B-rlvr
+    - https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF
+  description: |
+    Mira v1.23 RLVR is a 27B Gemma 3 fine-tune trained on creative writing,
+    roleplay, and problem-solving scenarios. This Q8_0 GGUF build includes
+    the F16 vision projector for image input and uses the embedded chat template.
+  license: gemma
+  tags:
+    - llm
+    - chat
+    - vision
+    - gemma
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmproj: Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Mira-v1.23-27B-rlvr.Q8_0.gguf
+  files:
+    - filename: Mira-v1.23-27B-rlvr.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF/resolve/2aa3732dd7eee3c37f25d32cbc4b4341fa6fdf60/Mira-v1.23-27B-rlvr.Q8_0.gguf
+      sha256: 59d284c9b3e5b68adbdbd8c11d205ef9fdc6cda195edf569296e011dd5f9e432
+    - filename: Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Mira-v1.23-27B-rlvr-GGUF/resolve/2aa3732dd7eee3c37f25d32cbc4b4341fa6fdf60/Mira-v1.23-27B-rlvr.mmproj-f16.gguf
+      sha256: f71c9725dfe77b30e578c153f4ae207c51a98dbf93990cc4b22c4c693cc5fe71
+
 - name: mira-v1.7-27b-i1
   url: github:mudler/LocalAI/gallery/gemma.yaml@master
   urls:
