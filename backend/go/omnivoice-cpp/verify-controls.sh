@@ -29,6 +29,6 @@ grep -Fq 'run verify-controls.sh to compile the actual wrapper fixture' "$build/
   "$backend/cpp/gomnivoicecpp.cpp" "$backend/testdata/native/engine.cpp" \
   -o "$build/libomnivoice-controls.so"
 export OMNIVOICE_TEST_LIBRARY="$build/libomnivoice-controls.so"
-go test -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='native-controls' -ginkgo.fail-on-empty
-go test -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='!e2e'
+go test -tags=native_controls -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='native-controls' -ginkgo.fail-on-empty
+go test -tags=native_controls -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='!e2e'
 git diff --check

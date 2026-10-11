@@ -1,3 +1,5 @@
+//go:build native_controls
+
 // SPDX-License-Identifier: MIT
 package main
 
