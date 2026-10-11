@@ -66,11 +66,22 @@ NLOHMANN_INCLUDE=/usr/include CXX=g++ make test-backend-cpp
 
 The standalone runner discovers `dispatch_diagnostics_test.cpp`.
 It intentionally does not discover `dispatch_correlation_fixture.cpp`.
+The helper captures actual standard-error emission, checks the closed record schema,
+and checks distinct UUIDs from concurrent collectors. It checks sentinel exclusion
+and exception propagation with no write-completion event after a throwing writer.
+These checks exercise the collector, not the full gRPC handler.
+
+The helper prints overhead distributions for disabled collection, enabled collection,
+and enabled collection with emission to a local file. Each distribution contains
+101 batch means, with 100 requests per batch. Each request includes construction,
+seven milestones, and destruction. Results are informational, with no timing threshold.
+They exclude metadata validation, gRPC, engine work, and production log transport.
+Compiler optimization and the log destination affect these measurements.
 
 The linked fixture includes the actual adapter translation unit, excluding only
 its `main`. It calls the same array/object/null streaming seam as production.
-It covers role ordering, repeated writes, first-write failure, and null begin
-markers. It also calls the actual handler for auth and no-model errors.
+It covers role ordering, subsequent object and array writes, first-write failure,
+and null begin markers. It also calls the actual handler for auth and no-model errors.
 Its peer-state assertions are not proof of handler cancellation or slot cleanup.
 Those require an engine-backed cancellation test with the matched dependencies.
 

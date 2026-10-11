@@ -49,6 +49,12 @@ int main() {
                         dispatch_stream_result(content, nullptr, build, attach, write, peer, trace);
                         assert(writes == previous_writes + 1);
                         assert(trace.size() == (enabled ? 3u : 0u));
+                        const int previous_attachments = attachments;
+                        dispatch_stream_result(json::array({role, content}), nullptr,
+                            build, attach, write, peer, trace);
+                        assert(writes == previous_writes + 3);
+                        assert(attachments == previous_attachments + 1);
+                        assert(trace.size() == (enabled ? 3u : 0u));
                     }
                     // This checks peer state only, not handler cancellation or
                     // server_response_reader cleanup. Those need an engine fixture.
