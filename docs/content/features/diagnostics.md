@@ -211,6 +211,64 @@ Malformed JSON returns a parsing error without fallback discovery.
 Each failover attempt binds fresh input from the replayed body.
 Other API routes retain their existing extraction order.
 
+### Passive gRPC dispatch observations
+
+Request timing observes the existing `ModelMetadata`, `Health`, `Predict`, and
+`PredictStream` calls. Each call still owns a lazy `grpc.NewClient` and closes it
+at its original boundary. Diagnostics does not connect early, wait for readiness,
+force headers, replace the dialer, pool connections, or send additional RPCs.
+Resolver, proxy, credentials, and retry configuration remain unchanged.
+
+The outgoing wire format is one lowercase metadata key, `localai-diagnostic-id`,
+with one canonical lowercase RFC4122 UUID v4 value (36 ASCII characters, hyphens
+at positions 9, 14, 19, and 24). It is the server-generated request identity, not
+an incoming HTTP header. Outgoing metadata is copied and only this key replaced;
+authentication metadata and per-RPC credentials remain intact. Disabled or
+unobserved requests leave metadata unchanged. No attempt key is transmitted in
+this version: worker correlation is request-level; frontend numeric attempts
+remain local. Workers must independently opt in and validate the UUID before
+recording it; this metadata is not authentication.
+
+`client_lock_wait` measures only acquisition of the existing non-parallel client
+lock. `rpc` and its allowlisted method child (`rpc_metadata`, `rpc_health`,
+`rpc_predict`, `rpc_predict_stream`) start at gRPC TagRPC and end at stats End,
+with count one per observed transport RPC attempt. Transparent retries may create
+multiple observations; these are not extra diagnostic RPCs. Durations include
+transport waiting and overlap; do not add parent and child durations.
+
+`rpc_sent` is the first outgoing payload stats observation, not proof of worker
+receipt. `rpc_headers` and `rpc_first_message` observe the first incoming headers
+and decoded payload without forcing reads. `transport_ready` is the first actual
+ConnBegin observation for that ClientConn, not NewClient construction or a TCP
+connection attempt. A request-local opaque numeric connection identity is captured
+by the handler because connection contexts do not carry RPC contexts. Reconnects
+share the ClientConn identity; readiness is a first milestone, not a transport
+inventory. `dial_attempt` with outcome `skipped` explicitly means TCP dial-attempt
+detail is unavailable. TCP, proxy, TLS and HTTP/2 handshake substeps are not
+separately measurable with these passive hooks. Despite the legacy phase name,
+ConnBegin does not guarantee peer HTTP/2 handshake completion or RPC readiness.
+
+| Phase | Measured boundary |
+|-------|-------------------|
+| `rpc_sent` | First outgoing payload stats observation. |
+| `rpc_health` | Health transport RPC attempt through stats End. |
+| `rpc_metadata` | ModelMetadata transport RPC attempt through stats End. |
+| `rpc_predict` | Predict transport RPC attempt through stats End. |
+| `rpc_predict_stream` | PredictStream transport RPC attempt through stats End. |
+
+Actual canceled and deadline-exceeded gRPC status errors use outcome `canceled`;
+other errors use `error`, with no error text recorded. EOF is successful stream
+completion. These transport events are not frontend callback or SSE delivery
+measurements. No addresses, headers, payloads or credentials enter events.
+
+Collection is bounded by the dispatch lifetime budget. After the wrapper releases
+its locks and closes its connection, an asynchronous drain owns completion;
+late stats producers schedule a coalesced subsequent drain. Sinks never execute
+on transport callbacks and no inference work waits for diagnostic flushing.
+Consequently events may be logged after the HTTP summary or caller return, and
+process termination can lose pending events. Use offsets and identities rather
+than log order, and account for sink time and dropped events.
+
 ### Dispatch contract for Go integrations
 
 HTTP admission records `http_entry` at the first application middleware and an

@@ -33,6 +33,11 @@ const (
 	PhaseDialAttempt           Phase = "dial_attempt"
 	PhaseTransportReady        Phase = "transport_ready"
 	PhaseRPC                   Phase = "rpc"
+	PhaseRPCSent               Phase = "rpc_sent"
+	PhaseRPCHealth             Phase = "rpc_health"
+	PhaseRPCMetadata           Phase = "rpc_metadata"
+	PhaseRPCPredict            Phase = "rpc_predict"
+	PhaseRPCPredictStream      Phase = "rpc_predict_stream"
 	PhaseRPCHeaders            Phase = "rpc_headers"
 	PhaseRPCFirstMessage       Phase = "rpc_first_message"
 	PhaseWorkerReceive         Phase = "worker_receive"
@@ -56,7 +61,7 @@ func validDispatchPhase(p Phase) bool {
 		PhaseMetadataNonempty, PhaseMetadataMarkerAbsent, PhaseMetadataMarkerPresent,
 		PhaseInflightIncrement, PhaseInflightDecrement,
 		PhaseReservationRelease, PhaseClientLockWait, PhaseDialAttempt,
-		PhaseTransportReady, PhaseRPC, PhaseRPCHeaders, PhaseRPCFirstMessage,
+		PhaseTransportReady, PhaseRPC, PhaseRPCSent, PhaseRPCHealth, PhaseRPCMetadata, PhaseRPCPredict, PhaseRPCPredictStream, PhaseRPCHeaders, PhaseRPCFirstMessage,
 		PhaseWorkerReceive, PhaseWorkerPreparation, PhaseWorkerSubmit, PhaseWorkerWrite,
 		PhaseFrontendMessage, PhaseFrontendCallback, PhaseSSERole, PhaseSSEContent,
 		PhaseSSEReasoning, PhaseSSEFlush, PhaseDispatchSummary:

@@ -69,7 +69,7 @@ func (c *Client) wdMark() func() {
 
 // dial creates a gRPC client connection with common options.
 // If c.token is set, bearer token credentials are included.
-func (c *Client) dial() (*grpc.ClientConn, error) {
+func (c *Client) dial(extra ...grpc.DialOption) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
@@ -80,17 +80,17 @@ func (c *Client) dial() (*grpc.ClientConn, error) {
 	if c.token != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(bearerToken{token: c.token}))
 	}
+	opts = append(opts, extra...)
 	return grpc.NewClient(c.address, opts...)
 }
 
 func (c *Client) HealthCheck(ctx context.Context) (bool, error) {
-	if !c.parallel {
-		c.opMutex.Lock()
-		defer c.opMutex.Unlock()
-	}
+	ctx, observation := observeRPC(ctx)
+	defer observation.finish()
+	defer c.diagnosticLock(ctx)()
 	c.setBusy(true)
 	defer c.setBusy(false)
-	conn, err := c.dial()
+	conn, err := c.dial(observation.options()...)
 	if err != nil {
 		return false, err
 	}
@@ -132,14 +132,13 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 }
 
 func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
-	if !c.parallel {
-		c.opMutex.Lock()
-		defer c.opMutex.Unlock()
-	}
+	ctx, observation := observeRPC(ctx)
+	defer observation.finish()
+	defer c.diagnosticLock(ctx)()
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, err := c.dial(observation.options()...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,14 +166,13 @@ func (c *Client) LoadModel(ctx context.Context, in *pb.ModelOptions, opts ...grp
 }
 
 func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f func(reply *pb.Reply), opts ...grpc.CallOption) error {
-	if !c.parallel {
-		c.opMutex.Lock()
-		defer c.opMutex.Unlock()
-	}
+	ctx, observation := observeRPC(ctx)
+	defer observation.finish()
+	defer c.diagnosticLock(ctx)()
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, err := c.dial(observation.options()...)
 	if err != nil {
 		return err
 	}
@@ -1409,14 +1407,13 @@ func (c *Client) Free(ctx context.Context) error {
 }
 
 func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...grpc.CallOption) (*pb.ModelMetadataResponse, error) {
-	if !c.parallel {
-		c.opMutex.Lock()
-		defer c.opMutex.Unlock()
-	}
+	ctx, observation := observeRPC(ctx)
+	defer observation.finish()
+	defer c.diagnosticLock(ctx)()
 	c.setBusy(true)
 	defer c.setBusy(false)
 	defer c.wdMark()()
-	conn, err := c.dial()
+	conn, err := c.dial(observation.options()...)
 	if err != nil {
 		return nil, err
 	}
