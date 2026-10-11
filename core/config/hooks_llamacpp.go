@@ -15,6 +15,10 @@ func init() {
 }
 
 func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
+	llamaCppDefaultsWithParser(cfg, modelPath, gguf.ParseGGUFFile)
+}
+
+func llamaCppDefaultsWithParser(cfg *ModelConfig, modelPath string, parse func(string, ...gguf.GGUFReadOption) (*gguf.GGUFFile, error)) {
 	if os.Getenv("LOCALAI_DISABLE_GUESSING") == "true" {
 		xlog.Debug("llamaCppDefaults: guessing disabled")
 		return
@@ -22,8 +26,6 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 	if modelPath == "" {
 		return
 	}
-
-	guessPath := filepath.Join(modelPath, cfg.ModelFileName())
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -41,6 +43,13 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 		}
 	}()
 
+	// Aliases have no model file, but still need the context fallback above.
+	if cfg.IsAlias() {
+		return
+	}
+
+	guessPath := filepath.Join(modelPath, cfg.ModelFileName())
+
 	// Startup parses every model's GGUF header to guess defaults. We only need
 	// scalar metadata (architecture, head/ff counts, chat_template, token IDs,
 	// MTP head) plus array *lengths* — never the array *contents*. Two options
@@ -55,7 +64,7 @@ func llamaCppDefaults(cfg *ModelConfig, modelPath string) {
 	//     -> 8 for a 256k-token vocab), the dominant cost on slow filesystems.
 	//
 	// The mapping is released when ParseGGUFFile returns.
-	f, err := gguf.ParseGGUFFile(guessPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	f, err := parse(guessPath, gguf.UseMMap(), gguf.SkipLargeMetadata())
 	if err == nil {
 		guessGGUFFromFile(cfg, f, 0)
 	}
