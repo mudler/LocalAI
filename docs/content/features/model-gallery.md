@@ -187,6 +187,23 @@ To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q
 Both configurations use the embedded chat template and default to 32,768 context tokens.
 The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
 
+## Index-Translate-9B image translation
+
+`index-translate-9b-vision` provides the official Q4_K_M weights and Q8_0
+vision projector for text and image translation. LocalAI can select the Q8_0
+variant when it fits the host. Both builds use llama.cpp, a 32,768-token
+context, greedy decoding, and the embedded chat template with thinking disabled.
+
+```bash
+local-ai models install index-translate-9b-vision
+local-ai models install --variant index-translate-9b-vision-q8 index-translate-9b-vision
+```
+
+Select the installed model in chat, attach an image, and ask for a translation
+into the target language. The existing `index-translate-9b` entries remain
+available for text-only use. See the [official model card](https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF)
+for supported translation tasks and prompt examples.
+
 ## Qwen3.8-27B Agention Precision
 
 The gallery includes Agention Precision IQ4_XS and Q4_K_M GGUF builds of
