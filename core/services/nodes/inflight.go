@@ -12,6 +12,8 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // InFlightTrackingClient wraps a grpc.Backend and tracks active inference requests
@@ -68,7 +70,8 @@ func (c *InFlightTrackingClient) OnFirstComplete(fn func()) {
 }
 
 func dispatchOutcome(err error) diagnostics.Outcome {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+		status.Code(err) == codes.Canceled || status.Code(err) == codes.DeadlineExceeded {
 		return diagnostics.OutcomeCanceled
 	}
 	if err != nil {

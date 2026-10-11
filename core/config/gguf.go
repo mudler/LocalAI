@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -182,19 +184,29 @@ func DetectThinkingSupportFromBackend(ctx context.Context, cfg *ModelConfig, bac
 	metadata, err := backendClient.ModelMetadata(ctx, modelOptions)
 	if err != nil {
 		outcome = diagnostics.OutcomeError
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+			status.Code(err) == codes.Canceled || status.Code(err) == codes.DeadlineExceeded {
 			outcome = diagnostics.OutcomeCanceled
 		}
 		xlog.Warn("[gguf] DetectThinkingSupportFromBackend: failed to get model metadata", "error", err)
 		return
 	}
 
-	// Empty describes the protobuf result, not whether config defaults changed.
+	// Response emptiness and marker presence answer different questions: unrelated
+	// fields can be populated while the marker remains absent. Avoid traversing
+	// the protobuf solely for diagnostics when collection is disabled.
 	// The concrete gRPC client owns actual RPC invocation events.
-	if metadata == nil || proto.Size(metadata) == 0 {
-		scope.MarkOnce(diagnostics.PhaseMetadataEmpty, diagnostics.OutcomeOK)
-	} else {
-		scope.MarkOnce(diagnostics.PhaseMetadataNonempty, diagnostics.OutcomeOK)
+	if diagnostics.Enabled(ctx) {
+		if metadata == nil || proto.Size(metadata) == 0 {
+			scope.MarkOnce(diagnostics.PhaseMetadataEmpty, diagnostics.OutcomeOK)
+		} else {
+			scope.MarkOnce(diagnostics.PhaseMetadataNonempty, diagnostics.OutcomeOK)
+		}
+		if metadata.GetMediaMarker() == "" {
+			scope.MarkOnce(diagnostics.PhaseMetadataMarkerAbsent, diagnostics.OutcomeOK)
+		} else {
+			scope.MarkOnce(diagnostics.PhaseMetadataMarkerPresent, diagnostics.OutcomeOK)
+		}
 	}
 	if metadata != nil {
 		// The multimodal media marker is backend-controlled (llama.cpp may pick a

@@ -10,40 +10,42 @@ import (
 )
 
 const (
-	PhaseHTTPEntry          Phase = "http_entry"
-	PhaseAuth               Phase = "auth"
-	PhaseBodyRead           Phase = "body_read"
-	PhaseTraceStart         Phase = "trace_start"
-	PhaseRoute              Phase = "route"
-	PhaseRouteRevision      Phase = "route_revision"
-	PhaseReservation        Phase = "reservation"
-	PhaseHealthProbe        Phase = "health_probe"
-	PhaseHealthCache        Phase = "health_cache"
-	PhaseLastUsed           Phase = "last_used"
-	PhaseMetadataDecision   Phase = "metadata_decision"
-	PhaseMetadataRPC        Phase = "metadata_rpc"
-	PhaseMetadataEmpty      Phase = "metadata_empty"
-	PhaseMetadataNonempty   Phase = "metadata_nonempty"
-	PhaseInflightIncrement  Phase = "inflight_increment"
-	PhaseInflightDecrement  Phase = "inflight_decrement"
-	PhaseReservationRelease Phase = "reservation_release"
-	PhaseClientLockWait     Phase = "client_lock_wait"
-	PhaseDialAttempt        Phase = "dial_attempt"
-	PhaseTransportReady     Phase = "transport_ready"
-	PhaseRPC                Phase = "rpc"
-	PhaseRPCHeaders         Phase = "rpc_headers"
-	PhaseRPCFirstMessage    Phase = "rpc_first_message"
-	PhaseWorkerReceive      Phase = "worker_receive"
-	PhaseWorkerPreparation  Phase = "worker_preparation"
-	PhaseWorkerSubmit       Phase = "worker_submit"
-	PhaseWorkerWrite        Phase = "worker_write"
-	PhaseFrontendMessage    Phase = "frontend_message"
-	PhaseFrontendCallback   Phase = "frontend_callback"
-	PhaseSSERole            Phase = "sse_role"
-	PhaseSSEContent         Phase = "sse_content"
-	PhaseSSEReasoning       Phase = "sse_reasoning"
-	PhaseSSEFlush           Phase = "sse_flush"
-	PhaseDispatchSummary    Phase = "dispatch_summary"
+	PhaseHTTPEntry             Phase = "http_entry"
+	PhaseAuth                  Phase = "auth"
+	PhaseBodyRead              Phase = "body_read"
+	PhaseTraceStart            Phase = "trace_start"
+	PhaseRoute                 Phase = "route"
+	PhaseRouteRevision         Phase = "route_revision"
+	PhaseReservation           Phase = "reservation"
+	PhaseHealthProbe           Phase = "health_probe"
+	PhaseHealthCache           Phase = "health_cache"
+	PhaseLastUsed              Phase = "last_used"
+	PhaseMetadataDecision      Phase = "metadata_decision"
+	PhaseMetadataRPC           Phase = "metadata_rpc"
+	PhaseMetadataEmpty         Phase = "metadata_empty"
+	PhaseMetadataMarkerAbsent  Phase = "metadata_marker_absent"
+	PhaseMetadataMarkerPresent Phase = "metadata_marker_present"
+	PhaseMetadataNonempty      Phase = "metadata_nonempty"
+	PhaseInflightIncrement     Phase = "inflight_increment"
+	PhaseInflightDecrement     Phase = "inflight_decrement"
+	PhaseReservationRelease    Phase = "reservation_release"
+	PhaseClientLockWait        Phase = "client_lock_wait"
+	PhaseDialAttempt           Phase = "dial_attempt"
+	PhaseTransportReady        Phase = "transport_ready"
+	PhaseRPC                   Phase = "rpc"
+	PhaseRPCHeaders            Phase = "rpc_headers"
+	PhaseRPCFirstMessage       Phase = "rpc_first_message"
+	PhaseWorkerReceive         Phase = "worker_receive"
+	PhaseWorkerPreparation     Phase = "worker_preparation"
+	PhaseWorkerSubmit          Phase = "worker_submit"
+	PhaseWorkerWrite           Phase = "worker_write"
+	PhaseFrontendMessage       Phase = "frontend_message"
+	PhaseFrontendCallback      Phase = "frontend_callback"
+	PhaseSSERole               Phase = "sse_role"
+	PhaseSSEContent            Phase = "sse_content"
+	PhaseSSEReasoning          Phase = "sse_reasoning"
+	PhaseSSEFlush              Phase = "sse_flush"
+	PhaseDispatchSummary       Phase = "dispatch_summary"
 )
 
 func validDispatchPhase(p Phase) bool {
@@ -51,7 +53,8 @@ func validDispatchPhase(p Phase) bool {
 	case PhaseHTTPEntry, PhaseAuth, PhaseBodyRead, PhaseTraceStart, PhaseRoute,
 		PhaseRouteRevision, PhaseReservation, PhaseHealthProbe, PhaseHealthCache,
 		PhaseLastUsed, PhaseMetadataDecision, PhaseMetadataRPC, PhaseMetadataEmpty,
-		PhaseMetadataNonempty, PhaseInflightIncrement, PhaseInflightDecrement,
+		PhaseMetadataNonempty, PhaseMetadataMarkerAbsent, PhaseMetadataMarkerPresent,
+		PhaseInflightIncrement, PhaseInflightDecrement,
 		PhaseReservationRelease, PhaseClientLockWait, PhaseDialAttempt,
 		PhaseTransportReady, PhaseRPC, PhaseRPCHeaders, PhaseRPCFirstMessage,
 		PhaseWorkerReceive, PhaseWorkerPreparation, PhaseWorkerSubmit, PhaseWorkerWrite,

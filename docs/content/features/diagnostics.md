@@ -343,8 +343,10 @@ that a transport hook can observe it.
 | `last_used` | Last-used update. |
 | `metadata_decision` | Decision to probe metadata. |
 | `metadata_rpc` | Actual metadata RPC and call count. |
-| `metadata_empty` | Categorical empty metadata result. |
-| `metadata_nonempty` | Categorical nonempty metadata result. |
+| `metadata_empty` | Nil or zero-size protobuf metadata response. |
+| `metadata_nonempty` | Metadata response with any populated protobuf field. |
+| `metadata_marker_absent` | Successful metadata result with an empty media marker (including nil responses). |
+| `metadata_marker_present` | Successful metadata result with a nonempty media marker; never includes its content. |
 | `inflight_increment` | Synchronous tracking increment. |
 | `inflight_decrement` | Completion tracking decrement. |
 | `reservation_release` | Reservation release, separate from decrement. |
@@ -365,3 +367,17 @@ that a transport hook can observe it.
 | `sse_reasoning` | First nonempty reasoning event. |
 | `sse_flush` | Flush attempt through completion. |
 | `dispatch_summary` | Cumulative collection drops, emissions, and measured sink time. |
+
+A nonempty metadata response does not imply marker presence. For
+example, `SupportsThinking: true` with an empty media marker emits both
+`metadata_nonempty` and `metadata_marker_absent`. These observations describe
+each successful probe, not cached completion or changes to configuration.
+Neither observation is emitted on a failed probe. Marker strings and unrelated
+metadata content are never included in diagnostic events. Protobuf-size checks
+are skipped when diagnostics are disabled; probe counts and behavior are unchanged.
+
+Metadata decisions and routing/tracking operations classify both context
+cancellation/deadline errors and gRPC `Canceled`/`DeadlineExceeded` status errors
+(including wrapped errors) as `canceled`. Other failures remain `error`.
+This classification only changes diagnostic outcomes, not returned errors,
+health decisions, retries, reservations, or timeouts.
