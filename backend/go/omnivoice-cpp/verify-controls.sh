@@ -14,6 +14,17 @@ fi
 build=$(mktemp -d "$root/.omnivoice-controls.XXXXXX")
 trap 'rm -rf "$build"' EXIT
 backend="$root/backend/go/omnivoice-cpp"
+# Ordinary package tests must not depend on the optional native fixture.
+env -u OMNIVOICE_TEST_LIBRARY go test -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='!e2e' -ginkgo.fail-on-empty
+# Selecting native specs without their fixture must fail, not silently skip.
+if env -u OMNIVOICE_TEST_LIBRARY go test -tags=native_controls -mod=readonly -count=1 -timeout=60s ./backend/go/omnivoice-cpp -ginkgo.label-filter='native-controls' -ginkgo.fail-on-empty -ginkgo.no-color >"$build/missing-fixture.log" 2>&1; then
+  cat "$build/missing-fixture.log"
+  echo 'Native controls unexpectedly passed without their fixture.' >&2
+  exit 1
+fi
+cat "$build/missing-fixture.log"
+# Do not mistake compilation errors or an empty selection for the expected failure.
+grep -Fq 'run verify-controls.sh to compile the actual wrapper fixture' "$build/missing-fixture.log"
 "${CXX:-c++}" -std=c++17 -shared -fPIC -I"$backend/testdata/native" \
   "$backend/cpp/gomnivoicecpp.cpp" "$backend/testdata/native/engine.cpp" \
   -o "$build/libomnivoice-controls.so"
