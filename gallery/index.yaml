@@ -4143,6 +4143,96 @@
     - filename: llama-cpp/mmproj/ornith-1.0-9b/mmproj-F16.gguf
       uri: huggingface://unsloth/Ornith-1.0-9B-GGUF/mmproj-F16.gguf
       sha256: 013638437d619467b92412e6efa281f706132f05ba6d0f4733e50f812c7e32fa
+- name: qwen3.5-9b-kimi-k3-distilled-q4
+  variants:
+    - model: qwen3.5-9b-kimi-k3-distilled-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/khazarai/Qwen3.5-9B-Kimi-k3-Distilled
+    - https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF
+  description: |
+    A 9B Qwen3.5 fine-tune trained on Kimi K3 coding, debugging, and
+    tool-use traces. This Q4_K_M GGUF build uses llama.cpp and the embedded
+    chat template, with an F16 vision projector and a 32,768-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-11"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF/resolve/5172f92801f0bec7be7a7c309c4acc2331190004/Qwen3.5-9B-Kimi-k3-Distilled.Q4_K_M.gguf
+      sha256: ff0649d92045b564daf4e0b9b0e6b21c6b83b2b1b59448554cf778ad206695f7
+    - filename: llama-cpp/mmproj/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF/resolve/5172f92801f0bec7be7a7c309c4acc2331190004/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+      sha256: 313847bd5f5b54f1ee2224850e8046bb83b0cbcad86e588581b6d6dd8d239619
+- name: qwen3.5-9b-kimi-k3-distilled-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/khazarai/Qwen3.5-9B-Kimi-k3-Distilled
+    - https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF
+  description: |
+    A 9B Qwen3.5 fine-tune trained on Kimi K3 coding, debugging, and
+    tool-use traces. This Q8_0 GGUF build uses llama.cpp and the embedded
+    chat template, with an F16 vision projector and a 32,768-token context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-11"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF/resolve/5172f92801f0bec7be7a7c309c4acc2331190004/Qwen3.5-9B-Kimi-k3-Distilled.Q8_0.gguf
+      sha256: f8079d4f29c183ffe72a245eedefcf715e7df44144ca906e8436de44a7ac2a78
+    - filename: llama-cpp/mmproj/qwen3.5-9b-kimi-k3-distilled/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Qwen3.5-9B-Kimi-k3-Distilled-GGUF/resolve/5172f92801f0bec7be7a7c309c4acc2331190004/Qwen3.5-9B-Kimi-k3-Distilled.mmproj-f16.gguf
+      sha256: 313847bd5f5b54f1ee2224850e8046bb83b0cbcad86e588581b6d6dd8d239619
 - &ornith-1-5-9b
   name: ornith-1.5-9b-q4
   variants:

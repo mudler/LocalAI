@@ -179,6 +179,24 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## Qwen3.5 9B Kimi K3 Distilled
+
+[Qwen3.5-9B-Kimi-k3-Distilled](https://huggingface.co/khazarai/Qwen3.5-9B-Kimi-k3-Distilled)
+is a Qwen3.5 fine-tune trained on coding, debugging, and tool-use traces.
+The gallery groups Q4_K_M and Q8_0 GGUF builds for llama.cpp. Both include
+an F16 vision projector and use the embedded chat template with a
+32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.5-9b-kimi-k3-distilled-q4
+```
+
+Pass `--variant qwen3.5-9b-kimi-k3-distilled-q4` or
+`--variant qwen3.5-9b-kimi-k3-distilled-q8` to select a specific build.
+The weights and projector use pinned download URLs and SHA256 checksums.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
