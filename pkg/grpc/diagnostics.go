@@ -23,11 +23,24 @@ var diagnosticFlushSlots = make(chan struct{}, maxDiagnosticFlushes)
 var diagnosticFlushDrops atomic.Uint64
 
 // DiagnosticFlushDrops returns the process-local cumulative number of gRPC
-// handlers whose asynchronous drain was abandoned on admission saturation or
+// handlers or frontend completion submissions whose drain was abandoned on
+// admission saturation or
 // after exhausting its bounded redrain passes.
 // It does not call a sink and remains available while sinks are stalled.
-// Counts handlers, not events or unique requests; resets on process restart.
+// Counts handlers/submissions, not events or unique requests; resets on restart.
 func DiagnosticFlushDrops() uint64 { return diagnosticFlushDrops.Load() }
+
+// FlushDiagnosticsAsync requests a completion drain using the same bounded,
+// zero-queue admission as RPC diagnostics. Call after the caller's final event;
+// detached producers must request their own drain when they actually finish.
+// Saturation is included in DiagnosticFlushDrops.
+func FlushDiagnosticsAsync(ctx context.Context) {
+	if d.RequestID(ctx) == "" {
+		return
+	}
+	h := &rpcDiagnostics{ctx: ctx}
+	h.finish()
+}
 
 const diagnosticMetadataKey = "localai-diagnostic-id"
 

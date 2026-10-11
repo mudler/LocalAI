@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/diagnostics"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -205,6 +206,7 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 
 			return err
 		}
+		diagnostics.Dispatch(ctx).MarkOnce(diagnostics.PhaseFrontendMessage, diagnostics.OutcomeOK)
 		f(reply)
 	}
 

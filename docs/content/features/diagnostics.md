@@ -440,12 +440,12 @@ that a transport hook can observe it.
 | `worker_preparation` | Worker preparation. |
 | `worker_submit` | Task submission. |
 | `worker_write` | First response write attempt through completion, not client delivery. |
-| `frontend_message` | First frontend received message. |
-| `frontend_callback` | First frontend callback. |
-| `sse_role` | Role-only SSE event. |
-| `sse_content` | First nonempty content event. |
-| `sse_reasoning` | First nonempty reasoning event. |
-| `sse_flush` | Flush attempt through completion. |
+| `frontend_message` | First successful application `PredictStream.Recv`, before the reply callback. |
+| `frontend_callback` | First token callback invocation, including prefixes and empty chunks. |
+| `sse_role` | First serialized delta with a nonempty role, before its write attempt. |
+| `sse_content` | First serialized delta with nonempty content, before its write attempt. |
+| `sse_reasoning` | First serialized delta with nonempty reasoning, before its write attempt. |
+| `sse_flush` | First existing HTTP flush call, from invocation to return. |
 | `dispatch_summary` | Cumulative collection drops, emissions, and measured sink time. |
 
 A nonempty metadata response does not imply marker presence. For
@@ -461,3 +461,40 @@ cancellation/deadline errors and gRPC `Canceled`/`DeadlineExceeded` status error
 (including wrapped errors) as `canceled`. Other failures remain `error`.
 This classification only changes diagnostic outcomes, not returned errors,
 health decisions, retries, reservations, or timeouts.
+
+### Frontend stream boundaries
+
+`frontend_message` is separate from `rpc_first_message`, which observes the
+first gRPC stats `InPayload`. The application milestone follows a successful
+`Recv`; EOF and receive errors do not produce it. No receive, warmup, or flush
+is added. A reply prefix can invoke `frontend_callback` before the first
+received message. Callback observations do not include token text or usage.
+
+The SSE milestones describe write attempts, not successful delivery. Role
+chunks and tool arguments do not count as content. A delta can contain both
+role and content. Content and reasoning have independent first milestones.
+The handler observes streamed, deferred-tool, and automatic-fallback deltas
+at the same write boundary. It observes each milestone once across inference
+iterations. Cloud-proxy passthrough does not use these local-stream boundaries.
+
+`sse_flush` has start and end events around the first existing flush, including
+an error-only or terminal flush. Echo's flush API returns no error. An `ok`
+end means the call returned, not that a remote client received the data.
+A write failure before any flush produces no flush milestone.
+
+The HTTP handler and each streaming worker request separate completion drains.
+HTTP unwind does not prove that detached callbacks have finished. A worker
+requests its drain only after its actual producer exits, including cancellation
+and write-failure paths. Instrumentation does not unblock, wait for, or cancel
+producers; existing channel and cancellation behavior remains unchanged.
+
+`grpc.FlushDiagnosticsAsync` shares the gRPC limit of 16 asynchronous owners
+per process, with no waiting queue. Admission happens before goroutine creation.
+Saturated submissions return immediately and increment `DiagnosticFlushDrops`.
+This counter includes each rejected frontend completion submission, not unique
+requests: handler and producer exits can count separately. Disabled requests
+consume no slot. Admitted drains call the sink outside application and stats
+locks. A stalled sink can retain an admitted owner indefinitely, but cannot
+create an unbounded number of owners. Later completion submissions can recover
+after capacity returns. Summaries can precede final producer completion;
+missing events after drops do not establish absent work.

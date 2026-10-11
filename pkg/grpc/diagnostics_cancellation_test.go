@@ -66,6 +66,7 @@ var _ = Describe("Passive dispatch cancellation and ownership", func() {
 		Eventually(func() []d.Event { return events.find(d.PhaseRPC) }).Should(HaveLen(2))
 		Expect(events.find(d.PhaseRPC)[1].Outcome).To(Equal(d.OutcomeCanceled))
 		Expect(events.find(d.PhaseRPCFirstMessage)).To(BeEmpty())
+		Expect(events.find(d.PhaseFrontendMessage)).To(BeEmpty())
 	}, Entry("unary cancellation", false, false), Entry("stream cancellation", true, false), Entry("unary deadline", false, true), Entry("stream deadline", true, true))
 	It("hands late events to a blocked active flush without blocking producers", func() {
 		events := &diagnosticEvents{}

@@ -19,6 +19,7 @@ import (
 	reason "github.com/mudler/LocalAI/pkg/reasoning"
 
 	"github.com/mudler/LocalAI/core/templates"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 
@@ -495,6 +496,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		switch {
 		case toStream:
+			streamDiagnosticContext := input.Context
+			streamDiagnostic := newStreamDiagnostics(streamDiagnosticContext)
+			defer grpc.FlushDiagnosticsAsync(streamDiagnosticContext)
 
 			xlog.Debug("Stream request received")
 			c.Response().Header().Set("Content-Type", "text/event-stream")
@@ -514,7 +518,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					if err := middleware.CompressChatRequest(c, compressor); err != nil {
 						fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":%q,\"type\":\"context_compression_error\"}}\n\n", err.Error())
 						fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-						c.Response().Flush()
+						streamDiagnostic.flush(c.Response().Flush)
 						return nil
 					}
 					if !config.TemplateConfig.UseTokenizerTemplate {
@@ -527,6 +531,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				ended := make(chan streamWorkerResult, 1)
 
 				go func() {
+					defer grpc.FlushDiagnosticsAsync(streamDiagnosticContext)
 					if !shouldUseFn {
 						u, err := processStream(predInput, input, config, cl, startupOptions, ml, responses, id, created)
 						ended <- streamWorkerResult{usage: u, err: err}
@@ -595,6 +600,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							input.Cancel()
 							continue
 						}
+						streamDiagnostic.chunk(ev)
 						xlog.Debug("Sending chunk", "chunk", string(respData))
 						_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
 						if err != nil {
@@ -603,7 +609,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							return err
 						}
 						wroteChunk = true
-						c.Response().Flush()
+						streamDiagnostic.flush(c.Response().Flush)
 					case res := <-ended:
 						if res.err == nil {
 							finalUsage = res.usage
@@ -638,7 +644,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 						}
 						fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-						c.Response().Flush()
+						streamDiagnostic.flush(c.Response().Flush)
 
 						return nil
 					}
@@ -700,7 +706,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							}
 							if mcpEventData, err := json.Marshal(mcpEvent); err == nil {
 								fmt.Fprintf(c.Response().Writer, "data: %s\n\n", mcpEventData)
-								c.Response().Flush()
+								streamDiagnostic.flush(c.Response().Flush)
 							}
 						}
 
@@ -740,8 +746,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Object: "chat.completion.chunk",
 						}
 						respData, _ := json.Marshal(toolCallMsg)
+						streamDiagnostic.chunk(toolCallMsg)
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
-						c.Response().Flush()
+						streamDiagnostic.flush(c.Response().Flush)
 						toolsCalled = true
 					}
 				}
@@ -798,14 +805,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 
 				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-				c.Response().Flush()
+				streamDiagnostic.flush(c.Response().Flush)
 				xlog.Debug("Stream ended")
 				return nil
 			} // end MCP stream iteration loop
 
 			// Safety fallback
 			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
-			c.Response().Flush()
+			streamDiagnostic.flush(c.Response().Flush)
 			return nil
 
 		// no streaming mode

@@ -256,6 +256,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		}
 
 		if tokenCallback != nil {
+			tokenCallback = observeTokenCallback(ctx, tokenCallback)
 
 			if c.TemplateConfig.ReplyPrefix != "" {
 				tokenCallback(c.TemplateConfig.ReplyPrefix, tokenUsage)
@@ -542,4 +543,17 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		prediction = strings.TrimSpace(strings.TrimSuffix(prediction, c))
 	}
 	return prediction
+}
+
+// Observe invocation rather than content: prefixes, empty replies, and tool
+// deltas can invoke a callback without producing a content SSE event.
+func observeTokenCallback(ctx context.Context, callback func(string, TokenUsage) bool) func(string, TokenUsage) bool {
+	if diagnostics.RequestID(ctx) == "" {
+		return callback
+	}
+	scope := diagnostics.Dispatch(ctx)
+	return func(token string, usage TokenUsage) bool {
+		scope.MarkOnce(diagnostics.PhaseFrontendCallback, diagnostics.OutcomeOK)
+		return callback(token, usage)
+	}
 }

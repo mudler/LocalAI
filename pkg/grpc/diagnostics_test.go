@@ -82,6 +82,17 @@ var _ = Describe("Passive dispatch diagnostics", func() {
 		var replies []string
 		Expect(client.PredictStream(ctx, &pb.PredictOptions{}, func(r *pb.Reply) { replies = append(replies, string(r.Message)) })).To(Succeed())
 		Expect(replies).To(Equal([]string{"one", "two"}))
+		Eventually(func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			n := 0
+			for _, e := range events {
+				if e.Phase == d.PhaseFrontendMessage {
+					n++
+				}
+			}
+			return n
+		}).Should(Equal(1))
 		backend.mu.Lock()
 		seen := append([]metadata.MD(nil), backend.seen...)
 		methods := append([]string(nil), backend.methods...)

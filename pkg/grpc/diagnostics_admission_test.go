@@ -97,3 +97,57 @@ var _ = Describe("Diagnostic flush admission", func() {
 		Expect(summaries.Load()).To(Equal(int32(d.MaxDispatchEvents+1)), "abandoned handler retried")
 	})
 })
+
+var _ = Describe("Frontend completion drain admission", func() {
+	It("shares RPC slots, drops each saturated completion request, and recovers", func() {
+		Eventually(func() int { return len(diagnosticFlushSlots) }).Should(BeZero())
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() {
+			once.Do(func() { close(release) })
+			Eventually(func() int { return len(diagnosticFlushSlots) }).Should(BeZero())
+		})
+		var entered atomic.Int32
+		recorder := d.NewRecorder(func(d.Event) { entered.Add(1); <-release })
+		before := DiagnosticFlushDrops()
+		for i := 0; i < maxDiagnosticFlushes; i++ {
+			ctx := recorder.Request(context.Background())
+			if i%2 == 0 {
+				_, h := observeRPC(ctx)
+				h.finish()
+			} else {
+				d.Dispatch(ctx).MarkOnce(d.PhaseSSERole, d.OutcomeOK)
+				FlushDiagnosticsAsync(ctx)
+			}
+		}
+		Eventually(entered.Load).Should(Equal(int32(maxDiagnosticFlushes)))
+		for i := 0; i < 32; i++ {
+			ctx := recorder.Request(context.Background())
+			d.Dispatch(ctx).MarkOnce(d.PhaseSSEContent, d.OutcomeOK)
+			FlushDiagnosticsAsync(ctx) // HTTP exit
+			FlushDiagnosticsAsync(ctx) // detached producer exit
+		}
+		FlushDiagnosticsAsync(context.Background())
+		Expect(DiagnosticFlushDrops() - before).To(Equal(uint64(64)))
+		Expect(len(diagnosticFlushSlots)).To(Equal(maxDiagnosticFlushes))
+		once.Do(func() { close(release) })
+		Eventually(func() int { return len(diagnosticFlushSlots) }).Should(BeZero())
+		events := &diagnosticEvents{}
+		ctx := d.NewRecorder(events.add).Request(context.Background())
+		d.Dispatch(ctx).MarkOnce(d.PhaseSSERole, d.OutcomeOK)
+		FlushDiagnosticsAsync(ctx)
+		Eventually(func() []d.Event { return events.find(d.PhaseSSERole) }).Should(HaveLen(1))
+	})
+	It("drains late producers after cancellation and an earlier completion drain", func() {
+		events := &diagnosticEvents{}
+		ctx, cancel := context.WithCancel(d.NewRecorder(events.add).Request(context.Background()))
+		d.Dispatch(ctx).MarkOnce(d.PhaseSSERole, d.OutcomeOK)
+		FlushDiagnosticsAsync(ctx)
+		Eventually(func() []d.Event { return events.find(d.PhaseSSERole) }).Should(HaveLen(1))
+		cancel()
+		d.Dispatch(ctx).MarkOnce(d.PhaseFrontendCallback, d.OutcomeOK)
+		FlushDiagnosticsAsync(ctx)
+		Eventually(func() []d.Event { return events.find(d.PhaseFrontendCallback) }).Should(HaveLen(1))
+		Expect(events.find(d.PhaseSSERole)).To(HaveLen(1))
+	})
+})

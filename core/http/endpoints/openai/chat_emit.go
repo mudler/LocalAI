@@ -1,8 +1,11 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	d "github.com/mudler/LocalAI/pkg/diagnostics"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/schema"
@@ -295,4 +298,48 @@ func buildDeferredToolCallChunks(
 	}
 
 	return out
+}
+
+// streamDiagnostics observes wire-ready deltas, not raw backend text. In
+// particular, tool arguments and role-only chunks are not content milestones.
+type streamDiagnostics struct {
+	scope   d.DispatchScope
+	flushed atomic.Bool
+}
+
+func newStreamDiagnostics(ctx context.Context) *streamDiagnostics {
+	return &streamDiagnostics{scope: d.Dispatch(ctx)}
+}
+func (s *streamDiagnostics) chunk(ev schema.OpenAIResponse) {
+	for _, choice := range ev.Choices {
+		delta := choice.Delta
+		if delta == nil {
+			continue
+		}
+		if delta.Role != "" {
+			s.scope.MarkOnce(d.PhaseSSERole, d.OutcomeOK)
+		}
+		switch content := delta.Content.(type) {
+		case string:
+			if content != "" {
+				s.scope.MarkOnce(d.PhaseSSEContent, d.OutcomeOK)
+			}
+		case *string:
+			if content != nil && *content != "" {
+				s.scope.MarkOnce(d.PhaseSSEContent, d.OutcomeOK)
+			}
+		}
+		if delta.Reasoning != nil && *delta.Reasoning != "" {
+			s.scope.MarkOnce(d.PhaseSSEReasoning, d.OutcomeOK)
+		}
+	}
+}
+func (s *streamDiagnostics) flush(flush func()) {
+	if !s.flushed.CompareAndSwap(false, true) {
+		flush()
+		return
+	}
+	_, end := s.scope.Start(d.PhaseSSEFlush)
+	flush()
+	end(d.OutcomeOK, 1)
 }
