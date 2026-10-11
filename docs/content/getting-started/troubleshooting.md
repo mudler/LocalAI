@@ -60,7 +60,7 @@ Report non-reproduction if matched requests do not reproduce the delay.
 
 ```bash
 chmod +x local-ai-*
-./local-ai-Linux-x86_64 run
+./local-ai-<version>-linux-amd64 run
 ```
 
 If you see "cannot execute binary file: Exec format error", you downloaded the wrong architecture. Verify with:
