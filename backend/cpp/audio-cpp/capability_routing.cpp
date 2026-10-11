@@ -31,6 +31,8 @@ const NamedTask kTaskNames[] = {
     {Task::Svc, "svc"},
     {Task::Midi, "midi"},
     {Task::TurnDetection, "turn"},
+    {Task::WakeWord, "wake"},
+    {Task::AudioClassification, "cls"},
 };
 
 // Accepted on input but never emitted. "spkrec" was this backend's own earlier

@@ -90,6 +90,11 @@ static_assert(kMirror(Task::Svc) == 12, "Task drifted from VoiceTaskKind");
 static_assert(kMirror(Task::Midi) == 13, "Task drifted from VoiceTaskKind");
 static_assert(kMirror(Task::TurnDetection) == 14, "Task drifted from VoiceTaskKind");
 
+static_assert(kEngine(engine::runtime::VoiceTaskKind::WakeWord) == 15);
+static_assert(kEngine(engine::runtime::VoiceTaskKind::AudioClassification) == 16);
+static_assert(kMirror(Task::WakeWord) == 15);
+static_assert(kMirror(Task::AudioClassification) == 16);
+
 static_assert(static_cast<int>(engine::runtime::RunMode::Offline) == 0, "RunMode drifted");
 static_assert(static_cast<int>(engine::runtime::RunMode::Streaming) == 1,
               "engine::runtime::RunMode gained, lost or reordered a member. "
@@ -248,6 +253,8 @@ engine::runtime::VoiceTaskKind to_engine_task(Task task) {
     case Task::Svc:                return K::Svc;
     case Task::Midi:               return K::Midi;
     case Task::TurnDetection:      return K::TurnDetection;
+    case Task::WakeWord:           return K::WakeWord;
+    case Task::AudioClassification: return K::AudioClassification;
     }
     // Unreachable for any valid enumerator. No `default:` label, so -Wswitch
     // still reports a member this switch stops covering.
@@ -272,6 +279,8 @@ Task from_engine_task(engine::runtime::VoiceTaskKind kind) {
     case K::Svc:                return Task::Svc;
     case K::Midi:               return Task::Midi;
     case K::TurnDetection:      return Task::TurnDetection;
+    case K::WakeWord:           return Task::WakeWord;
+    case K::AudioClassification: return Task::AudioClassification;
     }
     return Task::Vad;
 }

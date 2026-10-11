@@ -362,7 +362,7 @@ static void test_names_round_trip() {
                         Task::VoiceCloning, Task::VoiceConversion,
                         Task::SpeechToSpeech, Task::Alignment, Task::VoiceDesign,
                         Task::SpeakerRecognition, Task::Svc, Task::Midi,
-                        Task::TurnDetection};
+                        Task::TurnDetection, Task::WakeWord, Task::AudioClassification};
     for (const Task t : all) {
         Task parsed = Task::Vad;
         const bool ok = parse_task_name(task_name(t), parsed);
@@ -588,7 +588,27 @@ static void test_turn_detection_is_not_vad() {
           "turn detection has an accurate capability diagnostic");
 }
 
+static void test_detection_tasks_are_not_existing_rpcs() {
+    for (const auto *name : {"wake", "cls"}) {
+        Task task = Task::Vad;
+        check(parse_task_name(name, task), "upstream detection task parses");
+        check(std::string(task_name(task)) == name, "detection task name round-trips");
+        Capabilities caps{"detector", {{task, {Mode::Offline}}}};
+        for (const auto rpc : {Rpc::Tts, Rpc::TtsStream, Rpc::AudioTranscription,
+                              Rpc::AudioTranscriptionStream, Rpc::AudioTranscriptionLive,
+                              Rpc::Vad, Rpc::Diarize, Rpc::SoundGeneration, Rpc::AudioTransform}) {
+            check(!resolve_route(rpc, RequestShape{}, caps).ok,
+                  "detection tasks cannot serve an existing RPC");
+            RequestShape pinned;
+            pinned.pinned_task = name;
+            check(!resolve_route(rpc, pinned, caps).ok,
+                  "pinning detection tasks cannot bypass RPC admission");
+        }
+    }
+}
+
 int main() {
+    test_detection_tasks_are_not_existing_rpcs();
     test_turn_detection_is_not_vad();
     test_plain_tts();
     test_tts_with_voice_reference_prefers_cloning();
