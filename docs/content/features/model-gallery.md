@@ -286,6 +286,27 @@ These entries use `stablediffusion-ggml` and include the text encoder, vision pr
 The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
 This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
 
+## B1-9B
+
+B1-9B is a Qwen3.5-based model from Schneewolf Labs for reasoning and tool use.
+The gallery provides Q4_K_M and Q8_0 builds for llama.cpp, both with a Q8_0
+vision projector and an 8192-token default context.
+
+Install the default build, or select Q8_0 explicitly:
+
+```bash
+local-ai models install b1-9b
+local-ai models install --variant b1-9b-q8 b1-9b
+```
+
+Send tool definitions through the API's `tools` field. The publisher recommends
+avoiding a `/think` prompt prefix for tool-result turns. These entries use the
+embedded chat template and do not enable speculative decoding.
+
+See the [model card](https://huggingface.co/schneewolflabs/B1-9B) for training details
+and limitations, and the [GGUF repository](https://huggingface.co/mradermacher/B1-9B-GGUF)
+for quantization files.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.

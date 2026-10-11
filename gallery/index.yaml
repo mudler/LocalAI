@@ -7349,6 +7349,84 @@
     - filename: llama-cpp/models/homura-30b/Homura-30B-Q4_K_M.gguf
       uri: huggingface://hyrelabs/Homura-30B-GGUF/Homura-30B-Q4_K_M.gguf
       sha256: fd4dc394b193ac1cc0f4bb9fb44bff3d6eebd34df62246fc753104c0cc98cc51
+- &b1-9b
+  name: b1-9b
+  variants:
+    - model: b1-9b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/schneewolflabs/B1-9B
+    - https://huggingface.co/mradermacher/B1-9B-GGUF
+  description: |
+    B1-9B is Schneewolf Labs' Qwen3.5-based 9B model for reasoning and tool use.
+    It is trained to produce an answer after reasoning about tool results.
+    This Q4_K_M GGUF build includes the Q8_0 vision projector and uses an
+    8192-token context by default. A Q8_0 variant is also available.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - tools
+    - vision
+  last_checked: "2026-10-11"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/b1-9b/B1-9B.mmproj-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/b1-9b/B1-9B.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/b1-9b/B1-9B.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/B1-9B-GGUF/resolve/80720551357afc6f6933e4de206f9e58e06653a1/B1-9B.Q4_K_M.gguf
+      sha256: 61576c9c0d471d5d4ce5d8a04cad1efac74669eeaa059c49a96a55bc38143786
+    - filename: llama-cpp/mmproj/b1-9b/B1-9B.mmproj-Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/B1-9B-GGUF/resolve/80720551357afc6f6933e4de206f9e58e06653a1/B1-9B.mmproj-Q8_0.gguf
+      sha256: ef20f8a1ce884ddee5155b79d8785bd0400bd0350d5a31dd330cb21c69b09931
+- !!merge <<: *b1-9b
+  name: b1-9b-q8
+  variants: []
+  description: |
+    B1-9B in Q8_0 GGUF format with the Q8_0 vision projector. This variant
+    preserves more weight precision and requires more memory than Q4_K_M.
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/b1-9b/B1-9B.mmproj-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/b1-9b/B1-9B.Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/b1-9b/B1-9B.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/B1-9B-GGUF/resolve/80720551357afc6f6933e4de206f9e58e06653a1/B1-9B.Q8_0.gguf
+      sha256: d43e20632c62748df9d67aaeb336168f383a78021f6e74b2bb9dcf9925116d3f
+    - filename: llama-cpp/mmproj/b1-9b/B1-9B.mmproj-Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/B1-9B-GGUF/resolve/80720551357afc6f6933e4de206f9e58e06653a1/B1-9B.mmproj-Q8_0.gguf
+      sha256: ef20f8a1ce884ddee5155b79d8785bd0400bd0350d5a31dd330cb21c69b09931
 - &qwen3-5-9b-defiant-fable
   name: qwen3.5-9b-defiant-fable-mtp
   variants:
