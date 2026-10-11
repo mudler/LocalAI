@@ -79,7 +79,9 @@ var _ = Describe("realtime client-commit LLM/STT ordering", func() {
 		// With the fix it WAITS for the held STT: no response is created while
 		// the transcription is in flight.
 		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
-		Consistently(tr.countEvents(types.ServerEventTypeResponseCreated), 200*time.Millisecond).Should(BeZero())
+		Consistently(func() int {
+			return tr.countEvents(types.ServerEventTypeResponseCreated)
+		}, 200*time.Millisecond).Should(BeZero())
 
 		// Release the STT; the commit appends its user item and the waiting
 		// response now starts on the real transcript.
