@@ -226,7 +226,10 @@ var _ = Describe("Diagnostics extraction", func() {
 				Expect(ends(diagnostics.PhaseBearerLookup)).To(HaveLen(tc.lookup))
 				Expect(ends(diagnostics.PhaseBodyLookup)).To(HaveLen(1))
 				Expect(ends(diagnostics.PhaseConfigLoadDefaults)).To(HaveLen(1))
-				Expect(ends(diagnostics.PhaseConfigFilter)).NotTo(BeEmpty())
+				// Exact body lookup does not filter configs or enumerate files.
+				// Only the unchanged default and bearer discovery paths do.
+				Expect(ends(diagnostics.PhaseConfigFilter)).To(HaveLen(tc.listing + tc.lookup))
+				Expect(ends(diagnostics.PhaseFSEnumeration)).To(HaveLen(tc.listing + tc.lookup))
 				id := events[0].ID
 				_, err := uuid.Parse(id)
 				Expect(err).NotTo(HaveOccurred())

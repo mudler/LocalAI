@@ -116,3 +116,19 @@ func checkIfModelExistsContext(ctx context.Context, bcl *config.ModelConfigLoade
 
 	return false, nil
 }
+
+// CheckRequestModelExistsContext checks explicit request names literally first.
+// An exact configured name needs no unrelated directory enumeration; selected
+// weights still undergo normal loading checks. Misses retain legacy regex and
+// loose-file discovery, including its errors and raw-weight fallback.
+// General regex existence and model-listing callers should use their existing APIs.
+func CheckRequestModelExistsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string) (bool, error) {
+	return checkRequestModelExistsContext(ctx, bcl, ml, modelName)
+}
+
+func checkRequestModelExistsContext(ctx context.Context, bcl *config.ModelConfigLoader, ml discoveryFiles, modelName string) (bool, error) {
+	if _, exists := bcl.GetModelConfig(modelName); exists {
+		return true, nil
+	}
+	return checkIfModelExistsContext(ctx, bcl, ml, modelName, ALWAYS_INCLUDE)
+}

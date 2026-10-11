@@ -217,7 +217,7 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 			// like diffusers may download these on the fly.
 			if modelName != "" && !strings.Contains(modelName, "/") {
 				endLookup := diagnostics.Begin(ctx, diagnostics.PhaseBodyLookup)
-				exists, existsErr := galleryop.CheckIfModelExistsContext(ctx, re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
+				exists, existsErr := galleryop.CheckRequestModelExistsContext(ctx, re.modelConfigLoader, re.modelLoader, modelName)
 				endLookup(diagnosticOutcome(ctx, existsErr != nil || !exists), 0)
 				if existsErr == nil && !exists {
 					return c.JSON(http.StatusNotFound, schema.ErrorResponse{
