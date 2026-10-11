@@ -59,6 +59,7 @@
 #include "message_content.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
+#include "dispatch_diagnostics.h"
 #include "tts_request_options.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -1493,10 +1494,34 @@ static std::string tts_pcm_f32_to_s16(const std::string & samples) {
 }
 #endif
 
+// Shared by the actual first/subsequent response paths and the linked fixture.
+// Null begin markers must not consume the first-write milestone.
+template<class Build, class Attach, class Write>
+static void dispatch_stream_result(const json & value, server_task_result * raw,
+        Build && build, Attach && attach, Write && write,
+        llama_grpc::StreamPeer & peer, llama_grpc::DispatchDiagnostics & diagnostics) {
+    if (value.is_null()) return;
+    if (value.is_array()) {
+        for (const auto & res : value) {
+            auto reply = build(res, raw);
+            bool is_role_init = res.contains("choices") && !res["choices"].empty() &&
+                res["choices"][0].value("delta", json::object()).contains("role");
+            if (!is_role_init) attach(reply, raw);
+            peer.observe_write(diagnostics.write([&] { return write(reply); }));
+            if (peer.gone()) break;
+        }
+    } else {
+        auto reply = build(value, raw);
+        attach(reply, raw);
+        peer.observe_write(diagnostics.write([&] { return write(reply); }));
+    }
+}
+
 // GRPC Server start
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
+    const bool dispatch_diagnostics_enabled;
     common_params params_base; // Store copy of params_base, set after model load
     // The ModelOptions.Model this process was loaded with. Compared against
     // PredictOptions.ModelIdentity so a request that reached us through a stale
@@ -1505,7 +1530,8 @@ private:
     std::string loaded_model_identity;
 
 public:
-    BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
+    BackendServiceImpl(server_context& ctx) : ctx_server(ctx),
+        dispatch_diagnostics_enabled(llama_grpc::dispatch_opt_in(std::getenv("LOCALAI_WORKER_DIAGNOSTICS"))) {}
 
     // checkModelIdentity mirrors pkg/grpc/server.go and
     // backend/python/common/model_identity.py. Either side being empty means
@@ -1753,6 +1779,8 @@ public:
     }
 
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
+        llama_grpc::DispatchDiagnostics diagnostics(dispatch_diagnostics_enabled,
+            dispatch_diagnostics_enabled ? llama_grpc::dispatch_id(context->client_metadata()) : std::string{}, true);
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
         auto identity = checkModelIdentity(request);
@@ -1760,6 +1788,7 @@ public:
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
+        diagnostics.mark(llama_grpc::DispatchPhase::prepare_start);
         json data = parse_options(true, request, params_base, ctx_server.get_llama_context());
 
 
@@ -2165,7 +2194,10 @@ public:
                 tasks.push_back(std::move(task));
             }
 
+            diagnostics.mark(llama_grpc::DispatchPhase::prepare_end);
+            diagnostics.mark(llama_grpc::DispatchPhase::post_start);
             rd.post_tasks(std::move(tasks));
+            diagnostics.mark(llama_grpc::DispatchPhase::post_end);
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
@@ -2270,28 +2302,8 @@ public:
         // see stream_peer.h for why that matters to everyone else's requests.
         llama_grpc::StreamPeer peer;
 
-        if (first_res_json.is_null()) {
-            // skip the begin-of-stream marker
-        } else if (first_res_json.is_array()) {
-            for (const auto & res : first_res_json) {
-                auto reply = build_reply_from_json(res, first_result.get());
-                // Skip chat deltas for role-init elements (have "role" in
-                // delta but no content/reasoning diffs of their own).
-                bool is_role_init = res.contains("choices") && !res["choices"].empty() &&
-                                    res["choices"][0].value("delta", json::object()).contains("role");
-                if (!is_role_init) {
-                    attach_chat_deltas(reply, first_result.get());
-                }
-                peer.observe_write(writer->Write(reply));
-                if (peer.gone()) {
-                    break;
-                }
-            }
-        } else {
-            auto reply = build_reply_from_json(first_res_json, first_result.get());
-            attach_chat_deltas(reply, first_result.get());
-            peer.observe_write(writer->Write(reply));
-        }
+        dispatch_stream_result(first_res_json, first_result.get(), build_reply_from_json,
+            attach_chat_deltas, [&](const backend::Reply & reply) { return writer->Write(reply); }, peer, diagnostics);
 
         // Process subsequent results
         while (rd.has_next()) {
@@ -2306,27 +2318,8 @@ public:
             }
 
             json res_json = result->to_json();
-            if (res_json.is_null()) {
-                // begin-of-stream marker (see note above) — nothing to emit
-                continue;
-            } else if (res_json.is_array()) {
-                for (const auto & res : res_json) {
-                    auto reply = build_reply_from_json(res, result.get());
-                    bool is_role_init = res.contains("choices") && !res["choices"].empty() &&
-                                        res["choices"][0].value("delta", json::object()).contains("role");
-                    if (!is_role_init) {
-                        attach_chat_deltas(reply, result.get());
-                    }
-                    peer.observe_write(writer->Write(reply));
-                    if (peer.gone()) {
-                        break;
-                    }
-                }
-            } else {
-                auto reply = build_reply_from_json(res_json, result.get());
-                attach_chat_deltas(reply, result.get());
-                peer.observe_write(writer->Write(reply));
-            }
+            dispatch_stream_result(res_json, result.get(), build_reply_from_json,
+                attach_chat_deltas, [&](const backend::Reply & reply) { return writer->Write(reply); }, peer, diagnostics);
         }
 
         // Returning here is what releases the slot: ~server_response_reader()
@@ -3909,6 +3902,7 @@ public:
 };
 
 
+#ifndef LOCALAI_DISPATCH_CORRELATION_FIXTURE
 int main(int argc, char** argv) {
   std::string server_address("localhost:50051");
 
@@ -3981,3 +3975,5 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
+#endif // LOCALAI_DISPATCH_CORRELATION_FIXTURE

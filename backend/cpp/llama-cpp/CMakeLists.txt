@@ -142,3 +142,25 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(stream_peer_test PRIVATE cxx_std_17)
     add_test(NAME stream_peer_test COMMAND stream_peer_test)
 endif()
+
+if(LLAMA_GRPC_BUILD_TESTS)
+    add_executable(dispatch_diagnostics_test dispatch_diagnostics_test.cpp dispatch_diagnostics.h)
+    target_compile_features(dispatch_diagnostics_test PRIVATE cxx_std_17)
+    target_link_libraries(dispatch_diagnostics_test PRIVATE Threads::Threads)
+    add_test(NAME dispatch_diagnostics_test COMMAND dispatch_diagnostics_test)
+
+    # This fixture includes the entire production adapter TU except main.
+    add_executable(dispatch_correlation_fixture dispatch_correlation_fixture.cpp)
+    target_include_directories(dispatch_correlation_fixture PRIVATE ../llava ${CMAKE_SOURCE_DIR})
+    target_link_libraries(dispatch_correlation_fixture PRIVATE ${_LLAMA_COMMON_TARGET} llama mtmd
+        ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto absl::flags_parse
+        gRPC::${_REFLECTION} gRPC::${_GRPC_GRPCPP} protobuf::${_PROTOBUF_LIBPROTOBUF})
+    target_compile_features(dispatch_correlation_fixture PRIVATE cxx_std_17)
+    # Assertions remain active even in runtime-matched Release builds.
+    target_compile_options(dispatch_diagnostics_test PRIVATE -UNDEBUG)
+    target_compile_options(dispatch_correlation_fixture PRIVATE -UNDEBUG)
+    if(TARGET BUILD_INFO)
+        add_dependencies(dispatch_correlation_fixture BUILD_INFO)
+    endif()
+    add_test(NAME dispatch_correlation_fixture COMMAND dispatch_correlation_fixture)
+endif()
