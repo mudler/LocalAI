@@ -62,8 +62,12 @@ int omni_load(const char *model_path, const char *codec_path, int use_fa,
 static void fill_params(ov_tts_params *tp, const char *text, const char *lang,
                         const char *instruct, const float *ref_samples,
                         int ref_n, const char *ref_text, long long seed,
-                        int denoise) {
+                        int denoise, int duration_frames, int postprocess) {
     ov_tts_default_params(tp);
+    if (duration_frames > 0)
+        tp->T_override = duration_frames;
+    if (postprocess >= 0)
+        tp->postproc = postprocess != 0;
     tp->text = text ? text : "";
     tp->lang = lang ? lang : "";
     if (instruct && instruct[0] != '\0')
@@ -81,9 +85,11 @@ static void fill_params(ov_tts_params *tp, const char *text, const char *lang,
 
 float *omni_tts(const char *text, const char *lang, const char *instruct,
                 const float *ref_samples, int ref_n, const char *ref_text,
-                long long seed, int denoise, int *out_n) {
+                long long seed, int denoise, int duration_frames, int postprocess, int *out_n) {
     if (out_n)
         *out_n = 0;
+    if (duration_frames < 0 || duration_frames > 750 || postprocess < -1 || postprocess > 1)
+        return nullptr;
     if (!g_ctx) {
         fprintf(stderr, "[omnivoice-cpp] ERROR: model not loaded\n");
         return nullptr;
@@ -94,7 +100,7 @@ float *omni_tts(const char *text, const char *lang, const char *instruct,
     }
     ov_tts_params tp;
     fill_params(&tp, text, lang, instruct, ref_samples, ref_n, ref_text, seed,
-                denoise);
+                denoise, duration_frames, postprocess);
 
     ov_audio out = {0};
     enum ov_status rc = ov_synthesize(g_ctx, &tp, &out);
@@ -123,8 +129,10 @@ float *omni_tts(const char *text, const char *lang, const char *instruct,
 
 int omni_tts_stream(const char *text, const char *lang, const char *instruct,
                     const float *ref_samples, int ref_n, const char *ref_text,
-                    long long seed, int denoise, omni_pcm_chunk_cb cb,
+                    long long seed, int denoise, int duration_frames, int postprocess, omni_pcm_chunk_cb cb,
                     void *user_data) {
+    if (duration_frames < 0 || duration_frames > 750 || postprocess < -1 || postprocess > 1 || postprocess == 0)
+        return 5;
     if (!g_ctx) {
         fprintf(stderr, "[omnivoice-cpp] ERROR: model not loaded\n");
         return 1;
@@ -139,7 +147,7 @@ int omni_tts_stream(const char *text, const char *lang, const char *instruct,
     }
     ov_tts_params tp;
     fill_params(&tp, text, lang, instruct, ref_samples, ref_n, ref_text, seed,
-                denoise);
+                denoise, duration_frames, postprocess);
     // ov_audio_chunk_cb has the identical signature to omni_pcm_chunk_cb
     // (bool vs int return are ABI-compatible; non-zero == true).
     tp.on_chunk = (ov_audio_chunk_cb)cb;
