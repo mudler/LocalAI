@@ -3,7 +3,6 @@ package launcher
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -22,29 +21,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// Config represents the launcher configuration
-type Config struct {
-	ModelsPath   string `json:"models_path"`
-	BackendsPath string `json:"backends_path"`
-	Address      string `json:"address"`
-	// AutoStart controls whether the launcher starts the LocalAI server as
-	// soon as the launcher itself opens (and right after a fresh install).
-	// Unset means enabled: launching the app must yield a serving endpoint,
-	// which is what the quickstart docs promise. The JSON key is deliberately
-	// not the legacy "auto_start": that field was never honored nor exposed
-	// in any UI, so every existing launcher.json carries an unintentional
-	// false that would keep auto-start permanently off (#11673).
-	AutoStart       *bool             `json:"auto_start_server"`
-	StartOnBoot     bool              `json:"start_on_boot"`
-	LogLevel        string            `json:"log_level"`
-	EnvironmentVars map[string]string `json:"environment_vars"`
-	ShowWelcome     *bool             `json:"show_welcome"`
-}
-
 // Launcher represents the main launcher application
 type Launcher struct {
 	// Core components
 	releaseManager *ReleaseManager
+	configError    error
 	config         *Config
 	ui             *LauncherUI
 	systray        *SystrayManager
@@ -110,18 +91,13 @@ func (l *Launcher) Initialize() error {
 	}
 	log.Printf("Initializing launcher...")
 
-	// Setup logging
-	if err := l.setupLogging(); err != nil {
-		return fmt.Errorf("failed to setup logging: %w", err)
-	}
-
-	// Load configuration
-	log.Printf("Loading configuration...")
+	// Verify settings storage before touching files beneath its directory.
 	if err := l.loadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	log.Printf("Configuration loaded, current state: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
+	if err := l.setupLogging(); err != nil {
+		return fmt.Errorf("failed to setup logging: %w", err)
+	}
 
 	// Clean up any partial downloads
 	log.Printf("Cleaning up partial downloads...")
@@ -133,20 +109,16 @@ func (l *Launcher) Initialize() error {
 	if l.config.ModelsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.ModelsPath = filepath.Join(homeDir, ".localai", "models")
-		log.Printf("Setting default ModelsPath: %s", l.config.ModelsPath)
 	}
 	if l.config.BackendsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.BackendsPath = filepath.Join(homeDir, ".localai", "backends")
-		log.Printf("Setting default BackendsPath: %s", l.config.BackendsPath)
 	}
 	if l.config.Address == "" {
 		l.config.Address = "127.0.0.1:8080"
-		log.Printf("Setting default Address: %s", l.config.Address)
 	}
 	if l.config.LogLevel == "" {
 		l.config.LogLevel = "info"
-		log.Printf("Setting default LogLevel: %s", l.config.LogLevel)
 	}
 	if l.config.EnvironmentVars == nil {
 		l.config.EnvironmentVars = make(map[string]string)
@@ -160,19 +132,13 @@ func (l *Launcher) Initialize() error {
 		log.Printf("Setting default ShowWelcome: true")
 	}
 
-	if l.config.AutoStart == nil {
-		enabled := true
-		l.config.AutoStart = &enabled
-		log.Printf("Setting default AutoStart: true")
-	}
-
 	// Create directories
 	os.MkdirAll(l.config.ModelsPath, 0755)
 	os.MkdirAll(l.config.BackendsPath, 0755)
 
 	// Save the configuration with default values
 	if err := l.saveConfig(); err != nil {
-		log.Printf("Warning: failed to save default configuration: %v", err)
+		return err
 	}
 
 	// System tray is now handled in main.go using Fyne's built-in approach
@@ -202,14 +168,10 @@ func (l *Launcher) Initialize() error {
 
 // ShouldAutoStartServer reports whether the launcher should start the server
 // without user interaction: at launcher startup and right after a fresh
-// install. Defaults to enabled; StartOnBoot forces a start even when
-// auto-start was explicitly disabled, preserving its historical behavior.
+// install. Unset means enabled; legacy StartOnBoot is inert.
 func (l *Launcher) ShouldAutoStartServer() bool {
-	if l.config == nil {
+	if l.config == nil || l.configError != nil || (l.config.Mode != "" && l.config.Mode != "standalone") {
 		return false
-	}
-	if l.config.StartOnBoot {
-		return true
 	}
 	return l.config.AutoStart == nil || *l.config.AutoStart
 }
@@ -231,6 +193,12 @@ func (l *Launcher) autoStartServer() {
 
 // StartLocalAI starts the LocalAI server
 func (l *Launcher) StartLocalAI() error {
+	if l.configError != nil {
+		return l.configError
+	}
+	if l.config == nil || (l.config.Mode != "" && l.config.Mode != "standalone") {
+		return fmt.Errorf("worker launch is not available yet; select standalone in launcher settings")
+	}
 	if l.isRunning {
 		return fmt.Errorf("LocalAI is already running")
 	}
@@ -402,13 +370,22 @@ func (l *Launcher) GetRecentLogs() string {
 
 // GetConfig returns the current configuration
 func (l *Launcher) GetConfig() *Config {
-	return l.config
+	return l.config.clone()
 }
 
 // SetConfig updates the configuration
 func (l *Launcher) SetConfig(config *Config) error {
-	l.config = config
-	return l.saveConfig()
+	candidate := config.clone()
+	if candidate == nil {
+		return fmt.Errorf("launcher settings are missing")
+	}
+	if err := l.persistConfig(candidate); err != nil {
+		l.configError = err
+		return err
+	}
+	l.config = candidate
+	l.configError = nil
+	return nil
 }
 
 func (l *Launcher) GetUI() *LauncherUI {
@@ -915,73 +892,4 @@ func (l *Launcher) periodicUpdateCheck() {
 			return
 		}
 	}
-}
-
-// loadConfig loads configuration from file
-func (l *Launcher) loadConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	configPath := filepath.Join(homeDir, ".localai", "launcher.json")
-	log.Printf("Loading config from: %s", configPath)
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Printf("Config file not found, creating default config")
-		// Create default config
-		return l.saveConfig()
-	}
-
-	// Load existing config
-	configData, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	log.Printf("Config file content: %s", string(configData))
-
-	log.Printf("loadConfig: about to unmarshal JSON data")
-	if err := json.Unmarshal(configData, l.config); err != nil {
-		return fmt.Errorf("failed to parse config file: %w", err)
-	}
-	log.Printf("loadConfig: JSON unmarshaled successfully")
-
-	log.Printf("Loaded config: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
-	log.Printf("Environment vars: %v", l.config.EnvironmentVars)
-
-	return nil
-}
-
-// saveConfig saves configuration to file
-func (l *Launcher) saveConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	configDir := filepath.Join(homeDir, ".localai")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
-	}
-
-	// Marshal config to JSON
-	log.Printf("saveConfig: marshaling config with EnvironmentVars: %v", l.config.EnvironmentVars)
-	configData, err := json.MarshalIndent(l.config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-	log.Printf("saveConfig: JSON marshaled successfully, length: %d", len(configData))
-
-	configPath := filepath.Join(configDir, "launcher.json")
-	log.Printf("Saving config to: %s", configPath)
-	log.Printf("Config content: %s", string(configData))
-
-	if err := os.WriteFile(configPath, configData, 0644); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	log.Printf("Config saved successfully")
-	return nil
 }

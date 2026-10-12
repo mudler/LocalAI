@@ -23,20 +23,39 @@ def suite(count=1):
 
 
 class ReportTests(unittest.TestCase):
-    def check_report(self, report, status):
+    def check_report(self, report, status, focused=False):
         with tempfile.TemporaryDirectory(dir=os.environ["LAUNCHER_VERIFY_WORKDIR"]) as tmp:
             path = Path(tmp) / "report.json"
             path.write_text(json.dumps(report), encoding="utf-8")
             for flags in ([], ["-O"]):
                 with self.subTest(flags=flags):
                     result = subprocess.run(
-                        [sys.executable, *flags, str(PARSER), str(path)],
+                        [sys.executable, *flags, str(PARSER), str(path), *(["--config-focus"] if focused else [])],
                         capture_output=True, text=True, check=False,
                     )
                     self.assertEqual(result.returncode, status, result.stdout + result.stderr)
                     if status == 0:
-                        count = sum(s["PreRunStats"]["TotalSpecs"] for s in report)
+                        count = sum(s["PreRunStats"]["SpecsThatWillRun"] for s in report)
                         self.assertIn(f"{count} passing specs; no skips", result.stdout)
+
+    def test_config_focus(self):
+        report = suite(2)
+        report["PreRunStats"]["SpecsThatWillRun"] = 1
+        report["SpecReports"] = [
+            {"State": "passed", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Secure launcher configuration"]},
+            {"State": "skipped", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Launcher"]},
+        ]
+        self.check_report([report], 0, focused=True)
+        for state in ("failed", "pending", "skipped"):
+            broken = copy.deepcopy(report)
+            broken["SpecReports"][0]["State"] = state
+            self.check_report([broken], 1, focused=True)
+        broken = copy.deepcopy(report)
+        broken["SpecReports"].pop()
+        self.check_report([broken], 1, focused=True)
+        broken = copy.deepcopy(report)
+        broken["SpecReports"][0]["ContainerHierarchyTexts"] = ["Other"]
+        self.check_report([broken], 1, focused=True)
 
     def test_truncated_launcher(self):
         report = suite(41)

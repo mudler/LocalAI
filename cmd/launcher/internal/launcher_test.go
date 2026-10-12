@@ -202,16 +202,18 @@ var _ = Describe("Launcher", func() {
 			config := launcherInstance.GetConfig()
 			err := json.Unmarshal([]byte(`{"auto_start_server": false}`), config)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(launcherInstance.SetConfig(config)).To(Succeed())
 
 			Expect(launcherInstance.ShouldAutoStartServer()).To(BeFalse())
 		})
 
-		It("should still auto-start when StartOnBoot is set even if auto-start is off", func() {
+		It("should keep legacy StartOnBoot inert when auto-start is off", func() {
 			config := launcherInstance.GetConfig()
 			err := json.Unmarshal([]byte(`{"auto_start_server": false, "start_on_boot": true}`), config)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(launcherInstance.SetConfig(config)).To(Succeed())
 
-			Expect(launcherInstance.ShouldAutoStartServer()).To(BeTrue())
+			Expect(launcherInstance.ShouldAutoStartServer()).To(BeFalse())
 		})
 
 		It("should ignore the legacy auto_start key older launchers persisted as false", func() {
@@ -221,6 +223,7 @@ var _ = Describe("Launcher", func() {
 			config := launcherInstance.GetConfig()
 			err := json.Unmarshal([]byte(`{"auto_start": false}`), config)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(launcherInstance.SetConfig(config)).To(Succeed())
 
 			Expect(launcherInstance.ShouldAutoStartServer()).To(BeTrue())
 		})

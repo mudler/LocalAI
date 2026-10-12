@@ -67,7 +67,17 @@ finishes; an empty in-progress log is not evidence of a skipped run or a pass.
 Nonzero statuses survive log piping, and failed log writes fail verification.
 If wrapping the invocation in another pipeline, use `bash -o pipefail -c '...'`.
 
-Only `baseline` is implemented. Other modes fail with exit 2. Synthetic contract
+`config` runs the actual “Secure launcher configuration” specs followed by the
+entire affected launcher suite. It uses the same isolated Ubuntu/Xvfb setup,
+without mounting the Docker socket or rerunning worker/nodes suites:
+
+```sh
+bash contrib/launcher-worker/verify.sh config
+```
+
+The focused report requires every selected configuration spec to pass and only
+allows skipped specs outside that exact group. The full launcher report still
+rejects all skips. Baseline remains unchanged. Other modes fail with exit 2. Synthetic contract
 reports are tests of infrastructure, not substitutes for real baseline evidence.
 This does not certify distributed inference, lifecycle changes, race coverage,
 AppImage packaging, interactive GUI/tray behavior or native macOS execution.

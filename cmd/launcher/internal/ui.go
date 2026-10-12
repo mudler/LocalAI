@@ -206,9 +206,6 @@ func (ui *LauncherUI) addEnvironmentVariable() {
 	key := ui.newEnvKeyEntry.Text
 	value := ui.newEnvValueEntry.Text
 
-	log.Printf("addEnvironmentVariable: attempting to add %s=%s", key, value)
-	log.Printf("addEnvironmentVariable: current ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
-
 	if key == "" {
 		log.Printf("addEnvironmentVariable: key is empty, showing error")
 		dialog.ShowError(fmt.Errorf("environment variable name cannot be empty"), ui.launcher.window)
@@ -218,15 +215,12 @@ func (ui *LauncherUI) addEnvironmentVariable() {
 	// Check if key already exists
 	for _, envVar := range ui.envVarsData {
 		if envVar.Key == key {
-			log.Printf("addEnvironmentVariable: key %s already exists, showing error", key)
 			dialog.ShowError(fmt.Errorf("environment variable '%s' already exists", key), ui.launcher.window)
 			return
 		}
 	}
 
-	log.Printf("addEnvironmentVariable: adding new env var %s=%s", key, value)
 	ui.envVarsData = append(ui.envVarsData, EnvVar{Key: key, Value: value})
-	log.Printf("addEnvironmentVariable: after adding, ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
 
 	fyne.Do(func() {
 		if ui.updateEnvironmentDisplay != nil {
@@ -263,15 +257,12 @@ func (ui *LauncherUI) saveEnvironmentVariables() {
 	}
 
 	config := ui.launcher.GetConfig()
-	log.Printf("saveEnvironmentVariables: before - Environment vars: %v", config.EnvironmentVars)
 
 	config.EnvironmentVars = make(map[string]string)
 	for _, envVar := range ui.envVarsData {
 		config.EnvironmentVars[envVar.Key] = envVar.Value
-		log.Printf("saveEnvironmentVariables: adding %s=%s", envVar.Key, envVar.Value)
 	}
 
-	log.Printf("saveEnvironmentVariables: after - Environment vars: %v", config.EnvironmentVars)
 	log.Printf("saveEnvironmentVariables: calling SetConfig with %d environment variables", len(config.EnvironmentVars))
 
 	err := ui.launcher.SetConfig(config)
@@ -397,8 +388,6 @@ func (ui *LauncherUI) saveConfiguration() {
 	log.Printf("saveConfiguration: starting to save configuration")
 
 	config := ui.launcher.GetConfig()
-	log.Printf("saveConfiguration: current config Environment vars: %v", config.EnvironmentVars)
-	log.Printf("saveConfiguration: ui.envVarsData has %d items: %v", len(ui.envVarsData), ui.envVarsData)
 
 	config.ModelsPath = ui.modelsPathEntry.Text
 	config.BackendsPath = ui.backendsPathEntry.Text
@@ -412,10 +401,7 @@ func (ui *LauncherUI) saveConfiguration() {
 	config.EnvironmentVars = make(map[string]string)
 	for _, envVar := range ui.envVarsData {
 		config.EnvironmentVars[envVar.Key] = envVar.Value
-		log.Printf("saveConfiguration: adding env var %s=%s", envVar.Key, envVar.Value)
 	}
-
-	log.Printf("saveConfiguration: final config Environment vars: %v", config.EnvironmentVars)
 
 	err := ui.launcher.SetConfig(config)
 	if err != nil {
@@ -580,9 +566,6 @@ func (ui *LauncherUI) LoadConfiguration() {
 	}
 
 	config := ui.launcher.GetConfig()
-	log.Printf("UI LoadConfiguration: loading config - ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
-		config.ModelsPath, config.BackendsPath, config.Address, config.LogLevel)
-	log.Printf("UI LoadConfiguration: Environment vars: %v", config.EnvironmentVars)
 
 	ui.modelsPathEntry.SetText(config.ModelsPath)
 	ui.backendsPathEntry.SetText(config.BackendsPath)
