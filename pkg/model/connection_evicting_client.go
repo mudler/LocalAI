@@ -149,3 +149,10 @@ func (c *ConnectionEvictingClient) Score(ctx context.Context, in *pb.ScoreReques
 	c.checkErr(err)
 	return result, err
 }
+
+// Metadata is part of structured inference admission, not an optional probe.
+func (c *ConnectionEvictingClient) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	result, err := c.Backend.ModelMetadata(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
