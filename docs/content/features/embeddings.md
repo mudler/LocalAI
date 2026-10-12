@@ -266,3 +266,35 @@ support. Silent-video and audiovisual-video capabilities are distinct.
 
 See [the backend protocol](../backends/#typed-multimodal-embedding-protocol)
 for the wire fields, resource units and compatibility rules.
+
+### Structured embedding routing (protocol groundwork)
+
+Structured embedding sessions use metadata from the selected backend connection,
+not a global model-name capability cache. Each request selects a route once;
+items stay on that connection. Missing or unknown protocol versions and unavailable
+metadata fail closed (501), while known unsupported modalities return 422. There
+is no fallback to legacy text embedding. Video track-specific checks remain the
+worker's responsibility after probing the compressed media.
+
+Capabilities are rechecked before each item and before returning its result.
+Changes require reopening a session; closing a session cancels its outstanding
+work without closing the loader-owned connection. Local unload/reload invalidates
+the session, while distributed identity refusals reconcile the selected replica.
+Legacy text requests keep their existing route. These transport provisions do not
+constitute real-model multimodal support; native and full runtime acceptance are
+still required.
+
+Protocol version 1 additionally requires an opaque `embedding_generation` token
+in metadata and each structured embedding request. The token identifies a worker's
+actual loaded-model generation, not a model name, address, or capability hash.
+Every successful load/reload issues a new token; unload and failed load invalidate
+it. A restarted worker issues independent tokens even at the same address.
+Missing tokens fail closed; stale tokens are refused before inference and results
+are discarded if their generation changes during execution. A caller must reopen
+its session rather than retry an item against stale metadata.
+
+**Native implementation requirement (Task 10):** the llama.cpp adapter must issue
+and validate this token under its model lifecycle synchronization, invalidate it
+before load/free, and check it at dispatch and result publication. Merely exposing
+the protobuf field or unchanged capability flags is insufficient. This Go routing
+verification is not native-runtime acceptance.

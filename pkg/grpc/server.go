@@ -2,7 +2,9 @@ package grpc
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // A GRPC Server that allows to run LLM inference.
@@ -37,8 +40,10 @@ type server struct {
 	// identityMu guards loadedIdentity: LoadModel writes it, the inference
 	// RPCs read it, and nothing serialises those against each other
 	// (llm.Locking() is the model's own lock, and it is optional).
-	identityMu     sync.RWMutex
-	loadedIdentity string
+	identityMu          sync.RWMutex
+	loadedIdentity      string
+	embeddingGeneration string
+	lifecycleMu         sync.Mutex
 }
 
 // identifiedRequest is satisfied by every request message that carries a
@@ -148,6 +153,11 @@ func (s *server) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.RerankRe
 }
 
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	s.identityMu.Lock()
+	s.embeddingGeneration = ""
+	s.identityMu.Unlock()
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -163,6 +173,10 @@ func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result
 	// model, which IsModelNotLoaded already covers.
 	s.identityMu.Lock()
 	s.loadedIdentity = in.Model
+	token := make([]byte, 32)
+	if _, randomErr := rand.Read(token); randomErr == nil {
+		s.embeddingGeneration = hex.EncodeToString(token)
+	}
 	s.identityMu.Unlock()
 
 	return &pb.Result{Message: "Loading succeeded", Success: true}, nil
@@ -1097,6 +1111,11 @@ func (s *server) StopQuantization(ctx context.Context, in *pb.QuantizationStopRe
 }
 
 func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if err := s.checkModelIdentity(&pb.PredictOptions{ModelIdentity: in.GetModel()}); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
@@ -1105,10 +1124,21 @@ func (s *server) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.Mo
 	if err != nil {
 		return nil, err
 	}
+	if res != nil {
+		res = proto.Clone(res).(*pb.ModelMetadataResponse)
+		s.identityMu.RLock()
+		res.EmbeddingGeneration = s.embeddingGeneration
+		s.identityMu.RUnlock()
+	}
 	return res, nil
 }
 
 func (s *server) Free(ctx context.Context, in *pb.HealthMessage) (*pb.Result, error) {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	s.identityMu.Lock()
+	s.embeddingGeneration = ""
+	s.identityMu.Unlock()
 	if err := s.llm.Free(); err != nil {
 		return &pb.Result{Success: false, Message: err.Error()}, nil
 	}
@@ -1239,12 +1269,37 @@ func (s *server) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbed
 	if !ok {
 		return nil, status.Error(codes.Unimplemented, "multimodal embedding unavailable")
 	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, status.FromContextError(err).Err()
 	}
-	return model.MultimodalEmbedding(ctx, in)
+	result, err := model.MultimodalEmbedding(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkEmbeddingGeneration(in.GetEmbeddingGeneration()); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *server) checkEmbeddingGeneration(token string) error {
+	s.identityMu.RLock()
+	defer s.identityMu.RUnlock()
+	if token == "" || s.embeddingGeneration == "" {
+		return status.Error(codes.Unimplemented, "embedding generation unavailable")
+	}
+	if token != s.embeddingGeneration {
+		return status.Error(codes.Aborted, "embedding generation changed; reopen session")
+	}
+	return nil
 }

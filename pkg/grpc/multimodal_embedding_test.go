@@ -28,6 +28,18 @@ func (m *wireModel) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEm
 	return m.call(ctx, in)
 }
 
+func (m *wireModel) Load(*pb.ModelOptions) error { return nil }
+func (m *wireModel) ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
+	return &pb.ModelMetadataResponse{EmbeddingProtocolVersion: 1, EmbeddingModalities: []pb.EmbeddingModality{pb.EmbeddingModality_TEXT}}, nil
+}
+func bindWireGeneration(c pb.BackendServer, r *pb.MultimodalEmbeddingRequest) {
+	_, err := c.LoadModel(context.Background(), &pb.ModelOptions{Model: "selected"})
+	Expect(err).NotTo(HaveOccurred())
+	m, err := c.ModelMetadata(context.Background(), &pb.ModelOptions{Model: "selected"})
+	Expect(err).NotTo(HaveOccurred())
+	r.EmbeddingGeneration = m.EmbeddingGeneration
+}
+
 // No MultimodalEmbedding handler is registered: this is the old service surface,
 // not a new server whose application merely returns an unsupported error.
 func wireClient(s pb.BackendServer, old bool) *Client {
@@ -79,12 +91,14 @@ var _ = Describe("Multimodal wire", func() {
 		fillWireCounters(request.Budget)
 		response := &pb.MultimodalEmbeddingResponse{Result: &pb.EmbeddingResult{Embeddings: []float32{1, 2}, Tokens: 1, Dim: 2, PromptTokens: 7, Layout: pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL}, Consumption: &pb.EmbeddingConsumption{}}
 		fillWireCounters(response.Consumption)
-		client := wireClient(NewBackendServer(&wireModel{call: func(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+		srv := NewBackendServer(&wireModel{call: func(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
 			if !proto.Equal(in, request) {
 				return nil, status.Error(codes.Internal, "wire mismatch")
 			}
 			return response, nil
-		}}), false)
+		}})
+		bindWireGeneration(srv, request)
+		client := wireClient(srv, false)
 		result, err := client.MultimodalEmbedding(context.Background(), request)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(proto.Equal(result, response)).To(BeTrue())
@@ -156,6 +170,7 @@ var _ = Describe("Multimodal wire", func() {
 		data := make([]byte, maxGRPCMessageSize)
 		for _, delta := range []int{-1, 0, 1} {
 			r := wireRequest()
+			bindWireGeneration(s, r)
 			media := r.Parts[1].GetMedia()
 			media.Data = data
 			n := len(data) + (maxGRPCMessageSize + delta - proto.Size(r))
@@ -175,18 +190,21 @@ var _ = Describe("Multimodal wire", func() {
 	})
 	It("preserves bearer metadata call options busy accounting and cancellation", func() {
 		entered := make(chan metadata.MD, 1)
-		client := wireClient(NewBackendServer(&wireModel{call: func(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+		srv := NewBackendServer(&wireModel{call: func(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
 			md, _ := metadata.FromIncomingContext(ctx)
 			entered <- md
 			ggrpc.SetHeader(ctx, metadata.Pairs("wire-header", "yes"))
 			<-ctx.Done()
 			return nil, status.FromContextError(ctx.Err()).Err()
-		}}), false)
+		}})
+		request := wireRequest()
+		bindWireGeneration(srv, request)
+		client := wireClient(srv, false)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		done := make(chan error, 1)
 		var headers metadata.MD
-		go func() { _, err := client.MultimodalEmbedding(ctx, wireRequest(), ggrpc.Header(&headers)); done <- err }()
+		go func() { _, err := client.MultimodalEmbedding(ctx, request, ggrpc.Header(&headers)); done <- err }()
 		var md metadata.MD
 		Eventually(entered, time.Second*5).Should(Receive(&md))
 		Expect(md.Get("authorization")).To(Equal([]string{"Bearer wire-token"}))

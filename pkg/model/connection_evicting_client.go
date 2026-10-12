@@ -166,3 +166,10 @@ func (c *ConnectionEvictingClient) TTSLive(ctx context.Context, in *pb.TTSReques
 	c.checkErr(err)
 	return err
 }
+
+// Metadata is part of structured inference admission, not an optional probe.
+func (c *ConnectionEvictingClient) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ...ggrpc.CallOption) (*pb.ModelMetadataResponse, error) {
+	result, err := c.Backend.ModelMetadata(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}

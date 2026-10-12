@@ -1509,6 +1509,7 @@ message AudioToAudioResponse {
 }
 
 message ModelMetadataResponse {
+  string embedding_generation = 7; // Opaque worker/model generation; changes on every load and restart.
   uint32 embedding_protocol_version = 5; // 1 for the typed multimodal contract; 0 means unsupported.
   repeated EmbeddingModality embedding_modalities = 6;
   bool supports_thinking = 1;
@@ -1746,6 +1747,7 @@ message EmbeddingConsumption {
   uint64 source_parts = 9;
 }
 message MultimodalEmbeddingRequest {
+  string embedding_generation = 5; // Required metadata generation; worker checks before inference and publication.
   string model = 1; // Selected loaded instance identity, not a backend file path.
   PredictOptions options = 2;
   repeated EmbeddingPart parts = 3; // Ordered, including empty text parts.
