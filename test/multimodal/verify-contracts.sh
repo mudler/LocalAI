@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+scratch="$PWD/.sdd-work/task2/verify"
+mkdir -p "$scratch/generated" pkg/grpc/proto
+revision=$(git rev-parse HEAD)
+finish() {
+ code=$?
+ trap - EXIT
+ printf 'revision=%s\nexit_status=%s\nevidence=%s\n' "$revision" "$code" "$scratch" > "$scratch/verify.log"
+ exit "$code"
+}
+trap finish EXIT
+protoc --experimental_allow_proto3_optional -Ibackend/ \
+ --go_out="$scratch/generated" --go_opt=paths=source_relative \
+ --go-grpc_out="$scratch/generated" --go-grpc_opt=paths=source_relative backend/backend.proto
+python3 - "$scratch" <<'PY'
+import json,sys
+from pathlib import Path
+scratch=Path(sys.argv[1]); root=Path.cwd()
+(scratch/'overlay.json').write_text(json.dumps({'Replace':{
+ str(root/'pkg/grpc/proto'/name):str(scratch/'generated'/name)
+ for name in ('backend.pb.go','backend_grpc.pb.go')}}))
+PY
+: > "$scratch/commands.log"
+for package in core/schema pkg/embeddingmedia core/http/middleware; do
+ report=${package//\//-}
+ rm -f "$scratch/$report.json"
+ printf '%s\n' "go test -mod=readonly -p 1 -overlay=$scratch/overlay.json ./$package -args -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report=$scratch/$report.json" >> "$scratch/commands.log"
+ go test -mod=readonly -p 1 -overlay="$scratch/overlay.json" "./$package" -args \
+  -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report="$scratch/$report.json" 2>&1 | tee "$scratch/$report.log"
+done
+MM_CONTRACT_TEST_SCRATCH="$scratch" python3 -m unittest discover -s test/multimodal -p test_contract_reports.py -v 2>&1 | tee "$scratch/checker-tests.log"
+python3 test/multimodal/check_contract_reports.py "$scratch" "$revision"

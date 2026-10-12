@@ -79,7 +79,9 @@ Use deterministic decoding and record preprocessing-version details in the docum
 
 ## Resource and security contract
 
-The following initial bounds apply only to requests using structured input. Existing global limits can impose smaller bounds.
+Both embedding endpoint aliases enforce a hard 48 MiB encoded HTTP body limit before JSON binding, including legacy text, token-array, and messages requests. Existing smaller global upload limits remain effective. The embedding-specific limit applies even when the global limit is larger or disabled; overflow returns HTTP 413. Other endpoints are unchanged. This compatibility amendment was explicitly approved after review of the binding path.
+
+The remaining bounds below apply only to structured input. Existing global limits can impose smaller bounds.
 
 | Resource | Maximum |
 | --- | --- |
