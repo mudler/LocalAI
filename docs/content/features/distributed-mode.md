@@ -1496,3 +1496,13 @@ Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, R
 - **Prefill/decode disaggregation routing** ([#10068](https://github.com/mudler/LocalAI/issues/10068)): route prefill and decode to separate pools with KV transfer.
 - **Per-user fairness (VTC)** ([#10069](https://github.com/mudler/LocalAI/issues/10069)): balance per-user token usage against pod load.
 - **Minor tuning + MCP parity** ([#10070](https://github.com/mudler/LocalAI/issues/10070)): per-model TTL override, probabilistic LRU updates, and MCP scheduling-config tool parity.
+
+### Desktop launcher preparation
+
+The desktop launcher now validates a separate generic-worker launch profile, but
+**worker startup remains disabled** until runtime status and process-ownership
+integration is available. Use the existing CLI workflow above for deployments;
+changing the launcher's saved mode does not enable joining. See
+[launcher configuration](/features/launcher-configuration/) for the profile,
+authentication/TLS validation and log-security boundaries. This preparation does
+not add NATS discovery, P2P, another transport, or worker-side TLS termination.

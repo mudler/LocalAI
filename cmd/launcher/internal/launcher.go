@@ -1,7 +1,6 @@
 package launcher
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -41,8 +40,9 @@ type Launcher struct {
 	statusChannel chan string
 
 	// Logging
-	logFile *os.File
-	logPath string
+	logFile  *os.File
+	logPath  string
+	logBytes int
 
 	// UI state
 	lastUpdateCheck time.Time
@@ -64,21 +64,11 @@ func NewLauncher(ui *LauncherUI, window fyne.Window, app fyne.App) *Launcher {
 
 // setupLogging sets up log file for LocalAI process output
 func (l *Launcher) setupLogging() error {
-	// Create logs directory in data folder
-	dataPath := l.GetDataPath()
-	logsDir := filepath.Join(dataPath, "logs")
-	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create logs directory: %w", err)
-	}
-
-	// Create log file with timestamp
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	l.logPath = filepath.Join(logsDir, fmt.Sprintf("localai_%s.log", timestamp))
-
-	logFile, err := os.Create(l.logPath)
+	logFile, err := secureLogFile(l.GetDataPath())
 	if err != nil {
-		return fmt.Errorf("failed to create log file: %w", err)
+		return err
 	}
+	l.logPath = logFile.Name()
 
 	l.logFile = logFile
 	return nil
@@ -218,19 +208,13 @@ func (l *Launcher) StartLocalAI() error {
 		return fmt.Errorf("LocalAI binary not found. Please download a release first")
 	}
 
-	// Build command arguments
-	args := l.BuildRunArgs()
-
-	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, args...)
-
-	// Apply environment variables
-	if len(l.config.EnvironmentVars) > 0 {
-		env := os.Environ()
-		for key, value := range l.config.EnvironmentVars {
-			env = append(env, fmt.Sprintf("%s=%s", key, value))
-		}
-		l.localaiCmd.Env = env
+	description, err := buildLaunch(l.config, l.GetDataPath(), os.Environ(), false)
+	if err != nil {
+		return err
 	}
+	l.localaiCmd = exec.CommandContext(l.ctx, binaryPath, description.Args()...)
+	l.localaiCmd.Env = description.Env()
+	l.localaiCmd.Dir = description.Dir()
 
 	// Setup logging
 	stdout, err := l.localaiCmd.StdoutPipe()
@@ -256,8 +240,8 @@ func (l *Launcher) StartLocalAI() error {
 	})
 
 	// Start log monitoring
-	go l.monitorLogs(stdout, "STDOUT")
-	go l.monitorLogs(stderr, "STDERR")
+	go l.monitorFilteredLogs(stdout, "STDOUT", newLogFilter(description.secrets))
+	go l.monitorFilteredLogs(stderr, "STDERR", newLogFilter(description.secrets))
 
 	// Monitor process with startup timeout
 	go func() {
@@ -425,18 +409,7 @@ func (l *Launcher) GetWebUIURL() string {
 // path under the per-user data directory avoids both the misplacement (#10610)
 // and the cross-user /tmp collision.
 func (l *Launcher) BuildRunArgs() []string {
-	dataPath := l.GetDataPath()
-	return []string{
-		"run",
-		"--models-path", l.config.ModelsPath,
-		"--backends-path", l.config.BackendsPath,
-		"--address", l.config.Address,
-		"--log-level", l.config.LogLevel,
-		"--data-path", filepath.Join(dataPath, "data"),
-		"--localai-config-dir", filepath.Join(dataPath, "configuration"),
-		"--generated-content-path", filepath.Join(dataPath, "generated"),
-		"--upload-path", filepath.Join(dataPath, "uploads"),
-	}
+	return standaloneArgs(l.config, l.GetDataPath())
 }
 
 // GetDataPath returns the path where LocalAI data and logs are stored
@@ -800,9 +773,11 @@ func formatBytes(b int64) string {
 
 // monitorLogs monitors the output of LocalAI and adds it to the log buffer
 func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		line := scanner.Text()
+	l.monitorFilteredLogs(reader, prefix, newLogFilter(nil))
+}
+
+func (l *Launcher) monitorFilteredLogs(reader io.Reader, prefix string, filter logFilter) {
+	filter.consume(reader, func(line string) {
 		timestamp := time.Now().Format("15:04:05")
 		logLine := fmt.Sprintf("[%s] %s: %s\n", timestamp, prefix, line)
 
@@ -817,14 +792,13 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 				l.logBuffer.WriteString(content[len(content)-50000:])
 			}
 		}
-		l.logMutex.Unlock()
 
 		// Write to log file if available
-		if l.logFile != nil {
-			if _, err := l.logFile.WriteString(logLine); err != nil {
-				log.Printf("Failed to write to log file: %v", err)
-			}
+		if l.logFile != nil && l.logBytes+len(logLine) <= maxLogFile {
+			n, _ := l.logFile.WriteString(logLine)
+			l.logBytes += n
 		}
+		l.logMutex.Unlock()
 
 		fyne.Do(func() {
 			// Notify UI of new log content
@@ -837,7 +811,7 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 				l.updateStatus("LocalAI is running")
 			}
 		})
-	}
+	})
 }
 
 // updateStatus updates the status and notifies UI

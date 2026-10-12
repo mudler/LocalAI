@@ -535,7 +535,11 @@ func (ui *LauncherUI) OnLogUpdate(logLine string) {
 	if ui.logText != nil {
 		fyne.Do(func() {
 			currentText := ui.logText.Text
-			ui.logText.SetText(currentText + logLine)
+			text := currentText + logLine
+			if len(text) > maxLogBuffer {
+				text = text[len(text)-maxLogBuffer:]
+			}
+			ui.logText.SetText(text)
 
 			// Auto-scroll to bottom (simplified)
 			ui.logText.CursorRow = len(ui.logText.Text)

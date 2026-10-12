@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 set -euo pipefail
-if [[ $# != 1 || ( $1 != baseline && $1 != config ) ]]; then
-  echo 'Usage: bash contrib/launcher-worker/verify.sh {baseline|config}' >&2
+if [[ $# != 1 || ( $1 != baseline && $1 != config && $1 != launch ) ]]; then
+  echo 'Usage: bash contrib/launcher-worker/verify.sh {baseline|config|launch}' >&2
   exit 2
 fi
 mode=$1

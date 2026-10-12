@@ -81,3 +81,13 @@ rejects all skips. Baseline remains unchanged. Other modes fail with exit 2. Syn
 reports are tests of infrastructure, not substitutes for real baseline evidence.
 This does not certify distributed inference, lifecycle changes, race coverage,
 AppImage packaging, interactive GUI/tray behavior or native macOS execution.
+
+### Launch builder gate (LW03)
+
+Run `bash contrib/launcher-worker/verify.sh launch`. Like `config`, this runs only
+`cmd/launcher/internal`: the focused `Secure launcher launch` specs followed by
+the entire launcher suite. Focused reports must account for every excluded spec;
+the full report rejects skips, pending specs, empty or missing reports. The launch
+tests parse the real worker Config and global CLI tags without starting a worker.
+Baseline package selection and the `config` gate are unchanged. Worker startup
+remains disabled pending later runtime/status/ownership integration.

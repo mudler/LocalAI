@@ -30,7 +30,7 @@ class ReportTests(unittest.TestCase):
             for flags in ([], ["-O"]):
                 with self.subTest(flags=flags):
                     result = subprocess.run(
-                        [sys.executable, *flags, str(PARSER), str(path), *(["--config-focus"] if focused else [])],
+                        [sys.executable, *flags, str(PARSER), str(path), *(["--launch-focus" if focused == "launch" else "--config-focus"] if focused else [])],
                         capture_output=True, text=True, check=False,
                     )
                     self.assertEqual(result.returncode, status, result.stdout + result.stderr)
@@ -56,6 +56,18 @@ class ReportTests(unittest.TestCase):
         broken = copy.deepcopy(report)
         broken["SpecReports"][0]["ContainerHierarchyTexts"] = ["Other"]
         self.check_report([broken], 1, focused=True)
+
+    def test_launch_focus(self):
+        report = suite(2)
+        report["PreRunStats"]["SpecsThatWillRun"] = 1
+        report["SpecReports"] = [
+            {"State": "passed", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Secure launcher launch"]},
+            {"State": "skipped", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Launcher"]},
+        ]
+        self.check_report([report], 0, focused="launch")
+        self.check_report([report], 1)
+        report["SpecReports"][0]["State"] = "skipped"
+        self.check_report([report], 1, focused="launch")
 
     def test_truncated_launcher(self):
         report = suite(41)

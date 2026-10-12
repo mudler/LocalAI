@@ -38,16 +38,19 @@ run_logged /validation/logs/protogen make protogen-go
 run_logged /validation/logs/generate make generate
 packages=(cmd/launcher/internal core/cli/workerregistry core/services/worker core/services/nodes)
 status=0
-if [[ ${LAUNCHER_VERIFY_MODE:-baseline} == config ]]; then
+if [[ ${LAUNCHER_VERIFY_MODE:-baseline} != baseline ]]; then
+  mode=$LAUNCHER_VERIFY_MODE
+  focus="Secure launcher configuration"
+  [[ $mode != launch ]] || focus="Secure launcher launch"
   packages=(cmd/launcher/internal)
   # A focused report intentionally excludes unrelated specs. The full
   # launcher report below still requires every spec to run.
-  report=/validation/logs/launcher-config.json
-  run_logged /validation/logs/launcher-config xvfb-run -a go test -count=1 -timeout=20m \
+  report=/validation/logs/launcher-$mode.json
+  run_logged /validation/logs/launcher-$mode xvfb-run -a go test -count=1 -timeout=20m \
     -tags 'debug,p2p' ./cmd/launcher/internal -args -ginkgo.no-color \
-    -ginkgo.focus='Secure launcher configuration' -ginkgo.fail-on-empty \
+    -ginkgo.focus="$focus" -ginkgo.fail-on-empty \
     -ginkgo.fail-on-pending -ginkgo.json-report="$report" || status=1
-  run_logged /validation/logs/launcher-config-report python3 contrib/launcher-worker/check-report.py "$report" --config-focus || status=1
+  run_logged /validation/logs/launcher-$mode-report python3 contrib/launcher-worker/check-report.py "$report" --$mode-focus || status=1
 fi
 for package in "${packages[@]}"; do
   name=${package//\//-}

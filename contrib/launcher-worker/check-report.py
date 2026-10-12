@@ -13,7 +13,7 @@ def require(condition, message):
 try:
     require(len(sys.argv) in (2, 3), "invalid arguments")
     focused = len(sys.argv) == 3
-    require(not focused or sys.argv[2] == "--config-focus", "unknown report mode")
+    require(not focused or sys.argv[2] in ("--config-focus", "--launch-focus"), "unknown report mode")
     with open(sys.argv[1], encoding="utf-8") as stream:
         suites = json.load(stream)
     require(isinstance(suites, list) and suites, "no suites")
@@ -31,7 +31,7 @@ try:
         if focused:
             require(sum(s.get("LeafNodeType") == "It" for s in specs) == total,
                     "focused report does not account for all specs")
-            selected = [s for s in specs if "Secure launcher configuration" in s.get("ContainerHierarchyTexts", [])]
+            selected = [s for s in specs if ("Secure launcher launch" if sys.argv[2] == "--launch-focus" else "Secure launcher configuration") in s.get("ContainerHierarchyTexts", [])]
             excluded = [s for s in specs if s not in selected]
             require(selected, "no configuration specs")
             require(all(s["State"] == "skipped" for s in excluded), "unexpected specs outside focus")
