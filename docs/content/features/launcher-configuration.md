@@ -188,6 +188,10 @@ and `token`, rather than restarting registration. This observes the existing row
 without restoring its status or updating telemetry; credentials are minted only
 for a healthy node. Periodic approval never changes the credential manager, and
 renewal responses cannot overwrite the independently observed approval evidence.
+The optional `renewal_failure` field records `request_failed`, `pending`, or
+`missing_credentials` independently of retained credentials. Any renewal failure
+prevents ready status until a successful credential renewal clears it. Heartbeat
+and approval success cannot clear a renewal failure.
 This worker-only surface is not an admin action or a UI capability.
 The approval route is not registered when the controller has no registration
 token, and renewal-only requests are refused in that configuration. Missing or

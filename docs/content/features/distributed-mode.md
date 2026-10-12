@@ -1524,3 +1524,10 @@ does not prove approval. Managed credential refresh uses the `renew_node_id`
 registration request field to avoid restoring offline nodes or changing telemetry.
 Controllers lacking this support cannot provide launcher-ready evidence. See the
 [approval and process freshness contract](/features/launcher-configuration/#approval-and-process-freshness).
+
+Renewal failures downgrade launcher status even if approval, NATS, and heartbeat
+remain healthy. The snapshot records `renewal_failure` separately from retained
+credentials and current approval: `request_failed`, `pending`, or
+`missing_credentials`. Only a successful credential renewal clears this evidence;
+a successful approval query or heartbeat cannot clear it. A retained JWT can still
+work on the current connection while renewal needs attention.

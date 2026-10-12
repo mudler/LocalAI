@@ -30,10 +30,10 @@ import (
 )
 
 // This bounded production-component fixture executes the approval observer and
-// composite readiness used by Run, plus the actual credential RefreshLoop. It
+// composite readiness used by Run, plus expiring credential renewal through the actual RefreshLoop. It
 // does not execute all of Run or the full frontend/model/inference LW08 fixture.
 var _ = Describe("Worker status", func() {
-	It("observes pending approval, credentials, real lifecycle subscriptions, heartbeat rejection and NATS recovery", func() {
+	DescribeTable("observes approval and renewal with real NATS recovery", func(renewalFailure int) {
 		dir := GinkgoT().TempDir()
 		operator, err := nkeys.CreateOperator()
 		Expect(err).NotTo(HaveOccurred())
@@ -57,6 +57,9 @@ var _ = Describe("Worker status", func() {
 		claims, err := jwt.DecodeUserClaims(token)
 		Expect(err).NotTo(HaveOccurred())
 		claims.Expires = 0
+		if renewalFailure != 0 {
+			claims.Expires = time.Now().Add(12 * time.Second).Unix()
+		}
 		token, err = claims.Encode(account)
 		Expect(err).NotTo(HaveOccurred())
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -96,12 +99,42 @@ var _ = Describe("Worker status", func() {
 		publisher, err := workerstatus.NewPublisher(ctx, path, generation, cancel)
 		Expect(err).NotTo(HaveOccurred())
 		var approved, issued, rejected atomic.Bool
+		var renewalCode atomic.Int64
+		renewalCode.Store(int64(renewalFailure))
+		var renewals atomic.Int64
+		renewedToken, renewedSeed, err := auth.MintWorkerJWT("status-node", "backend")
+		Expect(err).NotTo(HaveOccurred())
 		frontend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") != "Bearer registration-secret" {
 				w.WriteHeader(401)
 				return
 			}
 			if r.URL.Path == "/api/node/register" || r.URL.Path == "/api/node/status-node/status" {
+				if r.Method == http.MethodPost {
+					var body map[string]any
+					if json.NewDecoder(r.Body).Decode(&body) != nil {
+						w.WriteHeader(400)
+						return
+					}
+					if id, ok := body["renew_node_id"]; ok {
+						if id != "status-node" || body["token"] != "registration-secret" || len(body) != 2 {
+							w.WriteHeader(400)
+							return
+						}
+						renewals.Add(1)
+						code := renewalCode.Load()
+						if code == 403 || code == 500 {
+							w.WriteHeader(int(code))
+							return
+						}
+						res := workerregistry.RegisterResponse{ID: "status-node", Status: "healthy"}
+						if code == 0 {
+							res.NatsJWT, res.NatsUserSeed = renewedToken, renewedSeed
+						}
+						_ = json.NewEncoder(w).Encode(res)
+						return
+					}
+				}
 				res := workerregistry.RegisterResponse{ID: "status-node", Status: "pending"}
 				if approved.Load() {
 					res.Status = "healthy"
@@ -120,13 +153,11 @@ var _ = Describe("Worker status", func() {
 			w.WriteHeader(204)
 		}))
 		defer frontend.Close()
-		client := &workerregistry.RegistrationClient{FrontendURL: frontend.URL, RegistrationToken: "registration-secret", ObserveRegistration: func(res *workerregistry.RegisterResponse, err error) {
-			if res == nil {
-				publisher.Registration("error", false, err)
-				return
-			}
-			publisher.Registration(res.Status, res.NatsJWT != "" && res.NatsUserSeed != "", err)
-		}}
+		client := &workerregistry.RegistrationClient{FrontendURL: frontend.URL, RegistrationToken: "registration-secret"}
+		var acquisitionDone atomic.Bool
+		var nodeID string
+		register := workerRegistration(&Config{RegistrationToken: "registration-secret"}, publisher, client, &acquisitionDone, &nodeID, map[string]any{"name": "fixture"})
+
 		tracker := workerstatus.Tracker{ExpectedPID: os.Getpid(), Generation: generation, Started: time.Now()}
 		classify := func() string {
 			s, e := workerstatus.Read(path, generation)
@@ -135,9 +166,7 @@ var _ = Describe("Worker status", func() {
 			}
 			return tracker.Classify(s, time.Now())
 		}
-		manager := workerregistry.NewNATSCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-			return client.RegisterFull(ctx, nil)
-		}, true)
+		manager := workerregistry.NewNATSCredentialManager(register, true)
 		acquired := make(chan error, 1)
 		go func() { _, e := manager.Acquire(ctx); acquired <- e }()
 		Eventually(classify, 3*time.Second).Should(Equal("pending"))
@@ -145,6 +174,8 @@ var _ = Describe("Worker status", func() {
 		Eventually(classify, 5*time.Second).Should(Equal("credentials"))
 		issued.Store(true)
 		Eventually(acquired, 10*time.Second).Should(Receive(BeNil()))
+		nodeID = manager.NodeID()
+		acquisitionDone.Store(true)
 		bus, err := messaging.New(fmt.Sprintf("nats://127.0.0.1:%d", port), messaging.WithUserJWTProvider(manager.Provider()))
 		Expect(err).NotTo(HaveOccurred())
 		defer bus.Close()
@@ -159,9 +190,49 @@ var _ = Describe("Worker status", func() {
 		Expect(classify()).To(Equal("ready"))
 		// Execute the production observer, independently of RefreshLoop. Static
 		// overrides use this identical observer; it never touches credentials.
-		go observeApproval(ctx, publisher, client, "status-node", 20*time.Millisecond)
+		approvalCtx, cancelApproval := context.WithCancel(ctx)
+		defer cancelApproval()
+		approvalDone := make(chan struct{})
+		go func() {
+			defer close(approvalDone)
+			observeApproval(approvalCtx, publisher, client, "status-node", 20*time.Millisecond)
+		}()
 		refreshed := make(chan error, 1)
 		go func() { refreshed <- manager.RefreshLoop(ctx) }()
+		if renewalFailure != 0 {
+			Eventually(renewals.Load, 15*time.Second).Should(BeNumerically(">=", 1))
+			Eventually(classify).Should(Equal("credentials"))
+			publisher.Heartbeat(client.Heartbeat(ctx, "status-node", nil))
+			Expect(bus.IsConnected()).To(BeTrue())
+			Consistently(classify, 100*time.Millisecond).Should(Equal("credentials"))
+			s, e := workerstatus.Read(path, generation)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(s.Registration).To(Equal("healthy"))
+			reason := "request_failed"
+			if renewalFailure == 200 {
+				reason = "missing_credentials"
+			}
+			Expect(s.RenewalFailure).To(Equal(reason))
+			Expect(s.Credentials).To(BeTrue(), "retained credentials are independent of renewal failure")
+			// Keep the broker down during the production 30s retry backoff.
+			// Otherwise repeated attempts with the expired JWT exhaust NATS'
+			// authorization retries before the renewal can run.
+			stop()
+			Eventually(bus.IsConnected, 5*time.Second).Should(BeFalse())
+			renewalCode.Store(0)
+			Eventually(func() string { token, _ := manager.Current(); return token }, 45*time.Second).Should(Equal(renewedToken))
+			Expect(renewals.Load()).To(BeNumerically(">=", 2))
+			start()
+			Eventually(bus.IsConnected, 10*time.Second).Should(BeTrue())
+			// The original JWT has expired: this authenticated reconnect requires
+			// the newly minted JWT and seed from the production renewal callback.
+			Expect(time.Now().Unix()).To(BeNumerically(">", claims.Expires))
+			publisher.Heartbeat(client.Heartbeat(ctx, "status-node", nil))
+			Eventually(classify).Should(Equal("ready"))
+		} else {
+			Eventually(refreshed).Should(Receive(BeNil()))
+			Expect(renewals.Load()).To(BeZero())
+		}
 		approved.Store(false)
 		Eventually(classify, 3*time.Second).Should(Equal("pending"))
 		publisher.Heartbeat(client.Heartbeat(ctx, "status-node", nil))
@@ -207,13 +278,22 @@ var _ = Describe("Worker status", func() {
 		Expect(string(data)).NotTo(ContainSubstring(token))
 		Expect(string(data)).NotTo(ContainSubstring(userSeed))
 		Expect(string(data)).NotTo(ContainSubstring("registration-secret"))
+		cancelApproval()
+		Eventually(approvalDone).Should(BeClosed())
 		Expect(os.Chmod(path, 0644)).To(Succeed())
 		publisher.Update(nil)
 		Eventually(ctx.Done()).Should(BeClosed())
-		Eventually(refreshed).Should(Receive(BeNil()))
+		if renewalFailure != 0 {
+			Eventually(refreshed).Should(Receive(BeNil()))
+		}
 		_, err = os.Stat(path)
 		Expect(os.IsNotExist(err)).To(BeTrue())
-	})
+	},
+		Entry("non-expiring credentials and independent approval", 0),
+		Entry("expiring JWT renewal rejected with 403", 403),
+		Entry("expiring JWT renewal rejected with 500", 500),
+		Entry("expiring JWT renewal approved without credentials", 200),
+	)
 })
 
 var _ = Describe("Worker status production approval observer", func() {

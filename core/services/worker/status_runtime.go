@@ -4,6 +4,7 @@ package worker
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
@@ -53,4 +54,43 @@ func armWorkerStatus(status *workerstatus.Publisher, readiness *nodes.WorkerRead
 	status.Arm(func() (bool, bool, bool, bool) {
 		return bus.IsConnected(), bus.Authenticated(), bus.SubscriptionsReady(), readiness.Check() == nil
 	})
+}
+
+// workerRegistration shares Run's acquisition and renewal wiring with status tests.
+func workerRegistration(cfg *Config, status *workerstatus.Publisher, regClient *workerregistry.RegistrationClient, acquired *atomic.Bool, nodeID *string, registrationBody map[string]any) workerregistry.RegisterFunc {
+	regClient.ObserveRegistration = func(res *workerregistry.RegisterResponse, err error) {
+		if status == nil {
+			return
+		}
+		if acquired.Load() {
+			// Approval and retained credentials remain independent of renewal.
+			// Only a successful renewal can clear this categorical failure.
+			status.Update(func(s *workerstatus.Snapshot) {
+				switch {
+				case err != nil || res == nil:
+					s.RenewalFailure = "request_failed"
+				case res.Status == "pending":
+					s.RenewalFailure = "pending"
+				case res.NatsJWT == "" || res.NatsUserSeed == "":
+					s.RenewalFailure = "missing_credentials"
+				default:
+					s.RenewalFailure = ""
+				}
+			})
+			return
+		}
+		if res == nil {
+			status.Registration("error", false, err)
+			return
+		}
+		credentials := (cfg.NatsJWT != "" && cfg.NatsUserSeed != "") || (res.NatsJWT != "" && res.NatsUserSeed != "")
+		status.Registration(res.Status, credentials, err)
+	}
+
+	return func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+		if acquired.Load() && status != nil {
+			return regClient.RegisterFull(ctx, map[string]any{"renew_node_id": *nodeID, "token": cfg.RegistrationToken})
+		}
+		return regClient.RegisterFull(ctx, registrationBody)
+	}
 }

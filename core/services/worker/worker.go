@@ -92,21 +92,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// other background goroutines.
 
 	var acquired atomic.Bool
-	regClient.ObserveRegistration = func(res *workerregistry.RegisterResponse, err error) {
-		if status == nil {
-			return
-		}
-		if acquired.Load() {
-			return // periodic read-only observation is authoritative after acquisition
-		}
-		if res == nil {
-			status.Registration("error", false, err)
-			return
-		}
-		credentials := (cfg.NatsJWT != "" && cfg.NatsUserSeed != "") || (res.NatsJWT != "" && res.NatsUserSeed != "")
-		status.Registration(res.Status, credentials, err)
-	}
+	var nodeID string
 	registrationBody := cfg.registrationBody()
+	register := workerRegistration(cfg, status, regClient, &acquired, &nodeID, registrationBody)
 	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
 
 	// Resolve how to connect to NATS. Static env credentials cannot be re-minted,
@@ -115,7 +103,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// refreshes them before the minted JWT expires, so the connection survives
 	// expiry via a transparent reconnect.
 	var (
-		nodeID      string
 		connectNats func() (*messaging.Client, error)
 	)
 	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
@@ -129,12 +116,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	} else {
 		credMgr := workerregistry.NewNATSCredentialManager(
-			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-				if acquired.Load() && status != nil {
-					return regClient.RegisterFull(ctx, map[string]any{"renew_node_id": nodeID, "token": cfg.RegistrationToken})
-				}
-				return regClient.RegisterFull(ctx, registrationBody)
-			},
+			register,
 			cfg.NatsAuthRequired(),
 		)
 		res, regErr := credMgr.Acquire(shutdownCtx)

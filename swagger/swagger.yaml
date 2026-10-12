@@ -619,6 +619,83 @@ definitions:
       origin:
         type: string
     type: object
+  localai.RegisterNodeRequest:
+    properties:
+      address:
+        type: string
+      available_disk:
+        type: integer
+      available_ram:
+        type: integer
+      available_vram:
+        type: integer
+      capability:
+        description: |-
+          Capability is the worker's own meta-backend capability string. The
+          controller stores it so backend discovery can reflect what the cluster
+          can run rather than what the (typically GPU-less) controller can run.
+        type: string
+      commit:
+        description: Commit is the git commit hash the worker binary was built from.
+        type: string
+      cpu_load_1:
+        type: number
+      cpu_logical_cores:
+        type: integer
+      cpu_usage_percent:
+        type: number
+      gpu_compute_capability:
+        description: |-
+          GPUComputeCapability is the worker GPU's compute capability ("major.minor",
+          e.g. "12.1" for GB10). Used by the router for per-arch option tuning.
+        type: string
+      gpu_vendor:
+        type: string
+      http_address:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      max_replicas_per_model:
+        description: |-
+          MaxReplicasPerModel is the per-node cap on replicas of any single model.
+          Workers older than this field omit it; we coerce 0 → 1 below to preserve
+          historical single-replica behavior.
+        type: integer
+      name:
+        type: string
+      node_type:
+        description: '"backend" (default) or "agent"'
+        type: string
+      renew_node_id:
+        description: RenewNodeID renews credentials without restoring status or mutating
+          registration.
+        type: string
+      token:
+        type: string
+      total_disk:
+        description: |-
+          TotalDisk / AvailableDisk describe the filesystem backing the worker's
+          MODELS directory (where staged weights land), not the root filesystem.
+          Omitted by workers that predate the fields; the scheduler treats
+          total_disk == 0 as "unknown" and leaves such a node in rotation.
+        type: integer
+      total_ram:
+        type: integer
+      total_vram:
+        type: integer
+      version:
+        description: |-
+          Version is the LocalAI build version reported by the worker at
+          registration. Empty for workers registered before this field existed.
+        type: string
+      vram_budget:
+        description: |-
+          VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
+          registry resolves and enforces it against the raw reported VRAM.
+        type: string
+    type: object
   localai.TTSModelVoices:
     properties:
       model:
@@ -4824,6 +4901,81 @@ paths:
       summary: Issue a motion WebSocket ticket (30 seconds, single use)
       tags:
       - motion
+  /api/node/{id}/status:
+    get:
+      description: Read approval without changing registration, heartbeat, or credentials.
+        Requires the configured registration token when authentication is enabled.
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bearer registration token
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Node ID and current status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Observe worker approval
+      tags:
+      - nodes
+  /api/node/register:
+    post:
+      consumes:
+      - application/json
+      description: Supply renew_node_id and the configured registration token to renew
+        credentials without changing approval or telemetry. Renewal requires authentication
+        and only healthy nodes receive credentials.
+      parameters:
+      - description: Registration or credential renewal
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.RegisterNodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Node ID, status, and credentials when available
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Register a worker or renew its credentials
+      tags:
+      - nodes
   /api/nodes/{id}/max-replicas-per-model:
     delete:
       parameters:

@@ -36,6 +36,7 @@ type Snapshot struct {
 	Time              time.Time     `json:"time"`
 	Registration      string        `json:"registration"`
 	RegistrationTime  time.Time     `json:"registration_time"`
+	RenewalFailure    string        `json:"renewal_failure,omitempty"`
 	Credentials       bool          `json:"credentials"`
 	Authenticated     bool          `json:"nats_authenticated"`
 	Connected         bool          `json:"nats_connected"`
@@ -53,6 +54,11 @@ func (s Snapshot) valid() bool {
 	}
 	switch s.Registration {
 	case "starting", "pending", "healthy", "error", "unknown":
+	default:
+		return false
+	}
+	switch s.RenewalFailure {
+	case "", "request_failed", "pending", "missing_credentials":
 	default:
 		return false
 	}
@@ -230,7 +236,7 @@ func (t *Tracker) Classify(s Snapshot, now time.Time) string {
 	if s.Registration != "healthy" || !approvalCurrent {
 		return "registration"
 	}
-	if !s.Credentials {
+	if !s.Credentials || s.RenewalFailure != "" {
 		return "credentials"
 	}
 	if !s.Connected {
