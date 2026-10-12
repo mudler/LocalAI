@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from check_contract_reports import check
+from check_contract_reports import check, SECURITY_CASES
 
 
 class ContractReportTests(unittest.TestCase):
@@ -19,6 +19,8 @@ class ContractReportTests(unittest.TestCase):
             'core-schema': {'Multimodal contracts': 39, 'Legacy embedding parsing': 7},
             'pkg-embeddingmedia': {'Multimodal contracts': 20},
             'core-http-middleware': {'Multimodal contracts': 17, 'Legacy embedding parsing': 1},
+            'core-http': {'Embedding production security': 4},
+            'core-http-auth': {'Auth Middleware': 1},
         }.items():
             specs = []
             for group, count in groups.items():
@@ -26,7 +28,39 @@ class ContractReportTests(unittest.TestCase):
                     ['budget boundaries'] if package == 'pkg-embeddingmedia' and i < 12 else []),
                     'State': 'passed'} for i in range(count))
             self.reports[package] = [{'SuiteSucceeded': True, 'SpecReports': specs}]
+        for package, names in SECURITY_CASES.items():
+            specs = self.reports[package][0]['SpecReports']
+            if package == 'core-http':
+                for spec, name in zip(specs, sorted(names)):
+                    spec['LeafNodeText'] = name
+            else:
+                specs.extend({'ContainerHierarchyTexts': ['Embedding trace security'],
+                              'LeafNodeText': name, 'State': 'passed'} for name in names)
         self.save()
+
+    def test_suite_lifecycle_report(self):
+        self.reports['core-http'][0]['SpecReports'].append(
+            {'ContainerHierarchyTexts': None, 'State': 'passed'})
+        self.save()
+        check(self.root)
+
+    def test_unexpected_skip(self):
+        self.reports['core-http-auth'][0]['SpecReports'][0]['State'] = 'skipped'
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_missing_named_security_case(self):
+        self.reports['core-http'][0]['SpecReports'][0]['LeafNodeText'] = 'unrelated'
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_skipped_security_case(self):
+        self.reports['core-http'][0]['SpecReports'][0]['State'] = 'skipped'
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
 
     def save(self):
         for name, report in self.reports.items():

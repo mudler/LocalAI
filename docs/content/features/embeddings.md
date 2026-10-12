@@ -348,7 +348,8 @@ preparation work, excludes inference, and is not reset between items. Frame and
 context limits are independent: fitting 120 frames does not guarantee that a
 model's context can fit them. Context overflow must reject, not drop content.
 
-The pre-bind cap does not bound earlier optional tracing: the existing trace
-middleware can read the request before this parser. Do not treat this change as
-a whole-route memory bound when tracing is enabled. Moving the bound ahead of
-tracing and excluding sensitive structured payloads require route/trace integration.
+The embedding body limit runs before authentication model extraction and tracing,
+including requests with unknown length or chunked transfer encoding. Embedding
+exchanges are excluded from in-flight, completed, and persisted API traces so
+text, media, and private source URLs are not captured, even on errors. Other
+endpoints keep their existing upload limits and tracing behavior.

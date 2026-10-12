@@ -246,6 +246,12 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				return next(c)
 			}
 
+			// Embedding inputs and error responses can contain private text, media,
+			// or URLs. Omit the exchange before any capture, including in-flight.
+			if isEmbeddingRoute(c.Path()) {
+				return next(c)
+			}
+
 			// Biometric routes can carry vectors in either direction and JSON
 			// diarization carries base64 audio even without profile export.
 			// Exclude the whole exchange before reading or wrapping bodies,
