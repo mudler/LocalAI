@@ -270,11 +270,12 @@ TAR parsing: PAX/GNU metadata, file headers, payload, padding, and trailing byte
 cumulatively across OCI layers. Downloaded compressed bytes have a separate
 budget of the same configured size. Failed staging leaves installed packages intact.
 
-The focused package tests use a local unsigned OCI registry and block external
-trust requests. An unsigned image is rejected before fetching TUF roots; this is
-not evidence of successful verification of a trusted signature. A hermetic
-positive keyless-signature fixture (including trusted Fulcio, SCT and Rekor
-material) remains unimplemented; production signature requirements are unchanged.
+The focused package tests use local OCI registries and block external trust
+requests. Hermetic signed fixtures include trusted Fulcio, SCT and Rekor material
+and exercise successful cryptographic verification, staging and commit. They also
+verify rejection of signed identity, digest and trust mismatches. These offline
+checks do not demonstrate live Sigstore verification; production signature
+requirements are unchanged.
 
 Extraction bounds both the decompressed TAR stream (including metadata, padding,
 and trailing bytes) and cumulative file output across all OCI layers. Sparse
