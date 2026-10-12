@@ -1,0 +1,78 @@
+{
+  "prerequisites": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/prerequisites_test.sh"
+      ]
+    ],
+    "cases": [
+      "missing-go",
+      "old-go",
+      "future-go",
+      "old-node",
+      "wrong-node",
+      "wrong-protoc",
+      "absent-generated",
+      "empty-name",
+      "future-suite",
+      "empty-selection",
+      "failed-child",
+      "zero-tests",
+      "skipped-tests",
+      "exact-tag-pin",
+      "wrong-tag-sum",
+      "ginkgo-empty",
+      "ginkgo-skipped",
+      "ginkgo-missing",
+      "browser-setup-failure"
+    ],
+    "readiness": {
+      "ginkgo": {
+        "command": [
+          "go",
+          "test",
+          "-count=1",
+          "-p",
+          "2",
+          "-tags",
+          "auth",
+          "<temporary SQLite probe>",
+          "-ginkgo.json-report=<unique report>"
+        ],
+        "cases": [
+          "sqlite transaction"
+        ]
+      },
+      "commands": [
+        [
+          "sh",
+          "scripts/addons/prepare.sh",
+          "--check"
+        ],
+        [
+          "tests/e2e-ui/ui-test-server",
+          "--mock-backend=<absolute mock-backend>",
+          "--port=<isolated port>"
+        ],
+        [
+          "core/http/react-ui/node_modules/.bin/playwright",
+          "--version"
+        ],
+        [
+          "node",
+          "--input-type=module",
+          "-e",
+          "<browser readiness probe>",
+          "<healthy server URL>"
+        ]
+      ],
+      "cases": [
+        "toolchain",
+        "server health",
+        "browser"
+      ]
+    }
+  }
+}
