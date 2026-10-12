@@ -498,3 +498,45 @@ locks. A stalled sink can retain an admitted owner indefinitely, but cannot
 create an unbounded number of owners. Later completion submissions can recover
 after capacity returns. Summaries can precede final producer completion;
 missing events after drops do not establish absent work.
+
+### Offline overhead measurement
+
+Run the bounded Ginkgo measurement without a backend or model:
+
+```sh
+GOMAXPROCS=2 LOCALAI_DIAGNOSTIC_MEASURE=1 go test -p 2 -v -count=1 \
+  -timeout=2m ./pkg/diagnostics \
+  -ginkgo.focus='Offline dispatch measurement' -ginkgo.v
+```
+
+The opt-in measurement runs 100 warmup requests and 1,000 measured requests
+per mode. Each enabled request collects 11 events and emits one summary.
+The fixed workload includes request identity creation, nested route/metadata
+spans, repeated content milestones, and a final synchronous drain. These are
+synthetic boundaries, not measurements of actual routing or inference.
+
+The output reports minimum, p50, p95, p99, maximum, and mean event-sink time
+in nanoseconds. There is no timing threshold. The three modes are:
+
+- `disabled`: no recorder and no events.
+- `collection`: an enabled recorder with a no-op sink.
+- `json-discard`: the real `LogEvent` schema validation and JSON logger,
+  writing to `io.Discard` at Info level.
+
+The last mode includes serialization, but excludes filesystem, network,
+collector, and terminal costs. It also excludes gRPC transport, asynchronous
+admission, SSE writes, and inference. Run without the race detector for cost
+measurements; use the race gate separately for correctness. Concurrent work,
+GC, scheduler activity, and hardware affect the distribution. Do not interpret
+these local costs as an inference gain or subtract them from nested spans.
+Mean event-sink time excludes summary writes; total request time includes them.
+
+The companion test runs by default. It checks a sanitized timeline through
+`LogEvent`, including the exact field set, request identity, phase order,
+monotonic local offsets, nested parent, emission count, and summary. It checks
+that context sentinels and invalid free-form schema values do not enter this
+sink. This is not a privacy audit of unrelated application logging. Synthetic
+phase order does not establish cross-process causality or clock alignment.
+
+Frontend Go gates do not replace worker tests. Worker validation, independent
+review, clock bounds, and any live measurements remain separate prerequisites.
