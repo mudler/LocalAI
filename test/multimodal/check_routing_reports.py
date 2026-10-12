@@ -43,6 +43,10 @@ def check(scratch, revision):
             require(routing, f'{name}: missing routing cases')
             counts[name + ': Multimodal routing'] = len(routing)
         if name == 'core-backend':
+            require({
+                'distributed admission reconciles production metadata identity refusal and freshly selects an eligible replica',
+                'distributed admission preserves healthy routes on transient metadata refusal and balances early accounting',
+            } <= {s['LeafNodeText'] for s in routing}, 'missing metadata admission reconciliation cases')
             texts = ' '.join(s['LeafNodeText'] for s in routing)
             require(all(key in texts for key in ('model-identity', 'reload', 'distributed', 'context', 'same-capability generation')))
         if name == 'pkg-grpc':
