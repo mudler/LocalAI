@@ -1,4 +1,57 @@
 ---
+- name: "embeddinggemma-2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/embeddinggemma-2-GGUF
+  description: |
+    Hugging Face |
+    GitHub |
+    Launch Blog |
+    Documentation |
+
+    License: Apache 2.0 | Authors: Google DeepMind
+
+    **EmbeddingGemma 2** is an open multimodal embedding model built by Google DeepMind which maps text (incl. code), images, video, and audio inputs—and combinations thereof—into a single, unified 768-dimensional vector space. The model has 740M total parameters, combining a 270M parameter text model with modular vision (170M) and audio (300M) encoders.
+
+    Designed to run on consumer hardware such as mobile devices and laptops, EmbeddingGemma 2 delivers low-latency semantic representations for on-device applications, like search, retrieval-augmented generation (RAG), classification, and clustering.
+
+    EmbeddingGemma 2 builds upon the architectural and capability advancements of Gemma 4, offering several core features:&nbsp;
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  icon: https://ai.google.dev/gemma/images/embeddinggemma2_banner.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/embeddinggemma-2-UD-Q6_K_XL/mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/embeddinggemma-2-UD-Q6_K_XL/embeddinggemma-2-UD-Q6_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/embeddinggemma-2-UD-Q6_K_XL/embeddinggemma-2-UD-Q6_K_XL.gguf
+      sha256: dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3
+      uri: https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-UD-Q6_K_XL.gguf
+    - filename: llama-cpp/mmproj/embeddinggemma-2-UD-Q6_K_XL/mmproj-Q8_0.gguf
+      sha256: 90e7b0238009e2954f856f2081dcf7f35af026b64c765e98f4777053e1754460
+      uri: https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/mmproj-Q8_0.gguf
 - name: spark-s1-4b-v6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
