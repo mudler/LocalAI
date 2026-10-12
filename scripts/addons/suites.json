@@ -172,7 +172,10 @@
       "bounds compressed OCI GNU expansion before tar parsing",
       "counts padding trailing bytes and layers at the exact expanded boundary",
       "denies nonloopback plaintext and redirect responses at the transport boundary",
-      "bounds expanded bytes cumulatively across real OCI layers"
+      "bounds expanded bytes cumulatively across real OCI layers",
+      "bounds sparse logical output across files and layers preserving old packages",
+      "accepts exact sparse output budget and cancels synthesized writes",
+      "stages real trusted signatures and rejects signed identity digest and trust mismatches offline"
     ],
     "report": ".cache/addons/logs/packages.json"
   }

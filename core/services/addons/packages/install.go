@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 type Progress struct {
@@ -30,12 +31,15 @@ type Progress struct {
 // Root must be a private owner-controlled directory, never addon-writable data.
 // Catalog and Host are trusted owner configuration, not request payloads.
 type Installer struct {
-	Root      string
-	Catalog   catalog.Catalog
-	Host      contract.HostCompatibility
-	MaxBytes  int64
-	MaxFiles  int
-	writeFile func(string, os.FileMode) (fileWriter, error)
+	// SignatureTrust is optional host-provisioned trust, never catalog/artifact input.
+	// Nil preserves public Sigstore TUF trust and all signature requirements.
+	SignatureTrust root.TrustedMaterial
+	Root           string
+	Catalog        catalog.Catalog
+	Host           contract.HostCompatibility
+	MaxBytes       int64
+	MaxFiles       int
+	writeFile      func(string, os.FileMode) (fileWriter, error)
 }
 
 func (i *Installer) byteLimit() int64 {
@@ -101,6 +105,9 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
 			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
+			if i.SignatureTrust != nil {
+				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport, i.SignatureTrust)
+			}
 			if e != nil {
 				return out, ErrPackage
 			}

@@ -275,3 +275,16 @@ trust requests. An unsigned image is rejected before fetching TUF roots; this is
 not evidence of successful verification of a trusted signature. A hermetic
 positive keyless-signature fixture (including trusted Fulcio, SCT and Rekor
 material) remains unimplemented; production signature requirements are unchanged.
+
+Extraction bounds both the decompressed TAR stream (including metadata, padding,
+and trailing bytes) and cumulative file output across all OCI layers. Sparse
+files cannot bypass the output limit by representing large holes with small TAR
+entries. Failed staging removes temporary output without changing old packages.
+
+Embedded hosts may explicitly provision `Installer.SignatureTrust` for a private
+Sigstore deployment. This is host configuration, never catalog or package data;
+it replaces only the trust material. Certificate identity, SCT, Rekor timestamp,
+and artifact digest checks remain enabled. Leaving it unset retains public
+Sigstore TUF trust. Offline acceptance fixtures generate local CA, signing, CT,
+and Rekor keys and exercise the same signature verification and staging path;
+they do not disable cryptographic requirements or depend on live services.

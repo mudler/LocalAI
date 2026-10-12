@@ -38,9 +38,10 @@ func (i *Installer) create(p string, mode os.FileMode) (fileWriter, error) {
 }
 
 type extraction struct {
-	bytes int64
-	files int
-	seen  map[string]bool
+	bytes   int64
+	written int64
+	files   int
+	seen    map[string]bool
 }
 
 func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *extraction) error {
@@ -62,7 +63,7 @@ func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *ext
 		}
 		x.seen[n] = true
 		x.files++
-		if x.files > i.fileLimit() || h.Size < 0 || h.Size > i.byteLimit()-x.bytes {
+		if x.files > i.fileLimit() || h.Size < 0 || h.Size > i.byteLimit()-x.written {
 			return ErrPackage
 		}
 		target := filepath.Join(dir, filepath.FromSlash(n))
@@ -83,7 +84,9 @@ func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *ext
 			if e != nil {
 				return e
 			}
-			_, e = io.CopyN(f, contextReader{ctx, t}, h.Size)
+			n, copyErr := io.CopyN(f, contextReader{ctx, t}, h.Size)
+			x.written += n // tar.Reader synthesizes sparse holes absent from the input stream.
+			e = copyErr
 			if e == nil {
 				e = f.Sync()
 			}

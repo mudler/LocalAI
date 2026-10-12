@@ -10,10 +10,14 @@ import (
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/mudler/LocalAI/tests/addons/fixtures/signing"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -435,5 +439,166 @@ var _ = Describe("expanded stream boundaries", func() {
 		_, e = t.RoundTrip(req)
 		Expect(e).To(MatchError(ErrPackage))
 		Expect(calls).To(Equal(1))
+	})
+})
+
+// Go's writer deliberately filters GNU sparse keys. Emit same-length private
+// PAX keys, then replace only the PAX payload to construct valid sparse 0.1 TARs.
+func sparseArchive(names ...string) []byte {
+	var b bytes.Buffer
+	w := tar.NewWriter(&b)
+	for _, name := range names {
+		Expect(w.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: 1, Format: tar.FormatPAX, PAXRecords: map[string]string{
+			"XXX.sparse.map": "65535,1", "XXX.sparse.size": "65536", "XXX.sparse.numblocks": "1", "XXX.sparse.name": name,
+		}})).To(Succeed())
+		_, err := w.Write([]byte("x"))
+		Expect(err).NotTo(HaveOccurred())
+	}
+	Expect(w.Close()).To(Succeed())
+	return bytes.ReplaceAll(b.Bytes(), []byte("XXX.sparse."), []byte("GNU.sparse."))
+}
+
+var _ = Describe("sparse output boundaries", func() {
+	It("bounds sparse logical output across files and layers preserving old packages", func() {
+		m, err := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		base := archive(nil, m)
+		for _, layers := range [][][]byte{{sparseArchive("one", "two", "three")}, {sparseArchive("one"), sparseArchive("two"), sparseArchive("three")}} {
+			// Each valid regular entry has a logical size of 64 KiB, while its
+			// stored data is one byte. Independently prove the fixture is valid.
+			for _, data := range layers {
+				tr := tar.NewReader(bytes.NewReader(data))
+				for {
+					h, e := tr.Next()
+					if e == io.EOF {
+						break
+					}
+					Expect(e).NotTo(HaveOccurred())
+					Expect(h.Typeflag).To(Equal(byte(tar.TypeReg)))
+					n, e := io.Copy(io.Discard, tr)
+					Expect(e).NotTo(HaveOccurred())
+					Expect(n).To(Equal(int64(65536)))
+				}
+				Expect(len(data)).To(BeNumerically("<", 16384))
+			}
+			artifact, digest, _ := localOCI(append([][]byte{base}, layers...)...)
+			i, r := fixture(base, func(r *catalog.Release, s *catalog.Source) { r.Artifact = artifact; r.Digest = digest })
+			i.MaxBytes = 128 << 10
+			Expect(os.WriteFile(filepath.Join(i.Root, "old"), []byte("old"), 0600)).To(Succeed())
+			_, err = i.Stage(context.Background(), r, nil)
+			Expect(err).To(MatchError(ErrPackage))
+			old, e := os.ReadFile(filepath.Join(i.Root, "old"))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(old)).To(Equal("old"))
+			entries, e := os.ReadDir(i.Root)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(entries).To(HaveLen(1))
+		}
+	})
+	It("accepts exact sparse output budget and cancels synthesized writes", func() {
+		data := sparseArchive("one", "two")
+		for _, limit := range []int64{131072, 131071} {
+			i := &Installer{MaxBytes: limit}
+			x := &extraction{seen: map[string]bool{}}
+			err := i.extract(context.Background(), bytes.NewReader(data), GinkgoT().TempDir(), x)
+			if limit == 131072 {
+				Expect(err).To(Succeed())
+			} else {
+				Expect(err).To(MatchError(ErrPackage))
+			}
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		i := &Installer{MaxBytes: 131072}
+		i.writeFile = func(p string, m os.FileMode) (fileWriter, error) {
+			f, e := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, m)
+			return cancelFile{f, cancel}, e
+		}
+		Expect(i.extract(ctx, bytes.NewReader(data), GinkgoT().TempDir(), &extraction{seen: map[string]bool{}})).To(MatchError(context.Canceled))
+	})
+})
+
+// Do not embed os.File: its promoted ReadFrom bypasses the cancelling Write.
+type cancelFile struct {
+	file   *os.File
+	cancel context.CancelFunc
+}
+
+func (f cancelFile) Write(b []byte) (int, error) { n, e := f.file.Write(b); f.cancel(); return n, e }
+
+func (f cancelFile) Sync() error  { return f.file.Sync() }
+func (f cancelFile) Close() error { return f.file.Close() }
+
+var _ = Describe("trusted signed staging", func() {
+	It("stages real trusted signatures and rejects signed identity digest and trust mismatches offline", func() {
+		original := http.DefaultTransport
+		var external atomic.Int64
+		http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Hostname() != "127.0.0.1" {
+				external.Add(1)
+				return nil, fmt.Errorf("external network forbidden")
+			}
+			return original.RoundTrip(r)
+		})
+		DeferCleanup(func() { http.DefaultTransport = original })
+		authority, e := signing.New()
+		Expect(e).NotTo(HaveOccurred())
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		data := archive(nil, m)
+		for _, scenario := range []string{"valid", "identity", "digest", "trust"} {
+			artifact, digest, _ := localOCI(data)
+			ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
+			Expect(e).NotTo(HaveOccurred())
+			identity := "builder@example.invalid"
+			signedDigest := digest[7:]
+			if scenario == "identity" {
+				identity = "attacker@example.invalid"
+			}
+			if scenario == "digest" {
+				signedDigest = strings.Repeat("a", 64)
+			}
+			blob, e := authority.Bundle(signedDigest, identity, "https://issuer.invalid")
+			Expect(e).NotTo(HaveOccurred())
+			layer := static.NewLayer(blob, types.MediaType("application/vnd.dev.sigstore.bundle.v0.3+json"))
+			img, e := mutate.AppendLayers(empty.Image, layer)
+			Expect(e).NotTo(HaveOccurred())
+			sigref := ref.Context().Tag("signature")
+			Expect(remote.Write(sigref, img)).To(Succeed())
+			hash, e := img.Digest()
+			Expect(e).NotTo(HaveOccurred())
+			size, e := img.Size()
+			Expect(e).NotTo(HaveOccurred())
+			index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: img, Descriptor: v1.Descriptor{Digest: hash, Size: size, MediaType: types.DockerManifestSchema2, ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}})
+			Expect(remote.WriteIndex(ref.Context().Tag(strings.Replace(digest, ":", "-", 1)), index)).To(Succeed())
+			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+				r.Artifact = artifact
+				r.Digest = digest
+				s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", Identity: "builder@example.invalid"}
+			})
+			i.SignatureTrust = authority
+			if scenario == "trust" {
+				i.SignatureTrust, e = signing.New()
+				Expect(e).NotTo(HaveOccurred())
+			}
+			Expect(os.WriteFile(filepath.Join(i.Root, "old"), []byte("old"), 0600)).To(Succeed())
+			staged, e := i.Stage(context.Background(), r, nil)
+			if scenario == "valid" {
+				Expect(e).To(Succeed())
+				receipt, e := i.Commit(context.Background(), staged)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(receipt.Verification).To(Equal("sha256+sigstore"))
+				Expect(receipt.Digest).To(Equal(digest))
+			} else {
+				Expect(e).To(MatchError(ErrPackage))
+				entries, e := os.ReadDir(i.Root)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(entries).To(HaveLen(1))
+			}
+			old, e := os.ReadFile(filepath.Join(i.Root, "old"))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(old)).To(Equal("old"))
+		}
+		Expect(external.Load()).To(BeZero())
 	})
 })
