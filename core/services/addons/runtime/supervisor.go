@@ -25,6 +25,7 @@ import (
 var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
 
 type Config struct {
+	StateRoot                  string // private owner-local durable process ledger, required
 	Limits                     contract.Limits
 	ReadyTimeout, StableHealth time.Duration
 }
@@ -70,22 +71,33 @@ type slot struct {
 	cancel     context.CancelFunc
 	attempts   int
 	original   *process
+	workerDone chan struct{}
+	stopDone   chan struct{}
+	stopErr    error
 }
 type Registry struct{ supervisor *Supervisor }
 type Supervisor struct {
-	mu       sync.Mutex
-	config   Config
-	slots    map[string]*slot
-	closed   bool
-	Registry *Registry
-	workers  sync.WaitGroup
+	ledger        *processLedger
+	closeMu       sync.Mutex
+	ledgerClosed  bool
+	mu            sync.Mutex
+	config        Config
+	slots         map[string]*slot
+	closed        bool
+	Registry      *Registry
+	workers       sync.WaitGroup
+	launchStarted func(*process) // deterministic launch-boundary instrumentation for subprocess tests
 }
 
 func NewSupervisor(c Config) (*Supervisor, error) {
 	if c.Limits.Validate() != nil || c.ReadyTimeout <= 0 || c.StableHealth <= 0 {
 		return nil, ErrRuntime
 	}
-	s := &Supervisor{config: c, slots: map[string]*slot{}}
+	l, e := openLedger(c.StateRoot, c.Limits.ShutdownTimeout)
+	if e != nil {
+		return nil, e
+	}
+	s := &Supervisor{config: c, slots: map[string]*slot{}, ledger: l}
 	s.Registry = &Registry{supervisor: s}
 	return s, nil
 }
@@ -118,6 +130,32 @@ func (r *Registry) Snapshot(ctx context.Context) ([]Registration, error) {
 	return result, nil
 }
 func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (Instance, error) {
+	wait, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout+2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	type result struct {
+		i Instance
+		e error
+	}
+	done := make(chan result, 1)
+	accepted := make(chan bool, 1)
+	go func() {
+		i, e := s.start(wait, pkg, generation)
+		done <- result{i, e}
+		if keep := <-accepted; !keep && e == nil {
+			_ = s.Stop(context.Background(), i)
+		}
+	}()
+	select {
+	case r := <-done:
+		accepted <- true
+		return r.i, r.e
+	case <-wait.Done():
+		accepted <- false
+		return Instance{}, wait.Err()
+	}
+}
+
+func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (Instance, error) {
 	if generation == 0 {
 		return Instance{}, ErrRuntime
 	}
@@ -130,7 +168,7 @@ func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, gen
 		return Instance{}, ErrRuntime
 	}
 	life, cancel := context.WithCancel(context.Background())
-	slot := &slot{owner: s, pkg: pkg, generation: generation, cancel: cancel}
+	slot := &slot{owner: s, pkg: pkg, generation: generation, cancel: cancel, workerDone: make(chan struct{}), stopDone: make(chan struct{})}
 	s.slots[pkg.Manifest.ID] = slot
 	s.workers.Add(1)
 	s.mu.Unlock()
@@ -142,14 +180,17 @@ func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, gen
 	p, e := s.launch(startup, pkg, generation)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if e != nil || slot.stopped || s.closed {
+	if e != nil || ctx.Err() != nil || slot.stopped || s.closed {
 		cancel()
+		s.mu.Unlock()
 		if p != nil {
 			s.terminate(p)
 		}
+		s.mu.Lock()
 		if s.slots[pkg.Manifest.ID] == slot {
 			delete(s.slots, pkg.Manifest.ID)
 		}
+		close(slot.workerDone)
 		return Instance{}, ErrRuntime
 	}
 	slot.current = p
@@ -218,7 +259,12 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	cmd.ExtraFiles = []*os.File{socket, child}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
+	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
+		parent.Close()
+		return nil, ErrRuntime
+	}
 	if e = cmd.Start(); e != nil {
+		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
 		parent.Close()
 		return nil, ErrRuntime
 	}
@@ -231,7 +277,22 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		return nil, e
 	}
 	p.client = c
+	ident, identityErr := identity(cmd.Process.Pid)
+	ident.Incarnation = r.Incarnation
+	if identityErr == nil {
+		identityErr = s.ledger.put(pkg.Manifest.ID, ident)
+	}
 	go func() { _ = cmd.Wait(); c.withdraw(); close(p.done) }()
+	if identityErr != nil {
+		s.terminate(p)
+		return nil, ErrRuntime
+	}
+	s.mu.Lock()
+	hook := s.launchStarted
+	s.mu.Unlock()
+	if hook != nil {
+		hook(p)
+	}
 	// The startup object is bounded; write with a deadline so even a child that
 	// never reads its inherited pipe cannot hang the owner.
 	_ = parent.SetWriteDeadline(time.Now().Add(s.config.ReadyTimeout))
@@ -275,8 +336,10 @@ func (s *Supervisor) terminate(p *process) {
 	_ = p.cmd.Process.Kill()
 	<-p.done
 	p.client.http.CloseIdleConnections()
+	_ = s.ledger.remove(p.registration.AddonID, p.registration.Incarnation)
 }
 func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
+	defer close(slot.workerDone)
 	defer s.workers.Done()
 	for {
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -365,49 +428,111 @@ func (s *Supervisor) Attempts(id string) int {
 func (s *Supervisor) Stop(ctx context.Context, i Instance) error {
 	s.mu.Lock()
 	slot := i.slot
-	if slot == nil || slot.owner != s || i.process == nil || slot.original != i.process || i.Incarnation != i.process.registration.Incarnation || i.PID != i.process.cmd.Process.Pid || i.Generation != slot.generation {
+	if slot == nil || slot.owner != s || i.process == nil || (slot.original != i.process && slot.current != i.process) || i.Incarnation != i.process.registration.Incarnation || i.PID != i.process.cmd.Process.Pid || i.Generation != slot.generation {
 		s.mu.Unlock()
 		return ErrRuntime
 	}
-	if slot.stopped {
-		s.mu.Unlock()
-		return nil
-	}
-	slot.stopped = true
-	slot.cancel()
-	p := slot.current
-	slot.current = nil
-	if s.slots[slot.pkg.Manifest.ID] == slot {
-		delete(s.slots, slot.pkg.Manifest.ID)
-	}
-	if p != nil {
-		p.client.withdraw()
+	return s.stopLocked(ctx, slot)
+}
+
+// The slot remains reserved until both the launch worker and its last child are
+// finished. A caller timeout does not release the reservation or claim success.
+func (s *Supervisor) stopLocked(ctx context.Context, slot *slot) error {
+	if !slot.stopped {
+		slot.stopped = true
+		slot.cancel()
+		if slot.current != nil {
+			slot.current.client.withdraw()
+		}
+		go func() {
+			<-slot.workerDone
+			s.mu.Lock()
+			p := slot.current
+			s.mu.Unlock()
+			if p != nil {
+				drain, cancel := context.WithTimeout(context.Background(), s.config.Limits.ShutdownTimeout)
+				p.client.drain(drain)
+				cancel()
+				s.terminate(p)
+			}
+			s.mu.Lock()
+			slot.current = nil
+			slot.stopErr = s.ledger.remove(slot.pkg.Manifest.ID, func() string {
+				if p != nil {
+					return p.registration.Incarnation
+				}
+				return ""
+			}())
+			if slot.stopErr == nil && s.slots[slot.pkg.Manifest.ID] == slot {
+				delete(s.slots, slot.pkg.Manifest.ID)
+			}
+			close(slot.stopDone)
+			s.mu.Unlock()
+		}()
 	}
 	s.mu.Unlock()
-	if p != nil {
-		drain, cancel := context.WithTimeout(ctx, s.config.Limits.ShutdownTimeout)
-		p.client.drain(drain)
-		cancel()
-		s.terminate(p)
+	// Draining and OS cleanup each receive one finite shutdown interval.
+	wait, cancel := context.WithTimeout(ctx, 2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	select {
+	case <-slot.stopDone:
+		return slot.stopErr
+	case <-wait.Done():
+		return wait.Err()
 	}
-	return nil
+}
+
+// Current explicitly obtains a ready incarnation. Previously returned clients
+// never follow restarts, so callers cannot accidentally replay a stale mutation.
+func (s *Supervisor) Current(ctx context.Context, id string, generation uint64) (Instance, error) {
+	if e := ctx.Err(); e != nil {
+		return Instance{}, e
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slot := s.slots[id]
+	if s.closed || slot == nil || slot.stopped || slot.generation != generation || slot.current == nil {
+		return Instance{}, ErrRuntime
+	}
+	p := slot.current
+	select {
+	case <-p.done:
+		return Instance{}, ErrRuntime
+	default:
+	}
+	if !p.client.admitting() {
+		return Instance{}, ErrRuntime
+	}
+	return Instance{PID: p.cmd.Process.Pid, Incarnation: p.registration.Incarnation, Generation: generation, Client: p.client, process: p, slot: slot}, nil
 }
 func (s *Supervisor) Close(ctx context.Context) error {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
 	s.mu.Lock()
 	s.closed = true
-	var list []Instance
+	slots := make([]*slot, 0, len(s.slots))
 	for _, slot := range s.slots {
-		if p := slot.original; p != nil {
-			list = append(list, Instance{PID: p.cmd.Process.Pid, Incarnation: p.registration.Incarnation, Generation: slot.generation, process: p, slot: slot})
-		} else {
-			slot.stopped = true
-			slot.cancel()
-		}
+		slots = append(slots, slot)
 	}
 	s.mu.Unlock()
-	for _, i := range list {
-		_ = s.Stop(ctx, i)
+	for _, slot := range slots {
+		s.mu.Lock()
+		if e := s.stopLocked(ctx, slot); e != nil {
+			return e
+		}
 	}
-	s.workers.Wait()
+	done := make(chan struct{})
+	go func() { s.workers.Wait(); close(done) }()
+	wait, cancel := context.WithTimeout(ctx, 2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	select {
+	case <-done:
+	case <-wait.Done():
+		return wait.Err()
+	}
+	if !s.ledgerClosed {
+		s.ledgerClosed = true
+		return s.ledger.close()
+	}
 	return nil
 }

@@ -8,6 +8,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -17,7 +21,45 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRuntime(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Addon runtime") }
+func TestRuntime(t *testing.T) {
+	if root := os.Getenv("ADDON_OWNER_HELPER"); root != "" {
+		b, e := os.ReadFile(os.Getenv("ADDON_HELPER_RECEIPT"))
+		if e != nil {
+			os.Exit(20)
+		}
+		var p packages.PackageReceipt
+		if json.Unmarshal(b, &p) != nil {
+			os.Exit(21)
+		}
+		c := Config{Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second}
+		setStateRoot(&c, root)
+		s, e := NewSupervisor(c)
+		if e != nil {
+			os.Exit(22)
+		}
+		i, e := s.Start(context.Background(), p, 1)
+		if e != nil {
+			os.Exit(23)
+		}
+		if os.WriteFile(filepath.Join(root, "helper-pid"), []byte(strconv.Itoa(i.PID)), 0600) != nil {
+			os.Exit(24)
+		}
+		select {}
+	}
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Addon runtime")
+}
+
+func setStateRoot(c *Config, root string) { c.StateRoot = root }
+func processRunning(pid int) bool {
+	b, e := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if os.IsNotExist(e) {
+		return false
+	}
+	Expect(e).NotTo(HaveOccurred())
+	fields := strings.Fields(string(b)[strings.LastIndex(string(b), ")")+1:])
+	return fields[0] != "Z" && fields[0] != "X"
+}
 
 var binary string
 var _ = BeforeSuite(func() {
@@ -48,7 +90,7 @@ func supervisor() *Supervisor {
 	l.BackoffInitial = 20 * time.Millisecond
 	l.BackoffMax = 40 * time.Millisecond
 	l.BackoffAttempts = 2
-	s, e := NewSupervisor(Config{Limits: l, ReadyTimeout: 300 * time.Millisecond, StableHealth: time.Second})
+	s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 300 * time.Millisecond, StableHealth: time.Second})
 	Expect(e).NotTo(HaveOccurred())
 	DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 	return s
@@ -160,5 +202,204 @@ var _ = Describe("Incarnation recovery", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r).To(HaveLen(1))
 		Expect(r[0].Incarnation).NotTo(Equal(i.Incarnation))
+	})
+})
+
+var _ = Describe("Restart safety regressions", func() {
+	It("reserves a draining slot against concurrent starts", func() {
+		s := supervisor()
+		p := fixture("normal", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		stream, e := i.Client.OpenOutput(context.Background(), envelope("output"), "slow")
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(stream.Close)
+		done := make(chan error, 1)
+		go func() { done <- s.Stop(context.Background(), i) }()
+		Eventually(func() bool { return i.process.client.admitting() }).Should(BeFalse())
+		select {
+		case <-i.process.done:
+			Fail("process exited before drain race was exercised")
+		default:
+		}
+		_, e = s.Start(context.Background(), p, 2)
+		Expect(e).To(HaveOccurred(), "Start overlapped the draining process")
+		Expect(<-done).To(Succeed())
+		Expect(i.process.done).To(BeClosed())
+	})
+	It("waits for a restart launch worker before acknowledging stop", func() {
+		s := supervisor()
+		p := fixture("normal", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		started := make(chan *process, 1)
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() { once.Do(func() { close(release) }) })
+		// This boundary pauses a real launch after exec and before readiness. It is
+		// not a substitute process; cancellation must join the actual launch worker.
+		s.mu.Lock()
+		s.launchStarted = func(p *process) { started <- p; <-release }
+		s.mu.Unlock()
+		Expect(i.process.cmd.Process.Kill()).To(Succeed())
+		var child *process
+		Eventually(started, time.Second).Should(Receive(&child))
+		done := make(chan error, 1)
+		go func() { done <- s.Stop(context.Background(), i) }()
+		Consistently(done, 50*time.Millisecond).ShouldNot(Receive(), "Stop acknowledged a live unpublished restart child")
+		once.Do(func() { close(release) })
+		Eventually(done, time.Second).Should(Receive(Succeed()))
+		Expect(child.done).To(BeClosed())
+	})
+	It("exposes a new incarnation client after restart without reviving the old client", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(i.process.cmd.Process.Kill()).To(Succeed())
+		Eventually(func() string {
+			r, _ := s.Registry.Snapshot(context.Background())
+			if len(r) == 0 {
+				return ""
+			}
+			return r[0].Incarnation
+		}, time.Second).Should(And(Not(BeEmpty()), Not(Equal(i.Incarnation))))
+		lookup, ok := any(s).(interface {
+			Current(context.Context, string, uint64) (Instance, error)
+		})
+		Expect(ok).To(BeTrue(), "ready registry has no current-incarnation client lookup")
+		next, e := lookup.Current(context.Background(), "sample", 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(next.Incarnation).NotTo(Equal(i.Incarnation))
+		_, e = next.Client.Read(context.Background(), envelope("read"))
+		Expect(e).NotTo(HaveOccurred())
+		_, e = i.Client.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1, Data: 1})
+		Expect(e).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("Durable orphan recovery", func() {
+	It("kills the exact paused child of a killed owner before launching its replacement", func() {
+		root := GinkgoT().TempDir()
+		pkg := fixture("normal", service)
+		helper := exec.Command(os.Args[0], "-test.run=^TestRuntime$")
+		helper.Env = append(os.Environ(), "ADDON_OWNER_HELPER="+root, "ADDON_HELPER_RECEIPT="+filepath.Join(pkg.Directory, "receipt.json"))
+		Expect(helper.Start()).To(Succeed())
+		DeferCleanup(func() { _ = helper.Process.Kill(); _ = helper.Wait() })
+		var pid int
+		Eventually(func() int {
+			b, _ := os.ReadFile(filepath.Join(root, "helper-pid"))
+			pid, _ = strconv.Atoi(string(b))
+			return pid
+		}, 3*time.Second).Should(BeNumerically(">", 0))
+		DeferCleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+		Expect(syscall.Kill(pid, syscall.SIGSTOP)).To(Succeed())
+		Expect(helper.Process.Kill()).To(Succeed())
+		Expect(helper.Wait()).To(HaveOccurred())
+		Expect(processRunning(pid)).To(BeTrue(), "paused child must survive owner death to exercise recovery")
+		c := Config{Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second}
+		setStateRoot(&c, root)
+		s, e := NewSupervisor(c)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
+		_, e = s.Start(context.Background(), pkg, 2)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(processRunning(pid)).To(BeFalse(), "new owner launched while the prior owner's exact child was still paused")
+	})
+})
+
+var _ = Describe("Recovery fencing", func() {
+	It("fails closed on ambiguous launch identities and preserves unrelated reused PIDs", func() {
+		for _, mode := range []string{"pending", "missing-start", "reused", "boot"} {
+			root := GinkgoT().TempDir()
+			other := exec.Command("sleep", "30")
+			Expect(other.Start()).To(Succeed())
+			DeferCleanup(func() { _ = other.Process.Kill(); _ = other.Wait() })
+			ident, e := identity(other.Process.Pid)
+			Expect(e).NotTo(HaveOccurred())
+			ident.Incarnation = "test"
+			switch mode {
+			case "pending":
+				ident.Pending = true
+			case "missing-start":
+				ident.Start = ""
+			case "reused":
+				ident.Start = "1"
+			case "boot":
+				ident.Boot = "prior-boot"
+			}
+			b, e := json.Marshal(map[string]processIdentity{"sample": ident})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(root, "processes.json"), b, 0600)).To(Succeed())
+			s, e := NewSupervisor(Config{StateRoot: root, Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
+			if mode == "pending" || mode == "missing-start" {
+				Expect(e).To(HaveOccurred())
+			} else {
+				Expect(e).NotTo(HaveOccurred())
+				Expect(s.Close(context.Background())).To(Succeed())
+			}
+			Expect(processRunning(other.Process.Pid)).To(BeTrue())
+		}
+	})
+	It("retains a canceled restart slot until cleanup completes and rejects duplicate supervisors", func() {
+		s := supervisor()
+		p := fixture("normal", service)
+		_, e := NewSupervisor(s.config)
+		Expect(e).To(HaveOccurred())
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		started := make(chan *process, 1)
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() { once.Do(func() { close(release) }) })
+		s.mu.Lock()
+		s.launchStarted = func(p *process) { started <- p; <-release }
+		s.mu.Unlock()
+		Expect(i.process.cmd.Process.Kill()).To(Succeed())
+		var child *process
+		Eventually(started, time.Second).Should(Receive(&child))
+		canceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		Expect(s.Stop(canceled, i)).To(HaveOccurred())
+		_, e = s.Start(context.Background(), p, 2)
+		Expect(e).To(HaveOccurred())
+		Expect(s.Current(context.Background(), "sample", 1)).Error().To(HaveOccurred())
+		once.Do(func() { close(release) })
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(child.done).To(BeClosed())
+	})
+})
+
+var _ = Describe("Durable cleanup failures", func() {
+	It("refuses a missing established ledger and fences failed cleanup publication", func() {
+		s := supervisor()
+		p := fixture("normal", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		root := s.config.StateRoot
+		// A filesystem obstruction makes the next durable removal fail.
+		Expect(os.Mkdir(filepath.Join(root, "processes.tmp"), 0700)).To(Succeed())
+		Expect(s.Stop(context.Background(), i)).To(HaveOccurred())
+		Expect(i.process.done).To(BeClosed())
+		_, e = s.Start(context.Background(), p, 2)
+		Expect(e).To(HaveOccurred())
+		Expect(os.Remove(filepath.Join(root, "processes.tmp"))).To(Succeed())
+		// The safety fence deliberately survives local I/O repair. Leave cleanup to
+		// a newly recovered supervisor only after closing this test-owned lock.
+		Expect(s.Close(context.Background())).To(HaveOccurred())
+		s.ledger.mu.Lock()
+		s.ledger.failed = false
+		s.ledger.mu.Unlock()
+		// Preserve the error slot until Close has reported it; this test-only reset
+		// permits resource cleanup without changing production recovery behavior.
+		s.mu.Lock()
+		delete(s.slots, "sample")
+		s.mu.Unlock()
+		Expect(s.Close(context.Background())).To(Succeed())
+		Expect(os.Remove(filepath.Join(root, "processes.json"))).To(Succeed())
+		next, e := NewSupervisor(s.config)
+		if e == nil {
+			_ = next.Close(context.Background())
+		}
+		Expect(e).To(HaveOccurred(), "an established owner must not forget its missing process ledger")
 	})
 })

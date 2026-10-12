@@ -318,7 +318,7 @@ Forwarding instances construct no catalog or installer and never reconcile stora
 `AdminCheck` is mandatory on the owner and excluded from serialized settings.
 `Host` optionally sets compatibility; its zero value uses the current host and
 version-one contracts. There are no new CLI flags or runtime settings yet.
-Application bootstrap does not start addon processes.
+Application bootstrap starts enabled addon processes after durable reconciliation.
 
 The host supplies an authoritative `catalog.AdminCheck`. It must check current
 account, credential, and administrator status, including for duplicate requests.
@@ -386,9 +386,22 @@ is `LANG=C` and `TZ=UTC`; host credentials and proxy variables are not inherited
 Descriptor 3 contains an ephemeral listener bound to `127.0.0.1`. Descriptor 4
 contains one newline-terminated JSON `runtime.Startup` object: registration,
 private random bearer credential, and finite host limits. The child must monitor
-that descriptor after decoding and exit on EOF. This cooperative parent-liveness
-protocol prevents compliant addons becoming orphans after owner termination;
-trusted executables can ignore it, so it is not a sandbox or descendant containment.
+that descriptor after decoding and exit on EOF. EOF is cooperative liveness, not
+an ownership fence: a paused child may not observe it before its owner restarts.
+
+The supervisor requires a private durable `StateRoot` (application default:
+`<addon root>/runtime`). A separately locked, fsynced process ledger records Linux
+boot identity, PID, kernel start time, and incarnation before startup credentials
+are sent. A pending record is persisted **before exec**. A restarted owner recovers
+all recorded children using pidfds, checks exact identity, sends termination via
+the retained handle, and waits for confirmed exit before any replacement launch.
+Reused PIDs are not signaled. Corrupt, incomplete, unreadable, or uncertain pending
+records fail closed; operators must establish that prior children are gone before
+repairing the ledger. Do not delete runtime metadata to bypass recovery. Linux
+with readable `/proc` and pidfd support is currently required; unsupported systems
+refuse runtime startup rather than weaken identity checks. This is not a sandbox
+or descendant containment: installed code is trusted, and must not detach workers
+outside the supervised process lifetime.
 
 Every local HTTP request requires the bearer credential and
 `X-LocalAI-Incarnation`. The authenticated `/health` response must exactly match
@@ -412,7 +425,21 @@ wrong method scopes, expired authority, oversized responses, and excess concurre
 requests. Streams have byte and time limits and propagate cancellation. Stop rejects
 new admission and withdraws registration before bounded draining. Termination uses
 the retained OS process handle, never a reconstructed numeric PID. An old stopped
-instance cannot terminate a newer generation. Default shutdown is 10 seconds;
+instance cannot terminate a newer generation. The addon slot stays reserved during
+drain and restart startup, including while the next process is not yet ready.
+Stop success means all slot launch workers and processes have finished; cancellation
+or cleanup timeout returns an error, retains the reservation until confirmed
+cleanup, and never authorizes an overlapping generation. A failed durable cleanup
+fences further launches. Stop callers wait at most two shutdown intervals; startup
+callers wait at most readiness plus two shutdown intervals.
+
+`Supervisor.Current(ctx, addonID, generation)` and `Manager.Runtime(ctx, addonID)`
+explicitly obtain the current ready incarnation under lifecycle locks. A client
+previously returned by Start or lookup stays bound to its original incarnation and
+rejects calls after withdrawal. No stale mutation is transparently replayed on a
+replacement; callers must use the existing operation/receipt recovery protocol.
+
+Default shutdown is 10 seconds;
 readiness is 30 seconds, restart delays range from 250 milliseconds to 30 seconds,
 and the restart budget is five attempts. Runtime startup failure leaves durable
 enabled intent intact for explicit reconciliation; it does not claim healthy service.

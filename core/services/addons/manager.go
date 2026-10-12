@@ -82,7 +82,7 @@ func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *pack
 func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed {
+	if m.closed && m.release == nil {
 		return nil
 	}
 	m.closed = true
@@ -92,7 +92,11 @@ func (m *Manager) Close() error {
 		}
 	}
 	if m.release != nil {
-		return m.release()
+		e := m.release()
+		if e == nil {
+			m.release = nil
+		}
+		return e
 	}
 	return nil
 }
@@ -463,4 +467,20 @@ func (m *Manager) syncRuntime(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// Runtime returns the current ready incarnation, not the lifecycle stop handle
+// retained in instances. Authorization and operation replay decisions remain the
+// caller's responsibility; this accessor never dispatches or retries an operation.
+func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return addonruntime.Instance{}, e
+	}
+	state := m.journal.Addons[id]
+	if m.uncertain || m.runtime == nil || !state.Installed || !state.DesiredEnabled {
+		return addonruntime.Instance{}, addonruntime.ErrRuntime
+	}
+	return m.runtime.Current(ctx, id, state.Generation)
 }

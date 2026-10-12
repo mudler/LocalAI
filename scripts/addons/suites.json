@@ -205,7 +205,8 @@
       "preserves old packages and active generation on manager upgrade failure",
       "requires current authoritative administration even for idempotent retries",
       "rejects symlinked package roots without touching external staging",
-      "executes enabled owner intent on startup and stops on disable and close without forwarder execution"
+      "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
+      "joins real restart startup on disable and generation upgrade"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -235,7 +236,14 @@
       "resets restart budget only after sustained authenticated health",
       "authenticates every request and separates trusted authority from model arguments",
       "bounds output streams cancellation deadlines and stop admission",
-      "rejects nonloopback endpoints and bounds oversized streams and concurrency"
+      "rejects nonloopback endpoints and bounds oversized streams and concurrency",
+      "reserves a draining slot against concurrent starts",
+      "waits for a restart launch worker before acknowledging stop",
+      "exposes a new incarnation client after restart without reviving the old client",
+      "kills the exact paused child of a killed owner before launching its replacement",
+      "fails closed on ambiguous launch identities and preserves unrelated reused PIDs",
+      "retains a canceled restart slot until cleanup completes and rejects duplicate supervisors",
+      "refuses a missing established ledger and fences failed cleanup publication"
     ],
     "report": ".cache/addons/logs/runtime.json"
   }

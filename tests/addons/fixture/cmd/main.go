@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -31,6 +32,7 @@ func main() {
 	}
 	b, _ := os.ReadFile("fixture.json")
 	_ = json.Unmarshal(b, &config)
+	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}
