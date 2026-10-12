@@ -279,7 +279,10 @@ worker's responsibility after probing the compressed media.
 Capabilities are rechecked before each item and before returning its result.
 Changes require reopening a session; closing a session cancels its outstanding
 work without closing the loader-owned connection. Local unload/reload invalidates
-the session, while distributed identity refusals reconcile the selected replica.
+the session, while distributed identity refusals reconcile the selected replica,
+including refusals during metadata admission before inference. The next request
+selects a fresh eligible route; the refused session does not retry elsewhere.
+Transient metadata errors do not remove otherwise healthy replica routes.
 Legacy text requests keep their existing route. These transport provisions do not
 constitute real-model multimodal support; native and full runtime acceptance are
 still required.
