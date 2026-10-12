@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "status": "planned",
+  "materialization_policy": "No fixture bytes exist yet. Null checksums are intentional. Hash actual bytes and verify ownership before native acceptance; do not change semantics based on inference.",
+  "fixtures": [
+    {
+      "id": "text-bell",
+      "path": "text-bell.txt",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "utf-8",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "A hand rings a brass bell.",
+      "semantic_target": "bell",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "image-bell",
+      "path": "image-bell.png",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "png",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "A hand rings a brass bell.",
+      "semantic_target": "bell",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "audio-bell",
+      "path": "audio-bell.wav",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "wav",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "A hand rings a brass bell.",
+      "semantic_target": "bell",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "video-bell",
+      "path": "video-bell.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264+aac",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "A hand rings a brass bell.",
+      "semantic_target": "bell",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "text-drum",
+      "path": "text-drum.txt",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "utf-8",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "A hand strikes a small drum.",
+      "semantic_target": "drum",
+      "distractor_groups": [
+        "bell",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "image-drum",
+      "path": "image-drum.png",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "png",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "A hand strikes a small drum.",
+      "semantic_target": "drum",
+      "distractor_groups": [
+        "bell",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "audio-drum",
+      "path": "audio-drum.wav",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "wav",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "A hand strikes a small drum.",
+      "semantic_target": "drum",
+      "distractor_groups": [
+        "bell",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "video-drum",
+      "path": "video-drum.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264+aac",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "A hand strikes a small drum.",
+      "semantic_target": "drum",
+      "distractor_groups": [
+        "bell",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "text-water",
+      "path": "text-water.txt",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "utf-8",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "Water pours from a jug into a glass.",
+      "semantic_target": "water",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "typing"
+      ]
+    },
+    {
+      "id": "image-water",
+      "path": "image-water.png",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "png",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "Water pours from a jug into a glass.",
+      "semantic_target": "water",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "typing"
+      ]
+    },
+    {
+      "id": "audio-water",
+      "path": "audio-water.wav",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "wav",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Water pours from a jug into a glass.",
+      "semantic_target": "water",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "typing"
+      ]
+    },
+    {
+      "id": "video-water",
+      "path": "video-water.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264+aac",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Water pours from a jug into a glass.",
+      "semantic_target": "water",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "typing"
+      ]
+    },
+    {
+      "id": "text-typing",
+      "path": "text-typing.txt",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "utf-8",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "Hands type on a computer keyboard.",
+      "semantic_target": "typing",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "water"
+      ]
+    },
+    {
+      "id": "image-typing",
+      "path": "image-typing.png",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "png",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 0
+      },
+      "expected_duration_seconds": 0,
+      "semantic": "Hands type on a computer keyboard.",
+      "semantic_target": "typing",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "water"
+      ]
+    },
+    {
+      "id": "audio-typing",
+      "path": "audio-typing.wav",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "wav",
+      "expected_tracks": {
+        "video": 0,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Hands type on a computer keyboard.",
+      "semantic_target": "typing",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "water"
+      ]
+    },
+    {
+      "id": "video-typing",
+      "path": "video-typing.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264+aac",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Hands type on a computer keyboard.",
+      "semantic_target": "typing",
+      "distractor_groups": [
+        "bell",
+        "drum",
+        "water"
+      ]
+    },
+    {
+      "id": "video-bell-silent",
+      "path": "video-bell-silent.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 0
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Use exactly video-bell frames; no soundtrack.",
+      "semantic_target": "bell",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    },
+    {
+      "id": "video-bell-drum-track",
+      "path": "video-bell-drum-track.mp4",
+      "sha256": null,
+      "status": "planned",
+      "license": "MIT (planned owned fixture; rights confirmation required on materialization)",
+      "ownership": "LocalAI contributor-created; not yet recorded/rendered",
+      "media_format": "mp4/h264+aac",
+      "expected_tracks": {
+        "video": 1,
+        "audio": 1
+      },
+      "expected_duration_seconds": 2,
+      "semantic": "Use exactly video-bell frames; replace complete soundtrack with audio-drum.",
+      "semantic_target": "drum",
+      "distractor_groups": [
+        "drum",
+        "water",
+        "typing"
+      ]
+    }
+  ]
+}

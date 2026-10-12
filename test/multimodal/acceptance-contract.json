@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "contract_version": "multimodal-acceptance-v1",
+  "frozen": true,
+  "freeze_policy": "No prompt, target, distractor or threshold tuning after inference. Any revision requires root decision and a new contract version.",
+  "native_proof": {
+    "status": "PENDING",
+    "blockers": [
+      "build-download-runtime approval absent",
+      "model/projector identities and license unknown",
+      "fixture bytes not materialized",
+      "single-space native quality unproven"
+    ]
+  },
+  "required_case_ids": [
+    "plain-text",
+    "structured-text",
+    "image",
+    "audio",
+    "silent-video",
+    "audiovisual-video",
+    "mixed-item",
+    "ordered-mixed-batch",
+    "media-change",
+    "soundtrack-change",
+    "mixed-no-dropped-parts",
+    "missing-projector",
+    "missing-decoder",
+    "unsupported-model",
+    "old-backend",
+    "malformed-structure",
+    "malformed-media",
+    "overflow",
+    "context-overflow",
+    "capacity",
+    "fetch-failure",
+    "corrupt-result",
+    "deadline",
+    "cancellation",
+    "model-reload",
+    "text-to-image-bell",
+    "text-to-image-drum",
+    "text-to-image-water",
+    "text-to-audio-bell",
+    "text-to-audio-drum",
+    "text-to-audio-water",
+    "text-to-video-bell",
+    "text-to-video-drum",
+    "text-to-video-water",
+    "media-to-text-bell",
+    "media-to-text-drum",
+    "media-to-text-water"
+  ],
+  "directions": [
+    "text-to-image",
+    "text-to-audio",
+    "text-to-video",
+    "media-to-text"
+  ],
+  "queries_per_direction": 3,
+  "distractors_per_query": 3,
+  "space": {
+    "id": "single-candidate-v1",
+    "same_model_projector_pooling_dimensions_preprocessing": true,
+    "identity_fields": [
+      "model_sha256",
+      "projector_sha256",
+      "pooling",
+      "dimensions",
+      "preprocessing_version"
+    ],
+    "no_caption_ocr_transcription": true
+  },
+  "queries": [
+    {
+      "id": "text-to-image-bell",
+      "direction": "text-to-image",
+      "query_text": "A hand rings a brass bell.",
+      "query_fixture": null,
+      "target": "image-bell",
+      "distractors": [
+        "image-drum",
+        "image-water",
+        "image-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-image-drum",
+      "direction": "text-to-image",
+      "query_text": "A hand strikes a small drum.",
+      "query_fixture": null,
+      "target": "image-drum",
+      "distractors": [
+        "image-bell",
+        "image-water",
+        "image-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-image-water",
+      "direction": "text-to-image",
+      "query_text": "Water pours from a jug into a glass.",
+      "query_fixture": null,
+      "target": "image-water",
+      "distractors": [
+        "image-bell",
+        "image-drum",
+        "image-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-audio-bell",
+      "direction": "text-to-audio",
+      "query_text": "A hand rings a brass bell.",
+      "query_fixture": null,
+      "target": "audio-bell",
+      "distractors": [
+        "audio-drum",
+        "audio-water",
+        "audio-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-audio-drum",
+      "direction": "text-to-audio",
+      "query_text": "A hand strikes a small drum.",
+      "query_fixture": null,
+      "target": "audio-drum",
+      "distractors": [
+        "audio-bell",
+        "audio-water",
+        "audio-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-audio-water",
+      "direction": "text-to-audio",
+      "query_text": "Water pours from a jug into a glass.",
+      "query_fixture": null,
+      "target": "audio-water",
+      "distractors": [
+        "audio-bell",
+        "audio-drum",
+        "audio-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-video-bell",
+      "direction": "text-to-video",
+      "query_text": "A hand rings a brass bell.",
+      "query_fixture": null,
+      "target": "video-bell",
+      "distractors": [
+        "video-drum",
+        "video-water",
+        "video-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-video-drum",
+      "direction": "text-to-video",
+      "query_text": "A hand strikes a small drum.",
+      "query_fixture": null,
+      "target": "video-drum",
+      "distractors": [
+        "video-bell",
+        "video-water",
+        "video-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "text-to-video-water",
+      "direction": "text-to-video",
+      "query_text": "Water pours from a jug into a glass.",
+      "query_fixture": null,
+      "target": "video-water",
+      "distractors": [
+        "video-bell",
+        "video-drum",
+        "video-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "media-to-text-bell",
+      "direction": "media-to-text",
+      "query_text": null,
+      "query_fixture": "image-bell",
+      "target": "text-bell",
+      "distractors": [
+        "text-drum",
+        "text-water",
+        "text-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "media-to-text-drum",
+      "direction": "media-to-text",
+      "query_text": null,
+      "query_fixture": "audio-drum",
+      "target": "text-drum",
+      "distractors": [
+        "text-bell",
+        "text-water",
+        "text-typing"
+      ],
+      "space": "single-candidate-v1"
+    },
+    {
+      "id": "media-to-text-water",
+      "direction": "media-to-text",
+      "query_text": null,
+      "query_fixture": "video-water",
+      "target": "text-water",
+      "distractors": [
+        "text-bell",
+        "text-drum",
+        "text-typing"
+      ],
+      "space": "single-candidate-v1"
+    }
+  ],
+  "thresholds": {
+    "retrieval_min_cosine_margin": 0.01,
+    "media_change_min_cosine_distance": 0.001,
+    "soundtrack_change_min_cosine_distance": 0.001,
+    "finite_nonzero_vectors": true,
+    "rank": 1,
+    "ties_pass": false,
+    "record_raw_vectors_similarities_margins": true
+  },
+  "pairs": {
+    "media-change": {
+      "surrounding_text": "Find related evidence",
+      "left": "image-bell",
+      "right": "image-drum"
+    },
+    "soundtrack-change": {
+      "surrounding_text": "Find related evidence",
+      "left": "video-bell",
+      "right": "video-bell-drum-track",
+      "identical_frames": true
+    }
+  },
+  "input_forms": {
+    "plain-text": "A hand rings a brass bell.",
+    "structured-text": [
+      {
+        "type": "text",
+        "text": "A hand rings a brass bell."
+      }
+    ],
+    "image": [
+      "image-bell"
+    ],
+    "audio": [
+      "audio-bell"
+    ],
+    "silent-video": [
+      "video-bell-silent"
+    ],
+    "audiovisual-video": [
+      "video-bell"
+    ],
+    "mixed-item": [
+      "text-bell",
+      "image-bell",
+      "audio-bell",
+      "video-bell"
+    ]
+  },
+  "ordered_mixed_batch": {
+    "items": [
+      "plain-text",
+      "image",
+      "audio",
+      "silent-video",
+      "audiovisual-video",
+      "mixed-item",
+      "structured-text"
+    ],
+    "permutation": [
+      6,
+      3,
+      0,
+      5,
+      2,
+      4,
+      1
+    ],
+    "assertions": [
+      "indexes match request order",
+      "stable dimensions",
+      "one vector per item",
+      "no partial batch success"
+    ]
+  },
+  "failure_matrix": {
+    "missing-projector": 501,
+    "missing-decoder": 501,
+    "unsupported-model": 422,
+    "old-backend": 501,
+    "malformed-structure": 400,
+    "malformed-media": 415,
+    "overflow": 413,
+    "context-overflow": 413,
+    "capacity": 429,
+    "fetch-failure": 502,
+    "corrupt-result": 502,
+    "deadline": 504,
+    "cancellation": "cancelled-no-partial-response",
+    "model-reload": "identity-invalidated"
+  },
+  "provenance": {
+    "localai_baseline": "83418c8996e5e25db2c8c6a62253001155778572",
+    "spec_baseline": "a551c83465ee538367358f239de5a364ebea9329",
+    "native_revision": "f2cc7282ce0042641df55e0e563b75e824e2b647",
+    "required_runtime_fields": [
+      "model_identity",
+      "model_sha256",
+      "projector_identity",
+      "projector_sha256",
+      "license",
+      "localai_revision",
+      "backend_revision",
+      "backend_binary_sha256",
+      "decoder_versions",
+      "hardware",
+      "dimensions",
+      "pooling",
+      "preprocessing_version",
+      "command",
+      "exit_status",
+      "counts",
+      "case_ids",
+      "raw_vectors",
+      "similarities",
+      "margins",
+      "cleanup_evidence"
+    ]
+  },
+  "preprocessing": {
+    "version": "mm-v1-pending-native-review",
+    "fps": 4,
+    "timeline_origin": "first presentation timestamp",
+    "frame_rule": "first decoded frame at or after sample time; no duplicates",
+    "expansion": [
+      "Video:",
+      "timestamp/frame pairs",
+      "Audio track:",
+      "complete first audio track if present"
+    ],
+    "multiple_tracks": "reject",
+    "context_overflow_http": 413
+  }
+}
