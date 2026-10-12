@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
@@ -810,6 +811,19 @@ func (a *Application) startAddons() error {
 	}
 	if cat.Sources != nil {
 		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	if c.InstanceID == c.OwnerID {
+		limits := contract.DefaultLimits()
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax})
+		if err != nil {
+			_ = m.Close()
+			return err
+		}
+		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
+			_ = supervisor.Close(context.Background())
 			_ = m.Close()
 			return err
 		}

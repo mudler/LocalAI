@@ -204,8 +204,39 @@
       "retains generations identity data and grants across uninstall and restart",
       "preserves old packages and active generation on manager upgrade failure",
       "requires current authoritative administration even for idempotent retries",
-      "rejects symlinked package roots without touching external staging"
+      "rejects symlinked package roots without touching external staging",
+      "executes enabled owner intent on startup and stops on disable and close without forwarder execution"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
+  },
+  "runtime": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/runtime",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/runtime.json"
+      ]
+    ],
+    "cases": [
+      "registers only ready generation bound service headless and UI capabilities",
+      "rejects forged registration nonloopback and stale incarnation handshakes",
+      "bounds readiness and handles exit during start and stop",
+      "withdraws immediately drains boundedly and rejects stale process identities",
+      "exhausts restart budget without retaining dead registrations",
+      "does not inherit secrets and exits when the private parent channel closes",
+      "rejects foreign supervisor handles and numeric PID substitutions",
+      "resets restart budget only after sustained authenticated health",
+      "authenticates every request and separates trusted authority from model arguments",
+      "bounds output streams cancellation deadlines and stop admission",
+      "rejects nonloopback endpoints and bounds oversized streams and concurrency"
+    ],
+    "report": ".cache/addons/logs/runtime.json"
   }
 }

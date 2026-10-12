@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -52,6 +53,8 @@ type Manager struct {
 	closed, uncertain bool
 	journal           journal
 	boundary          func(string) error
+	runtime           *addonruntime.Supervisor
+	instances         map[string]addonruntime.Instance
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -83,6 +86,11 @@ func (m *Manager) Close() error {
 		return nil
 	}
 	m.closed = true
+	if m.runtime != nil {
+		if e := m.runtime.Close(context.Background()); e != nil {
+			return e
+		}
+	}
 	if m.release != nil {
 		return m.release()
 	}
@@ -116,6 +124,17 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	for _, op := range m.journal.Operations {
 		if op.Command.AddonID == id && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
 			s.StartEligible = false
+		}
+	}
+	if m.runtime != nil {
+		registrations, e := m.runtime.Registry.Snapshot(ctx)
+		if e != nil {
+			return Status{}, e
+		}
+		for _, r := range registrations {
+			if r.AddonID == id && r.Generation == s.Generation {
+				s.ObservedHealth = "ready"
+			}
 		}
 	}
 	return s, nil
@@ -230,7 +249,14 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if e := m.persist("prepared"); e != nil {
 		return op.Status, e
 	}
-	return m.apply(op)
+	result, e := m.apply(op)
+	if e != nil {
+		if m.runtime != nil {
+			_ = m.runtime.Close(context.Background())
+		}
+		return result, e
+	}
+	return result, m.syncRuntime(ctx)
 }
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
@@ -280,7 +306,7 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			return ErrConfiguration
 		}
 	}
-	return nil
+	return m.syncRuntime(ctx)
 }
 func syncPackage(root string) error {
 	var dirs []string
@@ -389,4 +415,52 @@ func openPackageRoot(path string) (*os.Root, error) {
 		root = next
 	}
 	return root, nil
+}
+
+// AttachRuntime is owner-only. Durable reconciliation precedes process execution.
+func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return e
+	}
+	if m.uncertain || m.runtime != nil || s == nil {
+		return ErrConflict
+	}
+	m.runtime = s
+	m.instances = map[string]addonruntime.Instance{}
+	return m.syncRuntime(ctx)
+}
+func (m *Manager) syncRuntime(ctx context.Context) error {
+	if m.runtime == nil {
+		return nil
+	}
+	for id, instance := range m.instances {
+		state := m.journal.Addons[id]
+		if !state.Installed || !state.DesiredEnabled || state.Generation != instance.Generation {
+			if e := m.runtime.Stop(ctx, instance); e != nil {
+				return e
+			}
+			delete(m.instances, id)
+		}
+	}
+	for id, state := range m.journal.Addons {
+		if !state.Installed || !state.DesiredEnabled {
+			continue
+		}
+		if _, ok := m.instances[id]; ok {
+			continue
+		}
+		for _, generation := range state.Generations {
+			if generation.Number == state.Generation {
+				instance, e := m.runtime.Start(ctx, generation.Receipt, generation.Number)
+				if e != nil {
+					return e
+				}
+				m.instances[id] = instance
+				break
+			}
+		}
+	}
+	return nil
 }

@@ -5,8 +5,8 @@ title: Addon contracts
 ## Status and trust
 
 The version-one contracts in `pkg/addons/contract` define managed-process addons.
-They do not yet install or run addons, expose HTTP routes, or implement Tables
-storage. Installed executables are trusted code, not sandboxed code. Every addon
+The owner can install and run addons. Public HTTP routes, distributed request
+forwarding, and Tables storage are not yet available. Installed executables are trusted code, not sandboxed code. Every addon
 requires an executable; a UI bundle alone is not an addon.
 
 ## Manifest
@@ -371,3 +371,48 @@ live `Refresh(ctx, sourceID)` calls; no background update loop is started.
 Recovery rejects symlinked package roots and ancestors before enumerating staging.
 Staging cleanup uses directory-rooted operations and descriptor-based permission
 changes so links cannot redirect cleanup into external storage.
+
+## Managed runtime
+
+Application startup attaches the process supervisor only on the configured owner,
+after journal reconciliation. Enabled generations start at attachment. Enable,
+disable, upgrade, uninstall, and application shutdown synchronize process state;
+disable and uninstall retain data. Forwarders do not attach a supervisor or execute
+packages. No automatic owner failover is provided.
+
+The owner executes the receipt's package-relative executable directly with the
+single argument `--localai-addon-v1`. There is no shell. The environment allowlist
+is `LANG=C` and `TZ=UTC`; host credentials and proxy variables are not inherited.
+Descriptor 3 contains an ephemeral listener bound to `127.0.0.1`. Descriptor 4
+contains one newline-terminated JSON `runtime.Startup` object: registration,
+private random bearer credential, and finite host limits. The child must monitor
+that descriptor after decoding and exit on EOF. This cooperative parent-liveness
+protocol prevents compliant addons becoming orphans after owner termination;
+trusted executables can ignore it, so it is not a sandbox or descendant containment.
+
+Every local HTTP request requires the bearer credential and
+`X-LocalAI-Incarnation`. The authenticated `/health` response must exactly match
+the supplied registration, including protocol 1, endpoint, generation, incarnation,
+and manifest capabilities. Capabilities are visible only after readiness and are
+withdrawn on stop, exit, or failed health. Health is checked periodically. A restart
+uses a fresh credential and incarnation, bounded exponential backoff, and the
+configured attempt budget; sustained authenticated health resets that budget.
+
+The protocol uses POST with JSON on `/read`, `/preview`, `/apply`, `/receipt`, and
+`/output`. Read and preview accept the existing contract envelope. Apply wraps it
+with a revision; output wraps it with a handle; receipt accepts an operation ID.
+These transport wrappers are defined in the runtime package because the original
+contract specifies Go methods but not their HTTP request DTOs. No contract method
+or authority semantics changed. Receipt lookup is an internal recovery operation,
+not a public authority-free endpoint. The host must authorize access before calling
+the runtime client; model arguments cannot supply trusted authority.
+
+The client rejects redirects, nonliteral/nonloopback endpoints, stale generations,
+wrong method scopes, expired authority, oversized responses, and excess concurrent
+requests. Streams have byte and time limits and propagate cancellation. Stop rejects
+new admission and withdraws registration before bounded draining. Termination uses
+the retained OS process handle, never a reconstructed numeric PID. An old stopped
+instance cannot terminate a newer generation. Default shutdown is 10 seconds;
+readiness is 30 seconds, restart delays range from 250 milliseconds to 30 seconds,
+and the restart budget is five attempts. Runtime startup failure leaves durable
+enabled intent intact for explicit reconciliation; it does not claim healthy service.

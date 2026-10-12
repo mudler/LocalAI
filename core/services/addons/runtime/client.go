@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: MIT
+package runtime
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/httpclient"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"reflect"
+	"sync"
+	"time"
+)
+
+// Client is an incarnation-bound capability. Only the supervisor creates one.
+// Callers must obtain Authority from host authentication, never model arguments.
+type Client struct {
+	mu                   sync.Mutex
+	accept               bool
+	active               int
+	endpoint, credential string
+	registration         Registration
+	limits               contract.Limits
+	http                 *http.Client
+}
+
+var _ contract.Runtime = (*Client)(nil)
+
+func newClient(r Registration, credential string, l contract.Limits) (*Client, error) {
+	u, e := url.Parse(r.Endpoint)
+	if e != nil || u.Scheme != "http" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Port() == "" || net.ParseIP(u.Hostname()) == nil || !net.ParseIP(u.Hostname()).IsLoopback() || len(credential) != 64 {
+		return nil, ErrRuntime
+	}
+	t := httpclient.HardenedTransport()
+	t.Proxy = nil
+	t.MaxResponseHeaderBytes = 16 << 10
+	return &Client{endpoint: r.Endpoint, credential: credential, registration: r, limits: l, http: httpclient.New(httpclient.WithTransport(t))}, nil
+}
+func (c *Client) admitting() bool { c.mu.Lock(); defer c.mu.Unlock(); return c.accept }
+func (c *Client) withdraw()       { c.mu.Lock(); c.accept = false; c.mu.Unlock() }
+func (c *Client) drain(ctx context.Context) {
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		c.mu.Lock()
+		n := c.active
+		c.mu.Unlock()
+		if n == 0 {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+func (c *Client) admit() (func(), error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.accept || int64(c.active) >= c.limits.Concurrency {
+		return nil, ErrRuntime
+	}
+	c.active++
+	var once sync.Once
+	return func() { once.Do(func() { c.mu.Lock(); c.active--; c.mu.Unlock() }) }, nil
+}
+func (c *Client) valid(e contract.Envelope, scope string) error {
+	if e.Validate(time.Now(), c.limits) != nil || e.Authority.Scope != scope || e.Request.AddonID != c.registration.AddonID || e.Request.Generation != c.registration.Generation {
+		return ErrRuntime
+	}
+	return nil
+}
+func (c *Client) send(ctx context.Context, path string, in any) (*http.Response, error) {
+	b, e := json.Marshal(in)
+	if e != nil || int64(len(b)) > c.limits.EnvelopeBytes {
+		return nil, ErrRuntime
+	}
+	req, e := http.NewRequestWithContext(ctx, "POST", c.endpoint+path, bytes.NewReader(b))
+	if e != nil {
+		return nil, ErrRuntime
+	}
+	req.Header.Set("Authorization", "Bearer "+c.credential)
+	req.Header.Set("X-LocalAI-Incarnation", c.registration.Incarnation)
+	req.Header.Set("Content-Type", "application/json")
+	resp, e := c.http.Do(req)
+	if e != nil {
+		return nil, ErrRuntime
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, ErrRuntime
+	}
+	return resp, nil
+}
+func decode(body io.Reader, max int64, out any) error {
+	b, e := io.ReadAll(io.LimitReader(body, max+1))
+	if e != nil || int64(len(b)) > max {
+		return ErrRuntime
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	if d.Decode(out) != nil {
+		return ErrRuntime
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return ErrRuntime
+	}
+	return nil
+}
+func (c *Client) health(ctx context.Context, r Registration) error {
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	resp, e := c.send(ctx, "/health", struct{}{})
+	if e != nil {
+		return e
+	}
+	defer resp.Body.Close()
+	var got Registration
+	if decode(resp.Body, c.limits.ManifestBytes, &got) != nil || !reflect.DeepEqual(got, r) {
+		return ErrRuntime
+	}
+	return nil
+}
+func (c *Client) call(ctx context.Context, path string, in, out any, timeout time.Duration) error {
+	done, e := c.admit()
+	if e != nil {
+		return e
+	}
+	defer done()
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	resp, e := c.send(ctx, path, in)
+	if e != nil {
+		return e
+	}
+	defer resp.Body.Close()
+	return decode(resp.Body, c.limits.EnvelopeBytes, out)
+}
+func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result, error) {
+	var r contract.Result
+	if e := c.valid(v, "read"); e != nil {
+		return r, e
+	}
+	e := c.call(ctx, "/read", v, &r, c.limits.ReadTimeout)
+	if e == nil {
+		e = r.Validate(c.limits)
+	}
+	return r, e
+}
+func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {
+	var r contract.Preview
+	if e := c.valid(v, "preview"); e != nil {
+		return r, e
+	}
+	e := c.call(ctx, "/preview", v, &r, c.limits.PreviewTimeout)
+	if e == nil {
+		e = r.Validate(time.Now(), c.limits)
+		if r.OperationID != v.Request.OperationID {
+			e = ErrRuntime
+		}
+	}
+	return r, e
+}
+
+type ApplyRequest struct {
+	Envelope contract.Envelope `json:"envelope"`
+	Revision contract.Revision `json:"revision"`
+}
+type ReceiptRequest struct {
+	OperationID string `json:"operationId"`
+}
+type OutputRequest struct {
+	Envelope contract.Envelope `json:"envelope"`
+	Handle   string            `json:"handle"`
+}
+
+func (c *Client) Apply(ctx context.Context, v contract.Envelope, revision contract.Revision) (contract.Receipt, error) {
+	var r contract.Receipt
+	if e := c.valid(v, "apply"); e != nil {
+		return r, e
+	}
+	if revision.Schema == 0 {
+		return r, ErrRuntime
+	}
+	e := c.call(ctx, "/apply", ApplyRequest{v, revision}, &r, c.limits.ApplyTimeout)
+	if e == nil {
+		e = r.Validate(c.limits)
+		if r.OperationID != v.Request.OperationID {
+			e = ErrRuntime
+		}
+	}
+	return r, e
+}
+func (c *Client) Receipt(ctx context.Context, id string) (contract.Receipt, error) {
+	var r contract.Receipt
+	if (contract.Receipt{OperationID: id, State: contract.ReceiptUnknown}).Validate(c.limits) != nil {
+		return r, ErrRuntime
+	}
+	e := c.call(ctx, "/receipt", ReceiptRequest{id}, &r, c.limits.ReadTimeout)
+	if e == nil {
+		e = r.Validate(c.limits)
+		if r.OperationID != id {
+			e = ErrRuntime
+		}
+	}
+	return r, e
+}
+func (c *Client) OpenOutput(ctx context.Context, v contract.Envelope, handle string) (io.ReadCloser, error) {
+	if e := c.valid(v, "output"); e != nil {
+		return nil, e
+	}
+	if (contract.Receipt{OperationID: handle, State: contract.ReceiptUnknown}).Validate(c.limits) != nil {
+		return nil, ErrRuntime
+	}
+	done, e := c.admit()
+	if e != nil {
+		return nil, e
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.limits.ReadTimeout)
+	resp, e := c.send(ctx, "/output", OutputRequest{v, handle})
+	if e != nil {
+		cancel()
+		done()
+		return nil, e
+	}
+	if resp.ContentLength > c.limits.ArtifactBytes {
+		resp.Body.Close()
+		cancel()
+		done()
+		return nil, ErrRuntime
+	}
+	stream := &boundedStream{body: resp.Body, remaining: c.limits.ArtifactBytes, finish: func() { cancel(); done() }}
+	context.AfterFunc(ctx, func() { _ = stream.Close() })
+	return stream, nil
+}
+
+type boundedStream struct {
+	body      io.ReadCloser
+	remaining int64
+	once      sync.Once
+	finish    func()
+}
+
+func (s *boundedStream) Read(p []byte) (int, error) {
+	if s.remaining == 0 {
+		var b [1]byte
+		n, e := s.body.Read(b[:])
+		_ = s.Close()
+		if n > 0 {
+			return 0, ErrRuntime
+		}
+		return 0, e
+	}
+	if int64(len(p)) > s.remaining {
+		p = p[:s.remaining]
+	}
+	n, e := s.body.Read(p)
+	s.remaining -= int64(n)
+	if e != nil {
+		_ = s.Close()
+	}
+	return n, e
+}
+func (s *boundedStream) Close() error {
+	var e error
+	s.once.Do(func() { e = s.body.Close(); s.finish() })
+	return e
+}
