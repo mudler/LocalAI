@@ -860,6 +860,26 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ## Examples
 
+### Visual code generation: AesCode-8B
+
+[AesCode-8B](https://huggingface.co/microsoft/AesCode-8B) generates editable
+HTML/CSS slides, posters, dashboards, and reports. It accepts text and optional
+reference images through the chat API. Both GGUF builds include the vision
+projector and use llama.cpp with a 32,768-token context.
+
+Install the gallery entry with automatic variant selection:
+
+```bash
+local-ai models install aescode-8b
+```
+
+Select Q4_K_M explicitly, or choose the larger Q8_0 build:
+
+```bash
+local-ai models install aescode-8b --variant aescode-8b
+local-ai models install aescode-8b --variant aescode-8b-q8
+```
+
 ### Image generation: Stable diffusion
 
 URL: https://github.com/EdVince/Stable-Diffusion-NCNN
