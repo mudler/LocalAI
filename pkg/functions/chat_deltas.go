@@ -105,3 +105,26 @@ func ReasoningFromChatDeltas(deltas []*pb.ChatDelta) string {
 	}
 	return sb.String()
 }
+
+// ReasoningAsContent returns deltas in which reasoning text is reported as
+// content. It is used when reasoning is disabled for a model: some chat
+// templates still open a thinking channel with enable_thinking=false, and the
+// autoparser then files the whole reply as reasoning, leaving content empty.
+// The input deltas are not modified; deltas without reasoning are reused.
+func ReasoningAsContent(deltas []*pb.ChatDelta) []*pb.ChatDelta {
+	if len(deltas) == 0 {
+		return deltas
+	}
+	out := make([]*pb.ChatDelta, len(deltas))
+	for i, d := range deltas {
+		if d == nil || d.ReasoningContent == "" {
+			out[i] = d
+			continue
+		}
+		out[i] = &pb.ChatDelta{
+			Content:   d.ReasoningContent + d.Content,
+			ToolCalls: d.ToolCalls,
+		}
+	}
+	return out
+}
