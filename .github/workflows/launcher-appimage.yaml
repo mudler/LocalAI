@@ -37,7 +37,7 @@ jobs:
       - name: Install Fyne and validation dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev desktop-file-utils xvfb xauth
+          sudo apt-get install -y build-essential file pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev desktop-file-utils xvfb xauth
       - name: Check packaging contracts
         run: make test-launcher-appimage
       - name: Build native amd64 AppImage

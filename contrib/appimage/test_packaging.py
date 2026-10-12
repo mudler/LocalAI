@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -29,6 +30,21 @@ class PackagingTests(unittest.TestCase):
                                 env=dict(os.environ, APPIMAGE_ARCH='arm64'), capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('only amd64', result.stderr)
+
+    def test_missing_file_fails_before_build(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            # Expose only the utilities needed before the dependency preflight.
+            for command in ('dirname', 'uname'):
+                Path(tmp, command).symlink_to(shutil.which(command))
+            result = subprocess.run([shutil.which('bash'), str(PACK / 'build.sh')],
+                                    env=dict(os.environ, PATH=tmp, APPIMAGE_ARCH='amd64'),
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Missing file command required by appimagetool', result.stderr)
+        for path in (ROOT / '.github/workflows/launcher-appimage.yaml', PACK / 'README.md'):
+            install = next(line for line in path.read_text().splitlines()
+                           if 'apt-get install' in line)
+            self.assertIn('file', install.split())
 
     def test_release_contract(self):
         release = (ROOT / '.github/workflows/release.yaml').read_text()

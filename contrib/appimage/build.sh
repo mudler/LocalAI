@@ -13,6 +13,10 @@ fi
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || {
     echo 'AppImage requires a native x86_64 Linux builder.' >&2; exit 1;
 }
+# appimagetool needs file even after the Go compilation succeeds.
+command -v file >/dev/null 2>&1 || {
+    echo 'Missing file command required by appimagetool; install the file package.' >&2; exit 1;
+}
 pkg-config --exists gl x11 xcursor xrandr xinerama xi xxf86vm || {
     echo 'Missing Fyne development libraries; see contrib/appimage/README.md.' >&2; exit 1;
 }

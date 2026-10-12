@@ -7,10 +7,10 @@ downloader remains responsible for installing LocalAI on first use.
 ## Build
 
 Use native **Linux amd64 (x86_64)**, Go from `go.mod`, GCC, GNU Make, curl,
-pkg-config and coreutils. On Ubuntu 22.04 the development packages are:
+`file`, pkg-config and coreutils. On Ubuntu 22.04 the development packages are:
 
 ```sh
-sudo apt-get install build-essential pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev
+sudo apt-get install build-essential file pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev
 make test-launcher-appimage
 make build-launcher-appimage APPIMAGE_ARCH=amd64
 ```
