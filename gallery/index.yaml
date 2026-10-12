@@ -5843,6 +5843,7 @@
     - model: qwen3.8-27b-gsq-rco-iq2-xs
     - model: qwen3.8-27b-gsq-rco-iq2-s
     - model: qwen3.8-27b-gsq-rco-iq3-xxs
+    - model: qwen3.8-27b-gsq-rco-iq3-s
     - model: qwen3.8-27b-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6381,8 +6382,8 @@
     - https://huggingface.co/Qwen/Qwen3.8-27B
     - https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF
   description: |
-    Qwen3.8-27B with ISTA DASLab's recommended 3.00-bit GSQ-RCO IQ3_XXS mixed
-    quantization. The 10.1 GB model provides the highest quality in this set
+    Qwen3.8-27B with ISTA DASLab's 3.00-bit GSQ-RCO IQ3_XXS mixed
+    quantization. The 10.1 GB model offers a smaller alternative to IQ3_S
     and retains the shared BF16 vision projector.
   last_checked: "2026-08-30"
   overrides:
@@ -6414,6 +6415,47 @@
       sha256: fdfcb6a29b11188956dfbfd904223588a6c1b77eb250c3e8a36e1bd269df91f7
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
+      sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- !!merge <<: *qwen3-8-27b
+  name: qwen3.8-27b-gsq-rco-iq3-s
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF
+  description: |
+    Qwen3.8-27B with ISTA DASLab's recommended 3.50-bit GSQ-RCO IQ3_S mixed
+    quantization. The 11.8 GB model retains the shared BF16 vision projector
+    for image input and uses the embedded chat template with llama.cpp.
+  last_checked: "2026-10-12"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b-gsq-rco/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-gsq-rco/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d562806dbafae37109975e970aae91b43e73b440/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+      sha256: 64b53b64c7aa39f20a7e54bd80582fe595b1d745624ee8a72e92508c0326d810
+    - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d562806dbafae37109975e970aae91b43e73b440/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
 - &spark-x2-5-1-7b
   name: spark-x2.5-1.7b-q4

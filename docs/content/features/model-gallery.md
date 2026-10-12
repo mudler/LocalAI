@@ -205,6 +205,23 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Qwen3.8-27B GSQ-RCO
+
+The Qwen3.8-27B gallery group includes ISTA DASLab's IQ2_XS, IQ2_S, IQ3_XXS,
+and IQ3_S GGUF builds for llama.cpp. Each includes the BF16 vision projector.
+IQ3_S uses 3.50 bits per weight and has an 11.8 GB weights file.
+
+To select IQ3_S explicitly, run:
+
+```bash
+local-ai models install qwen3.8-27b-q4 --variant qwen3.8-27b-gsq-rco-iq3-s
+```
+
+These builds use the embedded chat template and default to 262,144 context tokens.
+They do not enable MTP speculative decoding.
+See the [publisher's model card](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF)
+for quantization details and benchmarks.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.
