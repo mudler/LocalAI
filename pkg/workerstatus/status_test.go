@@ -19,7 +19,7 @@ var _ = Describe("Worker status", func() {
 		root := GinkgoT().TempDir()
 		path, generation, err := NewSession(root)
 		Expect(err).NotTo(HaveOccurred())
-		s := Snapshot{Schema: 1, Generation: generation, Sequence: 1, Time: time.Now(), Registration: "starting", HeartbeatInterval: 10 * time.Second}
+		s := Snapshot{PID: os.Getpid(), Schema: 1, Generation: generation, Sequence: 1, Time: time.Now(), Registration: "starting", HeartbeatInterval: 10 * time.Second}
 		Expect(Write(path, s)).To(Succeed())
 		got, err := Read(path, generation)
 		Expect(err).NotTo(HaveOccurred())
@@ -44,8 +44,8 @@ var _ = Describe("Worker status", func() {
 	})
 	It("requires all evidence and sequence progress, not repeated reads or early readyz", func() {
 		now := time.Now()
-		t := Tracker{Generation: "session", Started: now}
-		s := Snapshot{Schema: 1, Generation: "session", Sequence: 1, Time: now, Registration: "healthy", HeartbeatInterval: 10 * time.Second, LocalReady: true}
+		t := Tracker{ExpectedPID: os.Getpid(), Generation: "session", Started: now}
+		s := Snapshot{PID: os.Getpid(), Schema: 1, Generation: "session", Sequence: 1, Time: now, Registration: "healthy", RegistrationTime: now, HeartbeatInterval: 10 * time.Second, LocalReady: true}
 		Expect(t.Classify(s, now)).NotTo(Equal("ready"))
 		s.Credentials = true
 		s.Connected = true
@@ -57,6 +57,7 @@ var _ = Describe("Worker status", func() {
 		Expect(t.Classify(s, now)).To(Equal("ready"))
 		Expect(t.Classify(s, now.Add(10*time.Second))).To(Equal("status_unavailable"))
 		s.Sequence++
+		s.Time = now.Add(11 * time.Second)
 		s.Heartbeat = now.Add(-31 * time.Second)
 		Expect(t.Classify(s, now.Add(11*time.Second))).To(Equal("heartbeat"))
 		s.Sequence++
@@ -114,8 +115,8 @@ var _ = Describe("Worker status security", func() {
 	})
 	It("preserves explicit approval independently of credentials and expires pending evidence", func() {
 		now := time.Now()
-		s := Snapshot{Schema: 1, Generation: "test", Sequence: 1, Time: now, Registration: "unknown", Credentials: true, Authenticated: true, Connected: true, Subscriptions: true, Armed: true, LocalReady: true, Heartbeat: now, HeartbeatInterval: 10 * time.Second}
-		tracker := Tracker{Generation: "test", Started: now}
+		s := Snapshot{PID: os.Getpid(), Schema: 1, Generation: "test", Sequence: 1, Time: now, Registration: "unknown", Credentials: true, Authenticated: true, Connected: true, Subscriptions: true, Armed: true, LocalReady: true, Heartbeat: now, HeartbeatInterval: 10 * time.Second}
+		tracker := Tracker{ExpectedPID: os.Getpid(), Generation: "test", Started: now}
 		Expect(tracker.Classify(s, now)).To(Equal("registration"))
 		s.Sequence++
 		s.Registration = "pending"
@@ -123,11 +124,13 @@ var _ = Describe("Worker status security", func() {
 		Expect(tracker.Classify(s, now)).To(Equal("registration"))
 		s.Sequence++
 		s.Registration = "starting"
+		s.Time = now.Add(31 * time.Second)
 		Expect(tracker.Classify(s, now.Add(31*time.Second))).To(Equal("registration"))
 		s.Sequence++
 		s.Registration = "healthy"
 		s.Credentials = false
-		Expect(tracker.Classify(s, now)).To(Equal("credentials"))
+		s.RegistrationTime = s.Time
+		Expect(tracker.Classify(s, s.Time)).To(Equal("credentials"))
 		s.Sequence--
 		Expect(tracker.Classify(s, now)).To(Equal("status_unavailable"))
 	})
@@ -167,7 +170,7 @@ var _ = Describe("Worker status atomicity", func() {
 		_, err = Read(filepath.Join(link, "status.json"), generation)
 		Expect(err).To(HaveOccurred())
 		if os.Geteuid() == 0 {
-			s := Snapshot{Schema: 1, Generation: generation, Sequence: 1, Time: time.Now(), Registration: "starting", HeartbeatInterval: time.Second}
+			s := Snapshot{PID: os.Getpid(), Schema: 1, Generation: generation, Sequence: 1, Time: time.Now(), Registration: "starting", HeartbeatInterval: time.Second}
 			Expect(Write(path, s)).To(Succeed())
 			Expect(os.Chown(path, 65534, 65534)).To(Succeed())
 			_, err = Read(path, generation)

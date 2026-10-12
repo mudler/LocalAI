@@ -75,6 +75,8 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
+	// RenewNodeID renews credentials without restoring status or mutating registration.
+	RenewNodeID     string  `json:"renew_node_id,omitempty"`
 	Name            string  `json:"name"`
 	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
 	Address         string  `json:"address"`
@@ -136,6 +138,21 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			if subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) != 1 {
 				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "invalid registration token"))
 			}
+		}
+
+		if req.RenewNodeID != "" {
+			if expectedToken == "" {
+				return c.JSON(http.StatusForbidden, nodeError(http.StatusForbidden, "authenticated renewal required"))
+			}
+			node, err := registry.Get(c.Request().Context(), req.RenewNodeID)
+			if err != nil {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			response := map[string]any{"id": node.ID, "status": node.Status}
+			if node.Status == nodes.StatusHealthy {
+				attachNatsJWT(response, node, natsCfg)
+			}
+			return c.JSON(http.StatusOK, response)
 		}
 
 		// Determine node type
@@ -1365,4 +1382,20 @@ func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, no
 	t.DialContext = dialFor(nodeID)
 	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
+}
+
+// NodeApprovalEndpoint observes approval without re-registering, restoring an
+// offline node, refreshing heartbeat, or minting credentials. It uses the same
+// registration-token boundary as the other worker self-service endpoints.
+// @Tags nodes
+// @Summary Observe worker approval
+// @Router /api/node/{id}/status [get]
+func NodeApprovalEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		node, err := registry.Get(c.Request().Context(), c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+		}
+		return c.JSON(http.StatusOK, map[string]string{"id": node.ID, "status": string(node.Status)})
+	}
 }

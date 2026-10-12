@@ -159,3 +159,37 @@ Early `/readyz` success and process existence are not proof.
 It does not certify reverse network reachability, model availability, VRAM, or
 successful inference. Full authenticated frontend/inference and native macOS
 launcher acceptance remain separate validation requirements.
+
+#### Approval and process freshness
+
+Status schema 1 also carries the worker PID. The future lifecycle controller must
+supply the PID of its owned child to the reader, together with the fresh random
+per-launch generation; it must never learn the expected PID from the snapshot.
+This binding is not a replacement for portable descendant ownership or PID-reuse
+checks during crash recovery. Worker startup in the launcher remains disabled.
+
+Each new sequence must have a publication timestamp less than ten seconds old,
+not in the future, and not older than the last accepted publication. Approval and
+heartbeat timestamps cannot be later than publication. Once admitted, remaining
+freshness is measured with the reader's monotonic clock, including the initial
+publication age. Neither rereading nor a delayed unseen sequence grants a fresh
+lease. Approval must be nonzero and less than 30 seconds old.
+
+Both static and registration-issued credential paths query controller approval
+at ten-second intervals, independently of heartbeat and JWT renewal, including
+non-expiring JWTs. `GET /api/node/:id/status` uses the existing worker
+registration-token authentication boundary and returns only `id` and `status`.
+It does not mint credentials, update heartbeat, or restore offline nodes. An old
+controller without this endpoint fails closed. Like existing self-service routes,
+the shared registration token is not per-node authorization.
+
+Managed credential renewal uses `POST /api/node/register` with `renew_node_id`
+and `token`, rather than restarting registration. This observes the existing row
+without restoring its status or updating telemetry; credentials are minted only
+for a healthy node. Periodic approval never changes the credential manager, and
+renewal responses cannot overwrite the independently observed approval evidence.
+This worker-only surface is not an admin action or a UI capability.
+The approval route is not registered when the controller has no registration
+token, and renewal-only requests are refused in that configuration. Missing or
+incorrect bearer tokens are rejected before registry access. These worker
+self-service operations do not use admin feature permissions or MCP tools.

@@ -40,9 +40,9 @@ var _ = Describe("Worker status", func() {
 		now := time.Now()
 		path, generation, err := workerstatus.NewSession(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
-		reader := workerStatusReader{path: path, tracker: workerstatus.Tracker{Generation: generation, Started: now}}
+		reader := workerStatusReader{path: path, tracker: workerstatus.Tracker{ExpectedPID: os.Getpid(), Generation: generation, Started: now}}
 		Expect(reader.Read(now)).To(Equal("status_unavailable"))
-		s := workerstatus.Snapshot{Schema: 1, Generation: generation, Sequence: 1, Time: now, Registration: "starting", HeartbeatInterval: 10 * time.Second}
+		s := workerstatus.Snapshot{PID: os.Getpid(), Schema: 1, Generation: generation, Sequence: 1, Time: now, Registration: "starting", HeartbeatInterval: 10 * time.Second}
 		Expect(workerstatus.Write(path, s)).To(Succeed())
 		Expect(reader.Read(now)).To(Equal("starting"))
 		Expect(reader.Read(now.Add(10 * time.Second))).To(Equal("status_unavailable"))

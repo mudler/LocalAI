@@ -1516,3 +1516,11 @@ adds no network endpoint. Existing unmanaged invocation remains unchanged.
 Heartbeat acknowledgements now require HTTP 2xx; a rejected heartbeat is no longer
 counted as success. Registration alone, static NATS credentials alone, and an
 unarmed `/readyz` response are not launcher readiness evidence.
+
+Launcher-managed workers now observe approval through the read-only,
+registration-token-protected `GET /api/node/:id/status` endpoint every ten seconds,
+even with non-expiring or static NATS credentials. A successful heartbeat alone
+does not prove approval. Managed credential refresh uses the `renew_node_id`
+registration request field to avoid restoring offline nodes or changing telemetry.
+Controllers lacking this support cannot provide launcher-ready evidence. See the
+[approval and process freshness contract](/features/launcher-configuration/#approval-and-process-freshness).

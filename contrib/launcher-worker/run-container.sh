@@ -54,7 +54,7 @@ if [[ ${LAUNCHER_VERIFY_MODE:-baseline} != baseline ]]; then
   packages=(cmd/launcher/internal)
   if [[ $mode == status ]]; then
     focus="Worker status"
-    packages=(cmd/launcher/internal core/cli/workerregistry core/services/worker core/services/messaging pkg/workerstatus)
+    packages=(cmd/launcher/internal core/cli/workerregistry core/services/worker core/services/messaging pkg/workerstatus core/http/endpoints/localai core/http/routes)
   fi
   # A focused report intentionally excludes unrelated specs. The full
   # launcher report below still requires every spec to run.

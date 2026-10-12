@@ -58,3 +58,18 @@ var _ = Describe("Worker status registration", func() {
 		Expect(failed).To(BeTrue())
 	})
 })
+
+var _ = Describe("Worker status approval query", func() {
+	It("requires matching identity and a successful read-only authenticated response", func() {
+		response := `{"id":"other","status":"healthy"}`
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodGet))
+			Expect(r.Header.Get("Authorization")).To(Equal("Bearer secret"))
+			_, _ = w.Write([]byte(response))
+		}))
+		defer server.Close()
+		client := RegistrationClient{FrontendURL: server.URL, RegistrationToken: "secret"}
+		_, err := client.Approval(context.Background(), "node")
+		Expect(err).To(HaveOccurred())
+	})
+})

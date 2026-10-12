@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -91,9 +91,13 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// Context cancelled on shutdown — used by registration waits, heartbeat, and
 	// other background goroutines.
 
+	var acquired atomic.Bool
 	regClient.ObserveRegistration = func(res *workerregistry.RegisterResponse, err error) {
 		if status == nil {
 			return
+		}
+		if acquired.Load() {
+			return // periodic read-only observation is authoritative after acquisition
 		}
 		if res == nil {
 			status.Registration("error", false, err)
@@ -126,6 +130,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	} else {
 		credMgr := workerregistry.NewNATSCredentialManager(
 			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+				if acquired.Load() && status != nil {
+					return regClient.RegisterFull(ctx, map[string]any{"renew_node_id": nodeID, "token": cfg.RegistrationToken})
+				}
 				return regClient.RegisterFull(ctx, registrationBody)
 			},
 			cfg.NatsAuthRequired(),
@@ -156,6 +163,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}
 
+	acquired.Store(true)
+	go observeApproval(shutdownCtx, status, regClient, nodeID, workerstatus.ApprovalInterval)
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo)
 	heartbeatInterval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil && cfg.HeartbeatInterval != "" {
@@ -223,11 +232,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 					continue
 				}
 				body := cfg.heartbeatBody()
-				// Static credentials still need current approval evidence. Re-registration
-				// is idempotent and does not replace the explicit credentials.
-				if status != nil && (cfg.NatsJWT != "" || cfg.NatsUserSeed != "") {
-					_, _ = regClient.RegisterFull(shutdownCtx, registrationBody)
-				}
+
 				err := regClient.Heartbeat(shutdownCtx, nodeID, body)
 				status.Heartbeat(err)
 				if err != nil {
@@ -296,25 +301,12 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// Readiness also covers the data path: a worker whose NATS link is fine
 	// but whose backend processes have died is up and useless, and the
 	// scheduler cannot tell the difference from the bus alone.
-	readiness.Set(nodes.CompositeReadiness(
-		nodes.NATSReadiness(natsClient),
-		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
-			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
-			if err != nil {
-				return err
-			}
-			return conn.Close()
-		}),
-	))
 
 	if shutdownCtx.Err() != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return workerstatus.ErrUnavailable
 	}
-	status.Arm(func() (bool, bool, bool, bool) {
-		connected := natsClient.IsConnected()
-		return connected, natsClient.Authenticated(), natsClient.SubscriptionsReady(), readiness.Check() == nil
-	})
+	armWorkerStatus(status, readiness, natsClient, supervisor)
 	xlog.Info("Worker ready, waiting for backend.install events")
 	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires

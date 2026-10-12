@@ -23,10 +23,13 @@ const PathEnv = "LOCALAI_LAUNCHER_STATUS_PATH"
 const GenerationEnv = "LOCALAI_LAUNCHER_GENERATION"
 const MaxSize = 16 * 1024
 const PollInterval = 2 * time.Second
+const ApprovalInterval = 10 * time.Second
+const ApprovalMaxAge = 30 * time.Second
 
 var ErrUnavailable = errors.New("worker status unavailable")
 
 type Snapshot struct {
+	PID               int           `json:"pid"`
 	Schema            int           `json:"schema_version"`
 	Generation        string        `json:"generation"`
 	Sequence          uint64        `json:"sequence"`
@@ -183,32 +186,48 @@ func Read(path, generation string) (Snapshot, error) {
 // an unchanged file cannot renew its lease. Never share it across generations.
 type Tracker struct {
 	Generation string
-	Started    time.Time
-	sequence   uint64
-	advanced   time.Time
+	// ExpectedPID must come from the owned child, not from the snapshot. The
+	// per-launch generation prevents PID reuse across launches.
+	ExpectedPID int
+	Started     time.Time
+	sequence    uint64
+	advanced    time.Time
+	publication time.Time
+	age         time.Duration
+	last        Snapshot
 }
 
 func (t *Tracker) Classify(s Snapshot, now time.Time) string {
-	if !s.valid() || s.Generation != t.Generation || s.Sequence < t.sequence {
+	if !s.valid() || s.Generation != t.Generation || s.Sequence < t.sequence || t.ExpectedPID <= 0 || s.PID != t.ExpectedPID {
 		return "status_unavailable"
 	}
 	if s.Sequence > t.sequence {
+		// Wall time is used only at sequence admission. Thereafter use the
+		// local monotonic clock; polling must not grant a new evidence lease.
+		age := now.Sub(s.Time)
+		if age < 0 || age >= 10*time.Second || (!t.publication.IsZero() && s.Time.Before(t.publication)) || s.RegistrationTime.After(s.Time) || s.Heartbeat.After(s.Time) {
+			return "status_unavailable"
+		}
 		t.sequence = s.Sequence
 		t.advanced = now
+		t.publication = s.Time
+		t.age = age
+		t.last = s
 	}
-	if now.Sub(t.advanced) >= 10*time.Second {
+	if s != t.last || now.Before(t.advanced) || t.age+now.Sub(t.advanced) >= 10*time.Second {
 		return "status_unavailable"
 	}
 	if s.Failure != "" {
 		return s.Failure
 	}
-	if s.Registration == "pending" && !s.RegistrationTime.After(s.Time) && s.Time.Sub(s.RegistrationTime)+now.Sub(t.advanced) <= 30*time.Second {
+	approvalCurrent := !s.RegistrationTime.IsZero() && s.Time.Sub(s.RegistrationTime)+t.age+now.Sub(t.advanced) < ApprovalMaxAge
+	if s.Registration == "pending" && approvalCurrent {
 		return "pending"
 	}
 	if s.Registration == "starting" && now.Sub(t.Started) < 30*time.Second {
 		return "starting"
 	}
-	if s.Registration != "healthy" {
+	if s.Registration != "healthy" || !approvalCurrent {
 		return "registration"
 	}
 	if !s.Credentials {
@@ -226,7 +245,7 @@ func (t *Tracker) Classify(s Snapshot, now time.Time) string {
 	if !s.Armed || !s.LocalReady {
 		return "readiness"
 	}
-	if s.Heartbeat.IsZero() || s.Heartbeat.After(s.Time) || s.Time.Sub(s.Heartbeat)+now.Sub(t.advanced) > 3*s.HeartbeatInterval {
+	if s.Heartbeat.IsZero() || s.Heartbeat.After(s.Time) || s.Time.Sub(s.Heartbeat)+t.age+now.Sub(t.advanced) > 3*s.HeartbeatInterval {
 		return "heartbeat"
 	}
 	return "ready"
