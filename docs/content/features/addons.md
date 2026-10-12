@@ -443,3 +443,20 @@ Default shutdown is 10 seconds;
 readiness is 30 seconds, restart delays range from 250 milliseconds to 30 seconds,
 and the restart budget is five attempts. Runtime startup failure leaves durable
 enabled intent intact for explicit reconciliation; it does not claim healthy service.
+
+Shutdown withdraws admission and starts cleanup for **all** managed addons before
+waiting for any child. Cleanup errors are combined; a timeout does not release
+the process ledger or owner fence. Retry shutdown to join outstanding cleanup.
+
+A completed lifecycle journal receipt records durable desired state, not proof
+that runtime synchronization succeeded. Replaying the same authorized operation
+ID retries synchronization against current desired state and returns cleanup or
+startup errors until synchronization succeeds. It does not repeat package
+publication or restore an older operation's desired state.
+
+If lifecycle publication fails and the manager closes its runtime, that manager
+requires recovery. Status, lifecycle submission, and reconciliation cannot report
+success using retained instance handles. Repair the storage fault, successfully
+close the manager, and create a new owner manager and supervisor to reconcile the
+durable journal. The existing Linux proc/pidfd identity checks still apply;
+ambiguous pending launches require operator recovery rather than an unsafe kill.

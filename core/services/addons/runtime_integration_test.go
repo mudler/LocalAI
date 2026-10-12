@@ -57,6 +57,30 @@ var _ = Describe("Runtime lifecycle", func() {
 		r, e := s.Registry.Snapshot(ctx)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r).To(HaveLen(1))
+		// A real rename failure during applied persistence closes the runtime.
+		journalPath := filepath.Join(cfg.Root, "journal.json")
+		m.boundary = func(phase string) error {
+			if phase == "prepared" {
+				Expect(os.Rename(journalPath, journalPath+".saved")).To(Succeed())
+				Expect(os.Mkdir(journalPath, 0700)).To(Succeed())
+			}
+			return nil
+		}
+		_, fault := m.Submit(ctx, actor, LifecycleCommand{OperationID: "persistence-fault", AddonID: "sample", Action: "enable"})
+		Expect(fault).To(HaveOccurred())
+		m.boundary = nil
+		Expect(os.Remove(journalPath)).To(Succeed())
+		Expect(os.Rename(journalPath+".saved", journalPath)).To(Succeed())
+		Expect(m.Reconcile(ctx)).To(Equal(ErrRecoveryRequired))
+		_, fault = m.Runtime(ctx, "sample")
+		Expect(fault).To(HaveOccurred())
+		Expect(m.Close()).To(Succeed())
+		m, e = NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		Expect(m.Reconcile(ctx)).To(Succeed())
+		s = makeRuntime()
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
 		old, e := m.Runtime(ctx, "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(syscall.Kill(old.PID, syscall.SIGKILL)).To(Succeed())
@@ -110,7 +134,7 @@ var _ = Describe("Runtime lifecycle", func() {
 })
 
 var _ = Describe("Restart lifecycle cancellation", func() {
-	It("joins real restart startup on disable and generation upgrade", func() {
+	It("retries runtime synchronization after canceled disable and generation upgrade", func() {
 		for _, upgrade := range []bool{false, true} {
 			cfg, c, installer := fixture()
 			dir := GinkgoT().TempDir()
@@ -144,6 +168,15 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 			}, 3*time.Second).Should(And(BeNumerically(">", 0), Not(Equal(old.PID))))
 			// Pausing the real replacement ensures cooperative EOF cannot hide overlap.
 			Expect(syscall.Kill(pid, syscall.SIGSTOP)).To(Succeed())
+			operationCtx, cancelOperation := context.WithCancel(ctx)
+			// Cancel only after the durable transition, before runtime cleanup.
+			m.boundary = func(phase string) error {
+				if phase == "completed" {
+					cancelOperation()
+				}
+				return nil
+			}
+			var command LifecycleCommand
 			if upgrade {
 				// Publish a genuine verified package through the catalog and
 				// installer, then exercise Submit rather than editing the journal.
@@ -170,14 +203,26 @@ var _ = Describe("Restart lifecycle cancellation", func() {
 				Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "upgrade", Name: "Upgrade", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 				_, e = c.Sources.Refresh(ctx, "upgrade")
 				Expect(e).NotTo(HaveOccurred())
-				_, e = m.Submit(context.Background(), actor, LifecycleCommand{OperationID: "upgrade-starting", AddonID: "sample", Action: "upgrade", SourceID: "upgrade", Version: "2.0.0"})
+				command = LifecycleCommand{OperationID: "upgrade-starting", AddonID: "sample", Action: "upgrade", SourceID: "upgrade", Version: "2.0.0"}
+				_, e = m.Submit(operationCtx, actor, command)
+				Expect(e).To(HaveOccurred())
+				m.boundary = nil
+				_, e = m.Submit(ctx, actor, command)
 				Expect(e).NotTo(HaveOccurred())
 				next, e := m.Runtime(ctx, "sample")
 				Expect(e).NotTo(HaveOccurred())
 				Expect(next.Generation).To(Equal(uint64(2)))
 			} else {
-				_, e = m.Submit(ctx, actor, LifecycleCommand{OperationID: "disable-starting", AddonID: "sample", Action: "disable"})
+				command = LifecycleCommand{OperationID: "disable-starting", AddonID: "sample", Action: "disable"}
+				_, e = m.Submit(operationCtx, actor, command)
+				Expect(e).To(HaveOccurred())
+				m.boundary = nil
+				_, e = m.Submit(ctx, actor, command)
 				Expect(e).NotTo(HaveOccurred())
+			}
+			cancelOperation()
+			if !upgrade {
+				Expect(m.instances).To(BeEmpty())
 			}
 			b, e = os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 			if e == nil {

@@ -438,6 +438,13 @@ func (s *Supervisor) Stop(ctx context.Context, i Instance) error {
 // The slot remains reserved until both the launch worker and its last child are
 // finished. A caller timeout does not release the reservation or claim success.
 func (s *Supervisor) stopLocked(ctx context.Context, slot *slot) error {
+	s.beginStopLocked(slot)
+	s.mu.Unlock()
+	return s.waitStop(ctx, slot)
+}
+
+// Initiate cleanup without waiting so Close can withdraw every slot atomically.
+func (s *Supervisor) beginStopLocked(slot *slot) {
 	if !slot.stopped {
 		slot.stopped = true
 		slot.cancel()
@@ -470,7 +477,9 @@ func (s *Supervisor) stopLocked(ctx context.Context, slot *slot) error {
 			s.mu.Unlock()
 		}()
 	}
-	s.mu.Unlock()
+}
+
+func (s *Supervisor) waitStop(ctx context.Context, slot *slot) error {
 	// Draining and OS cleanup each receive one finite shutdown interval.
 	wait, cancel := context.WithTimeout(ctx, 2*s.config.Limits.ShutdownTimeout)
 	defer cancel()
@@ -512,14 +521,16 @@ func (s *Supervisor) Close(ctx context.Context) error {
 	s.closed = true
 	slots := make([]*slot, 0, len(s.slots))
 	for _, slot := range s.slots {
+		s.beginStopLocked(slot)
 		slots = append(slots, slot)
 	}
 	s.mu.Unlock()
+	var cleanupErr error
 	for _, slot := range slots {
-		s.mu.Lock()
-		if e := s.stopLocked(ctx, slot); e != nil {
-			return e
-		}
+		cleanupErr = errors.Join(cleanupErr, s.waitStop(ctx, slot))
+	}
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 	done := make(chan struct{})
 	go func() { s.workers.Wait(); close(done) }()

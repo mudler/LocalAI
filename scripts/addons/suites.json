@@ -206,7 +206,7 @@
       "requires current authoritative administration even for idempotent retries",
       "rejects symlinked package roots without touching external staging",
       "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
-      "joins real restart startup on disable and generation upgrade"
+      "retries runtime synchronization after canceled disable and generation upgrade"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -243,7 +243,8 @@
       "kills the exact paused child of a killed owner before launching its replacement",
       "fails closed on ambiguous launch identities and preserves unrelated reused PIDs",
       "retains a canceled restart slot until cleanup completes and rejects duplicate supervisors",
-      "refuses a missing established ledger and fences failed cleanup publication"
+      "refuses a missing established ledger and fences failed cleanup publication",
+      "withdraws and initiates every live slot before a cleanup timeout"
     ],
     "report": ".cache/addons/logs/runtime.json"
   }

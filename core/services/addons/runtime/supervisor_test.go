@@ -403,3 +403,38 @@ var _ = Describe("Durable cleanup failures", func() {
 		Expect(e).To(HaveOccurred(), "an established owner must not forget its missing process ledger")
 	})
 })
+
+var _ = Describe("Close all slots", func() {
+	It("withdraws and initiates every live slot before a cleanup timeout", func() {
+		s := supervisor()
+		var instances []Instance
+		for _, id := range []string{"sample", "second", "third"} {
+			p := fixture("normal", service)
+			p.Manifest.ID = id
+			b, e := json.Marshal(p)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(os.Chmod(filepath.Join(p.Directory, "receipt.json"), 0600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(p.Directory, "receipt.json"), b, 0400)).To(Succeed())
+			i, e := s.Start(context.Background(), p, 1)
+			Expect(e).NotTo(HaveOccurred())
+			instances = append(instances, i)
+		}
+		canceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		Expect(s.Close(canceled)).To(HaveOccurred())
+		for _, i := range instances {
+			Expect(i.process.client.admitting()).To(BeFalse())
+			s.mu.Lock()
+			stopped := i.slot.stopped
+			s.mu.Unlock()
+			Expect(stopped).To(BeTrue())
+		}
+		r, e := s.Registry.Snapshot(context.Background())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r).To(BeEmpty())
+		Expect(s.Close(context.Background())).To(Succeed())
+		for _, i := range instances {
+			Expect(processRunning(i.PID)).To(BeFalse())
+		}
+	})
+})

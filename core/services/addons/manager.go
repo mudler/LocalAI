@@ -44,17 +44,18 @@ type Migrator interface {
 type Manager struct {
 	// One lock also serializes journal publication across addons. No operation can
 	// overtake another operation on the same addon, including reconciliation.
-	mu                sync.Mutex
-	config            OwnerConfig
-	catalog           catalog.Catalog
-	installer         *packages.Installer
-	admin             catalog.AdminCheck
-	release           func() error
-	closed, uncertain bool
-	journal           journal
-	boundary          func(string) error
-	runtime           *addonruntime.Supervisor
-	instances         map[string]addonruntime.Instance
+	mu                      sync.Mutex
+	config                  OwnerConfig
+	catalog                 catalog.Catalog
+	installer               *packages.Installer
+	admin                   catalog.AdminCheck
+	release                 func() error
+	closed, uncertain       bool
+	journal                 journal
+	boundary                func(string) error
+	runtimeRecoveryRequired bool
+	runtime                 *addonruntime.Supervisor
+	instances               map[string]addonruntime.Instance
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -118,7 +119,7 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	if e := m.check(ctx); e != nil {
 		return Status{}, e
 	}
-	if m.uncertain {
+	if m.uncertain || m.runtimeRecoveryRequired {
 		return Status{}, ErrRecoveryRequired
 	}
 	s := copyStatus(m.journal.Addons[id])
@@ -152,7 +153,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if m.admin == nil || m.admin(ctx, actor) != nil {
 		return OperationStatus{}, ErrForbidden
 	}
-	if m.uncertain {
+	if m.uncertain || m.runtimeRecoveryRequired {
 		return OperationStatus{}, ErrRecoveryRequired
 	}
 	if !addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
@@ -168,7 +169,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if old.Status.Phase != "completed" {
 			return old.Status, ErrRecoveryRequired
 		}
-		return old.Status, nil
+		return old.Status, m.syncRuntime(ctx)
 	}
 	for _, op := range m.journal.Operations {
 		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
@@ -256,6 +257,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	result, e := m.apply(op)
 	if e != nil {
 		if m.runtime != nil {
+			m.runtimeRecoveryRequired = true
 			_ = m.runtime.Close(context.Background())
 		}
 		return result, e
@@ -279,6 +281,11 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 	defer m.mu.Unlock()
 	if e := m.check(ctx); e != nil {
 		return e
+	}
+	// A supervisor closed after an uncertain publication cannot be reused.
+	// Keep ownership fenced until Close succeeds and a new manager reconciles.
+	if m.runtimeRecoveryRequired {
+		return ErrRecoveryRequired
 	}
 	if e := m.load(); e != nil {
 		return e
@@ -436,6 +443,9 @@ func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor)
 	return m.syncRuntime(ctx)
 }
 func (m *Manager) syncRuntime(ctx context.Context) error {
+	if m.runtimeRecoveryRequired {
+		return ErrRecoveryRequired
+	}
 	if m.runtime == nil {
 		return nil
 	}
@@ -479,7 +489,7 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 		return addonruntime.Instance{}, e
 	}
 	state := m.journal.Addons[id]
-	if m.uncertain || m.runtime == nil || !state.Installed || !state.DesiredEnabled {
+	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil || !state.Installed || !state.DesiredEnabled {
 		return addonruntime.Instance{}, addonruntime.ErrRuntime
 	}
 	return m.runtime.Current(ctx, id, state.Generation)
