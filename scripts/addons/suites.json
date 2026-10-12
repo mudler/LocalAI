@@ -26,7 +26,9 @@
       "ginkgo-empty",
       "ginkgo-skipped",
       "ginkgo-missing",
-      "browser-setup-failure"
+      "browser-setup-failure",
+      "configured-browser-missing",
+      "configured-browser-setup"
     ],
     "readiness": {
       "ginkgo": {

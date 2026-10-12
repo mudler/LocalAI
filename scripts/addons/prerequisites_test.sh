@@ -118,5 +118,18 @@ echo 'browser installation sentinel' >&2
 exit 95
 TOOL
 chmod +x "$fixture/core/http/react-ui/node_modules/.bin/playwright"
-reject browser-setup-failure 'browser installation sentinel' env PATH="$fixture/bin:$PATH" EXPECTED_BROWSER_CACHE="$fixture/.cache/addons/browsers" sh "$prepare" --prepare
+# Select the download branch explicitly, regardless of the caller's browser.
+# This is scoped to the fixture child; verify must retain the real browser path.
+reject browser-setup-failure 'browser installation sentinel' env PATH="$fixture/bin:$PATH" PLAYWRIGHT_CHROMIUM_PATH= EXPECTED_BROWSER_CACHE="$fixture/.cache/addons/browsers" sh "$prepare" --prepare
+reject configured-browser-missing 'configured Chromium is not executable' env PATH="$fixture/bin:$PATH" PLAYWRIGHT_CHROMIUM_PATH="$fixture/missing-chromium" sh "$prepare" --prepare
+# Setup only checks executability and must bypass the failing installer above.
+# This stub is not browser readiness evidence: verify launches real Chromium.
+printf '#!/bin/sh\nexit 96\n' > "$fixture/bin/chromium"
+chmod +x "$fixture/bin/chromium"
+if ! env PATH="$fixture/bin:$PATH" PLAYWRIGHT_CHROMIUM_PATH="$fixture/bin/chromium" sh "$prepare" --prepare > "$fixture/output" 2>&1; then
+    echo 'FAIL configured-browser-setup: unexpectedly failed' >&2
+    cat "$fixture/output" >&2; exit 1
+fi
+count=$((count + 1))
+printf '{"case":"configured-browser-setup","status":"passed"}\n'
 printf '{"total":%s,"passed":%s,"skipped":0}\n' "$count" "$count"
