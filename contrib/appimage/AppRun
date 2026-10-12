@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+# Resolve the image without changing the caller's working directory or library
+# search path: both are inherited by the separately downloaded LocalAI server.
+HERE=$(dirname "$(readlink -f "$0")")
+exec "$HERE/usr/bin/local-ai-launcher" "$@"

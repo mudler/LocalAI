@@ -5,6 +5,45 @@ weight: 9
 url: '/installation/linux/'
 ---
 
+## Desktop launcher AppImage (x86_64)
+
+Download `LocalAI-Launcher-x86_64.AppImage` and its `.sha256` file from
+[GitHub Releases](https://github.com/mudler/LocalAI/releases). In that directory:
+
+```sh
+sha256sum --check LocalAI-Launcher-x86_64.AppImage.sha256
+chmod +x LocalAI-Launcher-x86_64.AppImage
+./LocalAI-Launcher-x86_64.AppImage
+```
+
+You can also double-click the executable image in a file manager. Normal
+AppImage mounting requires FUSE support (on Ubuntu 22.04, `libfuse2`). If FUSE
+is unavailable, extract it into a writable directory and run the launcher:
+
+```sh
+./LocalAI-Launcher-x86_64.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
+
+This is the existing desktop/tray launcher, not the server bundled into an
+image. First use needs internet access to download LocalAI. Models and backends
+are downloaded separately. The launcher stores configuration in
+`~/.localai/launcher.json`, runtime downloads in `~/.localai/bin`, and default
+models/backends under `~/.localai/`. Fyne preferences use the user configuration
+directory. These remain writable outside the read-only image. Keep your home
+writable; replacing or deleting the AppImage does not delete your data.
+
+The supported release target is **x86_64 Ubuntu 22.04 or newer**, with glibc
+2.35+, OpenGL and X11 desktop libraries (XWayland on Wayland). A tray-enabled
+desktop is recommended. This is not a static executable: other distributions
+must provide compatible graphics libraries. ARM64 AppImages are not currently
+published; use the server binaries below instead. Server/backend requirements
+are separate from launcher requirements. Replace the AppImage manually to
+update the launcher; there is no AppImage self-updater.
+
+For build dependencies, pinned tools and smoke checks, see
+[the AppImage build guide](https://github.com/mudler/LocalAI/blob/master/contrib/appimage/README.md).
+
 ## Manual Installation
 
 ### Download Binary
