@@ -62,6 +62,7 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	addonSources         *catalog.Sources
 	addonManager         *addons.Manager
 	webSocketTicketsOnce sync.Once
 	webSocketTickets     *auth.WebSocketTickets
@@ -766,6 +767,10 @@ func (a *Application) StartAgentPool() {
 // AddonManager is nil unless the deployment explicitly enables addons.
 func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
 
+// AddonSources exposes owner-only source administration and explicit live refresh.
+// Forwarders never load source configuration or perform catalog I/O.
+func (a *Application) AddonSources() *catalog.Sources { return a.addonSources }
+
 func (a *Application) startAddons() error {
 	c := a.applicationConfig.Addons
 	if !c.Enabled {
@@ -803,6 +808,13 @@ func (a *Application) startAddons() error {
 			return err
 		}
 	}
+	if cat.Sources != nil {
+		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	a.addonSources = cat.Sources
 	a.addonManager = m
 	return nil
 }

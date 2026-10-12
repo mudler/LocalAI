@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -267,4 +268,29 @@ func validArtifactScheme(u *url.URL, allow bool) bool {
 	}
 	ip := net.ParseIP(u.Hostname())
 	return u.Scheme == "http" && allow && ip != nil && ip.IsLoopback()
+}
+
+// RefreshEnabled repopulates the non-durable owner cache on startup. One
+// deadline bounds the whole batch; disabled sources never cause network I/O.
+func (s *Sources) RefreshEnabled(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	s.mu.Lock()
+	ids := make([]string, 0, len(s.sources))
+	for id, src := range s.sources {
+		if src.Enabled {
+			ids = append(ids, id)
+		}
+	}
+	s.mu.Unlock()
+	sort.Strings(ids)
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := s.Refresh(ctx, id); err != nil {
+			return fmt.Errorf("refresh addon source %s: %w", id, err)
+		}
+	}
+	return ctx.Err()
 }

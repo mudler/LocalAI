@@ -2,14 +2,24 @@
 package application
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 )
 
 var _ = Describe("addon bootstrap", func() {
@@ -19,6 +29,116 @@ var _ = Describe("addon bootstrap", func() {
 	cfg := func() config.AddonConfig {
 		return config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(GinkgoT().TempDir(), "addons"), AdminCheck: func(context.Context, contract.Actor) error { return nil }}
 	}
+	It("installs from a persisted source through application bootstrap", func() {
+		c := cfg()
+		DeferCleanup(func() {
+			_ = filepath.Walk(c.Root, func(p string, i os.FileInfo, e error) error {
+				if e == nil && i.IsDir() {
+					_ = os.Chmod(p, 0700)
+				}
+				return nil
+			})
+		})
+		c.Host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		manifest, e := os.ReadFile("../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		var b bytes.Buffer
+		tw := tar.NewWriter(&b)
+		for name, data := range map[string][]byte{"manifest.json": manifest, "bin/sample": []byte("binary")} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+			_, e = tw.Write(data)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		Expect(tw.Close()).To(Succeed())
+		var url string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/package.tar" {
+				_, _ = w.Write(b.Bytes())
+				return
+			}
+			_ = json.NewEncoder(w).Encode([]catalog.Release{{AddonID: "sample", Name: "Sample", Version: "1.2.3", OS: "linux", Arch: "amd64", Artifact: url + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))}})
+		}))
+		defer server.Close()
+		url = server.URL
+		Expect(os.MkdirAll(c.Root, 0700)).To(Succeed())
+		sources, e := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(sources.Save(context.Background(), contract.Actor{}, catalog.Source{ID: "test", Name: "Test", URL: url, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		a := setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		_, e = a.AddonManager().Submit(context.Background(), contract.Actor{}, addons.LifecycleCommand{OperationID: "install", AddonID: "sample", Action: "install", SourceID: "test", Version: "1.2.3"})
+		Expect(e).NotTo(HaveOccurred())
+	})
+
+	It("bounds offline refresh and ignores disabled sources and forwarders", func() {
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); <-r.Context().Done() }))
+		defer server.Close()
+		c := cfg()
+		Expect(os.MkdirAll(c.Root, 0700)).To(Succeed())
+		sources, e := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		Expect(e).NotTo(HaveOccurred())
+		src := catalog.Source{ID: "offline", Name: "Offline", URL: server.URL, Enabled: false}
+		Expect(sources.Save(context.Background(), contract.Actor{}, src)).To(Succeed())
+		a := setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		Expect(calls.Load()).To(BeZero())
+		Expect(a.AddonSources()).NotTo(BeNil())
+		_, e = a.AddonSources().Refresh(context.Background(), src.ID)
+		Expect(e).To(MatchError(catalog.ErrUnavailable))
+		Expect(a.Shutdown()).To(Succeed())
+		src.Enabled = true
+		Expect(sources.Save(context.Background(), contract.Actor{}, src)).To(Succeed())
+		a = setup()
+		a.applicationConfig.Addons = c
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		a.applicationConfig.Context = ctx
+		Expect(a.startAddons()).NotTo(Succeed())
+		Expect(a.AddonManager()).To(BeNil())
+		Expect(a.AddonSources()).To(BeNil())
+		Expect(calls.Load()).To(Equal(int32(1)))
+		c.InstanceID = "frontend"
+		a = setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		Expect(a.AddonSources()).To(BeNil())
+		Expect(calls.Load()).To(Equal(int32(1)))
+		Expect(a.Shutdown()).To(Succeed())
+		src.Enabled = false
+		Expect(sources.Save(context.Background(), contract.Actor{}, src)).To(Succeed())
+		c.InstanceID = c.OwnerID
+		a = setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).To(Succeed())
+		Expect(a.Shutdown()).To(Succeed())
+	})
+	It("rejects package-root links during bootstrap without external mutation", func() {
+		c := cfg()
+		Expect(os.MkdirAll(c.Root, 0700)).To(Succeed())
+		external := GinkgoT().TempDir()
+		stage := filepath.Join(external, "stage-keep")
+		Expect(os.Mkdir(stage, 0700)).To(Succeed())
+		DeferCleanup(func() { _ = os.Chmod(stage, 0700) })
+		sentinel := filepath.Join(stage, "keep")
+		Expect(os.WriteFile(sentinel, []byte("keep"), 0400)).To(Succeed())
+		Expect(os.Chmod(stage, 0500)).To(Succeed())
+		Expect(os.Symlink(external, filepath.Join(c.Root, "packages"))).To(Succeed())
+		a := setup()
+		a.applicationConfig.Addons = c
+		Expect(a.startAddons()).NotTo(Succeed())
+		Expect(a.AddonManager()).To(BeNil())
+		b, e := os.ReadFile(sentinel)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(b)).To(Equal("keep"))
+		info, e := os.Stat(stage)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0500)))
+	})
+
 	It("leaves addons disabled by default without choosing an owner", func() { a := setup(); Expect(a.startAddons()).To(Succeed()); Expect(a.AddonManager()).To(BeNil()) })
 	It("keeps forwarding bootstrap away from storage and rejects absent owners", func() {
 		a := setup()

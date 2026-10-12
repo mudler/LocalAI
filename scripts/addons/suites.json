@@ -203,7 +203,8 @@
       "binds duplicate operation IDs to actor and command and serializes conflicts",
       "retains generations identity data and grants across uninstall and restart",
       "preserves old packages and active generation on manager upgrade failure",
-      "requires current authoritative administration even for idempotent retries"
+      "requires current authoritative administration even for idempotent retries",
+      "rejects symlinked package roots without touching external staging"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   }

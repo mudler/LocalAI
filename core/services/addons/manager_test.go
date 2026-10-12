@@ -82,6 +82,27 @@ func command(id, action string) LifecycleCommand {
 }
 
 var _ = Describe("designated owner lifecycle", func() {
+	It("rejects symlinked package roots without touching external staging", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		external := GinkgoT().TempDir()
+		stage := filepath.Join(external, "stage-sentinel")
+		DeferCleanup(func() { _ = os.Chmod(stage, 0700) })
+		Expect(os.Mkdir(stage, 0700)).To(Succeed())
+		sentinel := filepath.Join(stage, "keep")
+		Expect(os.WriteFile(sentinel, []byte("keep"), 0400)).To(Succeed())
+		Expect(os.Chmod(stage, 0500)).To(Succeed())
+		Expect(os.Symlink(external, i.Root)).To(Succeed())
+		err := m.Reconcile(ctx)
+		data, e := os.ReadFile(sentinel)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(data)).To(Equal("keep"))
+		info, e := os.Stat(stage)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0500)))
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("recovers every durable journal boundary without replaying publication", func() {
 		for _, boundary := range []string{"intent", "published", "prepared", "applied", "completed"} {
 			cfg, c, i := fixture()

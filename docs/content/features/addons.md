@@ -357,3 +357,17 @@ these hooks before changing packages for running processes or migrating data.
 
 Run `sh scripts/addons/verify.sh lifecycle` for journal interruption, ownership,
 idempotency, retention, and real catalog/package integration tests.
+
+Owner bootstrap reconciles the journal, then refreshes all persisted enabled
+sources before exposing the manager. The release cache is not durable. The whole
+startup refresh has a 30-second deadline (or the earlier application-context
+deadline); an offline/invalid enabled source explicitly fails startup and releases
+the owner lock. Disable that source in owner configuration to start offline.
+Disabled sources are never fetched. Forwarders neither read source metadata nor
+contact catalog/package servers. Embedding hosts can use `Application.AddonSources()`
+(owner only; nil on forwarders) for authoritative source administration and explicit
+live `Refresh(ctx, sourceID)` calls; no background update loop is started.
+
+Recovery rejects symlinked package roots and ancestors before enumerating staging.
+Staging cleanup uses directory-rooted operations and descriptor-based permission
+changes so links cannot redirect cleanup into external storage.
