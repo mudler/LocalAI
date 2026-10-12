@@ -220,8 +220,9 @@ type OpenAIRequest struct {
 	NegativePrompt string `json:"negative_prompt,omitempty" yaml:"negative_prompt"`
 
 	// Edit endpoint
-	Instruction string `json:"instruction,omitempty" yaml:"instruction"`
-	Input       any    `json:"input,omitempty" yaml:"input"`
+	Instruction    string               `json:"instruction,omitempty" yaml:"instruction"`
+	Input          any                  `json:"input,omitempty" yaml:"input"`
+	EmbeddingInput []EmbeddingInputItem `json:"-" yaml:"-"`
 
 	Stop any `json:"stop,omitempty" yaml:"stop"`
 

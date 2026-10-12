@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
+	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -181,7 +185,11 @@ func (re *RequestExtractor) setModelAndConfig(initializer func() schema.LocalAIR
 			if input == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
 			}
-			if err := c.Bind(input); err != nil {
+			if request, ok := input.(*schema.OpenAIRequest); ok && isEmbeddingRoute(c.Path()) {
+				if err := bindEmbeddingRequest(c, request); err != nil {
+					return err
+				}
+			} else if err := c.Bind(input); err != nil {
 				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
 			}
 
@@ -912,6 +920,48 @@ func MergeOpenResponsesConfig(config *config.ModelConfig, input *schema.OpenResp
 		// can only come from request-supplied fields: surface it as a 400
 		// with the underlying cause rather than an opaque 500.
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("unable to validate configuration after merging: %v", err))
+	}
+	return nil
+}
+
+// All embedding forms share the approved body cap, before generic JSON binding.
+// Keep the outer global reader in place: it may impose a smaller limit.
+func isEmbeddingRoute(path string) bool {
+	return path == "/embeddings" || path == "/v1/embeddings" || path == "/v1/engines/:model/embeddings"
+}
+func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
+	limit := int64(embeddingmedia.MaxBodyBytes)
+	if c.Request().ContentLength > limit {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, limit+1))
+	if err != nil {
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
+			return echo.ErrStatusRequestEntityTooLarge
+		}
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	if embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
+		return echo.ErrStatusRequestEntityTooLarge
+	}
+	items, structured, err := schema.ParseEmbeddingRequest(raw)
+	if err != nil {
+		var classified *embeddingmedia.Error
+		if errors.As(err, &classified) {
+			return echo.NewHTTPError(classified.Status, classified.Code)
+		}
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	c.Request().Body = io.NopCloser(bytes.NewReader(raw))
+	if err := c.Bind(request); err != nil {
+		return echo.NewHTTPError(400, "invalid_embedding_request")
+	}
+	request.EmbeddingInput = items
+	if structured {
+		// Parsing must not dispatch content objects into the legacy text-only path.
+		// The HTTP orchestration task replaces this explicit unsupported response.
+		return echo.NewHTTPError(501, "multimodal_embedding_unavailable")
 	}
 	return nil
 }

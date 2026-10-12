@@ -301,3 +301,54 @@ and validate this token under its model lifecycle synchronization, invalidate it
 before load/free, and check it at dispatch and result publication. Merely exposing
 the protobuf field or unchanged capability flags is insufficient. This Go routing
 verification is not native-runtime acceptance.
+
+### Structured input validation (protocol groundwork)
+
+The embedding routes (`/embeddings`, `/v1/embeddings`, and the engine-scoped
+alias) enforce a **48 MiB encoded request-body limit before JSON binding**.
+This applies to legacy text, token arrays, and messages as well as structured
+input. Smaller global upload limits still apply. Disabling or increasing the
+global upload limit does not remove this route-specific limit. Overflow returns
+413; other endpoints are unchanged.
+
+Structured input is a content object, or an array of strings and content objects:
+
+```json
+{"input":["separate text",{"content":[{"type":"text","text":"Find similar images"},{"type":"image_url","image_url":{"url":"https://example.com/image.png"}}]}]}
+```
+
+Content supports `text`, `image_url`, `input_audio`, and `input_video`;
+`video_url` is an alias for `input_video`. Image sources have a `url`. Audio and
+video sources have exactly one of `data` (raw base64) or `url` (HTTP(S) or a
+base64 data URI), and may include `format`. Empty sources, invalid base64,
+unknown fields, duplicate keys, empty content, mixed token/content batches,
+and structured input combined with `messages` return 400. Strings are never
+reinterpreted as JSON. Format consistency with decoded media is checked by the
+later media implementation, not this syntax parser.
+
+The structured envelope accepts `model`, `input`, `encoding_format`, `dimensions`,
+`user`, `pooling`, and `pooling_half_life_tokens`. Legacy envelope parsing remains
+permissive. Valid structured requests currently return **501**, not an empty
+successful embedding response: HTTP acquisition and inference orchestration are
+not yet enabled. These parser changes do not establish native multimodal support.
+
+Request budgets reject rather than truncate: 16 items, 128 source parts (including
+string items), 1 MiB UTF-8 text, 32 MiB compressed media, 120 selected frames,
+64 million decoded pixels, 64 MiB decoded/resampled audio allocation, 60 seconds
+source duration, 60 seconds preparation work, and 256 MiB temporary writes.
+Per-source bounds are 30 seconds duration, 16 million pixels per image/frame,
+2 audio channels, 192 kHz source audio, and 30 seconds fetch time. Preparation
+capacity is 2 requests per frontend; enforcement belongs to acquisition.
+
+Bytes use binary units; megapixels use decimal units. Duration accounting uses
+milliseconds and counts a video's soundtrack only as part of that video's source
+duration. Audio allocations and temporary writes are conservatively cumulative,
+without refunds when buffers or files are released. Preparation time sums elapsed
+preparation work, excludes inference, and is not reset between items. Frame and
+context limits are independent: fitting 120 frames does not guarantee that a
+model's context can fit them. Context overflow must reject, not drop content.
+
+The pre-bind cap does not bound earlier optional tracing: the existing trace
+middleware can read the request before this parser. Do not treat this change as
+a whole-route memory bound when tracing is enabled. Moving the bound ahead of
+tracing and excluding sensitive structured payloads require route/trace integration.
