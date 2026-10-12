@@ -384,6 +384,10 @@ curl http://localhost:8080/v1/sound-generation -H "Content-Type: application/jso
 
 The `/v1/sound-generation` endpoint is compatible with the [ElevenLabs sound generation API](https://elevenlabs.io/docs/api-reference/sound-generation) and can produce music, sound effects, and other audio content. It responds with a binary audio file and the appropriate `Content-Type` header (for example `audio/wav`, `audio/mpeg`, `audio/flac`, or `audio/ogg`). The request body is JSON and supports two usage modes.
 
+Each generated sound has a unique filename. The filename remains unique when
+LocalAI changes its extension to match the audio format, so later generations
+do not overwrite earlier recordings in the WebUI history.
+
 **Simple mode:**
 
 | Parameter        | Type     | Required | Description                                  |
