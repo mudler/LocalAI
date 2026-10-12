@@ -3,6 +3,8 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"sync"
 	"time"
 
@@ -383,3 +385,7 @@ func freshTime() time.Time {
 var _ NodeHealthStore = (*fakeNodeHealthStore)(nil)
 var _ BackendClientFactory = (*fakeBackendClientFactory)(nil)
 var _ grpc.Backend = (*fakeBackendClient)(nil)
+
+func (c *fakeBackendClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "multimodal embedding unavailable")
+}

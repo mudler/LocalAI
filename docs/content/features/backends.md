@@ -515,3 +515,44 @@ removal also stays blocked during targeted installation, scoped removal, and
 refresh, even if the URL
 target is cleared. Its confirmation rechecks current row conflicts before
 deleting. Standalone deletion and its system-backend protection are unchanged.
+
+## Typed multimodal embedding protocol
+
+`backend/backend.proto` defines protocol version 1 through the additive
+`MultimodalEmbedding(MultimodalEmbeddingRequest)` RPC. Existing `Embedding` and
+its field numbers are unchanged. A server without the new method returns
+`UNIMPLEMENTED`; callers must never retry structured content as legacy text.
+
+The request contains `model` (selected loaded instance identity), `options`
+(existing `PredictOptions`), ordered `parts`, and `budget`. Each `EmbeddingPart`
+is a oneof text string (including an explicitly empty string) or `EmbeddingMedia`
+with IMAGE/AUDIO/VIDEO kind, binary compressed `data`, and `format`. There is no
+media URL or path field. Identity must agree with any `options.ModelIdentity`;
+the Go server applies the existing loaded-model identity guard.
+
+`EmbeddingBudget` contains uint64 `remaining_` counters for `frames`, `pixels`,
+`audio_allocation_bytes`, `source_duration_milliseconds`, `temporary_bytes`,
+`preparation_milliseconds`, `compressed_bytes`, `text_bytes`, and `source_parts`.
+Zero means exhausted, not unlimited. `EmbeddingConsumption` reports actual values
+in the same units without the `remaining_` prefix. Audio allocation includes
+resampled buffers; a video's source duration is counted once, not again for its
+soundtrack. The response wraps the unchanged `EmbeddingResult` plus consumption.
+Callers deduct consumption before the next item; native implementations must
+independently enforce remaining allowances during preparation, not only report
+overruns afterward. The serialized request must be strictly below 50 MiB; the Go
+client rejects requests at or above the ceiling before dispatch.
+
+`ModelMetadataResponse.embedding_protocol_version` is 1 for this contract;
+`embedding_modalities` distinguishes TEXT, IMAGE, AUDIO, SILENT_VIDEO and
+AUDIOVISUAL_VIDEO. Missing/unknown versions or absent required capabilities must
+fail closed for structured input. This wire addition does not itself publish
+capabilities or implement native multimodal inference. Go models may implement
+`MultimodalEmbeddingModel`; models without that optional interface explicitly
+return `UNIMPLEMENTED`, without invoking legacy embeddings.
+
+Go bindings are generated, not tracked. The wire verification uses installed
+protoc 3.21.12, protoc-gen-go v1.34.2 and protoc-gen-go-grpc 1.4.0 with the
+repository's source-relative protogen arguments. `bash test/multimodal/verify.sh
+wire` regenerates twice into scratch, compares outputs byte-for-byte, and runs
+the complete gRPC, model and node suites with report/count guards. It does not
+install tools, start application services, or download models.

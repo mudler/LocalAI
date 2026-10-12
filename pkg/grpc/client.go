@@ -131,6 +131,27 @@ func (c *Client) Embeddings(ctx context.Context, in *pb.PredictOptions, opts ...
 	return client.Embedding(ctx, in, opts...)
 }
 
+func (c *Client) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...grpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	if err := validateMultimodalEmbeddingSize(in); err != nil {
+		return nil, err
+	}
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	client := pb.NewBackendClient(conn)
+
+	return client.MultimodalEmbedding(ctx, in, opts...)
+}
+
 func (c *Client) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

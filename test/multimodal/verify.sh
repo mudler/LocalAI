@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
-if [[ $# != 1 || $1 != inventory ]]; then
-    echo 'usage: bash test/multimodal/verify.sh inventory' >&2
+if [[ $# != 1 || ( $1 != inventory && $1 != wire ) ]]; then
+    echo 'usage: bash test/multimodal/verify.sh inventory|wire' >&2
     exit 2
 fi
 export PYTHONDONTWRITEBYTECODE=1
+if [[ $1 == wire ]]; then
+    exec bash test/multimodal/verify-wire.sh
+fi
 scratch=.sdd-work/task1
 mkdir -p "$scratch"
 revision=$(git rev-parse HEAD)
