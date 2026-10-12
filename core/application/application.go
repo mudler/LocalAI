@@ -3,8 +3,10 @@ package application
 import (
 	"cmp"
 	"context"
+	"errors"
 	"math/rand/v2"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +15,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
@@ -32,6 +37,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
@@ -56,6 +62,7 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	addonManager         *addons.Manager
 	webSocketTicketsOnce sync.Once
 	webSocketTickets     *auth.WebSocketTickets
 	backendLoader        *config.ModelConfigLoader
@@ -540,12 +547,15 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.addonManager != nil {
+			err = a.addonManager.Close()
+		}
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
-			err = a.modelLoader.StopAllGRPC()
+			err = errors.Join(err, a.modelLoader.StopAllGRPC())
 		}
 		if a.voiceProfileStore != nil {
 			if closeErr := a.voiceProfileStore.Close(); err == nil {
@@ -591,7 +601,16 @@ func (a *Application) InstanceID() string {
 	return a.applicationConfig.Distributed.InstanceID
 }
 
-func (a *Application) start() error {
+func (a *Application) start() (startErr error) {
+	if err := a.startAddons(); err != nil {
+		return err
+	}
+	defer func() {
+		if startErr != nil && a.addonManager != nil {
+			_ = a.addonManager.Close()
+		}
+	}()
+
 	galleryService := galleryop.NewGalleryService(a.ApplicationConfig(), a.ModelLoader())
 	err := galleryService.Start(a.ApplicationConfig().Context, a.ModelConfigLoader(), a.ApplicationConfig().SystemState)
 	if err != nil {
@@ -742,4 +761,48 @@ func (a *Application) StartAgentPool() {
 	aps.SetUserServicesManager(usm)
 
 	a.agentPoolService.Store(aps)
+}
+
+// AddonManager is nil unless the deployment explicitly enables addons.
+func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
+
+func (a *Application) startAddons() error {
+	c := a.applicationConfig.Addons
+	if !c.Enabled {
+		return nil
+	}
+	if a.addonManager != nil {
+		return addons.ErrConflict
+	}
+	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
+	var cat catalog.Catalog
+	var installer *packages.Installer
+	// Replicas must not load even source metadata from the owner's volume.
+	if c.InstanceID == c.OwnerID && c.OwnerID != "" {
+		if c.AdminCheck == nil {
+			return addons.ErrForbidden
+		}
+		sources, err := catalog.NewSources(filepath.Join(c.Root, "sources.json"), c.AdminCheck, catalog.CredentialResolver{})
+		if err != nil {
+			return err
+		}
+		host := c.Host
+		if host == (contract.HostCompatibility{}) {
+			host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+		}
+		cat = catalog.Catalog{Sources: sources, TargetOS: host.OS, TargetArch: host.Arch}
+		installer = &packages.Installer{Root: filepath.Join(c.Root, "packages"), Catalog: cat, Host: host}
+	}
+	m, err := addons.NewManager(a.applicationConfig.Context, owner, cat, installer, c.AdminCheck)
+	if err != nil {
+		return err
+	}
+	if c.InstanceID == c.OwnerID {
+		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
+			_ = m.Close()
+			return err
+		}
+	}
+	a.addonManager = m
+	return nil
 }

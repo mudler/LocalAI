@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -14,7 +15,23 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// AddonConfig is startup-only deployment configuration. Authority is injected
+// by the embedding host and cannot be loaded from runtime settings.
+type AddonConfig struct {
+	Enabled                                            bool
+	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
+	SharedStorage                                      bool
+	Host                                               contract.HostCompatibility
+	AdminCheck                                         func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+}
+
+func WithAddons(c AddonConfig) AppOption {
+	return func(o *ApplicationConfig) { o.Addons = c }
+}
+
 type ApplicationConfig struct {
+	Addons AddonConfig `json:"-" yaml:"-"`
+
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
 

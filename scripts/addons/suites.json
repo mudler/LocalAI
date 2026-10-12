@@ -178,5 +178,33 @@
       "stages real trusted signatures and rejects signed identity digest and trust mismatches offline"
     ],
     "report": ".cache/addons/logs/packages.json"
+  },
+  "lifecycle": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons",
+        "-ginkgo.json-report=../../../.cache/addons/logs/lifecycle.json"
+      ]
+    ],
+    "cases": [
+      "recovers every durable journal boundary without replaying publication",
+      "removes abandoned staging without removing published packages on recovery",
+      "keeps immutable history on successful upgrade and reinstallation",
+      "excludes competing owners and rejects conflicting durable identities",
+      "never opens replica roots or elects an absent owner",
+      "binds duplicate operation IDs to actor and command and serializes conflicts",
+      "retains generations identity data and grants across uninstall and restart",
+      "preserves old packages and active generation on manager upgrade failure",
+      "requires current authoritative administration even for idempotent retries"
+    ],
+    "report": ".cache/addons/logs/lifecycle.json"
   }
 }

@@ -289,3 +289,71 @@ and artifact digest checks remain enabled. Leaving it unset retains public
 Sigstore TUF trust. Offline acceptance fixtures generate local CA, signing, CT,
 and Rekor keys and exercise the same signature verification and staging path;
 they do not disable cryptographic requirements or depend on live services.
+
+## Durable lifecycle and designated ownership
+
+The lifecycle library uses a **designated-owner per-instance state exception**.
+It does not use a rotating leader loop, election, or automatic failover.
+Embedded hosts construct `addons.NewManager` with an explicit `OwnerConfig`:
+
+- `InstanceID` identifies this process's deployment role.
+- `OwnerID` identifies the only role permitted to own addon storage.
+- `OwnerAddress` is the configured HTTPS address of that owner.
+- `StorageID` identifies the durable local volume.
+- `Root` is an absolute, private, owner-controlled directory.
+- `SharedStorage` must be false. Shared-storage deployments are unsupported.
+
+The host must assign unique instance identities and a local filesystem with
+working advisory locks, atomic rename, and file and directory synchronization.
+A process holds the storage lock until `Manager.Close`. The stored owner identity,
+address, and storage identity must match on restart. A conflicting configuration
+fails instead of adopting existing storage. Do not mount this root on replicas.
+A frontend manager never creates or opens the root, even when the owner is absent.
+Its lifecycle calls return `ErrNotOwner`; forwarding transport is a separate layer.
+Application bootstrap accepts `config.WithAddons(config.AddonConfig{...})`.
+`Enabled` defaults to false; no owner is inferred from missing configuration.
+The owner loads protected sources and reconciles its journal before exposing
+`Application.AddonManager()`. Application shutdown releases the storage lock.
+Forwarding instances construct no catalog or installer and never reconcile storage.
+`AdminCheck` is mandatory on the owner and excluded from serialized settings.
+`Host` optionally sets compatibility; its zero value uses the current host and
+version-one contracts. There are no new CLI flags or runtime settings yet.
+Application bootstrap does not start addon processes.
+
+The host supplies an authoritative `catalog.AdminCheck`. It must check current
+account, credential, and administrator status, including for duplicate requests.
+Actor fields do not grant administration rights. Installation rights do not grant
+database access.
+
+`Submit` accepts `install`, `upgrade`, `enable`, `disable`, and `uninstall`.
+Install and upgrade consume the actual catalog and immutable package installer.
+Installation starts disabled. Enable records desired state; it does not report
+that a process is running. Status separates installed state, desired state, and
+observed health. `StartEligible` requires ownership, installation, enabled intent,
+and no unfinished operation. Runtime supervision is a separate layer.
+
+Operation IDs are global to the owner journal. A retry must carry the same actor
+and complete command. Conflicting reuse returns `ErrConflict`. Failed operations
+remain failed; an explicit retry needs a new operation ID. Commands serialize
+through the manager lock, including commands for the same addon.
+
+The journal synchronizes complete snapshots at intent, prepared, applied, and
+completed boundaries. Published packages are synchronized before prepared state.
+Call `Reconcile` after restart before admitting runtime work. Recovery fails
+unfinished intent rather than repeating a download or publication. Prepared and
+applied operations finish from their recorded generation without resolving a new
+catalog release. Persistence errors block further commands until reconciliation.
+
+Uninstall clears installed and enabled intent. It retains immutable generations,
+addon identity, data paths, and grant metadata. Mutable data lives under `data/`;
+owner metadata lives under `metadata/`; immutable packages live under `packages/`.
+Reconciliation removes abandoned `stage-*` directories but retains published
+packages, including packages published just before a crash. Operators must inspect
+unreferenced published packages before removing them. No automatic purge runs.
+
+Drain, backup, and migration hooks are interfaces only. The lifecycle library does
+not claim to execute those operations. Later runtime integration must implement
+these hooks before changing packages for running processes or migrating data.
+
+Run `sh scripts/addons/verify.sh lifecycle` for journal interruption, ownership,
+idempotency, retention, and real catalog/package integration tests.
