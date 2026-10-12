@@ -108,5 +108,32 @@
       "validates preview receipt states and output descriptions"
     ],
     "report": ".cache/addons/logs/contracts.json"
+  },
+  "catalog": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/catalog",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/catalog.json"
+      ]
+    ],
+    "cases": [
+      "fetches private bearer and basic catalogs without OCI credentials",
+      "blocks redirects without leaking credentials or error details",
+      "keeps duplicate names source scoped and excludes disabled sources",
+      "reports refresh failures rather than serving stale success",
+      "requires authoritative administration for all source edits",
+      "persists protected references and removes sources without touching installs",
+      "invalidates cached releases on explicit source changes",
+      "rejects secret URLs invalid digests duplicate identities and malformed catalogs"
+    ],
+    "report": ".cache/addons/logs/catalog.json"
   }
 }

@@ -126,3 +126,74 @@ Run `sh scripts/addons/verify.sh contracts`. The inventory requires every named
 Ginkgo case to pass in its JSON report: no empty selections, skips, stale reports,
 or successful commands without reports. `sh scripts/addons/verify.sh prerequisites`
 regression-tests those gates and checks real native toolchain/browser readiness.
+
+## Private catalog service
+
+`core/services/addons/catalog` provides owner-side source configuration, refresh,
+search and release resolution. It does not expose routes, UI, installation or
+runtime execution yet. Model and backend managers remain separate.
+
+Construct `Sources` with a protected owner configuration path, an authoritative
+`AdminCheck`, and a `CredentialResolver`. `Save` creates or replaces a source;
+`Source{ID: id, Removed: true}` explicitly removes one. Source records contain
+ID, display name, HTTP(S) URL, enabled state, authentication reference and
+verification policy. Files are replaced atomically with mode 0600. The operator
+must provide a private parent directory and only one writer. Loading rejects
+symlinks and group/world-readable files. Source edits invalidate cached results.
+Removing a source never opens or changes installed packages, receipts or data.
+Installed receipts must retain their pinned source; changing that association
+requires a separate authorized lifecycle operation, not a catalog refresh.
+
+### Authority and credentials
+
+The existing `core/http/auth.RequireAdmin` checks an authenticated Echo user's
+role. `contract.Actor` has no role and is not an authenticated Echo context.
+This service therefore injects `AdminCheck(context.Context, contract.Actor)`;
+a missing checker denies all edits. The future owner adapter must revalidate
+current user, credential and administrator status. It must not infer privileges
+from user IDs, mode strings, model arguments or browser values. Refresh is an
+internal owner operation; a future public refresh/test route must enforce admin
+authority before calling it. No new secret endpoint is provided.
+
+Configure reference bindings only in trusted owner code. Each binding pairs an
+exact scheme/host/port origin with a `pkg/credentials.Store`. That store supports
+bearer/basic secrets, including existing environment/file references. Secrets
+resolve at request time. Source JSON contains only the reference; resolver JSON
+omits bindings. Catalog credentials are not installed into the OCI downloader's
+store and releases do not carry authentication references. Configure OCI pull
+credentials separately. Plain HTTP credentials require the store's explicit
+`allow_insecure` setting; use HTTPS in production. URLs with embedded credentials,
+query parameters or fragments are rejected.
+
+All catalog requests use `pkg/httpclient`, a 30-second timeout, and no redirects.
+Redirect, credential, HTTP-status and parse failures return redacted errors, not
+remote bodies or URLs. A failed refresh records its check time and last successful
+refresh time and prevents stale cached releases from resolving successfully.
+
+### Catalog document and limits
+
+A catalog is a JSON array of releases with `addonId`, `name`, optional
+`description`, `version`, `artifact` (`oci://host/repository`), `digest`
+(`sha256:` plus 64 lowercase hex characters), `os` and `arch`. Unknown fields
+and trailing JSON are rejected. Source identity and verification policy always
+come from protected source configuration, not from the remote release.
+The policy describes requirements for later package verification; refresh does
+not claim to verify executable signatures.
+
+Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
+within a source fail. Duplicate names across sources remain distinct. Search
+matches names, IDs and descriptions, sorts by source/release identity and uses
+a default page size of 50 (maximum 100). Disabled sources are neither searched
+nor fetched. Resolve requires an explicit source, addon ID and exact version;
+it fails closed if that tuple contains multiple platforms rather than choosing
+an arbitrary executable. Platform-aware selection and channel updates require
+later integration; this service does not silently choose a source or upgrade.
+
+State uses the documented **per-instance designated-owner** exception: only the
+configured owner constructs this service. Configuration persists; the bounded
+catalog cache is rebuilt by explicit refresh after restart. Replicas must forward
+to that owner, not construct independent caches or fall back on owner failure.
+
+Run `sh scripts/addons/verify.sh catalog` for private bearer/basic HTTP fixtures,
+redirect rejection, isolated credential references, disabled sources, refresh
+failure, duplicate names, source persistence/removal and denied edits.
