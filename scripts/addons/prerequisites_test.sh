@@ -51,7 +51,7 @@ reject wrong-node 'Node 22.12' env PATH="$fixture/bin:$PATH" FIXTURE_NODE=v24.0.
 reject wrong-protoc 'protoc 26.1' env PATH="$fixture/bin:$PATH" FIXTURE_PROTOC='libprotoc 31.1' sh "$prepare" --check
 reject absent-generated 'generated file' env PATH="$fixture/bin:$PATH" sh "$prepare" --check
 reject empty-name 'suite' sh "$verify" ''
-reject future-suite 'suite' sh "$verify" contracts
+reject future-suite 'suite' sh "$verify" unregistered
 # Replace the copied inventory and children, not production behavior.
 cat > "$fixture/scripts/addons/suites.json" <<'JSON'
 {"prerequisites":{"kind":"shell","commands":[],"cases":[]}}
@@ -78,6 +78,15 @@ TOOL
 reject ginkgo-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" prerequisites
 reject ginkgo-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" prerequisites
 reject ginkgo-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='{}' sh "$verify" prerequisites
+# Registered contracts must reach the same report gate, never bypass it.
+python3 - "$fixture/scripts/addons/suites.json" <<'JSON'
+import json, sys
+p=sys.argv[1]
+v=json.load(open(p)); v['contracts']=v.pop('prerequisites')
+open(p,'w').write(json.dumps(v))
+JSON
+reject contracts-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" contracts
+reject contracts-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" contracts
 # A commit at a tagged module resolves to the tag, with an exact module sum.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh

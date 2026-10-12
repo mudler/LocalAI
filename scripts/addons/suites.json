@@ -28,7 +28,9 @@
       "ginkgo-missing",
       "browser-setup-failure",
       "configured-browser-missing",
-      "configured-browser-setup"
+      "configured-browser-setup",
+      "contracts-empty",
+      "contracts-skipped"
     ],
     "readiness": {
       "ginkgo": {
@@ -76,5 +78,35 @@
         "browser"
       ]
     }
+  },
+  "contracts": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./pkg/addons/contract",
+        "-ginkgo.json-report=../../../.cache/addons/logs/contracts.json"
+      ]
+    ],
+    "cases": [
+      "accepts independent service tool page and chat capabilities",
+      "rejects invalid namespace IDs and executable paths",
+      "rejects invalid versions ranges and capabilities",
+      "rejects unknown duplicate trailing and oversized manifest JSON",
+      "rejects incompatible host API protocol SDK data and platform fixtures",
+      "validates UI only when declared and rejects inconsistent contributions",
+      "uses canonical version one wire fixtures",
+      "rejects incomplete expired or forged authority shapes",
+      "rejects unknown and oversized wire payloads",
+      "validates finite defaults overrides and cross field bounds",
+      "validates preview receipt states and output descriptions"
+    ],
+    "report": ".cache/addons/logs/contracts.json"
   }
 }

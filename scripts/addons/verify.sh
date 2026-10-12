@@ -9,7 +9,7 @@ import json, os, pathlib, subprocess, sys, tempfile, time, socket, urllib.reques
 root = pathlib.Path.cwd()
 suite = sys.argv[1]
 inventory = json.loads((root / 'scripts/addons/suites.json').read_text())
-if suite not in inventory or suite != 'prerequisites':
+if suite not in inventory:
     sys.exit('unknown or unavailable suite: ' + suite)
 entry = inventory[suite]
 if not entry.get('commands') or not entry.get('cases'):
