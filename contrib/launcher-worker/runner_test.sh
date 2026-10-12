@@ -28,18 +28,20 @@ expect_status 0 bash -c 'source "$1/lib.sh"; run_logged "$2/pass" true' _ "$here
 expect_status 1 bash -c 'source "$1/lib.sh"; run_logged "$2/missing/output" true' _ "$here" "$tmp"
 expect_status 1 python3 "$here/check-report.py" "$tmp/missing.json"
 for data in 'not json' '{}' 'null' '[null]' '[]' \
-  '[{"SuiteSucceeded":true,"SpecReports":[]}]' \
-  '[{"SuiteSucceeded":false,"SpecReports":[{"State":"passed","LeafNodeType":"It"}]}]' \
-  '[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"BeforeSuite"}]}]' \
-  '[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It"},{"State":"skipped","LeafNodeType":"It"}]}]' \
-  '[{"SuiteSucceeded":true,"SpecReports":[{"State":"pending"}]}]' \
-  '[{"SuiteSucceeded":true,"SpecReports":[{"State":"failed"}]}]'; do
+  '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[]}]' \
+  '[{"SuiteSucceeded":false,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"passed","LeafNodeType":"It"}]}]' \
+  '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"passed","LeafNodeType":"BeforeSuite"}]}]' \
+  '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"passed","LeafNodeType":"It"},{"State":"skipped","LeafNodeType":"It"}]}]' \
+  '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"pending"}]}]' \
+  '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"failed"}]}]'; do
   printf '%s\n' "$data" > "$tmp/report.json"
   expect_status 1 python3 "$here/check-report.py" "$tmp/report.json"
   expect_status 1 python3 -O "$here/check-report.py" "$tmp/report.json"
 done
-printf '%s\n' '[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It"}]}]' > "$tmp/report.json"
+printf '%s\n' '[{"SuiteSucceeded":true,"PreRunStats":{"TotalSpecs":1,"SpecsThatWillRun":1},"SpecReports":[{"State":"passed","LeafNodeType":"It"}]}]' > "$tmp/report.json"
 expect_status 0 python3 "$here/check-report.py" "$tmp/report.json"
+expect_status 0 python3 -O "$here/check-report.py" "$tmp/report.json"
+python3 "$here/check_report_test.py"
 source "$here/lib.sh"
 # Mock df only for the boundary contract; real baseline uses the actual filesystem.
 for bytes in 0 10737418239 invalid; do
