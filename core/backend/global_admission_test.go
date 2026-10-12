@@ -13,6 +13,8 @@ import (
 var _ = Describe("global backend admission", func() {
 	BeforeEach(func() {
 		backend.ConfigureGlobalBackendAdmission(1)
+		// Do not leave later concurrent-inference specs with a single slot.
+		DeferCleanup(backend.ConfigureGlobalBackendAdmission, 0)
 	})
 
 	It("rejects excess backend work without queueing", func() {

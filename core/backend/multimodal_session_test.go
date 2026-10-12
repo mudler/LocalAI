@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type sessionBackend struct {
@@ -164,16 +165,24 @@ var _ = Describe("Multimodal routing", func() {
 			return nil, ctx.Err()
 		}
 		s := open(sessionLoader(b))
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		var wg sync.WaitGroup
+		done := make(chan struct{})
+		DeferCleanup(func() {
+			cancel()
+			Expect(s.Close()).To(Succeed())
+			Eventually(done, 5*time.Second).Should(BeClosed())
+		})
 		errs := make(chan error, 2)
 		for i := 0; i < 2; i++ {
 			wg.Add(1)
-			go func() { defer wg.Done(); _, err := s.Embed(context.Background(), sessionRequest()); errs <- err }()
+			go func() { defer wg.Done(); _, err := s.Embed(ctx, sessionRequest()); errs <- err }()
 		}
-		<-started
-		<-started
+		go func() { wg.Wait(); close(done) }()
+		Eventually(started, time.Second).Should(Receive())
+		Eventually(started, time.Second).Should(Receive())
 		Expect(s.Close()).To(Succeed())
-		wg.Wait()
+		Eventually(done, time.Second).Should(BeClosed())
 		Expect(<-errs).To(MatchError(context.Canceled))
 		Expect(<-errs).To(MatchError(context.Canceled))
 		Expect(s.Metadata()).To(BeNil())
