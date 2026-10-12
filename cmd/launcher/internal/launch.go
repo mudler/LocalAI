@@ -221,6 +221,13 @@ func buildLaunch(input *Config, dataPath string, inherited []string, plaintextAc
 			if controls(f.path) {
 				return fail("invalid NATS TLS file")
 			}
+			// Resolve against the launcher CWD before validation: the child uses
+			// dataPath as its CWD and must open the same path we checked.
+			absolutePath, e := filepath.Abs(f.path)
+			if e != nil {
+				return fail("invalid NATS TLS file")
+			}
+			f.path = absolutePath
 			st, e := os.Stat(f.path)
 			if e != nil || !st.Mode().IsRegular() {
 				return fail("NATS TLS file must be readable and regular")

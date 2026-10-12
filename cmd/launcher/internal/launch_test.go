@@ -181,6 +181,72 @@ var _ = Describe("Secure launcher launch", func() {
 		_, e = buildLaunch(c, "/data", nil, false)
 		Expect(e).NotTo(HaveOccurred())
 	})
+	It("snapshots absolute TLS paths from the launcher directory without changing settings", func() {
+		launcherDir, childDir := GinkgoT().TempDir(), GinkgoT().TempDir()
+		GinkgoT().Chdir(launcherDir)
+		c.Worker.NATS.TLSCA = "ca.pem"
+		c.Worker.NATS.TLSCert = "cert.pem"
+		c.Worker.NATS.TLSKey = "key.pem"
+		before := c.clone()
+		paths := []string{"ca.pem", "cert.pem", "key.pem"}
+		flags := []string{"--nats-tls-ca", "--nats-tls-cert", "--nats-tls-key"}
+		for _, path := range paths {
+			Expect(os.WriteFile(filepath.Join(launcherDir, path), []byte("launcher TLS material"), 0600)).To(Succeed())
+		}
+		// Neither absent child files nor conflicting same-named files may change resolution.
+		for _, conflict := range []bool{false, true} {
+			if conflict {
+				for _, path := range paths {
+					Expect(os.WriteFile(filepath.Join(childDir, path), []byte("different child TLS material"), 0600)).To(Succeed())
+				}
+			}
+			d, err := buildLaunch(c, childDir, nil, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(d.Dir()).To(Equal(childDir))
+			Expect(c).To(Equal(before))
+			args := d.Args()
+			for i, flag := range flags {
+				index := -1
+				for j, arg := range args {
+					if arg == flag {
+						index = j
+						break
+					}
+				}
+				Expect(index).To(BeNumerically(">=", 0), flag)
+				Expect(args[index+1]).To(Equal(filepath.Join(launcherDir, paths[i])))
+			}
+			// The snapshot survives config, accessor and working-directory changes.
+			c.Worker.NATS.TLSCA, c.Worker.NATS.TLSCert, c.Worker.NATS.TLSKey = "changed-ca", "changed-cert", "changed-key"
+			copyArgs := d.Args()
+			for i := range copyArgs {
+				copyArgs[i] = "changed"
+			}
+			Expect(os.Chdir(childDir)).To(Succeed())
+			Expect(d.Args()).To(Equal(args))
+			Expect(os.Chdir(launcherDir)).To(Succeed())
+			c = before.clone()
+		}
+	})
+	It("rejects each missing launcher TLS file even when the child directory has it", func() {
+		launcherDir, childDir := GinkgoT().TempDir(), GinkgoT().TempDir()
+		GinkgoT().Chdir(launcherDir)
+		c.Worker.NATS.TLSCA, c.Worker.NATS.TLSCert, c.Worker.NATS.TLSKey = "ca.pem", "cert.pem", "key.pem"
+		before := c.clone()
+		paths := []string{"ca.pem", "cert.pem", "key.pem"}
+		for _, path := range paths {
+			Expect(os.WriteFile(filepath.Join(childDir, path), []byte("child TLS material"), 0600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(launcherDir, path), []byte("launcher TLS material"), 0600)).To(Succeed())
+		}
+		for _, path := range paths {
+			Expect(os.Remove(filepath.Join(launcherDir, path))).To(Succeed())
+			d, err := buildLaunch(c, childDir, nil, false)
+			Expect(err).To(MatchError("NATS TLS file must be readable and regular"), path)
+			Expect(d).To(Equal(launchDescription{}))
+			Expect(c).To(Equal(before))
+			Expect(os.WriteFile(filepath.Join(launcherDir, path), []byte("launcher TLS material"), 0600)).To(Succeed())
+		}
+	})
 	It("redacts configured and issued credentials before emitting bounded complete lines", func() {
 		var lines []string
 		r := newLogFilter([]string{"my-secret"})

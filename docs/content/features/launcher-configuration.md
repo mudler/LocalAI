@@ -91,6 +91,10 @@ JWT/seed credentials after approval. Optional static overrides must be a matchin
 valid user JWT and seed pair; static mode has no automatic renewal. Possession
 of credentials is not evidence of approval or readiness. NATS TLS file paths
 must be readable regular files, and client certificate/key must be paired.
+Relative CA, client certificate and key paths resolve against the launcher's
+working directory when the launch description is built, not the child's data
+directory. The builder validates and snapshots those absolute paths without
+changing saved settings. Prefer absolute paths when configuring TLS files.
 NATS TLS settings require `tls://`; they do not configure frontend HTTPS trust,
 which uses the OS trust store.
 
