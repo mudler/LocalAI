@@ -25,12 +25,18 @@ mkdir -p "$work/home/.localai"
 cp "$work/config.json" "$work/home/.localai/launcher.json"
 set +e
 HOME="$work/home" XDG_CONFIG_HOME="$work/home/.config" LIBGL_ALWAYS_SOFTWARE=1 \
-    timeout 15s xvfb-run -a "$app/AppRun" > "$work/launch.log" 2>&1
+    timeout --kill-after=5s 15s xvfb-run -a "$app/AppRun" > "$work/launch.log" 2>&1
 status=$?
 set -e
-# A GUI event loop should stay alive; early exit (even code 0) is a failure.
+# This is a bounded startup check, not a UI event-loop heartbeat.
+# Early exit (even code 0) and forced SIGKILL are failures.
 [[ $status == 124 ]]
-if grep -Ei 'panic:|fatal error:|failed to initialize GLFW|APIUnavailable' "$work/launch.log"; then
+if grep -Ei 'panic:|fatal error:|failed to initialize GLFW|Failed to initialize launcher:|APIUnavailable' "$work/launch.log"; then
     exit 1
 fi
+# On a fresh home this milestone follows config loading and startup setup.
+# Survival alone could accept a process stalled before initialization.
+grep -Fq 'No LocalAI installation found' "$work/launch.log"
+test -d "$work/home/.localai/models"
+test -d "$work/home/.localai/backends"
 test ! -e "$work/home/.localai/bin/local-ai"

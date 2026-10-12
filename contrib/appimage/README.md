@@ -52,10 +52,18 @@ bash contrib/appimage/smoke.sh
 
 The smoke extracts the real image, validates metadata/dependencies, then runs
 its AppRun under Xvfb with an isolated home and server auto-start disabled. It
-requires the UI event loop to survive until the timeout; it does not test a
-model or GPU workload. Logs are in `dist/appimage/smoke/`.
+requires the existing “No LocalAI installation found” initialization milestone,
+created model/backend directories, and survival until the 15-second timeout.
+Initialization errors, early exits and forced kills after a 5-second termination
+grace fail the check. This is a **limited startup smoke**, not proof of a working
+UI event loop: the tray-only launcher exposes no UI heartbeat. It does not test
+tray interaction, rendering, a model or GPU workload. Logs are in
+`dist/appimage/smoke/`.
 
 The reusable workflow builds and smokes on relevant pull requests or manual
-dispatch without publishing. Version tags call it after GoReleaser succeeds,
-then upload the image and checksum to that existing release. Existing tar.xz,
+dispatch with read-only repository permissions and no persisted checkout
+credentials. Version tags call it after GoReleaser succeeds. A separate job,
+gated on both a version-tag push and `publish`, downloads the tested artifact
+and uploads it to that existing release with write permission. That job does
+not check out or execute repository code. Existing tar.xz,
 DMG and server artifacts remain unchanged.

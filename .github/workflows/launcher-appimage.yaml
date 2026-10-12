@@ -26,9 +26,11 @@ jobs:
     # Native CGO build; glibc 2.35 is the supported minimum.
     runs-on: ubuntu-22.04
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -49,13 +51,23 @@ jobs:
             dist/LocalAI-Launcher-x86_64.AppImage
             dist/LocalAI-Launcher-x86_64.AppImage.sha256
           if-no-files-found: error
+
+  publish:
+    needs: appimage
+    if: inputs.publish && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      # Download only: never execute repository code with the write token.
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-appimage-x86_64
+          path: dist
       - name: Attach to existing version release
-        if: inputs.publish && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         # The caller waits for GoReleaser. Never create or replace its release.
         run: |
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
-          git fetch --depth=1 origin "tag" "$GITHUB_REF_NAME"
-          git rev-parse --verify "refs/tags/$GITHUB_REF_NAME"
           gh release upload "$GITHUB_REF_NAME" dist/LocalAI-Launcher-x86_64.AppImage dist/LocalAI-Launcher-x86_64.AppImage.sha256 --clobber --repo "$GITHUB_REPOSITORY"

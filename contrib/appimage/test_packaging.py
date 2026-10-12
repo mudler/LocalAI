@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -42,6 +43,90 @@ class PackagingTests(unittest.TestCase):
         self.assertIn("inputs.publish && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')", workflow)
         self.assertIn('gh release view', workflow)
         self.assertIn('smoke.sh', workflow)
+
+    def test_publish_permission_isolation(self):
+        workflow = (ROOT / '.github/workflows/launcher-appimage.yaml').read_text()
+        header, jobs = workflow.split('jobs:\n', 1)
+        self.assertIn('permissions:\n  contents: read', header)
+        sections = re.split(r'^  ([a-z]+):\n', jobs, flags=re.MULTILINE)
+        jobs = dict(zip(sections[1::2], sections[2::2]))
+        self.assertEqual(set(jobs), {'appimage', 'publish'})
+        build, publish = jobs['appimage'], jobs['publish']
+        self.assertIn('    permissions:\n      contents: read', build)
+        self.assertNotIn('contents: write', build)
+        self.assertNotIn('GH_TOKEN', build)
+        self.assertIn('persist-credentials: false', build)
+        self.assertIn('actions/upload-artifact@', build)
+        self.assertIn('    needs: appimage\n', publish)
+        self.assertIn("    if: inputs.publish && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')\n", publish)
+        self.assertIn('    permissions:\n      contents: write', publish)
+        self.assertIn('actions/download-artifact@', publish)
+        self.assertIn('name: launcher-appimage-x86_64', build)
+        self.assertIn('name: launcher-appimage-x86_64', publish)
+        self.assertNotIn('checkout@', publish)
+        self.assertNotIn('git fetch', publish)
+        self.assertNotIn('gh release create', publish)
+        self.assertLess(publish.index('gh release view'), publish.index('gh release upload'))
+        # The only shell commands in the privileged job inspect/upload releases.
+        commands = publish.split('        run: |\n', 1)[1].strip().splitlines()
+        self.assertEqual(len(commands), 2)
+        self.assertTrue(all(line.strip().startswith('gh release ') for line in commands))
+
+    def test_smoke_startup_contract(self):
+        # Run the actual smoke script with fake extraction and external tools.
+        # No GUI, AppImage build, network or host dist directory is needed.
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            root = Path(tmp)
+            pack = root / 'contrib/appimage'
+            pack.mkdir(parents=True)
+            smoke = pack / 'smoke.sh'
+            smoke.write_bytes((PACK / 'smoke.sh').read_bytes())
+            tools = root / 'tools'
+            tools.mkdir()
+            dist = root / 'dist'
+            dist.mkdir()
+
+            def executable(path, body):
+                path.write_text('#!/bin/sh\nset -eu\n' + body)
+                path.chmod(0o755)
+
+            executable(dist / 'LocalAI-Launcher-x86_64.AppImage',
+                       'test "$1" = --appimage-extract\n'
+                       'mkdir -p squashfs-root/usr/bin\n'
+                       'touch squashfs-root/local-ai-launcher.desktop squashfs-root/local-ai-launcher.png\n'
+                       'touch squashfs-root/AppRun squashfs-root/usr/bin/local-ai-launcher\n'
+                       'chmod +x squashfs-root/AppRun\n')
+            executable(tools / 'desktop-file-validate', 'exit 0\n')
+            executable(tools / 'ldd', 'echo "${SMOKE_LDD:-libc.so => /lib/libc.so}"\n')
+            executable(tools / 'timeout',
+                       'test "$1" = --kill-after=5s\n'
+                       'test "$2" = 15s\n'
+                       'test "$3" = xvfb-run\n'
+                       'mkdir -p "$HOME/.localai/models" "$HOME/.localai/backends"\n'
+                       'printf "%s\\n" "$SMOKE_LOG"\n'
+                       'exit "$SMOKE_STATUS"\n')
+            ready = 'No LocalAI installation found'
+            cases = [
+                ('startup', ready, 124, True),
+                ('silent hang', '', 124, False),
+                ('incomplete initialization', 'Initializing launcher...', 124, False),
+                ('initialization failure', ready + '\nFailed to initialize launcher: bad config', 124, False),
+                ('panic', ready + '\npanic: broken', 124, False),
+                ('GLFW failure', ready + '\nfailed to initialize GLFW', 124, False),
+                ('early success', ready, 0, False),
+                ('early failure', ready, 1, False),
+                ('forced kill', ready, 137, False),
+                ('missing dependency', ready, 124, False),
+            ]
+            for name, log, status, success in cases:
+                with self.subTest(name=name):
+                    env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH'],
+                               SMOKE_LOG=log, SMOKE_STATUS=str(status))
+                    if name == 'missing dependency':
+                        env['SMOKE_LDD'] = 'libGL.so => not found'
+                    result = subprocess.run(['bash', str(smoke)], env=env,
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
 
     def test_pinned_tools_and_no_library_injection(self):
         script = (PACK / 'build.sh').read_text()
