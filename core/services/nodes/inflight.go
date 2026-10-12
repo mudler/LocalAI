@@ -132,6 +132,12 @@ func (c *InFlightTrackingClient) Embeddings(ctx context.Context, in *pb.PredictO
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.MultimodalEmbedding(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.GenerateImage(ctx, in, opts...)

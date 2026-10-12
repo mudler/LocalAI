@@ -1204,3 +1204,32 @@ func RunServer(address string, model AIModel) (func() error, error) {
 		return nil
 	}, nil
 }
+
+// MultimodalEmbedding keeps the selected identity separate from inference
+// options and never falls back to Embeddings.
+func (s *server) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+	if err := validateMultimodalEmbeddingSize(in); err != nil {
+		return nil, err
+	}
+	if in.GetModel() == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing embedding model identity")
+	}
+	if in.GetOptions().GetModelIdentity() != "" && in.GetOptions().GetModelIdentity() != in.GetModel() {
+		return nil, status.Error(codes.InvalidArgument, "conflicting embedding model identity")
+	}
+	if err := s.checkModelIdentity(&pb.PredictOptions{ModelIdentity: in.GetModel()}); err != nil {
+		return nil, err
+	}
+	model, ok := s.llm.(MultimodalEmbeddingModel)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "multimodal embedding unavailable")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
+	return model.MultimodalEmbedding(ctx, in)
+}

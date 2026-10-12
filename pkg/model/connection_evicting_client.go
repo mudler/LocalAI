@@ -60,6 +60,12 @@ func (c *ConnectionEvictingClient) Embeddings(ctx context.Context, in *pb.Predic
 	return result, err
 }
 
+func (c *ConnectionEvictingClient) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...ggrpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	result, err := c.Backend.MultimodalEmbedding(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}
+
 func (c *ConnectionEvictingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	result, err := c.Backend.GenerateImage(ctx, in, opts...)
 	c.checkErr(err)

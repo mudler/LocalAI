@@ -144,3 +144,9 @@ type ScoreModel interface {
 type RerankModel interface {
 	Rerank(context.Context, *pb.RerankRequest) (*pb.RerankResult, error)
 }
+
+// MultimodalEmbeddingModel is optional. Legacy models reject the dedicated RPC
+// rather than interpreting structured content as a legacy text embedding.
+type MultimodalEmbeddingModel interface {
+	MultimodalEmbedding(context.Context, *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error)
+}

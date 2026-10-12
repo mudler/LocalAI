@@ -13,6 +13,7 @@ service Backend {
   rpc Predict(PredictOptions) returns (Reply) {}
   rpc LoadModel(ModelOptions) returns (Result) {}
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
+  rpc MultimodalEmbedding(MultimodalEmbeddingRequest) returns (MultimodalEmbeddingResponse) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
@@ -1420,6 +1421,8 @@ message AudioToAudioResponse {
 }
 
 message ModelMetadataResponse {
+  uint32 embedding_protocol_version = 5; // 1 for the typed multimodal contract; 0 means unsupported.
+  repeated EmbeddingModality embedding_modalities = 6;
   bool supports_thinking = 1;
   string rendered_template = 2;  // The rendered chat template with enable_thinking=true (empty if not applicable)
   ToolFormatMarkers tool_format = 3;  // Auto-detected tool format markers from differential template analysis
@@ -1600,4 +1603,67 @@ message MotionResponse {
   bytes output = 1; // Serialized public localai.motion.v1.Output.
   // Backend-only bounded stage timings; not part of the public wire protocol.
   map<string, double> stage_ms = 2;
+}
+
+// Typed embedding protocol version 1. Compressed media only, never URLs or paths.
+enum EmbeddingModality {
+  EMBEDDING_MODALITY_UNSPECIFIED = 0;
+  TEXT = 1;
+  IMAGE = 2;
+  AUDIO = 3;
+  SILENT_VIDEO = 4;
+  AUDIOVISUAL_VIDEO = 5;
+}
+message EmbeddingMedia {
+  enum Kind {
+    UNSPECIFIED = 0;
+    IMAGE = 1;
+    AUDIO = 2;
+    VIDEO = 3;
+  }
+  Kind kind = 1;
+  bytes data = 2;
+  string format = 3;
+}
+message EmbeddingPart {
+  oneof part {
+    string text = 1;
+    EmbeddingMedia media = 2;
+  }
+}
+// All limits are remaining request-wide allowances, not per-item defaults.
+// A zero allowance is exhausted, not unlimited.
+message EmbeddingBudget {
+  uint64 remaining_frames = 1;
+  uint64 remaining_pixels = 2;
+  uint64 remaining_audio_allocation_bytes = 3;
+  uint64 remaining_source_duration_milliseconds = 4;
+  uint64 remaining_temporary_bytes = 5;
+  uint64 remaining_preparation_milliseconds = 6;
+  uint64 remaining_compressed_bytes = 7;
+  uint64 remaining_text_bytes = 8;
+  uint64 remaining_source_parts = 9;
+}
+// Actual consumption in matching units. Source duration counts video once,
+// including its soundtrack, and audio allocation includes resampled buffers.
+message EmbeddingConsumption {
+  uint64 frames = 1;
+  uint64 pixels = 2;
+  uint64 audio_allocation_bytes = 3;
+  uint64 source_duration_milliseconds = 4;
+  uint64 temporary_bytes = 5;
+  uint64 preparation_milliseconds = 6;
+  uint64 compressed_bytes = 7;
+  uint64 text_bytes = 8;
+  uint64 source_parts = 9;
+}
+message MultimodalEmbeddingRequest {
+  string model = 1; // Selected loaded instance identity, not a backend file path.
+  PredictOptions options = 2;
+  repeated EmbeddingPart parts = 3; // Ordered, including empty text parts.
+  EmbeddingBudget budget = 4;
+}
+message MultimodalEmbeddingResponse {
+  EmbeddingResult result = 1;
+  EmbeddingConsumption consumption = 2;
 }

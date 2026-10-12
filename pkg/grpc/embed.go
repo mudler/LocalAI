@@ -27,6 +27,10 @@ func (e *embedBackend) Embeddings(ctx context.Context, in *pb.PredictOptions, op
 	return e.s.Embedding(ctx, in)
 }
 
+func (e *embedBackend) MultimodalEmbedding(ctx context.Context, in *pb.MultimodalEmbeddingRequest, opts ...grpc.CallOption) (*pb.MultimodalEmbeddingResponse, error) {
+	return e.s.MultimodalEmbedding(ctx, in)
+}
+
 func (e *embedBackend) Predict(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.Reply, error) {
 	return e.s.Predict(ctx, in)
 }

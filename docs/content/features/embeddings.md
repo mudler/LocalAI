@@ -248,3 +248,21 @@ All models support:
 - User-defined output dimensions (32 to max dimensions)
 - Multilingual text embedding (100+ languages)
 - Instruction-tuned embedding with custom instructions
+
+## Typed multimodal backend protocol
+
+The backend protocol now defines a dedicated `MultimodalEmbedding` RPC, separate
+from the existing text `Embedding` RPC. It carries ordered text and compressed
+image/audio/video bytes, selected model identity, inference options, and remaining
+request-wide resource allowances. Responses wrap the existing embedding result
+with typed resource consumption. Binary media is not encoded into a text prompt.
+
+This protocol addition does **not** enable multimodal HTTP embeddings or establish
+native model support. Legacy Go models and old backend servers return gRPC
+`UNIMPLEMENTED` for the new RPC; text embeddings continue unchanged. Structured
+callers must require protocol version 1 and explicit modality capabilities for
+the selected loaded instance. Missing or unknown versions are not evidence of
+support. Silent-video and audiovisual-video capabilities are distinct.
+
+See [the backend protocol](../backends/#typed-multimodal-embedding-protocol)
+for the wire fields, resource units and compatibility rules.
