@@ -38,16 +38,29 @@ run_logged /validation/logs/protogen make protogen-go
 run_logged /validation/logs/generate make generate
 packages=(cmd/launcher/internal core/cli/workerregistry core/services/worker core/services/nodes)
 status=0
+tags=debug,p2p
+if [[ ${LAUNCHER_VERIFY_MODE:-baseline} == status ]]; then
+  tags=debug,p2p,launcherstatus
+  run_logged /validation/logs/nats-install go install github.com/nats-io/nats-server/v2@v2.10.26
+  run_logged /validation/logs/runtime-build go build -tags "$tags" -o /validation/local-ai ./cmd/local-ai
+  run_logged /validation/logs/runtime-capability timeout 10s /validation/local-ai worker-status-capability
+  [[ $(cat /validation/logs/runtime-capability.log) == localai-worker-status-v1 ]] || exit 1
+
+fi
 if [[ ${LAUNCHER_VERIFY_MODE:-baseline} != baseline ]]; then
   mode=$LAUNCHER_VERIFY_MODE
   focus="Secure launcher configuration"
   [[ $mode != launch ]] || focus="Secure launcher launch"
   packages=(cmd/launcher/internal)
+  if [[ $mode == status ]]; then
+    focus="Worker status"
+    packages=(cmd/launcher/internal core/cli/workerregistry core/services/worker core/services/messaging pkg/workerstatus)
+  fi
   # A focused report intentionally excludes unrelated specs. The full
   # launcher report below still requires every spec to run.
   report=/validation/logs/launcher-$mode.json
   run_logged /validation/logs/launcher-$mode xvfb-run -a go test -count=1 -timeout=20m \
-    -tags 'debug,p2p' ./cmd/launcher/internal -args -ginkgo.no-color \
+    -tags "$tags" ./cmd/launcher/internal -args -ginkgo.no-color \
     -ginkgo.focus="$focus" -ginkgo.fail-on-empty \
     -ginkgo.fail-on-pending -ginkgo.json-report="$report" || status=1
   run_logged /validation/logs/launcher-$mode-report python3 contrib/launcher-worker/check-report.py "$report" --$mode-focus || status=1
@@ -56,10 +69,18 @@ for package in "${packages[@]}"; do
   name=${package//\//-}
   report="/validation/logs/$name.json"
   if ! run_logged "/validation/logs/$name" xvfb-run -a go test -count=1 -timeout=20m \
-      -tags 'debug,p2p' "./$package" -args -ginkgo.no-color \
+      -tags "$tags" "./$package" -args -ginkgo.no-color \
       -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report="$report"; then
     status=1
   fi
   run_logged "/validation/logs/$name-report" python3 contrib/launcher-worker/check-report.py "$report" || status=1
 done
+if [[ ${LAUNCHER_VERIFY_MODE:-baseline} == status ]]; then
+  for package in pkg/workerstatus core/cli/workerregistry core/services/worker core/services/messaging cmd/launcher/internal; do
+    name=${package//\//-}
+    report="/validation/logs/race-$name.json"
+    run_logged "/validation/logs/race-$name" xvfb-run -a go test -race -count=1 -timeout=15m -tags "$tags" "./$package" -args -ginkgo.no-color -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report="$report" || status=1
+    run_logged "/validation/logs/race-$name-report" python3 contrib/launcher-worker/check-report.py "$report" || status=1
+  done
+fi
 exit "$status"

@@ -114,3 +114,48 @@ logs directory; unsafe directories are rejected. Existing historical log files
 are not rewritten or deleted. Review and remove old logs yourself if they may
 contain credentials; filtering is not encryption or protection from your account
 or root.
+
+## Private worker status contract (runtime support)
+
+Worker startup in the launcher remains disabled until ownership and lifecycle
+controls are implemented. This runtime support does not enable the settings UI
+or start a worker automatically.
+
+Compatible runtimes implement `local-ai worker-status-capability`, which prints
+`localai-worker-status-v1` and exits without starting a worker. The launcher
+compatibility helper uses a five-second, bounded-output probe, not a guessed
+release-number threshold. An incompatible runtime requires an upgrade; there is
+no standalone fallback or log-based readiness inference.
+
+Launcher-managed workers opt in through child-only environment variables:
+
+- `LOCALAI_LAUNCHER_STATUS_PATH`: absolute `status.json` path inside a fresh,
+  owner-only mode-0700 run directory.
+- `LOCALAI_LAUNCHER_GENERATION`: unique per-launch identity, matched by the reader.
+
+Both values are reserved against inherited/profile overrides. Without them,
+workers do not create status files. The file is a local observation channel, not
+an HTTP API, transport, process ledger, or command queue. It is atomically
+replaced using an owner-only mode-0600 temporary file, every two seconds and on
+observed transitions. Unsafe ownership, permissions, symlinks, hard links,
+malformed data, unknown schema versions, and snapshots over 16 KiB are refused.
+A publication failure invalidates old evidence and requests worker shutdown.
+
+Schema 1 includes generation, increasing sequence, publication time,
+registration outcome/time, credential availability (booleans, never secrets),
+NATS connectivity and server-required authentication, confirmed lifecycle subscriptions, armed local checks,
+last successful heartbeat acknowledgement, heartbeat interval, and categorical
+failure. Static credentials do not imply approval. Registration pending and
+approved-but-missing-credentials remain distinct. Non-2xx heartbeats are failures.
+
+The reader measures sequence advancement with a monotonic clock; rereading a
+file cannot refresh it. Ten seconds without advancement means status unavailable.
+Initial registration has a 30-second progress deadline, except a fresh explicit
+pending response. Ready requires approval, credentials, NATS, subscriptions,
+armed passing checks and a heartbeat within three intervals (normally 30 seconds).
+Early `/readyz` success and process existence are not proof.
+
+**Ready — waiting for work** means the worker can accept work under these checks.
+It does not certify reverse network reachability, model availability, VRAM, or
+successful inference. Full authenticated frontend/inference and native macOS
+launcher acceptance remain separate validation requirements.

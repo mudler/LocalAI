@@ -30,7 +30,7 @@ class ReportTests(unittest.TestCase):
             for flags in ([], ["-O"]):
                 with self.subTest(flags=flags):
                     result = subprocess.run(
-                        [sys.executable, *flags, str(PARSER), str(path), *(["--launch-focus" if focused == "launch" else "--config-focus"] if focused else [])],
+                        [sys.executable, *flags, str(PARSER), str(path), *(["--status-focus" if focused == "status" else "--launch-focus" if focused == "launch" else "--config-focus"] if focused else [])],
                         capture_output=True, text=True, check=False,
                     )
                     self.assertEqual(result.returncode, status, result.stdout + result.stderr)
@@ -68,6 +68,18 @@ class ReportTests(unittest.TestCase):
         self.check_report([report], 1)
         report["SpecReports"][0]["State"] = "skipped"
         self.check_report([report], 1, focused="launch")
+
+    def test_status_focus(self):
+        report = suite(2)
+        report["PreRunStats"]["SpecsThatWillRun"] = 1
+        report["SpecReports"] = [
+            {"State": "passed", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Worker status"]},
+            {"State": "skipped", "LeafNodeType": "It", "ContainerHierarchyTexts": ["Launcher"]},
+        ]
+        self.check_report([report], 0, focused="status")
+        self.check_report([report], 1)
+        report["SpecReports"][0]["State"] = "skipped"
+        self.check_report([report], 1, focused="status")
 
     def test_truncated_launcher(self):
         report = suite(41)

@@ -16,7 +16,7 @@ expect_status() {
     exit 1
   fi
 }
-for mode in '' status ownership lifecycle ui integration release unknown; do
+for mode in '' ownership lifecycle ui integration release unknown; do
   expect_status 2 bash "$here/verify.sh" "$mode"
 done
 expect_status 2 bash "$here/verify.sh" baseline extra

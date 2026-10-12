@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 set -euo pipefail
-if [[ $# != 1 || ( $1 != baseline && $1 != config && $1 != launch ) ]]; then
-  echo 'Usage: bash contrib/launcher-worker/verify.sh {baseline|config|launch}' >&2
+if [[ $# != 1 || ( $1 != baseline && $1 != config && $1 != launch && $1 != status ) ]]; then
+  echo 'Usage: bash contrib/launcher-worker/verify.sh {baseline|config|launch|status}' >&2
   exit 2
 fi
 mode=$1
@@ -36,12 +36,21 @@ mkdir -p "$run/source/contrib/launcher-worker"
 cp "$here/"* "$run/source/contrib/launcher-worker/"
 { git -C "$repo" rev-parse HEAD; git -C "$repo" diff --stat HEAD; docker version; df -h "$work"; } > "$run/logs/source.txt"
 docker_options=()
-if [[ $mode == baseline ]]; then
+if [[ $mode == baseline || $mode == status ]]; then
 socket=${LAUNCHER_WORKER_DOCKER_SOCKET:-/var/run/docker.sock}
-[[ -S $socket ]] || { echo "Docker socket required for real nodes testcontainers: $socket" >&2; exit 1; }
+[[ -S $socket ]] || { echo "Docker socket required for real testcontainers: $socket" >&2; exit 1; }
 docker_options=(--add-host=host.docker.internal:host-gateway -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$socket:/var/run/docker.sock")
 fi
 echo "Evidence: $run"
+if [[ $mode == status ]]; then
+  # The real CLI embeds the React distribution; build its actual prerequisites,
+  # never substitute a placeholder embed just to make the capability test link.
+  run_logged "$run/logs/react-build" timeout --signal=TERM --kill-after=30s 900s \
+    docker run --rm --name "$name" --platform linux/amd64 --cpus=4 --memory=6g --pids-limit=1024 \
+    -v "$run/source:/source" -v "$work/cache/npm:/root/.npm" -w /source/core/http/react-ui \
+    node:22.16.0-bookworm bash -ec 'npm ci --no-audit --no-fund && npm run build'
+fi
+
 run_logged "$run/logs/docker" timeout --signal=TERM --kill-after=30s 3600s \
   docker run --rm --name "$name" --platform linux/amd64 \
   --cpus=4 --memory=12g --pids-limit=2048 \

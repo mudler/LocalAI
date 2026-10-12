@@ -1506,3 +1506,13 @@ changing the launcher's saved mode does not enable joining. See
 [launcher configuration](/features/launcher-configuration/) for the profile,
 authentication/TLS validation and log-security boundaries. This preparation does
 not add NATS discovery, P2P, another transport, or worker-side TLS termination.
+
+### Optional launcher-local worker evidence
+
+Generic workers support the opt-in, owner-only schema-1 status snapshot described
+in [Launcher configuration](/features/launcher-configuration/#private-worker-status-contract-runtime-support).
+It is disabled unless both launcher status environment values are supplied and
+adds no network endpoint. Existing unmanaged invocation remains unchanged.
+Heartbeat acknowledgements now require HTTP 2xx; a rejected heartbeat is no longer
+counted as success. Registration alone, static NATS credentials alone, and an
+unarmed `/readyz` response are not launcher readiness evidence.

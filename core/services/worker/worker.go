@@ -23,12 +23,20 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/workerstatus"
 	"github.com/mudler/xlog"
 )
 
 // Run starts the distributed agent worker: registers with the frontend,
 // subscribes to NATS lifecycle subjects, and blocks on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
+	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
+	defer shutdownCancel()
+	status, statusErr := workerstatus.FromEnvironment(shutdownCtx, shutdownCancel)
+	if statusErr != nil {
+		return statusErr
+	}
+	defer status.Update(func(s *workerstatus.Snapshot) { s.Failure = "stopping"; s.Armed = false })
 	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
 
 	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
@@ -72,7 +80,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// Actually: keep it before registration so a worker that's still warming
 	// the cache isn't yet announced as ready. The fast no-op path on a hot
 	// PVC keeps restarts cheap.
-	prefetchModels(context.Background(), cfg, systemState, ml, galleries, nil)
+	prefetchModels(shutdownCtx, cfg, systemState, ml, galleries, nil)
 
 	// Self-registration with frontend (with retry)
 	regClient := &workerregistry.RegistrationClient{
@@ -82,9 +90,18 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Context cancelled on shutdown — used by registration waits, heartbeat, and
 	// other background goroutines.
-	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
-	defer shutdownCancel()
 
+	regClient.ObserveRegistration = func(res *workerregistry.RegisterResponse, err error) {
+		if status == nil {
+			return
+		}
+		if res == nil {
+			status.Registration("error", false, err)
+			return
+		}
+		credentials := (cfg.NatsJWT != "" && cfg.NatsUserSeed != "") || (res.NatsJWT != "" && res.NatsUserSeed != "")
+		status.Registration(res.Status, credentials, err)
+	}
 	registrationBody := cfg.registrationBody()
 	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
 
@@ -145,6 +162,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cfg.HeartbeatInterval, "error", err)
 	}
 	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
+	if heartbeatInterval <= 0 {
+		heartbeatInterval = 10 * time.Second
+	}
+	status.Update(func(s *workerstatus.Snapshot) { s.HeartbeatInterval = heartbeatInterval })
 
 	// Start HTTP file transfer server. (Empty-token enforcement is handled at
 	// the top of Run so the worker fails before registering.)
@@ -172,9 +193,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	StartEphemeralRootsCleanup(shutdownCtx, ephemeralRoots, ephemeralCapacity, 0, 0)
 	// The readiness gate is created here but only armed once NATS is up and the
 	// backend supervisor exists, below, because the gate probes both.
-	// Until then /readyz reports ready, which is correct: reaching this line
-	// means the worker has already registered with the frontend, so it is
-	// mid-startup rather than broken.
+	// The historical unarmed /readyz success is not launcher readiness evidence.
 	readiness := &nodes.WorkerReadiness{}
 	httpServer, err := nodes.StartFileTransferServerWithCapacity(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, ml.BackendLogs())
 	if err != nil {
@@ -204,7 +223,14 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 					continue
 				}
 				body := cfg.heartbeatBody()
-				if err := regClient.Heartbeat(shutdownCtx, nodeID, body); err != nil {
+				// Static credentials still need current approval evidence. Re-registration
+				// is idempotent and does not replace the explicit credentials.
+				if status != nil && (cfg.NatsJWT != "" || cfg.NatsUserSeed != "") {
+					_, _ = regClient.RegisterFull(shutdownCtx, registrationBody)
+				}
+				err := regClient.Heartbeat(shutdownCtx, nodeID, body)
+				status.Heartbeat(err)
+				if err != nil {
 					xlog.Warn("Heartbeat failed", "error", err)
 				}
 			}
@@ -239,24 +265,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
 
-	// Arm the readiness gate now that the worker can actually receive work.
-	// NATS is already connected at this point, so a worker that is up but cut
-	// off from the bus reports 503 instead of a meaningless 200 (#10987).
-	//
-	// Readiness also covers the data path: a worker whose NATS link is fine
-	// but whose backend processes have died is up and useless, and the
-	// scheduler cannot tell the difference from the bus alone.
-	readiness.Set(nodes.CompositeReadiness(
-		nodes.NATSReadiness(natsClient),
-		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
-			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
-			if err != nil {
-				return err
-			}
-			return conn.Close()
-		}),
-	))
-
 	// A previous worker that was killed left its backends running. Kill them
 	// now, before this worker hands out ports or reports an incarnation.
 	supervisor.ledger = newProcessLedger(filepath.Join(dataDir, "worker-processes.json"))
@@ -281,6 +289,32 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}
 
+	// Arm the readiness gate now that the worker can actually receive work.
+	// NATS is already connected at this point, so a worker that is up but cut
+	// off from the bus reports 503 instead of a meaningless 200 (#10987).
+	//
+	// Readiness also covers the data path: a worker whose NATS link is fine
+	// but whose backend processes have died is up and useless, and the
+	// scheduler cannot tell the difference from the bus alone.
+	readiness.Set(nodes.CompositeReadiness(
+		nodes.NATSReadiness(natsClient),
+		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
+			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err != nil {
+				return err
+			}
+			return conn.Close()
+		}),
+	))
+
+	if shutdownCtx.Err() != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return workerstatus.ErrUnavailable
+	}
+	status.Arm(func() (bool, bool, bool, bool) {
+		connected := natsClient.IsConnected()
+		return connected, natsClient.Authenticated(), natsClient.SubscriptionsReady(), readiness.Check() == nil
+	})
 	xlog.Info("Worker ready, waiting for backend.install events")
 	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires
@@ -293,6 +327,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		xlog.Error("Internal shutdown requested", "error", runErr)
 	}
 
+	status.Update(func(s *workerstatus.Snapshot) { s.Failure = "stopping"; s.Armed = false })
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)

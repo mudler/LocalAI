@@ -91,3 +91,20 @@ the full report rejects skips, pending specs, empty or missing reports. The laun
 tests parse the real worker Config and global CLI tags without starting a worker.
 Baseline package selection and the `config` gate are unchanged. Worker startup
 remains disabled pending later runtime/status/ownership integration.
+
+## LW04 status gate
+
+`bash contrib/launcher-worker/verify.sh status` runs focused launcher status
+specs plus the full launcher, workerregistry, worker, messaging and workerstatus suites,
+then repeats all five with the race detector. The unchanged slow nodes suite is
+not rerun. Strict JSON evidence rejects missing, empty, failed or skipped specs.
+The `launcherstatus` test tag enables a bounded real JWT-authenticated NATS
+fixture with HTTP registration/approval and heartbeat responses. The container
+builds pinned `nats-server` v2.10.26 via Go's module checksum verification; nothing
+is installed on the host. It tests subscription denial, disconnect/reconnect,
+and rejected heartbeats. This protocol fixture is not the LW08 full frontend,
+verified TLS, model-loading and inference acceptance run.
+
+The status gate also builds the genuine React distribution (`npm ci` and
+`npm run build` in Node 22.16.0 Docker), builds `cmd/local-ai`, and checks its
+actual capability output. No placeholder embedded frontend is used.

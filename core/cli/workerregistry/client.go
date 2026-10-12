@@ -21,11 +21,12 @@ import (
 
 // RegistrationClient talks to the frontend's /api/node/* endpoints.
 type RegistrationClient struct {
-	FrontendURL       string
-	RegistrationToken string
-	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
-	client            *http.Client
-	clientOnce        sync.Once
+	FrontendURL         string
+	RegistrationToken   string
+	ObserveRegistration func(*RegisterResponse, error) // optional local evidence callback; set before first use
+	HTTPTimeout         time.Duration                  // used for registration calls; defaults to 10s
+	client              *http.Client
+	clientOnce          sync.Once
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -69,7 +70,12 @@ type RegisterResponse struct {
 // response (node ID, approval status, and optional API token / NATS creds).
 // Re-registration is idempotent: the frontend preserves the node row and mints
 // a fresh NATS JWT each call, so this doubles as the credential-refresh call.
-func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
+func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (resultResponse *RegisterResponse, resultError error) {
+	defer func() {
+		if c.ObserveRegistration != nil {
+			c.ObserveRegistration(resultResponse, resultError)
+		}
+	}()
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
@@ -148,6 +154,9 @@ func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body 
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("heartbeat failed with status %d", resp.StatusCode)
+	}
 	return nil
 }
 
