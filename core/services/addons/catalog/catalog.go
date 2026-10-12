@@ -4,6 +4,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -43,7 +44,12 @@ type Page struct {
 	Releases []Release `json:"releases"`
 	Total    int       `json:"total"`
 }
-type Catalog struct{ Sources *Sources }
+type Catalog struct {
+	Sources *Sources
+	// TargetOS and TargetArch are fixed by the owner, never by the forwarding
+	// frontend. Empty fields default to the platform of this process.
+	TargetOS, TargetArch string
+}
 
 func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	if e := ctx.Err(); e != nil {
@@ -110,9 +116,16 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	if cache.failed {
 		return Release{}, ErrRefresh
 	}
+	targetOS, targetArch := c.TargetOS, c.TargetArch
+	if targetOS == "" {
+		targetOS = runtime.GOOS
+	}
+	if targetArch == "" {
+		targetArch = runtime.GOARCH
+	}
 	var found *Release
 	for _, r := range cache.releases {
-		if r.AddonID == addonID && r.Version == version {
+		if r.AddonID == addonID && r.Version == version && r.OS == targetOS && r.Arch == targetArch {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}

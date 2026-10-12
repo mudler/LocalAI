@@ -149,7 +149,7 @@ requires a separate authorized lifecycle operation, not a catalog refresh.
 The existing `core/http/auth.RequireAdmin` checks an authenticated Echo user's
 role. `contract.Actor` has no role and is not an authenticated Echo context.
 This service therefore injects `AdminCheck(context.Context, contract.Actor)`;
-a missing checker denies all edits. The future owner adapter must revalidate
+a missing checker denies all edits and configuration reads. The future owner adapter must revalidate
 current user, credential and administrator status. It must not infer privileges
 from user IDs, mode strings, model arguments or browser values. Refresh is an
 internal owner operation; a future public refresh/test route must enforce admin
@@ -185,9 +185,22 @@ within a source fail. Duplicate names across sources remain distinct. Search
 matches names, IDs and descriptions, sorts by source/release identity and uses
 a default page size of 50 (maximum 100). Disabled sources are neither searched
 nor fetched. Resolve requires an explicit source, addon ID and exact version;
-it fails closed if that tuple contains multiple platforms rather than choosing
-an arbitrary executable. Platform-aware selection and channel updates require
-later integration; this service does not silently choose a source or upgrade.
+it selects only the exact owner target OS/architecture. Configure `Catalog.TargetOS`
+and `Catalog.TargetArch` in trusted owner code before use; each empty field defaults
+to this process's `runtime.GOOS`/`runtime.GOARCH`. Forwarded installs must use the
+owner's target, never the forwarding frontend's platform. An absent target returns
+`ErrNotFound`; ambiguous exact-target entries fail closed (duplicate identities are
+also rejected during refresh). Search still shows all available platforms. Channel
+updates require later integration; this service does not silently choose a source
+or upgrade.
+
+`Sources.List(ctx, actor)` and `Sources.Get(ctx, actor, sourceID)` recheck the same
+authoritative `AdminCheck` used for edits. List returns all configured sources in ID
+order, including disabled libraries and libraries with no releases or no successful
+refresh. Get returns `ErrNotFound` for an unknown source after authorization. Both
+return independent value copies with authentication references and verification
+policy, never resolved credential values. Reads are serialized with source edits
+and refresh; configuration remains readable after reload without refreshing.
 
 State uses the documented **per-instance designated-owner** exception: only the
 configured owner constructs this service. Configuration persists; the bounded
@@ -196,4 +209,5 @@ to that owner, not construct independent caches or fall back on owner failure.
 
 Run `sh scripts/addons/verify.sh catalog` for private bearer/basic HTTP fixtures,
 redirect rejection, isolated credential references, disabled sources, refresh
-failure, duplicate names, source persistence/removal and denied edits.
+failure, duplicate names, owner-target resolution, source persistence/removal,
+denied reads/edits, defensive copies and concurrent configuration reads.

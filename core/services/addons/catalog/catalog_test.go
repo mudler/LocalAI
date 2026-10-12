@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -72,7 +73,7 @@ var _ = Describe("private catalogs", func() {
 			Expect(s.Save(ctx, admin, Source{ID: "private", Name: "Private", URL: server.URL, Enabled: true, AuthReference: "http"})).To(Succeed())
 			_, e = s.Refresh(ctx, "private")
 			Expect(e).NotTo(HaveOccurred())
-			c := Catalog{Sources: s}
+			c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
 			r, e := c.Resolve(ctx, "private", "tables", "1.0.0")
 			Expect(e).NotTo(HaveOccurred())
 			Expect(r.SourceID).To(Equal("private"))
@@ -101,7 +102,7 @@ var _ = Describe("private catalogs", func() {
 	It("keeps duplicate names source scoped and excludes disabled sources", func() {
 		server := library(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode([]Release{release()}) })
 		s := setup()
-		c := Catalog{Sources: s}
+		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
 		for _, id := range []string{"one", "two"} {
 			save(s, id, server.URL)
 			_, e := s.Refresh(ctx, id)
@@ -138,5 +139,59 @@ var _ = Describe("private catalogs", func() {
 		Expect(result.LastSuccess.IsZero()).To(BeFalse())
 		_, e = (&Catalog{Sources: s}).Resolve(ctx, "one", "tables", "1.0.0")
 		Expect(e).To(MatchError(ErrRefresh))
+	})
+})
+
+var _ = Describe("target platform resolution", func() {
+	It("resolves the host platform from a multi platform catalog", func() {
+		host := release()
+		host.OS, host.Arch = runtime.GOOS, runtime.GOARCH
+		other := host
+		other.Arch = "arm64"
+		if host.Arch == other.Arch {
+			other.Arch = "amd64"
+		}
+		server := library(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode([]Release{host, other}) })
+		s := setup()
+		save(s, "one", server.URL)
+		_, e := s.Refresh(ctx, "one")
+		Expect(e).NotTo(HaveOccurred())
+		got, e := (Catalog{Sources: s}).Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.OS).To(Equal(host.OS))
+		Expect(got.Arch).To(Equal(host.Arch))
+	})
+})
+
+var _ = Describe("owner target override", func() {
+	It("selects exact configured owner targets and rejects absent or ambiguous targets", func() {
+		amd := release()
+		arm := amd
+		arm.Arch = "arm64"
+		arm.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		server := library(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode([]Release{amd, arm}) })
+		s := setup()
+		save(s, "one", server.URL)
+		_, e := s.Refresh(ctx, "one")
+		Expect(e).NotTo(HaveOccurred())
+		for _, want := range []Release{amd, arm} {
+			got, err := (Catalog{Sources: s, TargetOS: want.OS, TargetArch: want.Arch}).Resolve(ctx, "one", "tables", "1.0.0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.OS).To(Equal(want.OS))
+			Expect(got.Arch).To(Equal(want.Arch))
+			Expect(got.Digest).To(Equal(want.Digest))
+		}
+		for _, c := range []Catalog{{Sources: s, TargetOS: "linux", TargetArch: "riscv64"}, {Sources: s, TargetOS: "darwin", TargetArch: "arm64"}} {
+			_, e := c.Resolve(ctx, "one", "tables", "1.0.0")
+			Expect(e).To(MatchError(ErrNotFound))
+		}
+		// Even a corrupt cache must not resolve an ambiguous exact target.
+		s.mu.Lock()
+		cache := s.cache["one"]
+		cache.releases = append(cache.releases, cache.releases[0])
+		s.cache["one"] = cache
+		s.mu.Unlock()
+		_, e = (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).To(MatchError(ErrInvalid))
 	})
 })

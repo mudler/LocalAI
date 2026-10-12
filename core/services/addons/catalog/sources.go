@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -88,6 +89,43 @@ func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (
 	}
 	return s, nil
 }
+
+// List returns configuration independently of refresh state, including disabled
+// and empty libraries. Source and Policy contain only values, not secret stores.
+func (s *Sources) List(ctx context.Context, actor contract.Actor) ([]Source, error) {
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if s.admin == nil || s.admin(ctx, actor) != nil {
+		return nil, ErrForbidden
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sources := make([]Source, 0, len(s.sources))
+	for _, src := range s.sources {
+		sources = append(sources, src)
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].ID < sources[j].ID })
+	return sources, nil
+}
+
+// Get returns a value copy only after authoritative administrator validation.
+func (s *Sources) Get(ctx context.Context, actor contract.Actor, sourceID string) (Source, error) {
+	if e := ctx.Err(); e != nil {
+		return Source{}, e
+	}
+	if s.admin == nil || s.admin(ctx, actor) != nil {
+		return Source{}, ErrForbidden
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok {
+		return Source{}, ErrNotFound
+	}
+	return src, nil
+}
+
 func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) error {
 	if e := ctx.Err(); e != nil {
 		return e

@@ -129,10 +129,15 @@
       "blocks redirects without leaking credentials or error details",
       "keeps duplicate names source scoped and excludes disabled sources",
       "reports refresh failures rather than serving stale success",
+      "resolves the host platform from a multi platform catalog",
+      "selects exact configured owner targets and rejects absent or ambiguous targets",
       "requires authoritative administration for all source edits",
       "persists protected references and removes sources without touching installs",
       "invalidates cached releases on explicit source changes",
-      "rejects secret URLs invalid digests duplicate identities and malformed catalogs"
+      "rejects secret URLs invalid digests duplicate identities and malformed catalogs",
+      "lists and gets protected source copies including disabled and empty sources after reload",
+      "requires current authoritative administration and context for source reads",
+      "serializes source reads with concurrent configuration edits"
     ],
     "report": ".cache/addons/logs/catalog.json"
   }
