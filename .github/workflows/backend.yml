@@ -26,7 +26,9 @@ jobs:
           persist-credentials: false
           ref: ${{ github.sha }}
       - name: Offline recovery tests
-        run: python3 .github/scripts/test_dispatch_diagnostics_recovery.py
+        run: |
+          python3 .github/scripts/test_dispatch_diagnostics_recovery.py
+          python3 .github/scripts/test_dispatch_diagnostics_loader.py
       - name: Recover and build locally
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}

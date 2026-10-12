@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 root = Path(sys.argv[1])
 for path in root.iterdir():
-    if path.is_file() and path.suffix in ('.log', '.txt', '.json') and path.stat().st_size > 8 * 1024 * 1024:
+    if path.is_file() and path.suffix in ('.log', '.txt', '.json', '.xml') and path.stat().st_size > 8 * 1024 * 1024:
         with path.open('rb') as source:
             source.seek(-8 * 1024 * 1024, 2)
             tail = source.read()
@@ -123,17 +123,41 @@ if [[ -f "$B/bin/grpc-server" ]]; then
     (cd /evidence && sha256sum grpc-server > binary-sha256.txt)
 fi
 cmake --build "$B" --parallel 1 --target dispatch_correlation_fixture dispatch_diagnostics_test
+# The pinned image supplies this exact link-time stub. Reject path/architecture
+# drift, and record its hash/ELF identity; this is not a GPU runtime test.
+stub=/usr/local/cuda/targets/sbsa-linux/lib/stubs/libcuda.so
+grep -Fxq "CUDA_cuda_driver_LIBRARY:FILEPATH=$stub" "$B/CMakeCache.txt"
+[[ $(realpath -e "$stub") == /usr/local/cuda-13.0/targets/sbsa-linux/lib/stubs/libcuda.so ]]
+readelf -h "$stub" | grep -E 'Machine:.*AArch64' > /dev/null
+readelf --dyn-syms --wide "$stub" | grep -E '[[:space:]]cuInit$' > /dev/null
 cd "$B/tools/grpc-server"
 printf 'running\n' > /evidence/test-status.txt
 set +e
-ctest --output-on-failure --no-tests=error -R '^(dispatch_correlation_fixture|dispatch_diagnostics_test)$' > /evidence/ctest.log 2>&1
+bash /test-loader.sh "$stub" /evidence/cuda-stub-identity.txt ctest --output-junit /evidence/ctest.xml --output-on-failure --no-tests=error -R '^(dispatch_correlation_fixture|dispatch_diagnostics_test)$' > /evidence/ctest.log 2>&1
 rc=$?
 printf 'ctest_exit_code=%s\n' "$rc" > /evidence/test-status.txt
 exit "$rc"
 INNER
 # No credentials, GPU, model, network, or daemon socket enters the build container.
+set +e
 docker run --rm --network none --platform linux/arm64 \
     --mount "type=bind,src=$WORK/source,dst=/LocalAI" \
     --mount "type=bind,src=$OUT,dst=/evidence" \
     --mount "type=bind,src=$WORK/build.sh,dst=/build.sh,readonly" \
+    --mount "type=bind,src=$GITHUB_WORKSPACE/.github/scripts/dispatch-diagnostics-test-loader.sh,dst=/test-loader.sh,readonly" \
     --entrypoint /bin/bash worker-dispatch-builder:historical /build.sh > "$OUT/build.log" 2>&1
+
+rc=$?
+set -e
+[[ $rc == 0 ]] || exit "$rc"
+python3 - "$OUT/ctest.xml" <<'PYTEST'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+cases = root.findall('.//testcase')
+expected = {'dispatch_diagnostics_test', 'dispatch_correlation_fixture'}
+assert len(cases) == 2 and {c.get('name') for c in cases} == expected
+assert all(c.get('status') == 'run' and not any(c.find(t) is not None for t in ('failure', 'error', 'skipped')) for c in cases)
+assert root.get('failures') == '0' and root.get('tests') == '2'
+print('CTest result gate: exactly 2 passed, 0 skipped')
+PYTEST
