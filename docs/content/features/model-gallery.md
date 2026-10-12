@@ -44,6 +44,25 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### Lythri 7B A4B text chat
+
+[Lythri-7B-A4B](https://huggingface.co/Lythri/Lythri-7B-A4B) is a Gemma 4 E4B
+fine-tune for conversational companionship. The gallery provides Q5_K_M, Q6_K,
+and Q8_0 GGUF builds for text chat through llama.cpp, with a 32,768-token context.
+The publisher recommends the highest precision that your hardware supports.
+
+Install the Q5 entry and let LocalAI select a variant that fits your host:
+
+```bash
+local-ai models install lythri-7b-a4b-q5
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install --variant lythri-7b-a4b-q8 lythri-7b-a4b-q5
+```
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.

@@ -14084,6 +14084,120 @@
     - filename: llama-cpp/mmproj/gemma-4-e4b-hauhaucs-aggressive/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
       sha256: debad39ab9c1152ab67695a674fb35e8375b2320c57bfd5075835d3ccb16c7db
       uri: https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive/resolve/45b6a334b4bcd1d7f37179df58b3b1d66a184e5d/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+- name: lythri-7b-a4b-q5
+  variants:
+    - model: lythri-7b-a4b-q6
+    - model: lythri-7b-a4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Lythri/Lythri-7B-A4B
+    - https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF
+  license: apache-2.0
+  description: |
+    Lythri 7B A4B is a Gemma 4 E4B fine-tune for conversational companionship,
+    with 7.46B total parameters and 4.5B active parameters.
+    This Q5_K_M GGUF build runs text chat through llama.cpp with the embedded
+    chat template and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+  last_checked: "2026-10-12"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Lythri-7B-A4B-Q5_K_M.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 64
+      repeat_penalty: 1.05
+  files:
+    - filename: Lythri-7B-A4B-Q5_K_M.gguf
+      uri: https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF/resolve/5db66fbe37add5806e13908a45c3d23759ebc788/Lythri-7B-A4B-Q5_K_M.gguf
+      sha256: 569fb958e5ae870054a1e8fdbdae7da6c099f2db81280f8c49463f00986ea022
+- name: lythri-7b-a4b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Lythri/Lythri-7B-A4B
+    - https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF
+  license: apache-2.0
+  description: |
+    Lythri 7B A4B is a Gemma 4 E4B fine-tune for conversational companionship,
+    with 7.46B total parameters and 4.5B active parameters.
+    This Q6_K GGUF build runs text chat through llama.cpp with the embedded
+    chat template and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+  last_checked: "2026-10-12"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Lythri-7B-A4B-Q6_K.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 64
+      repeat_penalty: 1.05
+  files:
+    - filename: Lythri-7B-A4B-Q6_K.gguf
+      uri: https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF/resolve/5db66fbe37add5806e13908a45c3d23759ebc788/Lythri-7B-A4B-Q6_K.gguf
+      sha256: 8a7b949abb8327b6a7a52fda15e8a3139d1274787f5b37b010e9b047a78e69c5
+- name: lythri-7b-a4b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Lythri/Lythri-7B-A4B
+    - https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF
+  license: apache-2.0
+  description: |
+    Lythri 7B A4B is a Gemma 4 E4B fine-tune for conversational companionship,
+    with 7.46B total parameters and 4.5B active parameters.
+    This Q8_0 GGUF build runs text chat through llama.cpp with the embedded
+    chat template and a 32,768-token context.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+  last_checked: "2026-10-12"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Lythri-7B-A4B-Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 64
+      repeat_penalty: 1.05
+  files:
+    - filename: Lythri-7B-A4B-Q8_0.gguf
+      uri: https://huggingface.co/Lythri/Lythri-7B-A4B-GGUF/resolve/5db66fbe37add5806e13908a45c3d23759ebc788/Lythri-7B-A4B-Q8_0.gguf
+      sha256: 9a1ad7c7b99547431516140d3d57475024703a5070c9597449c0a4459c976aae
 - name: zero-gemma4-e4b-openzero-q5-k-m
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
