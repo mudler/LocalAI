@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,12 +24,14 @@ import (
 // against host authority. Actor fields alone never convey administration rights.
 type AdminCheck func(context.Context, contract.Actor) error
 type Source struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	URL           string             `json:"url"`
-	Enabled       bool               `json:"enabled"`
-	AuthReference string             `json:"authReference,omitempty"`
-	Policy        VerificationPolicy `json:"policy"`
+	// AllowLoopbackHTTP is an owner-only development opt-in for package downloads.
+	AllowLoopbackHTTP bool               `json:"allowLoopbackHTTP,omitempty"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	URL               string             `json:"url"`
+	Enabled           bool               `json:"enabled"`
+	AuthReference     string             `json:"authReference,omitempty"`
+	Policy            VerificationPolicy `json:"policy"`
 	// Removed is an explicit delete command; persisted records never contain it.
 	Removed bool `json:"removed,omitempty"`
 }
@@ -236,9 +239,13 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 	for i := range releases {
 		r := &releases[i]
 		u, e := url.Parse(r.Artifact)
-		if e != nil || u.Scheme != "oci" || u.Host == "" || u.Path == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !idPattern.MatchString(r.AddonID) || !versionPattern.MatchString(r.Version) || !digestPattern.MatchString(r.Digest) || r.Name == "" || !idPattern.MatchString(r.OS) || !idPattern.MatchString(r.Arch) {
+		if e != nil || !validArtifactScheme(u, src.AllowLoopbackHTTP) || u.Host == "" || u.Path == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !idPattern.MatchString(r.AddonID) || !versionPattern.MatchString(r.Version) || !digestPattern.MatchString(r.Digest) || r.Name == "" || !idPattern.MatchString(r.OS) || !idPattern.MatchString(r.Arch) {
 			return nil, ErrRefresh
 		}
+		if r.Channel != "" && (!channelPattern.MatchString(r.Channel) || versionPattern.MatchString(r.Channel)) {
+			return nil, ErrRefresh
+		}
+		r.Selection = ""
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
 		r.Policy = src.Policy
@@ -249,4 +256,14 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 		seen[key] = true
 	}
 	return releases, nil
+}
+
+var channelPattern = regexp.MustCompile(`^[a-z][a-z0-9/_-]{0,127}$`)
+
+func validArtifactScheme(u *url.URL, allow bool) bool {
+	if u.Scheme == "oci" || u.Scheme == "https" {
+		return true
+	}
+	ip := net.ParseIP(u.Hostname())
+	return u.Scheme == "http" && allow && ip != nil && ip.IsLoopback()
 }

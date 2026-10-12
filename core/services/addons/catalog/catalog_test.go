@@ -195,3 +195,32 @@ var _ = Describe("owner target override", func() {
 		Expect(e).To(MatchError(ErrInvalid))
 	})
 })
+
+var _ = Describe("package references", func() {
+	It("pins channels and restricts package transport to secure or opted in loopback origins", func() {
+		for _, tc := range []struct {
+			artifact     string
+			allow, valid bool
+		}{{"https://example.org/p.tar", false, true}, {"http://example.org/p.tar", true, false}, {"http://127.0.0.1:8080/p.tar", false, false}, {"http://127.0.0.1:8080/p.tar", true, true}, {"file:///tmp/p.tar", true, false}, {"https://user:secret@example.org/p.tar", false, false}} {
+			r := release()
+			r.Artifact = tc.artifact
+			r.Channel = "development"
+			server := library(func(w http.ResponseWriter, _ *http.Request) { json.NewEncoder(w).Encode([]Release{r}) })
+			s := setup()
+			Expect(s.Save(ctx, admin, Source{ID: "test", Name: "Test", URL: server.URL, Enabled: true, AllowLoopbackHTTP: tc.allow})).To(Succeed())
+			_, e := s.Refresh(ctx, "test")
+			if !tc.valid {
+				Expect(e).To(HaveOccurred())
+				continue
+			}
+			Expect(e).NotTo(HaveOccurred())
+			c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+			got, e := c.Resolve(ctx, "test", "tables", "development")
+			Expect(e).NotTo(HaveOccurred())
+			Expect(got.Channel).To(Equal("development"))
+			Expect(got.Selection).To(Equal("development"))
+			Expect(got.Version).To(Equal("1.0.0"))
+			Expect(got.Digest).To(Equal(r.Digest))
+		}
+	})
+})

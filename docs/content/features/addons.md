@@ -190,9 +190,10 @@ and `Catalog.TargetArch` in trusted owner code before use; each empty field defa
 to this process's `runtime.GOOS`/`runtime.GOARCH`. Forwarded installs must use the
 owner's target, never the forwarding frontend's platform. An absent target returns
 `ErrNotFound`; ambiguous exact-target entries fail closed (duplicate identities are
-also rejected during refresh). Search still shows all available platforms. Channel
-updates require later integration; this service does not silently choose a source
-or upgrade.
+also rejected during refresh). Search still shows all available platforms. Optional `channel` labels (for example `latest`, `development`, or `branch/name`)
+resolve to a single exact-platform release and its pinned digest. `version` remains
+the immutable manifest version; `selection` is stamped by Resolve, never trusted
+from remote metadata. This service does not silently choose a source or upgrade.
 
 `Sources.List(ctx, actor)` and `Sources.Get(ctx, actor, sourceID)` recheck the same
 authoritative `AdminCheck` used for edits. List returns all configured sources in ID
@@ -211,3 +212,51 @@ Run `sh scripts/addons/verify.sh catalog` for private bearer/basic HTTP fixtures
 redirect rejection, isolated credential references, disabled sources, refresh
 failure, duplicate names, owner-target resolution, source persistence/removal,
 denied reads/edits, defensive copies and concurrent configuration reads.
+
+
+## Verified immutable package staging
+
+The designated owner uses `packages.Installer.Stage` followed by `Commit`. Stage
+re-resolves the exact catalog selection and rejects caller-substituted policy,
+source, platform, artifact or digest. A stale channel selection must be resolved
+again explicitly. Package metadata cannot override the source administrator's
+verification policy. Installable code is trusted code, **not a sandbox**.
+
+OCI images are distribution archives, not running containers: no Docker daemon
+is needed. The installer pulls the catalog-pinned per-platform manifest digest,
+checks image platform and compressed layer hashes, and uses the existing
+Sigstore verifier when the configured source requires signatures. The original
+reference and selected channel are retained alongside the actual digest. OCI
+credentials remain in the registry credential store; catalog HTTP credentials
+are never passed to a registry or package URL. Registry redirects are refused.
+
+HTTPS package URLs distribute uncompressed tar archives with a required catalog
+SHA256. HTTP is rejected unless an administrator explicitly sets the source's
+`allowLoopbackHTTP` for a literal loopback IP (development/testing only); public
+insecure HTTP and credential-bearing URLs are rejected. HTTP package downloads
+are anonymous and do not reuse catalog credentials; redirects are refused.
+Archive signature verification is not implemented: a source requiring signatures
+must distribute OCI, and HTTP packages from that source fail closed.
+
+Packages contain `manifest.json`, the declared executable, and any declared UI
+entry/CSS files. A service-only manifest needs no fake UI files. Host/API/protocol,
+data format, SDK (only with UI), identity/version and platform must match. All
+entrypoints/assets must be real regular files inside the immutable package;
+executables must have the owner execute bit. Links, special files, traversal,
+duplicate paths, file/directory collisions, and a supplied `receipt.json` are
+rejected. OCI layers cannot overwrite earlier paths: packages are flattened
+application bundles, not general-purpose container root filesystems.
+
+Defaults cap compressed downloads and extracted content at 512 MiB and archive
+entries at 10,000; owner configuration may set smaller positive limits. Staging
+is private, cancellation-aware, and removed on failure. Existing packages are
+never replaced or deleted. Commit publishes a unique read-only package directory
+with `receipt.json` containing source, selection/channel/reference, verified digest,
+verification result and manifest. The opaque stage handle is installer-bound and
+single-use. Root must be owner-controlled, separate from mutable data, backups,
+and addon-writable directories. Publication **does not activate** or start code;
+lifecycle journaling and abandoned-stage recovery belong to the owner manager.
+
+Run `sh scripts/addons/verify.sh packages` for local HTTP and OCI registry fixtures,
+malicious archives, compatibility checks, cancellation, storage failures and
+immutable publication. No external container images are published or downloaded.

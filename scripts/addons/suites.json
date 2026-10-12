@@ -137,8 +137,37 @@
       "rejects secret URLs invalid digests duplicate identities and malformed catalogs",
       "lists and gets protected source copies including disabled and empty sources after reload",
       "requires current authoritative administration and context for source reads",
-      "serializes source reads with concurrent configuration edits"
+      "serializes source reads with concurrent configuration edits",
+      "pins channels and restricts package transport to secure or opted in loopback origins"
     ],
     "report": ".cache/addons/logs/catalog.json"
+  },
+  "packages": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/packages",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/packages.json"
+      ]
+    ],
+    "cases": [
+      "stages verified HTTP bytes and commits immutable receipts without activation",
+      "rejects untrusted integrity forged releases and digest mismatches",
+      "rejects traversal links collisions and excessive extraction",
+      "rejects cancellation disk full and preserves existing packages",
+      "rejects platform data API SDK and missing asset mismatches",
+      "pins and verifies real local OCI distribution bytes without a container runtime",
+      "rejects downloaded digest mismatch redirects cancellation and file count limits",
+      "accepts optional UI only with real immutable assets and rejects non executable entrypoints",
+      "does not allow remote verification policy to replace owner trust"
+    ],
+    "report": ".cache/addons/logs/packages.json"
   }
 }

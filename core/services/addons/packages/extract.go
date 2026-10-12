@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT
+package packages
+
+import (
+	"archive/tar"
+	"context"
+	"errors"
+	"io"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+)
+
+var ErrPackage = errors.New("invalid or unverified addon package")
+
+type fileWriter interface {
+	io.Writer
+	Close() error
+	Sync() error
+}
+type contextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r contextReader) Read(b []byte) (int, error) {
+	if e := r.ctx.Err(); e != nil {
+		return 0, e
+	}
+	return r.r.Read(b)
+}
+func (i *Installer) create(p string, mode os.FileMode) (fileWriter, error) {
+	if i.writeFile != nil {
+		return i.writeFile(p, mode)
+	}
+	return os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
+}
+
+type extraction struct {
+	bytes int64
+	files int
+	seen  map[string]bool
+}
+
+func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *extraction) error {
+	t := tar.NewReader(contextReader{ctx, r})
+	for {
+		h, e := t.Next()
+		if e == io.EOF {
+			return nil
+		}
+		if e != nil {
+			return e
+		}
+		n := strings.TrimSuffix(h.Name, "/")
+		if n == "" || n == "." || path.Clean(n) != n || strings.HasPrefix(n, "/") || strings.HasPrefix(n, "../") || n == ".." || strings.ContainsAny(n, "\\:\x00") || x.seen[n] {
+			return ErrPackage
+		}
+		x.seen[n] = true
+		x.files++
+		if x.files > i.fileLimit() || h.Size < 0 || h.Size > i.byteLimit()-x.bytes {
+			return ErrPackage
+		}
+		x.bytes += h.Size
+		target := filepath.Join(dir, filepath.FromSlash(n))
+		switch h.Typeflag {
+		case tar.TypeDir:
+			if e = os.MkdirAll(target, 0700); e != nil {
+				return e
+			}
+		case tar.TypeReg, tar.TypeRegA:
+			if e = os.MkdirAll(filepath.Dir(target), 0700); e != nil {
+				return e
+			}
+			mode := os.FileMode(0600)
+			if h.Mode&0111 != 0 {
+				mode = 0700
+			}
+			f, e := i.create(target, mode)
+			if e != nil {
+				return e
+			}
+			_, e = io.CopyN(f, contextReader{ctx, t}, h.Size)
+			if e == nil {
+				e = f.Sync()
+			}
+			ce := f.Close()
+			if e != nil {
+				return e
+			}
+			if ce != nil {
+				return ce
+			}
+		default:
+			return ErrPackage
+		}
+	}
+}

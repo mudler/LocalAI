@@ -24,6 +24,9 @@ type VerificationPolicy struct {
 	Identity         string `json:"identity,omitempty"`
 }
 type Release struct {
+	Channel string `json:"channel,omitempty"`
+	// Selection is stamped by Resolve, not trusted from remote metadata.
+	Selection   string             `json:"selection,omitempty"`
 	SourceID    string             `json:"sourceId,omitempty"`
 	SourceURL   string             `json:"sourceUrl,omitempty"`
 	AddonID     string             `json:"addonId"`
@@ -125,11 +128,12 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	}
 	var found *Release
 	for _, r := range cache.releases {
-		if r.AddonID == addonID && r.Version == version && r.OS == targetOS && r.Arch == targetArch {
+		if r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {
 			if found != nil {
 				return Release{}, ErrInvalid
 			}
 			copy := r
+			copy.Selection = version
 			found = &copy
 		}
 	}
