@@ -248,6 +248,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 		r.Selection = ""
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
+		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
 		r.Policy = src.Policy
 		key := releaseKey(*r)
 		if seen[key] {

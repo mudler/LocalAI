@@ -44,11 +44,14 @@ type extraction struct {
 }
 
 func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *extraction) error {
-	t := tar.NewReader(contextReader{ctx, r})
+	bounded := &expandedReader{r: contextReader{ctx, r}, x: x, limit: i.byteLimit()}
+	t := tar.NewReader(bounded)
 	for {
 		h, e := t.Next()
 		if e == io.EOF {
-			return nil
+			// tar stops at its end markers; trailing bytes still consume the budget.
+			_, e = io.Copy(io.Discard, bounded)
+			return e
 		}
 		if e != nil {
 			return e
@@ -62,7 +65,6 @@ func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *ext
 		if x.files > i.fileLimit() || h.Size < 0 || h.Size > i.byteLimit()-x.bytes {
 			return ErrPackage
 		}
-		x.bytes += h.Size
 		target := filepath.Join(dir, filepath.FromSlash(n))
 		switch h.Typeflag {
 		case tar.TypeDir:
@@ -96,4 +98,28 @@ func (i *Installer) extract(ctx context.Context, r io.Reader, dir string, x *ext
 			return ErrPackage
 		}
 	}
+}
+
+// Count the stream before tar.Reader can hide PAX/GNU metadata or padding.
+// The shared counter also bounds the sum of all OCI layers.
+type expandedReader struct {
+	r     io.Reader
+	x     *extraction
+	limit int64
+}
+
+func (r *expandedReader) Read(p []byte) (int, error) {
+	remaining := r.limit - r.x.bytes
+	if remaining < 0 {
+		return 0, ErrPackage
+	}
+	if int64(len(p)) > remaining+1 {
+		p = p[:remaining+1]
+	}
+	n, e := r.r.Read(p)
+	r.x.bytes += int64(n)
+	if r.x.bytes > r.limit {
+		return n, ErrPackage
+	}
+	return n, e
 }

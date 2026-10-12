@@ -260,3 +260,18 @@ lifecycle journaling and abandoned-stage recovery belong to the owner manager.
 Run `sh scripts/addons/verify.sh packages` for local HTTP and OCI registry fixtures,
 malicious archives, compatibility checks, cancellation, storage failures and
 immutable publication. No external container images are published or downloaded.
+
+Package transport applies the source's `allowLoopbackHTTP` development opt-in
+at the OCI transport boundary, including registry authentication and signature
+requests. Without it, implicit loopback HTTP fallback is rejected before any
+plaintext request. Non-loopback HTTP and registry redirects are always denied.
+The expanded package byte limit counts the entire decompressed stream before
+TAR parsing: PAX/GNU metadata, file headers, payload, padding, and trailing bytes,
+cumulatively across OCI layers. Downloaded compressed bytes have a separate
+budget of the same configured size. Failed staging leaves installed packages intact.
+
+The focused package tests use a local unsigned OCI registry and block external
+trust requests. An unsigned image is rejected before fetching TUF roots; this is
+not evidence of successful verification of a trusted signature. A hermetic
+positive keyless-signature fixture (including trusted Fulcio, SCT and Rekor
+material) remains unimplemented; production signature requirements are unchanged.

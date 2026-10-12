@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -172,6 +173,74 @@ var _ = Describe("immutable packages", func() {
 	})
 })
 
+func localOCI(data ...[]byte) (string, string, *atomic.Int64) {
+	img := empty.Image
+	for _, b := range data {
+		layer, e := tarball.LayerFromReader(bytes.NewReader(b))
+		Expect(e).NotTo(HaveOccurred())
+		img, e = mutate.AppendLayers(img, layer)
+		Expect(e).NotTo(HaveOccurred())
+	}
+	cfg, e := img.ConfigFile()
+	Expect(e).NotTo(HaveOccurred())
+	cfg.OS = "linux"
+	cfg.Architecture = "amd64"
+	img, e = mutate.ConfigFile(img, cfg)
+	Expect(e).NotTo(HaveOccurred())
+	calls := &atomic.Int64{}
+	handler := registry.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); handler.ServeHTTP(w, r) }))
+	DeferCleanup(server.Close)
+	ref, e := name.ParseReference(strings.TrimPrefix(server.URL, "http://") + "/sample:latest")
+	Expect(e).NotTo(HaveOccurred())
+	Expect(remote.Write(ref, img)).To(Succeed())
+	digest, e := img.Digest()
+	Expect(e).NotTo(HaveOccurred())
+	calls.Store(0)
+	return "oci://" + ref.Name(), digest.String(), calls
+}
+
+var _ = Describe("security regressions", func() {
+	It("requires source opt in before any plaintext OCI request", func() {
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		data := archive(nil, m)
+		artifact, digest, calls := localOCI(data)
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+			r.Artifact = artifact
+			r.Digest = digest
+			s.AllowLoopbackHTTP = false
+		})
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(e).To(HaveOccurred())
+		Expect(calls.Load()).To(BeZero())
+	})
+	for label, h := range map[string]*tar.Header{
+		"PAX": {Name: "metadata", Format: tar.FormatPAX, PAXRecords: map[string]string{"comment": strings.Repeat("x", 128<<10)}},
+		"GNU": {Name: strings.Repeat("a", 128<<10), Format: tar.FormatGNU},
+	} {
+		It("bounds compressed OCI "+label+" expansion before tar parsing", func() {
+			m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+			Expect(e).NotTo(HaveOccurred())
+			data := archive([]*tar.Header{h}, m)
+			layer, e := tarball.LayerFromReader(bytes.NewReader(data))
+			Expect(e).NotTo(HaveOccurred())
+			size, e := layer.Size()
+			Expect(e).NotTo(HaveOccurred())
+			Expect(size).To(BeNumerically("<", 8192))
+			artifact, digest, _ := localOCI(data)
+			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) { r.Artifact = artifact; r.Digest = digest })
+			i.MaxBytes = 8192
+			Expect(os.WriteFile(filepath.Join(i.Root, "old"), []byte("old"), 0600)).To(Succeed())
+			_, e = i.Stage(context.Background(), r, nil)
+			Expect(e).To(MatchError(ErrPackage))
+			b, e := os.ReadFile(filepath.Join(i.Root, "old"))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(b)).To(Equal("old"))
+		})
+	}
+})
+
 var _ = Describe("distribution adapters", func() {
 	It("pins and verifies real local OCI distribution bytes without a container runtime", func() {
 		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
@@ -204,12 +273,24 @@ var _ = Describe("distribution adapters", func() {
 		receipt, e := i.Commit(context.Background(), staged)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(receipt.Digest).To(Equal(digest.String()))
+		// Block unexpected external trust downloads, not signature decisions.
+		externalRequests := &atomic.Int64{}
+		oldTransport := http.DefaultTransport
+		http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Hostname() != "127.0.0.1" {
+				externalRequests.Add(1)
+				return nil, fmt.Errorf("unexpected external request: %s", req.URL.Host)
+			}
+			return oldTransport.RoundTrip(req)
+		})
+		DeferCleanup(func() { http.DefaultTransport = oldTransport })
 		// A trusted signature requirement must not be satisfied by a mere digest.
 		i, r = fixture(data, edit, func(r *catalog.Release, s *catalog.Source) {
 			s.Policy = catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.invalid", Identity: "trusted"}
 		})
 		_, e = i.Stage(context.Background(), r, nil)
 		Expect(e).To(HaveOccurred())
+		Expect(externalRequests.Load()).To(BeZero())
 	})
 	It("rejects downloaded digest mismatch redirects cancellation and file count limits", func() {
 		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
@@ -281,5 +362,78 @@ var _ = Describe("package asset boundaries", func() {
 		Expect(r.Policy.RequireSignature).To(BeFalse())
 		_, e = i.Stage(context.Background(), r, nil)
 		Expect(e).NotTo(HaveOccurred())
+	})
+})
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+var _ = Describe("expanded stream boundaries", func() {
+	It("counts padding trailing bytes and layers at the exact expanded boundary", func() {
+		var b bytes.Buffer
+		w := tar.NewWriter(&b)
+		Expect(w.WriteHeader(&tar.Header{Name: "one", Size: 1})).To(Succeed())
+		_, e := w.Write([]byte("x"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(w.Close()).To(Succeed())
+		data := b.Bytes()
+		for _, extra := range []int{0, 1} {
+			i := &Installer{MaxBytes: int64(len(data))}
+			x := &extraction{seen: map[string]bool{}}
+			e = i.extract(context.Background(), bytes.NewReader(append(append([]byte{}, data...), make([]byte, extra)...)), GinkgoT().TempDir(), x)
+			if extra == 0 {
+				Expect(e).To(Succeed())
+				Expect(x.bytes).To(Equal(int64(len(data))))
+			} else {
+				Expect(e).To(MatchError(ErrPackage))
+			}
+		}
+		i := &Installer{MaxBytes: int64(len(data))*2 - 1}
+		x := &extraction{seen: map[string]bool{}}
+		Expect(i.extract(context.Background(), bytes.NewReader(data), GinkgoT().TempDir(), x)).To(Succeed())
+		// An empty second tar has no duplicate paths, but its padding still counts.
+		trailing := make([]byte, len(data))
+		Expect(i.extract(context.Background(), bytes.NewReader(trailing), GinkgoT().TempDir(), x)).To(MatchError(ErrPackage))
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		Expect(i.extract(ctx, bytes.NewReader(data), GinkgoT().TempDir(), &extraction{seen: map[string]bool{}})).To(MatchError(context.Canceled))
+	})
+	It("bounds expanded bytes cumulatively across real OCI layers", func() {
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		data := archive(nil, m)
+		second := make([]byte, 2048)
+		artifact, digest, _ := localOCI(data, second)
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) { r.Artifact = artifact; r.Digest = digest })
+		i.MaxBytes = int64(len(data) + len(second))
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(e).To(Succeed())
+		i.MaxBytes--
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+	})
+	It("denies nonloopback plaintext and redirect responses at the transport boundary", func() {
+		calls := 0
+		base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			calls++
+			return &http.Response{StatusCode: 302, Body: io.NopCloser(strings.NewReader(""))}, nil
+		})
+		for _, allow := range []bool{false, true} {
+			t := boundTransport{ctx: context.Background(), base: base, allowLoopbackHTTP: allow}
+			for _, u := range []string{"http://example.invalid/v2/", "http://192.0.2.1/token"} {
+				req, e := http.NewRequest("GET", u, nil)
+				Expect(e).NotTo(HaveOccurred())
+				_, e = t.RoundTrip(req)
+				Expect(e).To(MatchError(ErrPackage))
+			}
+		}
+		Expect(calls).To(BeZero())
+		t := boundTransport{ctx: context.Background(), base: base, allowLoopbackHTTP: true}
+		req, e := http.NewRequest("GET", "http://127.0.0.1/v2/", nil)
+		Expect(e).NotTo(HaveOccurred())
+		_, e = t.RoundTrip(req)
+		Expect(e).To(MatchError(ErrPackage))
+		Expect(calls).To(Equal(1))
 	})
 })

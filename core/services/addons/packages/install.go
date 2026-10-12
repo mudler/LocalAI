@@ -98,7 +98,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			return out, ErrPackage
 		}
 		pinned := ref.Context().Digest(r.Digest).Name()
-		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport}
+		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
 			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
 			if e != nil {
@@ -254,14 +254,15 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 // go-containerregistry creates its own client. Reject redirect responses at the
 // transport boundary so registry credentials cannot follow to another origin.
 type boundTransport struct {
-	ctx  context.Context
-	base http.RoundTripper
+	ctx               context.Context
+	base              http.RoundTripper
+	allowLoopbackHTTP bool
 }
 
 func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Scheme == "http" {
 		ip := net.ParseIP(req.URL.Hostname())
-		if ip == nil || !ip.IsLoopback() {
+		if !t.allowLoopbackHTTP || ip == nil || !ip.IsLoopback() {
 			return nil, ErrPackage
 		}
 	}

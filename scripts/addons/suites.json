@@ -166,7 +166,13 @@
       "pins and verifies real local OCI distribution bytes without a container runtime",
       "rejects downloaded digest mismatch redirects cancellation and file count limits",
       "accepts optional UI only with real immutable assets and rejects non executable entrypoints",
-      "does not allow remote verification policy to replace owner trust"
+      "does not allow remote verification policy to replace owner trust",
+      "requires source opt in before any plaintext OCI request",
+      "bounds compressed OCI PAX expansion before tar parsing",
+      "bounds compressed OCI GNU expansion before tar parsing",
+      "counts padding trailing bytes and layers at the exact expanded boundary",
+      "denies nonloopback plaintext and redirect responses at the transport boundary",
+      "bounds expanded bytes cumulatively across real OCI layers"
     ],
     "report": ".cache/addons/logs/packages.json"
   }

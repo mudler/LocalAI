@@ -228,11 +228,6 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		return err
 	}
 
-	trusted, err := v.loadTrustedMaterial()
-	if err != nil {
-		return err
-	}
-
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return fmt.Errorf("cosignverify: parse image ref %q: %w", imageRef, err)
@@ -262,6 +257,13 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 	}
 
 	bun, err := bundleFromOCISignature(ref, digest, opts)
+	if err != nil {
+		return err
+	}
+
+	// Fetch trust only after discovering a bundle. Unsigned images need no
+	// external trust service to be rejected. Signature verification is unchanged.
+	trusted, err := v.loadTrustedMaterial()
 	if err != nil {
 		return err
 	}

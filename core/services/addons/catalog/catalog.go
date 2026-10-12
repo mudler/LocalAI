@@ -24,7 +24,8 @@ type VerificationPolicy struct {
 	Identity         string `json:"identity,omitempty"`
 }
 type Release struct {
-	Channel string `json:"channel,omitempty"`
+	Channel           string `json:"channel,omitempty"`
+	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
 	// Selection is stamped by Resolve, not trusted from remote metadata.
 	Selection   string             `json:"selection,omitempty"`
 	SourceID    string             `json:"sourceId,omitempty"`
