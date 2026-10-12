@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 func SoundGeneration(
@@ -56,7 +56,9 @@ func SoundGeneration(
 		return "", nil, fmt.Errorf("failed creating audio directory: %s", err)
 	}
 
-	fileName := utils.GenerateUniqueFileName(audioDir, "sound_generation", ".wav")
+	// Format normalization can rename .wav to .flac, so existence of the
+	// .wav path cannot determine whether an earlier recording owns this stem.
+	fileName := "sound_generation_" + uuid.NewString() + ".wav"
 	filePath := filepath.Join(audioDir, fileName)
 	if filePath, err = filepath.Abs(filePath); err != nil {
 		return "", nil, fmt.Errorf("failed resolving sound generation path: %w", err)

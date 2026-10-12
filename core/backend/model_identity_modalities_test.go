@@ -49,6 +49,7 @@ type recordingBackend struct {
 	// `ModelIdentity`; the spec below asserts they are populated independently.
 	soundGenModelField string
 	soundGenParams     map[string]string
+	soundGenOutput     []byte
 }
 
 func newRecordingBackend() *recordingBackend {
@@ -73,6 +74,11 @@ func (r *recordingBackend) SoundGeneration(_ context.Context, in *pb.SoundGenera
 	r.record("SoundGeneration", in)
 	r.soundGenModelField = in.GetModel()
 	r.soundGenParams = in.GetParams()
+	if r.soundGenOutput != nil {
+		if err := os.WriteFile(in.GetDst(), r.soundGenOutput, 0o600); err != nil {
+			return nil, err
+		}
+	}
 	return &pb.Result{Success: true}, nil
 }
 
