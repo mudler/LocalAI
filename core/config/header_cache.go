@@ -4,20 +4,21 @@ package config
 import (
 	"container/list"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/mudler/xlog"
 )
+
+// headerCacheFileName is the one cache file every frontend uses, in the data
+// path. Frontends that share the data volume share this file: see the
+// shared-by-file mode in docs/content/advanced/model-configuration.md.
+const headerCacheFileName = "header-cache.json"
 
 // headerCacheMaxFileBytes refuses to read a cache file larger than this. The
 // entry bound already caps the size a LocalAI build writes, so anything bigger
@@ -38,9 +39,6 @@ var headerCacheRename = os.Rename
 type headerCacheSpec[S any] struct {
 	// name prefixes log messages, for example "GGUF header cache".
 	name string
-	// filePrefix starts every cache file name. It ends with "-" so the instance
-	// ID can follow it; standalone mode drops that dash.
-	filePrefix string
 	// schema is the on-disk format version. Bump it when encode changes shape.
 	schema int
 	// fingerprint names the inputs that decide the snapshot values. A file
@@ -70,8 +68,9 @@ type headerEntry[S any] struct {
 }
 
 // headerCache is a bounded LRU keyed by absolute path, optionally persisted to
-// one file per instance. It is safe for concurrent use. Lookups hold the lock
-// only for the map and list operations, never while a file is parsed.
+// the shared header-cache.json. It is safe for concurrent use. Lookups hold the
+// lock only for the map and list operations, never while a file is parsed or
+// read.
 type headerCache[S any] struct {
 	spec  headerCacheSpec[S]
 	mu    sync.Mutex
@@ -85,15 +84,23 @@ type headerCache[S any] struct {
 	saveCh      chan struct{}
 	stopSaver   context.CancelFunc
 	saverDone   chan struct{}
+	// loadedMtime is the modification time of the cache file the last time it
+	// was read, UnixNano. Zero means it has not been read. A miss compares it
+	// with the file on disk to decide whether another frontend has written.
+	loadedMtime int64
 	// persistMu serializes file writes so the saver and an explicit flush never
 	// race on the same temp name or rename order.
 	persistMu sync.Mutex
+	// reloadMu keeps concurrent misses from each reading the same file.
+	reloadMu sync.Mutex
 }
 
 func newHeaderCache[S any](spec headerCacheSpec[S], max int) *headerCache[S] {
 	return &headerCache[S]{spec: spec, max: max, order: list.New(), index: make(map[string]*list.Element)}
 }
 
+// get returns the cached snapshot for path when its identity matches id. It
+// never reads the disk: a hit is served from memory alone.
 func (c *headerCache[S]) get(path string, id headerIdentity) (S, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -135,6 +142,19 @@ func (c *headerCache[S]) insertLocked(path string, id headerIdentity, snap S) {
 		return
 	}
 	c.index[path] = c.order.PushFront(&headerEntry[S]{path: path, identity: id, snap: snap})
+	c.evictLocked()
+}
+
+// insertBackLocked adds an entry as the least recently used one. Entries
+// merged from the file use it, so that what this frontend used itself keeps
+// its place ahead of what only another frontend used.
+func (c *headerCache[S]) insertBackLocked(path string, id headerIdentity, snap S) {
+	c.index[path] = c.order.PushBack(&headerEntry[S]{path: path, identity: id, snap: snap})
+	c.evictLocked()
+}
+
+// evictLocked drops the least recently used entries until the bound holds.
+func (c *headerCache[S]) evictLocked() {
 	for c.order.Len() > c.max {
 		oldest := c.order.Back()
 		c.order.Remove(oldest)
@@ -157,6 +177,10 @@ func (c *headerCache[S]) load(path string) (S, error) {
 // snapshot matches the file's current identity. A file that cannot be stat'ed
 // or parsed is never cached, so the caller sees the same error path as before
 // the cache existed. Callers pass parse to swap in a test seam per call.
+//
+// On a miss the shared cache file is checked once: if another frontend has
+// written it since this one last read it, its entries are merged in before the
+// parser runs. A hit never touches the cache file.
 func (c *headerCache[S]) loadVia(path string, parse func(string) (S, error)) (S, error) {
 	abs, absErr := filepath.Abs(path)
 	info, statErr := os.Stat(path)
@@ -170,6 +194,10 @@ func (c *headerCache[S]) loadVia(path string, parse func(string) (S, error)) (S,
 	if snap, ok := c.get(abs, id); ok {
 		return snap, nil
 	}
+	c.reloadIfChanged()
+	if snap, ok := c.get(abs, id); ok {
+		return snap, nil
+	}
 
 	snap, err := parse(path)
 	if err != nil {
@@ -180,26 +208,27 @@ func (c *headerCache[S]) loadVia(path string, parse func(string) (S, error)) (S,
 	return snap, nil
 }
 
-// headerCachePath returns the cache file for an instance. An empty ID
-// (standalone mode) uses the prefix without its trailing dash.
-func headerCachePath(filePrefix, dataPath, instanceID string) string {
-	name := strings.TrimSuffix(filePrefix, "-") + ".json"
-	if instanceID != "" {
-		key := instanceID
-		if !headerInstanceIDPattern.MatchString(instanceID) {
-			sum := sha256.Sum256([]byte(instanceID))
-			key = "h-" + hex.EncodeToString(sum[:8])
-		}
-		name = filePrefix + key + ".json"
+// reloadIfChanged merges the cache file into memory when its modification time
+// differs from the one recorded at the last read. It does nothing when the
+// cache is not persistent or the file is absent.
+func (c *headerCache[S]) reloadIfChanged() {
+	c.reloadMu.Lock()
+	defer c.reloadMu.Unlock()
+
+	c.mu.Lock()
+	path, loaded := c.persistPath, c.loadedMtime
+	c.mu.Unlock()
+	if path == "" {
+		return
 	}
-	return filepath.Join(dataPath, name)
+	info, err := os.Stat(path)
+	if err != nil || info.ModTime().UnixNano() == loaded {
+		return
+	}
+	c.readAndMerge(path)
 }
 
-// headerInstanceIDPattern is the set of instance IDs used verbatim in a file
-// name. Any other ID is hashed, so an ID cannot carry a path separator.
-var headerInstanceIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
-
-// headerFile is the whole cache file: one per frontend instance.
+// headerFile is the whole cache file, shared by every frontend on the data path.
 type headerFile struct {
 	Schema int `json:"schema"`
 	// Fingerprint is stored under the key "estimator", the name the GGUF cache
@@ -216,16 +245,17 @@ type headerFileEntry struct {
 	Header  json.RawMessage `json:"header"`
 }
 
-// attachDisk makes the cache persistent under dataPath for instanceID. It loads
-// the existing file once, then starts the background saver. An empty dataPath
-// keeps the cache in memory only. Calling it again replaces the previous attach.
-func (c *headerCache[S]) attachDisk(parent context.Context, dataPath, instanceID string) {
+// attachDisk makes the cache persistent under dataPath, in the shared file. It
+// loads the existing file once, then starts the background saver. An empty
+// dataPath keeps the cache in memory only. Calling it again replaces the
+// previous attach.
+func (c *headerCache[S]) attachDisk(parent context.Context, dataPath string) {
 	c.stopPersist()
 	if dataPath == "" {
 		return
 	}
-	path := headerCachePath(c.spec.filePrefix, dataPath, instanceID)
-	c.loadFile(path)
+	path := headerCachePath(dataPath)
+	c.readAndMerge(path)
 
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
@@ -241,6 +271,11 @@ func (c *headerCache[S]) attachDisk(parent context.Context, dataPath, instanceID
 		defer close(done)
 		c.runSaver(ctx, saveCh)
 	}()
+}
+
+// headerCachePath returns the shared cache file in dataPath.
+func headerCachePath(dataPath string) string {
+	return filepath.Join(dataPath, headerCacheFileName)
 }
 
 // stopPersist stops the saver after a final write of any pending change and
@@ -260,6 +295,7 @@ func (c *headerCache[S]) stopPersist() {
 	c.persistPath = ""
 	c.saveCh = nil
 	c.dirty = false
+	c.loadedMtime = 0
 	c.mu.Unlock()
 }
 
@@ -310,11 +346,30 @@ func (c *headerCache[S]) flushIfDirty() {
 	}
 }
 
-// flush writes the current cache to its file now. It returns nil and writes
-// nothing when the cache is not persistent.
+// flush merges the shared file into memory, drops entries whose model file has
+// changed, and writes the result back. It returns nil and writes nothing when
+// the cache is not persistent.
+//
+// Several frontends may write the file at once. Each write is a whole-file
+// rename, so a reader never sees a partial file. Two writers can still race: a
+// writer that read the file before the other renamed can replace the other's
+// new entries with its own. The loss is at worst a dropped entry, which costs
+// one re-parse on its next use. A wrong value cannot result, because every
+// entry is validated against its model file's identity before it is used.
 func (c *headerCache[S]) flush() error {
 	c.persistMu.Lock()
 	defer c.persistMu.Unlock()
+
+	c.mu.Lock()
+	path := c.persistPath
+	c.mu.Unlock()
+	if path == "" {
+		return nil
+	}
+
+	// Fold in what other frontends saved since this one last read the file, so
+	// this write does not drop their entries.
+	c.readAndMerge(path)
 
 	type pending struct {
 		path string
@@ -322,11 +377,6 @@ func (c *headerCache[S]) flush() error {
 		snap S
 	}
 	c.mu.Lock()
-	path := c.persistPath
-	if path == "" {
-		c.mu.Unlock()
-		return nil
-	}
 	// Copy under the lock and encode after it: encoding is the slow part and
 	// must not hold up request lookups.
 	snaps := make([]pending, 0, c.order.Len())
@@ -337,6 +387,30 @@ func (c *headerCache[S]) flush() error {
 	c.dirty = false
 	c.mu.Unlock()
 
+	// An entry whose model file has been rewritten since it was cached can
+	// never be used, so it is not written. A file that cannot be stat'ed is
+	// kept: the identity check at lookup still decides whether it is used.
+	stale := make(map[string]headerIdentity)
+	for _, p := range snaps {
+		info, err := os.Stat(p.path)
+		if err != nil {
+			continue
+		}
+		if now := (headerIdentity{size: info.Size(), mtime: info.ModTime().UnixNano()}); now != p.id {
+			stale[p.path] = p.id
+		}
+	}
+	if len(stale) > 0 {
+		c.mu.Lock()
+		for p, id := range stale {
+			if el, ok := c.index[p]; ok && el.Value.(*headerEntry[S]).identity == id {
+				c.order.Remove(el)
+				delete(c.index, p)
+			}
+		}
+		c.mu.Unlock()
+	}
+
 	file := headerFile{
 		Schema:      c.spec.schema,
 		Fingerprint: c.spec.fingerprint,
@@ -344,6 +418,9 @@ func (c *headerCache[S]) flush() error {
 	}
 	data, err := func() ([]byte, error) {
 		for _, p := range snaps {
+			if _, drop := stale[p.path]; drop {
+				continue
+			}
 			raw, err := json.Marshal(c.spec.encode(p.snap))
 			if err != nil {
 				return nil, err
@@ -370,10 +447,11 @@ func (c *headerCache[S]) flush() error {
 	return nil
 }
 
-// loadFile fills the cache from path. A missing, unreadable, oversized, corrupt
-// or mismatched file is ignored and logged once. Entries are not trusted here:
-// the identity check at lookup decides whether each one is used.
-func (c *headerCache[S]) loadFile(path string) {
+// readAndMerge reads the cache file at path and merges its entries into memory.
+// A missing, unreadable, oversized, corrupt or mismatched file is ignored and
+// logged once. The modification time recorded here is taken before the read, so
+// a write that lands during the read makes the next miss read again.
+func (c *headerCache[S]) readAndMerge(path string) {
 	name := c.spec.name
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -384,6 +462,12 @@ func (c *headerCache[S]) loadFile(path string) {
 		xlog.Warn(name+": cannot stat file, starting empty", "path", path, "error", err)
 		return
 	}
+	// Recorded even when the file is then ignored: a corrupt file would
+	// otherwise be re-read and re-logged on every miss until it changes.
+	mtime := info.ModTime().UnixNano()
+	c.mu.Lock()
+	c.loadedMtime = mtime
+	c.mu.Unlock()
 	if info.Size() > headerCacheMaxFileBytes {
 		xlog.Warn(name+": file too large, ignoring it", "path", path, "bytes", info.Size())
 		return
@@ -419,25 +503,46 @@ func (c *headerCache[S]) loadFile(path string) {
 			xlog.Warn(name+": file is corrupt, ignoring it", "path", path, "error", err)
 			return
 		}
+		if e.Path == "" || !filepath.IsAbs(e.Path) {
+			continue
+		}
 		decoded = append(decoded, loaded{path: e.Path, id: headerIdentity{size: e.Size, mtime: e.MtimeNS}, snap: snap})
+	}
+
+	// Identities are read from the model files before the lock is taken: a
+	// stat per entry is cheap, but holding the lock across them is not.
+	current := make(map[string]headerIdentity, len(decoded))
+	for _, d := range decoded {
+		if fi, err := os.Stat(d.path); err == nil {
+			current[d.path] = headerIdentity{size: fi.Size(), mtime: fi.ModTime().UnixNano()}
+		}
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// The file lists the most recently used entry first. Keep the first max
-	// entries, then insert from the back so the first one ends at the front.
-	if len(decoded) > c.max {
-		decoded = decoded[:c.max]
-	}
+	// The file lists the most recently used entry first, so entries are merged
+	// from the back: the most recent one of the file ends up nearest the front
+	// of the entries this frontend does not already hold.
 	for i := len(decoded) - 1; i >= 0; i-- {
 		d := decoded[i]
-		if d.path == "" || !filepath.IsAbs(d.path) {
+		if el, exists := c.index[d.path]; exists {
+			// Both frontends hold an entry for this model. Keep the one that
+			// matches the model file on disk. If neither does, drop both. If the
+			// file cannot be stat'ed, keep the one already in memory.
+			e := el.Value.(*headerEntry[S])
+			now, ok := current[d.path]
+			switch {
+			case !ok:
+			case e.identity == now:
+			case d.id == now:
+				e.identity, e.snap = d.id, d.snap
+			default:
+				c.order.Remove(el)
+				delete(c.index, d.path)
+			}
 			continue
 		}
-		if _, exists := c.index[d.path]; exists {
-			continue
-		}
-		c.insertLocked(d.path, d.id, d.snap)
+		c.insertBackLocked(d.path, d.id, d.snap)
 	}
 }
 

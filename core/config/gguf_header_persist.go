@@ -14,11 +14,10 @@ import (
 // other value is ignored, so bump it when persistedGGUFHeader changes shape.
 const ggufHeaderCacheSchema = 1
 
-// ggufHeaderSpec makes the header cache a GGUF cache: the file name, the
-// schema, the estimator fingerprint and the GGUF field mapping.
+// ggufHeaderSpec makes the header cache a GGUF cache: the schema, the estimator
+// fingerprint and the GGUF field mapping. The file name is the generic one.
 var ggufHeaderSpec = headerCacheSpec[ggufHeader]{
 	name:        "GGUF header cache",
-	filePrefix:  "gguf-header-cache-",
 	schema:      ggufHeaderCacheSchema,
 	fingerprint: ggufEstimatorFingerprint(),
 	parse: func(path string) (ggufHeader, error) {
@@ -52,10 +51,9 @@ type persistedGGUFHeader struct {
 	TrainedPanic *string `json:"trained_panic,omitempty"`
 }
 
-// ggufHeaderCachePath returns the GGUF cache file for an instance. An empty ID
-// (standalone mode) uses a fixed name.
-func ggufHeaderCachePath(dataPath, instanceID string) string {
-	return headerCachePath(ggufHeaderSpec.filePrefix, dataPath, instanceID)
+// ggufHeaderCachePath returns the shared GGUF header cache file in dataPath.
+func ggufHeaderCachePath(dataPath string) string {
+	return headerCachePath(dataPath)
 }
 
 // ggufEstimatorFingerprint names the inputs that decide the estimator-derived
@@ -134,11 +132,11 @@ func fromPersistedHeader(p persistedGGUFHeader) ggufHeader {
 	}
 }
 
-// ConfigureGGUFHeaderCache attaches the process-wide header cache to the
-// instance's data directory. Call it once at startup, after the instance ID is
-// known and before model configs are loaded. An empty dataPath (standalone
-// without data) keeps the cache in memory only. The cache is a documented
-// per-instance exception: each frontend keeps its own file.
-func ConfigureGGUFHeaderCache(ctx context.Context, dataPath, instanceID string) {
-	ggufHeaders.attachDisk(ctx, dataPath, instanceID)
+// ConfigureGGUFHeaderCache attaches the process-wide header cache to the shared
+// header-cache.json in dataPath. Call it once at startup, before model configs
+// are loaded. An empty dataPath (standalone without data) keeps the cache in
+// memory only. Frontends that share the data volume share the file; see the
+// shared-by-file mode in the model configuration docs.
+func ConfigureGGUFHeaderCache(ctx context.Context, dataPath string) {
+	ggufHeaders.attachDisk(ctx, dataPath)
 }
