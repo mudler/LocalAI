@@ -78,6 +78,23 @@ type Catalog struct {
 	TargetOS, TargetArch string
 }
 
+// target is the platform an install must match: the owner's configured one, or
+// the platform of this process. Search and Resolve both use it, so an entry
+// that is listed is an entry that can be resolved.
+func (c Catalog) target() (string, string) {
+	targetOS, targetArch := c.TargetOS, c.TargetArch
+	if targetOS == "" {
+		targetOS = runtime.GOOS
+	}
+	if targetArch == "" {
+		targetArch = runtime.GOARCH
+	}
+	return targetOS, targetArch
+}
+
+// Search lists the releases of the enabled libraries that match the target
+// platform. A release for another platform is never listed, and Total counts
+// the listed set.
 func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	if e := ctx.Err(); e != nil {
 		return Page{}, e
@@ -91,6 +108,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	if q.Limit == 0 {
 		q.Limit = 50
 	}
+	targetOS, targetArch := c.target()
 	s := c.Sources
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -107,6 +125,9 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			return Page{}, ErrRefresh
 		}
 		for _, r := range cache.releases {
+			if r.OS != targetOS || r.Arch != targetArch {
+				continue
+			}
 			if strings.Contains(strings.ToLower(r.Name+" "+r.AddonID+" "+r.Description), strings.ToLower(q.Text)) {
 				all = append(all, r)
 			}
@@ -143,13 +164,7 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	if cache.failed {
 		return Release{}, ErrRefresh
 	}
-	targetOS, targetArch := c.TargetOS, c.TargetArch
-	if targetOS == "" {
-		targetOS = runtime.GOOS
-	}
-	if targetArch == "" {
-		targetArch = runtime.GOARCH
-	}
+	targetOS, targetArch := c.target()
 	var found *Release
 	for _, r := range cache.releases {
 		if r.AddonID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.OS == targetOS && r.Arch == targetArch {

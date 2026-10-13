@@ -1113,7 +1113,7 @@ writes keep the operation identity and outcome-unknown rule of the lifecycle act
 
 | Action | Kind | Arguments | Payload |
 |---|---|---|---|
-| `catalog-search` | read | `text`, `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}` for the host platform |
+| `catalog-search` | read | `text`, `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
 | `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
 | `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
 | `addons-installed` | read | none | `{addons}`, the installed view below |

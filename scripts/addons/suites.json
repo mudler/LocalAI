@@ -152,7 +152,8 @@
       "serializes source reads with concurrent configuration edits",
       "pins channels and restricts package transport to secure or opted in loopback origins",
       "surfaces optional UI metadata in search results and resolutions without changing plain entries",
-      "rejects entries with remote icons, reserved launch modes, markup or overlong display text"
+      "rejects entries with remote icons, reserved launch modes, markup or overlong display text",
+      "lists only releases the configured target platform can install"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },

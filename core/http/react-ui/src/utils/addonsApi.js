@@ -98,7 +98,7 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
 }
 
 // Wire an Add-ons catalog adapter over the client. Entries are the library
-// releases for the host platform; an entry's `id` is its key, which the
+// releases for the owner target platform; an entry's `id` is its key, which the
 // details call resolves exactly as an install would.
 export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
   const toEntry = (release) => ({

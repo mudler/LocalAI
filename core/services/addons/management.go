@@ -34,7 +34,8 @@ func (m *Manager) authorize(ctx context.Context, actor contract.Actor) error {
 	return nil
 }
 
-// CatalogSearch lists the library entries for the host platform.
+// CatalogSearch lists the library entries that match the owner's configured
+// target platform, the same rule an install resolves with.
 func (m *Manager) CatalogSearch(ctx context.Context, actor contract.Actor, q catalog.Query) (catalog.Page, error) {
 	if e := m.authorize(ctx, actor); e != nil {
 		return catalog.Page{}, e

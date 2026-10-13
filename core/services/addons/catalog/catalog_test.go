@@ -86,6 +86,41 @@ var _ = Describe("private catalogs", func() {
 			Expect(string(b)).NotTo(ContainSubstring("secret"))
 		}
 	})
+	It("lists only releases the configured target platform can install", func() {
+		other := release()
+		other.OS, other.Arch = "windows", "arm64"
+		onlyOther := release()
+		onlyOther.AddonID, onlyOther.Name = "notes", "Notes"
+		onlyOther.OS, onlyOther.Arch = "windows", "arm64"
+		server := library(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode([]Release{release(), other, onlyOther})
+		})
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		Expect(e).NotTo(HaveOccurred())
+		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(1))
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Releases[0].OS + "/" + page.Releases[0].Arch).To(Equal("linux/amd64"))
+		// Everything listed resolves, and what is not listed does not.
+		_, e = c.Resolve(ctx, "main", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).To(MatchError(ErrNotFound))
+		// The same cache serves another owner target its own entries.
+		w := Catalog{Sources: s, TargetOS: "windows", TargetArch: "arm64"}
+		page, e = w.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(2))
+		// Paging counts the filtered set.
+		page, e = w.Search(ctx, Query{Limit: 1, Offset: 1})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(2))
+		Expect(page.Releases).To(HaveLen(1))
+	})
 	It("blocks redirects without leaking credentials or error details", func() {
 		hits := 0
 		target := library(func(w http.ResponseWriter, r *http.Request) { hits++ })
