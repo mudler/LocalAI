@@ -715,6 +715,27 @@ stored proposal first. A proposal is applied only by an explicit confirmation of
 stored operation from the person's own browser session. Sharing and database deletion
 are never proposals and never tools.
 
+### Declared tools
+
+The owner checks every request that names a tool against the manifest of the installed
+current generation before anything reaches the add-on. The tool name is the top-level
+`tool` key of the request `arguments`. The rule is the same for a `read`, a proposal
+(`write` or `schema`), the confirmation of a stored proposal and the opening of an
+output, on the owner's own frontend and on every forwarding frontend:
+
+- No `tool` key: the request names no tool, and the rule has nothing to check.
+- An exact `tool` key: the value must be a string that equals one entry of
+  `capabilities.tools` byte for byte. A name of another add-on, a case, Unicode or
+  white-space variant, an empty value and a value that is not a string are denied.
+- A key that equals `tool` only after case folding or trimming white space (`Tool`,
+  `TOOL`, ` tool`) is denied, because an add-on decoder may read it as the tool.
+- A denial is the standard 403, and the add-on is not contacted. A proposal is denied
+  before the preview and nothing is stored. A stored proposal is checked again at
+  confirmation, so a tool that an update withdrew is never applied.
+- When the manifest of the installed current generation cannot be read, the request is
+  denied. The owner reads declarations from its in-memory journal, cached for each
+  generation.
+
 ### Lifecycle
 
 `POST /api/addons/proposals` takes a typed `write` or `schema` request. The owner
@@ -1370,6 +1391,19 @@ text, history, the model or any host state.
   proposal (`{"proposalId": "..."}`) opens the approval frame.
 - A component action opens the exported component in a host dialog, with the same
   context and a `close` function.
+- The server, not the page, limits a tool action to the tools the add-on declared: a
+  request for an undeclared tool is a 403 (see [Declared tools](#declared-tools)).
+
+#### Add-on UI code is trusted code
+
+The UI module of an add-on is native code that runs in the origin of the host page. It is
+not sandboxed. The host cannot technically prevent it from reading the page, calling the
+same routes as the person or driving host buttons, including the buttons of the approval
+frame. The controls are the trust decision when the person installs the add-on, the
+server-side authorization of every request (roles, grants, declared tools and the
+revocation of credentials) and the approval frame that the host owns: a confirmation
+needs the proposer's own browser session and the digest of the stored proposal. Install
+only add-ons that you trust.
 
 ### Approval cards
 
