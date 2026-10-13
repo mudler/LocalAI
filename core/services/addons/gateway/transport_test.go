@@ -46,7 +46,20 @@ func certificates() (map[string]tls.Certificate, *x509.CertPool) {
 	}
 	return out, pool
 }
-func carrierFixture(handler func(*Carrier) http.Handler) (*httptest.Server, map[string]*Carrier) {
+
+type fixtureEnv struct {
+	server   *httptest.Server
+	carriers map[string]*Carrier
+	certs    map[string]tls.Certificate
+	roots    *x509.CertPool
+	pins     map[string][32]byte
+	keys     map[string]ed25519.PublicKey
+	private  map[string]ed25519.PrivateKey
+}
+
+// carrierFixtureWith starts a real mTLS owner server. Frontends are built with
+// the given limits; the zero value selects the defaults.
+func carrierFixtureWith(limits RelayLimits, handler func(*Carrier) http.Handler) *fixtureEnv {
 	certs, roots := certificates()
 	pins := map[string][32]byte{}
 	keys := map[string]ed25519.PublicKey{}
@@ -61,7 +74,7 @@ func carrierFixture(handler func(*Carrier) http.Handler) (*httptest.Server, map[
 	server := httptest.NewUnstartedServer(nil)
 	carriers := map[string]*Carrier{}
 	for _, id := range []string{"owner", "front-a", "front-b"} {
-		c, e := NewCarrier(CarrierConfig{InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
+		c, e := NewCarrier(CarrierConfig{Limits: limits, InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
 		Expect(e).NotTo(HaveOccurred())
 		carriers[id] = c
 	}
@@ -69,7 +82,11 @@ func carrierFixture(handler func(*Carrier) http.Handler) (*httptest.Server, map[
 	server.TLS = carriers["owner"].ServerTLS()
 	server.StartTLS()
 	DeferCleanup(server.Close)
-	return server, carriers
+	return &fixtureEnv{server: server, carriers: carriers, certs: certs, roots: roots, pins: pins, keys: keys, private: private}
+}
+func carrierFixture(handler func(*Carrier) http.Handler) (*httptest.Server, map[string]*Carrier) {
+	env := carrierFixtureWith(RelayLimits{}, handler)
+	return env.server, env.carriers
 }
 
 var _ = Describe("real owner transport", func() {

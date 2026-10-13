@@ -5,9 +5,16 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/tls"
+	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"io"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -34,28 +41,114 @@ var _ = Describe("owner bootstrap", func() {
 })
 
 var _ = Describe("mTLS carrier", func() {
-	It("requires pinned mutual identities and never retries uncertain mutation dispatch", func() {
-		_, err := NewCarrier(CarrierConfig{})
-		Expect(err).To(HaveOccurred())
-		err = (&OutcomeUnknown{OperationID: "original"}).Unwrap()
-		Expect(err).To(Equal(ErrUnavailable))
+	It("builds a carrier only from complete pinned identities", func() {
+		certs, roots := certificates()
+		pins := map[string][32]byte{}
+		for _, id := range []string{"owner", "front-a"} {
+			pins[id] = sha256Of(certs[id])
+		}
+		_, key, err := ed25519.GenerateKey(rand.Reader)
+		Expect(err).NotTo(HaveOccurred())
+		valid := func() CarrierConfig {
+			p := map[string][32]byte{}
+			for k, v := range pins {
+				p[k] = v
+			}
+			return CarrierConfig{InstanceID: "front-a", OwnerID: "owner", OwnerAddress: "https://127.0.0.1:9443", Certificate: certs["front-a"], Roots: roots, Pins: p, SigningKey: key}
+		}
+		c, err := NewCarrier(valid())
+		Expect(err).NotTo(HaveOccurred())
+		// A later change to the caller's map must not change the pinned identities.
+		cfg := valid()
+		c, err = NewCarrier(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		delete(cfg.Pins, "owner")
+		Expect(c.config.Pins).To(HaveKey("owner"))
+		Expect(c.config.Limits).To(Equal(DefaultRelayLimits()))
+		for name, mutate := range map[string]func(*CarrierConfig){
+			"owner pin missing":      func(c *CarrierConfig) { delete(c.Pins, "owner") },
+			"own pin missing":        func(c *CarrierConfig) { delete(c.Pins, "front-a") },
+			"plain http owner":       func(c *CarrierConfig) { c.OwnerAddress = "http://127.0.0.1:9443" },
+			"owner path":             func(c *CarrierConfig) { c.OwnerAddress = "https://127.0.0.1:9443/x" },
+			"owner credentials":      func(c *CarrierConfig) { c.OwnerAddress = "https://u:p@127.0.0.1:9443" },
+			"no trust roots":         func(c *CarrierConfig) { c.Roots = nil },
+			"no client certificate":  func(c *CarrierConfig) { c.Certificate = tls.Certificate{} },
+			"short signing key":      func(c *CarrierConfig) { c.SigningKey = key[:8] },
+			"empty instance":         func(c *CarrierConfig) { c.InstanceID = "" },
+			"partial limit override": func(c *CarrierConfig) { c.Limits = RelayLimits{Bytes: 1 << 20} },
+		} {
+			cfg := valid()
+			mutate(&cfg)
+			_, err := NewCarrier(cfg)
+			Expect(err).To(MatchError(ErrForbidden), name)
+		}
+	})
+	It("types an unknown mutation outcome as unavailable without losing its operation", func() {
+		var unknown error = &OutcomeUnknown{OperationID: "original"}
+		Expect(errors.Is(unknown, ErrUnavailable)).To(BeTrue())
+		Expect(errors.Is(unknown, ErrForbidden)).To(BeFalse())
+		var typed *OutcomeUnknown
+		Expect(errors.As(fmt.Errorf("wrapped: %w", unknown), &typed)).To(BeTrue())
+		Expect(typed.OperationID).To(Equal("original"))
 	})
 })
 
 var _ = Describe("resource relay admission", func() {
-	It("denies resources without host resolution and holds admission through canceled streams", func() {
-		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
-		Expect(g.Admission).To(BeNil())
-		Expect(g.Resolver).To(BeNil())
-		err := g.Relay(context.Background(), contract.Actor{}, RelayRequest{Kind: "file"}, nil)
-		Expect(err).To(Equal(ErrForbidden))
+	It("denies private relays without host resolution and admission", func() {
+		ok := func(context.Context, contract.Actor) error { return nil }
+		admission := &admitted{}
+		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}
+		request := contract.Request{AddonID: "sample", Generation: 1, OperationID: "op", Action: "read", Arguments: []byte(`{}`)}
+		for name, g := range map[string]*Gateway{
+			"nothing":        {Revalidate: ok, Runtime: currentFixture{client}},
+			"resolver only":  {Revalidate: ok, Resolver: resolved{}, Runtime: currentFixture{client}},
+			"admission only": {Revalidate: ok, Admission: admission, Runtime: currentFixture{client}},
+		} {
+			for _, kind := range []string{"file", "json"} {
+				w := httptest.NewRecorder()
+				Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: kind}, w)).To(MatchError(ErrForbidden), name+" "+kind)
+				Expect(w.Body.Len()).To(BeZero(), name+" "+kind)
+			}
+			_, err := g.Dispatch(context.Background(), contract.Actor{}, request)
+			Expect(err).To(MatchError(ErrForbidden), name)
+		}
+		// The same request succeeds once both host policies are installed.
+		g := &Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}}
+		w := httptest.NewRecorder()
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, w)).To(Succeed())
+		Expect(w.Body.String()).To(Equal("data"))
 	})
 })
 
+// observing records whether admission was held when the host described the output.
+type observing struct {
+	resolved
+	admission *admitted
+	held      *atomic.Bool
+}
+
+func (o observing) Output(ctx context.Context, a contract.Actor, r contract.Request, h string) (contract.OutputDescription, error) {
+	o.held.Store(o.admission.active.Load())
+	return o.resolved.Output(ctx, a, r, h)
+}
+
 var _ = Describe("runtime admission", func() {
-	It("resolves host resource bindings inside admission and cancels private output streams", func() {
-		g := &Gateway{}
-		Expect(g.Runtime).To(BeNil())
+	It("describes outputs inside admission and replaces a forged resource identity", func() {
+		admission := &admitted{}
+		var held atomic.Bool
+		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}
+		g := &Gateway{Admission: admission, Resolver: observing{admission: admission, held: &held}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		// The runtime accepts only the host-recorded resource, so success proves the
+		// forged value from the request was not used.
+		request := contract.Request{AddonID: "sample", ResourceID: "forged", Generation: 1, OperationID: "op", Action: "read", Arguments: []byte(`{}`)}
+		w := httptest.NewRecorder()
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, w)).To(Succeed())
+		Expect(w.Body.String()).To(Equal("data"))
+		Expect(held.Load()).To(BeTrue())
+		Expect(admission.active.Load()).To(BeFalse())
+		// With no current runtime the host reports the owner unavailable, not forbidden.
+		g.Runtime = nil
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, httptest.NewRecorder())).To(MatchError(ErrUnavailable))
 	})
 })
 

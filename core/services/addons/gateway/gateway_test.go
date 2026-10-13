@@ -5,9 +5,14 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
+	"errors"
+	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -61,25 +66,81 @@ var _ = Describe("Forward verifier", func() {
 })
 
 var _ = Describe("owner dispatch", func() {
-	It("fails closed without current identity and resource policy and preserves unknown mutation IDs", func() {
+	It("fails closed without current identity or resource policy and reports the original ID of an unknown mutation outcome", func() {
 		a := contract.Actor{UserID: "user", CredentialID: "key", Mode: "named-user"}
-		r := contract.Request{AddonID: "sample", OperationID: "op", Action: "apply", Generation: 1, Arguments: []byte(`{}`)}
-		g := &Gateway{}
-		_, e := g.Dispatch(context.Background(), a, r)
-		Expect(e).To(HaveOccurred())
-		g.Revalidate = func(context.Context, contract.Actor) error { return nil }
-		_, e = g.Dispatch(context.Background(), a, r)
-		Expect(e).To(Equal(ErrForbidden))
-		r.Action = "read"
-		_, e = g.Dispatch(context.Background(), a, r)
-		Expect(e).To(Equal(ErrForbidden))
+		var forwarded atomic.Int32
+		lost := func(*Carrier) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/addons/audience" {
+					w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
+					return
+				}
+				forwarded.Add(1)
+				conn, _, e := w.(http.Hijacker).Hijack()
+				Expect(e).NotTo(HaveOccurred())
+				conn.Close()
+			})
+		}
+		env := carrierFixtureWith(RelayLimits{}, lost)
+		ok := func(context.Context, contract.Actor) error { return nil }
+		install := contract.Request{AddonID: "sample", OperationID: "original-op", Action: "install", Generation: 1, Arguments: []byte(`{"sourceId":"s","version":"1.0.0"}`)}
+
+		// Without a current identity check nothing leaves the frontend.
+		frontend := &Gateway{Forward: env.carriers["front-a"]}
+		_, e := frontend.Dispatch(context.Background(), a, install)
+		Expect(e).To(MatchError(ErrForbidden))
+		Expect(forwarded.Load()).To(BeZero())
+
+		// A lost reply to a mutation keeps the original operation for the caller.
+		frontend.Revalidate = ok
+		_, e = frontend.Dispatch(context.Background(), a, install)
+		var unknown *OutcomeUnknown
+		Expect(errors.As(e, &unknown)).To(BeTrue())
+		Expect(unknown.OperationID).To(Equal("original-op"))
+		Expect(forwarded.Load()).To(Equal(int32(1)))
+
+		// A lost reply to a read is plain unavailability.
+		read := install
+		read.Action = "operation-status"
+		_, e = frontend.Dispatch(context.Background(), a, read)
+		Expect(e).To(MatchError(ErrUnavailable))
+		var typed *OutcomeUnknown
+		Expect(errors.As(e, &typed)).To(BeFalse())
+
+		// The owner side denies unknown actions and unconfigured resource reads.
+		owner := &Gateway{Revalidate: ok}
+		for _, action := range []string{"apply", "read"} {
+			request := install
+			request.Action = action
+			_, e = owner.Dispatch(context.Background(), a, request)
+			Expect(e).To(MatchError(ErrForbidden), action)
+		}
 	})
 })
 
 var _ = Describe("typed lifecycle ingress", func() {
-	It("rejects unknown lifecycle argument fields before any owner dispatch", func() {
-		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
-		_, e := g.Dispatch(context.Background(), contract.Actor{}, contract.Request{Action: "install", Arguments: []byte(`{"sourceId":"test","version":"1.0.0","actor":"admin"}`)})
-		Expect(e).To(Equal(ErrForbidden))
+	It("rejects unknown lifecycle argument fields before touching the owner journal", func() {
+		actor := contract.Actor{UserID: "admin", CredentialID: "key", Mode: "named-user"}
+		m := ownerManager(actor, false)
+		g := &Gateway{Manager: m, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		bad := contract.Request{AddonID: "sample", OperationID: "bad", Action: "install", Arguments: []byte(`{"sourceId":"test","version":"1.2.3","actor":"admin"}`)}
+		_, e := g.Dispatch(context.Background(), actor, bad)
+		Expect(e).To(MatchError(ErrForbidden))
+		_, e = m.OperationStatus(context.Background(), actor, "bad")
+		Expect(e).To(MatchError(addons.ErrOperationNotFound))
+
+		// The same request without the extra field is accepted into the journal.
+		good := bad
+		good.OperationID = "good"
+		good.Arguments = []byte(`{"sourceId":"test","version":"1.2.3"}`)
+		out, e := g.Dispatch(context.Background(), actor, good)
+		Expect(e).NotTo(HaveOccurred())
+		var status addons.OperationStatus
+		Expect(json.Unmarshal(out.Payload, &status)).To(Succeed())
+		Expect(status.OperationID).To(Equal("good"))
+		Expect(status.Phase).To(Equal("completed"))
+		recorded, e := m.OperationStatus(context.Background(), actor, "good")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(recorded.Phase).To(Equal("completed"))
 	})
 })
