@@ -3,6 +3,7 @@ package config
 
 import (
 	"container/list"
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -147,6 +148,17 @@ type ggufHeaderCache struct {
 	max   int
 	order *list.List // front is most recently used; values are *ggufHeaderEntry
 	index map[string]*list.Element
+
+	// Disk persistence, set by attachDisk. Empty persistPath means memory only.
+	// See gguf_header_persist.go.
+	persistPath string
+	dirty       bool
+	saveCh      chan struct{}
+	stopSaver   context.CancelFunc
+	saverDone   chan struct{}
+	// persistMu serializes file writes so the saver and an explicit flush never
+	// race on the same temp name or rename order.
+	persistMu sync.Mutex
 }
 
 func newGGUFHeaderCache(max int) *ggufHeaderCache {
@@ -169,15 +181,25 @@ func (c *ggufHeaderCache) get(path string, id ggufIdentity) (ggufHeader, bool) {
 		// fresh parse replaces it rather than sitting beside it.
 		c.order.Remove(el)
 		delete(c.index, path)
+		c.markDirtyLocked()
 		return ggufHeader{}, false
 	}
 	c.order.MoveToFront(el)
 	return e.header, true
 }
 
+// put stores a snapshot and schedules a background save when the cache is
+// persisted. It never touches the disk itself, so it is safe on the request path.
 func (c *ggufHeaderCache) put(path string, id ggufIdentity, h ggufHeader) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.insertLocked(path, id, h)
+	c.markDirtyLocked()
+}
+
+// insertLocked adds or replaces an entry and enforces the bound. It does not
+// mark the cache dirty, so loading from disk does not schedule a rewrite.
+func (c *ggufHeaderCache) insertLocked(path string, id ggufIdentity, h ggufHeader) {
 	if el, ok := c.index[path]; ok {
 		e := el.Value.(*ggufHeaderEntry)
 		e.identity, e.header = id, h

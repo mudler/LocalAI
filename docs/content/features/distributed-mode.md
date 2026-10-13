@@ -672,6 +672,12 @@ Two limits apply:
 - Models loaded with `--config-file` exist only on the frontend that loaded them. A reload of the models directory keeps them, and a config-file model wins over a directory file with the same name, as it does at startup.
 - The reload is strict: if any config file in the directory does not parse, the frontend keeps its current configs and logs the error once. It retries on each pass until the file is fixed. This keeps a half-written file from looking like a deleted model.
 
+### GGUF header cache per frontend
+
+Each frontend keeps its own [GGUF header cache]({{% relref "advanced/model-configuration" %}}#gguf-header-cache), in a file named after its instance ID. This is a documented per-instance exception: frontends do not share it.
+
+Set `--instance-id` (or `LOCALAI_INSTANCE_ID`) on each frontend that should start warm after a restart. A new frontend parses each model file once before its cache is warm.
+
 ### Model configuration revisions
 
 Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
