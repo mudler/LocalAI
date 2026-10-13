@@ -124,6 +124,16 @@ class VariantTests(unittest.TestCase):
                     expected.update(cfg_weight=0.8, exaggeration=0.9, min_p=0.2)
                 self.service.model.generate.assert_called_with("Hello", **expected)
 
+    def test_top_k_remains_an_integer(self):
+        for variant in ("turbo", "nano"):
+            for params, expected in (({}, 100), ({"top_k": "50"}, 50)):
+                with self.subTest(variant=variant, params=params):
+                    self.assertTrue(self.load([f"{variant}:true", "top_k:100"]).success)
+                    self.assertTrue(self.speak(params).success)
+                    top_k = self.service.model.generate.call_args.kwargs["top_k"]
+                    self.assertIs(type(top_k), int)
+                    self.assertEqual(top_k, expected)
+
     def test_static_unsupported_knobs_are_filtered(self):
         self.assertTrue(self.load(["nano:true", "cfg_weight:0.4", "exaggeration:0.6", "min_p:0.1"]).success)
         self.assertTrue(self.speak().success)

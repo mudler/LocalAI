@@ -44,10 +44,10 @@ def coerce_param_value(value):
     YAML options are coerced at load time. Non-string values pass through."""
     if not isinstance(value, str):
         return value
-    if is_float(value):
-        return float(value)
     if is_int(value):
         return int(value)
+    if is_float(value):
+        return float(value)
     if value.lower() in ["true", "false"]:
         return value.lower() == "true"
     return value
@@ -157,14 +157,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if ":" not in opt:
                 continue
             key, value = opt.split(":")
-            # if value is a number, convert it to the appropriate type
-            if is_float(value):
-                value = float(value)
-            elif is_int(value):
-                value = int(value)
-            elif value.lower() in ["true", "false"]:
-                value = value.lower() == "true"
-            self.options[key] = value
+            self.options[key] = coerce_param_value(value)
 
         self.AudioPath = None
 
