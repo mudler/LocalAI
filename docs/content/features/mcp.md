@@ -108,6 +108,35 @@ Configure local command-based MCP servers:
 - **`args`**: Array of command-line arguments
 - **`env`**: Environment variables (optional)
 
+#### Automatic activation (`auto`)
+
+`/v1/chat/completions` only runs a model's MCP servers when the request selects
+them through `metadata.mcp_servers`. Plain OpenAI clients cannot send that field.
+Set `auto: true` in the `mcp:` block to enable every configured server when the
+request names none:
+
+```yaml
+mcp:
+  auto: true
+  remote: |
+    {"mcpServers": {"weather-api": {"url": "https://weather.example.com/mcp"}}}
+```
+
+A request that does send `metadata.mcp_servers` still gets exactly the servers it
+names. `/v1/responses` already enables all servers when the request sends no
+`tools`, and `/mcp/v1/chat/completions` always does; `auto` does not change them.
+
+#### Client tools (`client_tools`)
+
+`client_tools: drop` (a top-level model config key) discards the `tools`,
+`functions` and `tool_choice` a client sends, so the model is offered only its own
+MCP tools. Use it when a front end attaches tools of its own that should not
+reach this model. Empty (the default) keeps client tools.
+
+On a [model alias]({{%relref "features/model-aliases" %}}#profile-aliases) these
+keys go inside the alias's `profile` block, which lets several assistants with
+different tools share one loaded model.
+
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.

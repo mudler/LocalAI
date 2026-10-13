@@ -22,7 +22,8 @@ alias: my-llama-3
 ```
 
 That is the whole config: a `name` (the alias clients call) and an `alias` key
-(the target that actually serves the request).
+(the target that actually serves the request). An alias may add an
+optional [profile](#profile-aliases) block.
 
 ## Rules and behavior
 
@@ -40,6 +41,44 @@ That is the whole config: a `name` (the alias clients call) and an `alias` key
 
 To serve a name from several models with automatic fallback, use a [failover
 chain]({{%relref "features/model-failover" %}}).
+
+## Profile aliases
+
+An alias can also act as a **profile** of its target: a different assistant on
+the same loaded model. Add an optional `profile` block; its fields are applied on
+top of the target's config for requests to the alias:
+
+| Field | Effect |
+|-------|--------|
+| `profile.system_prompt` | Replaces the target's system prompt. A system message sent by the client still takes precedence, as for any model. |
+| `profile.mcp` (`remote`, `stdio`) | Replaces the target's MCP servers. |
+| `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`. See [MCP]({{%relref "features/mcp" %}}). |
+| `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  system_prompt: You are a careful research assistant. Cite your sources.
+  client_tools: drop
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+```
+
+Requests to `researcher` run on the **same backend process** as `my-llama-3`:
+the model is not loaded a second time, however many profiles point at it. A
+separate model config with its own `backend` and model file would load the
+weights again. Fields the profile does not set are taken from the target.
+
+The block is opt-in. Only fields inside `profile` are applied: top-level fields
+on an alias (`system_prompt`, `mcp`, sampling parameters, templates, ...) are
+still ignored, so an alias without a `profile` block behaves exactly as before.
+A `profile` block on a model that is not an alias is rejected.
+
+MCP sessions of a profile with its own servers are kept apart from the target's,
+so profiles with different tool sets do not interfere with each other.
 
 ## Managing aliases
 
@@ -96,6 +135,7 @@ time. See [Scheduling a model alias]({{%relref "features/distributed-mode" %}}#s
 
 ## Limits
 
-Aliases are a static 1:1 redirect. For classifier-based or load-balanced
+Aliases are a static 1:1 redirect; a profile block changes only the fields listed
+above, not the model or its loading options. For classifier-based or load-balanced
 selection across several downstream models, use the intelligent router in the
 [Middleware]({{%relref "operations/middleware" %}}) feature instead.

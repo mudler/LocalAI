@@ -212,6 +212,23 @@ func applyAutoparserOverride(
 	return []schema.Choice{newChoice}
 }
 
+// selectMCPServers returns the MCP servers a chat request enables: the ones
+// named in metadata.mcp_servers or, with mcp.auto, every configured server when
+// the request names none. mcp.auto exists because plain OpenAI clients cannot
+// send that metadata and would otherwise never reach server-side tools. The
+// assistant modality brings its own tools and is left alone.
+func selectMCPServers(cfg *config.ModelConfig, requested []string, assistantMode bool) []string {
+	if len(requested) > 0 || assistantMode || !cfg.MCP.Auto || !cfg.MCP.HasMCPServers() {
+		return requested
+	}
+	names, err := cfg.MCP.ServerNames()
+	if err != nil {
+		xlog.Error("Failed to parse MCP config", "error", err)
+		return requested
+	}
+	return names
+}
+
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Tags inference
@@ -313,6 +330,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			xlog.Debug("LocalAI Assistant tools injected", "count", len(mcpFuncs))
 		}
 
+		mcpServers = selectMCPServers(config, mcpServers, assistantMode)
+
 		// MCP prompt and resource injection (extracted before tool injection)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
 		mcpResourceURIs := mcpTools.MCPResourcesFromMetadata(input.Metadata)
@@ -320,10 +339,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, config.Name, remote, stdio, mcpServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, config.MCPSessionKey(), remote, stdio, mcpServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
-				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.Name, remote, stdio, mcpServers)
+				namedSessions, sessErr := mcpTools.NamedSessionsFromMCPConfig(config.MCPSessionKey(), remote, stdio, mcpServers)
 				if sessErr == nil && len(namedSessions) > 0 {
 					mcpCtx, _ := mcpTools.InjectMCPContext(c.Request().Context(), namedSessions, mcpPromptName, mcpPromptArgs, mcpResourceURIs)
 					if mcpCtx != nil {
