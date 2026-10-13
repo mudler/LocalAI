@@ -1,0 +1,73 @@
+name: Launcher AppImage
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: false
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cmd/launcher/**'
+      - 'pkg/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'contrib/appimage/**'
+      - '.github/workflows/launcher-appimage.yaml'
+      - '.github/workflows/release.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    # Native CGO build; glibc 2.35 is the supported minimum.
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install Fyne and validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file pkg-config libgl1-mesa-dev xorg-dev libxkbcommon-dev desktop-file-utils xvfb xauth
+      - name: Check packaging contracts
+        run: make test-launcher-appimage
+      - name: Build native amd64 AppImage
+        run: make build-launcher-appimage APPIMAGE_ARCH=amd64
+      - name: Extract and smoke without FUSE
+        run: bash contrib/appimage/smoke.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-appimage-x86_64
+          path: |
+            dist/LocalAI-Launcher-x86_64.AppImage
+            dist/LocalAI-Launcher-x86_64.AppImage.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: appimage
+    if: inputs.publish && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      # Download only: never execute repository code with the write token.
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-appimage-x86_64
+          path: dist
+      - name: Attach to existing version release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The caller waits for GoReleaser. Never create or replace its release.
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+          gh release upload "$GITHUB_REF_NAME" dist/LocalAI-Launcher-x86_64.AppImage dist/LocalAI-Launcher-x86_64.AppImage.sha256 --clobber --repo "$GITHUB_REPOSITORY"

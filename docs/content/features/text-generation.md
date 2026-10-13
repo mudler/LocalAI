@@ -548,7 +548,10 @@ It is sufficient to copy the `ggml` or `gguf` model files in the `models` folder
 
 [You can optionally create an associated YAML]({{%relref "advanced" %}}) model config file to tune the model's parameters or apply a template to the prompt.
 
-Prompt templates are useful for models that are fine-tuned towards a specific prompt. 
+Prompt templates are useful for models that are fine-tuned towards a specific prompt.
+
+With the llama.cpp backend, streaming and non-streaming chat requests preserve
+the template's grammar, stop strings, and message boundaries.
 
 ##### Automatic setup
 

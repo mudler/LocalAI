@@ -1701,3 +1701,11 @@ release-launcher-darwin: notarize-launcher-darwin
 
 build-launcher-linux:
 	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+
+# Thin native launcher only; retains the first-run LocalAI runtime downloader.
+.PHONY: build-launcher-appimage test-launcher-appimage
+build-launcher-appimage:
+	APPIMAGE_ARCH=$(or $(APPIMAGE_ARCH),amd64) bash contrib/appimage/build.sh
+
+test-launcher-appimage:
+	python3 -m unittest discover -s contrib/appimage -p 'test_*.py' -v
