@@ -327,7 +327,8 @@
       "rejects anonymous and forged forwarding authority through real authentication",
       "rejects anonymous callers and forged forwarding headers",
       "requires same-origin browser requests for cookie mutations",
-      "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys"
+      "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
+      "treats every action except the known reads as a mutation"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -370,7 +371,8 @@
           "serves only declared installed generation assets and rejects traversal",
           "still reports unavailable when the owner is unable to serve and not forbidden",
           "types an unknown mutation outcome as unavailable without losing its operation",
-          "validates finite relay budgets and prevents disabling polling bounds"
+          "validates finite relay budgets and prevents disabling polling bounds",
+          "treats every action except the known reads as a mutation"
         ]
       },
       {

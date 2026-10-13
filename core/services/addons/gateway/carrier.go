@@ -299,7 +299,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	req.Header.Set("Content-Type", "application/json")
 	resp, e = c.client.Do(req)
 	if e != nil {
-		if mutation(wire.Request.Action) {
+		if wire.Relay == nil && mutation(wire.Request.Action) {
 			return nil, &OutcomeUnknown{OperationID: wire.Request.OperationID}
 		}
 		return nil, ErrUnavailable
@@ -311,7 +311,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
 		// the owner may have recorded or applied it before it failed.
-		if mutation(wire.Request.Action) {
+		if wire.Relay == nil && mutation(wire.Request.Action) {
 			return nil, &OutcomeUnknown{OperationID: wire.Request.OperationID}
 		}
 		return nil, ErrUnavailable
@@ -330,8 +330,11 @@ func mutationOutcome(r contract.Request, e error) error {
 	}
 	return &OutcomeUnknown{OperationID: r.OperationID}
 }
+
+// mutation fails closed: only the known read actions are exempt, so an action
+// added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action == "install" || action == "enable" || action == "disable" || action == "uninstall"
+	return action != "read" && action != "operation-status"
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})
