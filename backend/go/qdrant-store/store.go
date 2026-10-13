@@ -43,7 +43,7 @@ func newClient(cfg Config) (*qdrant.Client, error) {
 		GrpcOptions:            []grpc.DialOption{grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgBytes))},
 	}
 	if cfg.UseTLS {
-		qcfg.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13, InsecureSkipVerify: cfg.TLSSkipVerify}
+		qcfg.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: cfg.TLSSkipVerify}
 		if cfg.TLSCACert != "" {
 			pem, err := os.ReadFile(cfg.TLSCACert)
 			if err != nil {
@@ -86,6 +86,7 @@ func (s *QdrantStore) Load(opts *pb.ModelOptions) error {
 	defer cancel()
 	if err := s.checkCollection(ctx); err != nil && !isNotFound(err) {
 		_ = client.Close()
+		s.client = nil
 		return fmt.Errorf("qdrant-store: %s: %w", cfg.Addr(), err)
 	}
 	return nil
