@@ -69,7 +69,23 @@ func New(opts ...config.AppOption) (*Application, error) {
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
 
+	// The account database is opened before the services start: the add-on
+	// owner checks its callers against it in named-user mode, and has no
+	// identity to check them with when it starts first.
+	if options.Auth.Enabled {
+		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
+		}
+		application.authDB = authDB
+	}
+
 	if err := application.start(); err != nil {
+		if application.authDB != nil {
+			if sqlDB, e := application.authDB.DB(); e == nil {
+				_ = sqlDB.Close()
+			}
+		}
 		return nil, err
 	}
 
@@ -148,11 +164,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			options.Auth.APIKeyHMACSecret = secret
 		}
 
-		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
-		}
-		application.authDB = authDB
+		authDB := application.authDB
 		xlog.Info("Auth enabled", "database", sanitize.URL(options.Auth.DatabaseURL))
 
 		// Start session and expired API key cleanup goroutine

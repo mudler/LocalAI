@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -449,3 +450,36 @@ type statusFixture struct {
 }
 
 func (f *statusFixture) Status(context.Context, string) (addons.Status, error) { return f.s, f.err }
+
+var _ = Describe("addon owner in a full application start", func() {
+	It("starts the named-user gateway when authentication is enabled", func() {
+		dir := GinkgoT().TempDir()
+		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
+		Expect(os.Mkdir(models, 0o750)).To(Succeed())
+		Expect(os.Mkdir(backends, 0o750)).To(Succeed())
+		state, e := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
+		Expect(e).NotTo(HaveOccurred())
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		root := filepath.Join(dir, "addons")
+		DeferCleanup(func() {
+			_ = filepath.Walk(root, func(p string, i os.FileInfo, e error) error {
+				if e == nil && i.IsDir() {
+					_ = os.Chmod(p, 0700)
+				}
+				return nil
+			})
+		})
+		owner := config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: root, ListenAddress: "127.0.0.1:0", Transport: ownerTransport()}
+		a, e := New(
+			config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(dir),
+			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(dir, "auth.db")), config.WithAuthAPIKeyHMACSecret("secret"),
+			config.WithAddons(owner),
+		)
+		Expect(e).NotTo(HaveOccurred(), "the account database must exist before the owner starts: named-user mode checks it")
+		DeferCleanup(a.Shutdown)
+		Expect(a.AuthDB()).NotTo(BeNil())
+		Expect(a.AddonGateway()).NotTo(BeNil())
+		Expect(a.AddonManager()).NotTo(BeNil())
+	})
+})
