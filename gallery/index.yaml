@@ -21926,6 +21926,147 @@
     - filename: minimax-h3/tokenizer.json
       sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-q4-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/leejet/MiniMax-H3-GGUF
+    - https://huggingface.co/Comfy-Org/MiniMax-H3
+    - https://github.com/leejet/stable-diffusion.cpp
+  description: |
+    MiniMax-H3 served by stable-diffusion.cpp. It generates video AND stereo
+    audio jointly from a text prompt, so a clip comes back as an MP4 with a
+    soundtrack. Muxing the finished frames needs ffmpeg on the host.
+
+    This is the FL2VA partition: text-to-video, first-frame (I2VA) and
+    first/last-frame (FL2VA) conditioning. It refuses reference conditioning
+    (reference image or audio): that needs minimax-h3-ref2va-q4-ggml, which is a
+    separate checkpoint.
+
+    Weights are the Q4_K_M quantisation of the FL2VA DiT (~18.8 GB), the
+    Qwen3-VL-32B MiniMax-H3 text encoder (~18 GB), the fp16 video VAE (~5 GB)
+    and the fp32 audio VAE (~0.6 GB). MiniMax-H3 runs at 24 fps and the width
+    and height are rounded up to a multiple of 32. The frame count is
+    rounded up to the 17k + 5 grid.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - stablediffusion-ggml
+    - gguf
+    - quantized
+    - gpu
+  last_checked: "2026-10-13"
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1.0
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      - diffusion_model
+      - llm_path:qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      - vae_path:minimax_h3_video_vae_fp16.safetensors
+      - audio_vae_path:minimax_h3_audio_vae_fp32.safetensors
+      # stable-diffusion.cpp cannot tell the FL2VA and REF2VA DiTs apart from
+      # the weights. The backend reads this to refuse reference input on FL2VA.
+      - video_partition:fl2va
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: minimax_h3_fl2va-Q4_K_M.gguf
+  files:
+    - filename: minimax_h3_fl2va-Q4_K_M.gguf
+      sha256: a25ee3184dd56e7fc5c8db1508d2e48a7e3c92919b516935c6059e4228e16107
+      uri: huggingface://leejet/MiniMax-H3-GGUF/minimax_h3_fl2va-Q4_K_M.gguf
+    - filename: qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: huggingface://leejet/MiniMax-H3-GGUF/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+    - filename: minimax_h3_video_vae_fp16.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://leejet/MiniMax-H3-GGUF/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax_h3_audio_vae_fp32.safetensors
+      sha256: 8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48
+      uri: huggingface://leejet/MiniMax-H3-GGUF/vae/minimax_h3_audio_vae_fp32.safetensors
+- name: minimax-h3-ref2va-q4-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/leejet/MiniMax-H3-GGUF
+    - https://huggingface.co/Comfy-Org/MiniMax-H3
+    - https://github.com/leejet/stable-diffusion.cpp
+  description: |
+    MiniMax-H3 served by stable-diffusion.cpp. It generates video AND stereo
+    audio jointly from a text prompt, so a clip comes back as an MP4 with a
+    soundtrack. Muxing the finished frames needs ffmpeg on the host.
+
+    This is the pruned REF2VA partition, the one that takes REFERENCE
+    conditioning: a reference image (params.ref_image) and reference audio
+    (the audio field) steer the subject and the voice of the clip. It does not
+    serve first/last-frame keyframes, and keyframes cannot be mixed with
+    references. Reference video is not wired through LocalAI yet. For plain
+    text-to-video or keyframes use minimax-h3-fl2va-q4-ggml.
+
+    Weights are the Q4_K_M quantisation of the REF2VA DiT (~11.4 GB), the
+    Qwen3-VL-32B MiniMax-H3 text encoder (~18 GB), the fp16 video VAE (~5 GB)
+    and the fp32 audio VAE (~0.6 GB). MiniMax-H3 runs at 24 fps and the width
+    and height are rounded up to a multiple of 32. The frame count is
+    rounded up to the 17k + 5 grid.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - stablediffusion-ggml
+    - gguf
+    - quantized
+    - gpu
+  last_checked: "2026-10-13"
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1.0
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      - diffusion_model
+      - llm_path:qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      - vae_path:minimax_h3_video_vae_fp16.safetensors
+      - audio_vae_path:minimax_h3_audio_vae_fp32.safetensors
+      # stable-diffusion.cpp cannot tell the FL2VA and REF2VA DiTs apart from
+      # the weights. The backend reads this to refuse reference input on FL2VA.
+      - video_partition:ref2va
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: minimax_h3_ref2va_pruned-Q4_K_M.gguf
+  files:
+    - filename: minimax_h3_ref2va_pruned-Q4_K_M.gguf
+      sha256: 9ca1aef9f4609a56c2c751484013e1b20fe352f892122e5ab0a428fb95a7956e
+      uri: huggingface://leejet/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q4_K_M.gguf
+    - filename: qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: huggingface://leejet/MiniMax-H3-GGUF/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+    - filename: minimax_h3_video_vae_fp16.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://leejet/MiniMax-H3-GGUF/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax_h3_audio_vae_fp32.safetensors
+      sha256: 8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48
+      uri: huggingface://leejet/MiniMax-H3-GGUF/vae/minimax_h3_audio_vae_fp32.safetensors
 - name: vllm-omni-qwen3-omni-30b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

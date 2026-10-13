@@ -501,3 +501,55 @@ func upscaleTestRoot() string {
 	Expect(os.WriteFile(filepath.Join(root, "model.gguf"), []byte("model"), 0600)).To(Succeed())
 	return root
 }
+
+var _ = DescribeTable("detectVideoPartition",
+	func(modelFile string, options []string, want string) {
+		Expect(detectVideoPartition(modelFile, options)).To(Equal(want))
+	},
+	Entry("fl2va from the file name", "minimax_h3_fl2va-Q4_K_M.gguf", nil, partitionFL2VA),
+	Entry("ref2va from the file name", "minimax_h3_ref2va-Q4_K_M.gguf", nil, partitionRef2VA),
+	Entry("name match ignores case and directories", "/m/MiniMax_H3_REF2VA-Q4.gguf", nil, partitionRef2VA),
+	Entry("diffusion_model_path option", "x.gguf", []string{"diffusion_model_path:minimax_h3_fl2va-Q4_K_M.gguf"}, partitionFL2VA),
+	Entry("explicit option beats the name", "minimax_h3_fl2va-Q4_K_M.gguf", []string{"video_partition:ref2va"}, partitionRef2VA),
+	Entry("bad option value falls back to the name", "minimax_h3_ref2va.gguf", []string{"video_partition:nope"}, partitionRef2VA),
+	Entry("unknown model", "wan2.2.gguf", nil, ""),
+)
+
+var _ = Describe("MiniMax-H3 video conditioning", func() {
+	It("maps ref_image and ignores unknown keys", func() {
+		extra, err := parseVideoRequestParams(map[string]string{"ref_image": " /tmp/a.png ", "other": "1"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(extra.refImage).To(Equal("/tmp/a.png"))
+	})
+
+	It("refuses ref_video", func() {
+		_, err := parseVideoRequestParams(map[string]string{"ref_video": "/tmp/frames"})
+		Expect(err).To(MatchError(ContainSubstring("ref_video")))
+	})
+
+	It("accepts t2va and keyframes on FL2VA", func() {
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, videoExtraParams{})).To(Succeed())
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{StartImage: "a.png"}, videoExtraParams{})).To(Succeed())
+	})
+
+	It("refuses a reference image on FL2VA", func() {
+		err := checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, videoExtraParams{refImage: "a.png"})
+		Expect(err).To(MatchError(ContainSubstring("REF2VA")))
+	})
+
+	It("refuses reference audio on FL2VA", func() {
+		err := checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{Audio: "a.wav"}, videoExtraParams{})
+		Expect(err).To(MatchError(ContainSubstring("REF2VA")))
+	})
+
+	It("accepts references on REF2VA and on an unknown partition", func() {
+		req := &pb.GenerateVideoRequest{Audio: "a.wav"}
+		Expect(checkPartitionConditioning(partitionRef2VA, req, videoExtraParams{refImage: "a.png"})).To(Succeed())
+		Expect(checkPartitionConditioning("", req, videoExtraParams{})).To(Succeed())
+	})
+
+	It("refuses keyframes mixed with references", func() {
+		err := checkPartitionConditioning(partitionRef2VA, &pb.GenerateVideoRequest{EndImage: "e.png"}, videoExtraParams{refImage: "a.png"})
+		Expect(err).To(MatchError(ContainSubstring("cannot be used together")))
+	})
+})

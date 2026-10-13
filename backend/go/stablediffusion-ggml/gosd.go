@@ -26,6 +26,8 @@ type SDGGML struct {
 	cfgScale     float32
 	customSigmas []float32
 	vaeTiling    vaeTiling
+	// videoPartition is "fl2va", "ref2va" or "" (unknown) for MiniMax-H3.
+	videoPartition string
 }
 
 var (
@@ -35,7 +37,7 @@ var (
 	UpscalerDestroy func(uintptr)
 	LoadModel       func(model, model_apth string, options []uintptr, threads int32, diff int) int
 	GenImage        func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
-	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string) int
+	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string, refImage string, refAudio string) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -146,6 +148,83 @@ func parseTileSize(value string) (int, int, bool) {
 	return x, y, true
 }
 
+// Video partitions of MiniMax-H3. The FL2VA DiT serves t2va and keyframe
+// conditioning; the REF2VA DiT serves reference conditioning.
+const (
+	partitionFL2VA  = "fl2va"
+	partitionRef2VA = "ref2va"
+)
+
+// detectVideoPartition tells the two MiniMax-H3 DiTs apart. stable-diffusion.cpp
+// has no key in the weights for it, so the loaded model cannot be asked.
+// Choice made here: the explicit backend option "video_partition:fl2va|ref2va"
+// wins; otherwise the model file name is matched for "fl2va" or "ref2va"
+// (the upstream file names are minimax_h3_fl2va-*.gguf and minimax_h3_ref2va-*.gguf).
+// An unrecognised name returns "" and the guard is then not applied.
+func detectVideoPartition(modelFile string, options []string) string {
+	for _, op := range options {
+		if name, value, ok := strings.Cut(op, ":"); ok && name == "video_partition" {
+			switch v := strings.ToLower(strings.TrimSpace(value)); v {
+			case partitionFL2VA, partitionRef2VA:
+				return v
+			}
+		}
+	}
+	// The DiT may also be given as an option path (diffusion_model_path:...).
+	candidates := []string{modelFile}
+	for _, op := range options {
+		if name, value, ok := strings.Cut(op, ":"); ok && name == "diffusion_model_path" {
+			candidates = append(candidates, value)
+		}
+	}
+	for _, c := range candidates {
+		base := strings.ToLower(filepath.Base(c))
+		switch {
+		case strings.Contains(base, partitionRef2VA):
+			return partitionRef2VA
+		case strings.Contains(base, partitionFL2VA):
+			return partitionFL2VA
+		}
+	}
+	return ""
+}
+
+// videoExtraParams holds the per-request knobs that have no proto field.
+type videoExtraParams struct {
+	refImage string
+}
+
+// parseVideoRequestParams reads GenerateVideoRequest.Params. Unknown keys are
+// ignored, as before. ref_video needs a decoded frame sequence the proto cannot
+// carry yet, so it is refused instead of being dropped silently.
+func parseVideoRequestParams(params map[string]string) (videoExtraParams, error) {
+	var extra videoExtraParams
+	if v := strings.TrimSpace(params["ref_video"]); v != "" {
+		return extra, fmt.Errorf("stablediffusion-ggml: params.ref_video is not supported yet")
+	}
+	extra.refImage = strings.TrimSpace(params["ref_image"])
+	return extra, nil
+}
+
+// checkPartitionConditioning refuses conditioning the loaded MiniMax-H3 DiT
+// cannot serve. A reference input on the FL2VA checkpoint does not fail in
+// stable-diffusion.cpp; it renders a wrong video, so fail before generating.
+func checkPartitionConditioning(partition string, opts *pb.GenerateVideoRequest, extra videoExtraParams) error {
+	hasKeyframe := opts.GetStartImage() != "" || opts.GetEndImage() != ""
+	hasReference := extra.refImage != "" || opts.GetAudio() != ""
+
+	if hasKeyframe && hasReference {
+		return fmt.Errorf("stablediffusion-ggml: keyframes (start_image/end_image) and reference " +
+			"conditioning (params.ref_image/audio) cannot be used together")
+	}
+	if partition == partitionFL2VA && hasReference {
+		return fmt.Errorf("stablediffusion-ggml: the FL2VA checkpoint serves t2va and keyframes only; " +
+			"reference conditioning (params.ref_image/audio) needs the REF2VA checkpoint. " +
+			"Use start_image for first-frame conditioning instead")
+	}
+	return nil
+}
+
 // Copied from Purego internal/strings
 // TODO: We should upstream sending []string
 func hasSuffix(s, suffix string) bool {
@@ -227,6 +306,7 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	// Read from the unfiltered list: none of the tiling options name a path, so
 	// the resolution pass above neither rewrites nor drops them.
 	sd.vaeTiling = parseVAETiling(opts.Options)
+	sd.videoPartition = detectVideoPartition(modelFile, opts.Options)
 
 	ret := LoadModel(modelFile, modelPathC, options, opts.Threads, diffusionModel)
 	runtime.KeepAlive(keepAlive)
@@ -344,6 +424,14 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 		cfg = 5.0
 	}
 
+	extra, err := parseVideoRequestParams(opts.Params)
+	if err != nil {
+		return err
+	}
+	if err := checkPartitionConditioning(sd.videoPartition, opts, extra); err != nil {
+		return err
+	}
+
 	// sd_vid_gen_params_new allocates; gen_video frees it after the generation call.
 	p := VidGenParamsNew()
 	VidGenParamsSetPrompts(p, opts.Prompt, opts.NegativePrompt)
@@ -354,7 +442,7 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	fmt.Fprintf(os.Stderr, "GenerateVideo: dst=%s size=%dx%d frames=%d fps=%d steps=%d cfg=%.2f\n",
 		dst, width, height, numFrames, fps, steps, cfg)
 
-	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage)
+	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage, extra.refImage, opts.Audio)
 	if ret != 0 {
 		return fmt.Errorf("video inference failed (code %d)", ret)
 	}

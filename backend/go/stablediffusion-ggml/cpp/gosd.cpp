@@ -1148,6 +1148,87 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
     return buf;
 }
 
+// Read a RIFF/WAVE file (PCM 16/24/32-bit or IEEE float 32-bit) into an
+// sd_audio_t holding planar float samples (all of channel 0, then channel 1,
+// ...), the layout sd.cpp expects. The caller owns out->data (free()).
+// Returns false and prints the reason on any unsupported or malformed input.
+static bool load_wav_audio(const char* path, sd_audio_t* out) {
+    *out = {0, 0, 0, nullptr};
+    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "Failed to open reference audio '%s'\n", path); return false; }
+
+    auto rd16 = [](const uint8_t* b) { return (uint32_t)b[0] | ((uint32_t)b[1] << 8); };
+    auto rd32 = [](const uint8_t* b) { return (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24); };
+
+    uint8_t hdr[12];
+    if (fread(hdr, 1, 12, f) != 12 || memcmp(hdr, "RIFF", 4) != 0 || memcmp(hdr + 8, "WAVE", 4) != 0) {
+        fprintf(stderr, "Reference audio '%s' is not a WAV file (convert it to WAV first)\n", path);
+        fclose(f);
+        return false;
+    }
+
+    uint32_t format = 0, channels = 0, rate = 0, bits = 0;
+    std::vector<uint8_t> data;
+    bool have_data = false;
+    uint8_t ch[8];
+    while (fread(ch, 1, 8, f) == 8) {
+        uint32_t size = rd32(ch + 4);
+        if (memcmp(ch, "fmt ", 4) == 0 && size >= 16) {
+            std::vector<uint8_t> fmt(size);
+            if (fread(fmt.data(), 1, size, f) != size) break;
+            format = rd16(fmt.data());
+            channels = rd16(fmt.data() + 2);
+            rate = rd32(fmt.data() + 4);
+            bits = rd16(fmt.data() + 14);
+            // WAVE_FORMAT_EXTENSIBLE: the real format tag is the first two bytes of the sub-format GUID.
+            if (format == 0xFFFE && size >= 26) format = rd16(fmt.data() + 24);
+        } else if (memcmp(ch, "data", 4) == 0) {
+            data.resize(size);
+            size_t got = fread(data.data(), 1, size, f);
+            data.resize(got);
+            have_data = true;
+            break;
+        } else if (fseek(f, (long)size, SEEK_CUR) != 0) {
+            break;
+        }
+        if (size & 1) fseek(f, 1, SEEK_CUR);
+    }
+    fclose(f);
+
+    bool is_float = format == 3 && bits == 32;
+    bool is_pcm = format == 1 && (bits == 16 || bits == 24 || bits == 32);
+    if (!have_data || channels == 0 || rate == 0 || (!is_float && !is_pcm)) {
+        fprintf(stderr, "Unsupported or malformed WAV '%s' (format=%u bits=%u channels=%u rate=%u)\n",
+                path, format, bits, channels, rate);
+        return false;
+    }
+
+    size_t bytes_per_sample = bits / 8;
+    uint64_t frames = data.size() / (bytes_per_sample * channels);
+    if (frames == 0) { fprintf(stderr, "Reference audio '%s' has no samples\n", path); return false; }
+    float* planar = (float*)malloc((size_t)frames * channels * sizeof(float));
+    if (!planar) return false;
+    for (uint64_t i = 0; i < frames; i++) {
+        for (uint32_t c = 0; c < channels; c++) {
+            const uint8_t* b = data.data() + (i * channels + c) * bytes_per_sample;
+            float v;
+            if (is_float) {
+                memcpy(&v, b, 4);
+            } else if (bits == 16) {
+                v = (int16_t)rd16(b) / 32768.0f;
+            } else if (bits == 24) {
+                int32_t x = (int32_t)((uint32_t)b[0] << 8 | (uint32_t)b[1] << 16 | (uint32_t)b[2] << 24) >> 8;
+                v = x / 8388608.0f;
+            } else {
+                v = (int32_t)rd32(b) / 2147483648.0f;
+            }
+            planar[(uint64_t)c * frames + i] = v;
+        }
+    }
+    *out = {rate, channels, frames, planar};
+    return true;
+}
+
 // Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
 // sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
 // interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
@@ -1365,7 +1446,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     return 0;
 }
 
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image) {
+int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_image, char *ref_audio) {
     if (!p) return 1;
     if (!dst || strlen(dst) == 0) {
         fprintf(stderr, "gen_video: dst is empty\n");
@@ -1415,6 +1496,36 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     p->init_image = init_img;
     p->end_image  = end_img;
 
+    // MiniMax-H3 Ref2VA references. Keyframes and references are mutually
+    // exclusive upstream; the Go side rejects the mix before getting here.
+    uint8_t* ref_buf = nullptr;
+    sd_image_t ref_img = {0, 0, 0, nullptr};
+    sd_audio_t ref_aud = {0, 0, 0, nullptr};
+    auto free_inputs = [&]() {
+        if (init_buf) free(init_buf);
+        if (end_buf) free(end_buf);
+        if (ref_buf) free(ref_buf);
+        if (ref_aud.data) free(ref_aud.data);
+    };
+    if (ref_image && strlen(ref_image) > 0) {
+        // Keep the native size: upstream keeps the aspect ratio of a reference
+        // image and only downscales it when it exceeds the output canvas.
+        int rc_ = 0, rw = 0, rh = 0;
+        ref_buf = stbi_load(ref_image, &rw, &rh, &rc_, 3);
+        if (!ref_buf) {
+            fprintf(stderr, "Failed to load reference image from '%s'\n", ref_image);
+            free_inputs(); std::free(p); return 1;
+        }
+        ref_img = {(uint32_t)rw, (uint32_t)rh, 3, ref_buf};
+        p->ref_images = &ref_img;
+        p->ref_images_count = 1;
+    }
+    if (ref_audio && strlen(ref_audio) > 0) {
+        if (!load_wav_audio(ref_audio, &ref_aud)) { free_inputs(); std::free(p); return 1; }
+        p->ref_audios = &ref_aud;
+        p->ref_audios_count = 1;
+    }
+
     // Generate
     int num_frames_out = 0;
     int effective_fps = fps;
@@ -1426,8 +1537,7 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     if (!ok || !frames || num_frames_out == 0) {
         fprintf(stderr, "generate_video produced no frames\n");
         if (audio) free_sd_audio(audio);
-        if (init_buf) free(init_buf);
-        if (end_buf) free(end_buf);
+        free_inputs();
         return 1;
     }
 
@@ -1440,8 +1550,7 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
     }
     free(frames);
     if (audio) free_sd_audio(audio);
-    if (init_buf) free(init_buf);
-    if (end_buf) free(end_buf);
+    free_inputs();
 
     if (rc == 0) {
         fprintf(stderr, "gen_video done: %s\n", dst);
