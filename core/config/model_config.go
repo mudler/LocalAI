@@ -2235,7 +2235,7 @@ const (
 	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
 
 	// Marks a model as a motion-capture backend (GEM-X pose streaming).
-	// Keep every usecase flag a distinct bit: TestUsecaseFlagsAreDistinct
+	// Keep every usecase flag a distinct bit: the "Usecase flags" spec
 	// guards against two flags silently sharing one.
 	FLAG_MOTION ModelConfigUsecase = 1 << 27
 
