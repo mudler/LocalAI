@@ -74,6 +74,8 @@
 .ad-card__note[data-tone="error"],
 .ad-entry__note[data-tone="error"] { color: var(--dk-error-text); }
 .ad-entry__note[data-tone="ok"] { color: var(--dk-ok-text); }
+.ad-unknown { display: flex; flex-direction: column; gap: var(--dk-space-2, 8px); align-items: flex-start; }
+.ad-unknown__acts { display: inline-flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); }
 
 .ad-icon { flex: none; width: 40px; height: 40px; border-radius: var(--dk-radius-2); object-fit: cover; background: var(--dk-inset); }
 .ad-icon--empty { display: inline-grid; place-items: center; color: var(--dk-muted); font-size: 20px; }

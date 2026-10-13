@@ -8,9 +8,9 @@ import ConfirmDialog from '../ConfirmDialog'
 import SideSheet from '../SideSheet'
 import CatalogEmpty from '../catalog/CatalogEmpty'
 import { apiUrl } from '../../utils/basePath'
-import { StateChip, AppIcon, Fact } from './AddonBits'
+import { StateChip, AppIcon, Fact, UnknownNotice } from './AddonBits'
 import { formatBytes, rangeText, shortDigest, updateStatus } from './addonState'
-import { describeError } from './errors'
+import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
 // Everything the owner knows of what is installed: verified package facts,
@@ -44,8 +44,18 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
         sourceId: action === 'upgrade' ? addon.sourceId : undefined,
         version: action === 'upgrade' ? addon.update?.version : undefined,
       }, signal),
+      // A completed status is not proof for this click: the owner answers a
+      // replayed operation with its old status and applies nothing.
+      verify: async (signal) => {
+        const now = (await api.installed(signal)).find(a => a.id === addon.id)
+        if (action === 'uninstall') return !now
+        if (!now) return false
+        if (action === 'enable') return now.enabled === true
+        if (action === 'disable') return now.enabled === false
+        return now.generation > addon.generation
+      },
     })
-  }, [actions, adapter])
+  }, [actions, adapter, api])
 
   const selected = useMemo(() => state.addons.find(a => a.id === manage) || null, [state.addons, manage])
 
@@ -101,6 +111,7 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
 }
 
 function busy(actions, addon, verbs) {
+  if (actions.unknown[addon.id]) return true
   return verbs.some(v => actions.state[`${v}:${addon.id}:${addon.generation}`]?.phase === 'working')
 }
 
@@ -136,11 +147,11 @@ function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
           {update.kind === 'available' && <Fact icon="arrow-up" tone="warn">{t('installed.updateAvailable', { version: update.version })}</Fact>}
         </div>
         {working && <p className="ad-entry__note" role="status">{t('apps.working')}</p>}
-        {result && result.outcome !== 'completed' && (
-          <p className="ad-entry__note" data-tone="error" role="alert">
-            {result.outcome === 'failed' ? t('actions.failed') : result.outcome === 'unknown' ? t('actions.unknown') : describeError({ kind: result.outcome }, t)}
-          </p>
-        )}
+        {actions.unknown[addon.id]
+          ? <UnknownNotice addonId={addon.id} actions={actions} />
+          : result && result.outcome !== 'completed' && (
+            <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(result.outcome, t)}</p>
+          )}
       </div>
       <div className="ad-entry__acts">
         {addon.enabled ? (

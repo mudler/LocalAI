@@ -1,7 +1,11 @@
 {
   "actions": {
+    "blocked": "An earlier action on this add-on is not confirmed yet. Check its status or dismiss it first.",
+    "checkStatus": "Check status",
+    "dismiss": "Dismiss",
     "failed": "The owner did not complete the action. Nothing was changed. Try again to start a new attempt.",
-    "unknown": "The owner did not confirm the action yet. Do not repeat it: the page keeps checking the same operation."
+    "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
+    "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
   },
   "apps": {
     "emptyBody": "When an administrator installs and enables an add-on, it appears here.",

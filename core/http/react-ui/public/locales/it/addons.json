@@ -1,7 +1,11 @@
 {
   "actions": {
+    "blocked": "Un'azione precedente su questo componente non è ancora confermata. Controlla prima il suo stato o ignorala.",
+    "checkStatus": "Controlla lo stato",
+    "dismiss": "Ignora",
     "failed": "Il proprietario non ha completato l'azione. Nulla è stato modificato. Riprova per iniziare un nuovo tentativo.",
-    "unknown": "Il proprietario non ha ancora confermato l'azione. Non ripeterla: la pagina continua a controllare la stessa operazione."
+    "notApplied": "Il proprietario ha segnalato l'azione come completata, ma il componente non è cambiato. Riprova.",
+    "unknown": "Il proprietario non ha ancora confermato l'azione. Potrebbe ancora essere applicata. Controlla lo stato o ignorala prima di avviare un'altra azione."
   },
   "apps": {
     "emptyBody": "Quando un amministratore installa e abilita un componente, compare qui.",

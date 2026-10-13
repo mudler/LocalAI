@@ -38,3 +38,25 @@ export function Fact({ icon, children, tone }) {
     </span>
   )
 }
+
+// An action whose outcome the owner has not confirmed. The earlier operation
+// may still be applied, so the page offers to read it again (never to submit it
+// again) or to dismiss it; no other action on the add-on is sent until then.
+export function UnknownNotice({ addonId, actions, className = 'ad-entry__note' }) {
+  const { t } = useTranslation('addons')
+  const key = actions.unknown[addonId]?.key
+  const checking = key ? actions.state[key]?.phase === 'working' : false
+  return (
+    <div className={`${className} ad-unknown`} data-tone="error" role="alert" data-testid="unknown-outcome">
+      <span>{t('actions.unknown')}</span>
+      <span className="ad-unknown__acts">
+        <button type="button" className="dk-btn dk-btn--sm" disabled={checking} onClick={() => actions.checkStatus(addonId)}>
+          <Icon name="refresh" /> {t('actions.checkStatus')}
+        </button>
+        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={checking} onClick={() => actions.dismiss(addonId)}>
+          {t('actions.dismiss')}
+        </button>
+      </span>
+    </div>
+  )
+}

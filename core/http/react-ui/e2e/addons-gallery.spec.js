@@ -89,7 +89,7 @@ test.describe('Add-ons: apps', () => {
       dispatch: (body, st) => {
         if (body.action !== 'operation-status') return null
         reads += 1
-        if (reads >= 2) st.apps[0].state = 'running'
+        if (reads >= 2) { st.apps[0].state = 'running'; st.apps[0].enabled = true }
         return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: reads >= 2 ? 'completed' : 'prepared', Generation: 2 })
       },
     })
@@ -99,6 +99,114 @@ test.describe('Add-ons: apps', () => {
     expect(state.log.start).toHaveLength(1)
     const ids = new Set([state.log.start[0].operationId, ...state.log.dispatch.filter(d => d.action === 'operation-status').map(d => d.operationId)])
     expect(ids.size).toBe(1)
+  })
+
+  // The owner answers a replayed operation ID with the old status and applies
+  // nothing. This stand-in does the same, so a reused ID is a visible no-op.
+  function replayingOwner(state) {
+    const done = new Map()
+    const handler = (verb) => (body) => {
+      const known = done.get(body.operationId)
+      if (known) return ok({ OperationID: body.operationId, AddonID: body.id, Phase: 'completed', Generation: body.generation })
+      done.set(body.operationId, verb)
+      return null
+    }
+    return { start: handler('start'), stop: handler('stop'), done, state }
+  }
+
+  test('apps: an unknown start is resolved or dismissed before the next action and never replays its ID', async ({ page }) => {
+    test.setTimeout(90_000)
+    await signIn(page, ADMIN)
+    let reads = 0
+    let lose = true
+    const owner = replayingOwner(null)
+    const state = await mockAddons(page, {
+      apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 2, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })],
+      start: (body) => {
+        const replay = owner.start(body)
+        if (replay) return replay
+        if (lose) {
+          // The owner applies the start but the answer is lost.
+          const a = state.apps[0]
+          a.enabled = true; a.state = 'running'; a.admin = { canStart: false, canStop: true, managementUrl: a.admin.managementUrl }
+          return { status: 503, contentType: 'application/json', body: JSON.stringify({ error: { type: 'outcome_unknown', message: 'unknown', operationId: body.operationId } }) }
+        }
+        return null
+      },
+      stop: (body) => owner.stop(body),
+      dispatch: (body) => {
+        if (body.action !== 'operation-status') return null
+        reads += 1
+        // Polling is exhausted first; an explicit check later finds it done.
+        return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: lose && reads <= 6 ? 'prepared' : 'completed', Generation: 2 })
+      },
+    })
+    await page.goto('/app/addons')
+    const card = page.locator('[data-app="indexer"]')
+    await card.getByRole('button', { name: 'Start' }).click()
+    const notice = card.getByTestId('unknown-outcome')
+    await expect(notice).toBeVisible({ timeout: 40_000 })
+    expect(state.log.start).toHaveLength(1)
+    const firstId = state.log.start[0].operationId
+    lose = false
+    // The list now shows the app running, but a new action on it is blocked
+    // until the unknown one is read or dismissed.
+    await expect(card.getByRole('button', { name: 'Stop' })).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByRole('button', { name: 'Stop' })).toBeDisabled()
+    expect(state.log.stop).toHaveLength(0)
+    await notice.getByRole('button', { name: 'Check status' }).click()
+    await expect(notice).toHaveCount(0)
+    expect(state.log.start).toHaveLength(1)
+    // Stop is a new operation.
+    await card.getByRole('button', { name: 'Stop' }).click()
+    await expect.poll(() => state.log.stop.length).toBe(1)
+    expect(state.log.stop[0].operationId).toMatch(UUID)
+    expect(state.log.stop[0].operationId).not.toBe(firstId)
+    await expect(card.getByRole('button', { name: 'Start' })).toBeVisible()
+    // Start again: a fresh ID, applied by the owner, not replayed as a no-op.
+    await card.getByRole('button', { name: 'Start' }).click()
+    await expect.poll(() => state.log.start.length).toBe(2)
+    expect(state.log.start[1].operationId).not.toBe(firstId)
+    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
+    await expect(card.getByRole('alert')).toHaveCount(0)
+    expect(state.apps[0].enabled).toBe(true)
+  })
+
+  test('apps: dismissing an unknown outcome lets the next click mint a new operation', async ({ page }) => {
+    test.setTimeout(90_000)
+    await signIn(page, ADMIN)
+    const state = await mockAddons(page, {
+      apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 2, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })],
+      start: (body, n) => (n === 1
+        ? { status: 503, contentType: 'application/json', body: JSON.stringify({ error: { type: 'outcome_unknown', message: 'unknown', operationId: body.operationId } }) }
+        : null),
+      dispatch: (body) => (body.action === 'operation-status' ? ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'prepared', Generation: 2 }) : null),
+    })
+    await page.goto('/app/addons')
+    const card = page.locator('[data-app="indexer"]')
+    await card.getByRole('button', { name: 'Start' }).click()
+    const notice = card.getByTestId('unknown-outcome')
+    await expect(notice).toBeVisible({ timeout: 40_000 })
+    await expect(card.getByRole('button', { name: 'Start' })).toBeDisabled()
+    await notice.getByRole('button', { name: 'Dismiss' }).click()
+    await expect(notice).toHaveCount(0)
+    await card.getByRole('button', { name: 'Start' }).click()
+    await expect.poll(() => state.log.start.length).toBe(2)
+    expect(state.log.start[1].operationId).not.toBe(state.log.start[0].operationId)
+  })
+
+  test('apps: a completed status that left the app unchanged is not shown as done', async ({ page }) => {
+    await signIn(page, ADMIN)
+    await mockAddons(page, {
+      apps: [app({ id: 'indexer', title: 'Indexer', enabled: false, state: 'stopped', generation: 2, mainPage: undefined, admin: { canStart: true, canStop: false, managementUrl: '/app/addons?manage=indexer' } })],
+      // A replay answers completed and applies nothing.
+      start: (body) => ok({ OperationID: body.operationId, AddonID: 'indexer', Phase: 'completed', Generation: 2 }),
+    })
+    await page.goto('/app/addons')
+    const card = page.locator('[data-app="indexer"]')
+    await card.getByRole('button', { name: 'Start' }).click()
+    await expect(card.getByRole('alert')).toContainText('did not change')
+    await expect(card.getByRole('img', { name: 'State: Stopped' })).toBeVisible()
   })
 
   test('apps: a refused start shows the server denial and refreshes the list', async ({ page }) => {
@@ -259,6 +367,59 @@ test.describe('Add-ons: installed', () => {
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Uninstall' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Uninstall' }).click()
     await expect.poll(() => state.log.dispatch.filter(d => d.action === 'uninstall').length).toBe(1)
+  })
+
+  test('installed: Escape cancels the uninstall dialog only, then closes the sheet, and focus returns', async ({ page }) => {
+    await signIn(page, ADMIN)
+    await mockAddons(page)
+    await page.goto('/app/addons?tab=installed')
+    const manage = page.locator('[data-addon="notes"]').getByRole('button', { name: 'Details' })
+    await manage.click()
+    const sheet = page.getByTestId('addon-manage')
+    await expect(sheet).toBeVisible()
+    const uninstall = sheet.getByRole('button', { name: 'Uninstall' })
+    await uninstall.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(sheet).toBeVisible()
+    await expect(uninstall).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+    await expect(manage).toBeFocused()
+  })
+
+  test('installed: an unknown enable blocks other actions on the add-on until it is read', async ({ page }) => {
+    test.setTimeout(90_000)
+    await signIn(page, ADMIN)
+    let phase = 'prepared'
+    const state = await mockAddons(page, {
+      installed: [installedAddon({ enabled: false, state: 'stopped' })],
+      dispatch: (body, st) => {
+        if (body.action === 'enable' && st.log.dispatch.filter(d => d.action === 'enable').length === 1) {
+          return fail(503, 'outcome_unknown', { operationId: body.operationId })
+        }
+        if (body.action === 'operation-status') return ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: phase, Generation: 3 })
+        return null
+      },
+    })
+    await page.goto('/app/addons?tab=installed')
+    const row = page.locator('[data-addon="notes"]')
+    await row.getByRole('button', { name: 'Enable' }).click()
+    const notice = row.getByTestId('unknown-outcome')
+    await expect(notice).toBeVisible({ timeout: 40_000 })
+    await expect(row.getByRole('button', { name: 'Enable' })).toBeDisabled()
+    phase = 'failed'
+    await notice.getByRole('button', { name: 'Check status' }).click()
+    await expect(notice).toHaveCount(0)
+    await expect(row.getByRole('alert')).toContainText('did not complete')
+    // The failed operation is over: a new click is a new operation.
+    await row.getByRole('button', { name: 'Enable' }).click()
+    await expect.poll(() => state.log.dispatch.filter(d => d.action === 'enable').length).toBe(2)
+    const ids = state.log.dispatch.filter(d => d.action === 'enable').map(d => d.operationId)
+    expect(ids[1]).not.toBe(ids[0])
   })
 
   test('installed: a headless add-on keeps its details, health and tools', async ({ page }) => {

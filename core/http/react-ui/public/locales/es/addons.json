@@ -1,7 +1,11 @@
 {
   "actions": {
+    "blocked": "Una acción anterior sobre este complemento aún no está confirmada. Comprueba su estado o descártala primero.",
+    "checkStatus": "Comprobar estado",
+    "dismiss": "Descartar",
     "failed": "El propietario no completó la acción. No se cambió nada. Vuelve a intentarlo para iniciar un intento nuevo.",
-    "unknown": "El propietario aún no confirmó la acción. No la repitas: la página sigue comprobando la misma operación."
+    "notApplied": "El propietario informó de la acción como completada, pero el complemento no cambió. Vuelve a intentarlo.",
+    "unknown": "El propietario aún no confirmó la acción. Aún puede aplicarse. Comprueba su estado o descártala antes de iniciar otra acción."
   },
   "apps": {
     "emptyBody": "Cuando un administrador instala y habilita un complemento, aparece aquí.",

@@ -1,7 +1,11 @@
 {
   "actions": {
+    "blocked": "Aksi sebelumnya pada add-on ini belum dikonfirmasi. Periksa statusnya atau abaikan terlebih dahulu.",
+    "checkStatus": "Periksa status",
+    "dismiss": "Abaikan",
     "failed": "Pemilik tidak menyelesaikan tindakan. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
-    "unknown": "Pemilik belum mengonfirmasi tindakan. Jangan ulangi: halaman terus memeriksa operasi yang sama."
+    "notApplied": "Pemilik melaporkan aksi selesai, tetapi add-on tidak berubah. Coba lagi.",
+    "unknown": "Pemilik belum mengonfirmasi aksi ini. Aksi mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai aksi lain."
   },
   "apps": {
     "emptyBody": "Saat administrator memasang dan mengaktifkan add-on, add-on itu muncul di sini.",

@@ -1097,8 +1097,15 @@ doubles the wait up to 60 seconds, keeps the last list on screen and says it may
 out of date. Leaving the page cancels the pending read. Administrators see **Start**,
 **Stop** and **Manage** on an entry that carries the `admin` object. A start or stop
 sends a fresh operation ID with the generation that was listed and keeps that ID for
-retries of the same action. After `outcome_unknown` the page reads the original
-operation with `operation-status` and never submits a second one. A 403 (a stale
+retries of that one action: once the operation is final (completed, failed or refused)
+the ID is dropped, so the next click is a new operation and is never answered from an
+old one. After `outcome_unknown` the page reads the original
+operation with `operation-status` and never submits a second one. If the reads end
+without a final answer, the add-on shows **Check status** (one more read of the same
+operation) and **Dismiss**, and no other action on that add-on is sent until one of them
+is used. After a `completed` status the page reads the list again and says so when the
+add-on did not change, because the owner answers a replayed operation with its old status
+and applies nothing. A 403 (a stale
 generation or no permission) and a 503 are shown with the same words everywhere on the
 page, and the list is read again.
 

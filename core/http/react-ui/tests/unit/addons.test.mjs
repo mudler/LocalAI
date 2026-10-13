@@ -11,6 +11,7 @@ import {
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
+import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
 
@@ -200,4 +201,61 @@ test('a denial is not retried and an exhausted read is reported as unknown', asy
   const failed = await runLifecycle({}, { operationId: 'x', submit: async () => ({ phase: 'failed' }) })
   assert.equal(failed.outcome, 'failed')
   await assert.rejects(runLifecycle({}, { operationId: 'x', submit: async () => { throw new AddonsError({ kind: 'denied' }) } }), e => e.kind === 'denied')
+})
+
+test('an action book binds one identity to one click and its retries', () => {
+  let n = 0
+  const book = createActionBook(() => `op-${++n}`)
+  const first = book.begin('notes', 'start:notes:3')
+  assert.deepEqual([first.operationId, first.blocked], ['op-1', undefined])
+  // A retry of the same action replays the same operation.
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-1')
+  // Another subject has its own identity.
+  assert.equal(book.begin('tables', 'start:tables:1').operationId, 'op-2')
+  // An action the user abandoned for a different one never replays.
+  assert.equal(book.begin('notes', 'stop:notes:3').operationId, 'op-3')
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-4')
+})
+
+test('an action book mints a fresh identity once an action is resolved', () => {
+  let n = 0
+  const book = createActionBook(() => `op-${++n}`)
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-1')
+  book.resolve('notes', 'start:notes:3')
+  assert.equal(book.pending('notes'), null)
+  // The same key is a new click: it must not replay a finished operation.
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-2')
+  // Resolving another key leaves the pending identity alone.
+  book.resolve('notes', 'stop:notes:3')
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-2')
+  assert.equal(book.size(), 1)
+})
+
+test('an action book blocks another action on a subject with an unknown outcome until it is resolved or dismissed', () => {
+  let n = 0
+  const book = createActionBook(() => `op-${++n}`)
+  book.begin('notes', 'start:notes:3')
+  book.markUnknown('notes', 'start:notes:3')
+  assert.equal(book.pending('notes').unknown, true)
+  const blocked = book.begin('notes', 'stop:notes:3')
+  assert.deepEqual([blocked.blocked, blocked.key, blocked.operationId], [true, 'start:notes:3', 'op-1'])
+  // Nothing was minted for the blocked action, and the unknown one is intact.
+  assert.equal(book.size(), 1)
+  assert.equal(book.pending('notes').operationId, 'op-1')
+  // Another add-on is not affected.
+  assert.equal(book.begin('tables', 'start:tables:1').blocked, undefined)
+  // Resolved (status read as final) or dismissed: the next click is fresh.
+  book.resolve('notes', 'start:notes:3')
+  assert.equal(book.begin('notes', 'stop:notes:3').operationId, 'op-3')
+  book.markUnknown('notes', 'stop:notes:3')
+  book.resolve('notes', 'stop:notes:3')
+  assert.equal(book.begin('notes', 'start:notes:3').operationId, 'op-4')
+})
+
+test('a completed status that left the add-on unchanged is not reported as done', () => {
+  assert.equal(effectOutcome('completed', true), 'completed')
+  assert.equal(effectOutcome('completed', undefined), 'completed')
+  assert.equal(effectOutcome('completed', false), 'not_applied')
+  assert.equal(effectOutcome('failed', false), 'failed')
+  assert.equal(effectOutcome('unknown', false), 'unknown')
 })

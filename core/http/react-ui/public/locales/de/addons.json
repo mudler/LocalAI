@@ -1,7 +1,11 @@
 {
   "actions": {
+    "blocked": "Eine frühere Aktion für dieses Add-on ist noch nicht bestätigt. Prüfe zuerst ihren Status oder verwirf sie.",
+    "checkStatus": "Status prüfen",
+    "dismiss": "Verwerfen",
     "failed": "Der Betreiber hat die Aktion nicht abgeschlossen. Es wurde nichts geändert. Versuche es erneut, um einen neuen Versuch zu starten.",
-    "unknown": "Der Betreiber hat die Aktion noch nicht bestätigt. Wiederhole sie nicht: Die Seite prüft weiter dieselbe Operation."
+    "notApplied": "Der Betreiber meldete die Aktion als erledigt, aber das Add-on hat sich nicht geändert. Versuche es erneut.",
+    "unknown": "Der Betreiber hat die Aktion noch nicht bestätigt. Sie kann noch angewendet werden. Prüfe den Status oder verwirf sie, bevor du eine weitere Aktion startest."
   },
   "apps": {
     "emptyBody": "Sobald ein Administrator ein Add-on installiert und aktiviert, erscheint es hier.",

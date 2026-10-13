@@ -7,9 +7,9 @@ import ConfirmDialog from '../ConfirmDialog'
 import SideSheet from '../SideSheet'
 import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
-import { AppIcon, Fact } from './AddonBits'
+import { AppIcon, Fact, UnknownNotice } from './AddonBits'
 import { shortDigest } from './addonState'
-import { describeError } from './errors'
+import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
 // Library entries for this host. Install does not activate: the add-on is
@@ -49,6 +49,9 @@ export default function BrowseView({ api, adapter }) {
     actions.run(`install:${entry.key}`, {
       addonId: entry.id,
       submit: (operationId, signal) => adapter.submitLifecycle({ operationId, action: 'install', addonId: entry.id, sourceId: entry.sourceId, version: entry.version }, signal),
+      // A completed status is not proof for this click: the owner answers a
+      // replayed operation with its old status and applies nothing.
+      verify: async (signal) => (await api.installed(signal)).some(a => a.id === entry.id),
     })
   }
 
@@ -56,6 +59,7 @@ export default function BrowseView({ api, adapter }) {
     const have = installed[entry.id]
     const key = `install:${entry.key}`
     const st = actions.state[key]
+    const pending = Boolean(actions.unknown[entry.id])
     const working = st?.phase === 'working'
     return (
       <article className="ad-entry" aria-labelledby={`entry-${entry.key}`}>
@@ -78,10 +82,9 @@ export default function BrowseView({ api, adapter }) {
             {entry.channel && <Fact icon="tag">{entry.channel}</Fact>}
             {have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
           </div>
-          {st && !working && st.outcome !== 'completed' && (
-            <p className="ad-entry__note" data-tone="error" role="alert">
-              {st.outcome === 'failed' ? t('actions.failed') : st.outcome === 'unknown' ? t('actions.unknown') : describeError({ kind: st.outcome }, t)}
-            </p>
+          {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
+          {!pending && st && !working && st.outcome !== 'completed' && (
+            <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(st.outcome, t)}</p>
           )}
           {st && st.outcome === 'completed' && <p className="ad-entry__note" data-tone="ok" role="status">{t('browse.installedNotEnabled')}</p>}
         </div>
@@ -89,7 +92,7 @@ export default function BrowseView({ api, adapter }) {
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setDetails(entry)}>
             <Icon name="info" /> {t('browse.details')}
           </button>
-          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working || Boolean(have)} onClick={() => setConfirm(entry)}>
+          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working || pending || Boolean(have)} onClick={() => setConfirm(entry)}>
             <Icon name={working ? 'spinner' : 'download'} spin={working} /> {working ? t('browse.installing') : t('browse.install')}
           </button>
         </div>

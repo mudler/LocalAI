@@ -7,9 +7,9 @@ import LoadingSpinner from '../LoadingSpinner'
 import CatalogEmpty from '../catalog/CatalogEmpty'
 import { pollDelay } from '../catalog/catalogState'
 import { apiUrl } from '../../utils/basePath'
-import { StateChip, AppIcon } from './AddonBits'
+import { StateChip, AppIcon, UnknownNotice } from './AddonBits'
 import { appActions, localizedText, toolSummary } from './addonState'
-import { describeError } from './errors'
+import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
 // The apps every caller with the add-ons feature may use. The owner decides
@@ -65,6 +65,12 @@ export default function AppsView({ api }) {
     actions.run(`${verb}:${app.id}:${app.generation}`, {
       addonId: app.id,
       submit: (operationId, signal) => api.apps[verb](app.id, { operationId, generation: app.generation }, signal),
+      // A completed status is not proof for this click: the owner answers a
+      // replayed operation with its old status and applies nothing.
+      verify: async (signal) => {
+        const now = (await api.apps.list(signal)).find(a => a.id === app.id)
+        return Boolean(now) && now.enabled === (verb === 'start')
+      },
     })
   }, [actions, api])
 
@@ -113,7 +119,9 @@ function AppCard({ app, t, language, actions, onStartStop }) {
   const tools = toolSummary(app)
   const startKey = `start:${app.id}:${app.generation}`
   const stopKey = `stop:${app.id}:${app.generation}`
+  const pending = Boolean(actions.unknown[app.id])
   const working = actions.state[startKey]?.phase === 'working' || actions.state[stopKey]?.phase === 'working'
+  const locked = working || pending
   const result = actions.state[startKey]?.phase !== 'working' ? actions.state[startKey] : null
   const stopResult = actions.state[stopKey]?.phase !== 'working' ? actions.state[stopKey] : null
   const outcome = result || stopResult
@@ -152,12 +160,12 @@ function AppCard({ app, t, language, actions, onStartStop }) {
           </Link>
         )}
         {control.start && (
-          <button type="button" className="dk-btn dk-btn--sm" disabled={working} onClick={() => onStartStop(app, 'start')}>
+          <button type="button" className="dk-btn dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'start')}>
             <Icon name={working ? 'spinner' : 'play'} spin={working} /> {t('apps.start')}
           </button>
         )}
         {control.stop && (
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={working} onClick={() => onStartStop(app, 'stop')}>
+          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'stop')}>
             <Icon name={working ? 'spinner' : 'stop'} spin={working} /> {t('apps.stop')}
           </button>
         )}
@@ -168,16 +176,15 @@ function AppCard({ app, t, language, actions, onStartStop }) {
         )}
       </div>
       {working && <p className="ad-card__note" role="status">{t('apps.working')}</p>}
-      {outcome && outcome.outcome && <ActionResult outcome={outcome} t={t} />}
+      {pending
+        ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
+        : outcome && outcome.outcome && <ActionResult outcome={outcome} t={t} />}
     </li>
   )
 }
 
 function ActionResult({ outcome, t }) {
-  const kind = outcome.outcome
-  if (kind === 'completed') return null
-  const text = kind === 'failed' ? t('actions.failed')
-    : kind === 'unknown' ? t('actions.unknown')
-      : describeError({ kind }, t)
+  const text = describeOutcome(outcome.outcome, t)
+  if (!text) return null
   return <p className="ad-card__note" data-tone="error" role="alert">{text}</p>
 }
