@@ -142,6 +142,13 @@ Here the preceding word must consist of letters (plus `-` and `'`): a word
 with digits - an amount, a date, a room number - is never taken, nor a
 protected term. The search skips spaces and tabs but never a line break.
 
+The word before a hit is not always a first name: a title (`Herr`), a
+preposition or any other plain word in front of the surname is taken too
+(`Gast Greta Waldmeister` loses `Greta`, `Herrn Waldmeister` loses `Herrn`).
+Like the next-word option it trades over-masking for fewer leaks. Do not
+combine both directions on the same name group: each hit then also takes the
+word after it, so a name followed by a number swallows that number.
+
 #### Protected terms
 
 The opposite failure is a value the model tags although it must reach the
