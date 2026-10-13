@@ -72,6 +72,24 @@ var _ = Describe("addon account store failures", func() {
 	})
 })
 
+var _ = Describe("addon identity denial classification", func() {
+	It("marks every definite account refusal as the shared forbidden sentinel and never as unavailable", func() {
+		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
+		Expect(e).NotTo(HaveOccurred())
+		ghost := contract.Actor{UserID: "ghost", CredentialID: "key:none", Mode: "named-user"}
+		for name, err := range map[string]error{
+			"unknown user":   auth.ValidateAddonActor(context.Background(), db, ghost, false),
+			"local owner id": auth.ValidateAddonActor(context.Background(), db, contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: "key:1", Mode: "named-user"}, false),
+			"bogus mode":     auth.AddonRevalidate(db, "bogus")(context.Background(), ghost),
+			"forged owner":   auth.ValidateLocalOwnerActor(ghost),
+		} {
+			Expect(err).To(HaveOccurred(), name)
+			Expect(errors.Is(err, gateway.ErrForbidden)).To(BeTrue(), name)
+			Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeFalse(), name)
+		}
+	})
+})
+
 var _ = Describe("addon local-owner identity", func() {
 	It("builds the local owner actor only for the explicit mode", func() {
 		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/", nil), httptest.NewRecorder())

@@ -66,11 +66,8 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 	if a.UserID == "" || a.CredentialID == "" || len(a.UserID) > 256 || len(a.CredentialID) > 256 || (a.Mode != "named-user" && a.Mode != "local-owner") || v.Revalidate == nil {
 		return denied()
 	}
-	if err := v.Revalidate(ctx, a); err != nil {
-		if errors.Is(err, ErrUnavailable) {
-			return contract.Actor{}, ErrUnavailable
-		}
-		return denied()
+	if err := ClassifyCheck(v.Revalidate(ctx, a)); err != nil {
+		return contract.Actor{}, err
 	}
 	v.mu.Lock()
 	defer v.mu.Unlock()

@@ -147,10 +147,37 @@ var _ = Describe("typed lifecycle ingress", func() {
 	})
 })
 
+var _ = Describe("unclassified host account check failures", func() {
+	It("reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden", func() {
+		read := contract.Request{AddonID: "sample", OperationID: "op", Action: "operation-status"}
+		actor := contract.Actor{UserID: "user", CredentialID: "key", Mode: "named-user"}
+		plain := errors.New("backend answered something unexpected")
+		denial := fmt.Errorf("account paused: %w", ErrForbidden)
+		for _, row := range []struct {
+			name string
+			err  error
+			want int
+		}{{"plain", plain, 503}, {"cancelled", context.Canceled, 503}, {"denial", denial, 403}} {
+			g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return row.err }}
+			_, e := g.Dispatch(context.Background(), actor, read)
+			Expect(StatusFor(e)).To(Equal(row.want), row.name+" dispatch")
+			e = g.Relay(context.Background(), actor, RelayRequest{Request: read, Kind: "status"}, httptest.NewRecorder())
+			Expect(StatusFor(e)).To(Equal(row.want), row.name+" relay")
+			pub, priv, ke := ed25519.GenerateKey(rand.Reader)
+			Expect(ke).NotTo(HaveOccurred())
+			v := &ForwardVerifier{OwnerID: "owner", Keys: map[string]ed25519.PublicKey{"front": pub}, Revalidate: g.Revalidate}
+			m := ForwardedRequest{PeerID: "front", Audience: "owner", Actor: actor, OperationID: "op", Nonce: "n", ExpiresAt: time.Now().Add(time.Minute), Body: []byte(`{"operationId":"op"}`)}
+			m.Sign(priv)
+			_, e = v.Verify(context.Background(), PeerIdentity{ID: "front", Verified: true}, m)
+			Expect(StatusFor(e)).To(Equal(row.want), row.name+" forwarded")
+		}
+	})
+})
+
 var _ = Describe("host account check failures", func() {
 	It("reports an account store outage as unavailable and a refused account as forbidden", func() {
 		outage := fmt.Errorf("account store: %w", ErrUnavailable)
-		refused := errors.New("account disabled")
+		refused := fmt.Errorf("account disabled: %w", ErrForbidden)
 		read := contract.Request{AddonID: "sample", OperationID: "op", Action: "operation-status"}
 		actor := contract.Actor{UserID: "user", CredentialID: "key", Mode: "named-user"}
 		for check, want := range map[error]int{outage: 503, refused: 403} {

@@ -579,8 +579,11 @@ caller owns every resource. A populated store opened in the other mode is refuse
 free), after it wrote a backup, and shared data can never return to local-owner mode.
 
 Account and credential status are checked again at each admission. A storage outage
-of the account database is `503` (the check reports an unavailable cause), while a missing,
-disabled or unauthorized account is `403`, from every frontend. The policy keeps no
+of the account database is `503`, while a missing, disabled or unauthorized account is
+`403`, from every frontend. Only a definite denial (an error that wraps the shared
+forbidden sentinel) is `403`. Any other error from the account or creation check, and a
+cancelled check, is unclassified and fails closed as `503`; it is never reported as a
+refusal of a valid user. The policy keeps no
 current-user state: the actor is an argument of every call, so shared MCP sessions carry
 none. Writes to one resource run one at a time; reads run concurrently. A revocation (or
 lowering a role) is durable first, then invalidates the user's pending proposals through

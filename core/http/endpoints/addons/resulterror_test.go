@@ -10,6 +10,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -185,6 +187,19 @@ var _ = Describe("dispatch failure responses on the registered route", func() {
 		Expect(code).To(Equal(http.StatusForbidden))
 		Expect(body.Error["type"]).To(Equal("addon_error"))
 		Expect(body.Error).NotTo(HaveKey("operationId"))
+	})
+	It("reports an unclassified account check error as unavailable and a definite denial as forbidden", func() {
+		plain := func(context.Context, contract.Actor) error {
+			return errors.New("backend answered something unexpected")
+		}
+		code, body := serve(&gateway.Gateway{Revalidate: plain})("plain-op", "operation-status")
+		Expect(code).To(Equal(http.StatusServiceUnavailable))
+		Expect(body.Error["type"]).To(Equal("addon_error"))
+		denied := func(context.Context, contract.Actor) error {
+			return fmt.Errorf("account paused: %w", gateway.ErrForbidden)
+		}
+		code, _ = serve(&gateway.Gateway{Revalidate: denied})("denied-op", "operation-status")
+		Expect(code).To(Equal(http.StatusForbidden))
 	})
 	It("reports an unknown mutation outcome from the owner's own frontend with the original operation", func() {
 		root := filepath.Join(GinkgoT().TempDir(), "owner")

@@ -28,20 +28,31 @@ type Gateway struct {
 	Revalidate func(context.Context, contract.Actor) error
 }
 
-// revalidate runs the host's account and credential check. Only an explicit
-// unavailable cause (a store outage) is 503; every other refusal, and an absent
-// check, is a denial.
+// ClassifyCheck maps an error from a host-supplied account or authority check
+// to the shared answer. Only a definite denial, an error that wraps
+// ErrForbidden, is a 403. Anything else, including an unclassified error or a
+// cancelled context, means the check could not tell and is ErrUnavailable
+// (503): an unknown failure is never reported as a refusal of a valid user and
+// never as success. A nil error stays nil.
+func ClassifyCheck(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrUnavailable):
+		return ErrUnavailable
+	case errors.Is(err, ErrForbidden):
+		return ErrForbidden
+	}
+	return ErrUnavailable
+}
+
+// revalidate runs the host's account and credential check. An absent check is
+// a denial; see ClassifyCheck for the rest.
 func (g *Gateway) revalidate(ctx context.Context, a contract.Actor) error {
 	if g.Revalidate == nil {
 		return ErrForbidden
 	}
-	if e := g.Revalidate(ctx, a); e != nil {
-		if errors.Is(e, ErrUnavailable) {
-			return ErrUnavailable
-		}
-		return ErrForbidden
-	}
-	return nil
+	return ClassifyCheck(g.Revalidate(ctx, a))
 }
 
 type RelayRequest struct {

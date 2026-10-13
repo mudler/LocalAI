@@ -319,6 +319,7 @@
       "checks browser CSRF feature and admin access with real stored keys",
       "gates the feature and then administration for named keys",
       "reports a denial as forbidden",
+      "reports an unclassified account check error as unavailable and a definite denial as forbidden",
       "reports an unavailable read as plain unavailability",
       "reports an unknown mutation outcome from a forwarding frontend with the original operation",
       "reports an unknown mutation outcome from the owner's own frontend with the original operation",
@@ -330,6 +331,7 @@
       "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
       "treats every action except the known reads as a mutation",
       "reports an account store outage as unavailable and a refused account as forbidden",
+      "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden",
       "serves the synthetic owner through the real chain, denies sharing and rejects named callers",
       "lets callers through only when the deployment selected local-owner mode",
       "keeps authentication, the feature gate and administration when accounts exist"
@@ -377,7 +379,8 @@
           "types an unknown mutation outcome as unavailable without losing its operation",
           "validates finite relay budgets and prevents disabling polling bounds",
           "treats every action except the known reads as a mutation",
-          "reports an account store outage as unavailable and a refused account as forbidden"
+          "reports an account store outage as unavailable and a refused account as forbidden",
+          "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden"
         ]
       },
       {
@@ -386,6 +389,7 @@
           "checks browser CSRF feature and admin access with real stored keys",
           "gates the feature and then administration for named keys",
           "reports a denial as forbidden",
+          "reports an unclassified account check error as unavailable and a definite denial as forbidden",
           "reports an unavailable read as plain unavailability",
           "reports an unknown mutation outcome from a forwarding frontend with the original operation",
           "reports an unknown mutation outcome from the owner's own frontend with the original operation",
@@ -444,6 +448,7 @@
       "caps pending and committed registrations per user and in total",
       "applies finite defaults when no limit is configured",
       "denies creation as unavailable when the authority cannot tell",
+      "reports an unclassified account or creation check error as unavailable and a definite denial as forbidden",
       "does not start the work when revocation cancels the admission before run",
       "rejects persisted unknown roles and trailing bytes without resetting the store",
       "removes stale temporary files on open",

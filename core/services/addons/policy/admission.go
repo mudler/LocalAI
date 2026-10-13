@@ -135,14 +135,18 @@ func (p *Policy) current(ctx context.Context, a contract.Actor) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		// Only an explicit "cannot tell" is an outage. A definite refusal of the
-		// account or credential stays a denial.
-		if errors.Is(err, gateway.ErrUnavailable) {
-			return ErrUnavailable
-		}
-		return ErrForbidden
+		return p.classify(err)
 	}
 	return nil
+}
+
+// classify maps a host check error to the policy's own answers. Only a
+// definite denial is ErrForbidden; an unclassified error is ErrUnavailable.
+func (p *Policy) classify(err error) error {
+	if errors.Is(gateway.ClassifyCheck(err), gateway.ErrForbidden) {
+		return ErrForbidden
+	}
+	return ErrUnavailable
 }
 
 // Authorize answers whether the actor may run the action now. It does not
@@ -349,10 +353,7 @@ func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID str
 		if ctx.Err() != nil {
 			return ResourceKey{}, ctx.Err()
 		}
-		if errors.Is(err, gateway.ErrUnavailable) {
-			return ResourceKey{}, ErrUnavailable
-		}
-		return ResourceKey{}, ErrForbidden
+		return ResourceKey{}, p.classify(err)
 	}
 	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {

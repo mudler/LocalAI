@@ -13,7 +13,10 @@ import (
 	"time"
 )
 
-var errAddonIdentity = errors.New("addon identity denied")
+// errAddonIdentity is a definite refusal of the account or credential. It wraps
+// the shared forbidden sentinel because the policy and the gateway treat only
+// that as a denial (403); every other check error is unavailable (503).
+var errAddonIdentity = fmt.Errorf("addon identity denied: %w", gateway.ErrForbidden)
 
 // ErrAddonUnavailable means the account or credential store could not answer.
 // It is distinct from a definite refusal so a storage outage is reported as 503

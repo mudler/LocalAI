@@ -43,7 +43,7 @@ func (a *account) check(_ context.Context, actor contract.Actor) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.blocked[actor.UserID] {
-		return errors.New("account paused")
+		return fmt.Errorf("account paused: %w", gateway.ErrForbidden)
 	}
 	return nil
 }
@@ -485,7 +485,7 @@ var _ = Describe("resource registration", func() {
 		none := New(f.store, Options{Revalidate: f.accounts.check})
 		_, err := none.Register(context.Background(), owner, "fixture")
 		Expect(errors.Is(err, gateway.ErrForbidden)).To(BeTrue())
-		refused := New(f.store, Options{Revalidate: f.accounts.check, CreateAuthority: func(context.Context, contract.Actor, string) error { return errors.New("no") }})
+		refused := New(f.store, Options{Revalidate: f.accounts.check, CreateAuthority: func(context.Context, contract.Actor, string) error { return fmt.Errorf("no: %w", gateway.ErrForbidden) }})
 		_, err = refused.Register(context.Background(), owner, "fixture")
 		Expect(err).To(HaveOccurred())
 		key, err := f.policy.Register(context.Background(), owner, "fixture")
@@ -663,7 +663,7 @@ var _ = Describe("account store failures", func() {
 			if a.UserID == "owner" {
 				return outage
 			}
-			return errors.New("account disabled")
+			return fmt.Errorf("account disabled: %w", gateway.ErrForbidden)
 		}
 		p := New(f.store, f.opts)
 		ran := false
@@ -679,6 +679,43 @@ var _ = Describe("account store failures", func() {
 		err = p.Admit(context.Background(), named("gone"), key, ActionRead, func(context.Context) error { ran = true; return nil })
 		Expect(gateway.StatusFor(err)).To(Equal(403))
 		Expect(ran).To(BeFalse())
+	})
+})
+
+var _ = Describe("unclassified host check failures", func() {
+	It("reports an unclassified account or creation check error as unavailable and a definite denial as forbidden", func() {
+		f := newFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		plain := errors.New("backend answered something unexpected")
+		denial := fmt.Errorf("account paused: %w", gateway.ErrForbidden)
+		for name, row := range map[string]struct {
+			err  error
+			want int
+		}{"plain": {plain, 503}, "denial": {denial, 403}} {
+			f.opts.Revalidate = func(context.Context, contract.Actor) error { return row.err }
+			p := New(f.store, f.opts)
+			ran := false
+			err := p.Admit(ctx, owner, key, ActionRead, func(context.Context) error { ran = true; return nil })
+			Expect(gateway.StatusFor(err)).To(Equal(row.want), name+" admit")
+			Expect(ran).To(BeFalse(), name)
+			Expect(gateway.StatusFor(p.Authorize(ctx, owner, key, ActionRead))).To(Equal(row.want), name+" authorize")
+			_, err = p.Register(ctx, owner, "fixture")
+			Expect(gateway.StatusFor(err)).To(Equal(row.want), name+" register")
+			if row.want == 503 {
+				Expect(errors.Is(err, ErrUnavailable)).To(BeTrue(), name)
+			}
+		}
+		f.opts.Revalidate = f.accounts.check
+		for name, row := range map[string]struct {
+			err  error
+			want int
+		}{"plain": {plain, 503}, "denial": {denial, 403}} {
+			f.opts.CreateAuthority = func(context.Context, contract.Actor, string) error { return row.err }
+			_, err := New(f.store, f.opts).Register(ctx, owner, "fixture")
+			Expect(gateway.StatusFor(err)).To(Equal(row.want), name+" creation authority")
+		}
 	})
 })
 
