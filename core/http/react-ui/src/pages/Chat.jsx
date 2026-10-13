@@ -103,7 +103,8 @@ export default function Chat() {
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation('chat')
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasFeature } = useAuth()
+  const canUseMcp = hasFeature('mcp')
   const { operations } = useOperations()
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
@@ -241,10 +242,30 @@ export default function Chat() {
     prevArtifactCountRef.current = artifacts.length
   }, [artifacts])
 
-  // Check MCP availability and fetch model config (admin-only endpoint)
+  // Non-admins cannot read the model config (config-json is admin-only), so
+  // their MCP availability comes from the `mcp` flag of the chat model list
+  // plus the user's `mcp` feature. Context size and the model-info panel stay
+  // admin-only: they need the full config.
+  const activeModelHasMcp = useMemo(
+    () => !!chatModels.find(m => m.id === activeChat?.model)?.mcp,
+    [chatModels, activeChat?.model]
+  )
+  useEffect(() => {
+    if (isAdmin) return
+    setModelInfo(null)
+    if (!activeChat?.model || chatModelsLoading) { setMcpAvailable(false); return }
+    const hasMcp = canUseMcp && activeModelHasMcp
+    setMcpAvailable(hasMcp)
+    if (!hasMcp && (activeChat.mcpMode || activeChat.mcpServers?.length)) {
+      updateChatSettings(activeChat.id, { mcpMode: false, mcpServers: [] })
+    }
+  }, [activeChat?.model, isAdmin, canUseMcp, activeModelHasMcp, chatModelsLoading])
+
+  // Admins: check MCP availability and fetch model config (admin-only endpoint)
   useEffect(() => {
     const model = activeChat?.model
-    if (!model || !isAdmin) { setMcpAvailable(false); setModelInfo(null); return }
+    if (!isAdmin) return
+    if (!model) { setMcpAvailable(false); setModelInfo(null); return }
     let cancelled = false
     modelsApi.getConfigJson(model).then(cfg => {
       if (cancelled) return

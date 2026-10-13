@@ -211,6 +211,8 @@ Returns a model wrapper and one status entry for every configured server:
 
 The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery.
 
+When authentication is enabled, the Servers tab is offered to admins and to every user holding the `mcp` feature (on by default for new users). Chat learns that a model has MCP servers from the `mcp` flag of `GET /api/models/capabilities`, so non-admin users do not need access to the model configuration. With `LOCALAI_DISABLE_MCP=true` the flag is never set.
+
 ### MCP Prompts
 
 MCP servers can provide reusable prompt templates. LocalAI supports discovering and expanding prompts from MCP servers.

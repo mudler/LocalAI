@@ -839,6 +839,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// Source="registry-only" marks models adopted from the cluster that
 			// have no local config yet (ghosts that the reconciler discovered).
 			Source string `json:"source,omitempty"`
+			// MCP reports that the model config declares MCP servers and MCP is
+			// enabled on this instance. Non-admin chat users cannot read the
+			// model config (config-json is admin-only), so this is how the chat
+			// UI learns it may offer server selection to users holding the
+			// `mcp` feature. Server names and commands stay behind
+			// /v1/mcp/servers/:model, which is gated by that feature.
+			MCP bool `json:"mcp,omitempty"`
 		}
 
 		// Join with the node registry when we have one (distributed mode). A
@@ -881,6 +888,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				Pinned:           cfg.IsPinned(),
 				VoiceCloning:     config.VoiceCloningForModel(&cfg),
 				LoadedOn:         loadedByModel[cfg.Name],
+				MCP:              !appConfig.DisableMCP && cfg.MCP.HasMCPServers(),
 			})
 		}
 		for _, name := range modelsWithoutConfig {
