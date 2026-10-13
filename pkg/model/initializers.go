@@ -37,6 +37,14 @@ var Aliases = map[string]string{
 	"stablediffusion":        StableDiffusionGGMLBackend,
 }
 
+func CanonicalBackend(name string) string {
+	b := strings.ToLower(name)
+	if real, ok := Aliases[b]; ok {
+		return real
+	}
+	return b
+}
+
 var TypeAlias = map[string]string{
 	"sentencetransformers":   "SentenceTransformer",
 	"huggingface-embeddings": "SentenceTransformer",
@@ -337,17 +345,9 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 			"f16", opt.F16Memory)
 	}
 
-	backend := strings.ToLower(o.backendString)
-	if realBackend, exists := Aliases[backend]; exists {
-		typeAlias, exists := TypeAlias[backend]
-		if exists {
-			xlog.Debug("alias is a type alias", "alias", backend, "realBackend", realBackend, "type", typeAlias)
-			o.gRPCOptions.Type = typeAlias
-		} else {
-			xlog.Debug("alias", "alias", backend, "realBackend", realBackend)
-		}
-
-		backend = realBackend
+	backend := CanonicalBackend(o.backendString)
+	if typeAlias, ok := TypeAlias[strings.ToLower(o.backendString)]; ok {
+		o.gRPCOptions.Type = typeAlias
 	}
 
 	modelFileName := o.modelFile
