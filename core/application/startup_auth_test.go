@@ -24,7 +24,11 @@ var _ = Describe("auth database location at first start", func() {
 		Expect(err).NotTo(HaveOccurred())
 		data := filepath.Join(root, "not", "yet", "created")
 		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
+		DeferCleanup(func() {
+			cancel()
+			// Background services may still write while they shut down.
+			Eventually(func() error { return os.RemoveAll(data) }).Should(Succeed())
+		})
 		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(data),
 			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(data, "database.db")),
 			config.WithAuthAPIKeyHMACSecret("secret"))
@@ -44,7 +48,10 @@ var _ = Describe("auth database location at first start", func() {
 		state, err := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
 		Expect(err).NotTo(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
+		DeferCleanup(func() {
+			cancel()
+			Eventually(func() error { return os.RemoveAll(root) }).Should(Succeed())
+		})
 		db := filepath.Join(root, "elsewhere", "auth", "users.db?_busy_timeout=2000")
 		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(root, "data")),
 			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(db), config.WithAuthAPIKeyHMACSecret("secret"))
