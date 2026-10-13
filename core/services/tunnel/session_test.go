@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/libp2p/go-yamux/v5"
 	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -78,8 +79,13 @@ var _ = Describe("Streams that the worker opens", func() {
 			for range streams {
 				st, err := client.OpenStream(ctx)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = st.Write([]byte("unread"))
-				Expect(err).ToNot(HaveOccurred())
+				// The session may reset a stream before this write: that is the
+				// behaviour under test, and under load it can come first. A write
+				// that failed for another reason is a failure.
+				if _, err = st.Write([]byte("unread")); err != nil {
+					var reset *yamux.StreamError
+					Expect(errors.As(err, &reset) && reset.Remote).To(BeTrue(), "stream write: %v", err)
+				}
 				opened = append(opened, st)
 			}
 			for i, st := range opened {
