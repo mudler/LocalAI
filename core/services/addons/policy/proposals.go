@@ -390,16 +390,22 @@ func (b *Broker) canonicalArguments(raw json.RawMessage) (json.RawMessage, error
 	return out.Bytes(), nil
 }
 
+// digestOf binds a confirmation to everything the human saw and to the
+// operation that would run: its identifier, the proposing user, the resource,
+// the addon generation, the action, the canonical arguments and the revision.
+// The proposer's credential is not part of it, since it is not displayed.
 func digestOf(r *proposalRecord) string {
 	b, _ := json.Marshal(struct {
 		Operation  string            `json:"operation"`
+		UserID     string            `json:"user"`
+		Mode       string            `json:"mode"`
 		AddonID    string            `json:"addon"`
 		ResourceID string            `json:"resource"`
 		Generation uint64            `json:"generation"`
 		Action     string            `json:"action"`
 		Arguments  json.RawMessage   `json:"arguments"`
 		Revision   contract.Revision `json:"revision"`
-	}{r.ID, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision})
+	}{r.ID, r.Actor.UserID, r.Actor.Mode, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
@@ -698,7 +704,9 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	if digest != "" && digest != r.Digest {
+	// What is stored must still be what was shown: a record changed at rest
+	// never runs, whatever digest the caller names.
+	if digestOf(&r) != r.Digest || (digest != "" && digest != r.Digest) {
 		return contract.Receipt{}, ErrProposalChanged
 	}
 	switch r.State {
@@ -748,6 +756,9 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	r, ok := b.store.get(id)
 	if !ok || r.State != gateway.ProposalPending {
 		return contract.Receipt{}, ErrProposalClosed
+	}
+	if digestOf(&r) != r.Digest {
+		return contract.Receipt{}, ErrProposalChanged
 	}
 	if _, expired := b.expire(r); expired {
 		return contract.Receipt{}, ErrProposalExpired

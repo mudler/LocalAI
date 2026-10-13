@@ -490,6 +490,8 @@
       "recovers a crash after dispatch by receipt and a crash before dispatch as unknown without replay",
       "keeps pending proposals across a restart and never resets a corrupt store",
       "bounds the pending proposals of one user and the store as a whole",
+      "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
+      "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
       "issues resource identifiers the envelope contract accepts",
       "is unavailable until it is attached to a policy and a runtime"
     ],
@@ -576,6 +578,8 @@
       "recovers a crash after dispatch by receipt and a crash before dispatch as unknown without replay",
       "keeps pending proposals across a restart and never resets a corrupt store",
       "bounds the pending proposals of one user and the store as a whole",
+      "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
+      "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
       "issues resource identifiers the envelope contract accepts",
       "is unavailable until it is attached to a policy and a runtime",
       "rejects anonymous callers and forged forwarding headers",
@@ -661,6 +665,8 @@
           "recovers a crash after dispatch by receipt and a crash before dispatch as unknown without replay",
           "keeps pending proposals across a restart and never resets a corrupt store",
           "bounds the pending proposals of one user and the store as a whole",
+          "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
+          "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
           "issues resource identifiers the envelope contract accepts",
           "is unavailable until it is attached to a policy and a runtime"
         ]

@@ -678,7 +678,9 @@ addon for a preview and stores a proposal with:
 - the schema and data revisions the preview saw;
 - the exact number of effects and a bounded sample of them (the addon's preview summary,
   using `count` and `sample` when it has them);
-- a `digest` of everything above, and an expiry (the shorter of the addon's preview expiry
+- a `digest` of everything above (it also covers the operation ID, the proposing user and
+  the action; the owner recomputes it from the stored record before it applies, so a record
+  that was changed at rest is refused and never runs), and an expiry (the shorter of the addon's preview expiry
   and the proposal expiry limit, five minutes by default).
 
 Nothing is applied by this call. The request's `operationId` becomes the proposal ID, so

@@ -730,6 +730,89 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("binds the digest to the operation, actor, resource, generation, action, arguments and revision", func() {
+		base := proposalRecord{ID: "op", Actor: contract.Actor{UserID: "u", CredentialID: "session:u", Mode: "named-user"}, AddonID: "a", ResourceID: "r",
+			Generation: 1, Action: "write", Arguments: json.RawMessage(`{"rows":[1]}`), Revision: contract.Revision{Schema: 1, Data: 1}}
+		want := digestOf(&base)
+		Expect(want).NotTo(BeEmpty())
+		for name, change := range map[string]func(*proposalRecord){
+			"operation id":  func(r *proposalRecord) { r.ID = "op2" },
+			"actor":         func(r *proposalRecord) { r.Actor.UserID = "v" },
+			"mode":          func(r *proposalRecord) { r.Actor.Mode = "local-owner" },
+			"addon":         func(r *proposalRecord) { r.AddonID = "b" },
+			"resource":      func(r *proposalRecord) { r.ResourceID = "s" },
+			"generation":    func(r *proposalRecord) { r.Generation = 2 },
+			"action":        func(r *proposalRecord) { r.Action = "schema" },
+			"arguments":     func(r *proposalRecord) { r.Arguments = json.RawMessage(`{"rows":[2]}`) },
+			"nil arguments": func(r *proposalRecord) { r.Arguments = nil },
+			"schema":        func(r *proposalRecord) { r.Revision.Schema = 2 },
+			"data":          func(r *proposalRecord) { r.Revision.Data = 2 },
+		} {
+			changed := base
+			change(&changed)
+			Expect(digestOf(&changed)).NotTo(Equal(want), name)
+		}
+		// The proposer's credential is not part of what the human saw.
+		same := base
+		same.Actor.CredentialID = "key:other"
+		Expect(digestOf(&same)).To(Equal(want))
+	})
+
+	It("refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest", func() {
+		for name, tamper := range map[string]func(r map[string]any){
+			"arguments":  func(r map[string]any) { r["arguments"] = map[string]any{"rows": []any{999}} },
+			"actor":      func(r map[string]any) { r["actor"].(map[string]any)["userId"] = "mallory" },
+			"resource":   func(r map[string]any) { r["resourceId"] = "second" },
+			"generation": func(r map[string]any) { r["generation"] = 2 },
+			"operation":  func(r map[string]any) { r["id"] = "renamed" },
+		} {
+			f := newBrokerFixture(ModeNamedUser)
+			owner := named("owner")
+			key := f.create(owner)
+			second := f.create(owner)
+			Expect(f.policy.SetGrant(ctx, owner, key, "mallory", RoleEditor)).To(Succeed())
+			Expect(f.policy.SetGrant(ctx, owner, second, "mallory", RoleEditor)).To(Succeed())
+			p, err := f.broker.Propose(ctx, owner, f.request(key, "op-1", "write", `{"rows":[1]}`))
+			Expect(err).NotTo(HaveOccurred(), name)
+			f.close()
+			file := filepath.Join(f.dir, "proposals", proposalFileName)
+			b, err := os.ReadFile(file)
+			Expect(err).NotTo(HaveOccurred())
+			var doc map[string]any
+			Expect(json.Unmarshal(b, &doc)).To(Succeed())
+			recs := doc["proposals"].(map[string]any)
+			rec := recs["op-1"].(map[string]any)
+			tamper(rec)
+			if name == "resource" {
+				rec["resourceId"] = second.ResourceID
+			}
+			target := "op-1"
+			if name == "operation" {
+				delete(recs, "op-1")
+				recs["renamed"] = rec
+				target = "renamed"
+			}
+			b, err = json.Marshal(doc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(file, b, 0o600)).To(Succeed())
+			if name == "generation" {
+				f.instances.setGeneration(2)
+			}
+			g := openBrokerFixture(ModeNamedUser, f.dir, f.rt, f.instances, f.clock, f.accounts)
+			DeferCleanup(func() { g.close() })
+			who := session("owner")
+			if name == "actor" {
+				who = session("mallory")
+			}
+			_, err = g.broker.ConfirmBound(ctx, who, target, p.Digest)
+			Expect(err).To(MatchError(ErrProposalChanged), name)
+			// An internal confirmation without a digest is checked the same way.
+			_, err = g.broker.Confirm(ctx, who, target)
+			Expect(err).To(MatchError(ErrProposalChanged), name)
+			Expect(g.rt.applyCalls()).To(BeEmpty(), name)
+		}
+	})
+
 	It("issues resource identifiers the envelope contract accepts", func() {
 		f := newBrokerFixture(ModeNamedUser)
 		owner := named("owner")
