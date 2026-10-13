@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -32,7 +34,19 @@ type Options struct {
 	CreateAuthority func(ctx context.Context, actor contract.Actor, addonID string) error
 	Proposals       ProposalInvalidator
 	DrainTimeout    time.Duration
+	// MaxPendingPerUser, MaxResourcesPerUser and MaxResources bound the store.
+	// Zero selects the finite defaults; a limit can never be disabled.
+	MaxPendingPerUser   int
+	MaxResourcesPerUser int
+	MaxResources        int
 }
+
+// Default limits for registrations, per owner and in total.
+const (
+	DefaultMaxPendingPerUser   = 8
+	DefaultMaxResourcesPerUser = 256
+	DefaultMaxResources        = 4096
+)
 
 // Policy decides and serializes access. It keeps no per-user state besides
 // the admissions currently running; callers pass the actor on every call.
@@ -47,6 +61,15 @@ type Policy struct {
 func New(store *Store, opts Options) *Policy {
 	if opts.DrainTimeout <= 0 {
 		opts.DrainTimeout = DefaultDrainTimeout
+	}
+	if opts.MaxPendingPerUser <= 0 {
+		opts.MaxPendingPerUser = DefaultMaxPendingPerUser
+	}
+	if opts.MaxResourcesPerUser <= 0 {
+		opts.MaxResourcesPerUser = DefaultMaxResourcesPerUser
+	}
+	if opts.MaxResources <= 0 {
+		opts.MaxResources = DefaultMaxResources
 	}
 	return &Policy{store: store, opts: opts, gates: map[string]*gate{}}
 }
@@ -112,6 +135,11 @@ func (p *Policy) current(ctx context.Context, a contract.Actor) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		// Only an explicit "cannot tell" is an outage. A definite refusal of the
+		// account or credential stays a denial.
+		if errors.Is(err, gateway.ErrUnavailable) {
+			return ErrUnavailable
+		}
 		return ErrForbidden
 	}
 	return nil
@@ -176,6 +204,21 @@ func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource Resou
 	if err := p.current(runCtx, actor); err != nil {
 		return err
 	}
+	// The host check may ignore cancellation. A revocation cancels admitted work
+	// while it holds the gate, so under the gate a live context means the
+	// revocation, if any, comes after this point and will wait for run.
+	g.mu.Lock()
+	err := p.check(actor, resource, action)
+	if err == nil && runCtx.Err() != nil {
+		err = ErrForbidden
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+	}
+	g.mu.Unlock()
+	if err != nil {
+		return err
+	}
 	return run(runCtx)
 }
 
@@ -216,18 +259,39 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		return ErrForbidden
 	}
 	prev := r.Grants[userID]
-	lowered := remove || (prev != "" && role.rank() < prev.rank())
-	if err := p.store.mutate(func(d *document) error {
+	owed := r.Drain[userID]
+	// A previous call may have made the grant durable and then failed to finish
+	// the drain, so the stored grant alone cannot say whether work above the new
+	// role is still running. The retry waits whenever a drain is owed.
+	lowered := remove || owed || (prev != "" && role.rank() < prev.rank())
+	mutErr := p.store.mutate(func(d *document) error {
 		rec := d.Resources[resource.ResourceID]
 		if remove {
 			delete(rec.Grants, userID)
 		} else {
 			rec.Grants[userID] = role
 		}
+		if lowered {
+			if rec.Drain == nil {
+				rec.Drain = map[string]bool{}
+			}
+			rec.Drain[userID] = true
+		}
 		return nil
-	}); err != nil {
-		g.mu.Unlock()
-		return err
+	})
+	if mutErr != nil {
+		// A store that failed after the rename already applied the change in
+		// memory. Then the stricter authority is in force and its work is
+		// drained, but the call is still not acknowledged.
+		cur, _ := p.store.get(resource.ResourceID)
+		applied := cur.Grants[userID] == role
+		if remove {
+			applied = cur.Grants[userID] == ""
+		}
+		if !applied {
+			g.mu.Unlock()
+			return mutErr
+		}
 	}
 	var victims []*admitted
 	if lowered {
@@ -240,7 +304,7 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	}
 	g.mu.Unlock()
 	if !lowered {
-		return nil
+		return mutErr
 	}
 	if p.opts.Proposals != nil {
 		if err := p.opts.Proposals.InvalidateProposals(ctx, resource, userID); err != nil {
@@ -258,7 +322,15 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 			return ErrDrainPending
 		}
 	}
-	return nil
+	if mutErr != nil {
+		return mutErr
+	}
+	return p.store.mutate(func(d *document) error {
+		if rec := d.Resources[resource.ResourceID]; rec != nil {
+			delete(rec.Drain, userID)
+		}
+		return nil
+	})
 }
 
 // Register records a new resource as pending, owned by the creating actor. A
@@ -273,7 +345,13 @@ func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID str
 	if err := p.current(ctx, actor); err != nil {
 		return ResourceKey{}, err
 	}
-	if p.opts.CreateAuthority(ctx, actor, addonID) != nil {
+	if err := p.opts.CreateAuthority(ctx, actor, addonID); err != nil {
+		if ctx.Err() != nil {
+			return ResourceKey{}, ctx.Err()
+		}
+		if errors.Is(err, gateway.ErrUnavailable) {
+			return ResourceKey{}, ErrUnavailable
+		}
 		return ResourceKey{}, ErrForbidden
 	}
 	raw := make([]byte, 16)
@@ -283,6 +361,18 @@ func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID str
 	id := hex.EncodeToString(raw)
 	owner := p.store.Mode().ownerOf(actor)
 	err := p.store.mutate(func(d *document) error {
+		var pending, owned int
+		for _, r := range d.Resources {
+			if r.Owner == owner {
+				owned++
+				if r.State == statePend {
+					pending++
+				}
+			}
+		}
+		if pending >= p.opts.MaxPendingPerUser || owned >= p.opts.MaxResourcesPerUser || len(d.Resources) >= p.opts.MaxResources {
+			return ErrQuota
+		}
 		d.Resources[id] = &record{AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}}
 		return nil
 	})

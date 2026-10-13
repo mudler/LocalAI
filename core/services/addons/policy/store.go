@@ -27,6 +27,28 @@ type record struct {
 	Owner   string          `json:"owner"`
 	State   string          `json:"state"`
 	Grants  map[string]Role `json:"grants,omitempty"`
+	// Drain names users whose grant was lowered or removed and whose admitted
+	// work and pending proposals are not yet known to be stopped. The mark is
+	// durable with the change itself and cleared only after the drain
+	// completed, so a retry of the same change can never be acknowledged
+	// early.
+	Drain map[string]bool `json:"drain,omitempty"`
+}
+
+func (r *record) copy() *record {
+	n := *r
+	n.Grants = make(map[string]Role, len(r.Grants))
+	for u, role := range r.Grants {
+		n.Grants[u] = role
+	}
+	n.Drain = nil
+	if len(r.Drain) > 0 {
+		n.Drain = make(map[string]bool, len(r.Drain))
+		for u := range r.Drain {
+			n.Drain[u] = true
+		}
+	}
+	return &n
 }
 
 type document struct {
@@ -38,12 +60,7 @@ type document struct {
 func (d *document) clone() *document {
 	c := &document{Version: d.Version, Mode: d.Mode, Resources: make(map[string]*record, len(d.Resources))}
 	for id, r := range d.Resources {
-		n := *r
-		n.Grants = make(map[string]Role, len(r.Grants))
-		for u, role := range r.Grants {
-			n.Grants[u] = role
-		}
-		c.Resources[id] = &n
+		c.Resources[id] = r.copy()
 	}
 	return c
 }
@@ -66,6 +83,10 @@ type Store struct {
 	lock *os.File
 	mu   sync.Mutex
 	doc  *document
+	// failed is set when a change was renamed into place but could not be made
+	// durable. Memory then already holds the change, and no further write is
+	// accepted until the store is reopened and reloaded from disk.
+	failed bool
 }
 
 func lockDir(dir string) (*os.File, error) {
@@ -97,6 +118,10 @@ func load(dir string) (*document, error) {
 	if err = dec.Decode(d); err != nil || d.Version != 1 || (d.Mode != "" && !d.Mode.valid()) {
 		return nil, errors.New("addon policy store is corrupt")
 	}
+	// Anything after the document, even a second valid one, is corruption.
+	if _, err = dec.Token(); err != io.EOF {
+		return nil, errors.New("addon policy store is corrupt")
+	}
 	if d.Resources == nil {
 		d.Resources = map[string]*record{}
 	}
@@ -104,16 +129,37 @@ func load(dir string) (*document, error) {
 		if r == nil || r.AddonID == "" || r.Owner == "" || (r.State != stateActive && r.State != statePend) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
+		for u, role := range r.Grants {
+			if u == "" || u == r.Owner || (role != RoleViewer && role != RoleEditor) {
+				return nil, errors.New("addon policy store is corrupt")
+			}
+		}
+		for u := range r.Drain {
+			if u == "" {
+				return nil, errors.New("addon policy store is corrupt")
+			}
+		}
 	}
 	return d, nil
 }
 
-func save(dir string, d *document) error {
+// save reports renamed when the new file is already in place, so a failure
+// after that point is known to leave disk ahead of the caller's memory.
+func save(dir string, d *document) (renamed bool, err error) {
 	b, err := json.Marshal(d)
 	if err != nil {
-		return err
+		return false, err
 	}
 	return durableWrite(filepath.Join(dir, fileName), b)
+}
+
+// cleanTemps removes partial files that a crash left behind. The caller holds
+// the directory lock, so no live writer owns them.
+func cleanTemps(dir string) {
+	matches, _ := filepath.Glob(filepath.Join(dir, ".policy-*"))
+	for _, m := range matches {
+		_ = os.Remove(m)
+	}
 }
 
 // OpenStore opens or creates the store in dir for mode. A populated store of
@@ -127,13 +173,14 @@ func OpenStore(dir string, mode Mode) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	cleanTemps(dir)
 	d, err := load(dir)
 	if err == nil && d.Mode != mode {
 		if len(d.Resources) > 0 {
 			err = ErrMigrationRequired
 		} else {
 			d.Mode = mode
-			err = save(dir, d)
+			_, err = save(dir, d)
 		}
 	}
 	if err != nil {
@@ -156,12 +203,7 @@ func (s *Store) get(id string) (record, bool) {
 	if !ok {
 		return record{}, false
 	}
-	c := *r
-	c.Grants = make(map[string]Role, len(r.Grants))
-	for u, role := range r.Grants {
-		c.Grants[u] = role
-	}
-	return c, true
+	return *r.copy(), true
 }
 
 // mutate applies fn to a copy and publishes it only when it is durable, so a
@@ -169,11 +211,22 @@ func (s *Store) get(id string) (record, bool) {
 func (s *Store) mutate(fn func(*document) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.failed {
+		return ErrUnavailable
+	}
 	next := s.doc.clone()
 	if err := fn(next); err != nil {
 		return err
 	}
-	if err := save(s.dir, next); err != nil {
+	renamed, err := save(s.dir, next)
+	if err != nil {
+		if renamed {
+			// The file on disk already holds this change. Memory must not stay
+			// behind it (a revocation would look undone), so it rolls forward
+			// and the store refuses further writes.
+			s.doc = next
+			s.failed = true
+		}
 		return ErrUnavailable
 	}
 	s.doc = next
@@ -230,6 +283,7 @@ func MigrateMode(dir string, to Mode, backupDir, namedOwner string) error {
 		return err
 	}
 	defer lock.Close()
+	cleanTemps(dir)
 	d, err := load(dir)
 	if err != nil {
 		return err
@@ -258,13 +312,17 @@ func MigrateMode(dir string, to Mode, backupDir, namedOwner string) error {
 			r.Owner = namedOwner
 		}
 	}
-	return save(dir, next)
+	_, err = save(dir, next)
+	return err
 }
 
-func durableWrite(path string, b []byte) error {
+// syncDirectory makes a rename durable. It is a variable so tests can fail it.
+var syncDirectory = func(d *os.File) error { return d.Sync() }
+
+func durableWrite(path string, b []byte) (renamed bool, err error) {
 	f, err := os.CreateTemp(filepath.Dir(path), ".policy-")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer os.Remove(f.Name())
 	if _, err = f.Write(b); err == nil {
@@ -274,15 +332,15 @@ func durableWrite(path string, b []byte) error {
 		err = cerr
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err = os.Rename(f.Name(), path); err != nil {
-		return err
+		return false, err
 	}
 	d, err := os.Open(filepath.Dir(path))
 	if err != nil {
-		return err
+		return true, err
 	}
 	defer d.Close()
-	return d.Sync()
+	return true, syncDirectory(d)
 }

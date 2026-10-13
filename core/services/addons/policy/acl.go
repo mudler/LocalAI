@@ -86,6 +86,9 @@ var (
 	// ErrDrainPending means a revocation is durable and effective for new work,
 	// but admitted work did not stop within the bound. It is not acknowledged.
 	ErrDrainPending = fmt.Errorf("addon revocation pending: %w", gateway.ErrUnavailable)
+	// ErrQuota means the creation limits are reached. It is a denial of the
+	// request, not an outage.
+	ErrQuota = fmt.Errorf("addon resource quota reached: %w", gateway.ErrForbidden)
 	// ErrMigrationRequired means the stored data belongs to another mode.
 	ErrMigrationRequired = errors.New("addon policy store needs a stopped, backed-up ownership migration")
 	// ErrDowngradeUnsupported means shared data cannot return to local-owner mode.

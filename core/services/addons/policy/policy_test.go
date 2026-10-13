@@ -2,8 +2,15 @@
 package policy
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,7 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -567,5 +577,339 @@ var _ = Describe("gateway integration", func() {
 		// The admin-only unknown gateway action name is an owner mutation.
 		Expect(provider.Admit(context.Background(), viewer, key, "frobnicate", func(context.Context) error { return nil })).NotTo(Succeed())
 		Expect(provider.Admit(context.Background(), owner, key, "frobnicate", func(context.Context) error { return nil })).To(Succeed())
+	})
+})
+
+var _ = Describe("retry-safe downgrades", func() {
+	// stuckEditor admits a write of the editor that ends only when release closes.
+	stuckEditor := func(f *fixture, key ResourceKey) (release chan struct{}, ended *atomic.Bool, done chan struct{}) {
+		entered := make(chan struct{})
+		release, done, ended = make(chan struct{}), make(chan struct{}), &atomic.Bool{}
+		go func() {
+			defer close(done)
+			defer GinkgoRecover()
+			_ = f.policy.Admit(context.Background(), named("editor"), key, ActionWrite, func(context.Context) error {
+				close(entered)
+				<-release
+				ended.Store(true)
+				return nil
+			})
+		}()
+		<-entered
+		return
+	}
+
+	It("does not acknowledge a retried downgrade while the lowered user's write still runs", func() {
+		f := newFixture(ModeNamedUser)
+		f.opts.DrainTimeout = 30 * time.Millisecond
+		f.policy = New(f.store, f.opts)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		release, ended, done := stuckEditor(f, key)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(MatchError(ErrDrainPending))
+		// The lowered grant is durable now; the identical retry must still wait.
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(MatchError(ErrDrainPending))
+		Expect(ended.Load()).To(BeFalse())
+		close(release)
+		<-done
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(Succeed())
+		Expect(ended.Load()).To(BeTrue())
+		// Once acknowledged the marker is gone: the next identical call is a no-op.
+		calls := len(f.prop.calls)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(Succeed())
+		Expect(f.prop.calls).To(HaveLen(calls))
+	})
+
+	It("retries a failed proposal invalidation after the lowered grant is already durable", func() {
+		f := newFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(MatchError(ErrDrainPending))
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(MatchError(ErrDrainPending))
+		f.prop.err = nil
+		before := len(f.prop.calls)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(Succeed())
+		Expect(f.prop.calls).To(HaveLen(before + 1))
+	})
+
+	It("keeps the drain owed across a restart", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "policy")
+		f := open(ModeNamedUser, dir)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		Expect(f.store.Close()).To(Succeed())
+		g := open(ModeNamedUser, dir)
+		Expect(g.policy.Revoke(ctx, owner, key, "editor")).To(Succeed())
+		Expect(g.prop.calls).To(Equal([]string{key.ResourceID + "/editor"}))
+	})
+})
+
+var _ = Describe("account store failures", func() {
+	It("maps a store outage to unavailable and a disabled account to forbidden", func() {
+		f := newFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		outage := fmt.Errorf("db down: %w", gateway.ErrUnavailable)
+		f.opts.Revalidate = func(_ context.Context, a contract.Actor) error {
+			if a.UserID == "owner" {
+				return outage
+			}
+			return errors.New("account disabled")
+		}
+		p := New(f.store, f.opts)
+		ran := false
+		err := p.Admit(context.Background(), owner, key, ActionRead, func(context.Context) error { ran = true; return nil })
+		Expect(errors.Is(err, gateway.ErrUnavailable)).To(BeTrue())
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		err = p.Authorize(context.Background(), owner, key, ActionRead)
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		_, err = p.Register(context.Background(), owner, "fixture")
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		err = p.SetGrant(context.Background(), owner, key, "x", RoleViewer)
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		err = p.Admit(context.Background(), named("gone"), key, ActionRead, func(context.Context) error { ran = true; return nil })
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+		Expect(ran).To(BeFalse())
+	})
+})
+
+var _ = Describe("creation limits", func() {
+	It("caps pending and committed registrations per user and in total", func() {
+		f := newFixture(ModeNamedUser)
+		f.opts.MaxPendingPerUser, f.opts.MaxResourcesPerUser, f.opts.MaxResources = 2, 3, 4
+		p := New(f.store, f.opts)
+		ctx := context.Background()
+		alice, bob := named("alice"), named("bob")
+		a1, err := p.Register(ctx, alice, "fixture")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = p.Register(ctx, alice, "fixture")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = p.Register(ctx, alice, "fixture")
+		Expect(errors.Is(err, ErrQuota)).To(BeTrue())
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+		// Committing frees pending slots but still counts toward the resource cap.
+		Expect(p.Commit(ctx, alice, a1)).To(Succeed())
+		_, err = p.Register(ctx, alice, "fixture")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = p.Register(ctx, alice, "fixture")
+		Expect(errors.Is(err, ErrQuota)).To(BeTrue())
+		// Another user has own allowance until the total cap (4) is reached.
+		_, err = p.Register(ctx, bob, "fixture")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = p.Register(ctx, bob, "fixture")
+		Expect(errors.Is(err, ErrQuota)).To(BeTrue())
+		// Abandoning releases a slot.
+		k, err := p.Register(ctx, alice, "fixture")
+		Expect(errors.Is(err, ErrQuota)).To(BeTrue())
+		_ = k
+	})
+
+	It("applies finite defaults when no limit is configured", func() {
+		f := newFixture(ModeNamedUser)
+		Expect(f.policy.opts.MaxPendingPerUser).To(Equal(DefaultMaxPendingPerUser))
+		Expect(f.policy.opts.MaxResourcesPerUser).To(Equal(DefaultMaxResourcesPerUser))
+		Expect(f.policy.opts.MaxResources).To(Equal(DefaultMaxResources))
+		Expect(DefaultMaxPendingPerUser).To(BeNumerically(">", 0))
+	})
+
+	It("denies creation as unavailable when the authority cannot tell", func() {
+		f := newFixture(ModeNamedUser)
+		f.opts.CreateAuthority = func(context.Context, contract.Actor, string) error {
+			return fmt.Errorf("manager down: %w", gateway.ErrUnavailable)
+		}
+		p := New(f.store, f.opts)
+		_, err := p.Register(context.Background(), named("alice"), "fixture")
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+	})
+})
+
+var _ = Describe("admission ordering", func() {
+	It("does not start the work when revocation cancels the admission before run", func() {
+		f := newFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		var calls atomic.Int32
+		revoked := make(chan error, 1)
+		// This host check ignores cancellation: it waits for it and still says yes.
+		f.opts.Revalidate = func(c context.Context, a contract.Actor) error {
+			if a.UserID == "editor" && calls.Add(1) == 2 {
+				go func() { revoked <- f.policy.Revoke(ctx, owner, key, "editor") }()
+				<-c.Done()
+			}
+			return nil
+		}
+		p := New(f.store, f.opts)
+		f.policy = p
+		ran := false
+		err := p.Admit(ctx, editor, key, ActionRead, func(context.Context) error { ran = true; return nil })
+		Expect(err).To(HaveOccurred())
+		Expect(ran).To(BeFalse())
+		Expect(<-revoked).To(Succeed())
+	})
+})
+
+var _ = Describe("store integrity", func() {
+	reopen := func(contents string) error {
+		dir := filepath.Join(GinkgoT().TempDir(), "policy")
+		Expect(os.MkdirAll(dir, 0o700)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, fileName), []byte(contents), 0o600)).To(Succeed())
+		s, err := OpenStore(dir, ModeNamedUser)
+		if err == nil {
+			_ = s.Close()
+			return nil
+		}
+		b, rerr := os.ReadFile(filepath.Join(dir, fileName))
+		Expect(rerr).NotTo(HaveOccurred())
+		Expect(string(b)).To(Equal(contents), "a refused store is never reset")
+		return err
+	}
+
+	It("rejects persisted unknown roles and trailing bytes without resetting the store", func() {
+		good := `{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"u":"editor"}}}}`
+		Expect(reopen(good)).To(Succeed())
+		Expect(reopen(`{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"u":"root"}}}}`)).To(HaveOccurred())
+		Expect(reopen(`{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"u":"owner"}}}}`)).To(HaveOccurred())
+		Expect(reopen(`{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"o":"viewer"}}}}`)).To(HaveOccurred())
+		Expect(reopen(good + `{"version":1}`)).To(HaveOccurred())
+		Expect(reopen(good + "\n  \n")).To(Succeed())
+	})
+
+	It("removes stale temporary files on open", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "policy")
+		f := open(ModeNamedUser, dir)
+		f.create(named("owner"))
+		Expect(f.store.Close()).To(Succeed())
+		stale := filepath.Join(dir, ".policy-123456")
+		Expect(os.WriteFile(stale, []byte("partial"), 0o600)).To(Succeed())
+		other := filepath.Join(dir, "keep.txt")
+		Expect(os.WriteFile(other, []byte("x"), 0o600)).To(Succeed())
+		open(ModeNamedUser, dir)
+		Expect(stale).NotTo(BeAnExistingFile())
+		Expect(other).To(BeAnExistingFile())
+	})
+
+	It("stops accepting writes after a failed directory sync and keeps the applied change", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "policy")
+		f := open(ModeNamedUser, dir)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "viewer", RoleViewer)).To(Succeed())
+		fail := true
+		old := syncDirectory
+		syncDirectory = func(d *os.File) error {
+			if fail {
+				return errors.New("sync failed")
+			}
+			return old(d)
+		}
+		DeferCleanup(func() { syncDirectory = old })
+		err := f.policy.Revoke(ctx, owner, key, "viewer")
+		Expect(err).To(HaveOccurred())
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		// The file on disk already holds the revocation, so memory must not
+		// disagree with it.
+		Expect(allowed(f, named("viewer"), key, ActionRead)).To(BeFalse())
+		disk, rerr := os.ReadFile(filepath.Join(dir, fileName))
+		Expect(rerr).NotTo(HaveOccurred())
+		Expect(string(disk)).NotTo(ContainSubstring(`"viewer":"viewer"`))
+		// Later writes are refused even when the directory works again.
+		fail = false
+		Expect(f.policy.SetGrant(ctx, owner, key, "viewer", RoleViewer)).To(MatchError(ErrUnavailable))
+		_, err = f.policy.Register(ctx, owner, "fixture")
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		Expect(f.store.Close()).To(Succeed())
+		g := open(ModeNamedUser, dir)
+		Expect(allowed(g, named("viewer"), key, ActionRead)).To(BeFalse())
+		Expect(g.policy.SetGrant(ctx, owner, key, "viewer", RoleViewer)).To(Succeed())
+	})
+})
+
+var _ = Describe("real manager lifecycle", func() {
+	It("retains resources and grants across a real manager uninstall and restart", func() {
+		root := GinkgoT().TempDir()
+		DeferCleanup(func() {
+			_ = filepath.Walk(root, func(p string, i os.FileInfo, e error) error {
+				if e == nil && i.IsDir() {
+					_ = os.Chmod(p, 0o700)
+				}
+				return nil
+			})
+		})
+		manifest, err := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		var b bytes.Buffer
+		tw := tar.NewWriter(&b)
+		for name, data := range map[string][]byte{"manifest.json": manifest, "bin/sample": []byte("binary")} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(data))})).To(Succeed())
+			_, err = tw.Write(data)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(tw.Close()).To(Succeed())
+		artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(b.Bytes()) }))
+		DeferCleanup(artifact.Close)
+		release := catalog.Release{AddonID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64"}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode([]catalog.Release{release})
+		}))
+		DeferCleanup(server.Close)
+		admin := named("admin")
+		check := func(_ context.Context, a contract.Actor) error {
+			if a != admin {
+				return errors.New("denied")
+			}
+			return nil
+		}
+		ctx := context.Background()
+		sources, err := catalog.NewSources(filepath.Join(root, "sources.json"), check, catalog.CredentialResolver{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sources.Save(ctx, admin, catalog.Source{ID: "test", Name: "Test", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, err = sources.Refresh(ctx, "test")
+		Expect(err).NotTo(HaveOccurred())
+		cat := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
+		cfg := addons.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
+		inst := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: cat, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+		m, err := addons.NewManager(ctx, cfg, cat, inst, check)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = m.Close() })
+		cmd := func(id, action string) addons.LifecycleCommand {
+			return addons.LifecycleCommand{OperationID: id, AddonID: "sample", Action: action, SourceID: "test", Version: "1.2.3"}
+		}
+		_, err = m.Submit(ctx, admin, cmd("one", "install"))
+		Expect(err).NotTo(HaveOccurred())
+
+		dir := filepath.Join(cfg.Root, "policy")
+		f := open(ModeNamedUser, dir)
+		owner := named("owner")
+		key, err := f.policy.Register(ctx, owner, "sample")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.policy.Commit(ctx, owner, key)).To(Succeed())
+		Expect(f.policy.SetGrant(ctx, owner, key, "viewer", RoleViewer)).To(Succeed())
+
+		_, err = m.Submit(ctx, admin, cmd("two", "uninstall"))
+		Expect(err).NotTo(HaveOccurred())
+		status, err := m.Status(ctx, "sample")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status.Installed).To(BeFalse())
+		Expect(allowed(f, named("viewer"), key, ActionRead)).To(BeTrue())
+		Expect(allowed(f, owner, key, ActionSchema)).To(BeTrue())
+		Expect(f.store.Close()).To(Succeed())
+		Expect(m.Close()).To(Succeed())
+
+		g := open(ModeNamedUser, dir)
+		Expect(allowed(g, named("viewer"), key, ActionRead)).To(BeTrue())
+		Expect(allowed(g, named("viewer"), key, ActionWrite)).To(BeFalse())
+		Expect(allowed(g, owner, key, ActionSchema)).To(BeTrue())
 	})
 })
