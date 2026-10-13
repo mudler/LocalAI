@@ -96,7 +96,7 @@ func newAppsStack() *appsStack {
 	root := GinkgoT().TempDir()
 	s.root = root
 	admin := func(ctx context.Context, a contract.Actor) error { return auth.ValidateAddonActor(ctx, s.db, a, true) }
-	sources, err := catalog.NewSources(filepath.Join(root, "sources.json"), admin, catalog.CredentialResolver{})
+	sources, err := catalog.NewSources(filepath.Join(root, "sources.json"), admin, appsResolver)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(sources.Save(ctx, s.owner, catalog.Source{ID: "test", Name: "Test", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 	_, err = sources.Refresh(ctx, "test")

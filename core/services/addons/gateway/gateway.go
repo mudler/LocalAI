@@ -81,7 +81,9 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 // dispatchLocal serves a request on the owner itself, with no forwarding.
 func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
 	switch request.Action {
-	case "install", "enable", "disable", "uninstall":
+	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
+		return g.management(ctx, actor, request)
+	case "install", "upgrade", "enable", "disable", "uninstall":
 		var args struct {
 			SourceID string `json:"sourceId"`
 			Version  string `json:"version"`

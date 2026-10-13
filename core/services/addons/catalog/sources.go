@@ -42,6 +42,25 @@ type RefreshResult struct {
 	CheckedAt   time.Time `json:"checkedAt"`
 	LastSuccess time.Time `json:"lastSuccess"`
 }
+
+// RefreshState is what the owner last learned from fetching one library. It is
+// an observation of the fetch, never of the library's trust.
+type RefreshState struct {
+	CheckedAt   time.Time `json:"checkedAt"`
+	LastSuccess time.Time `json:"lastSuccess"`
+	Count       int       `json:"count"`
+	// Failed is true when the latest fetch failed; the previous releases are
+	// not served in that case.
+	Failed bool `json:"failed"`
+}
+
+// SourceView is a library as the management view shows it: the configuration
+// and, when the owner has fetched it, the state of the last fetch.
+type SourceView struct {
+	Source
+	Refresh *RefreshState `json:"refresh,omitempty"`
+}
+
 type cached struct {
 	releases []Release
 	result   RefreshResult
@@ -111,6 +130,34 @@ func (s *Sources) List(ctx context.Context, actor contract.Actor) ([]Source, err
 	}
 	sort.Slice(sources, func(i, j int) bool { return sources[i].ID < sources[j].ID })
 	return sources, nil
+}
+
+// Views returns the sources with their refresh state after authoritative
+// administrator validation.
+func (s *Sources) Views(ctx context.Context, actor contract.Actor) ([]SourceView, error) {
+	list, e := s.List(ctx, actor)
+	if e != nil {
+		return nil, e
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]SourceView, 0, len(list))
+	for _, src := range list {
+		v := SourceView{Source: src}
+		if c, ok := s.cache[src.ID]; ok {
+			v.Refresh = &RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Failed: c.failed}
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+// HasReference reports whether the owner configured a credential reference of
+// this name. A source may name only such a reference, so a secret pasted where
+// a reference belongs is never stored or shown back.
+func (s *Sources) HasReference(reference string) bool {
+	_, ok := s.credentials.References[reference]
+	return ok
 }
 
 // Get returns a value copy only after authoritative administrator validation.

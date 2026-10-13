@@ -1071,3 +1071,85 @@ generation precondition through the request's `generation` field when it is not 
 
 No MCP tool maps to the Apps routes in this release. The admin mutation tools for addons
 are a later task and will have their own review.
+
+## Add-ons page and management
+
+The web UI serves one page for add-ons at `/app/addons`, shown when the caller holds the
+`addons` feature. Everyone sees the **Apps** tab, which is the list above. Administrators
+also see **Browse**, **Installed** and **Libraries**. The tabs are a convenience: the owner
+checks administration again on every call, so a request that skips the page is denied the
+same way (403).
+
+A tab is addressed as `/app/addons?tab=browse|installed|libraries`. The management link of
+an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's details open.
+
+### The Apps tab
+
+The Apps tab draws `GET /api/addons/apps`: the icon from the host's icon route, the
+title in the interface language (falling back to the default text and then to the
+identifier), the description, a state chip (`running`, `starting`, `failed`, `stopped`
+and `update-pending` when the owner reports it), an **Open** link only when the entry
+has a `mainPage`, and for an add-on without pages a short tool summary. Icons always
+come from the same origin; the page never loads an image from a manifest or a library.
+
+The list is read again every 5 seconds (30 seconds in a hidden tab). A failed read
+doubles the wait up to 60 seconds, keeps the last list on screen and says it may be
+out of date. Leaving the page cancels the pending read. Administrators see **Start**,
+**Stop** and **Manage** on an entry that carries the `admin` object. A start or stop
+sends a fresh operation ID with the generation that was listed and keeps that ID for
+retries of the same action. After `outcome_unknown` the page reads the original
+operation with `operation-status` and never submits a second one. A 403 (a stale
+generation or no permission) and a 503 are shown with the same words everywhere on the
+page, and the list is read again.
+
+The Open link points at `/app/addons/{id}/{page}`. This build has no add-on page host
+yet, so that address shows a short notice instead of the add-on's page.
+
+### Management actions
+
+All of these go through `POST /api/addons/dispatch`, are administrator-only on the owner,
+and take strict arguments: an unknown field is a denial. The reads change nothing. The
+writes keep the operation identity and outcome-unknown rule of the lifecycle actions.
+
+| Action | Kind | Arguments | Payload |
+|---|---|---|---|
+| `catalog-search` | read | `text`, `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}` for the host platform |
+| `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
+| `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
+| `addons-installed` | read | none | `{addons}`, the installed view below |
+| `catalog-source-save` | write | one source: `id`, `name`, `url`, `enabled`, `policy`, `authReference`; `removed: true` deletes it | the stored source |
+| `catalog-source-refresh` | write | `sourceId` | `{sourceId, count, checkedAt, lastSuccess}` |
+| `upgrade` | write | `sourceId`, `version` | the operation status |
+
+A library carries a **reference** to a credential, never a secret. `authReference` must be
+the name of a credential the owner configured; any other value is denied and is not
+stored or shown back. The URL of a library cannot carry credentials or a query. A
+browser session cannot turn on the plaintext loopback opt-in for a library that does not
+already have it. Removing a library never touches installed addons: they stay installed,
+keep their data and keep running.
+
+A refresh is a write because it makes the owner fetch a remote document. A library that is
+disabled, unreachable or invalid answers 503 with `outcome_unknown` and the original
+operation ID, like any other write whose result cannot be proved; the `refresh` object of
+`catalog-sources` says what the owner last learned (`checkedAt`, `lastSuccess`, `count`,
+`failed`).
+
+### Installed view
+
+Each entry of `addons-installed` has `id`, `title`, `description`, `icon`, `version`,
+`generation`, `enabled`, `state` (the process observation, separate from `enabled`),
+`sourceId`, `channel`, `selection`, `verification` (`sha256` or `sha256+sigstore`),
+`digest`, `platform` (`os`, `arch`), `compatibility` (the `host`, `api`, `protocol` and
+`dataFormat` ranges of the manifest), `tools`, `toolCount`, `hasUI`, `mainPage`,
+`launchMode`, `generations` (retained installed generations), `restarts` (supervisor restart
+attempts), `storage` (`bytes` and `truncated` for the retained data, counted up to a fixed
+number of files) and `update`.
+
+`update` is present only when the owner has an authoritative update check. This release
+has none, so the field is absent and the page says that the update status is unknown; it
+never compares version labels. Process output is not collected in this release, so the
+page has no log view; the `state` and `restarts` fields are the health evidence it shows.
+
+Uninstalling stops the addon and removes its package from use. Its data, identity and
+grants are kept, so a later install of the same addon picks them up. The page says so
+before it submits the uninstall.

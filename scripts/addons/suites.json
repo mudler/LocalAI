@@ -381,7 +381,13 @@
       "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
       "documents the apps routes and every field of the app view in the Swagger spec",
       "lists every registered addon route in the feature registry",
-      "gates the apps routes by authentication, feature and administration"
+      "gates the apps routes by authentication, feature and administration",
+      "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+      "refuses every management call of the owner itself for a caller that is not an administrator",
+      "saves, refreshes and removes a library by reference and leaves installed addons alone",
+      "upgrades an installed addon through the typed action and keeps its earlier generation",
+      "reports a lost source change as an unknown outcome and a lost read as unavailable",
+      "documents the management actions and every emitted field of the installed view"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -481,7 +487,13 @@
           "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
           "documents the apps routes and every field of the app view in the Swagger spec",
           "lists every registered addon route in the feature registry",
-          "gates the apps routes by authentication, feature and administration"
+          "gates the apps routes by authentication, feature and administration",
+          "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+          "refuses every management call of the owner itself for a caller that is not an administrator",
+          "saves, refreshes and removes a library by reference and leaves installed addons alone",
+          "upgrades an installed addon through the typed action and keeps its earlier generation",
+          "reports a lost source change as an unknown outcome and a lost read as unavailable",
+          "documents the management actions and every emitted field of the installed view"
         ]
       }
     ]
@@ -728,7 +740,13 @@
       "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
       "documents the apps routes and every field of the app view in the Swagger spec",
       "lists every registered addon route in the feature registry",
-      "gates the apps routes by authentication, feature and administration"
+      "gates the apps routes by authentication, feature and administration",
+      "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+      "refuses every management call of the owner itself for a caller that is not an administrator",
+      "saves, refreshes and removes a library by reference and leaves installed addons alone",
+      "upgrades an installed addon through the typed action and keeps its earlier generation",
+      "reports a lost source change as an unknown outcome and a lost read as unavailable",
+      "documents the management actions and every emitted field of the installed view"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -860,7 +878,13 @@
           "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
           "documents the apps routes and every field of the app view in the Swagger spec",
           "lists every registered addon route in the feature registry",
-          "gates the apps routes by authentication, feature and administration"
+          "gates the apps routes by authentication, feature and administration",
+          "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+          "refuses every management call of the owner itself for a caller that is not an administrator",
+          "saves, refreshes and removes a library by reference and leaves installed addons alone",
+          "upgrades an installed addon through the typed action and keeps its earlier generation",
+          "reports a lost source change as an unknown outcome and a lost read as unavailable",
+          "documents the management actions and every emitted field of the installed view"
         ]
       }
     ]
@@ -1023,7 +1047,13 @@
       "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
       "documents the apps routes and every field of the app view in the Swagger spec",
       "lists every registered addon route in the feature registry",
-      "gates the apps routes by authentication, feature and administration"
+      "gates the apps routes by authentication, feature and administration",
+      "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+      "refuses every management call of the owner itself for a caller that is not an administrator",
+      "saves, refreshes and removes a library by reference and leaves installed addons alone",
+      "upgrades an installed addon through the typed action and keeps its earlier generation",
+      "reports a lost source change as an unknown outcome and a lost read as unavailable",
+      "documents the management actions and every emitted field of the installed view"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1160,7 +1190,13 @@
           "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
           "documents the apps routes and every field of the app view in the Swagger spec",
           "lists every registered addon route in the feature registry",
-          "gates the apps routes by authentication, feature and administration"
+          "gates the apps routes by authentication, feature and administration",
+          "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+          "refuses every management call of the owner itself for a caller that is not an administrator",
+          "saves, refreshes and removes a library by reference and leaves installed addons alone",
+          "upgrades an installed addon through the typed action and keeps its earlier generation",
+          "reports a lost source change as an unknown outcome and a lost read as unavailable",
+          "documents the management actions and every emitted field of the installed view"
         ]
       }
     ]
@@ -1301,7 +1337,13 @@
       "serves the local owner's file only in local-owner mode",
       "documents the artifact routes and the artifact schema in the Swagger spec",
       "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
-      "serves the synthetic owner through the real chain, denies sharing and rejects named callers"
+      "serves the synthetic owner through the real chain, denies sharing and rejects named callers",
+      "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+      "refuses every management call of the owner itself for a caller that is not an administrator",
+      "saves, refreshes and removes a library by reference and leaves installed addons alone",
+      "upgrades an installed addon through the typed action and keeps its earlier generation",
+      "reports a lost source change as an unknown outcome and a lost read as unavailable",
+      "documents the management actions and every emitted field of the installed view"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1410,7 +1452,13 @@
           "serves the local owner's file only in local-owner mode",
           "documents the artifact routes and the artifact schema in the Swagger spec",
           "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
-          "serves the synthetic owner through the real chain, denies sharing and rejects named callers"
+          "serves the synthetic owner through the real chain, denies sharing and rejects named callers",
+          "serves catalog search, details and the installed management view to administrators only, the same from every frontend",
+          "refuses every management call of the owner itself for a caller that is not an administrator",
+          "saves, refreshes and removes a library by reference and leaves installed addons alone",
+          "upgrades an installed addon through the typed action and keeps its earlier generation",
+          "reports a lost source change as an unknown outcome and a lost read as unavailable",
+          "documents the management actions and every emitted field of the installed view"
         ]
       }
     ]

@@ -132,7 +132,7 @@ func resultError(c echo.Context, e error) error {
 
 // Dispatch forwards typed operations to the explicitly configured owner.
 // @Summary Submit a typed addon lifecycle operation or read an addon resource
-// @Description Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation.
+// @Description Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, sourceId, offset, limit up to 100), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied.
 // @Tags Addons
 // @Accept json
 // @Produce json

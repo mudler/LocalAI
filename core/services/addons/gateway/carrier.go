@@ -407,10 +407,14 @@ func mutationOutcome(r contract.Request, e error) error {
 	return &OutcomeUnknown{OperationID: r.OperationID}
 }
 
+// readManagement are the management reads of the typed dispatch. They change
+// nothing, so a lost answer is plainly unavailable.
+var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true}
+
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action]
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})
