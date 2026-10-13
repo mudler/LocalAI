@@ -302,7 +302,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 	// did not declare, whatever the stored record says.
 	src, _ := a.opts.Runtime.(gateway.ToolSource)
 	if err := gateway.AuthorizeTool(ctx, src, rec.AddonID, rec.Generation, request.Arguments); err != nil {
-		return gateway.ErrForbidden
+		return err
 	}
 	reader, err := instance.Client.OpenOutput(ctx, a.envelope(actor, request), handle)
 	if err != nil {

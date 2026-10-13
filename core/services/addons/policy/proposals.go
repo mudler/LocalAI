@@ -601,6 +601,9 @@ func (b *Broker) authorizeTool(ctx context.Context, addonID string, generation u
 		src, _ = b.opts.Runtime.(gateway.ToolSource)
 	}
 	if err := gateway.AuthorizeTool(ctx, src, addonID, generation, args); err != nil {
+		if errors.Is(err, gateway.ErrUnavailable) {
+			return fmt.Errorf("%w: %w", ErrUnavailable, err)
+		}
 		return ErrForbidden
 	}
 	return nil

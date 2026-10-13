@@ -416,6 +416,10 @@
       "documents the asset route and its binary response in the Swagger spec",
       "allows only an exact declared tool name and fails closed otherwise",
       "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "denies a repeated key at any depth however it is spelled",
+      "denies arguments that are not exactly one object",
+      "separates a denial from an unavailable declaration source",
+      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/gateway.json",
@@ -468,7 +472,11 @@
           "denies private relays without host resolution and admission",
           "serves declared assets of the current enabled generation by package digest only",
           "allows only an exact declared tool name and fails closed otherwise",
-          "never contacts the add-on for an undeclared tool and still serves a declared one"
+          "never contacts the add-on for an undeclared tool and still serves a declared one",
+          "denies a repeated key at any depth however it is spelled",
+          "denies arguments that are not exactly one object",
+          "separates a denial from an unavailable declaration source",
+          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key"
         ]
       },
       {
@@ -632,7 +640,10 @@
       "does not show another user's blocking operation in a proposal view",
       "denies a proposal for an undeclared tool before any preview and stores nothing",
       "denies a proposal that names a tool when no tool source is installed",
-      "rechecks the stored tool at confirmation and never applies a withdrawn tool"
+      "rechecks the stored tool at confirmation and never applies a withdrawn tool",
+      "denies a proposal whose arguments repeat a key and stores nothing",
+      "reports an unavailable declaration source as unavailable, never as a denial",
+      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -801,6 +812,9 @@
       "denies a proposal for an undeclared tool before any preview and stores nothing",
       "denies a proposal that names a tool when no tool source is installed",
       "rechecks the stored tool at confirmation and never applies a withdrawn tool",
+      "denies a proposal whose arguments repeat a key and stores nothing",
+      "reports an unavailable declaration source as unavailable, never as a denial",
+      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/proposals.json",
@@ -886,7 +900,10 @@
           "does not show another user's blocking operation in a proposal view",
           "denies a proposal for an undeclared tool before any preview and stores nothing",
           "denies a proposal that names a tool when no tool source is installed",
-          "rechecks the stored tool at confirmation and never applies a withdrawn tool"
+          "rechecks the stored tool at confirmation and never applies a withdrawn tool",
+          "denies a proposal whose arguments repeat a key and stores nothing",
+          "reports an unavailable declaration source as unavailable, never as a denial",
+          "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers"
         ]
       },
       {
@@ -1130,8 +1147,14 @@
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
       "never opens an output for a request that names a tool no source declares",
+      "denies an output request whose arguments repeat a key and never opens the output",
+      "reports an unavailable declaration source as unavailable and never opens the output",
       "allows only an exact declared tool name and fails closed otherwise",
       "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "denies a repeated key at any depth however it is spelled",
+      "denies arguments that are not exactly one object",
+      "separates a denial from an unavailable declaration source",
+      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/artifacts.json",
@@ -1171,7 +1194,9 @@
           "never serves incomplete, short, long or failed transfers and removes their partial bytes",
           "streams ingestion and download without buffering the whole file",
           "rejects an output declared larger than one artifact may be before reading it",
-          "never opens an output for a request that names a tool no source declares"
+          "never opens an output for a request that names a tool no source declares",
+          "denies an output request whose arguments repeat a key and never opens the output",
+          "reports an unavailable declaration source as unavailable and never opens the output"
         ]
       },
       {
@@ -1222,7 +1247,11 @@
           "denies private relays without host resolution and admission",
           "serves declared assets of the current enabled generation by package digest only",
           "allows only an exact declared tool name and fails closed otherwise",
-          "never contacts the add-on for an undeclared tool and still serves a declared one"
+          "never contacts the add-on for an undeclared tool and still serves a declared one",
+          "denies a repeated key at any depth however it is spelled",
+          "denies arguments that are not exactly one object",
+          "separates a denial from an unavailable declaration source",
+          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key"
         ]
       },
       {

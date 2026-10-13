@@ -3,6 +3,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,7 +38,7 @@ var _ = Describe("typed owner failure status", func() {
 			return h
 		})
 	}
-	file := contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read"}
+	file := contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read", Arguments: json.RawMessage(`{}`)}
 	relay := func(env *fixtureEnv, front string) (*httptest.ResponseRecorder, error) {
 		w := httptest.NewRecorder()
 		e := env.carriers[front].Relay(context.Background(), frontActor, RelayRequest{Request: file, Kind: "file", Handle: fakeArtifactID}, w)

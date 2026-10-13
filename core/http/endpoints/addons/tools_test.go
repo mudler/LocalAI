@@ -9,6 +9,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -42,10 +44,16 @@ func (toolResolver) Output(context.Context, contract.Actor, contract.Request, st
 	return contract.OutputDescription{}, gateway.ErrForbidden
 }
 
-type toolDeclared map[string][]string
+type toolDeclared struct {
+	tools map[string][]string
+	fail  atomic.Pointer[error]
+}
 
-func (t toolDeclared) DeclaredTools(_ context.Context, id string, gen uint64) ([]string, error) {
-	if l, ok := t[id]; ok && gen == 1 {
+func (t *toolDeclared) DeclaredTools(_ context.Context, id string, gen uint64) ([]string, error) {
+	if e := t.fail.Load(); e != nil {
+		return nil, *e
+	}
+	if l, ok := t.tools[id]; ok && gen == 1 {
 		return l, nil
 	}
 	return nil, gateway.ErrForbidden
@@ -94,9 +102,10 @@ var _ = Describe("server-side tool declarations over HTTP", Label("tools"), func
 			Expect(e).NotTo(HaveOccurred())
 			cs[id] = c
 		}
+		declared := &toolDeclared{tools: map[string][]string{"notes": {"summarize"}, "other": {"export"}}}
 		ownerGateway := &gateway.Gateway{
 			Admission: toolAdmission{}, Resolver: toolResolver{}, Runtime: toolRuntime{client}, Revalidate: revalidate,
-			Tools: toolDeclared{"notes": {"summarize"}, "other": {"export"}},
+			Tools: declared,
 		}
 		var err error
 		owner.Config.Handler, err = cs["owner"].OwnerHandler(ownerGateway)
@@ -149,5 +158,32 @@ var _ = Describe("server-side tool declarations over HTTP", Label("tools"), func
 			Expect(bodies[0]).To(Equal(bodies[1]), "the same denial from every frontend: "+args)
 		}
 		Expect(client.reads.Load()).To(Equal(int32(2)), "the add-on is not contacted on a denial")
+		// Repeated keys are denied (403) on
+		// every frontend, whatever the request decoder let through, and never reach the add-on.
+		for _, args := range []string{`{"tool":"summarize","tool":"delete-all"}`, `{"tool":"delete-all","tool":"summarize"}`, `{"tool":"summarize","\u0074ool":"export"}`, `{"tool":"summarize","context":{"a":1,"a":2}}`} {
+			for name, s := range frontends {
+				code, _ := post(s, "notes", args)
+				Expect(code).To(Equal(http.StatusForbidden), name+" "+args)
+			}
+		}
+		Expect(client.reads.Load()).To(Equal(int32(2)), "the add-on is not contacted for a repeated key")
+		// A source that cannot answer is unavailable on every frontend, with
+		// the same body, and still never reaches the add-on.
+		for _, cause := range []error{addons.ErrNotOwner, addons.ErrRecoveryRequired, context.Canceled, errors.New("manifest unavailable")} {
+			declared.fail.Store(&cause)
+			var bodies []string
+			for name, s := range frontends {
+				code, body := post(s, "notes", `{"tool":"summarize"}`)
+				Expect(code).To(Equal(http.StatusServiceUnavailable), name+" "+cause.Error())
+				bodies = append(bodies, body)
+			}
+			Expect(bodies[0]).To(Equal(bodies[1]), "the same answer from every frontend: "+cause.Error())
+		}
+		Expect(client.reads.Load()).To(Equal(int32(2)), "the add-on is not contacted while the source is unavailable")
+		declared.fail.Store(nil)
+		for name, s := range frontends {
+			code, _ := post(s, "notes", `{"tool":"summarize"}`)
+			Expect(code).To(Equal(http.StatusOK), name+" after recovery")
+		}
 	})
 })

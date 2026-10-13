@@ -2,6 +2,9 @@
 package addons
 
 import (
+	"context"
+	"errors"
+
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,6 +46,24 @@ var _ = Describe("declared tools of the installed generation", Label("tools"), f
 		// An uncertain journal is not a declaration.
 		m.uncertain = true
 		_, e = m.DeclaredTools(ctx, "notes", 3)
-		Expect(e).To(HaveOccurred())
+		Expect(e).To(MatchError(ErrRecoveryRequired))
+		m.uncertain = false
+		m.runtimeRecoveryRequired = true
+		_, e = m.DeclaredTools(ctx, "notes", 3)
+		Expect(e).To(MatchError(ErrRecoveryRequired))
+		m.runtimeRecoveryRequired = false
+		// A real denial stays a denial and is never an unavailable error.
+		_, e = m.DeclaredTools(ctx, "notes", 2)
+		Expect(e).To(MatchError(ErrForbidden))
+		Expect(errors.Is(e, ErrRecoveryRequired) || errors.Is(e, ErrNotOwner)).To(BeFalse())
+		// A done context is reported as such, not as a denial.
+		done, cancel := context.WithCancel(ctx)
+		cancel()
+		_, e = m.DeclaredTools(done, "notes", 3)
+		Expect(e).To(MatchError(context.Canceled))
+		// A closed manager is not the owner.
+		Expect(m.Close()).To(Succeed())
+		_, e = m.DeclaredTools(ctx, "notes", 3)
+		Expect(e).To(MatchError(ErrNotOwner))
 	})
 })

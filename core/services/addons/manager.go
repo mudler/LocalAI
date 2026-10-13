@@ -653,7 +653,10 @@ type toolDeclaration struct {
 // DeclaredTools returns the tools the manifest of the current installed
 // generation declares. It answers from the in-memory journal, cached per
 // generation, and fails when the add-on is not installed, the generation is
-// not the installed one or the journal is uncertain.
+// not the installed one (ErrForbidden, a denial), or when the journal is
+// uncertain or runtime recovery is required (ErrRecoveryRequired), the
+// manager is closed (ErrNotOwner) or the context is done (its error), which
+// are unavailable conditions.
 func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint64) ([]string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -661,7 +664,10 @@ func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint6
 		return nil, e
 	}
 	st, ok := m.journal.Addons[id]
-	if m.uncertain || m.runtimeRecoveryRequired || !ok || !st.Installed || generation == 0 || st.Generation != generation {
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return nil, ErrRecoveryRequired
+	}
+	if !ok || !st.Installed || generation == 0 || st.Generation != generation {
 		return nil, ErrForbidden
 	}
 	if c, ok := m.toolCache[id]; ok && c.generation == generation {

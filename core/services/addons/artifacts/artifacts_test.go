@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -190,6 +192,21 @@ type instances struct {
 	gen uint64
 	rt  contract.Runtime
 	err error
+	// tools and toolErr answer DeclaredTools; nothing is declared by default.
+	tools   []string
+	toolErr error
+}
+
+func (i *instances) DeclaredTools(context.Context, string, uint64) ([]string, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.toolErr != nil {
+		return nil, i.toolErr
+	}
+	if i.tools == nil {
+		return nil, gateway.ErrForbidden
+	}
+	return append([]string(nil), i.tools...), nil
 }
 
 func (i *instances) Runtime(context.Context, string) (addonruntime.Instance, error) {
@@ -423,6 +440,39 @@ var _ = Describe("private artifact ingestion", func() {
 		art, err := f.arts.Ingest(context.Background(), f.alice, r, out("output-t", "x.csv", "text/csv", 4))
 		Expect(err == nil && art.State == gateway.ArtifactComplete).To(BeFalse())
 		Expect(f.rt.opened("output-t")).To(Equal(0))
+	})
+
+	It("denies an output request whose arguments repeat a key and never opens the output", Label("tools"), func() {
+		f := newFixture()
+		f.inst.tools = []string{"export"}
+		f.rt.text("output-d", "a,b\n")
+		for i, args := range []string{`{"tool":"export","tool":"wipe"}`, `{"tool":"wipe","tool":"export"}`, `{"tool":"export","\u0074ool":"wipe"}`, `{"tool":"export","rows":[{"a":1,"a":2}]}`} {
+			r := f.request("dup-op-" + string(rune('a'+i)))
+			r.Arguments = json.RawMessage(args)
+			_, err := f.arts.Ingest(context.Background(), f.alice, r, out("output-d", "x.csv", "text/csv", 4))
+			Expect(err).To(MatchError(gateway.ErrForbidden), args)
+		}
+		Expect(f.rt.opened("output-d")).To(Equal(0))
+		r := f.request("ok-op")
+		r.Arguments = json.RawMessage(`{"tool":"export"}`)
+		art, err := f.arts.Ingest(context.Background(), f.alice, r, out("output-d", "x.csv", "text/csv", 4))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(art.State).To(Equal(gateway.ArtifactComplete))
+	})
+
+	It("reports an unavailable declaration source as unavailable and never opens the output", Label("tools"), func() {
+		f := newFixture()
+		f.rt.text("output-u", "a,b\n")
+		for i, cause := range []error{addons.ErrNotOwner, addons.ErrRecoveryRequired, context.DeadlineExceeded, errors.New("manifest unavailable")} {
+			f.inst.toolErr = cause
+			r := f.request("un-op-" + string(rune('a'+i)))
+			r.Arguments = json.RawMessage(`{"tool":"export"}`)
+			_, err := f.arts.Ingest(context.Background(), f.alice, r, out("output-u", "x.csv", "text/csv", 4))
+			Expect(err).To(HaveOccurred(), cause.Error())
+			Expect(errors.Is(err, gateway.ErrForbidden)).To(BeFalse(), cause.Error())
+			Expect(gateway.StatusFor(err)).To(Equal(http.StatusServiceUnavailable), cause.Error())
+		}
+		Expect(f.rt.opened("output-u")).To(Equal(0))
 	})
 
 	It("never uses an addon handle, URL or path as an identifier or a file path", func() {

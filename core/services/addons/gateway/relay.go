@@ -67,7 +67,7 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 	r.ResourceID = key.ResourceID
 	// A tool the add-on did not declare never reaches it.
 	if e := AuthorizeTool(ctx, g.toolSource(), r.AddonID, r.Generation, r.Arguments); e != nil {
-		return out, ErrForbidden
+		return out, e
 	}
 	err = g.Admission.Admit(ctx, a, key, "read", func(ctx context.Context) error {
 		if e := g.revalidate(ctx, a); e != nil {
