@@ -154,25 +154,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed or unknown request fields",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Named authentication required",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Feature, administration or owner policy denied the request",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "503": {
                         "description": "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     }
                 }
@@ -216,25 +216,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Malformed or unknown request fields",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Named authentication required",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Feature or owner policy denied the request",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "503": {
                         "description": "Addons or the owner are unavailable",
                         "schema": {
-                            "$ref": "#/definitions/schema.ErrorResponse"
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     }
                 }
@@ -4781,6 +4781,36 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "addons.AddonError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code repeats the HTTP status. It is absent from outcome_unknown responses.",
+                    "type": "integer"
+                },
+                "message": {
+                    "description": "Message describes the failure and never carries owner details.",
+                    "type": "string"
+                },
+                "operationId": {
+                    "description": "OperationID is the original operation to poll. It is present only with\ntype outcome_unknown.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is addon_error, or outcome_unknown when a mutation may have run.",
+                    "type": "string",
+                    "example": "outcome_unknown"
+                }
+            }
+        },
+        "addons.AddonErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/addons.AddonError"
+                }
+            }
+        },
         "auth.WebSocketTicketResponse": {
             "type": "object",
             "properties": {
