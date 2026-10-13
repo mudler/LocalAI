@@ -4,6 +4,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -202,6 +204,48 @@ var _ = Describe("Incarnation recovery", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r).To(HaveLen(1))
 		Expect(r[0].Incarnation).NotTo(Equal(i.Incarnation))
+	})
+})
+
+var _ = Describe("Observed state during restart", func() {
+	It("never reports failed between a launch starting and the restarted process being published", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		var seen atomic.Int32
+		stop := make(chan struct{})
+		var wg sync.WaitGroup
+		for g := 0; g < 4; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				launching := false
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+					}
+					switch s.State("sample", 1) {
+					case StateStarting:
+						launching = true
+					case StateFailed:
+						if launching {
+							seen.Add(1)
+						}
+					case StateRunning:
+						launching = false
+					}
+				}
+			}()
+		}
+		Expect(i.process.cmd.Process.Kill()).To(Succeed())
+		Eventually(func() int { return s.Attempts("sample") }, 2*time.Second).Should(Equal(1))
+		Eventually(func() string { r, _ := s.Registry.Snapshot(context.Background()); return fmt.Sprint(len(r)) }, 3*time.Second).Should(Equal("1"))
+		Eventually(func() string { return s.State("sample", 1) }, 3*time.Second).Should(Equal(StateRunning))
+		close(stop)
+		wg.Wait()
+		Expect(seen.Load()).To(BeZero(), "a launch under way was reported as failed")
 	})
 })
 

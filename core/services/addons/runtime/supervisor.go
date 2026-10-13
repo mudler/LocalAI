@@ -409,13 +409,14 @@ func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
 			slot.launching = true
 			s.mu.Unlock()
 			next, e := s.launch(ctx, slot.pkg, slot.generation)
+			// The launch flag is cleared in the same critical section that
+			// publishes the process, so an observer never sees neither.
 			s.mu.Lock()
 			slot.launching = false
-			s.mu.Unlock()
 			if e != nil {
+				s.mu.Unlock()
 				continue
 			}
-			s.mu.Lock()
 			if slot.stopped || s.closed {
 				s.mu.Unlock()
 				s.terminate(next)
