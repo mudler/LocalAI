@@ -52,8 +52,8 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 	}
 	r.ResourceID = key.ResourceID
 	err = g.Admission.Admit(ctx, a, key, "read", func(ctx context.Context) error {
-		if g.Revalidate(ctx, a) != nil {
-			return ErrForbidden
+		if e := g.revalidate(ctx, a); e != nil {
+			return e
 		}
 		instance, e := g.current(ctx, r.AddonID)
 		if e != nil {
@@ -68,8 +68,8 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 	return
 }
 func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
-	if g.Revalidate == nil || g.Revalidate(ctx, a) != nil {
-		return ErrForbidden
+	if e := g.revalidate(ctx, a); e != nil {
+		return e
 	}
 	if r.Kind != "status" && r.Kind != "progress" && r.Kind != "file" && r.Kind != "asset" && r.Kind != "json" {
 		return ErrForbidden
@@ -195,8 +195,8 @@ func (g *Gateway) file(ctx context.Context, a contract.Actor, r RelayRequest, w 
 	}
 	r.Request.ResourceID = key.ResourceID
 	return g.Admission.Admit(ctx, a, key, "output", func(ctx context.Context) error {
-		if g.Revalidate(ctx, a) != nil {
-			return ErrForbidden
+		if e := g.revalidate(ctx, a); e != nil {
+			return e
 		}
 		output, e := g.Resolver.Output(ctx, a, r.Request, r.Handle)
 		if e != nil || output.Size < 0 || output.Size > limits.Bytes {
@@ -235,8 +235,8 @@ func (g *Gateway) copy(ctx context.Context, a contract.Actor, w io.Writer, r io.
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if g.Revalidate(ctx, a) != nil {
-			return ErrForbidden
+		if e := g.revalidate(ctx, a); e != nil {
+			return e
 		}
 		n, e := r.Read(buffer)
 		if n > 0 {

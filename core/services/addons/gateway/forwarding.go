@@ -67,6 +67,9 @@ func (v *ForwardVerifier) Verify(ctx context.Context, peer PeerIdentity, message
 		return denied()
 	}
 	if err := v.Revalidate(ctx, a); err != nil {
+		if errors.Is(err, ErrUnavailable) {
+			return contract.Actor{}, ErrUnavailable
+		}
 		return denied()
 	}
 	v.mu.Lock()

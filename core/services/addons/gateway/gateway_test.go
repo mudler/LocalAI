@@ -7,11 +7,13 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -142,5 +144,28 @@ var _ = Describe("typed lifecycle ingress", func() {
 		recorded, e := m.OperationStatus(context.Background(), actor, "good")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(recorded.Phase).To(Equal("completed"))
+	})
+})
+
+var _ = Describe("host account check failures", func() {
+	It("reports an account store outage as unavailable and a refused account as forbidden", func() {
+		outage := fmt.Errorf("account store: %w", ErrUnavailable)
+		refused := errors.New("account disabled")
+		read := contract.Request{AddonID: "sample", OperationID: "op", Action: "operation-status"}
+		actor := contract.Actor{UserID: "user", CredentialID: "key", Mode: "named-user"}
+		for check, want := range map[error]int{outage: 503, refused: 403} {
+			g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return check }}
+			_, e := g.Dispatch(context.Background(), actor, read)
+			Expect(StatusFor(e)).To(Equal(want), "dispatch")
+			e = g.Relay(context.Background(), actor, RelayRequest{Request: read, Kind: "status"}, httptest.NewRecorder())
+			Expect(StatusFor(e)).To(Equal(want), "relay")
+			pub, priv, ke := ed25519.GenerateKey(rand.Reader)
+			Expect(ke).NotTo(HaveOccurred())
+			v := &ForwardVerifier{OwnerID: "owner", Keys: map[string]ed25519.PublicKey{"front": pub}, Revalidate: g.Revalidate}
+			m := ForwardedRequest{PeerID: "front", Audience: "owner", Actor: actor, OperationID: "op", Nonce: "n", ExpiresAt: time.Now().Add(time.Minute), Body: []byte(`{"operationId":"op"}`)}
+			m.Sign(priv)
+			_, e = v.Verify(context.Background(), PeerIdentity{ID: "front", Verified: true}, m)
+			Expect(StatusFor(e)).To(Equal(want), "forwarded")
+		}
 	})
 })

@@ -160,7 +160,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		}
 		actor, e := v.Verify(r.Context(), peer, m)
 		if e != nil {
-			http.Error(w, "forbidden", 403)
+			http.Error(w, "forbidden", StatusFor(e))
 			return
 		}
 		var wire wireRequest

@@ -27,6 +27,23 @@ type Gateway struct {
 	streams    int
 	Revalidate func(context.Context, contract.Actor) error
 }
+
+// revalidate runs the host's account and credential check. Only an explicit
+// unavailable cause (a store outage) is 503; every other refusal, and an absent
+// check, is a denial.
+func (g *Gateway) revalidate(ctx context.Context, a contract.Actor) error {
+	if g.Revalidate == nil {
+		return ErrForbidden
+	}
+	if e := g.Revalidate(ctx, a); e != nil {
+		if errors.Is(e, ErrUnavailable) {
+			return ErrUnavailable
+		}
+		return ErrForbidden
+	}
+	return nil
+}
+
 type RelayRequest struct {
 	Request contract.Request `json:"request"`
 	Kind    string           `json:"kind"`
@@ -34,8 +51,8 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
-	if g.Revalidate == nil || g.Revalidate(ctx, actor) != nil {
-		return contract.Result{}, ErrForbidden
+	if e := g.revalidate(ctx, actor); e != nil {
+		return contract.Result{}, e
 	}
 	if g.Forward != nil {
 		return g.Forward.Dispatch(ctx, actor, request)
