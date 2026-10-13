@@ -525,9 +525,11 @@ as a typed owner status: `403` for a denial and `503` for unavailability. The re
 frontend decodes it, so every frontend reports the same error for the same decision.
 Only an authorization, policy or request rejection is `403`. A runtime that is not
 installed, enabled or serving, an owner that is busy or in recovery, an output that ends
-before its first byte, and any unclassified owner error are `503`, never a denial. An
-owner that refused a mutation before running it says so, and the frontend reports plain
-unavailability instead of an unknown outcome.
+before its first byte, and any unclassified owner error are `503`, never a denial. A
+`503` does not prove that nothing ran: the owner can fail after it recorded or applied a
+mutation. A frontend therefore reports a mutation that gets a `503`, or a transport
+failure, as `outcome_unknown` with the original `operationId`, and never as plain
+unavailability. When an error carries both a denial and an unavailable cause, `503` wins.
 After the first byte the status cannot change; the owner then aborts the stream and the
 frontend reports the stream as failed, never as a clean end.
 

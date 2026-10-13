@@ -196,17 +196,13 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 	}), nil
 }
 
-// refusedHeader marks a typed 503 in which the owner states that it refused the
-// request before it executed anything. A frontend decodes it back to plain
-// unavailability even for a mutation, so a refusal is not reported as an unknown
-// outcome. A 503 without the marker keeps the conservative reading.
-const refusedHeader = "X-Addon-Refused"
-
 // denials are authorization, policy and request-level rejections.
 var denials = []error{ErrForbidden, addons.ErrForbidden, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
 
-// refusals are operational failures known to happen before any execution.
-var refusals = []error{ErrUnavailable, addonruntime.ErrRuntime, addons.ErrNotOwner, addons.ErrRecoveryRequired, addons.ErrOwnerBusy, io.ErrUnexpectedEOF, catalog.ErrUnavailable, catalog.ErrCredential, catalog.ErrRefresh}
+// unavailable are operational failures. They say the owner could not serve the
+// request, not that it ran nothing: the owner can return them after it recorded
+// or applied a mutation. They never prove that a mutation did not execute.
+var unavailable = []error{ErrUnavailable, addonruntime.ErrRuntime, addons.ErrNotOwner, addons.ErrRecoveryRequired, addons.ErrOwnerBusy, io.ErrUnexpectedEOF, catalog.ErrUnavailable, catalog.ErrCredential, catalog.ErrRefresh}
 
 func matches(e error, set []error) bool {
 	for _, c := range set {
@@ -220,11 +216,12 @@ func matches(e error, set []error) bool {
 // StatusFor is the one mapping from a gateway error to an HTTP status. The owner
 // uses it for typed responses and the HTTP endpoints use it for local errors, so
 // the same decision has the same status from every frontend. Only an explicit
-// denial is 403. Every other error, including an unclassified one, is
+// denial is 403. An error that wraps both a denial and an unavailable cause is
+// 503: the check for unavailability comes first, so the answer fails closed. Every other error, including an unclassified one, is
 // unavailable: an unknown failure is never reported as success or as a policy
 // decision.
 func StatusFor(e error) int {
-	if e != nil && !matches(e, refusals) && matches(e, denials) {
+	if e != nil && !matches(e, unavailable) && matches(e, denials) {
 		return http.StatusForbidden
 	}
 	return http.StatusServiceUnavailable
@@ -232,11 +229,7 @@ func StatusFor(e error) int {
 
 // typedError writes the owner's typed failure response.
 func typedError(w http.ResponseWriter, e error) {
-	status := StatusFor(e)
-	if status == http.StatusServiceUnavailable && matches(e, refusals) {
-		w.Header().Set(refusedHeader, "1")
-	}
-	http.Error(w, "addon request failed", status)
+	http.Error(w, "addon request failed", StatusFor(e))
 }
 
 // trackedWriter records whether any response byte or status was committed.
@@ -312,14 +305,12 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrUnavailable
 	}
 	if resp.StatusCode != 200 {
-		refused := resp.Header.Get(refusedHeader) == "1"
 		resp.Body.Close()
 		if resp.StatusCode == 403 {
 			return nil, ErrForbidden
 		}
-		if resp.StatusCode == http.StatusServiceUnavailable && refused {
-			return nil, ErrUnavailable
-		}
+		// Any other status, including a typed 503, leaves a mutation uncertain:
+		// the owner may have recorded or applied it before it failed.
 		if mutation(wire.Request.Action) {
 			return nil, &OutcomeUnknown{OperationID: wire.Request.OperationID}
 		}

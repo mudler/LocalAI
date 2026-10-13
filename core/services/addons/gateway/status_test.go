@@ -8,10 +8,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -100,14 +105,87 @@ var _ = Describe("typed owner failure status", func() {
 		_, e := relay(env, "front-a")
 		Expect(e).To(Equal(ErrForbidden))
 	})
-	It("reports a mutation refused by the owner as unavailable, not as an unknown outcome", func() {
-		// The owner has no lifecycle manager, so it refuses before any execution.
-		env := owner(&Gateway{Revalidate: ok})
+	// countingOwner counts the mutations that reach the owner so a test can prove
+	// the frontend did not dispatch the same work again.
+	countingOwner := func(dispatches *atomic.Int32, g *Gateway) *fixtureEnv {
+		return carrierFixtureWith(RelayLimits{}, func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(g)
+			Expect(e).NotTo(HaveOccurred())
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/addons/forward" {
+					dispatches.Add(1)
+				}
+				h.ServeHTTP(w, r)
+			})
+		})
+	}
+	expectUnknown := func(e error, id string) {
+		var unknown *OutcomeUnknown
+		ExpectWithOffset(1, errors.As(e, &unknown)).To(BeTrue(), "got %v", e)
+		ExpectWithOffset(1, unknown.OperationID).To(Equal(id))
+	}
+	It("keeps a mutation unknown when the runtime fails after the owner applied it", func() {
+		actor := frontActor
+		m := ownerManager(actor, true)
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: GinkgoT().TempDir(), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.AttachRuntime(context.Background(), s)).To(Succeed())
+		// A stopped supervisor cannot start the addon, so enable is journaled and
+		// applied first and only then fails with a runtime error.
+		Expect(s.Close(context.Background())).To(Succeed())
+		var dispatches atomic.Int32
+		env := countingOwner(&dispatches, &Gateway{Manager: m, Revalidate: ok})
+		enable := contract.Request{AddonID: "sample", OperationID: "enable-op", Action: "enable", Arguments: []byte(`{}`)}
+		_, e = env.carriers["front-a"].Dispatch(context.Background(), actor, enable)
+		expectUnknown(e, "enable-op")
+		Expect(dispatches.Load()).To(Equal(int32(1)))
+		// The operation is durable on the owner: the work ran before the failure.
+		out, e := env.carriers["front-b"].Dispatch(context.Background(), actor, contract.Request{AddonID: "sample", OperationID: "enable-op", Action: "operation-status", Arguments: []byte(`{}`)})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(out.Payload)).To(ContainSubstring("completed"))
+	})
+	It("keeps a mutation unknown when the owner reports recovery required for its operation", func() {
+		actor := frontActor
+		root := filepath.Join(GinkgoT().TempDir(), "owner")
+		m, e := addons.NewManager(context.Background(), addons.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: root}, catalog.Catalog{}, &packages.Installer{Root: filepath.Join(root, "packages")}, func(context.Context, contract.Actor) error { return nil })
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		_, e = m.Submit(context.Background(), actor, addons.LifecycleCommand{AddonID: "sample", OperationID: "seed", Action: "install", SourceID: "absent", Version: "1.0.0"})
+		Expect(e).To(HaveOccurred())
+		journal := filepath.Join(root, "journal.json")
+		Expect(os.Rename(journal, journal+".saved")).To(Succeed())
+		Expect(os.Mkdir(journal, 0700)).To(Succeed())
+		var dispatches atomic.Int32
+		env := countingOwner(&dispatches, &Gateway{Manager: m, Revalidate: ok})
+		install := contract.Request{AddonID: "sample", OperationID: "second", Action: "install", Arguments: []byte(`{"sourceId":"absent","version":"1.0.0"}`)}
+		// The journal write fails after the owner recorded the intent in memory.
+		_, e = env.carriers["front-a"].Dispatch(context.Background(), actor, install)
+		expectUnknown(e, "second")
+		Expect(os.Remove(journal)).To(Succeed())
+		Expect(os.Rename(journal+".saved", journal)).To(Succeed())
+		// The replay finds its own journaled operation and asks for recovery.
+		_, e = env.carriers["front-b"].Dispatch(context.Background(), actor, install)
+		expectUnknown(e, "second")
+		Expect(dispatches.Load()).To(Equal(int32(2)))
+	})
+	It("reports a mutation as unknown when the owner cannot serve it at all", func() {
+		// The owner has no lifecycle manager. Without a proof of non-execution the
+		// frontend keeps the conservative reading and the original identifier.
+		var dispatches atomic.Int32
+		env := countingOwner(&dispatches, &Gateway{Revalidate: ok})
 		install := contract.Request{AddonID: "sample", OperationID: "install", Action: "install", Arguments: []byte(`{"sourceId":"s","version":"1.0.0"}`)}
 		_, e := env.carriers["front-a"].Dispatch(context.Background(), frontActor, install)
-		Expect(e).To(Equal(ErrUnavailable))
-		var unknown *OutcomeUnknown
-		Expect(errors.As(e, &unknown)).To(BeFalse())
+		expectUnknown(e, "install")
+		Expect(dispatches.Load()).To(Equal(int32(1)))
+	})
+	It("lets unavailability win when an error wraps both a denial and an unavailable cause", func() {
+		both := fmt.Errorf("%w: %w", addons.ErrForbidden, addonruntime.ErrRuntime)
+		swapped := fmt.Errorf("%w: %w", addonruntime.ErrRuntime, addons.ErrForbidden)
+		for name, cause := range map[string]error{"denial first": both, "cause first": swapped, "joined": errors.Join(ErrForbidden, addons.ErrOwnerBusy)} {
+			Expect(StatusFor(cause)).To(Equal(http.StatusServiceUnavailable), name)
+		}
+		// A pure denial stays forbidden.
+		Expect(StatusFor(fmt.Errorf("x: %w", addons.ErrForbidden))).To(Equal(http.StatusForbidden))
 	})
 	It("does not leak attachment headers into an error when the first read fails", func() {
 		env := carrierFixtureWith(RelayLimits{}, func(*Carrier) http.Handler {
