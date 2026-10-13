@@ -321,6 +321,7 @@
       "closes interrupted output and releases admission on disconnect",
       "rechecks revoked credentials during attachment copying",
       "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
+      "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
       "denies private relays without host resolution and admission",
       "stores a proposal from an API key and lets only the proposer's browser session confirm it",
       "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
@@ -408,6 +409,7 @@
           "closes interrupted output and releases admission on disconnect",
           "rechecks revoked credentials during attachment copying",
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
+          "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
           "denies private relays without host resolution and admission"
         ]
       },
@@ -933,6 +935,7 @@
       "closes interrupted output and releases admission on disconnect",
       "rechecks revoked credentials during attachment copying",
       "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
+      "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
       "denies private relays without host resolution and admission",
       "stores a proposal from an API key and lets only the proposer's browser session confirm it",
       "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
@@ -1057,6 +1060,7 @@
           "closes interrupted output and releases admission on disconnect",
           "rechecks revoked credentials during attachment copying",
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
+          "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
           "denies private relays without host resolution and admission"
         ]
       },

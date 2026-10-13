@@ -174,3 +174,26 @@ var _ = Describe("gateway limits", func() {
 		Expect(l.Validate()).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("file result serving bound", func() {
+	It("refuses at ingest a file result larger than the relay file bound so nothing unservable is staged", func() {
+		admission := &admitted{}
+		client := outputRuntime{runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}}
+		files := dataArtifacts("data")
+		limits := DefaultRelayLimits()
+		limits.Bytes = 3 // the runtime output declares 4 bytes
+		g := &Gateway{Limits: limits, Artifacts: files, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		request := contract.Request{AddonID: "sample", ResourceID: "forged", Generation: 1, OperationID: "op", Action: "read", Arguments: []byte(`{}`)}
+		result, e := g.Dispatch(context.Background(), contract.Actor{}, request)
+		Expect(e).To(MatchError(ErrForbidden))
+		Expect(result.Outputs).To(BeEmpty())
+		Expect(files.adopted.Load()).To(BeZero())
+		// At the bound the result is adopted.
+		limits.Bytes = 4
+		g.Limits = limits
+		result, e = g.Dispatch(context.Background(), contract.Actor{}, request)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(result.Outputs).To(HaveLen(1))
+		Expect(files.adopted.Load()).To(Equal(int32(1)))
+	})
+})

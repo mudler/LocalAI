@@ -930,7 +930,7 @@ refused.
 
 | Limit | Default |
 | --- | --- |
-| One artifact | 64 MiB (at most the relay file bound) |
+| One artifact | 64 MiB (at most the relay file bound; a file result larger than the configured relay file bound is refused whole at ingest, so nothing is staged that cannot be downloaded) |
 | Declared bytes of one user / of all users | 1 GiB / 4 GiB |
 | Artifact records of one user / of all users | 100 / 1000 |
 | Concurrent transfers (all / one user) | 4 / 2 |

@@ -74,6 +74,17 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 	if g.Artifacts == nil {
 		return contract.Result{}, ErrForbidden
 	}
+	// Nothing is staged that the relay could never serve: an output larger
+	// than the file bound is refused whole, before any byte moves.
+	limits, e := g.Limits.resolved()
+	if e != nil {
+		return contract.Result{}, e
+	}
+	for _, o := range out.Outputs {
+		if o.Size < 0 || o.Size > limits.Bytes {
+			return contract.Result{}, ErrForbidden
+		}
+	}
 	return g.Artifacts.Adopt(ctx, a, r, out)
 }
 func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
