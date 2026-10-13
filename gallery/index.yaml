@@ -1189,6 +1189,78 @@
     - filename: Hemmingway-1.Q8_0.gguf
       sha256: 10b566343db6905215c2d635285ffb43ada05a2f9b1e8e85562c8e366fac1809
       uri: huggingface://mradermacher/Hemmingway-1-GGUF/Hemmingway-1.Q8_0.gguf
+- name: qwen3.8-27b-turbo-brilliance-50x-q4
+  variants:
+    - model: qwen3.8-27b-turbo-brilliance-50x-q8
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  description: |
+    DavidAU's Turbo Brilliance 50X edition of Qwen3.8-27B includes a custom
+    chat template with selectable reasoning and instruction modes. This
+    Q4_K_M GGUF build includes the F16 vision projector for image input.
+    Uses the embedded template with a 32,768-token context by default.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+  overrides:
+    context_size: 32768
+    mmproj: qwen3.8-27b-turbo-brilliance-50x/mmproj-F16.gguf
+    parameters:
+      model: Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q4_K_M.gguf
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q4_K_M.gguf
+      sha256: 2e4fbc3b9c9cd45569dc506a87571a3dedfe213f9138cf4eece8d382c8d3794e
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/35d2d177d8efe3acc102afb1fb96b0bc1fb0b5d9/Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q4_K_M.gguf
+    - filename: qwen3.8-27b-turbo-brilliance-50x/mmproj-F16.gguf
+      sha256: cb0a71fe9b84af2552fc6260acf8e9773a29d115c683aba01c72a7ac537b212b
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/35d2d177d8efe3acc102afb1fb96b0bc1fb0b5d9/mmproj-F16.gguf
+- name: qwen3.8-27b-turbo-brilliance-50x-q8
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF
+  description: |
+    DavidAU's Turbo Brilliance 50X edition of Qwen3.8-27B includes a custom
+    chat template with selectable reasoning and instruction modes. This
+    Q8_0 GGUF build includes the F16 vision projector for image input.
+    Uses the embedded template with a 32,768-token context by default.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - vision
+  overrides:
+    context_size: 32768
+    mmproj: qwen3.8-27b-turbo-brilliance-50x/mmproj-F16.gguf
+    parameters:
+      model: Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q8_0.gguf
+      temperature: 0.7
+      top_k: 64
+      top_p: 0.95
+      min_p: 0.05
+      repeat_penalty: 1
+  files:
+    - filename: Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q8_0.gguf
+      sha256: b354f6f683a55bdf17b5c51f0c203dc5c4da38bf877932fe82ff909811728f64
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/35d2d177d8efe3acc102afb1fb96b0bc1fb0b5d9/Qwen3.8-27B-Turbo-Brilliance-50X-RI-NEO-Q8_0.gguf
+    - filename: qwen3.8-27b-turbo-brilliance-50x/mmproj-F16.gguf
+      sha256: cb0a71fe9b84af2552fc6260acf8e9773a29d115c683aba01c72a7ac537b212b
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Turbo-Brilliance-50X-Reasoning-Instruct-NEO-MAX-MTP-GGUF/resolve/35d2d177d8efe3acc102afb1fb96b0bc1fb0b5d9/mmproj-F16.gguf
 - name: qwen3.8-27b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
