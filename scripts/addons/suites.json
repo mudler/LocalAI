@@ -1284,6 +1284,13 @@
       "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
       "binds lifecycle lookup to current admin and original actor without writes or repair",
       "reports the supervisor state of an app through a crash and a restart",
+      "reads a flat directory in batches and stops at the entry bound",
+      "adds up nested files and reports a complete walk as not truncated",
+      "never follows or counts a symbolic link",
+      "keeps a result for a short time so polling does not walk again",
+      "stops at the time bound and reports a truncated size",
+      "does not keep a result cut short by the caller",
+      "is what the installed view reports for the data directory",
       "registers only ready generation bound service headless and UI capabilities",
       "rejects forged registration nonloopback and stale incarnation handshakes",
       "bounds readiness and handles exit during start and stop",
@@ -1388,7 +1395,14 @@
           "requires current authoritative administration even for idempotent retries",
           "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
           "binds lifecycle lookup to current admin and original actor without writes or repair",
-          "reports the supervisor state of an app through a crash and a restart"
+          "reports the supervisor state of an app through a crash and a restart",
+          "reads a flat directory in batches and stops at the entry bound",
+          "adds up nested files and reports a complete walk as not truncated",
+          "never follows or counts a symbolic link",
+          "keeps a result for a short time so polling does not walk again",
+          "stops at the time bound and reports a truncated size",
+          "does not keep a result cut short by the caller",
+          "is what the installed view reports for the data directory"
         ]
       },
       {
