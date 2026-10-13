@@ -40,6 +40,12 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 	if g.Forward != nil {
 		return g.Forward.Dispatch(ctx, actor, request)
 	}
+	result, err := g.dispatchLocal(ctx, actor, request)
+	return result, mutationOutcome(request, err)
+}
+
+// dispatchLocal serves a request on the owner itself, with no forwarding.
+func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
 	switch request.Action {
 	case "install", "enable", "disable", "uninstall":
 		var args struct {

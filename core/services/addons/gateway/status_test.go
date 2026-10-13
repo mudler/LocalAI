@@ -178,6 +178,36 @@ var _ = Describe("typed owner failure status", func() {
 		expectUnknown(e, "install")
 		Expect(dispatches.Load()).To(Equal(int32(1)))
 	})
+	It("keeps a mutation unknown on the owner's own frontend and leaves reads and denials alone", func() {
+		actor := frontActor
+		m := ownerManager(actor, true)
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: GinkgoT().TempDir(), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.AttachRuntime(context.Background(), s)).To(Succeed())
+		Expect(s.Close(context.Background())).To(Succeed())
+		// No forwarding carrier: this is the owner serving its own callers.
+		local := &Gateway{Manager: m, Revalidate: ok}
+		enable := contract.Request{AddonID: "sample", OperationID: "local-enable", Action: "enable", Arguments: []byte(`{}`)}
+		_, e = local.Dispatch(context.Background(), actor, enable)
+		expectUnknown(e, "local-enable")
+		Expect(StatusFor(e)).To(Equal(http.StatusServiceUnavailable))
+		Expect(errors.Is(e, ErrUnavailable)).To(BeTrue())
+		// A mutation that fails before any owner exists is unknown as well, as it
+		// is through a forwarding frontend.
+		_, e = (&Gateway{Revalidate: ok}).Dispatch(context.Background(), actor, enable)
+		expectUnknown(e, "local-enable")
+		// Reads stay plain unavailability.
+		var unknown *OutcomeUnknown
+		_, e = (&Gateway{Revalidate: ok}).Dispatch(context.Background(), actor, contract.Request{AddonID: "sample", OperationID: "poll", Action: "operation-status", Arguments: []byte(`{}`)})
+		Expect(e).To(Equal(ErrUnavailable))
+		Expect(errors.As(e, &unknown)).To(BeFalse())
+		// Denials stay denials, whether or not the action is a mutation.
+		_, e = local.Dispatch(context.Background(), actor, contract.Request{AddonID: "sample", OperationID: "bad", Action: "enable", Arguments: []byte(`{"unknown":1}`)})
+		Expect(e).To(Equal(ErrForbidden))
+		_, e = local.Dispatch(context.Background(), contract.Actor{UserID: "other", CredentialID: "k", Mode: "named-user"}, enable)
+		Expect(errors.As(e, &unknown)).To(BeFalse())
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+	})
 	It("lets unavailability win when an error wraps both a denial and an unavailable cause", func() {
 		both := fmt.Errorf("%w: %w", addons.ErrForbidden, addonruntime.ErrRuntime)
 		swapped := fmt.Errorf("%w: %w", addonruntime.ErrRuntime, addons.ErrForbidden)

@@ -318,6 +318,18 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	}
 	return resp, nil
 }
+
+// mutationOutcome applies the rule every frontend shares: a mutation that fails
+// as unavailable is reported as an unknown outcome with its original operation
+// identifier, because the owner can fail after it recorded or applied the work.
+// Reads, denials and errors that are already unknown pass through unchanged.
+func mutationOutcome(r contract.Request, e error) error {
+	var unknown *OutcomeUnknown
+	if e == nil || errors.As(e, &unknown) || !mutation(r.Action) || StatusFor(e) != http.StatusServiceUnavailable {
+		return e
+	}
+	return &OutcomeUnknown{OperationID: r.OperationID}
+}
 func mutation(action string) bool {
 	return action == "install" || action == "enable" || action == "disable" || action == "uninstall"
 }
