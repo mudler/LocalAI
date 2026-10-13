@@ -1687,5 +1687,48 @@
       "esm: a withdrawn add-on with unsaved edits stays on screen until the user decides, and never saves",
       "esm: an update withdraws the old generation, denies its code and loads the new one only on an explicit reload"
     ]
+  },
+  "host-slots": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/host_slots.sh"
+      ]
+    ],
+    "cases": [
+      "unit: slots: the registry is closed and each slot has a frozen minimal props contract",
+      "unit: slots: props carry only the contract and never message text or history",
+      "unit: slots: declared component names come from the manifest only and the module cannot add more",
+      "unit: slots: the loader hands the host only declared components and never an imperative registration",
+      "unit: slots: contributions come only from enabled, usable, current-generation add-ons that are ready",
+      "unit: slots: an action appears only in its declared placement and carries its own target",
+      "unit: slots: labels follow the language with a safe fallback",
+      "unit: slots: a renderer is found only for the addon own declared tool and kind",
+      "unit: slots: an action sends its declared tool and the sanitized context, and results are bounded text",
+      "unit: slots: disable, crash and update unmount every contribution through the runtime",
+      "unit: slots: contributions keep the apps list polled while they exist",
+      "unit: slots: the approval frame decides from the stored proposal and never from the renderer",
+      "unit: slots: the SDK can present an approval of its own addon only through the host",
+      "unit: slots: a page that only needs the list reads it once and never retries a failed read",
+      "go: accepts tool and component chat actions, slots and own-tool renderers",
+      "go: keeps bare chat action identifiers and every earlier fixture valid",
+      "go: rejects every undeclared, unsafe or inconsistent contribution at install",
+      "go: keeps the closed slot list and the icon allowlist equal to the host",
+      "go: lists actions, slots and renderers for an enabled addon and keeps the identifiers",
+      "go: lists no contribution for a disabled addon, whoever asks",
+      "slots: the composer overflow menu holds the declared composer actions and components only",
+      "slots: a tool action calls only its declared own tool and draws the declared result renderer",
+      "slots: message actions sit in the message action row and carry no message text",
+      "slots: a component action opens the add-on component in a host dialog and a throwing one is contained",
+      "slots: the host approval frame owns Confirm and Cancel and the card only draws details",
+      "slots: the settings page ends with a host-owned section for each contributing add-on",
+      "slots: the navigation slot adds its entry after the add-on navigation links of the Build hub",
+      "slots: add-on style sheets that collide with host class names change no host node",
+      "slots: keyboard users open the menu, move through it, close it with Escape and run an action",
+      "slots: the layout keeps inside a 400 px screen in the light theme",
+      "slots: a caller without the add-ons feature sees no contribution and the server denies the tool call",
+      "slots: disabling the add-on through the real owner removes every contribution and enabling brings them back"
+    ]
   }
 }

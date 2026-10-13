@@ -42,9 +42,11 @@ of namespace names, and optional `ui` contains required `entry` and `sdk` range,
 optional `css`, `pages`, `navigation`, and `chatActions` lists. Navigation names
 must refer to declared pages. UI assets must not duplicate each other. Absent UI
 requires neither assets nor SDK compatibility. Declared UI must be consistent;
-an empty object does not count as a valid declaration. Chat actions identify
-host-controlled overflow-menu entries opening addon panels, not DOM hooks or
-permission to read chat history. Platform tuple equality is compatibility only,
+an empty object does not count as a valid declaration. A chat action is either
+a bare identifier (inert: it has no placement and is never drawn) or a full
+declaration, and `ui.slots` and `ui.renderers` place components in closed host
+slots (see [Extension points and slots](#extension-points-and-slots)). They are
+host-controlled entries, not DOM hooks or permission to read chat history. Platform tuple equality is compatibility only,
 not evidence that any release platform has passed native runtime tests.
 
 Four optional fields describe how an addon appears as an app (see [Apps](#apps)).
@@ -1297,9 +1299,9 @@ as well, and so does closing the tab.
 A page named in `ui.navigation` is listed in the second row of the Add-ons tab while the
 add-on is enabled, not failed and compatible with the host SDK. The same registry keeps
 the validated chat actions per add-on and generation and removes them with the add-on.
-This release stores them and exposes them to the host (`useAddonChatActions`); drawing
-them in the chat page's own overflow menu is a separate change, and until then no chat
-action is shown anywhere.
+Declared chat actions are drawn by the host in the chat page (see
+[Extension points and slots](#extension-points-and-slots)); a bare identifier has no
+placement and is not drawn.
 
 ### Verification
 
@@ -1308,3 +1310,84 @@ scoping and registry, the Go specs of the asset route through real stored keys a
 sessions, and a browser spec against the UI test server running with authentication and
 a real owner. That spec installs the fixture packages after the build, from a catalog on
 loopback, with the protocol fixture as their process.
+
+## Extension points and slots
+
+An add-on extends the existing LocalAI pages through declarations in its manifest. The
+host validates every declaration at install and draws the contributions itself. Nothing
+is registered while the add-on runs: the module supplies only the components and the
+handlers its manifest names, and the host ignores the others (and logs them in a
+development build).
+
+### Declarations
+
+All three lists are inside `ui` and are optional. A manifest without them is valid.
+
+| Field | Entry | Rules |
+|---|---|---|
+| `ui.chatActions` | A bare identifier, or `{id, label, icon, placement, target}` | `id` is a namespace name. `label` is plain text (60 characters at most) or a language map; markup characters are rejected. `icon` is a host icon name from the SDK list or the packaged `ui.icon` path; a remote or absolute address is rejected. `placement` is `composer` or `message`. `target` has exactly one of `{tool}` (a tool in `capabilities.tools`) and `{component}` (an export of the module). |
+| `ui.slots` | `{id, slot, component}` | `slot` is one of the host slot identifiers below. `id` is a namespace name that no chat action uses. |
+| `ui.renderers` | `{kind, tool, component}` | `kind` is `approval-card` or `tool-result`. `tool` is a tool of the same add-on. One renderer for each kind and tool. |
+
+A component name is a PascalCase identifier of at most 64 characters. Each list has at
+most 16 entries. Identifiers are unique across chat actions and slots. Any unknown field
+in an entry is rejected.
+
+### Host slots
+
+The slot list is closed. A new slot is a host change with its own review: it is never
+added by a manifest. A slot passes frozen props and nothing else. No slot passes message
+text, history, the model or any host state.
+
+| Slot | Where the host draws it | Props |
+|---|---|---|
+| `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
+| `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
+| `app.nav` | At the end of the second navigation row of the Add-ons tab, after the links of `ui.navigation`. | none |
+| `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
+
+`messageId` is the position of the message in the conversation. `role` is `user`,
+`assistant`, `system` or `tool`.
+
+### What the host guarantees
+
+- A contribution is drawn only while the apps list the server returned says the add-on is
+  enabled, not failed and compatible with the host SDK, and only for the generation and
+  package the loaded module belongs to. A disable, a crash, an update or a revocation
+  removes every contribution at the next list. A re-enabled add-on is loaded again on the
+  next page load.
+- The page reads the apps list once for the slots. It keeps reading it only while a
+  usable add-on contributes.
+- Each contribution is in its own error boundary. A component that throws leaves a small
+  "Unavailable" marker, and the page keeps working.
+- A contribution is drawn in a container of its own. It cannot replace or hide a host
+  node. The style sheet of the add-on is scoped to its root.
+- A tool action is one typed `read` call of the same add-on, for the tool the manifest
+  named, with `{tool, context}` as arguments. The context has `conversationId` and, for a
+  message action, `messageId` and `role`. The server authorizes the call as for every other
+  call: hiding a button is never the control. The result is drawn by the declared
+  `tool-result` component or, without one, as bounded text. A result that names a stored
+  proposal (`{"proposalId": "..."}`) opens the approval frame.
+- A component action opens the exported component in a host dialog, with the same
+  context and a `close` function.
+
+### Approval cards
+
+A proposal of an add-on is shown in a frame the host owns. The frame loads the stored
+proposal, shows who asks, how many changes it has, when it expires and its state, and draws
+the `approval-card` component declared for the tool inside it. The component receives
+plain data (`proposalId`, `tool`, `effects`, `arguments`). It gets no callback and no
+digest. Confirm and Cancel are the frame's buttons. A confirmation sends the
+`X-LocalAI-Confirm` header and the digest that was displayed, and the server accepts it only
+from the proposer's own browser session, as in [Proposals and confirmation](#proposals-and-confirmation).
+An add-on asks for the frame with `sdk.approvals.present(proposalId)`. The proposal must
+belong to the same add-on.
+
+### Verification
+
+`sh scripts/addons/verify.sh host-slots` runs the node unit tests of the slot registry,
+the component validation of the loader and the approval rules; the Go specs of the
+manifest declarations and the apps list; and a browser spec against the UI test server
+with authentication and a real owner. The spec installs the `slots` fixture package after
+the build. It contributes to every slot, with a contribution that throws and a style sheet
+that collides with host class names.
