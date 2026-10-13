@@ -132,15 +132,32 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/proposals/:id/reconcile": true,
 			"POST /api/addons/proposals/:id/resolve":   true,
 		}))
-		// Reading a proposal and the owner's list of unresolved ones are the
-		// only registered GETs.
+		// Reading a proposal, the owner's list of unresolved ones and the two
+		// private artifact reads are the only registered GETs.
 		reads := map[string]bool{}
 		for _, r := range e.Routes() {
 			if strings.HasPrefix(r.Path, "/api/addons") && r.Method == http.MethodGet {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true}))
+	})
+	It("gates the artifact routes by authentication and feature", func() {
+		get := func(path string, mutate func(*http.Request)) int {
+			r := httptest.NewRequest(http.MethodGet, path, nil)
+			mutate(r)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w.Code
+		}
+		id := "a" + strings.Repeat("0", 32)
+		for _, path := range []string{"/api/addons/artifacts/" + id, "/api/addons/artifacts/" + id + "/download"} {
+			Expect(get(path, func(r *http.Request) {})).To(Equal(http.StatusUnauthorized), path)
+			Expect(get(path, func(r *http.Request) { forged(r) })).To(Equal(http.StatusUnauthorized), path)
+			Expect(get(path, bearer("plain"))).To(Equal(http.StatusForbidden), path)
+			// Administration is not access to another user's file.
+			Expect(get(path, bearer("granted"))).To(Equal(reached), path)
+		}
 	})
 	It("gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked", func() {
 		do := func(method, path, body string, mutate func(*http.Request)) int {

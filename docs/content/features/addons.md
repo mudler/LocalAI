@@ -107,7 +107,7 @@ implementation defaults, not immutable product requirements.
 | Batch size / query depth / query rows | 100 / 8 / 1000 |
 | Query result bytes | 1 MiB |
 | Proposal expiry / artifact expiry | 5 min / 1 hour |
-| Single artifact / aggregate artifact quota | 100 MiB / 1 GiB |
+| Single artifact / aggregate artifact quota | 100 MiB / 1 GiB (a stored artifact is at most 64 MiB, the relay bound) |
 | Artifact count / concurrency | 100 / 4 |
 
 Initial backoff cannot exceed maximum; single artifact cannot exceed quota;
@@ -497,7 +497,9 @@ owner election, or failover. An absent owner returns unavailable.
 - `POST /api/addons/dispatch` accepts a contract request. Supported lifecycle actions
   are `install`, `enable`, `disable`, and `uninstall`. `operation-status` is read-only.
 - `POST /api/addons/relay` accepts `{request, kind, handle}`. Kinds are `status`,
-  `progress`, `json`, `file`, and `asset`. Handles are not filesystem paths.
+  `progress`, `json`, `file`, and `asset`. Handles are not filesystem paths. For `file`
+  the handle is the identifier of a private file result (see
+  [Private file results](#private-file-results)), never an addon output handle.
 - Both routes require named authentication and the `addons` feature. Lifecycle
   dispatch additionally requires current administration rights. Cookie requests require
   same-origin fetch metadata; header-authenticated clients use their validated keys.
@@ -508,6 +510,9 @@ owner election, or failover. An absent owner returns unavailable.
 - `GET /api/addons/resources/{resourceId}/proposals?state=unresolved` lists, for the owner
   role of the resource only, the proposals on it whose outcome is unresolved, whoever
   proposed them. See [Unknown outcomes and recovery](#unknown-outcomes-and-recovery).
+- `GET /api/addons/artifacts/{id}` and `GET /api/addons/artifacts/{id}/download` read
+  the state of, and download, a private file result of the caller. See
+  [Private file results](#private-file-results).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
 unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
@@ -555,8 +560,9 @@ frontend reports the stream as failed, never as a clean end.
 resolver maps resource references and opaque output handles to trusted records. A missing
 admission provider or resolver denies access, including access by installation administrators.
 The owner installs the policy described below as both providers at bootstrap; a frontend
-that forwards to the owner, or a host without the policy, keeps denying. Private output
-descriptions still need the artifact store, so `Output` denies until it exists.
+that forwards to the owner, or a host without the policy, keeps denying. File results are
+held by the private artifact store described in [Private file results](#private-file-results);
+without it a read that returns a file output is denied whole and a `file` relay is denied.
 
 ### Principals, roles and grants
 
@@ -845,3 +851,115 @@ Other frontends reach the proposal state only through the owner's gateway, signe
 actor-bound like every other forwarded call.
 
 Run `sh scripts/addons/verify.sh proposals` for the proposal suites.
+
+## Private file results
+
+An addon read can return file outputs, such as a CSV export. A file result is a private,
+temporary artifact of the user who asked for it. It is not a shared file: the model,
+media, upload and agent file routes and the frontend code artifacts never see these
+bytes, and the existing file APIs are unchanged.
+
+### What the host does with an output
+
+1. The owner never returns the addon's output handle to a client. When a read result has
+   file outputs, the owner reserves one artifact for each (all of them, or none) and
+   replaces the handle in the result with the **artifact ID**: an opaque, random,
+   host-generated identifier. An addon handle, URL or path is never an identifier and
+   never names a file. The handle must be a valid ID of the contract; a URL or path in its
+   place is refused and nothing is read.
+2. The artifact records the requesting principal, the source resources (the request's
+   resource, as the policy recorded it), the addon and its generation, the operation, the
+   sanitized name, the media type, the declared size and the expiry. The addon handle is
+   kept only in memory while the copy runs; only a digest of it, with the principal and
+   the operation, is stored so that a repeated request finds the same artifact.
+3. A bounded background worker copies the bytes from the registered runtime endpoint of
+   the addon (and from nowhere else) into a private staged area under `artifacts/` in the
+   addon root: directories `0700`, files `0600`. The worker streams with one 32 KiB buffer
+   and never holds the whole file. It stops at the declared size: a stream that is
+   short, long by one byte, cancelled or failing is never published, its partial bytes are
+   removed and the artifact is recorded as `failed` with a fixed reason. The bytes are
+   published only by an atomic rename after the stream ended cleanly.
+4. The copy runs under an output admission of **every** source resource, so a revocation
+   cancels it and waits for it, like any other admitted work. At completion the owner
+   checks again that the account is current and that the principal can read every source
+   resource, that the addon is installed, enabled and at the same generation, and that the
+   artifact is not expired. Only then is it recorded as `complete` (metadata is written
+   atomically with fsync, validated on load and never reset).
+
+Another user's artifact, an unknown ID, an expired one and a malformed one are the same
+`403`, so identifiers cannot be probed. Read access to the source resource does not give
+access to another user's artifact, and sharing a database never shares its exports.
+
+### Routes
+
+- `GET /api/addons/artifacts/{id}` returns the artifact view: state (`transferring`,
+  `complete`, `failed`, `cancelled`), sanitized name, media type, size, sources, addon,
+  generation and expiry. It is the status lookup of the background transfer. It is
+  read-only, actor-bound and never shows a path or an addon handle.
+- `GET /api/addons/artifacts/{id}/download` streams a complete artifact. The receiving
+  frontend relays it from the owner through the `file` relay, so a download works from
+  every frontend and no frontend holds the bytes. It needs the session or key of the
+  requesting principal and the `addons` feature. Before the first byte and while streaming
+  the owner checks the account and read access to all source resources again; a revocation
+  cancels the stream. A failure after the first byte aborts the connection, so a truncated
+  file never looks complete (the response carries the exact `Content-Length`).
+
+No MCP tool maps to these routes in this release. A tool that returns a file result is
+added with the Tables export; it will return the artifact reference, not a URL.
+
+### Response safety
+
+Every download is an attachment (RFC 6266, with an ASCII `filename` and a UTF-8
+`filename*`) with a sanitized name, `X-Content-Type-Options: nosniff`,
+`Cache-Control: private, no-store`, a `Content-Security-Policy` that sandboxes the
+response and `Content-Length`. The name loses path elements, control characters,
+bidirectional overrides and invisible characters, shell and file system metacharacters and
+leading or trailing dots, is prefixed when it is a reserved device name and is at most 100
+characters. The media type is one of `text/csv`, `text/plain`, `application/json`,
+`application/x-ndjson`, `application/zip`, `application/pdf`, `image/png`, `image/jpeg` or
+`application/octet-stream`; everything else (HTML, SVG, XML, JavaScript) is served as
+`application/octet-stream`, and parameters are dropped. A browser request with a session
+cookie must be a same-origin fetch or navigation like the other addon routes.
+Spreadsheet formula handling of a CSV is the addon's concern; the host only delivers the
+bytes as a download.
+
+### Limits
+
+All limits are finite and validated at startup; a partial or unbounded override is
+refused.
+
+| Limit | Default |
+| --- | --- |
+| One artifact | 64 MiB (at most the relay file bound) |
+| Declared bytes of one user / of all users | 1 GiB / 4 GiB |
+| Artifact records of one user / of all users | 100 / 1000 |
+| Concurrent transfers (all / one user) | 4 / 2 |
+| Concurrent downloads | 16 |
+| Lifetime from creation | 1 hour |
+| One transfer | 5 minutes |
+
+Quotas are enforced under one lock when the artifact is reserved, so concurrent requests
+cannot exceed them; a refusal reserves nothing. A quota refusal is `403`, a busy store is
+`503`. A repeated request (same principal, operation and output) returns the same
+artifact and uses no more quota.
+
+### Lifecycle
+
+- **Expiry.** A sweep (every minute) removes artifacts at their expiry, transfers that no
+  worker owns, artifacts of an uninstalled addon and files that no record names; opening
+  the store also settles interrupted transfers and removes unreferenced files. An
+  expired artifact is never served, even if the sweep did not run yet or the expiry falls
+  while a download is being admitted or streamed.
+- **Disable.** A disabled addon denies downloads and accepts no new file result. The
+  complete bytes are kept until their normal expiry. Enabling it again serves an artifact
+  only while it is unexpired and only to a principal that can still read every source
+  resource.
+- **Uninstall.** An uninstalled addon denies downloads at once and its artifacts are
+  removed by the next sweep (they are not kept until expiry, because nothing can answer for
+  them). An addon update to another generation does not serve the older build's files.
+- **Restart.** Complete artifacts survive a restart. A transfer that was running is
+  recorded as failed and its partial bytes are removed.
+- **Close.** Closing the owner cancels running transfers and streams, waits for them and
+  writes nothing afterwards.
+
+Run `sh scripts/addons/verify.sh artifacts` for the artifact suites.

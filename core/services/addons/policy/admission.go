@@ -499,8 +499,8 @@ func (p *Policy) Resolve(ctx context.Context, actor contract.Actor, request cont
 }
 
 // Gateway adapts the policy to the gateway's Admission and ResourceResolver.
-// Artifact descriptions are not part of this task: Output denies until an
-// artifact store supplies them.
+// Output describes an already-ingested private artifact through the Outputs
+// source, which the artifact store implements; without one Output denies.
 func (p *Policy) Gateway() *GatewayProvider { return &GatewayProvider{p: p} }
 
 // OutputSource describes private outputs from host-owned records.

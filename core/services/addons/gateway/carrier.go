@@ -112,6 +112,8 @@ type wireRequest struct {
 	// Proposal marks a call for the owner's proposal broker. Such a call is
 	// never a typed dispatch.
 	Proposal *ProposalCall `json:"proposal,omitempty"`
+	// Artifact marks a read-only lookup in the owner's artifact store.
+	Artifact *artifactCall `json:"artifact,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -169,6 +171,22 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.Artifact != nil {
+			call := *wire.Artifact
+			if wire.Relay != nil || wire.Proposal != nil || call.Op != artifactStatus || call.ID == "" || wire.Request.OperationID != call.ID {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			wire.Request.Action = "artifact-" + call.Op
+			info, e := g.artifactStatusLocal(r.Context(), actor, call.ID)
+			if e != nil {
+				typedError(w, e)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(info)
 			return
 		}
 		if wire.Proposal != nil {
@@ -376,7 +394,7 @@ func mutationOutcome(r contract.Request, e error) error {
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list"
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status"
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})
@@ -413,7 +431,7 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 			return
 		}
 		published = true
-		for _, h := range []string{"Content-Type", "Content-Disposition", "Cache-Control", "X-Content-Type-Options"} {
+		for _, h := range []string{"Content-Type", "Content-Disposition", "Content-Length", "Content-Security-Policy", "Cache-Control", "X-Content-Type-Options"} {
 			if v := resp.Header.Get(h); v != "" {
 				w.Header().Set(h, v)
 			}
@@ -453,4 +471,19 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 			return ctx.Err()
 		}
 	}
+}
+
+// artifactStatus forwards a read-only artifact lookup to the owner.
+func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id string) (Artifact, error) {
+	request := contract.Request{OperationID: id, Action: "artifact-" + artifactStatus}
+	resp, e := c.send(ctx, a, wireRequest{Request: request, Artifact: &artifactCall{Op: artifactStatus, ID: id}})
+	if e != nil {
+		return Artifact{}, e
+	}
+	defer resp.Body.Close()
+	var art Artifact
+	if e = decode(io.LimitReader(resp.Body, 1<<20), &art); e != nil {
+		return Artifact{}, ErrUnavailable
+	}
+	return art, nil
 }

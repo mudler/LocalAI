@@ -117,6 +117,120 @@
                 }
             }
         },
+        "/api/addons/artifacts/{id}": {
+            "get": {
+                "description": "Returns the caller's own artifact: its state (transferring, complete, failed or cancelled), the sanitized file name, the media type, the exact size and the expiry. Only the principal that requested the result can read it; an unknown identifier and another user's artifact give the same 403, so identifiers cannot be probed. The response never carries a storage path or an addon handle. This is the status lookup of the background transfer; it is read-only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read the state of a private addon file result",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Artifact ID (host generated, opaque)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Artifact state",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Artifact"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the artifact is unknown, expired or not the caller's",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/artifacts/{id}/download": {
+            "get": {
+                "description": "Streams the caller's own complete artifact as an attachment, relayed through the receiving frontend from the owner that holds the bytes. Access needs the session or key of the principal that requested the result and, at the start and while streaming, current read access to every source resource and a current account. An artifact that is not complete, is expired, belongs to another principal or is unknown gives the same 403. The response is always an attachment (RFC 6266) with a sanitized name, a media type from a fixed allowlist or application/octet-stream, X-Content-Type-Options nosniff and Cache-Control private, no-store; it is never rendered inline. A failure after the first byte aborts the connection, so a truncated file never looks complete. Disabling the addon denies downloads and keeps the bytes until expiry; enabling it again serves unexpired artifacts to principals that still have access.",
+                "produces": [
+                    "application/octet-stream",
+                    "text/csv",
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Download a private addon file result",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Artifact ID (host generated, opaque)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Artifact bytes",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "private, no-store"
+                            },
+                            "Content-Disposition": {
+                                "type": "string",
+                                "description": "attachment with a sanitized filename and filename*"
+                            },
+                            "Content-Length": {
+                                "type": "string",
+                                "description": "exact size of the artifact"
+                            },
+                            "X-Content-Type-Options": {
+                                "type": "string",
+                                "description": "nosniff"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the artifact is unknown, expired, incomplete, not the caller's or no longer readable by the caller",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the download bound is reached",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/dispatch": {
             "post": {
                 "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation.",
@@ -506,7 +620,7 @@
         },
         "/api/addons/relay": {
             "post": {
-                "description": "Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.",
+                "description": "Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (a private file result as an attachment: the handle is the artifact ID that a read returned, never an addon handle) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.",
                 "consumes": [
                     "application/json"
                 ],
@@ -5924,6 +6038,88 @@
                     "type": "integer"
                 }
             }
+        },
+        "gateway.Artifact": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "description": "AddonID and Generation name the addon build that produced the result.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "description": "ExpiresAt is when the artifact stops being served and is removed.",
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "ID is the host-generated opaque identifier. It is the only handle a\nclient ever holds for the file.",
+                    "type": "string"
+                },
+                "mediaType": {
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the sanitized attachment name and MediaType the safe media type\nthe download is served with.",
+                    "type": "string"
+                },
+                "operationId": {
+                    "description": "OperationID is the operation of the request that produced the output.",
+                    "type": "string"
+                },
+                "principal": {
+                    "description": "Principal is the user who requested the result. Only this user can read\nor download the artifact.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why a transfer failed or was cancelled. It never carries\naddon text.",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is the exact number of bytes of a complete artifact.",
+                    "type": "integer"
+                },
+                "sources": {
+                    "description": "Sources are the resources the bytes were produced from. Every one of\nthem must still be readable by the principal at completion and at each\ndownload.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.ArtifactResource"
+                    }
+                },
+                "state": {
+                    "$ref": "#/definitions/gateway.ArtifactState"
+                }
+            }
+        },
+        "gateway.ArtifactResource": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "resourceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "gateway.ArtifactState": {
+            "type": "string",
+            "enum": [
+                "transferring",
+                "complete",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "ArtifactTransferring",
+                "ArtifactComplete",
+                "ArtifactFailed",
+                "ArtifactCancelled"
+            ]
         },
         "gateway.BlockingProposal": {
             "type": "object",

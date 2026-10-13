@@ -25,7 +25,10 @@ type Gateway struct {
 	Resolver  ResourceResolver
 	// Proposals is the owner's proposal broker. Frontends leave it nil and
 	// forward through Forward.
-	Proposals  ProposalBroker
+	Proposals ProposalBroker
+	// Artifacts is the owner's private artifact store. Without it the gateway
+	// denies every file result and every file download.
+	Artifacts  ArtifactProvider
 	streamsMu  sync.Mutex
 	streams    int
 	Revalidate func(context.Context, contract.Actor) error

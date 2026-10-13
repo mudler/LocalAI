@@ -63,57 +63,153 @@ func (f runtimeFixture) OpenOutput(ctx context.Context, e contract.Envelope, h s
 	return f.open(ctx), nil
 }
 
+// fakeArtifacts is a stand-in owner artifact store: one artifact whose bytes
+// come from open, or an error returned before the first byte.
+type fakeArtifacts struct {
+	art    Artifact
+	open   func(context.Context) io.ReadCloser
+	err    error
+	active atomic.Bool
+	serves atomic.Int32
+	// adopted records the results handed to Adopt.
+	adopted atomic.Int32
+}
+
+func (f *fakeArtifacts) Serve(ctx context.Context, _ contract.Actor, id string, begin func(Artifact) error, dst io.Writer) error {
+	f.serves.Add(1)
+	if f.err != nil {
+		return f.err
+	}
+	if id != f.art.ID {
+		return ErrForbidden
+	}
+	if e := begin(f.art); e != nil {
+		return e
+	}
+	f.active.Store(true)
+	defer f.active.Store(false)
+	r := f.open(ctx)
+	defer r.Close()
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		select {
+		case <-ctx.Done():
+			r.Close()
+		case <-stop:
+		}
+	}()
+	buf := make([]byte, 4096)
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		n, e := r.Read(buf)
+		if n > 0 {
+			if _, we := dst.Write(buf[:n]); we != nil {
+				return we
+			}
+		}
+		if e == io.EOF {
+			return nil
+		}
+		if e != nil {
+			return e
+		}
+	}
+}
+
+func (f *fakeArtifacts) Status(_ context.Context, _ contract.Actor, id string) (Artifact, error) {
+	if f.err != nil {
+		return Artifact{}, f.err
+	}
+	if id != f.art.ID {
+		return Artifact{}, ErrForbidden
+	}
+	return f.art, nil
+}
+
+func (f *fakeArtifacts) Adopt(_ context.Context, _ contract.Actor, _ contract.Request, r contract.Result) (contract.Result, error) {
+	f.adopted.Add(1)
+	out := r
+	out.Outputs = nil
+	for _, o := range r.Outputs {
+		out.Outputs = append(out.Outputs, contract.OutputDescription{Handle: f.art.ID, Name: o.Name, MediaType: o.MediaType, Size: o.Size})
+	}
+	return out, nil
+}
+
+const fakeArtifactID = "a0123456789abcdef0123456789abcdef"
+
+func dataArtifacts(body string) *fakeArtifacts {
+	return &fakeArtifacts{
+		art:  Artifact{ID: fakeArtifactID, Name: "report.csv", MediaType: "text/csv", Size: int64(len(body)), State: ArtifactComplete},
+		open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader(body)) },
+	}
+}
+
 var _ = Describe("bounded private relays", func() {
 	It("keeps resolved resources under admission for JSON and attachment bytes", func() {
 		admission := &admitted{}
 		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}
-		g := &Gateway{Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		files := dataArtifacts("data")
+		g := &Gateway{Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Artifacts: files, Revalidate: func(context.Context, contract.Actor) error { return nil }}
 		r := contract.Request{AddonID: "sample", ResourceID: "forged", Generation: 1, OperationID: "op", Action: "read", Arguments: []byte(`{}`)}
 		result, e := g.Dispatch(context.Background(), contract.Actor{}, r)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(string(result.Payload)).To(ContainSubstring("ok"))
 		Expect(admission.active.Load()).To(BeFalse())
 		w := httptest.NewRecorder()
-		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: r, Kind: "file", Handle: "opaque"}, w)).To(Succeed())
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: r, Kind: "file", Handle: fakeArtifactID}, w)).To(Succeed())
 		Expect(w.Body.String()).To(Equal("data"))
-		Expect(w.Header().Get("Content-Disposition")).To(ContainSubstring("attachment"))
-		Expect(admission.active.Load()).To(BeFalse())
-		r.Generation = 2
-		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: r, Kind: "file"}, httptest.NewRecorder())).NotTo(Succeed())
+		Expect(w.Header().Get("Content-Disposition")).To(HavePrefix("attachment;"))
+		Expect(w.Header().Get("Content-Type")).To(Equal("text/csv"))
+		Expect(w.Header().Get("Content-Length")).To(Equal("4"))
+		Expect(w.Header().Get("X-Content-Type-Options")).To(Equal("nosniff"))
+		Expect(w.Header().Get("Cache-Control")).To(Equal("private, no-store"))
+		// A handle that is not an artifact of the principal is a denial and
+		// leaves no file headers behind.
+		w = httptest.NewRecorder()
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: r, Kind: "file", Handle: "private"}, w)).To(MatchError(ErrForbidden))
+		Expect(w.Body.Len()).To(BeZero())
+		Expect(w.Header().Get("Content-Disposition")).To(BeEmpty())
+		Expect(w.Header().Get("Content-Length")).To(BeEmpty())
 	})
 	It("closes interrupted output and releases admission on disconnect", func() {
-		admission := &admitted{}
 		reader, writer := io.Pipe()
 		defer writer.Close()
 		started := make(chan struct{})
-		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { close(started); return reader }}
-		g := &Gateway{Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		files := &fakeArtifacts{art: Artifact{ID: fakeArtifactID, Name: "r.csv", MediaType: "text/csv", Size: 4}, open: func(context.Context) io.ReadCloser { close(started); return reader }}
+		g := &Gateway{Artifacts: files, Revalidate: func(context.Context, contract.Actor) error { return nil }}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		done := make(chan error, 1)
 		go func() {
-			done <- g.Relay(ctx, contract.Actor{}, RelayRequest{Request: contract.Request{AddonID: "sample", Generation: 1}, Kind: "file"}, httptest.NewRecorder())
+			done <- g.Relay(ctx, contract.Actor{}, RelayRequest{Request: contract.Request{AddonID: "sample", Generation: 1}, Kind: "file", Handle: fakeArtifactID}, httptest.NewRecorder())
 		}()
 		Eventually(started, time.Second).Should(BeClosed())
-		Expect(admission.active.Load()).To(BeTrue())
+		Expect(files.active.Load()).To(BeTrue())
 		cancel()
 		Eventually(done, time.Second).Should(Receive(HaveOccurred()))
-		Expect(admission.active.Load()).To(BeFalse())
+		Expect(files.active.Load()).To(BeFalse())
 	})
 	It("rechecks revoked credentials during attachment copying", func() {
-		admission := &admitted{}
+		// The account check runs before the artifact store is asked, so a
+		// revoked credential never reaches the bytes. The store itself looks
+		// at the account again while it streams.
 		var checks atomic.Int32
-		g := &Gateway{Admission: admission, Resolver: resolved{}, Runtime: currentFixture{runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}}, Revalidate: func(context.Context, contract.Actor) error {
-			if checks.Add(1) >= 3 {
+		files := dataArtifacts("data")
+		g := &Gateway{Artifacts: files, Revalidate: func(context.Context, contract.Actor) error {
+			if checks.Add(1) >= 1 {
 				return ErrForbidden
 			}
 			return nil
 		}}
 		w := httptest.NewRecorder()
-		e := g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: contract.Request{AddonID: "sample", Generation: 1}, Kind: "file"}, w)
+		e := g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: contract.Request{AddonID: "sample", Generation: 1}, Kind: "file", Handle: fakeArtifactID}, w)
 		Expect(e).To(Equal(ErrForbidden))
 		Expect(w.Body.Len()).To(BeZero())
-		Expect(admission.active.Load()).To(BeFalse())
+		Expect(files.serves.Load()).To(BeZero())
 	})
 })
 

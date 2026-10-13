@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -29,12 +28,6 @@ func (r erroringRuntime) Runtime(context.Context, string) (addonruntime.Instance
 	return addonruntime.Instance{}, r.err
 }
 
-type shortOutput struct{ resolved }
-
-func (shortOutput) Output(context.Context, contract.Actor, contract.Request, string) (contract.OutputDescription, error) {
-	return contract.OutputDescription{Handle: "private", Name: "r.bin", MediaType: "application/octet-stream", Size: 8}, nil
-}
-
 var _ = Describe("typed owner failure status", func() {
 	ok := func(context.Context, contract.Actor) error { return nil }
 	owner := func(g *Gateway) *fixtureEnv {
@@ -47,11 +40,11 @@ var _ = Describe("typed owner failure status", func() {
 	file := contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read"}
 	relay := func(env *fixtureEnv, front string) (*httptest.ResponseRecorder, error) {
 		w := httptest.NewRecorder()
-		e := env.carriers[front].Relay(context.Background(), frontActor, RelayRequest{Request: file, Kind: "file", Handle: "h"}, w)
+		e := env.carriers[front].Relay(context.Background(), frontActor, RelayRequest{Request: file, Kind: "file", Handle: fakeArtifactID}, w)
 		return w, e
 	}
 	runtimeFailure := func(err error) *Gateway {
-		return &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: resolved{}, Runtime: erroringRuntime{err}}
+		return &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: resolved{}, Runtime: erroringRuntime{err}, Artifacts: &fakeArtifacts{err: err}}
 	}
 
 	It("reports a runtime that cannot serve as unavailable through both frontends", func() {
@@ -75,9 +68,7 @@ var _ = Describe("typed owner failure status", func() {
 		}
 	})
 	It("reports an output that ends before its first byte as unavailable", func() {
-		admission := &admitted{}
-		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("")) }}
-		env := owner(&Gateway{Revalidate: ok, Admission: admission, Resolver: shortOutput{}, Runtime: currentFixture{client}})
+		env := owner(&Gateway{Revalidate: ok, Artifacts: &fakeArtifacts{err: io.ErrUnexpectedEOF}})
 		w, e := relay(env, "front-a")
 		Expect(e).To(Equal(ErrUnavailable))
 		Expect(w.Body.Len()).To(BeZero())

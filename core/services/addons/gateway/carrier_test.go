@@ -14,7 +14,6 @@ import (
 	"io"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -112,45 +111,54 @@ var _ = Describe("resource relay admission", func() {
 			_, err := g.Dispatch(context.Background(), contract.Actor{}, request)
 			Expect(err).To(MatchError(ErrForbidden), name)
 		}
-		// The same request succeeds once both host policies are installed.
-		g := &Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}}
+		// The same request succeeds once the policies and the artifact store
+		// are installed.
+		g := &Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Artifacts: dataArtifacts("data")}
 		w := httptest.NewRecorder()
-		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, w)).To(Succeed())
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file", Handle: fakeArtifactID}, w)).To(Succeed())
 		Expect(w.Body.String()).To(Equal("data"))
+		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "json"}, httptest.NewRecorder())).To(Succeed())
 	})
 })
 
-// observing records whether admission was held when the host described the output.
-type observing struct {
-	resolved
-	admission *admitted
-	held      *atomic.Bool
-}
-
-func (o observing) Output(ctx context.Context, a contract.Actor, r contract.Request, h string) (contract.OutputDescription, error) {
-	o.held.Store(o.admission.active.Load())
-	return o.resolved.Output(ctx, a, r, h)
-}
-
 var _ = Describe("runtime admission", func() {
-	It("describes outputs inside admission and replaces a forged resource identity", func() {
+	It("adopts read outputs as private artifacts inside admission and replaces a forged resource identity", func() {
 		admission := &admitted{}
-		var held atomic.Bool
-		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}
-		g := &Gateway{Admission: admission, Resolver: observing{admission: admission, held: &held}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		client := outputRuntime{runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}}
+		files := dataArtifacts("data")
+		g := &Gateway{Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error { return nil }}
 		// The runtime accepts only the host-recorded resource, so success proves the
 		// forged value from the request was not used.
 		request := contract.Request{AddonID: "sample", ResourceID: "forged", Generation: 1, OperationID: "op", Action: "read", Arguments: []byte(`{}`)}
-		w := httptest.NewRecorder()
-		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, w)).To(Succeed())
-		Expect(w.Body.String()).To(Equal("data"))
-		Expect(held.Load()).To(BeTrue())
+		// Without an artifact store a result with outputs is denied whole, and
+		// the addon handle never reaches the caller.
+		result, e := g.Dispatch(context.Background(), contract.Actor{}, request)
+		Expect(e).To(MatchError(ErrForbidden))
+		Expect(result.Outputs).To(BeEmpty())
+		g.Artifacts = files
+		result, e = g.Dispatch(context.Background(), contract.Actor{}, request)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(result.Outputs).To(HaveLen(1))
+		Expect(result.Outputs[0].Handle).To(Equal(fakeArtifactID))
+		Expect(result.Outputs[0].Handle).NotTo(Equal("private"))
+		Expect(files.adopted.Load()).To(Equal(int32(1)))
 		Expect(admission.active.Load()).To(BeFalse())
 		// With no current runtime the host reports the owner unavailable, not forbidden.
 		g.Runtime = nil
-		Expect(g.Relay(context.Background(), contract.Actor{}, RelayRequest{Request: request, Kind: "file"}, httptest.NewRecorder())).To(MatchError(ErrUnavailable))
+		_, e = g.Dispatch(context.Background(), contract.Actor{}, request)
+		Expect(e).To(MatchError(ErrUnavailable))
 	})
 })
+
+// outputRuntime answers a read with one addon output handle.
+type outputRuntime struct{ runtimeFixture }
+
+func (o outputRuntime) Read(ctx context.Context, e contract.Envelope) (contract.Result, error) {
+	if _, err := o.runtimeFixture.Read(ctx, e); err != nil {
+		return contract.Result{}, err
+	}
+	return contract.Result{Payload: []byte(`{"ok":true}`), Outputs: []contract.OutputDescription{{Handle: "private", Name: "report.csv", MediaType: "text/csv", Size: 4}}}, nil
+}
 
 var _ = Describe("gateway limits", func() {
 	It("validates finite relay budgets and prevents disabling polling bounds", func() {

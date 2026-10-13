@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -65,7 +65,16 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		out, e = instance.Client.Read(ctx, contract.Envelope{Request: r, Authority: contract.Authority{Actor: a, Scope: "read", ExpiresAt: time.Now().Add(30 * time.Second)}})
 		return e
 	})
-	return
+	if err != nil || len(out.Outputs) == 0 {
+		return
+	}
+	// A file result never reaches a client with the addon's own handle: the
+	// owner turns each output into a private artifact and returns the host
+	// identifiers. Without an artifact store the result is denied whole.
+	if g.Artifacts == nil {
+		return contract.Result{}, ErrForbidden
+	}
+	return g.Artifacts.Adopt(ctx, a, r, out)
 }
 func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
 	if e := g.revalidate(ctx, a); e != nil {
@@ -74,7 +83,10 @@ func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 	if r.Kind != "status" && r.Kind != "progress" && r.Kind != "file" && r.Kind != "asset" && r.Kind != "json" {
 		return ErrForbidden
 	}
-	if (r.Kind == "file" || r.Kind == "json") && (g.Admission == nil || g.Resolver == nil) && g.Forward == nil {
+	if r.Kind == "json" && (g.Admission == nil || g.Resolver == nil) && g.Forward == nil {
+		return ErrForbidden
+	}
+	if r.Kind == "file" && g.Artifacts == nil && g.Forward == nil {
 		return ErrForbidden
 	}
 	limits, err := g.Limits.resolved()
@@ -184,41 +196,41 @@ func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 	}
 	return ErrForbidden
 }
+
+// file serves a private artifact by its host identifier. The bytes come from
+// the owner's staged copy, never from the addon, and the artifact store decides
+// who may read them; this layer only bounds the stream and sets the headers.
 func (g *Gateway) file(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
 	limits, err := g.Limits.resolved()
 	if err != nil {
 		return err
 	}
-	key, e := g.Resolver.Resolve(ctx, a, r.Request)
-	if e != nil || key.AddonID != r.Request.AddonID || key.ResourceID == "" {
+	if g.Artifacts == nil {
 		return ErrForbidden
 	}
-	r.Request.ResourceID = key.ResourceID
-	return g.Admission.Admit(ctx, a, key, "output", func(ctx context.Context) error {
-		if e := g.revalidate(ctx, a); e != nil {
-			return e
-		}
-		output, e := g.Resolver.Output(ctx, a, r.Request, r.Handle)
-		if e != nil || output.Size < 0 || output.Size > limits.Bytes {
+	tw := &trackedWriter{ResponseWriter: w}
+	err = g.Artifacts.Serve(ctx, a, r.Handle, func(art Artifact) error {
+		if art.Size < 0 || art.Size > limits.Bytes {
 			return ErrForbidden
 		}
-		instance, e := g.current(ctx, key.AddonID)
-		if e != nil {
-			return e
+		h := w.Header()
+		h.Set("Content-Type", art.MediaType)
+		h.Set("Content-Disposition", ContentDisposition(art.Name))
+		h.Set("Content-Length", strconv.FormatInt(art.Size, 10))
+		h.Set("Cache-Control", "private, no-store")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+		return nil
+	}, tw)
+	if err != nil && !tw.committed {
+		// A refusal after the headers were prepared must not read as a file.
+		for _, name := range []string{"Content-Type", "Content-Disposition", "Content-Length", "Content-Security-Policy"} {
+			w.Header().Del(name)
 		}
-		if instance.Generation != r.Request.Generation {
-			return ErrForbidden
-		}
-		reader, e := instance.Client.OpenOutput(ctx, contract.Envelope{Request: r.Request, Authority: contract.Authority{Actor: a, Scope: "output", ExpiresAt: time.Now().Add(60 * time.Second)}}, output.Handle)
-		if e != nil {
-			return e
-		}
-		defer reader.Close()
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": output.Name}))
-		return g.copy(ctx, a, w, reader, output.Size)
-	})
+	}
+	return err
 }
+
 func (g *Gateway) copy(ctx context.Context, a contract.Actor, w io.Writer, r io.ReadCloser, size int64) error {
 	stop := make(chan struct{})
 	defer close(stop)

@@ -14,7 +14,6 @@ import (
 	"testing/iotest"
 	"time"
 
-	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,8 +45,8 @@ var _ = Describe("owner denial before the first byte", func() {
 	}
 	It("returns the owner's forbidden status for an invalid kind and for missing policy", func() {
 		for name, g := range map[string]*Gateway{
-			"no policy installed": {Revalidate: ok},
-			"resolver refuses":    {Revalidate: ok, Admission: &admitted{}, Resolver: denyResolver{}},
+			"no policy installed":    {Revalidate: ok},
+			"artifact store refuses": {Revalidate: ok, Artifacts: &fakeArtifacts{err: ErrForbidden}},
 		} {
 			env := owner(g)
 			w, e := relay(env, "file")
@@ -59,56 +58,45 @@ var _ = Describe("owner denial before the first byte", func() {
 		Expect(e).To(Equal(ErrForbidden))
 	})
 	It("still reports unavailable when the owner is unable to serve and not forbidden", func() {
-		// The owner has policy but no installed runtime for the addon.
-		admission := &admitted{}
-		env := owner(&Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: failingRuntime{}})
+		// The owner has an artifact store that cannot serve right now.
+		env := owner(&Gateway{Revalidate: ok, Artifacts: &fakeArtifacts{err: ErrUnavailable}})
 		_, e := relay(env, "file")
 		Expect(e).To(Equal(ErrUnavailable))
 	})
 	It("reaches the same decision through both frontends and delivers bytes when allowed", func() {
-		admission := &admitted{}
-		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser { return io.NopCloser(strings.NewReader("data")) }}
-		env := owner(&Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}})
+		env := owner(&Gateway{Revalidate: ok, Artifacts: dataArtifacts("data")})
 		for _, id := range []string{"front-a", "front-b"} {
 			w := httptest.NewRecorder()
-			Expect(env.carriers[id].Relay(context.Background(), frontActor, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read"}, Kind: "file", Handle: "h"}, w)).To(Succeed())
+			Expect(env.carriers[id].Relay(context.Background(), frontActor, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read"}, Kind: "file", Handle: fakeArtifactID}, w)).To(Succeed())
 			Expect(w.Body.String()).To(Equal("data"))
+			// The receiving frontend repeats the owner's attachment headers.
+			Expect(w.Header().Get("Content-Disposition")).To(HavePrefix("attachment;"))
+			Expect(w.Header().Get("Content-Length")).To(Equal("4"))
+			Expect(w.Header().Get("X-Content-Type-Options")).To(Equal("nosniff"))
+			Expect(w.Header().Get("Cache-Control")).To(Equal("private, no-store"))
 		}
-		deny := owner(&Gateway{Revalidate: ok, Admission: admission, Resolver: resolved{}, Runtime: currentFixture{client}})
+		deny := owner(&Gateway{Revalidate: ok, Artifacts: dataArtifacts("data")})
 		_, e := relay(deny, "bogus")
 		Expect(e).To(Equal(ErrForbidden))
 	})
 	It("keeps aborting when revocation happens after bytes were written", func() {
-		admission := &admitted{}
-		var checks atomic.Int32
-		client := runtimeFixture{admission: admission, open: func(context.Context) io.ReadCloser {
-			return io.NopCloser(iotest.OneByteReader(strings.NewReader("abcdefgh")))
-		}}
-		env := owner(&Gateway{Admission: admission, Resolver: bigOutput{}, Runtime: currentFixture{client}, Revalidate: func(context.Context, contract.Actor) error {
-			// verify, relay, admission closure and the first copy check pass;
-			// the second copy check runs after one byte was already written.
-			if checks.Add(1) > 4 {
-				return ErrForbidden
-			}
-			return nil
-		}})
-		_, e := relay(env, "file")
-		Expect(e).To(MatchError(ErrUnavailable))
-		Expect(checks.Load()).To(BeNumerically(">=", 5))
+		// The store streams one byte and then loses the permission: the
+		// status is already committed, so the owner aborts the stream and the
+		// receiving frontend never sees a clean end of file.
+		files := &fakeArtifacts{
+			art: Artifact{ID: fakeArtifactID, Name: "r.bin", MediaType: "application/octet-stream", Size: 8},
+			open: func(context.Context) io.ReadCloser {
+				return io.NopCloser(iotest.OneByteReader(io.MultiReader(strings.NewReader("a"), iotest.ErrReader(ErrForbidden))))
+			},
+		}
+		env := owner(&Gateway{Artifacts: files, Revalidate: ok})
+		w := httptest.NewRecorder()
+		e := env.carriers["front-b"].Relay(context.Background(), frontActor, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: "op", Generation: 1, Action: "read"}, Kind: "file", Handle: fakeArtifactID}, w)
+		Expect(e).To(HaveOccurred())
+		Expect(e).NotTo(Equal(ErrForbidden))
+		Expect(w.Body.String()).NotTo(Equal("abcdefgh"))
 	})
 })
-
-type bigOutput struct{ resolved }
-
-func (bigOutput) Output(context.Context, contract.Actor, contract.Request, string) (contract.OutputDescription, error) {
-	return contract.OutputDescription{Handle: "private", Name: "r.bin", MediaType: "application/octet-stream", Size: 8}, nil
-}
-
-type failingRuntime struct{}
-
-func (failingRuntime) Runtime(context.Context, string) (addonruntime.Instance, error) {
-	return addonruntime.Instance{}, ErrUnavailable
-}
 
 var _ = Describe("per kind frontend budgets", func() {
 	It("bounds progress, asset and file relays by their own limit", func() {

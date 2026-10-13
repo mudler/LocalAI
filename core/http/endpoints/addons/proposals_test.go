@@ -196,6 +196,8 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.POST("/proposals/:id/reconcile", ReconcileProposal(g, s.db, mode))
 	group.POST("/proposals/:id/resolve", ResolveProposal(g, s.db, mode))
 	group.GET("/resources/:resourceId/proposals", ListUnresolvedProposals(g, s.db, mode))
+	group.GET("/artifacts/:id", GetArtifact(g, s.db, mode))
+	group.GET("/artifacts/:id/download", DownloadArtifact(g, s.db, mode))
 	return e
 }
 

@@ -26,4 +26,9 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	// The owner role lists the unresolved proposals of its resource, which
 	// resolve needs, under the same confirmation-surface rules and no MCP tool.
 	group.GET("/resources/:resourceId/proposals", endpoints.ListUnresolvedProposals(a.AddonGateway(), a.AuthDB(), mode))
+	// Private file results. Both routes are reads by the requesting principal
+	// only; the bytes are relayed from the owner that holds them. No MCP tool
+	// maps to them in this release.
+	group.GET("/artifacts/:id", endpoints.GetArtifact(a.AddonGateway(), a.AuthDB(), mode))
+	group.GET("/artifacts/:id/download", endpoints.DownloadArtifact(a.AddonGateway(), a.AuthDB(), mode))
 }

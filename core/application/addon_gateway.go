@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/artifacts"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -117,7 +118,14 @@ func (a *Application) startAddonGateway() error {
 		Proposals:       broker,
 	})
 	broker.Attach(p)
-	closeState := func() { _ = broker.Close(); _ = store.Close() }
+	var files *artifacts.Artifacts
+	closeState := func() {
+		if files != nil {
+			_ = files.Close()
+		}
+		_ = broker.Close()
+		_ = store.Close()
+	}
 	// Registrations left pending by a crash are settled before anything is
 	// served. Without a backing-resource check they are dropped and committed
 	// resources are kept; the check is supplied by the code that creates them.
@@ -142,6 +150,24 @@ func (a *Application) startAddonGateway() error {
 	provider := p.Gateway()
 	g.Admission, g.Resolver = provider, provider
 	g.Proposals = broker.Gateway()
+	// Private file results are staged beside the other owner state. Without a
+	// manager there is no runtime to read them from, and the gateway then
+	// denies every file result and download.
+	if a.addonManager != nil {
+		files, e = artifacts.Open(artifacts.Options{
+			Dir:     filepath.Join(cfg.Root, "artifacts"),
+			Policy:  p,
+			Runtime: a.addonManager,
+			Addon:   artifactAddonState(a.addonManager),
+		})
+		if e != nil {
+			closeState()
+			return e
+		}
+		provider.Outputs = files
+		g.Artifacts = files.Gateway()
+		go files.Run(a.applicationConfig.Context)
+	}
 	handler, e := carrier.OwnerHandler(g)
 	if e != nil {
 		closeState()
@@ -159,6 +185,18 @@ func (a *Application) startAddonGateway() error {
 	go func() { _ = server.Serve(tls.NewListener(listener, server.TLSConfig)) }()
 	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); closeState() }()
 	return nil
+}
+
+// artifactAddonState reports the lifecycle state the artifact store needs. A
+// manager that cannot answer is an error, never an enabled addon.
+func artifactAddonState(status addonStatus) func(context.Context, string) (artifacts.AddonState, error) {
+	return func(ctx context.Context, addonID string) (artifacts.AddonState, error) {
+		s, err := status.Status(ctx, addonID)
+		if err != nil {
+			return artifacts.AddonState{}, err
+		}
+		return artifacts.AddonState{Installed: s.Installed, Enabled: s.DesiredEnabled, Generation: s.Generation}, nil
+	}
 }
 
 // localOwnerWarning is logged at startup in local-owner mode. There is no

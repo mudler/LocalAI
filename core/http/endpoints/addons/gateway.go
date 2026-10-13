@@ -175,7 +175,7 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 
 // Relay keeps all streams on the receiving frontend.
 // @Summary Relay addon status, lifecycle progress, JSON, attachments or immutable UI assets
-// @Description Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.
+// @Description Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (a private file result as an attachment: the handle is the artifact ID that a read returned, never an addon handle) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.
 // @Tags Addons
 // @Accept json
 // @Produce json
