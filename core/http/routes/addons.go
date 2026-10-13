@@ -20,4 +20,7 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	group.POST("/proposals/:id/confirm", endpoints.ConfirmProposal(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/proposals/:id/cancel", endpoints.CancelProposal(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/proposals/:id/reconcile", endpoints.ReconcileProposal(a.AddonGateway(), a.AuthDB(), mode))
+	// Resolve is the owner's explicit recovery for an unresolved outcome. It
+	// has the same confirmation-surface rules as confirm and no MCP tool.
+	group.POST("/proposals/:id/resolve", endpoints.ResolveProposal(a.AddonGateway(), a.AuthDB(), mode))
 }

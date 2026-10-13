@@ -442,6 +442,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/proposals/{id}/resolve": {
+            "post": {
+                "description": "Explicit recovery for an operation whose receipt cannot be found. After outcome_unknown, repeated reconcile calls and the automatic lookups that did not settle it, the owner role of the resource may record that the outcome is not worth waiting for. The proposal becomes abandoned-unknown with the acting owner, the time and the stated reason, and stops blocking writes on the resource. The operation is never submitted again, and a later receipt lookup that says it ran is recorded as applied. The owner is asserting that waiting is not worth it: a change that did run stays in the data, and the revision check of later changes protects against applying on a stale view. Accepted only from a host confirmation surface with the same rules as confirm: the owner's own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal to the proposal ID, and no tool, agent or MCP marker. Installation administrators and API keys have no access through this route, and no MCP tool maps to it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Abandon an unresolved addon proposal outcome as the resource owner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proposal ID (the operation ID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Digest of the displayed proposal and the reason",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.ResolveRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proposal after the acknowledgement, or settled by a final receipt",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or unknown request fields",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human confirmation surface, not the resource owner, feature denied, digest changed or the proposal is not unresolved",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/relay": {
             "post": {
                 "description": "Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.",
@@ -5084,6 +5149,19 @@ const docTemplate = `{
                 }
             }
         },
+        "addons.ResolveRequest": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "description": "Digest is the digest of the proposal as it was displayed.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is why the owner stops waiting. Required, at most 512 characters.",
+                    "type": "string"
+                }
+            }
+        },
         "auth.WebSocketTicketResponse": {
             "type": "object",
             "properties": {
@@ -5835,6 +5913,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resolution": {
+                    "description": "Resolution is present once the resource owner stopped waiting for an\nunresolved outcome. It stays after a late receipt is recorded.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/gateway.ProposalResolution"
+                        }
+                    ]
+                },
                 "resourceId": {
                     "type": "string"
                 },
@@ -5864,6 +5950,23 @@ const docTemplate = `{
                 }
             }
         },
+        "gateway.ProposalResolution": {
+            "type": "object",
+            "properties": {
+                "actorId": {
+                    "description": "ActorID is the resource owner who acknowledged the unknown outcome.",
+                    "type": "string"
+                },
+                "at": {
+                    "description": "At is when the acknowledgement was recorded.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason is the owner's stated reason.",
+                    "type": "string"
+                }
+            }
+        },
         "gateway.ProposalState": {
             "type": "string",
             "enum": [
@@ -5873,7 +5976,8 @@ const docTemplate = `{
                 "executing",
                 "applied",
                 "rejected",
-                "outcome-unknown"
+                "outcome-unknown",
+                "abandoned-unknown"
             ],
             "x-enum-varnames": [
                 "ProposalPending",
@@ -5882,7 +5986,8 @@ const docTemplate = `{
                 "ProposalExecuting",
                 "ProposalApplied",
                 "ProposalRejected",
-                "ProposalOutcomeUnknown"
+                "ProposalOutcomeUnknown",
+                "ProposalAbandoned"
             ]
         },
         "gateway.RelayRequest": {

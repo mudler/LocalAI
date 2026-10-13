@@ -3,6 +3,9 @@ package policy
 
 import (
 	"context"
+	"strings"
+	"time"
+	"unicode"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -26,7 +29,9 @@ func (b *Broker) Reconcile(ctx context.Context, operationID string) (contract.Re
 			return *r.Receipt, nil
 		}
 		return contract.Receipt{}, ErrProposalClosed
-	case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown:
+	case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown, gateway.ProposalAbandoned:
+		// An abandoned outcome is still looked up: a late receipt that says
+		// the operation ran must be recorded, not hidden.
 	default:
 		return contract.Receipt{}, ErrProposalClosed
 	}
@@ -52,11 +57,15 @@ func (b *Broker) Reconcile(ctx context.Context, operationID string) (contract.Re
 		}
 		return contract.Receipt{}, ErrUnavailable
 	}
+	reason := "resolved by receipt"
+	if r.State == gateway.ProposalAbandoned {
+		reason = "late receipt after the outcome was abandoned"
+	}
 	switch receipt.State {
 	case contract.ReceiptCommitted:
-		b.settle(operationID, gateway.ProposalApplied, &receipt, "resolved by receipt")
+		b.settle(operationID, gateway.ProposalApplied, &receipt, reason)
 	case contract.ReceiptRejected:
-		b.settle(operationID, gateway.ProposalRejected, &receipt, "resolved by receipt")
+		b.settle(operationID, gateway.ProposalRejected, &receipt, reason)
 	default:
 		b.markUnknown(r, live, "receipt is not final")
 	}
@@ -128,4 +137,167 @@ func (b *Broker) Recover(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// maxResolveReason bounds the reason the resource owner states.
+const maxResolveReason = 512
+
+// lookupGrace is how long past the apply deadline the automatic receipt
+// lookups go on. After that only an explicit lookup or resolution remains.
+const lookupGrace = 5 * time.Minute
+
+// abandonedLookupWindow bounds the automatic lookups for a late receipt of an
+// abandoned outcome, counted from the acknowledgement.
+const abandonedLookupWindow = 24 * time.Hour
+
+// abandonedLookupCap is the longest wait between those lookups.
+const abandonedLookupCap = 5 * time.Minute
+
+// lookupWindow gives the time the automatic lookups of r stop, and the
+// longest wait between two of them.
+func (b *Broker) lookupWindow(r proposalRecord) (until time.Time, longest time.Duration) {
+	if r.State == gateway.ProposalAbandoned {
+		at := r.UpdatedAt
+		if r.Resolution != nil {
+			at = r.Resolution.At
+		}
+		return at.Add(abandonedLookupWindow), abandonedLookupCap
+	}
+	since := r.UnknownSince
+	if since.IsZero() {
+		since = r.UpdatedAt
+	}
+	return since.Add(b.opts.Limits.ApplyTimeout + lookupGrace), b.opts.Limits.BackoffMax
+}
+
+// RetryUnresolved looks the receipt up once for every unresolved or abandoned
+// proposal that is due, and returns how many lookups it made. A lookup is
+// read-only toward the addon: nothing is ever submitted again. Lookups for one
+// proposal back off exponentially from the backoff limits and stop at the end
+// of a finite window, so a missing addon cannot be asked forever.
+func (b *Broker) RetryUnresolved(ctx context.Context) int {
+	if _, err := b.attached(); err != nil {
+		return 0
+	}
+	now := b.opts.Now()
+	n := 0
+	for _, r := range b.store.all() {
+		if !r.unresolved() && r.State != gateway.ProposalAbandoned {
+			continue
+		}
+		b.mu.Lock()
+		_, live := b.live[r.ID]
+		b.mu.Unlock()
+		until, longest := b.lookupWindow(r)
+		if live || !now.Before(until) || now.Before(r.NextLookup) || ctx.Err() != nil {
+			continue
+		}
+		n++
+		_, _ = b.Reconcile(ctx, r.ID)
+		// Count the attempt and schedule the next one. A proposal that
+		// settled meanwhile is left alone.
+		wait := b.opts.Limits.BackoffInitial << min(r.Lookups+1, 16)
+		if wait <= 0 || wait > longest {
+			wait = longest
+		}
+		_, _ = b.store.transition(r.ID, []ProposalState{gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown, gateway.ProposalAbandoned}, func(x *proposalRecord) {
+			x.Lookups++
+			x.NextLookup = now.Add(wait)
+		})
+	}
+	return n
+}
+
+// Run keeps expiry recorded and repeats due receipt lookups until ctx ends or
+// the broker is closed. It is the owner's background recovery.
+func (b *Broker) Run(ctx context.Context) {
+	t := time.NewTicker(b.opts.LookupInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-b.done:
+			return
+		case <-t.C:
+			_ = b.Sweep()
+			b.RetryUnresolved(ctx)
+		}
+	}
+}
+
+// Resolve records that the resource owner stops waiting for an unresolved
+// outcome. It is the explicit recovery path for an operation whose receipt
+// cannot be found: the proposal becomes abandoned-unknown with the owner, the
+// time and the stated reason, and no longer blocks writes. It never applies
+// the operation. The operation stays resolvable by receipt: a later lookup
+// that says it ran is recorded as applied.
+//
+// Only the resource's owner role may resolve, whoever proposed it, and only
+// from a credential that stands for a human at a confirmation surface.
+// Installation administrators have no access through this path. The owner is
+// asserting that the outcome is not worth waiting for; the revision check of
+// later writes protects data from a stale apply.
+func (b *Broker) Resolve(ctx context.Context, actor contract.Actor, id, digest, reason string) (Proposal, error) {
+	p, err := b.attached()
+	if err != nil {
+		return Proposal{}, err
+	}
+	if err = p.current(ctx, actor); err != nil {
+		return Proposal{}, err
+	}
+	if !b.confirmCredential(p, actor) {
+		return Proposal{}, ErrForbidden
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" || len(reason) > maxResolveReason || strings.IndexFunc(reason, unicode.IsControl) >= 0 {
+		return Proposal{}, ErrForbidden
+	}
+	r, ok := b.store.get(id)
+	if !ok || id == "" {
+		return Proposal{}, ErrForbidden
+	}
+	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
+	var out Proposal
+	err = p.Admit(ctx, actor, key, ActionResolve, func(rctx context.Context) error {
+		cur, ok := b.store.get(id)
+		if !ok {
+			return ErrForbidden
+		}
+		if digestOf(&cur) != cur.Digest || (digest != "" && digest != cur.Digest) {
+			return ErrProposalChanged
+		}
+		switch cur.State {
+		case gateway.ProposalApplied, gateway.ProposalRejected, gateway.ProposalAbandoned:
+		case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown:
+			// One last lookup first: a final receipt settles it and there
+			// is nothing to abandon.
+			_, _ = b.Reconcile(rctx, id)
+			cur, _ = b.store.get(id)
+			if !cur.unresolved() {
+				break
+			}
+			b.mu.Lock()
+			_, live := b.live[id]
+			b.mu.Unlock()
+			if live {
+				return ErrProposalClosed
+			}
+			at := b.opts.Now()
+			moved, e := b.store.transition(id, []ProposalState{gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown}, func(x *proposalRecord) {
+				x.State = gateway.ProposalAbandoned
+				x.Reason = "abandoned by the resource owner"
+				x.Resolution = &gateway.ProposalResolution{ActorID: actor.UserID, At: at, Reason: reason}
+			})
+			if e != nil {
+				return e
+			}
+			cur = moved
+		default:
+			return ErrProposalClosed
+		}
+		out = b.view(cur)
+		return nil
+	})
+	return out, err
 }

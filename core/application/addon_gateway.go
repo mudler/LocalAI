@@ -135,6 +135,10 @@ func (a *Application) startAddonGateway() error {
 		closeState()
 		return errors.Join(e, addons.ErrRecoveryRequired)
 	}
+	// Unresolved outcomes are looked up again with backoff for a finite
+	// window, and expiry stays recorded. Run ends with the application
+	// context or when the broker is closed.
+	go broker.Run(a.applicationConfig.Context)
 	provider := p.Gateway()
 	g.Admission, g.Resolver = provider, provider
 	g.Proposals = broker.Gateway()

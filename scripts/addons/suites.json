@@ -341,6 +341,7 @@
       "denies sharing and deletion proposals and an unauthenticated caller",
       "serves the local owner's confirmation only from a same-origin fetch of the host page",
       "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+      "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
       "documents the proposal routes and the proposal schema in the Swagger spec"
     ],
     "report": ".cache/addons/logs/gateway.json",
@@ -415,6 +416,7 @@
           "denies sharing and deletion proposals and an unauthenticated caller",
           "serves the local owner's confirmation only from a same-origin fetch of the host page",
           "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+          "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
           "documents the proposal routes and the proposal schema in the Swagger spec"
         ]
       }
@@ -495,6 +497,11 @@
       "keeps settled proposals for the retention window only",
       "keeps one user from starving others and never drops another user's live proposal",
       "bounds the stored canonical arguments per user and in total with a typed quota error",
+      "looks an unresolved receipt up again with backoff for a finite window and never applies again",
+      "lets only the resource owner's browser session abandon an unresolved outcome and then unblocks writes",
+      "records a late receipt of an abandoned outcome instead of hiding it",
+      "settles by lookup instead of abandoning when the receipt is final",
+      "refuses a stored abandonment that names nobody and keeps looking up in the background",
       "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
       "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
       "issues resource identifiers the envelope contract accepts",
@@ -588,6 +595,11 @@
       "keeps settled proposals for the retention window only",
       "keeps one user from starving others and never drops another user's live proposal",
       "bounds the stored canonical arguments per user and in total with a typed quota error",
+      "looks an unresolved receipt up again with backoff for a finite window and never applies again",
+      "lets only the resource owner's browser session abandon an unresolved outcome and then unblocks writes",
+      "records a late receipt of an abandoned outcome instead of hiding it",
+      "settles by lookup instead of abandoning when the receipt is final",
+      "refuses a stored abandonment that names nobody and keeps looking up in the background",
       "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
       "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
       "issues resource identifiers the envelope contract accepts",
@@ -614,6 +626,7 @@
       "denies sharing and deletion proposals and an unauthenticated caller",
       "serves the local owner's confirmation only from a same-origin fetch of the host page",
       "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+      "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
       "documents the proposal routes and the proposal schema in the Swagger spec"
     ],
     "report": ".cache/addons/logs/proposals.json",
@@ -680,6 +693,11 @@
           "keeps settled proposals for the retention window only",
           "keeps one user from starving others and never drops another user's live proposal",
           "bounds the stored canonical arguments per user and in total with a typed quota error",
+          "looks an unresolved receipt up again with backoff for a finite window and never applies again",
+          "lets only the resource owner's browser session abandon an unresolved outcome and then unblocks writes",
+          "records a late receipt of an abandoned outcome instead of hiding it",
+          "settles by lookup instead of abandoning when the receipt is final",
+          "refuses a stored abandonment that names nobody and keeps looking up in the background",
           "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
           "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
           "issues resource identifiers the envelope contract accepts",
@@ -711,6 +729,7 @@
           "denies sharing and deletion proposals and an unauthenticated caller",
           "serves the local owner's confirmation only from a same-origin fetch of the host page",
           "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+          "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
           "documents the proposal routes and the proposal schema in the Swagger spec"
         ]
       }

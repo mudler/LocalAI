@@ -220,3 +220,53 @@ func ConfirmProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Handl
 		return c.JSON(200, p)
 	}
 }
+
+// ResolveRequest names what the resource owner was shown and why the owner
+// stops waiting.
+type ResolveRequest struct {
+	// Digest is the digest of the proposal as it was displayed.
+	Digest string `json:"digest"`
+	// Reason is why the owner stops waiting. Required, at most 512 characters.
+	Reason string `json:"reason"`
+}
+
+// ResolveProposal records that the resource owner stops waiting for an
+// unresolved outcome.
+// @Summary Abandon an unresolved addon proposal outcome as the resource owner
+// @Description Explicit recovery for an operation whose receipt cannot be found. After outcome_unknown, repeated reconcile calls and the automatic lookups that did not settle it, the owner role of the resource may record that the outcome is not worth waiting for. The proposal becomes abandoned-unknown with the acting owner, the time and the stated reason, and stops blocking writes on the resource. The operation is never submitted again, and a later receipt lookup that says it ran is recorded as applied. The owner is asserting that waiting is not worth it: a change that did run stays in the data, and the revision check of later changes protects against applying on a stale view. Accepted only from a host confirmation surface with the same rules as confirm: the owner's own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal to the proposal ID, and no tool, agent or MCP marker. Installation administrators and API keys have no access through this route, and no MCP tool maps to it.
+// @Tags Addons
+// @Accept json
+// @Produce json
+// @Param id path string true "Proposal ID (the operation ID)"
+// @Param request body ResolveRequest true "Digest of the displayed proposal and the reason"
+// @Success 200 {object} gateway.Proposal "Proposal after the acknowledgement, or settled by a final receipt"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, not the resource owner, feature denied, digest changed or the proposal is not unresolved"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Router /api/addons/proposals/{id}/resolve [post]
+func ResolveProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		id := c.Param("id")
+		if !humanSurface(c, s, a, id) {
+			return failure(c, 403, "Resolution requires the resource owner's own browser session")
+		}
+		var r ResolveRequest
+		if decode(c, &r) != nil || r.Digest == "" || r.Reason == "" {
+			return failure(c, 400, "Invalid addon resolution")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		p, e := g.ResolveProposal(c.Request().Context(), a, id, r.Digest, r.Reason)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, p)
+	}
+}

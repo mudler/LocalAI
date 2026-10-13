@@ -48,6 +48,9 @@ const (
 	ActionSchema Action = "schema"
 	ActionShare  Action = "share"
 	ActionDelete Action = "delete"
+	// ActionResolve acknowledges an unresolved mutation outcome. It needs the
+	// owner role and is never a typed dispatch or a proposal.
+	ActionResolve Action = "resolve"
 	// ActionUnknown is any action this package does not classify.
 	ActionUnknown Action = "unknown"
 )
@@ -56,7 +59,7 @@ const (
 // ActionUnknown, which is a mutation that needs the owner.
 func ParseAction(name string) Action {
 	switch Action(name) {
-	case ActionRead, ActionOutput, ActionWrite, ActionSchema, ActionShare, ActionDelete:
+	case ActionRead, ActionOutput, ActionWrite, ActionSchema, ActionShare, ActionDelete, ActionResolve:
 		return Action(name)
 	}
 	return ActionUnknown

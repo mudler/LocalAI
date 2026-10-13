@@ -45,6 +45,9 @@ const (
 	// DefaultProposalRetention is how long a settled proposal is kept, so a
 	// repeated request or confirmation still gets its stored answer.
 	DefaultProposalRetention = 24 * time.Hour
+	// AbandonedRetention is how long an abandoned outcome is kept, so a late
+	// receipt can still be recorded. It is never dropped to make room.
+	AbandonedRetention = 30 * 24 * time.Hour
 	// maxEffectSample bounds the sample shown to the confirming human.
 	maxEffectSample = 16 << 10
 )
@@ -93,10 +96,18 @@ type proposalRecord struct {
 	Reason     string                  `json:"reason,omitempty"`
 	CreatedAt  time.Time               `json:"createdAt"`
 	// UpdatedAt is when the state last changed. Retention counts from it.
-	UpdatedAt   time.Time         `json:"updatedAt,omitempty"`
-	ExpiresAt   time.Time         `json:"expiresAt"`
-	Receipt     *contract.Receipt `json:"receipt,omitempty"`
-	Reconciling bool              `json:"-"`
+	UpdatedAt time.Time         `json:"updatedAt,omitempty"`
+	ExpiresAt time.Time         `json:"expiresAt"`
+	Receipt   *contract.Receipt `json:"receipt,omitempty"`
+	// UnknownSince is when the apply was handed to the addon. The automatic
+	// receipt lookups run for a finite window counted from it.
+	UnknownSince time.Time `json:"unknownSince,omitempty"`
+	// Lookups and NextLookup drive the backoff of the automatic lookups.
+	Lookups    int       `json:"lookups,omitempty"`
+	NextLookup time.Time `json:"nextLookup,omitempty"`
+	// Resolution is set once the resource owner stopped waiting.
+	Resolution  *gateway.ProposalResolution `json:"resolution,omitempty"`
+	Reconciling bool                        `json:"-"`
 }
 
 func (r *proposalRecord) copy() *proposalRecord {
@@ -107,6 +118,10 @@ func (r *proposalRecord) copy() *proposalRecord {
 		c := *r.Receipt
 		c.Result.Payload = append(json.RawMessage(nil), r.Receipt.Result.Payload...)
 		n.Receipt = &c
+	}
+	if r.Resolution != nil {
+		c := *r.Resolution
+		n.Resolution = &c
 	}
 	return &n
 }
@@ -132,7 +147,7 @@ func (d *proposalDocument) clone() *proposalDocument {
 func validState(s ProposalState) bool {
 	switch s {
 	case gateway.ProposalPending, gateway.ProposalCancelled, gateway.ProposalExpired, gateway.ProposalExecuting,
-		gateway.ProposalApplied, gateway.ProposalRejected, gateway.ProposalOutcomeUnknown:
+		gateway.ProposalApplied, gateway.ProposalRejected, gateway.ProposalOutcomeUnknown, gateway.ProposalAbandoned:
 		return true
 	}
 	return false
@@ -163,7 +178,8 @@ func loadProposals(dir string) (*proposalDocument, error) {
 		var args map[string]json.RawMessage
 		if r == nil || r.ID != id || id == "" || r.Actor.UserID == "" || r.Actor.CredentialID == "" || r.AddonID == "" || r.ResourceID == "" ||
 			r.Generation == 0 || !validState(r.State) || r.Digest == "" || json.Unmarshal(r.Arguments, &args) != nil || args == nil ||
-			ParseAction(r.Action) == ActionUnknown || (r.State == gateway.ProposalApplied && (r.Receipt == nil || r.Receipt.State != contract.ReceiptCommitted)) {
+			ParseAction(r.Action) == ActionUnknown || (r.State == gateway.ProposalApplied && (r.Receipt == nil || r.Receipt.State != contract.ReceiptCommitted)) ||
+			(r.State == gateway.ProposalAbandoned && (r.Resolution == nil || r.Resolution.ActorID == "" || r.Resolution.Reason == "")) {
 			return nil, corrupt
 		}
 		r.Reconciling = false
@@ -316,6 +332,9 @@ type BrokerOptions struct {
 	MaxProposalsPerUser     int
 	MaxArgumentBytes        int64
 	MaxArgumentBytesPerUser int64
+	// LookupInterval is how often Run asks for the receipts of unresolved
+	// proposals that are due. The zero value is five seconds.
+	LookupInterval time.Duration
 }
 
 // Broker is the owner-held proposal state machine. A data or schema mutation
@@ -331,6 +350,9 @@ type Broker struct {
 	live map[string]struct{}
 	// hooks let tests stop the broker at a named point, as a crash would.
 	hooks brokerHooks
+	// done ends Run when the broker is closed.
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 type brokerHooks struct {
@@ -357,6 +379,9 @@ func OpenBroker(dir string, opts BrokerOptions) (*Broker, error) {
 	if opts.Retention <= 0 {
 		opts.Retention = DefaultProposalRetention
 	}
+	if opts.LookupInterval <= 0 {
+		opts.LookupInterval = 5 * time.Second
+	}
 	if opts.MaxProposals <= 0 || opts.MaxProposals > MaxProposals {
 		opts.MaxProposals = MaxProposals
 	}
@@ -374,7 +399,7 @@ func OpenBroker(dir string, opts BrokerOptions) (*Broker, error) {
 		return nil, err
 	}
 	s.now = opts.Now
-	b := &Broker{store: s, opts: opts, live: map[string]struct{}{}}
+	b := &Broker{store: s, opts: opts, live: map[string]struct{}{}, done: make(chan struct{})}
 	// Expiry is recorded when the owner starts, not only when a proposal is
 	// read. A failed write is not fatal: expiry also holds by the clock.
 	_ = b.Sweep()
@@ -390,7 +415,10 @@ func (b *Broker) Attach(p *Policy) {
 }
 
 // Close releases the durable state.
-func (b *Broker) Close() error { return b.store.Close() }
+func (b *Broker) Close() error {
+	b.closeOnce.Do(func() { close(b.done) })
+	return b.store.Close()
+}
 
 // Gateway adapts the broker to the gateway's ProposalBroker.
 func (b *Broker) Gateway() gateway.ProposalBroker { return gatewayBroker{b} }
@@ -490,7 +518,7 @@ func effects(summary json.RawMessage) (gateway.ProposalEffects, error) {
 func (b *Broker) view(r proposalRecord) Proposal {
 	p := Proposal{ID: r.ID, OperationID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, Generation: r.Generation, Action: r.Action,
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
-		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason}
+		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution}
 	if r.State == gateway.ProposalPending {
 		p.BlockedBy = b.blockedBy(r.ResourceID, r.ID)
 	}
@@ -637,6 +665,10 @@ func (b *Broker) sweep(d *proposalDocument, now time.Time) bool {
 			r.State = gateway.ProposalExpired
 			r.Reason = "expired"
 			r.UpdatedAt = now
+			changed = true
+		}
+		if r.State == gateway.ProposalAbandoned && r.Resolution != nil && now.Sub(r.Resolution.At) >= AbandonedRetention {
+			delete(d.Proposals, id)
 			changed = true
 		}
 		if settledState(r.State) {
@@ -863,12 +895,14 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 			return *r.Receipt, nil
 		}
 		return contract.Receipt{}, ErrProposalClosed
-	case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown:
+	case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown, gateway.ProposalAbandoned:
 		return b.resolveForConfirm(ctx, r)
-	case gateway.ProposalCancelled:
-		return contract.Receipt{}, ErrProposalClosed
 	case gateway.ProposalExpired:
 		return contract.Receipt{}, ErrProposalExpired
+	case gateway.ProposalPending:
+	default:
+		// Cancelled, and any state added later, never runs.
+		return contract.Receipt{}, ErrProposalClosed
 	}
 	if _, expired := b.expire(r); expired {
 		return contract.Receipt{}, ErrProposalExpired
@@ -930,6 +964,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	if _, err = b.store.transition(id, []ProposalState{gateway.ProposalPending}, func(x *proposalRecord) {
 		x.State = gateway.ProposalExecuting
 		x.Reason = ""
+		x.UnknownSince = b.opts.Now()
 	}); err != nil {
 		return contract.Receipt{}, err
 	}
@@ -976,7 +1011,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 // settle records the end state of an executed proposal. A failed write leaves
 // the durable executing state, which reconciliation resolves later.
 func (b *Broker) settle(id string, state ProposalState, receipt *contract.Receipt, reason string) {
-	_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown}, func(x *proposalRecord) {
+	_, _ = b.store.transition(id, []ProposalState{gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown, gateway.ProposalAbandoned}, func(x *proposalRecord) {
 		x.State = state
 		x.Reason = reason
 		if receipt != nil {
@@ -1014,6 +1049,10 @@ func (g gatewayBroker) Cancel(ctx context.Context, a contract.Actor, id string) 
 
 func (g gatewayBroker) Get(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
 	return g.b.Get(ctx, a, id)
+}
+
+func (g gatewayBroker) Resolve(ctx context.Context, a contract.Actor, id, digest, reason string) (Proposal, error) {
+	return g.b.Resolve(ctx, a, id, digest, reason)
 }
 
 func (g gatewayBroker) Reconcile(ctx context.Context, a contract.Actor, id string) (Proposal, error) {

@@ -130,6 +130,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/proposals/:id/confirm":   true,
 			"POST /api/addons/proposals/:id/cancel":    true,
 			"POST /api/addons/proposals/:id/reconcile": true,
+			"POST /api/addons/proposals/:id/resolve":   true,
 		}))
 		// Reading a proposal is the only registered GET.
 		reads := map[string]bool{}

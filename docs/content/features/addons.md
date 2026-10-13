@@ -502,8 +502,8 @@ owner election, or failover. An absent owner returns unavailable.
   dispatch additionally requires current administration rights. Cookie requests require
   same-origin fetch metadata; header-authenticated clients use their validated keys.
 - `POST /api/addons/proposals`, `GET /api/addons/proposals/{id}`,
-  `POST /api/addons/proposals/{id}/confirm`, `.../cancel` and `.../reconcile` store,
-  read, apply, withdraw and resolve data or schema proposals. See
+  `POST /api/addons/proposals/{id}/confirm`, `.../cancel`, `.../reconcile` and
+  `.../resolve` store, read, apply, withdraw and resolve data or schema proposals. See
   [Proposals and confirmation](#proposals-and-confirmation).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
@@ -698,7 +698,8 @@ A proposal is in exactly one state:
 | `executing` | Confirmed and handed to the addon. Durable before the addon sees the call. |
 | `applied` | Committed. The receipt is stored with the proposal. |
 | `rejected` | Refused by the addon (for example, the revision moved) or found stale (the addon generation changed). |
-| `outcome-unknown` | The apply may or may not have run. Only a receipt lookup resolves it. |
+| `outcome-unknown` | The apply may or may not have run. A receipt lookup, or the resource owner's explicit acknowledgement, resolves it. |
+| `abandoned-unknown` | The resource owner stopped waiting for an unresolved outcome. It no longer blocks writes and is never applied again; a later receipt lookup is still recorded. |
 
 Bounds. A user holds at most 32 live proposals (pending ones that have not expired, and
 unresolved ones) and at most 16 MiB of stored canonical arguments across them; the store
@@ -755,6 +756,37 @@ missing receipt does not prove the call never ran. While an outcome is unresolve
 other write or schema proposal on the same resource is denied and names the blocking
 operation (`blockedBy`); reads continue. On start the owner settles proposals left
 `executing` by a crash the same way and never applies them.
+
+Recovery has three steps and none of them submits the operation again:
+
+1. **Automatic lookups.** The owner repeats the receipt lookup for each unresolved
+   proposal with exponential backoff (from the `BackoffInitial` limit up to
+   `BackoffMax`). They run for a finite window: the apply timeout plus five minutes,
+   counted from the moment the apply was handed to the addon. A final receipt settles the
+   proposal and lifts the block. After the window, only an explicit lookup remains.
+2. **Explicit lookup.** `reconcile`, by the proposer, at any time.
+3. **Owner resolution.** `POST /api/addons/proposals/{id}/resolve` with
+   `{"digest": "...", "reason": "..."}` lets the owner role of the resource stop
+   waiting. It is accepted only from the same confirmation surface as confirm (the
+   owner's own browser session, a same-origin fetch, `X-LocalAI-Confirm` equal to the
+   proposal ID, no tool or agent marker). The proposer's role is not enough, an
+   installation administrator without an owner role on the resource has no access, and
+   no API key or MCP tool can call it. A final receipt found at that moment settles the
+   proposal instead. Otherwise the proposal becomes `abandoned-unknown` and records who
+   acknowledged it (`resolution.actorId`), when and the reason (up to 512 characters).
+   Writes on the resource are accepted again.
+
+An abandoned operation keeps its original operation ID. The owner keeps looking its
+receipt up in the background for a day and on every `reconcile`; if the addon reports
+that it ran, the proposal becomes `applied` with that receipt (or `rejected`), and the
+`resolution` stays on the record, so a late success is recorded and never hidden. An
+abandoned record is kept for 30 days and is not dropped to make room.
+
+Data consistency. Resolving is the owner asserting that the outcome is not worth waiting
+for; it does not prove the change did not run. If it did run, it stays in the data. Later
+proposals preview the current revision, and the runtime refuses an apply whose revision
+moved, so a change prepared against the state before the unknown one is rejected and not
+applied on a stale view. Check the data before you resolve when that matters.
 
 ### Revocation races
 

@@ -41,6 +41,9 @@ type proposalRuntime struct {
 	applied   []string
 	args      map[string]string
 	loseReply bool
+	// dropApply fails the next apply before the addon records anything, so
+	// no receipt ever exists for it.
+	dropApply bool
 }
 
 func newProposalRuntime() *proposalRuntime {
@@ -65,6 +68,10 @@ func (r *proposalRuntime) Apply(_ context.Context, e contract.Envelope, rev cont
 	r.args[id] = string(e.Request.Arguments)
 	if prior, ok := r.receipts[id]; ok {
 		return prior, nil
+	}
+	if r.dropApply {
+		r.dropApply = false
+		return contract.Receipt{}, errors.New("connection reset before the addon took it")
 	}
 	receipt := contract.Receipt{OperationID: id, State: contract.ReceiptRejected}
 	if rev.Data == r.data {
@@ -117,6 +124,7 @@ type ownerStack struct {
 	tokens  map[string]string
 	cookies map[string]string
 	mode    string
+	owner   contract.Actor
 }
 
 func newOwnerStack(mode string, withAccounts bool) *ownerStack {
@@ -154,6 +162,7 @@ func newOwnerStack(mode string, withAccounts bool) *ownerStack {
 		Expect(s.db.Where("user_id = ?", "alice").First(&k).Error).To(Succeed())
 		owner.CredentialID = "key:" + k.ID
 	}
+	s.owner = owner
 	s.key, err = s.policy.Register(context.Background(), owner, "sample")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(s.policy.Commit(context.Background(), owner, s.key)).To(Succeed())
@@ -176,6 +185,7 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.POST("/proposals/:id/confirm", ConfirmProposal(g, s.db, mode))
 	group.POST("/proposals/:id/cancel", CancelProposal(g, s.db, mode))
 	group.POST("/proposals/:id/reconcile", ReconcileProposal(g, s.db, mode))
+	group.POST("/proposals/:id/resolve", ResolveProposal(g, s.db, mode))
 	return e
 }
 
@@ -430,6 +440,62 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		Expect(send(b, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["alice"])).code).To(Equal(200))
 	})
 
+	It("lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		e := s.frontend(s.gateway)
+		Expect(s.policy.SetGrant(context.Background(), s.owner, s.key, "bob", policy.RoleEditor)).To(Succeed())
+		p := send(e, "POST", "/api/addons/proposals", s.proposeBody("stuck-1"), bearerOf(s.tokens["bob"]))
+		Expect(p.code).To(Equal(200), "%v", p.body)
+		digest, _ := p.body["digest"].(string)
+		s.rt.mu.Lock()
+		s.rt.dropApply = true
+		s.rt.mu.Unlock()
+		lost := send(e, "POST", "/api/addons/proposals/stuck-1/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["bob"], "stuck-1"))
+		Expect(lost.code).To(Equal(503))
+		Expect(lost.errType()).To(Equal("outcome_unknown"))
+		Expect(send(e, "POST", "/api/addons/proposals/stuck-1/reconcile", ``, bearerOf(s.tokens["bob"])).state()).To(Equal("outcome-unknown"))
+		Expect(send(e, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["bob"])).code).To(Equal(403))
+
+		path := "/api/addons/proposals/stuck-1/resolve"
+		body := `{"digest":"` + digest + `","reason":"the addon lost the call"}`
+		for name, h := range map[string]func(*http.Request){
+			"no credential":             nil,
+			"the owner's API key":       bearerOf(s.tokens["alice"]),
+			"the owner's key and tab":   with(humanTab(s.cookies["alice"], "stuck-1"), "Authorization", "Bearer "+s.tokens["alice"]),
+			"no confirm header":         without(humanTab(s.cookies["alice"], "stuck-1"), ConfirmHeader),
+			"another proposal's header": humanTab(s.cookies["alice"], "other"),
+			"a tool call marker":        with(humanTab(s.cookies["alice"], "stuck-1"), "X-LocalAI-Tool-Call", "1"),
+			"a cross-site page":         with(humanTab(s.cookies["alice"], "stuck-1"), "Sec-Fetch-Site", "cross-site"),
+			"the editor's own tab":      humanTab(s.cookies["bob"], "stuck-1"),
+		} {
+			got := send(e, "POST", path, body, h)
+			Expect(got.code).To(BeElementOf(400, 401, 403), name)
+		}
+		Expect(send(e, "GET", "/api/addons/proposals/stuck-1", "", bearerOf(s.tokens["bob"])).state()).To(Equal("outcome-unknown"))
+		// The reason and the digest are required.
+		tab := humanTab(s.cookies["alice"], "stuck-1")
+		Expect(send(e, "POST", path, `{"digest":"`+digest+`"}`, tab).code).To(Equal(400))
+		Expect(send(e, "POST", path, `{"reason":"x"}`, tab).code).To(Equal(400))
+		Expect(send(e, "POST", path, `{"digest":"wrong","reason":"x"}`, tab).code).To(Equal(403))
+
+		done := send(e, "POST", path, body, tab)
+		Expect(done.code).To(Equal(200), "%v", done.body)
+		Expect(done.state()).To(Equal("abandoned-unknown"))
+		resolution, _ := done.body["resolution"].(map[string]any)
+		Expect(resolution["actorId"]).To(Equal("alice"))
+		Expect(resolution["reason"]).To(Equal("the addon lost the call"))
+		Expect(s.rt.calls()).To(Equal([]string{"stuck-1"}))
+		Expect(send(e, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["bob"])).code).To(Equal(200))
+		// A late receipt is recorded, not hidden.
+		s.rt.mu.Lock()
+		s.rt.receipts["stuck-1"] = contract.Receipt{OperationID: "stuck-1", State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 2}}
+		s.rt.mu.Unlock()
+		late := send(e, "POST", "/api/addons/proposals/stuck-1/reconcile", ``, bearerOf(s.tokens["bob"]))
+		Expect(late.state()).To(Equal("applied"))
+		Expect(late.body).To(HaveKey("resolution"))
+		Expect(s.rt.calls()).To(Equal([]string{"stuck-1"}))
+	})
+
 	It("documents the proposal routes and the proposal schema in the Swagger spec", func() {
 		spec, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "swagger", "swagger.json"))
 		Expect(err).NotTo(HaveOccurred())
@@ -446,6 +512,7 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 			"/api/addons/proposals/{id}/confirm":   "post",
 			"/api/addons/proposals/{id}/cancel":    "post",
 			"/api/addons/proposals/{id}/reconcile": "post",
+			"/api/addons/proposals/{id}/resolve":   "post",
 		} {
 			Expect(doc.Paths).To(HaveKey(path))
 			Expect(doc.Paths[path]).To(HaveKey(method), path)

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,7 @@ type fixtureRuntime struct {
 	failFirst   bool // fail without committing
 	holdReply   func(ctx context.Context)
 	receiptMode string // "", "pending", "unavailable"
+	lookups     int
 }
 
 func newFixtureRuntime() *fixtureRuntime {
@@ -98,6 +100,7 @@ func (r *fixtureRuntime) Apply(ctx context.Context, e contract.Envelope, rev con
 func (r *fixtureRuntime) Receipt(_ context.Context, id string) (contract.Receipt, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.lookups++
 	switch r.receiptMode {
 	case "unavailable":
 		return contract.Receipt{}, errors.New("runtime unavailable")
@@ -119,6 +122,10 @@ func (r *fixtureRuntime) applyCalls() []string {
 	defer r.mu.Unlock()
 	return append([]string(nil), r.applied...)
 }
+
+func (r *fixtureRuntime) lookupCount() int { r.mu.Lock(); defer r.mu.Unlock(); return r.lookups }
+
+func (r *fixtureRuntime) setReceiptMode(m string) { r.mu.Lock(); r.receiptMode = m; r.mu.Unlock() }
 
 func (r *fixtureRuntime) bumpData() { r.mu.Lock(); r.data++; r.mu.Unlock() }
 
@@ -949,6 +956,226 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		k := tiny.create(owner)
 		_, err = tiny.broker.Propose(ctx, owner, tiny.request(k, "big", "write", args))
 		Expect(err).To(MatchError(ErrProposalBytesQuota))
+	})
+
+	// lose leaves a confirmed proposal whose apply reported nothing.
+	lose := func(f *brokerFixture, who contract.Actor, key ResourceKey, id string) Proposal {
+		p, err := f.broker.Propose(ctx, who, f.request(key, id, "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		f.rt.mu.Lock()
+		f.rt.failFirst = true
+		f.rt.mu.Unlock()
+		_, err = f.broker.Confirm(ctx, session(who.UserID), id)
+		var unknown *gateway.OutcomeUnknown
+		Expect(errors.As(err, &unknown)).To(BeTrue())
+		return p
+	}
+
+	It("looks an unresolved receipt up again with backoff for a finite window and never applies again", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		lose(f, owner, key, "lost")
+		calls := f.rt.applyCalls()
+		before := f.rt.lookupCount()
+		f.rt.setReceiptMode("pending")
+		Expect(f.broker.RetryUnresolved(ctx)).To(Equal(1))
+		Expect(f.rt.lookupCount()).To(Equal(before + 1))
+		// Not due yet: nothing is asked of the addon.
+		Expect(f.broker.RetryUnresolved(ctx)).To(Equal(0))
+		Expect(f.rt.lookupCount()).To(Equal(before + 1))
+		// Each wait is longer than the last, up to the limit.
+		limits := contract.DefaultLimits()
+		last := f.rt.lookupCount()
+		var waits []time.Duration
+		for i := 0; i < 6; i++ {
+			waited := time.Duration(0)
+			for step := limits.BackoffInitial; f.broker.RetryUnresolved(ctx) == 0; {
+				f.clock.advance(step)
+				waited += step
+				Expect(waited).To(BeNumerically("<=", 2*limits.BackoffMax))
+			}
+			waits = append(waits, waited)
+			Expect(f.rt.lookupCount()).To(Equal(last + 1))
+			last++
+		}
+		Expect(waits[len(waits)-1]).To(BeNumerically(">", waits[0]))
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalOutcomeUnknown))
+		// A final receipt settles it and lifts the block.
+		f.rt.mu.Lock()
+		f.rt.receiptMode = ""
+		f.rt.receipts["lost"] = contract.Receipt{OperationID: "lost", State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 2}}
+		f.rt.mu.Unlock()
+		f.clock.advance(limits.BackoffMax)
+		Expect(f.broker.RetryUnresolved(ctx)).To(Equal(1))
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalApplied))
+		Expect(f.rt.applyCalls()).To(Equal(calls))
+
+		// Past the window the automatic lookups stop; the block stays.
+		lose(f, owner, key, "stuck")
+		f.clock.advance(limits.ApplyTimeout + 10*time.Minute)
+		seen := f.rt.lookupCount()
+		Expect(f.broker.RetryUnresolved(ctx)).To(Equal(0))
+		Expect(f.rt.lookupCount()).To(Equal(seen))
+		Expect(f.stored("stuck")).To(Equal(gateway.ProposalOutcomeUnknown))
+		_, err := f.broker.Propose(ctx, owner, f.request(key, "next", "write", `{"rows":[3]}`))
+		Expect(err).To(MatchError(ErrOutcomeBlocked))
+	})
+
+	It("lets only the resource owner's browser session abandon an unresolved outcome and then unblocks writes", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		waiting, err := f.broker.Propose(ctx, editor, f.request(key, "waiting", "write", `{"rows":[0]}`))
+		Expect(err).NotTo(HaveOccurred())
+		lost := lose(f, editor, key, "lost")
+		calls := f.rt.applyCalls()
+		f.rt.setReceiptMode("pending")
+		_, err = f.broker.Propose(ctx, editor, f.request(key, "next", "write", `{"rows":[3]}`))
+		Expect(err).To(MatchError(ErrOutcomeBlocked))
+
+		// The proposer with write authority, an installation administrator and
+		// the owner's own API key cannot abandon it.
+		for name, who := range map[string]contract.Actor{"editor session": session("editor"), "admin session": session("admin"), "owner key": owner} {
+			_, err = f.broker.Resolve(ctx, who, "lost", lost.Digest, "not waiting any longer")
+			Expect(err).To(MatchError(ErrForbidden), name)
+		}
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalOutcomeUnknown))
+		// A bound digest and a reason are required.
+		_, err = f.broker.Resolve(ctx, session("owner"), "lost", "not-the-digest", "reason")
+		Expect(err).To(MatchError(ErrProposalChanged))
+		for _, reason := range []string{"", "   ", strings.Repeat("x", 513)} {
+			_, err = f.broker.Resolve(ctx, session("owner"), "lost", lost.Digest, reason)
+			Expect(err).To(MatchError(ErrForbidden))
+		}
+		_, err = f.broker.Resolve(ctx, session("owner"), "unknown-id", lost.Digest, "reason")
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalOutcomeUnknown))
+
+		got, err := f.broker.Resolve(ctx, session("owner"), "lost", lost.Digest, "the addon was reinstalled")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(gateway.ProposalAbandoned))
+		Expect(got.Resolution).NotTo(BeNil())
+		Expect(got.Resolution.ActorID).To(Equal("owner"))
+		Expect(got.Resolution.Reason).To(Equal("the addon was reinstalled"))
+		Expect(got.Resolution.At).To(BeTemporally("~", f.clock.now(), time.Second))
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalAbandoned))
+		Expect(f.rt.applyCalls()).To(Equal(calls))
+
+		// Writes are possible again, for the proposer and for others.
+		_, err = f.broker.ConfirmBound(ctx, session("editor"), waiting.ID, waiting.Digest)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.broker.Propose(ctx, editor, f.request(key, "next", "write", `{"rows":[3]}`))
+		Expect(err).NotTo(HaveOccurred())
+		// Repeating the acknowledgement changes nothing and applies nothing.
+		again, err := f.broker.Resolve(ctx, session("owner"), "lost", lost.Digest, "second try")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again.State).To(Equal(gateway.ProposalAbandoned))
+		Expect(again.Resolution.Reason).To(Equal("the addon was reinstalled"))
+		// Confirming it again is a lookup, not an apply.
+		_, err = f.broker.Confirm(ctx, session("editor"), "lost")
+		var unknown *gateway.OutcomeUnknown
+		Expect(errors.As(err, &unknown)).To(BeTrue())
+		Expect(f.rt.applyCalls()).To(Equal([]string{"lost", "waiting"}))
+
+		// The acknowledgement survives a restart, still unblocking writes.
+		g := f.restart()
+		Expect(g.stored("lost")).To(Equal(gateway.ProposalAbandoned))
+		Expect(g.broker.Recover(ctx)).To(Succeed())
+		_, err = g.broker.Propose(ctx, editor, g.request(key, "after-restart", "write", `{"rows":[4]}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(g.rt.applyCalls()).To(Equal([]string{"lost", "waiting"}))
+	})
+
+	It("records a late receipt of an abandoned outcome instead of hiding it", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		lost := lose(f, owner, key, "lost")
+		f.rt.setReceiptMode("pending")
+		_, err := f.broker.Resolve(ctx, session("owner"), "lost", lost.Digest, "waited long enough")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalAbandoned))
+		calls := f.rt.applyCalls()
+		// Still no receipt: the proposal stays acknowledged and unresolved.
+		rc, err := f.broker.Reconcile(ctx, "lost")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rc.State).To(Equal(contract.ReceiptPending))
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalAbandoned))
+		// The addon reports that it did apply it after all.
+		f.rt.mu.Lock()
+		f.rt.receiptMode = ""
+		f.rt.receipts["lost"] = contract.Receipt{OperationID: "lost", State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 2}}
+		f.rt.mu.Unlock()
+		rc, err = f.broker.Reconcile(ctx, "lost")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+		got, err := f.broker.Get(ctx, owner, "lost")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(gateway.ProposalApplied))
+		Expect(got.Receipt).NotTo(BeNil())
+		Expect(got.Resolution).NotTo(BeNil())
+		Expect(f.stored("lost")).To(Equal(gateway.ProposalApplied))
+		Expect(f.rt.applyCalls()).To(Equal(calls))
+		// A rejected receipt is recorded the same way.
+		other := lose(f, owner, key, "other")
+		_, err = f.broker.Resolve(ctx, session("owner"), "other", other.Digest, "gave up")
+		Expect(err).NotTo(HaveOccurred())
+		f.rt.mu.Lock()
+		f.rt.receipts["other"] = contract.Receipt{OperationID: "other", State: contract.ReceiptRejected}
+		f.rt.mu.Unlock()
+		f.clock.advance(time.Minute)
+		Expect(f.broker.RetryUnresolved(ctx)).To(BeNumerically(">=", 1))
+		Expect(f.stored("other")).To(Equal(gateway.ProposalRejected))
+	})
+
+	It("settles by lookup instead of abandoning when the receipt is final", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		lost := lose(f, owner, key, "lost")
+		f.rt.mu.Lock()
+		f.rt.receipts["lost"] = contract.Receipt{OperationID: "lost", State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 2}}
+		f.rt.mu.Unlock()
+		got, err := f.broker.Resolve(ctx, session("owner"), "lost", lost.Digest, "checking")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(gateway.ProposalApplied))
+		Expect(got.Resolution).To(BeNil())
+		// Only an unresolved outcome can be abandoned.
+		fresh, err := f.broker.Propose(ctx, owner, f.request(key, "fresh", "write", `{"rows":[2]}`))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.broker.Resolve(ctx, session("owner"), "fresh", fresh.Digest, "reason")
+		Expect(err).To(MatchError(ErrProposalClosed))
+		Expect(f.stored("fresh")).To(Equal(gateway.ProposalPending))
+	})
+
+	It("refuses a stored abandonment that names nobody and keeps looking up in the background", func() {
+		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.LookupInterval = 5 * time.Millisecond })
+		owner := named("owner")
+		key := f.create(owner)
+		lose(f, owner, key, "lost")
+		f.rt.setReceiptMode("pending")
+		ictx, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		before := f.rt.lookupCount()
+		go func() { f.broker.Run(ictx); close(done) }()
+		Eventually(f.rt.lookupCount, 5*time.Second, 5*time.Millisecond).Should(BeNumerically(">", before))
+		cancel()
+		Eventually(done, 5*time.Second).Should(BeClosed())
+
+		f.close()
+		file := filepath.Join(f.dir, "proposals", proposalFileName)
+		b, err := os.ReadFile(file)
+		Expect(err).NotTo(HaveOccurred())
+		var doc map[string]any
+		Expect(json.Unmarshal(b, &doc)).To(Succeed())
+		rec := doc["proposals"].(map[string]any)["lost"].(map[string]any)
+		rec["state"] = "abandoned-unknown"
+		b, _ = json.Marshal(doc)
+		Expect(os.WriteFile(file, b, 0o600)).To(Succeed())
+		_, err = OpenBroker(filepath.Join(f.dir, "proposals"), BrokerOptions{Runtime: f.instances})
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("issues resource identifiers the envelope contract accepts", func() {

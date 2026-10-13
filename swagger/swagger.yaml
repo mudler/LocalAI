@@ -31,6 +31,16 @@ definitions:
         description: Digest is the digest of the proposal as it was displayed.
         type: string
     type: object
+  addons.ResolveRequest:
+    properties:
+      digest:
+        description: Digest is the digest of the proposal as it was displayed.
+        type: string
+      reason:
+        description: Reason is why the owner stops waiting. Required, at most 512
+          characters.
+        type: string
+    type: object
   auth.WebSocketTicketResponse:
     properties:
       expires_at:
@@ -570,6 +580,12 @@ definitions:
         allOf:
         - $ref: '#/definitions/contract.Receipt'
         description: Receipt is present once the runtime answered.
+      resolution:
+        allOf:
+        - $ref: '#/definitions/gateway.ProposalResolution'
+        description: |-
+          Resolution is present once the resource owner stopped waiting for an
+          unresolved outcome. It stays after a late receipt is recorded.
       resourceId:
         type: string
       revision:
@@ -592,6 +608,18 @@ definitions:
           when the addon did not separate one.
         type: object
     type: object
+  gateway.ProposalResolution:
+    properties:
+      actorId:
+        description: ActorID is the resource owner who acknowledged the unknown outcome.
+        type: string
+      at:
+        description: At is when the acknowledgement was recorded.
+        type: string
+      reason:
+        description: Reason is the owner's stated reason.
+        type: string
+    type: object
   gateway.ProposalState:
     enum:
     - pending
@@ -601,6 +629,7 @@ definitions:
     - applied
     - rejected
     - outcome-unknown
+    - abandoned-unknown
     type: string
     x-enum-varnames:
     - ProposalPending
@@ -610,6 +639,7 @@ definitions:
     - ProposalApplied
     - ProposalRejected
     - ProposalOutcomeUnknown
+    - ProposalAbandoned
   gateway.RelayRequest:
     properties:
       handle:
@@ -4245,6 +4275,63 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Resolve the outcome of an addon proposal by receipt lookup
+      tags:
+      - Addons
+  /api/addons/proposals/{id}/resolve:
+    post:
+      consumes:
+      - application/json
+      description: 'Explicit recovery for an operation whose receipt cannot be found.
+        After outcome_unknown, repeated reconcile calls and the automatic lookups
+        that did not settle it, the owner role of the resource may record that the
+        outcome is not worth waiting for. The proposal becomes abandoned-unknown with
+        the acting owner, the time and the stated reason, and stops blocking writes
+        on the resource. The operation is never submitted again, and a later receipt
+        lookup that says it ran is recorded as applied. The owner is asserting that
+        waiting is not worth it: a change that did run stays in the data, and the
+        revision check of later changes protects against applying on a stale view.
+        Accepted only from a host confirmation surface with the same rules as confirm:
+        the owner''s own browser session, a same-origin fetch, the X-LocalAI-Confirm
+        header equal to the proposal ID, and no tool, agent or MCP marker. Installation
+        administrators and API keys have no access through this route, and no MCP
+        tool maps to it.'
+      parameters:
+      - description: Proposal ID (the operation ID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Digest of the displayed proposal and the reason
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addons.ResolveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Proposal after the acknowledgement, or settled by a final receipt
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "400":
+          description: Malformed or unknown request fields
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human confirmation surface, not the resource owner, feature
+            denied, digest changed or the proposal is not unresolved
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Abandon an unresolved addon proposal outcome as the resource owner
       tags:
       - Addons
   /api/addons/relay:

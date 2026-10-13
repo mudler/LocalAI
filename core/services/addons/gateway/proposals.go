@@ -28,10 +28,25 @@ const (
 	ProposalApplied ProposalState = "applied"
 	// ProposalRejected was refused by the runtime or found stale.
 	ProposalRejected ProposalState = "rejected"
-	// ProposalOutcomeUnknown may or may not have run. Only a receipt lookup
+	// ProposalOutcomeUnknown may or may not have run. A receipt lookup
 	// resolves it; it is never submitted again.
 	ProposalOutcomeUnknown ProposalState = "outcome-unknown"
+	// ProposalAbandoned was an unresolved outcome that the resource owner
+	// chose to stop waiting for. It no longer blocks writes, it is never
+	// submitted again, and a later receipt lookup still records what the
+	// addon reports.
+	ProposalAbandoned ProposalState = "abandoned-unknown"
 )
+
+// ProposalResolution records who stopped waiting for an unresolved outcome.
+type ProposalResolution struct {
+	// ActorID is the resource owner who acknowledged the unknown outcome.
+	ActorID string `json:"actorId"`
+	// At is when the acknowledgement was recorded.
+	At time.Time `json:"at"`
+	// Reason is the owner's stated reason.
+	Reason string `json:"reason"`
+}
 
 // ProposalEffects is what the confirming human is shown: the exact number of
 // effects and a bounded sample of them.
@@ -73,6 +88,9 @@ type Proposal struct {
 	// BlockedBy is the operation whose unresolved outcome blocks this
 	// proposal. Resolve that operation first.
 	BlockedBy string `json:"blockedBy,omitempty"`
+	// Resolution is present once the resource owner stopped waiting for an
+	// unresolved outcome. It stays after a late receipt is recorded.
+	Resolution *ProposalResolution `json:"resolution,omitempty"`
 }
 
 // ProposalBroker is the owner-held proposal state machine. Only the designated
@@ -86,6 +104,10 @@ type ProposalBroker interface {
 	Get(ctx context.Context, actor contract.Actor, id string) (Proposal, error)
 	// Reconcile looks the operation's receipt up. It never applies anything.
 	Reconcile(ctx context.Context, actor contract.Actor, id string) (Proposal, error)
+	// Resolve records that the resource owner stops waiting for an unresolved
+	// outcome. It never applies anything. digest must equal the proposal's
+	// digest; reason is required.
+	Resolve(ctx context.Context, actor contract.Actor, id, digest, reason string) (Proposal, error)
 }
 
 // Proposal call operations on the carrier. They travel in ProposalCall, never
@@ -96,6 +118,7 @@ const (
 	proposalCancel    = "cancel"
 	proposalGet       = "get"
 	proposalReconcile = "reconcile"
+	proposalResolve   = "resolve"
 )
 
 // ProposalCall is the body a frontend forwards to the owner.
@@ -103,11 +126,12 @@ type ProposalCall struct {
 	Op     string `json:"op"`
 	ID     string `json:"id,omitempty"`
 	Digest string `json:"digest,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // wireAction is the action the carrier classifies a proposal call by. Only
-// propose, confirm and cancel can change state; get and reconcile are
-// read-only toward the addon. Anything else is a mutation, as always.
+// propose, confirm, cancel and resolve can change state; get and reconcile
+// are read-only toward the addon. Anything else is a mutation, as always.
 func (c ProposalCall) wireAction(request contract.Request) string {
 	if c.Op == proposalPropose {
 		return request.Action
@@ -146,6 +170,8 @@ func (g *Gateway) proposalLocal(ctx context.Context, a contract.Actor, request c
 		return g.Proposals.Get(ctx, a, call.ID)
 	case proposalReconcile:
 		return g.Proposals.Reconcile(ctx, a, call.ID)
+	case proposalResolve:
+		return g.Proposals.Resolve(ctx, a, call.ID, call.Digest, call.Reason)
 	}
 	return Proposal{}, ErrForbidden
 }
@@ -175,6 +201,14 @@ func (g *Gateway) GetProposal(ctx context.Context, a contract.Actor, id string) 
 // read-only toward the addon and never submits the operation again.
 func (g *Gateway) ReconcileProposal(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
 	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalReconcile, ID: id})
+}
+
+// ResolveProposal records that the resource owner stops waiting for an
+// unresolved outcome. The owner accepts it only from a credential that stands
+// for a human at a host-owned confirmation surface, and only from the
+// resource's owner role. It never submits the operation again.
+func (g *Gateway) ResolveProposal(ctx context.Context, a contract.Actor, id, digest, reason string) (Proposal, error) {
+	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalResolve, ID: id, Digest: digest, Reason: reason})
 }
 
 // Proposal forwards a proposal call to the owner.
