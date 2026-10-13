@@ -6,7 +6,6 @@ import (
 	"errors"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"gorm.io/gorm"
@@ -14,8 +13,26 @@ import (
 	"net/http"
 )
 
+// AddonError is the error object of every failure response of the addon endpoints.
+type AddonError struct {
+	// Type is addon_error, or outcome_unknown when a mutation may have run.
+	Type string `json:"type" example:"outcome_unknown"`
+	// Message describes the failure and never carries owner details.
+	Message string `json:"message"`
+	// Code repeats the HTTP status. It is absent from outcome_unknown responses.
+	Code int `json:"code,omitempty"`
+	// OperationID is the original operation to poll. It is present only with
+	// type outcome_unknown.
+	OperationID string `json:"operationId,omitempty"`
+}
+
+// AddonErrorResponse is the body of every failure response of the addon endpoints.
+type AddonErrorResponse struct {
+	Error AddonError `json:"error"`
+}
+
 func failure(c echo.Context, code int, message string) error {
-	return c.JSON(code, schema.ErrorResponse{Error: &schema.APIError{Code: code, Message: message, Type: "addon_error"}})
+	return c.JSON(code, AddonErrorResponse{Error: AddonError{Code: code, Message: message, Type: "addon_error"}})
 }
 func actor(c echo.Context, db *gorm.DB) (contract.Actor, error) {
 	a, e := auth.AddonActor(c)
@@ -41,7 +58,7 @@ func decode(c echo.Context, v any) error {
 func resultError(c echo.Context, e error) error {
 	var unknown *gateway.OutcomeUnknown
 	if errors.As(e, &unknown) {
-		return c.JSON(503, map[string]any{"error": map[string]any{"type": "outcome_unknown", "message": "Check operation status; do not submit a new mutation", "operationId": unknown.OperationID}})
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "outcome_unknown", Message: "Check operation status; do not submit a new mutation", OperationID: unknown.OperationID}})
 	}
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
 		return failure(c, 503, "Addon owner unavailable")
@@ -57,10 +74,10 @@ func resultError(c echo.Context, e error) error {
 // @Produce json
 // @Param request body contract.Request true "Typed addon request"
 // @Success 200 {object} contract.Result "Operation accepted or read result"
-// @Failure 400 {object} schema.ErrorResponse "Malformed or unknown request fields"
-// @Failure 401 {object} schema.ErrorResponse "Named authentication required"
-// @Failure 403 {object} schema.ErrorResponse "Feature, administration or owner policy denied the request"
-// @Failure 503 {object} schema.ErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
 // @Router /api/addons/dispatch [post]
 func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -98,10 +115,10 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 // @Produce text/css
 // @Param request body gateway.RelayRequest true "Relay request"
 // @Success 200 {string} string "Relayed response body"
-// @Failure 400 {object} schema.ErrorResponse "Malformed or unknown request fields"
-// @Failure 401 {object} schema.ErrorResponse "Named authentication required"
-// @Failure 403 {object} schema.ErrorResponse "Feature or owner policy denied the request"
-// @Failure 503 {object} schema.ErrorResponse "Addons or the owner are unavailable"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
 // @Router /api/addons/relay [post]
 func Relay(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {

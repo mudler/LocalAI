@@ -497,7 +497,10 @@ owner election, or failover. An absent owner returns unavailable.
   dispatch additionally requires current administration rights. Cookie requests require
   same-origin fetch metadata; header-authenticated clients use their validated keys.
 
-Keep the original `operationId` after an `outcome_unknown` response. Query
+Every failure response has the body `{"error":{"type","message"}}`. A denial or
+unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
+status `503` and also carries the original `operationId`. Keep that `operationId` after
+an `outcome_unknown` response. Query
 `operation-status`; do not create another mutation. The carrier never retries mutations.
 `Manager.OperationStatus` binds the lookup to the original actor and current administrator.
 It does not submit, repair, start processes, or write the journal. `completed` describes
@@ -529,7 +532,8 @@ before its first byte, and any unclassified owner error are `503`, never a denia
 `503` does not prove that nothing ran: the owner can fail after it recorded or applied a
 mutation. A frontend therefore reports a mutation that gets a `503`, or a transport
 failure, as `outcome_unknown` with the original `operationId`, and never as plain
-unavailability. When an error carries both a denial and an unavailable cause, `503` wins.
+unavailability. The owner's own frontend reports it the same way as every other
+frontend. When an error carries both a denial and an unavailable cause, `503` wins.
 After the first byte the status cannot change; the owner then aborts the stream and the
 frontend reports the stream as failed, never as a clean end.
 

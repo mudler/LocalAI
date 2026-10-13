@@ -58,6 +58,7 @@ type errorBody struct {
 var _ = Describe("dispatch failure responses on the registered route", func() {
 	const secret = "secret"
 	var token string
+	var raw map[string]any
 	// serve mounts the real handler behind the same middleware chain as the
 	// registered /api/addons group and returns a caller for typed requests.
 	serve := func(g *gateway.Gateway) func(id, action string) (int, errorBody) {
@@ -84,6 +85,8 @@ var _ = Describe("dispatch failure responses on the registered route", func() {
 			r.Header.Set("Authorization", "Bearer "+token)
 			w := httptest.NewRecorder()
 			app.ServeHTTP(w, r)
+			raw = nil
+			_ = json.Unmarshal(w.Body.Bytes(), &raw)
 			var out errorBody
 			ExpectWithOffset(1, json.Unmarshal(w.Body.Bytes(), &out)).To(Succeed(), w.Body.String())
 			return w.Code, out
@@ -132,6 +135,42 @@ var _ = Describe("dispatch failure responses on the registered route", func() {
 		Expect(code).To(Equal(http.StatusServiceUnavailable))
 		Expect(body.Error["type"]).To(Equal("addon_error"))
 		Expect(body.Error).NotTo(HaveKey("operationId"))
+	})
+	It("documents every field the error responses emit in the Swagger schema", func() {
+		spec, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "swagger", "swagger.json"))
+		Expect(e).NotTo(HaveOccurred())
+		var doc map[string]any
+		Expect(json.Unmarshal(spec, &doc)).To(Succeed())
+		at := func(from any, keys ...string) map[string]any {
+			m, _ := from.(map[string]any)
+			for _, k := range keys {
+				m, _ = m[k].(map[string]any)
+			}
+			return m
+		}
+		definition := func(ref any) map[string]any {
+			name, _ := ref.(string)
+			return at(doc, "definitions", strings.TrimPrefix(name, "#/definitions/"))
+		}
+		response := at(doc, "paths", "/api/addons/dispatch", "post", "responses", "503", "schema")
+		Expect(response).NotTo(BeNil())
+		envelope := definition(response["$ref"])
+		Expect(envelope).NotTo(BeNil())
+		inner := at(envelope, "properties", "error")
+		documented := at(inner, "properties")
+		if documented == nil {
+			documented = at(definition(inner["$ref"]), "properties")
+		}
+		call := serve(&gateway.Gateway{Revalidate: allow})
+		for _, action := range []string{"enable", "operation-status"} {
+			status, _ := call("doc-op", action)
+			Expect(status).To(Equal(http.StatusServiceUnavailable))
+			emitted, ok := raw["error"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			for field := range emitted {
+				Expect(documented).To(HaveKey(field), action+" emits "+field)
+			}
+		}
 	})
 	It("reports an unavailable read as plain unavailability", func() {
 		call := serve(&gateway.Gateway{Revalidate: allow, Admission: openAdmission{}, Resolver: boundResolver{}, Runtime: deadRuntime{}})
