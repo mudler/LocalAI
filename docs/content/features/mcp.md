@@ -126,6 +126,12 @@ A request that does send `metadata.mcp_servers` still gets exactly the servers i
 names. `/v1/responses` already enables all servers when the request sends no
 `tools`, and `/mcp/v1/chat/completions` always does; `auto` does not change them.
 
+`auto` only applies when MCP is enabled on the instance (not disabled with
+`LOCALAI_DISABLE_MCP`) and, with authentication on, the caller has the `mcp`
+permission. Otherwise the request is answered as a plain chat: no server is
+contacted and no tools are added. It is not rejected, because the client did not
+ask for MCP.
+
 #### Client tools (`client_tools`)
 
 `client_tools: drop` (a top-level model config key) discards the `tools`,

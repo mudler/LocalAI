@@ -52,7 +52,7 @@ top of the target's config for requests to the alias:
 |-------|--------|
 | `profile.system_prompt` | Replaces the target's system prompt. A system message sent by the client still takes precedence, as for any model. |
 | `profile.mcp` (`remote`, `stdio`) | Replaces the target's MCP servers. |
-| `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`. See [MCP]({{%relref "features/mcp" %}}). |
+| `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`, when MCP is enabled and the caller has the `mcp` permission. See [MCP]({{%relref "features/mcp" %}}). |
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
 
 ```yaml

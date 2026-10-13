@@ -18,24 +18,24 @@ var _ = Describe("selectMCPServers", func() {
 	}
 
 	It("enables every configured server when mcp.auto is set and the request names none", func() {
-		Expect(selectMCPServers(withServers(true), nil, false)).To(Equal([]string{"notes", "web"}))
+		Expect(selectMCPServers(withServers(true), nil, false, nil)).To(Equal([]string{"notes", "web"}))
 	})
 
 	It("keeps the servers the request selected", func() {
-		Expect(selectMCPServers(withServers(true), []string{"web"}, false)).To(Equal([]string{"web"}))
+		Expect(selectMCPServers(withServers(true), []string{"web"}, false, nil)).To(Equal([]string{"web"}))
 	})
 
 	It("enables nothing without mcp.auto, as before", func() {
-		Expect(selectMCPServers(withServers(false), nil, false)).To(BeEmpty())
+		Expect(selectMCPServers(withServers(false), nil, false, nil)).To(BeEmpty())
 	})
 
 	It("leaves the assistant modality alone", func() {
-		Expect(selectMCPServers(withServers(true), nil, true)).To(BeEmpty())
+		Expect(selectMCPServers(withServers(true), nil, true, nil)).To(BeEmpty())
 	})
 
 	It("enables nothing when no servers are configured", func() {
 		cfg := &config.ModelConfig{}
 		cfg.MCP.Auto = true
-		Expect(selectMCPServers(cfg, nil, false)).To(BeEmpty())
+		Expect(selectMCPServers(cfg, nil, false, nil)).To(BeEmpty())
 	})
 })

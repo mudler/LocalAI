@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -23,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
+	"gorm.io/gorm"
 )
 
 // messageText returns the textual content of a message, preferring the
@@ -216,9 +218,14 @@ func applyAutoparserOverride(
 // named in metadata.mcp_servers or, with mcp.auto, every configured server when
 // the request names none. mcp.auto exists because plain OpenAI clients cannot
 // send that metadata and would otherwise never reach server-side tools. The
-// assistant modality brings its own tools and is left alone.
-func selectMCPServers(cfg *config.ModelConfig, requested []string, assistantMode bool) []string {
+// assistant modality brings its own tools and is left alone. autoPermitted is
+// consulted only when the automatic path would apply, so plain chat requests
+// on models without mcp.auto pay no permission lookup.
+func selectMCPServers(cfg *config.ModelConfig, requested []string, assistantMode bool, autoPermitted func() bool) []string {
 	if len(requested) > 0 || assistantMode || !cfg.MCP.Auto || !cfg.MCP.HasMCPServers() {
+		return requested
+	}
+	if autoPermitted != nil && !autoPermitted() {
 		return requested
 	}
 	names, err := cfg.MCP.ServerNames()
@@ -229,13 +236,34 @@ func selectMCPServers(cfg *config.ModelConfig, requested []string, assistantMode
 	return names
 }
 
+// mcpAutoPermitted reports whether mcp.auto may turn this chat request into a
+// server-side MCP request. It applies the same controls as the dedicated MCP
+// routes: the instance switch (LOCALAI_DISABLE_MCP) and, when auth is on, the
+// caller's "mcp" feature. A denied request is answered as a plain chat rather
+// than refused, because the client did not ask for MCP; it only reached a
+// model that offers it. Without an auth database only the instance switch
+// applies, matching auth.RequireFeature.
+func mcpAutoPermitted(c echo.Context, appConfig *config.ApplicationConfig, authDB *gorm.DB) bool {
+	if appConfig != nil && appConfig.DisableMCP {
+		return false
+	}
+	if authDB == nil {
+		return true
+	}
+	return auth.HasFeatureAccess(authDB, auth.GetUser(c), auth.FeatureMCP)
+}
+
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Tags inference
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, agentControl mcpTools.AgentControl, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, agentControl mcpTools.AgentControl, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor, authDB ...*gorm.DB) echo.HandlerFunc {
+	var db *gorm.DB
+	if len(authDB) > 0 {
+		db = authDB[0]
+	}
 	return func(c echo.Context) error {
 		var textContentToReturn string
 		id := uuid.New().String()
@@ -330,7 +358,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			xlog.Debug("LocalAI Assistant tools injected", "count", len(mcpFuncs))
 		}
 
-		mcpServers = selectMCPServers(config, mcpServers, assistantMode)
+		mcpServers = selectMCPServers(config, mcpServers, assistantMode, func() bool {
+			return mcpAutoPermitted(c, startupOptions, db)
+		})
 
 		// MCP prompt and resource injection (extracted before tool injection)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
