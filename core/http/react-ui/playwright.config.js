@@ -2,6 +2,9 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // The add-on UI runtime spec needs a server with authentication and a real
+  // add-on owner; scripts/addons/esm_ui.sh runs it with playwright.esm.config.js.
+  testIgnore: ['**/addons-runtime.spec.js'],
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   // TEMPORARY: cap parallelism. Playwright's default (cores/2) oversubscribes

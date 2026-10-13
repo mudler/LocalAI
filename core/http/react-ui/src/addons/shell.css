@@ -1,0 +1,43 @@
+/* ==========================================================================
+   The add-on shell: the root an add-on page is drawn in, the banner of a
+   withdrawn page, the error card and the layout wrappers of the SDK. Loaded
+   with the registry, so a dialog an add-on opens from any page is styled.
+   ========================================================================== */
+
+/* ---- Add-on page shell ----------------------------------------------------
+   The root an add-on page is drawn in. The add-on's own style sheet is
+   scoped to [data-addon="<id>"], so it reaches only this element. */
+
+.ad-host { min-width: 0; color: var(--dk-text); }
+.ad-host--frozen { opacity: 0.72; }
+.ad-shell-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); justify-content: center; margin-top: var(--dk-space-3); }
+.ad-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-warn-wash);
+  color: var(--dk-warn-text);
+  font-size: var(--dk-text-13);
+}
+.ad-banner > span { flex: 1 1 240px; min-width: 0; }
+.ad-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-4);
+  border-radius: var(--dk-radius-1);
+  background: var(--dk-error-wash);
+  color: var(--dk-error-text);
+}
+.ad-boundary__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
+.ad-boundary__text { margin: 0; font-size: var(--dk-text-13); }
+.ad-stack { display: flex; flex-direction: column; align-items: flex-start; }
+.ad-stack--sm { gap: var(--dk-space-1); }
+.ad-stack--md { gap: var(--dk-space-3); }
+.ad-stack--lg { gap: var(--dk-space-5); }
+.ad-text { margin: 0; font-size: var(--dk-text-13); }
+.ad-text--muted { color: var(--dk-muted); }

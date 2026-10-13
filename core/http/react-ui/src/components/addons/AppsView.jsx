@@ -1,11 +1,12 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import CatalogEmpty from '../catalog/CatalogEmpty'
 import { pollDelay } from '../catalog/catalogState'
+import { RegistryContext } from '../../addons/registryContext'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, UnknownNotice } from './AddonBits'
 import { appActions, localizedText, toolSummary } from './addonState'
@@ -22,6 +23,11 @@ export default function AppsView({ api }) {
   const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
+  // The add-on registry does not read the list again while this tab is open:
+  // every list read here is handed to it.
+  const registry = useContext(RegistryContext)
+  const ingestRef = useRef(null)
+  ingestRef.current = registry ? registry.ingest : null
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
   // refresh asked for while one is in flight runs right after it, so there is
@@ -39,7 +45,10 @@ export default function AppsView({ api }) {
       try {
         const apps = await api.apps.list(ctl.signal)
         failures = 0
-        if (alive) setState({ status: 'ready', apps, error: null, stale: false })
+        if (alive) {
+          setState({ status: 'ready', apps, error: null, stale: false })
+          ingestRef.current?.(apps)
+        }
       } catch (error) {
         if (!alive || (error && error.name === 'AbortError')) return
         failures += 1

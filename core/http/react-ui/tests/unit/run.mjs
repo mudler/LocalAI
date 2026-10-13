@@ -2,13 +2,25 @@
 //   {"case":"unit: <name>","status":"passed"|"failed"|"skipped"}
 // A test that is skipped or marked todo is reported as skipped, so the case
 // inventory of scripts/addons/suites.json rejects it. No dependencies.
+//
+// Arguments name the test files to run (for example addons.test.mjs); without
+// any, every *.test.mjs file runs. Each suite of suites.json names its own, so
+// one suite's cases never appear in another's inventory.
 import { run } from 'node:test'
 import { readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const files = readdirSync(here).filter(f => f.endsWith('.test.mjs')).sort().map(f => join(here, f))
+const only = process.argv.slice(2)
+const names = readdirSync(here).filter(f => f.endsWith('.test.mjs')).sort()
+for (const name of only) {
+  if (!names.includes(name)) {
+    console.log(JSON.stringify({ case: `unit: missing test file ${name}`, status: 'failed' }))
+    process.exit(1)
+  }
+}
+const files = names.filter(f => only.length === 0 || only.includes(f)).map(f => join(here, f))
 let failed = false
 const stream = run({ files, concurrency: 1 })
 stream.on('test:pass', ({ name, skip, todo, nesting }) => {

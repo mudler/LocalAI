@@ -168,6 +168,58 @@
     "body": "This build cannot open add-on pages yet. The add-on keeps running.",
     "title": "This page is not available yet"
   },
+  "shell": {
+    "loading": "Loading {{title}}",
+    "unavailable": {
+      "title": "This add-on is not available"
+    },
+    "reasons": {
+      "disabled": "The add-on was stopped. Start it again from the Add-ons page.",
+      "removed": "The add-on is not installed, or you can no longer use it.",
+      "failed": "The add-on stopped responding. It is restarted automatically; reload to try again.",
+      "updated": "The add-on was updated. Reload to use the new version.",
+      "no-ui": "This version of the add-on has no pages.",
+      "incompatible_sdk": "This add-on needs another version of the LocalAI interface than this page provides.",
+      "untrusted_asset": "The add-on pointed at a file outside its own package, so it was not loaded.",
+      "invalid_module": "The add-on does not follow the interface contract, so it was not loaded.",
+      "import_failed": "The add-on could not be loaded.",
+      "create_failed": "The add-on failed while it started.",
+      "timeout": "The add-on took too long to load.",
+      "css_failed": "The style sheet of the add-on could not be loaded.",
+      "aborted": "The load was canceled."
+    },
+    "reload": "Reload",
+    "reloading": "Reloading",
+    "stale": "{{title}} changed while you were editing. Your edits are still on screen but cannot be saved. Copy what you need, then reload.",
+    "discard": {
+      "title": "Discard unsaved changes?",
+      "body": "Reloading replaces this page, and the edits you have not saved are lost.",
+      "confirm": "Discard and reload",
+      "cancel": "Keep editing"
+    },
+    "leave": {
+      "title": "Leave this page?",
+      "body": "You have edits that are not saved. They are lost if you leave.",
+      "leave": "Leave",
+      "stay": "Stay"
+    },
+    "pageMissing": {
+      "title": "This page does not exist",
+      "body": "{{title}} has no page called \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Nothing to show here",
+      "body": "This add-on adds actions to other pages and has no page of its own."
+    },
+    "error": {
+      "title": "This add-on had a problem",
+      "text": "It failed while drawing this page. The rest of LocalAI is not affected.",
+      "retry": "Try again"
+    },
+    "layer": {
+      "close": "Close"
+    }
+  },
   "state": {
     "failed": "Failed",
     "label": "State: {{state}}",

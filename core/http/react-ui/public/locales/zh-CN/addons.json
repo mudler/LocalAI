@@ -164,6 +164,58 @@
     "body": "此版本尚不能打开附加组件页面。附加组件仍在运行。",
     "title": "此页面暂不可用"
   },
+  "shell": {
+    "loading": "正在加载 {{title}}",
+    "unavailable": {
+      "title": "此扩展不可用"
+    },
+    "reasons": {
+      "disabled": "扩展已停止。请在扩展页面重新启动它。",
+      "removed": "扩展未安装，或您已无权使用它。",
+      "failed": "扩展不再响应。它会自动重启；请重新加载后再试。",
+      "updated": "扩展已更新。请重新加载以使用新版本。",
+      "no-ui": "此版本的扩展没有页面。",
+      "incompatible_sdk": "此扩展需要与本页面所提供版本不同的 LocalAI 界面版本。",
+      "untrusted_asset": "扩展指向了其自身包之外的文件，因此未加载。",
+      "invalid_module": "扩展不符合界面约定，因此未加载。",
+      "import_failed": "无法加载扩展。",
+      "create_failed": "扩展启动时失败。",
+      "timeout": "扩展加载时间过长。",
+      "css_failed": "无法加载扩展的样式表。",
+      "aborted": "加载已取消。"
+    },
+    "reload": "重新加载",
+    "reloading": "正在重新加载",
+    "stale": "您编辑时 {{title}} 发生了变化。您的编辑仍在屏幕上，但无法保存。请复制需要的内容，然后重新加载。",
+    "discard": {
+      "title": "放弃未保存的更改？",
+      "body": "重新加载会替换此页面，未保存的编辑将丢失。",
+      "confirm": "放弃并重新加载",
+      "cancel": "继续编辑"
+    },
+    "leave": {
+      "title": "离开此页面？",
+      "body": "您有未保存的编辑，离开后将丢失。",
+      "leave": "离开",
+      "stay": "留下"
+    },
+    "pageMissing": {
+      "title": "此页面不存在",
+      "body": "{{title}} 没有名为“{{page}}”的页面。"
+    },
+    "noComponent": {
+      "title": "这里没有可显示的内容",
+      "body": "此扩展为其他页面添加操作，没有自己的页面。"
+    },
+    "error": {
+      "title": "此扩展出现问题",
+      "text": "绘制此页面时失败。LocalAI 的其余部分不受影响。",
+      "retry": "重试"
+    },
+    "layer": {
+      "close": "关闭"
+    }
+  },
   "state": {
     "failed": "失败",
     "label": "状态:{{state}}",

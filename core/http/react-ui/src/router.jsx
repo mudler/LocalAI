@@ -157,12 +157,15 @@ const Account = page('account', () => import('./pages/Account'))
 const Addons = page('addons', () => import('./pages/Addons'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
-const AddonPage = page(null, () => import('./pages/AddonPage'))
+const AddonRoute = page(null, () => import('./addons/AddonRoute'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
 const BuildOverview = page('build', () => import('./pages/BuildOverview'))
 
 import HubLayout from './components/hub/HubLayout'
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
+import { AddonRegistryProvider } from './addons/registry'
 import { buildHub, operateHub } from './components/hub/hubConfig'
 
 // The Agent chat page became the agent's own page and its runs. An old chat
@@ -238,7 +241,7 @@ const appChildren = [
       // Add-ons: Apps for everyone with the feature; Browse, Installed and
       // Libraries are administrator tabs that the server checks on every call.
       { path: 'addons', element: <Feature feature="addons"><Addons /></Feature> },
-      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonPage /></Feature> },
+      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonRoute /></Feature> },
     ],
   },
   // Build deep flows: full-width, no tab bar.
@@ -313,7 +316,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/app',
-    element: <RequireAuth><App /></RequireAuth>,
+    element: <RequireAuth><AddonRegistryProvider><App /></AddonRegistryProvider></RequireAuth>,
     children: appChildren,
   },
   // Backward compatibility: redirect /browse/* to /app/*

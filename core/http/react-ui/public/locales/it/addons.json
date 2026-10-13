@@ -168,6 +168,58 @@
     "body": "Questa versione non può ancora aprire le pagine dei componenti. Il componente continua a funzionare.",
     "title": "Questa pagina non è ancora disponibile"
   },
+  "shell": {
+    "loading": "Caricamento di {{title}}",
+    "unavailable": {
+      "title": "Questo componente aggiuntivo non è disponibile"
+    },
+    "reasons": {
+      "disabled": "Il componente aggiuntivo è stato fermato. Avvialo di nuovo dalla pagina dei componenti aggiuntivi.",
+      "removed": "Il componente aggiuntivo non è installato oppure non puoi più usarlo.",
+      "failed": "Il componente aggiuntivo non risponde più. Viene riavviato automaticamente; ricarica per riprovare.",
+      "updated": "Il componente aggiuntivo è stato aggiornato. Ricarica per usare la nuova versione.",
+      "no-ui": "Questa versione del componente aggiuntivo non ha pagine.",
+      "incompatible_sdk": "Questo componente aggiuntivo richiede una versione dell'interfaccia di LocalAI diversa da quella di questa pagina.",
+      "untrusted_asset": "Il componente aggiuntivo puntava a un file fuori dal proprio pacchetto, quindi non è stato caricato.",
+      "invalid_module": "Il componente aggiuntivo non rispetta il contratto dell'interfaccia, quindi non è stato caricato.",
+      "import_failed": "Impossibile caricare il componente aggiuntivo.",
+      "create_failed": "Il componente aggiuntivo non è riuscito ad avviarsi.",
+      "timeout": "Il componente aggiuntivo ha impiegato troppo a caricarsi.",
+      "css_failed": "Impossibile caricare il foglio di stile del componente aggiuntivo.",
+      "aborted": "Il caricamento è stato annullato."
+    },
+    "reload": "Ricarica",
+    "reloading": "Ricaricamento",
+    "stale": "{{title}} è cambiato mentre modificavi. Le tue modifiche sono ancora a schermo ma non possono essere salvate. Copia ciò che ti serve, poi ricarica.",
+    "discard": {
+      "title": "Scartare le modifiche non salvate?",
+      "body": "Ricaricare sostituisce questa pagina e le modifiche non salvate vanno perse.",
+      "confirm": "Scarta e ricarica",
+      "cancel": "Continua a modificare"
+    },
+    "leave": {
+      "title": "Lasciare questa pagina?",
+      "body": "Hai modifiche non salvate. Andranno perse se esci.",
+      "leave": "Esci",
+      "stay": "Resta"
+    },
+    "pageMissing": {
+      "title": "Questa pagina non esiste",
+      "body": "{{title}} non ha una pagina chiamata \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Niente da mostrare qui",
+      "body": "Questo componente aggiuntivo aggiunge azioni ad altre pagine e non ha una pagina propria."
+    },
+    "error": {
+      "title": "Questo componente aggiuntivo ha avuto un problema",
+      "text": "Non è riuscito a disegnare questa pagina. Il resto di LocalAI non è interessato.",
+      "retry": "Riprova"
+    },
+    "layer": {
+      "close": "Chiudi"
+    }
+  },
   "state": {
     "failed": "Errore",
     "label": "Stato: {{state}}",

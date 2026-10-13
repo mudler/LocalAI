@@ -168,6 +168,58 @@
     "body": "Esta versão ainda não consegue abrir páginas de complementos. O complemento continua em execução.",
     "title": "Esta página ainda não está disponível"
   },
+  "shell": {
+    "loading": "Carregando {{title}}",
+    "unavailable": {
+      "title": "Este complemento não está disponível"
+    },
+    "reasons": {
+      "disabled": "O complemento foi parado. Inicie-o novamente na página de complementos.",
+      "removed": "O complemento não está instalado ou você não pode mais usá-lo.",
+      "failed": "O complemento parou de responder. Ele é reiniciado automaticamente; recarregue para tentar de novo.",
+      "updated": "O complemento foi atualizado. Recarregue para usar a nova versão.",
+      "no-ui": "Esta versão do complemento não tem páginas.",
+      "incompatible_sdk": "Este complemento precisa de outra versão da interface do LocalAI que a oferecida por esta página.",
+      "untrusted_asset": "O complemento apontou para um arquivo fora do próprio pacote, por isso não foi carregado.",
+      "invalid_module": "O complemento não segue o contrato da interface, por isso não foi carregado.",
+      "import_failed": "Não foi possível carregar o complemento.",
+      "create_failed": "O complemento falhou ao iniciar.",
+      "timeout": "O complemento demorou demais para carregar.",
+      "css_failed": "Não foi possível carregar a folha de estilos do complemento.",
+      "aborted": "O carregamento foi cancelado."
+    },
+    "reload": "Recarregar",
+    "reloading": "Recarregando",
+    "stale": "{{title}} mudou enquanto você editava. Suas edições continuam na tela, mas não podem ser salvas. Copie o que precisar e recarregue.",
+    "discard": {
+      "title": "Descartar as alterações não salvas?",
+      "body": "Recarregar substitui esta página e as edições não salvas são perdidas.",
+      "confirm": "Descartar e recarregar",
+      "cancel": "Continuar editando"
+    },
+    "leave": {
+      "title": "Sair desta página?",
+      "body": "Você tem edições não salvas. Elas são perdidas se você sair.",
+      "leave": "Sair",
+      "stay": "Ficar"
+    },
+    "pageMissing": {
+      "title": "Esta página não existe",
+      "body": "{{title}} não tem uma página chamada \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Nada para mostrar aqui",
+      "body": "Este complemento adiciona ações a outras páginas e não tem página própria."
+    },
+    "error": {
+      "title": "Este complemento teve um problema",
+      "text": "Ele falhou ao desenhar esta página. O restante do LocalAI não é afetado.",
+      "retry": "Tentar novamente"
+    },
+    "layer": {
+      "close": "Fechar"
+    }
+  },
   "state": {
     "failed": "Com falha",
     "label": "Estado: {{state}}",

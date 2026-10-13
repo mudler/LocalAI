@@ -1605,5 +1605,68 @@
       "hub: the Add-ons tab appears only for an account that holds the feature",
       "regression: the backends catalog still searches, pages and shows its empty state"
     ]
+  },
+  "esm-ui": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/esm_ui.sh"
+      ]
+    ],
+    "cases": [
+      "unit: sdk: compatibility accepts only a range that holds the host SDK version",
+      "unit: sdk: the object is a frozen allowlist that carries the host React and no host internals",
+      "unit: sdk: hooks run on the host React instance and a wrapper keeps one component type",
+      "unit: sdk: icons outside the semantic set fall back and theme tokens are a fixed set",
+      "unit: sdk: navigation stays inside the add-on prefix and its declared pages",
+      "unit: sdk: api calls carry the add-on and its generation and nothing else is reachable",
+      "unit: sdk: after the signal aborts every service refuses and each disposer runs once",
+      "unit: sdk: markDirty reports unsaved edits once per change and notifications are bounded",
+      "unit: sdk: locale is scoped to the add-on and falls back to the default text",
+      "unit: sdk: layers are host wrappers with a bounded spec",
+      "unit: css: every selector is scoped to the add-on root and the global ones are neutralised",
+      "unit: css: imports, fonts, external urls and unknown at-rules are dropped and keyframes are renamed",
+      "unit: css: two add-ons that use the same class names get disjoint scopes",
+      "unit: loader: asset URLs must be same-origin immutable URLs of the add-on own package",
+      "unit: loader: an incompatible SDK range is never imported and leaves a clear error",
+      "unit: loader: the module receives only the host SDK, its result is validated and styles are scoped",
+      "unit: loader: a module without createAddon, with a bad result or a bare import is a load error",
+      "unit: loader: a hanging import times out and an abort cancels and cleans up",
+      "unit: loader: dispose runs once, aborts the SDK signal and removes the styles",
+      "unit: loader: chat actions are limited to declared ids and carry only the conversation context",
+      "unit: registry: disable, uninstall, crash and update withdraw a loaded add-on at once",
+      "unit: registry: unsaved edits keep a withdrawn add-on stale until the user reloads",
+      "unit: registry: a poll never replaces a withdrawn instance; only reload does",
+      "unit: registry: a hold ends with its last holder and a load that was withdrawn leaves no instance behind",
+      "unit: registry: navigation and chat actions come only from usable add-ons of the current generation",
+      "unit: registry: the Add-ons tab lists page links only when the registry has usable add-ons",
+      "go: describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
+      "go: resolves a package for the current enabled generation and digest only",
+      "go: serves declared assets of the current enabled generation by package digest only",
+      "go: serves the declared files of the current package through every frontend with immutable headers",
+      "go: lists the same URLs the route serves, and only for an enabled addon",
+      "go: denies every other path, digest, addon and credential form with one answer and no immutable caching",
+      "go: accepts a same-origin browser session and refuses a cross-site or direct one",
+      "go: withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+      "go: refuses a declared file that is not a regular file of the package",
+      "go: documents the asset route and its binary response in the Swagger spec",
+      "esm: a fixture add-on installed after the host build loads through real authorization and draws in its own root",
+      "esm: hooks run on the host React and the add-on keeps its state across renders",
+      "esm: the add-on style sheet is scoped to its root and leaves the host and other add-ons alone",
+      "esm: a component that throws is contained by the error boundary and the shell keeps working",
+      "esm: deep links, the bare add-on address and a proxy path prefix reach the same declared page",
+      "esm: a host that does not provide the add-on SDK range never imports its code and says so",
+      "esm: a module that imports React by a bare specifier fails to load and no second React is resolved",
+      "esm: the server decides asset access: undeclared files, traversal, other add-ons, credentials in URLs and foreign sessions are denied",
+      "esm: an add-on navigates only to its own declared pages and the host draws the add-on navigation",
+      "esm: dialogs an add-on opens are owned by the host: focus, Escape and the close button",
+      "esm: unsaved edits are guarded when leaving the page",
+      "esm: the page keeps inside the viewport at 400 px and follows the light and dark themes",
+      "esm: a member without the add-ons feature gets no add-on page and no code",
+      "esm: disabling an add-on unmounts it, aborts its signal, drops its styles and denies its code at once",
+      "esm: a withdrawn add-on with unsaved edits stays on screen until the user decides, and never saves",
+      "esm: an update withdraws the old generation, denies its code and loads the new one only on an explicit reload"
+    ]
   }
 }

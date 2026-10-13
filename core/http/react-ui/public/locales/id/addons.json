@@ -168,6 +168,58 @@
     "body": "Rilis ini belum dapat membuka halaman add-on. Add-on tetap berjalan.",
     "title": "Halaman ini belum tersedia"
   },
+  "shell": {
+    "loading": "Memuat {{title}}",
+    "unavailable": {
+      "title": "Add-on ini tidak tersedia"
+    },
+    "reasons": {
+      "disabled": "Add-on dihentikan. Mulai lagi dari halaman Add-on.",
+      "removed": "Add-on tidak terpasang, atau Anda tidak lagi dapat menggunakannya.",
+      "failed": "Add-on berhenti merespons. Add-on dimulai ulang otomatis; muat ulang untuk mencoba lagi.",
+      "updated": "Add-on diperbarui. Muat ulang untuk memakai versi baru.",
+      "no-ui": "Versi add-on ini tidak memiliki halaman.",
+      "incompatible_sdk": "Add-on ini membutuhkan versi antarmuka LocalAI yang berbeda dari yang disediakan halaman ini.",
+      "untrusted_asset": "Add-on menunjuk ke berkas di luar paketnya sendiri, sehingga tidak dimuat.",
+      "invalid_module": "Add-on tidak mengikuti kontrak antarmuka, sehingga tidak dimuat.",
+      "import_failed": "Add-on tidak dapat dimuat.",
+      "create_failed": "Add-on gagal saat dimulai.",
+      "timeout": "Add-on terlalu lama dimuat.",
+      "css_failed": "Lembar gaya add-on tidak dapat dimuat.",
+      "aborted": "Pemuatan dibatalkan."
+    },
+    "reload": "Muat ulang",
+    "reloading": "Memuat ulang",
+    "stale": "{{title}} berubah saat Anda mengedit. Perubahan Anda masih ada di layar tetapi tidak dapat disimpan. Salin yang Anda perlukan, lalu muat ulang.",
+    "discard": {
+      "title": "Buang perubahan yang belum disimpan?",
+      "body": "Memuat ulang mengganti halaman ini, dan perubahan yang belum disimpan hilang.",
+      "confirm": "Buang dan muat ulang",
+      "cancel": "Lanjutkan mengedit"
+    },
+    "leave": {
+      "title": "Tinggalkan halaman ini?",
+      "body": "Anda memiliki perubahan yang belum disimpan. Perubahan hilang jika Anda pergi.",
+      "leave": "Tinggalkan",
+      "stay": "Tetap di sini"
+    },
+    "pageMissing": {
+      "title": "Halaman ini tidak ada",
+      "body": "{{title}} tidak memiliki halaman bernama \"{{page}}\"."
+    },
+    "noComponent": {
+      "title": "Tidak ada yang ditampilkan di sini",
+      "body": "Add-on ini menambahkan aksi ke halaman lain dan tidak memiliki halaman sendiri."
+    },
+    "error": {
+      "title": "Add-on ini mengalami masalah",
+      "text": "Add-on gagal saat menggambar halaman ini. Bagian LocalAI lainnya tidak terpengaruh.",
+      "retry": "Coba lagi"
+    },
+    "layer": {
+      "close": "Tutup"
+    }
+  },
   "state": {
     "failed": "Gagal",
     "label": "Status: {{state}}",

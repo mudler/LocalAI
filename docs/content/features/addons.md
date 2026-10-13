@@ -1109,8 +1109,8 @@ and applies nothing. A 403 (a stale
 generation or no permission) and a 503 are shown with the same words everywhere on the
 page, and the list is read again.
 
-The Open link points at `/app/addons/{id}/{page}`. This build has no add-on page host
-yet, so that address shows a short notice instead of the add-on's page.
+The Open link points at `/app/addons/{id}/{page}`, the page of the add-on described in
+[Add-on pages](#add-on-pages) below.
 
 ### Management actions
 
@@ -1165,11 +1165,13 @@ Uninstalling stops the addon and removes its package from use. Its data, identit
 grants are kept, so a later install of the same addon picks them up. The page says so
 before it submits the uninstall.
 
-## Add-on UI assets
+## Add-on pages
 
-An add-on with a `ui` object ships UI code: the packaged ES module the manifest names and
-its style sheets. The owner serves that code, and only that code, through an immutable
-asset route, so the web UI can load it after the host itself was built.
+An add-on with a `ui` object contributes pages to the web UI. The code of those pages is
+the packaged ES module the manifest names, served by the owner, and the host loads it
+after the host itself was built: nothing about an add-on is known to the UI build. The
+host never resolves imports for it, never hands it a router, a store or a request
+function, and never lets it replace a route.
 
 ### The UI entry of an app
 
@@ -1208,3 +1210,84 @@ received the request. It is a read for every caller who holds the `addons` featu
 - A replica relays the response from the owner: the same bytes, headers and denials.
 
 There is no MCP tool for this route, as for the other Apps routes.
+
+### The host SDK
+
+The module exports `createAddon(sdk)` and nothing it needs comes from anywhere else.
+`createAddon` returns `{ Component, chatActions, dispose }`; `Component` and
+`chatActions` are optional and `dispose()` is required. The SDK is a frozen object:
+
+| Member | What it is |
+|---|---|
+| `React` | The host's own React. Use `sdk.React.createElement` and `sdk.React.useState`: hooks run on the host's React instance. A bare `react` import fails to load, and a second bundled React would break hooks. |
+| `ui` | Wrappers over host components: `Button`, `Spinner`, `EmptyState`, `Badge`, `Stack` and `Text`. A wrapper has a fixed type, so React never remounts it. |
+| `Icon`, `iconNames` | A semantic icon. A name outside `iconNames` draws a neutral icon. |
+| `theme` | `tokens` (CSS custom property references with stable names), `mode()` and `subscribe`. |
+| `locale` | `language()`, `subscribe`, `define(language, bundle)` and `t(key, fallback, vars)`. Bundles belong to this add-on only. |
+| `navigation` | `navigate(path)`, `href(path)`, `current()`. Only the add-on's own declared pages resolve; anything else throws. |
+| `api` | `read(request)` and `propose(request)`, both bound to this add-on and its installed generation by the SDK. A read is always the typed `read`; a write is only ever a stored proposal that the host confirms. There is no raw request. |
+| `notify` | `info`, `success`, `warning`, `error`. |
+| `markDirty(flag)`, `isDirty()` | Unsaved edits. The shell asks before it leaves or replaces the page. |
+| `layers` | `openDialog(spec)` and `openPanel(spec)`: the host draws the dialog or side panel and owns its focus, Escape and unmount. |
+| `signal`, `onDispose(fn)` | The signal aborts when the add-on is withdrawn; disposers run once. |
+
+A chat action is `{id, label, icon, open(context)}`, where `id` must be one of
+`ui.chatActions`. `context` is exactly `{conversationId, resourceRef?}`. There is no
+history, message or send hook, and an add-on cannot intercept submission or override a
+route. An action that is undeclared, duplicated, without a label or without `open` is
+ignored; an error inside `open` never reaches the host.
+
+Compile an add-on with classic JSX transformed to `React.createElement` over
+`sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture
+packages under `tests/addons/fixture/ui` are written in that form.
+
+### How the host loads it
+
+1. The SDK range must contain the host SDK version (1). Otherwise nothing is imported and
+   the page says the add-on needs another interface version.
+2. Every URL must be a same-origin asset of that add-on's own package, all under one
+   digest. Under a path prefix the host puts its base path in front, as for every API
+   call.
+3. Style sheets are read as text and scoped: every selector becomes
+   `:where([data-addon="{id}"]) …`, `:root`, `html` and `body` map to the add-on's root,
+   `@import`, `@font-face` and URL values (other than `data:` images) are dropped,
+   and keyframe names are renamed. The sheet reaches only the add-on's own root.
+4. The module is imported by URL with a timeout and an abort, `createAddon` is called
+   with the SDK, and the result is checked.
+5. The page component is drawn inside an error boundary in the add-on's root. A throw
+   draws an error card and nothing else.
+
+### Revalidation, updates and unsaved edits
+
+The shell reads the apps list while an add-on page, the Add-ons navigation or a chat
+action needs it (every 5 seconds, 30 in a hidden tab). An add-on that is no longer
+listed, was disabled, failed, was replaced by another generation or package, or has no
+UI any more is withdrawn at once: its SDK signal aborts, its component unmounts, its
+slots (navigation entries and chat actions) disappear, `dispose()` runs, its style
+sheets are removed, and the page says why with a **Reload** action. The owner already
+denies its code and calls, so an old copy that stays in memory cannot do anything.
+
+A reader no longer sees a stopped add-on at all, so for a reader a disabled add-on reads
+as "not installed, or you can no longer use it".
+
+If the add-on reported unsaved edits with `markDirty`, it is not unmounted: the page
+stays on screen, frozen and with its signal aborted, with a banner saying the edits
+cannot be saved. **Reload** then asks before it discards them. Leaving the page asks
+as well, and so does closing the tab.
+
+### Navigation entries
+
+A page named in `ui.navigation` is listed in the second row of the Add-ons tab while the
+add-on is enabled, not failed and compatible with the host SDK. The same registry keeps
+the validated chat actions per add-on and generation and removes them with the add-on.
+This release stores them and exposes them to the host (`useAddonChatActions`); drawing
+them in the chat page's own overflow menu is a separate change, and until then no chat
+action is shown anywhere.
+
+### Verification
+
+`sh scripts/addons/verify.sh esm-ui` runs the node unit tests of the SDK, loader, style
+scoping and registry, the Go specs of the asset route through real stored keys and
+sessions, and a browser spec against the UI test server running with authentication and
+a real owner. That spec installs the fixture packages after the build, from a catalog on
+loopback, with the protocol fixture as their process.

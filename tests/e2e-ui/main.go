@@ -37,6 +37,12 @@ func main() {
 	// the routing E2E to turn mock-model into a smart-router that
 	// dispatches to extra-models.
 	routerYAML := flag.String("router-yaml", "", "optional router: block to merge into mock-model.yaml")
+	// addonsFixture turns on authentication and a real add-on owner and
+	// installs the packages of that directory (see addons_fixture.go).
+	addonsFixtureDir := flag.String("addons-fixture", "", "directory of add-on UI fixture packages; enables auth and a real add-on owner")
+	addonExecutable := flag.String("addon-executable", "", "protocol fixture executable placed in every fixture package")
+	fixtureOut := flag.String("fixture-out", "", "file the seeded credentials are written to as JSON")
+	fixtureEnable := flag.String("fixture-enable", "", "comma separated id@version packages to install and enable at startup")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -128,7 +134,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	app, err := application.New(
+	appOptions := []config.AppOption{
 		config.WithContext(ctx),
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
@@ -137,10 +143,33 @@ func main() {
 		config.WithGeneratedContentDir(generatedDir),
 		config.EnableTracing,
 		config.EnableBackendLogging,
-	)
+	}
+	var fixture *addonsFixture
+	if *addonsFixtureDir != "" {
+		fixture, err = newAddonsFixture(*addonsFixtureDir, *addonExecutable, dataDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the add-ons fixture: %v\n", err)
+			os.Exit(1)
+		}
+		defer fixture.close()
+		appOptions = append(appOptions, fixture.options(dataDir)...)
+	}
+	app, err := application.New(appOptions...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating application: %v\n", err)
 		os.Exit(1)
+	}
+	if fixture != nil {
+		var enable []string
+		for _, spec := range strings.Split(*fixtureEnable, ",") {
+			if spec = strings.TrimSpace(spec); spec != "" {
+				enable = append(enable, spec)
+			}
+		}
+		if err := fixture.seed(ctx, app, *fixtureOut, enable); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the add-ons fixture: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Register mock backend

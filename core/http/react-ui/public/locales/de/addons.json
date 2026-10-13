@@ -168,6 +168,58 @@
     "body": "Diese Version kann Add-on-Seiten noch nicht öffnen. Das Add-on läuft weiter.",
     "title": "Diese Seite ist noch nicht verfügbar"
   },
+  "shell": {
+    "loading": "{{title}} wird geladen",
+    "unavailable": {
+      "title": "Dieses Add-on ist nicht verfügbar"
+    },
+    "reasons": {
+      "disabled": "Das Add-on wurde gestoppt. Starten Sie es erneut auf der Add-on-Seite.",
+      "removed": "Das Add-on ist nicht installiert oder Sie dürfen es nicht mehr nutzen.",
+      "failed": "Das Add-on antwortet nicht mehr. Es wird automatisch neu gestartet; laden Sie neu, um es erneut zu versuchen.",
+      "updated": "Das Add-on wurde aktualisiert. Laden Sie neu, um die neue Version zu verwenden.",
+      "no-ui": "Diese Version des Add-ons hat keine Seiten.",
+      "incompatible_sdk": "Dieses Add-on benötigt eine andere Version der LocalAI-Oberfläche, als diese Seite bietet.",
+      "untrusted_asset": "Das Add-on verwies auf eine Datei außerhalb seines Pakets und wurde nicht geladen.",
+      "invalid_module": "Das Add-on hält den Oberflächenvertrag nicht ein und wurde nicht geladen.",
+      "import_failed": "Das Add-on konnte nicht geladen werden.",
+      "create_failed": "Das Add-on ist beim Start fehlgeschlagen.",
+      "timeout": "Das Add-on hat zu lange zum Laden gebraucht.",
+      "css_failed": "Das Stylesheet des Add-ons konnte nicht geladen werden.",
+      "aborted": "Das Laden wurde abgebrochen."
+    },
+    "reload": "Neu laden",
+    "reloading": "Wird neu geladen",
+    "stale": "{{title}} hat sich geändert, während Sie bearbeitet haben. Ihre Änderungen sind noch sichtbar, können aber nicht gespeichert werden. Kopieren Sie, was Sie brauchen, und laden Sie dann neu.",
+    "discard": {
+      "title": "Ungespeicherte Änderungen verwerfen?",
+      "body": "Beim Neuladen wird diese Seite ersetzt und nicht gespeicherte Änderungen gehen verloren.",
+      "confirm": "Verwerfen und neu laden",
+      "cancel": "Weiter bearbeiten"
+    },
+    "leave": {
+      "title": "Diese Seite verlassen?",
+      "body": "Sie haben ungespeicherte Änderungen. Sie gehen verloren, wenn Sie die Seite verlassen.",
+      "leave": "Verlassen",
+      "stay": "Bleiben"
+    },
+    "pageMissing": {
+      "title": "Diese Seite existiert nicht",
+      "body": "{{title}} hat keine Seite namens „{{page}}“."
+    },
+    "noComponent": {
+      "title": "Hier gibt es nichts anzuzeigen",
+      "body": "Dieses Add-on ergänzt andere Seiten um Aktionen und hat keine eigene Seite."
+    },
+    "error": {
+      "title": "Mit diesem Add-on ist ein Problem aufgetreten",
+      "text": "Es ist beim Zeichnen dieser Seite fehlgeschlagen. Der Rest von LocalAI ist nicht betroffen.",
+      "retry": "Erneut versuchen"
+    },
+    "layer": {
+      "close": "Schließen"
+    }
+  },
   "state": {
     "failed": "Fehlgeschlagen",
     "label": "Zustand: {{state}}",

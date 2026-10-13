@@ -18,7 +18,7 @@ for file in tests/e2e-ui/ui-test-server tests/e2e/mock-backend/mock-backend core
 done
 
 # 1. Pure state and client: node's own runner, no dependencies.
-(cd "$ui" && node tests/unit/run.mjs)
+(cd "$ui" && node tests/unit/run.mjs addons.test.mjs)
 
 # 2. Browser specs against the real server, which embeds the built UI.
 port=$(python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
