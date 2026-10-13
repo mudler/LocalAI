@@ -324,6 +324,10 @@ type BrokerOptions struct {
 	// Runtime resolves the current ready runtime of an addon. Without it the
 	// broker is unavailable.
 	Runtime gateway.CurrentRuntime
+	// Tools reports the tools each installed add-on declares. When nil the
+	// Runtime is used if it implements gateway.ToolSource; with neither, a
+	// proposal that names a tool is denied.
+	Tools gateway.ToolSource
 	// Limits bound sizes and timeouts. The zero value selects the defaults.
 	Limits contract.Limits
 	// Now is the clock. The zero value is time.Now.
@@ -588,6 +592,20 @@ func (b *Broker) blocked(p *Policy, actor contract.Actor, key ResourceKey, block
 	return ErrOutcomeBlocked
 }
 
+// authorizeTool denies arguments that name a tool the installed add-on did
+// not declare. The source is the configured one, else the runtime when it
+// can report declarations; with neither, a named tool is denied.
+func (b *Broker) authorizeTool(ctx context.Context, addonID string, generation uint64, args json.RawMessage) error {
+	src := b.opts.Tools
+	if src == nil {
+		src, _ = b.opts.Runtime.(gateway.ToolSource)
+	}
+	if err := gateway.AuthorizeTool(ctx, src, addonID, generation, args); err != nil {
+		return ErrForbidden
+	}
+	return nil
+}
+
 // runtime resolves the addon's current instance, which must have a client.
 func (b *Broker) runtime(ctx context.Context, addonID string) (addonruntime.Instance, error) {
 	instance, err := b.opts.Runtime.Runtime(ctx, addonID)
@@ -621,6 +639,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		return Proposal{}, err
 	}
 	request.Arguments = args
+	// A tool the add-on did not declare is denied before anything is previewed
+	// or stored.
+	if err = b.authorizeTool(ctx, request.AddonID, request.Generation, args); err != nil {
+		return Proposal{}, err
+	}
 	now := b.opts.Now()
 	probe := contract.Envelope{Request: request, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: now.Add(b.opts.Limits.PreviewTimeout)}}
 	if probe.Validate(now, b.opts.Limits) != nil || request.ResourceID == "" {
@@ -959,6 +982,10 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	}
 	if _, expired := b.expire(r); expired {
 		return contract.Receipt{}, ErrProposalExpired
+	}
+	// The stored tool must still be one the installed add-on declares.
+	if err = b.authorizeTool(ctx, r.AddonID, r.Generation, r.Arguments); err != nil {
+		return contract.Receipt{}, err
 	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
 	var receipt contract.Receipt

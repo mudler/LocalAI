@@ -238,7 +238,8 @@
       "stops at the time bound and reports a truncated size",
       "does not keep a result cut short by the caller",
       "is what the installed view reports for the data directory",
-      "resolves a package for the current enabled generation and digest only"
+      "resolves a package for the current enabled generation and digest only",
+      "answers from the current installed manifest only and follows a generation change"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -412,7 +413,10 @@
       "accepts a same-origin browser session and refuses a cross-site or direct one",
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
-      "documents the asset route and its binary response in the Swagger spec"
+      "documents the asset route and its binary response in the Swagger spec",
+      "allows only an exact declared tool name and fails closed otherwise",
+      "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -462,7 +466,9 @@
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
           "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
           "denies private relays without host resolution and admission",
-          "serves declared assets of the current enabled generation by package digest only"
+          "serves declared assets of the current enabled generation by package digest only",
+          "allows only an exact declared tool name and fails closed otherwise",
+          "never contacts the add-on for an undeclared tool and still serves a declared one"
         ]
       },
       {
@@ -526,7 +532,8 @@
           "accepts a same-origin browser session and refuses a cross-site or direct one",
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
-          "documents the asset route and its binary response in the Swagger spec"
+          "documents the asset route and its binary response in the Swagger spec",
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
         ]
       }
     ]
@@ -622,7 +629,10 @@
       "refuses an unbound digest when the owner abandons through the gateway or the broker",
       "answers the same typed outage for a resolution whoever proposed the operation",
       "returns the applied proposal when the owner cannot read it back after a successful apply",
-      "does not show another user's blocking operation in a proposal view"
+      "does not show another user's blocking operation in a proposal view",
+      "denies a proposal for an undeclared tool before any preview and stores nothing",
+      "denies a proposal that names a tool when no tool source is installed",
+      "rechecks the stored tool at confirmation and never applies a withdrawn tool"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -787,7 +797,11 @@
       "accepts a same-origin browser session and refuses a cross-site or direct one",
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
-      "documents the asset route and its binary response in the Swagger spec"
+      "documents the asset route and its binary response in the Swagger spec",
+      "denies a proposal for an undeclared tool before any preview and stores nothing",
+      "denies a proposal that names a tool when no tool source is installed",
+      "rechecks the stored tool at confirmation and never applies a withdrawn tool",
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -869,7 +883,10 @@
           "refuses an unbound digest when the owner abandons through the gateway or the broker",
           "answers the same typed outage for a resolution whoever proposed the operation",
           "returns the applied proposal when the owner cannot read it back after a successful apply",
-          "does not show another user's blocking operation in a proposal view"
+          "does not show another user's blocking operation in a proposal view",
+          "denies a proposal for an undeclared tool before any preview and stores nothing",
+          "denies a proposal that names a tool when no tool source is installed",
+          "rechecks the stored tool at confirmation and never applies a withdrawn tool"
         ]
       },
       {
@@ -933,7 +950,8 @@
           "accepts a same-origin browser session and refuses a cross-site or direct one",
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
-          "documents the asset route and its binary response in the Swagger spec"
+          "documents the asset route and its binary response in the Swagger spec",
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
         ]
       }
     ]
@@ -1110,7 +1128,11 @@
       "accepts a same-origin browser session and refuses a cross-site or direct one",
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
-      "documents the asset route and its binary response in the Swagger spec"
+      "documents the asset route and its binary response in the Swagger spec",
+      "never opens an output for a request that names a tool no source declares",
+      "allows only an exact declared tool name and fails closed otherwise",
+      "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1148,7 +1170,8 @@
           "answers one denial for an unknown identifier and for another principal's artifact",
           "never serves incomplete, short, long or failed transfers and removes their partial bytes",
           "streams ingestion and download without buffering the whole file",
-          "rejects an output declared larger than one artifact may be before reading it"
+          "rejects an output declared larger than one artifact may be before reading it",
+          "never opens an output for a request that names a tool no source declares"
         ]
       },
       {
@@ -1197,7 +1220,9 @@
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
           "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
           "denies private relays without host resolution and admission",
-          "serves declared assets of the current enabled generation by package digest only"
+          "serves declared assets of the current enabled generation by package digest only",
+          "allows only an exact declared tool name and fails closed otherwise",
+          "never contacts the add-on for an undeclared tool and still serves a declared one"
         ]
       },
       {
@@ -1261,7 +1286,8 @@
           "accepts a same-origin browser session and refuses a cross-site or direct one",
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
-          "documents the asset route and its binary response in the Swagger spec"
+          "documents the asset route and its binary response in the Swagger spec",
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
         ]
       }
     ]
@@ -1426,7 +1452,9 @@
       "accepts a same-origin browser session and refuses a cross-site or direct one",
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
-      "documents the asset route and its binary response in the Swagger spec"
+      "documents the asset route and its binary response in the Swagger spec",
+      "answers from the current installed manifest only and follows a generation change",
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1468,7 +1496,8 @@
           "stops at the time bound and reports a truncated size",
           "does not keep a result cut short by the caller",
           "is what the installed view reports for the data directory",
-          "resolves a package for the current enabled generation and digest only"
+          "resolves a package for the current enabled generation and digest only",
+          "answers from the current installed manifest only and follows a generation change"
         ]
       },
       {
@@ -1559,7 +1588,8 @@
           "accepts a same-origin browser session and refuses a cross-site or direct one",
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
-          "documents the asset route and its binary response in the Swagger spec"
+          "documents the asset route and its binary response in the Swagger spec",
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
         ]
       }
     ]

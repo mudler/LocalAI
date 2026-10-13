@@ -415,6 +415,16 @@ var _ = Describe("private artifact ingestion", func() {
 		Expect(filepath.Base(staged[0])).To(Equal(art.ID))
 	})
 
+	It("never opens an output for a request that names a tool no source declares", Label("tools"), func() {
+		f := newFixture()
+		f.rt.text("output-t", "a,b\n")
+		r := f.request("tool-op")
+		r.Arguments = json.RawMessage(`{"tool":"wipe"}`)
+		art, err := f.arts.Ingest(context.Background(), f.alice, r, out("output-t", "x.csv", "text/csv", 4))
+		Expect(err == nil && art.State == gateway.ArtifactComplete).To(BeFalse())
+		Expect(f.rt.opened("output-t")).To(Equal(0))
+	})
+
 	It("never uses an addon handle, URL or path as an identifier or a file path", func() {
 		f := newFixture()
 		for _, handle := range []string{"https://example.test/export.csv", "../../etc/passwd", "a/b", "/abs/path", "UPPER", "file:///etc/passwd", "", strings.Repeat("a", 65), "with space"} {

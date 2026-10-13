@@ -44,6 +44,18 @@ type ResourceResolver interface {
 	Output(context.Context, contract.Actor, contract.Request, string) (contract.OutputDescription, error)
 }
 
+// toolSource is the source of declared tools: the configured one, else the
+// manager. A nil manager must stay a nil interface.
+func (g *Gateway) toolSource() ToolSource {
+	if g.Tools != nil {
+		return g.Tools
+	}
+	if g.Manager != nil {
+		return g.Manager
+	}
+	return nil
+}
+
 func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request) (out contract.Result, err error) {
 	if g.Admission == nil || g.Resolver == nil {
 		return out, ErrForbidden
@@ -53,6 +65,10 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		return out, ErrForbidden
 	}
 	r.ResourceID = key.ResourceID
+	// A tool the add-on did not declare never reaches it.
+	if e := AuthorizeTool(ctx, g.toolSource(), r.AddonID, r.Generation, r.Arguments); e != nil {
+		return out, ErrForbidden
+	}
 	err = g.Admission.Admit(ctx, a, key, "read", func(ctx context.Context) error {
 		if e := g.revalidate(ctx, a); e != nil {
 			return e

@@ -298,6 +298,12 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 	if instance.Client == nil || instance.Generation != rec.Generation {
 		return gateway.ErrForbidden
 	}
+	// The request that produced the output must not name a tool the add-on
+	// did not declare, whatever the stored record says.
+	src, _ := a.opts.Runtime.(gateway.ToolSource)
+	if err := gateway.AuthorizeTool(ctx, src, rec.AddonID, rec.Generation, request.Arguments); err != nil {
+		return gateway.ErrForbidden
+	}
 	reader, err := instance.Client.OpenOutput(ctx, a.envelope(actor, request), handle)
 	if err != nil {
 		if ctx.Err() != nil {

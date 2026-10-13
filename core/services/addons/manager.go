@@ -50,6 +50,7 @@ type Manager struct {
 	// One lock also serializes journal publication across addons. No operation can
 	// overtake another operation on the same addon, including reconciliation.
 	mu                      sync.Mutex
+	toolCache               map[string]toolDeclaration
 	config                  OwnerConfig
 	catalog                 catalog.Catalog
 	installer               *packages.Installer
@@ -641,4 +642,39 @@ func (m *Manager) AppIcon(ctx context.Context, actor contract.Actor, id string, 
 		return packages.PackageReceipt{}, ErrForbidden
 	}
 	return receipt, nil
+}
+
+// toolDeclaration is the declared tool set of one installed generation.
+type toolDeclaration struct {
+	generation uint64
+	tools      []string
+}
+
+// DeclaredTools returns the tools the manifest of the current installed
+// generation declares. It answers from the in-memory journal, cached per
+// generation, and fails when the add-on is not installed, the generation is
+// not the installed one or the journal is uncertain.
+func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint64) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	st, ok := m.journal.Addons[id]
+	if m.uncertain || m.runtimeRecoveryRequired || !ok || !st.Installed || generation == 0 || st.Generation != generation {
+		return nil, ErrForbidden
+	}
+	if c, ok := m.toolCache[id]; ok && c.generation == generation {
+		return c.tools, nil
+	}
+	receipt, ok := currentReceipt(st)
+	if !ok {
+		return nil, ErrForbidden
+	}
+	if m.toolCache == nil {
+		m.toolCache = map[string]toolDeclaration{}
+	}
+	tools := append([]string{}, receipt.Manifest.Capabilities.Tools...)
+	m.toolCache[id] = toolDeclaration{generation: generation, tools: tools}
+	return tools, nil
 }

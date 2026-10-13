@@ -23,6 +23,9 @@ type Gateway struct {
 	Forward   *Carrier
 	Admission Admission
 	Resolver  ResourceResolver
+	// Tools reports the tools each installed add-on declares. When nil the
+	// Manager is used; with neither, a request that names a tool is denied.
+	Tools ToolSource
 	// Proposals is the owner's proposal broker. Frontends leave it nil and
 	// forward through Forward.
 	Proposals ProposalBroker
