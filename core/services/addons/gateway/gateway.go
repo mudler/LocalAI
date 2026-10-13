@@ -17,12 +17,15 @@ var ErrUnavailable = errors.New("addon owner unavailable")
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
-	Limits     RelayLimits
-	Manager    *addons.Manager
-	Runtime    CurrentRuntime
-	Forward    *Carrier
-	Admission  Admission
-	Resolver   ResourceResolver
+	Limits    RelayLimits
+	Manager   *addons.Manager
+	Runtime   CurrentRuntime
+	Forward   *Carrier
+	Admission Admission
+	Resolver  ResourceResolver
+	// Proposals is the owner's proposal broker. Frontends leave it nil and
+	// forward through Forward.
+	Proposals  ProposalBroker
 	streamsMu  sync.Mutex
 	streams    int
 	Revalidate func(context.Context, contract.Actor) error

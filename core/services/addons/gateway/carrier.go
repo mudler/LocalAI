@@ -109,6 +109,9 @@ func (c *Carrier) peer(r *http.Request) (PeerIdentity, error) {
 type wireRequest struct {
 	Request contract.Request `json:"request"`
 	Relay   *RelayRequest    `json:"relay,omitempty"`
+	// Proposal marks a call for the owner's proposal broker. Such a call is
+	// never a typed dispatch.
+	Proposal *ProposalCall `json:"proposal,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -166,6 +169,23 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.Proposal != nil {
+			if wire.Relay != nil {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			call := *wire.Proposal
+			// The owner classifies by the call, not by the action the peer wrote.
+			wire.Request.Action = call.wireAction(wire.Request)
+			p, e := g.proposalLocal(r.Context(), actor, wire.Request, call)
+			if e != nil {
+				typedError(w, mutationOutcome(wire.Request, e))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(p)
 			return
 		}
 		if wire.Relay != nil {
@@ -334,7 +354,7 @@ func mutationOutcome(r contract.Request, e error) error {
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status"
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile"
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

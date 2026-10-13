@@ -116,14 +116,52 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		// Bearer credentials are not ambient browser authority.
 		Expect(call("/api/addons/dispatch", "enable", func(r *http.Request) { bearer("admin")(r); r.Header.Set("Sec-Fetch-Site", "cross-site") }).Code).To(Equal(reached))
 	})
-	It("registers only the dispatch and relay mutations", func() {
+	It("registers only the dispatch, relay and proposal mutations", func() {
 		got := map[string]bool{}
 		for _, r := range e.Routes() {
 			if strings.HasPrefix(r.Path, "/api/addons") && r.Method == http.MethodPost {
 				got[r.Method+" "+r.Path] = true
 			}
 		}
-		Expect(got).To(Equal(map[string]bool{"POST /api/addons/dispatch": true, "POST /api/addons/relay": true}))
+		Expect(got).To(Equal(map[string]bool{
+			"POST /api/addons/dispatch":                true,
+			"POST /api/addons/relay":                   true,
+			"POST /api/addons/proposals":               true,
+			"POST /api/addons/proposals/:id/confirm":   true,
+			"POST /api/addons/proposals/:id/cancel":    true,
+			"POST /api/addons/proposals/:id/reconcile": true,
+		}))
+		// Reading a proposal is the only registered GET.
+		reads := map[string]bool{}
+		for _, r := range e.Routes() {
+			if strings.HasPrefix(r.Path, "/api/addons") && r.Method == http.MethodGet {
+				reads[r.Path] = true
+			}
+		}
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true}))
+	})
+	It("gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked", func() {
+		do := func(method, path, body string, mutate func(*http.Request)) int {
+			r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+			r.Header.Set("Content-Type", "application/json")
+			mutate(r)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w.Code
+		}
+		propose := `{"addonId":"sample","resourceId":"r","operationId":"op","generation":1,"action":"write","arguments":{}}`
+		Expect(do("POST", "/api/addons/proposals", propose, func(r *http.Request) {})).To(Equal(http.StatusUnauthorized))
+		Expect(do("POST", "/api/addons/proposals", propose, bearer("plain"))).To(Equal(http.StatusForbidden))
+		Expect(do("GET", "/api/addons/proposals/op", "", bearer("plain"))).To(Equal(http.StatusForbidden))
+		// A granted key clears the gates; the test application has no owner.
+		Expect(do("POST", "/api/addons/proposals", propose, bearer("granted"))).To(Equal(reached))
+		Expect(do("GET", "/api/addons/proposals/op", "", bearer("granted"))).To(Equal(reached))
+		Expect(do("POST", "/api/addons/proposals/op/reconcile", "", bearer("granted"))).To(Equal(reached))
+		// A confirmation by a key, even an administrator's, is a denial and is
+		// never forwarded.
+		for _, id := range []string{"admin", "granted"} {
+			Expect(do("POST", "/api/addons/proposals/op/confirm", `{"digest":"d"}`, bearer(id))).To(Equal(http.StatusForbidden), id)
+		}
 	})
 })
 

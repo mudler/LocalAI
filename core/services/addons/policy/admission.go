@@ -389,7 +389,10 @@ func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID str
 	if _, err := rand.Read(raw); err != nil {
 		return ResourceKey{}, ErrUnavailable
 	}
-	id := hex.EncodeToString(raw)
+	// The envelope contract requires a lowercase letter first, so a bare hex
+	// value would be refused by the runtime whenever it starts with a digit.
+	// The first character is fixed; the other 124 bits stay random.
+	id := "r" + hex.EncodeToString(raw)[1:]
 	owner := p.store.Mode().ownerOf(actor)
 	err := p.store.mutate(func(d *document) error {
 		var pending, owned int

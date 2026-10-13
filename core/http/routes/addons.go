@@ -13,4 +13,11 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	mode := endpoints.WithOwnership(a.AddonOwnershipMode())
 	group.POST("/dispatch", endpoints.Dispatch(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/relay", endpoints.Relay(a.AddonGateway(), a.AuthDB(), mode))
+	// Proposals. Confirm is the only route that applies a stored mutation, and
+	// it accepts only the proposer's browser session; no MCP tool maps to it.
+	group.POST("/proposals", endpoints.Propose(a.AddonGateway(), a.AuthDB(), mode))
+	group.GET("/proposals/:id", endpoints.GetProposal(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/proposals/:id/confirm", endpoints.ConfirmProposal(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/proposals/:id/cancel", endpoints.CancelProposal(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/proposals/:id/reconcile", endpoints.ReconcileProposal(a.AddonGateway(), a.AuthDB(), mode))
 }

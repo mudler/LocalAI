@@ -25,6 +25,12 @@ definitions:
       error:
         $ref: '#/definitions/addons.AddonError'
     type: object
+  addons.ConfirmRequest:
+    properties:
+      digest:
+        description: Digest is the digest of the proposal as it was displayed.
+        type: string
+    type: object
   auth.WebSocketTicketResponse:
     properties:
       expires_at:
@@ -96,6 +102,29 @@ definitions:
       size:
         type: integer
     type: object
+  contract.Receipt:
+    properties:
+      operationId:
+        type: string
+      result:
+        $ref: '#/definitions/contract.Result'
+      revision:
+        $ref: '#/definitions/contract.Revision'
+      state:
+        $ref: '#/definitions/contract.ReceiptState'
+    type: object
+  contract.ReceiptState:
+    enum:
+    - pending
+    - committed
+    - rejected
+    - unknown
+    type: string
+    x-enum-varnames:
+    - ReceiptPending
+    - ReceiptCommitted
+    - ReceiptRejected
+    - ReceiptUnknown
   contract.Request:
     properties:
       action:
@@ -119,6 +148,13 @@ definitions:
         type: array
       payload:
         type: object
+    type: object
+  contract.Revision:
+    properties:
+      data:
+        type: integer
+      schema:
+        type: integer
     type: object
   failover.ChainState:
     enum:
@@ -493,6 +529,87 @@ definitions:
       total_bytes:
         type: integer
     type: object
+  gateway.Proposal:
+    properties:
+      action:
+        type: string
+      addonId:
+        type: string
+      arguments:
+        description: |-
+          Arguments are the canonical stored arguments. They are the only
+          arguments that can ever be submitted for this proposal.
+        type: object
+      blockedBy:
+        description: |-
+          BlockedBy is the operation whose unresolved outcome blocks this
+          proposal. Resolve that operation first.
+        type: string
+      createdAt:
+        type: string
+      digest:
+        description: Digest binds a confirmation to exactly what was shown.
+        type: string
+      effects:
+        $ref: '#/definitions/gateway.ProposalEffects'
+      expiresAt:
+        type: string
+      generation:
+        type: integer
+      id:
+        description: |-
+          ID is the proposal identifier. It is the operation identifier of the
+          stored operation, so a lost reply is always resolved by the same ID.
+        type: string
+      operationId:
+        type: string
+      reason:
+        description: Reason says why a proposal is cancelled, expired or rejected.
+        type: string
+      receipt:
+        allOf:
+        - $ref: '#/definitions/contract.Receipt'
+        description: Receipt is present once the runtime answered.
+      resourceId:
+        type: string
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: |-
+          Revision is the schema and data revision the preview saw. The runtime
+          refuses the apply when it moved.
+      state:
+        $ref: '#/definitions/gateway.ProposalState'
+    type: object
+  gateway.ProposalEffects:
+    properties:
+      count:
+        description: Count is the exact number of effects the operation would have.
+        type: integer
+      sample:
+        description: |-
+          Sample is a bounded excerpt of the effects, or the whole preview summary
+          when the addon did not separate one.
+        type: object
+    type: object
+  gateway.ProposalState:
+    enum:
+    - pending
+    - cancelled
+    - expired
+    - executing
+    - applied
+    - rejected
+    - outcome-unknown
+    type: string
+    x-enum-varnames:
+    - ProposalPending
+    - ProposalCancelled
+    - ProposalExpired
+    - ProposalExecuting
+    - ProposalApplied
+    - ProposalRejected
+    - ProposalOutcomeUnknown
   gateway.RelayRequest:
     properties:
       handle:
@@ -3929,6 +4046,205 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Submit a typed addon lifecycle operation or read an addon resource
+      tags:
+      - Addons
+  /api/addons/proposals:
+    post:
+      consumes:
+      - application/json
+      description: Previews the mutation on the addon owner and stores it as a pending
+        proposal with its exact effect count, a bounded sample, the revisions it saw
+        and an expiry. Nothing is applied. The operationId becomes the proposal ID;
+        repeating the same request returns the same proposal. Sharing and database
+        deletion are never proposals. A named session or API key with the addons feature
+        may propose; the proposal can only be applied by Confirm, which requires the
+        proposer's own browser session. No MCP tool confirms a proposal.
+      parameters:
+      - description: Typed write or schema request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/contract.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stored proposal
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "400":
+          description: Malformed or unknown request fields
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature, resource policy or request binding denied the proposal
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable, or the outcome is unknown
+            (type outcome_unknown, with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Propose an addon data or schema mutation for confirmation
+      tags:
+      - Addons
+  /api/addons/proposals/{id}:
+    get:
+      description: Returns the caller's own proposal with its state, effects, receipt
+        and, for a pending proposal that is blocked, the operation to resolve first.
+        Expiry is recorded when a pending proposal is read after its expiry.
+      parameters:
+      - description: Proposal ID (the operation ID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stored proposal
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, or the proposal is not the caller's
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read a stored addon proposal
+      tags:
+      - Addons
+  /api/addons/proposals/{id}/cancel:
+    post:
+      description: Withdraws the caller's pending proposal. A cancelled, expired or
+        settled proposal can never run. Cancelling needs only a current identity.
+      parameters:
+      - description: Proposal ID (the operation ID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cancelled proposal
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, the proposal is not the caller's, or it is
+            not pending
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable, or the outcome is unknown
+            (type outcome_unknown, with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Cancel a pending addon proposal
+      tags:
+      - Addons
+  /api/addons/proposals/{id}/confirm:
+    post:
+      consumes:
+      - application/json
+      description: 'Applies exactly the stored operation once. This is the only way
+        a stored mutation reaches an addon. It is accepted only from the proposer''s
+        own browser session: a same-origin fetch from the host UI that carries the
+        X-LocalAI-Confirm header equal to the proposal ID and the digest of what was
+        shown. API keys, bearer tokens, MCP sessions and requests that carry tool
+        or agent execution markers are refused, and no MCP tool maps to this route.
+        A repeated confirmation returns the stored receipt. If the reply is lost the
+        outcome is outcome_unknown with the original operationId; resolve it with
+        reconcile and never submit the change again.'
+      parameters:
+      - description: Proposal ID (the operation ID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Digest of the displayed proposal
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addons.ConfirmRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Proposal after the apply, with its receipt
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "400":
+          description: Malformed or unknown request fields
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human confirmation surface, feature denied, or the proposal
+            is not pending, is expired, stale, changed or blocked
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable, or the outcome is unknown
+            (type outcome_unknown, with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Confirm and apply a pending addon proposal
+      tags:
+      - Addons
+  /api/addons/proposals/{id}/reconcile:
+    post:
+      description: Looks the operation's receipt up on the owner and records a committed
+        or rejected result. It never applies anything and can be repeated. Use it
+        after an outcome_unknown response. While an outcome is unresolved, other writes
+        on the same resource are denied.
+      parameters:
+      - description: Proposal ID (the operation ID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Proposal after the lookup
+          schema:
+            $ref: '#/definitions/gateway.Proposal'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied or the proposal is not the caller's
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons, the owner or the addon runtime are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Resolve the outcome of an addon proposal by receipt lookup
       tags:
       - Addons
   /api/addons/relay:

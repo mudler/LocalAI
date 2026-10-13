@@ -99,10 +99,25 @@ func (a *Application) startAddonGateway() error {
 	if e != nil {
 		return e
 	}
+	// Proposals are durable beside the policy store and held only here. The
+	// broker is the policy's proposal invalidator, so a revocation cancels the
+	// pending proposals of that user before it is acknowledged.
+	brokerOpts := policy.BrokerOptions{}
+	if a.addonManager != nil {
+		brokerOpts.Runtime = a.addonManager
+	}
+	broker, e := policy.OpenBroker(filepath.Join(cfg.Root, "proposals"), brokerOpts)
+	if e != nil {
+		_ = store.Close()
+		return e
+	}
 	p := policy.New(store, policy.Options{
 		Revalidate:      g.Revalidate,
 		CreateAuthority: addonCreateAuthority(a.addonManager, g.Revalidate),
+		Proposals:       broker,
 	})
+	broker.Attach(p)
+	closeState := func() { _ = broker.Close(); _ = store.Close() }
 	// Registrations left pending by a crash are settled before anything is
 	// served. Without a backing-resource check they are dropped and committed
 	// resources are kept; the check is supplied by the code that creates them.
@@ -111,19 +126,26 @@ func (a *Application) startAddonGateway() error {
 		exists = func(context.Context, policy.ResourceKey) (bool, error) { return false, nil }
 	}
 	if e = p.Reconcile(a.applicationConfig.Context, exists); e != nil {
-		_ = store.Close()
+		closeState()
+		return errors.Join(e, addons.ErrRecoveryRequired)
+	}
+	// A proposal that was executing when the owner stopped is settled by
+	// receipt lookup, or recorded as outcome-unknown. Nothing is applied again.
+	if e = broker.Recover(a.applicationConfig.Context); e != nil {
+		closeState()
 		return errors.Join(e, addons.ErrRecoveryRequired)
 	}
 	provider := p.Gateway()
 	g.Admission, g.Resolver = provider, provider
+	g.Proposals = broker.Gateway()
 	handler, e := carrier.OwnerHandler(g)
 	if e != nil {
-		_ = store.Close()
+		closeState()
 		return e
 	}
 	listener, e := net.Listen("tcp", cfg.ListenAddress)
 	if e != nil {
-		_ = store.Close()
+		closeState()
 		return e
 	}
 	server := &http.Server{Handler: handler, TLSConfig: carrier.ServerTLS(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10}
@@ -131,6 +153,6 @@ func (a *Application) startAddonGateway() error {
 	a.addonGateway = g
 	a.addonPolicy, a.addonStore = p, store
 	go func() { _ = server.Serve(tls.NewListener(listener, server.TLSConfig)) }()
-	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); _ = store.Close() }()
+	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); closeState() }()
 	return nil
 }

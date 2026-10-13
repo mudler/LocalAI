@@ -501,6 +501,10 @@ owner election, or failover. An absent owner returns unavailable.
 - Both routes require named authentication and the `addons` feature. Lifecycle
   dispatch additionally requires current administration rights. Cookie requests require
   same-origin fetch metadata; header-authenticated clients use their validated keys.
+- `POST /api/addons/proposals`, `GET /api/addons/proposals/{id}`,
+  `POST /api/addons/proposals/{id}/confirm`, `.../cancel` and `.../reconcile` store,
+  read, apply, withdraw and resolve data or schema proposals. See
+  [Proposals and confirmation](#proposals-and-confirmation).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
 unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
@@ -647,11 +651,104 @@ or cancellation. Immutable assets use installed package receipts, declared entry
 and a contained filesystem root. Asset access currently requires an actor-bound lifecycle
 operation and administration; registry-driven user asset access is a later integration.
 
-Mutation MCP tools remain deliberately unavailable. The later broker integration defines
-safe listing/status tools and confirmation semantics; prompt text cannot authorize mutation.
-For that reason `/api/addons/dispatch` and `/api/addons/relay` are deliberately not mapped in
-the LocalAI Assistant tool catalog (`pkg/mcp/localaitools`) yet. The route map test only
+Mutation MCP tools remain deliberately unavailable. The later MCP integration defines
+safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
+confirms a proposal. For that reason `/api/addons/dispatch`, `/api/addons/relay` and the
+proposal routes are deliberately not mapped in the LocalAI Assistant tool catalog
+(`pkg/mcp/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
 
 Run `sh scripts/addons/verify.sh policy` for the policy suite.
+
+## Proposals and confirmation
+
+Every data or schema mutation that comes from chat, an agent or an API client is a
+stored proposal first. A proposal is applied only by an explicit confirmation of that
+stored operation from the person's own browser session. Sharing and database deletion
+are never proposals and never tools.
+
+### Lifecycle
+
+`POST /api/addons/proposals` takes a typed `write` or `schema` request. The owner
+resolves the resource, requires write authority (`schema` needs the owner role), asks the
+addon for a preview and stores a proposal with:
+
+- the canonical arguments, the addon generation, the resource and the proposing user;
+- the schema and data revisions the preview saw;
+- the exact number of effects and a bounded sample of them (the addon's preview summary,
+  using `count` and `sample` when it has them);
+- a `digest` of everything above, and an expiry (the shorter of the addon's preview expiry
+  and the proposal expiry limit, five minutes by default).
+
+Nothing is applied by this call. The request's `operationId` becomes the proposal ID, so
+every later step, including a lost reply, is resolved by the same ID. Repeating the same
+request returns the same proposal. Reusing an ID with other arguments, another actor or
+another resource is a denial.
+
+A proposal is in exactly one state:
+
+| State | Meaning |
+|---|---|
+| `pending` | Waiting for a human decision. |
+| `cancelled` | Withdrawn by its actor, or invalidated when the user's authority on the resource was lowered or revoked. |
+| `expired` | Not confirmed in time. Recorded when it is next read or confirmed. |
+| `executing` | Confirmed and handed to the addon. Durable before the addon sees the call. |
+| `applied` | Committed. The receipt is stored with the proposal. |
+| `rejected` | Refused by the addon (for example, the revision moved) or found stale (the addon generation changed). |
+| `outcome-unknown` | The apply may or may not have run. Only a receipt lookup resolves it. |
+
+Every transition is written atomically and fsynced by the owner before it is reported. The
+store lives beside the policy store and follows the same rules: one process holds it, a
+corrupt file is refused and never reset, and a restart recovers it.
+
+### Confirm
+
+`POST /api/addons/proposals/{id}/confirm` with `{"digest": "..."}` submits exactly the
+stored parameters under resource admission, once. The runtime validates the revision in
+the same transaction as the write, so a data change after the preview is a `rejected`
+proposal and not a silent overwrite. Confirming again returns the stored receipt and
+applies nothing.
+
+The route is reachable only from a host confirmation surface:
+
+1. The credential must be a browser session cookie of the user who proposed. A named API
+   key, a bearer token, a legacy key or an MCP session can propose and read, and can never
+   confirm, whatever its role.
+2. The request must be a same-origin fetch (`Sec-Fetch-Site: same-origin`,
+   `Sec-Fetch-Dest: empty`, `Sec-Fetch-Mode` `cors` or `same-origin`).
+3. The `X-LocalAI-Confirm` header must equal the proposal ID, and the body must carry the
+   digest of what was displayed.
+4. A request that carries a tool, agent or MCP execution marker (`Mcp-Session-Id`,
+   `X-LocalAI-Tool-Call`, `X-LocalAI-Agent`, `X-LocalAI-Execution-Context`) is refused.
+
+In local-owner mode there is no session; rules 2 to 4 apply, and any API credential on the
+request is refused. The owner repeats the credential check, so a frontend cannot confirm
+for a key credential either. Plain text, a boolean in arguments, or a model saying "yes"
+are only data and never approve. Clients without a confirmation UI can propose and read;
+they never auto-apply. No MCP tool maps to confirm: the MCP exposure of proposals (list
+and status only) is a later task and must keep that rule.
+
+### Unknown outcomes and recovery
+
+If the reply to a confirmation is lost, or the owner restarts while a proposal is
+`executing`, the proposal is `outcome-unknown` and the response is `outcome_unknown` with
+the original `operationId`. The mutation is never submitted again under any ID.
+
+`POST /api/addons/proposals/{id}/reconcile` looks the operation's receipt up on the addon
+and records a committed or rejected result. It is read-only toward the addon and can be
+repeated. An addon that has no receipt for the operation stays `outcome-unknown`: a
+missing receipt does not prove the call never ran. While an outcome is unresolved, every
+other write or schema proposal on the same resource is denied and names the blocking
+operation (`blockedBy`); reads continue. On start the owner settles proposals left
+`executing` by a crash the same way and never applies them.
+
+### Revocation races
+
+Lowering or removing a user's grant cancels that user's pending proposals on the resource
+before the change is acknowledged, and stops their admitted confirmations. A confirmation
+that already reached the addon becomes `outcome-unknown` and is resolved by receipt.
+Other frontends reach the proposal state only through the owner's gateway, signed and
+actor-bound like every other forwarded call.
+
+Run `sh scripts/addons/verify.sh proposals` for the proposal suites.

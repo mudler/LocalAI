@@ -178,6 +178,270 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/proposals": {
+            "post": {
+                "description": "Previews the mutation on the addon owner and stores it as a pending proposal with its exact effect count, a bounded sample, the revisions it saw and an expiry. Nothing is applied. The operationId becomes the proposal ID; repeating the same request returns the same proposal. Sharing and database deletion are never proposals. A named session or API key with the addons feature may propose; the proposal can only be applied by Confirm, which requires the proposer's own browser session. No MCP tool confirms a proposal.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Propose an addon data or schema mutation for confirmation",
+                "parameters": [
+                    {
+                        "description": "Typed write or schema request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/contract.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored proposal",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or unknown request fields",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, resource policy or request binding denied the proposal",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/proposals/{id}": {
+            "get": {
+                "description": "Returns the caller's own proposal with its state, effects, receipt and, for a pending proposal that is blocked, the operation to resolve first. Expiry is recorded when a pending proposal is read after its expiry.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read a stored addon proposal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proposal ID (the operation ID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stored proposal",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the proposal is not the caller's",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/proposals/{id}/cancel": {
+            "post": {
+                "description": "Withdraws the caller's pending proposal. A cancelled, expired or settled proposal can never run. Cancelling needs only a current identity.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Cancel a pending addon proposal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proposal ID (the operation ID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cancelled proposal",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, the proposal is not the caller's, or it is not pending",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/proposals/{id}/confirm": {
+            "post": {
+                "description": "Applies exactly the stored operation once. This is the only way a stored mutation reaches an addon. It is accepted only from the proposer's own browser session: a same-origin fetch from the host UI that carries the X-LocalAI-Confirm header equal to the proposal ID and the digest of what was shown. API keys, bearer tokens, MCP sessions and requests that carry tool or agent execution markers are refused, and no MCP tool maps to this route. A repeated confirmation returns the stored receipt. If the reply is lost the outcome is outcome_unknown with the original operationId; resolve it with reconcile and never submit the change again.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Confirm and apply a pending addon proposal",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proposal ID (the operation ID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Digest of the displayed proposal",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.ConfirmRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proposal after the apply, with its receipt",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or unknown request fields",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human confirmation surface, feature denied, or the proposal is not pending, is expired, stale, changed or blocked",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/proposals/{id}/reconcile": {
+            "post": {
+                "description": "Looks the operation's receipt up on the owner and records a committed or rejected result. It never applies anything and can be repeated. Use it after an outcome_unknown response. While an outcome is unresolved, other writes on the same resource are denied.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Resolve the outcome of an addon proposal by receipt lookup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proposal ID (the operation ID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proposal after the lookup",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Proposal"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied or the proposal is not the caller's",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons, the owner or the addon runtime are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/relay": {
             "post": {
                 "description": "Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.",
@@ -4811,6 +5075,15 @@ const docTemplate = `{
                 }
             }
         },
+        "addons.ConfirmRequest": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "description": "Digest is the digest of the proposal as it was displayed.",
+                    "type": "string"
+                }
+            }
+        },
         "auth.WebSocketTicketResponse": {
             "type": "object",
             "properties": {
@@ -4907,6 +5180,38 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.Receipt": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "type": "string"
+                },
+                "result": {
+                    "$ref": "#/definitions/contract.Result"
+                },
+                "revision": {
+                    "$ref": "#/definitions/contract.Revision"
+                },
+                "state": {
+                    "$ref": "#/definitions/contract.ReceiptState"
+                }
+            }
+        },
+        "contract.ReceiptState": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "committed",
+                "rejected",
+                "unknown"
+            ],
+            "x-enum-varnames": [
+                "ReceiptPending",
+                "ReceiptCommitted",
+                "ReceiptRejected",
+                "ReceiptUnknown"
+            ]
+        },
         "contract.Request": {
             "type": "object",
             "properties": {
@@ -4941,6 +5246,17 @@ const docTemplate = `{
                 },
                 "payload": {
                     "type": "object"
+                }
+            }
+        },
+        "contract.Revision": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "integer"
+                },
+                "schema": {
+                    "type": "integer"
                 }
             }
         },
@@ -5466,6 +5782,108 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "gateway.Proposal": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "addonId": {
+                    "type": "string"
+                },
+                "arguments": {
+                    "description": "Arguments are the canonical stored arguments. They are the only\narguments that can ever be submitted for this proposal.",
+                    "type": "object"
+                },
+                "blockedBy": {
+                    "description": "BlockedBy is the operation whose unresolved outcome blocks this\nproposal. Resolve that operation first.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "digest": {
+                    "description": "Digest binds a confirmation to exactly what was shown.",
+                    "type": "string"
+                },
+                "effects": {
+                    "$ref": "#/definitions/gateway.ProposalEffects"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "ID is the proposal identifier. It is the operation identifier of the\nstored operation, so a lost reply is always resolved by the same ID.",
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why a proposal is cancelled, expired or rejected.",
+                    "type": "string"
+                },
+                "receipt": {
+                    "description": "Receipt is present once the runtime answered.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Receipt"
+                        }
+                    ]
+                },
+                "resourceId": {
+                    "type": "string"
+                },
+                "revision": {
+                    "description": "Revision is the schema and data revision the preview saw. The runtime\nrefuses the apply when it moved.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
+                },
+                "state": {
+                    "$ref": "#/definitions/gateway.ProposalState"
+                }
+            }
+        },
+        "gateway.ProposalEffects": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "description": "Count is the exact number of effects the operation would have.",
+                    "type": "integer"
+                },
+                "sample": {
+                    "description": "Sample is a bounded excerpt of the effects, or the whole preview summary\nwhen the addon did not separate one.",
+                    "type": "object"
+                }
+            }
+        },
+        "gateway.ProposalState": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "cancelled",
+                "expired",
+                "executing",
+                "applied",
+                "rejected",
+                "outcome-unknown"
+            ],
+            "x-enum-varnames": [
+                "ProposalPending",
+                "ProposalCancelled",
+                "ProposalExpired",
+                "ProposalExecuting",
+                "ProposalApplied",
+                "ProposalRejected",
+                "ProposalOutcomeUnknown"
+            ]
         },
         "gateway.RelayRequest": {
             "type": "object",
