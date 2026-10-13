@@ -156,29 +156,6 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 		})
 	})
 
-	Context("NATS node stop events (full shutdown)", func() {
-		It("should publish stop event to a node", func() {
-			node := &nodes.BackendNode{
-				Name: "stop-me", Address: "h3:50051",
-			}
-			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-
-			var stopped atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectNodeStop(node.ID), func(data []byte) {
-				stopped.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
-
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-			Expect(adapter.StopNode(node.ID)).To(Succeed())
-
-			Eventually(func() int32 { return stopped.Load() }, "5s").Should(Equal(int32(1)))
-		})
-	})
-
 	Context("NATS subject naming", func() {
 		It("should generate correct backend lifecycle subjects", func() {
 			Expect(messaging.SubjectNodeBackendInstall("node-abc")).To(Equal("nodes.node-abc.backend.install"))

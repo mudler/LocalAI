@@ -830,6 +830,56 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 	return &out, nil
 }
 
+// ---- Cluster carrier ----
+
+// GetClusterCarrier reads GET /api/cluster/carrier. A frontend that is not
+// distributed answers 503, which is reported as distributed=false.
+func (c *Client) GetClusterCarrier(ctx context.Context) (*localaitools.ClusterCarrierStatus, error) {
+	var raw struct {
+		Active         string `json:"active"`
+		State          string `json:"state"`
+		Target         string `json:"target"`
+		Epoch          int64  `json:"epoch"`
+		DrainRemaining int64  `json:"drain_remaining_ns"`
+		Replicas       []struct {
+			ID          string `json:"id"`
+			Version     string `json:"version"`
+			ReadyEpoch  int64  `json:"ready_epoch"`
+			ReadyReason string `json:"ready_reason"`
+		} `json:"replicas"`
+		Workers []struct {
+			ID          string   `json:"id"`
+			Name        string   `json:"name"`
+			Attached    []string `json:"attached"`
+			CanFollow   bool     `json:"can_follow"`
+			Reason      string   `json:"reason"`
+			FollowError string   `json:"follow_error"`
+		} `json:"workers"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeClusterCarrier, nil, &raw); err != nil {
+		var he *HTTPError
+		if errors.As(err, &he) && he.StatusCode == http.StatusServiceUnavailable {
+			return &localaitools.ClusterCarrierStatus{Distributed: false}, nil
+		}
+		return nil, err
+	}
+	out := &localaitools.ClusterCarrierStatus{
+		Distributed:           true,
+		Active:                raw.Active,
+		State:                 raw.State,
+		Target:                raw.Target,
+		Epoch:                 raw.Epoch,
+		DrainRemainingSeconds: float64(raw.DrainRemaining) / 1e9,
+	}
+	for _, r := range raw.Replicas {
+		out.Replicas = append(out.Replicas, localaitools.ClusterReplicaInfo{ID: r.ID, Version: r.Version, ReadyEpoch: r.ReadyEpoch, ReadyReason: r.ReadyReason})
+	}
+	for _, w := range raw.Workers {
+		out.Workers = append(out.Workers, localaitools.ClusterWorkerInfo{ID: w.ID, Name: w.Name, Attached: w.Attached, CanFollow: w.CanFollow, Reason: w.Reason, FollowError: w.FollowError})
+	}
+	return out, nil
+}
+
 // ---- Failover chains ----
 
 func (c *Client) ListFailoverChains(ctx context.Context) ([]localaitools.FailoverChainInfo, error) {

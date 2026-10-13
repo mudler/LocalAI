@@ -286,6 +286,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// revisionStore is built inside the distributed block below but used after
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
+	// modelConfigResync is built there too, and started only once the model
+	// configs are loaded: a pass against an empty loader would treat every
+	// model as new.
+	var modelConfigResync *modeladmin.DirectoryResync
 
 	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
 		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
@@ -306,6 +310,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			nodes.WithClientFactory(distSvc.Clients),
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.
@@ -334,6 +339,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if err := distSvc.Dispatcher.Start(options.Context); err != nil {
 			return nil, fmt.Errorf("starting job dispatcher: %w", err)
 		}
+		// Follow the cluster carrier row, lead the protocol of a change of carrier when
+		// this replica holds the leadership, and report which carriers it could build.
+		// It starts after the services that use the carrier.
+		distSvc.StartCarrierSwitch(options.Context, application.authDB)
 		// Start ephemeral file cleanup
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
 		// Wire distributed backends into AgentJobService (before Start)
@@ -342,14 +351,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
 			// Keep agent tasks consistent across replicas (jobs already sync via the
 			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
+			application.agentJobService.SetTaskSyncNATS(distSvc.Broadcaster)
 		}
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
 
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
+			application.galleryService.SetNATSClient(distSvc.Broadcaster)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
@@ -399,6 +408,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			// Captured here, used after the model configs are loaded below: the
 			// resync reads the loader, which is still empty at this point.
 			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
+			modelConfigResync = modeladmin.NewDirectoryResync(application.ModelConfigLoader(), sys.Model.ModelsPath, modelRevisionLifecycle, cfgLoaderOpts...)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
@@ -507,6 +517,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if err := application.ModelConfigLoader().PreloadWithContext(options.Context, options.SystemState.Model.ModelsPath); err != nil {
 		xlog.Error("error downloading models", "error", err)
+	}
+
+	// Catch up on model config changes whose invalidation this frontend
+	// missed. NATS keeps no history, so a change published while this
+	// frontend was disconnected is otherwise never applied here. Every
+	// frontend runs its own pass against the shared models directory; the
+	// pass is idempotent, so no leader is needed.
+	if modelConfigResync != nil && distSvc != nil {
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Broadcaster)
 	}
 
 	if options.PreloadJSONModels != "" {

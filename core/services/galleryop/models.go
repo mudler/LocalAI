@@ -183,15 +183,11 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 	if err != nil {
 		return err
 	}
-	cl.ReplaceModelConfigs(authoritative.GetAllModelsConfigs())
-	err = cl.PreloadWithContext(operationCtx, systemState.Model.ModelsPath)
-	if err != nil {
-		return err
-	}
+	cl.ReplaceModelConfigs(config.MergeDirectorySnapshot(cl.GetAllModelsConfigs(), authoritative.GetAllModelsConfigs(), systemState.Model.ModelsPath))
 
 	// Lifecycle publication is the irreversible boundary. File mutation,
-	// authoritative parsing, loader replacement, and preload have all completed,
-	// so no later failure can roll local configuration back behind an accepted
+	// authoritative parsing and loader replacement have all completed, so no
+	// later failure can roll local configuration back behind an accepted
 	// registry revision.
 	if op.Delete && g.modelRevisionLifecycle != nil {
 		pending, lifecycleErr := g.modelRevisionLifecycle.ApplyConfigRevisions(operationCtx, []config.ModelConfigRevisionTransition{{
@@ -210,6 +206,12 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 	// authoritative replacement above already covered THIS replica; without
 	// this broadcast a chat completion routed by the load balancer to a peer
 	// would fail to find a model just installed.
+	//
+	// Publish before the preload below. This replica already lists the new
+	// set, and the preload walks every installed model (remote HEAD requests,
+	// checksums of existing files), which can take minutes on a large models
+	// directory. Publishing after it left peers behind for that long, and a
+	// failed or cancelled preload never published at all.
 	op2 := "install"
 	if op.Delete {
 		op2 = "delete"
@@ -219,6 +221,13 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 		Op:             op2,
 		ConfigRevision: configRevision,
 	})
+
+	// The configuration change is committed and announced, so a preload
+	// failure no longer rolls it back: it is reported on the operation as an
+	// error, and the model stays listed on every replica, as it does on this one.
+	if err := cl.PreloadWithContext(operationCtx, systemState.Model.ModelsPath); err != nil {
+		return fmt.Errorf("model configuration applied, but preloading model files failed: %w", err)
+	}
 
 	legacyCoalescer.Close()
 	g.UpdateStatus(op.ID,

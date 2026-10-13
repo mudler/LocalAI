@@ -1207,6 +1207,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
 
+	// On-disk storage report: per-model sizes, shared files, missing refs
+	app.GET("/api/models/storage", localai.ModelStorageEndpoint(appConfig), adminMiddleware)
+
 	// Get installed model YAML config for the React model editor
 	app.GET("/api/models/edit/:name", func(c echo.Context) error {
 		modelName := c.Param("name")

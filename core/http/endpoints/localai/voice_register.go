@@ -34,7 +34,7 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		}
 
 		var embedding []float32
-		var encoder, family string
+		var encoder, family, weights string
 		if input.SpeakerProfiles != nil {
 			if input.Audio != "" || input.SpeakerSlot == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "speaker_profiles requires speaker_slot and excludes audio")
@@ -62,11 +62,14 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				return mapBackendError(err)
 			}
 			embedding, encoder = res.GetEmbedding(), res.GetModel()
+			// Fingerprint reported by the voice backend. Empty from a backend that
+			// cannot report it: the voice then stays unfingerprinted.
+			family, weights = res.GetEncoderFamily(), res.GetEncoderWeights()
 		}
-		meta := voiceMetadata(input.Name, input.Labels, encoder)
-		// Only the portable route knows the family: it comes from the loaded
-		// encoder. A voice-detect embedding has none, so it stays unfingerprinted.
-		meta.EncoderFamily = family
+		// The family comes from the loaded encoder (portable route) or from the
+		// voice backend that embedded the audio. A backend that cannot report
+		// one leaves it empty and the voice stays unfingerprinted.
+		meta := voiceMetadata(input.Name, input.Labels, encoder, family, weights)
 		stored, err := registry.Register(c.Request().Context(), embedding, meta)
 		if err != nil {
 			return err
@@ -81,7 +84,8 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 // voiceMetadata is what a registration stores next to the embedding. Model is
 // the speaker encoder that produced it, so a consumer with a different encoder
-// can tell the vectors are not comparable.
-func voiceMetadata(name string, labels map[string]string, embedderModel string) voicerecognition.Metadata {
-	return voicerecognition.Metadata{Name: name, Labels: labels, Model: embedderModel}
+// can tell the vectors are not comparable. family and weights fingerprint the
+// encoder when it reported them (see voicerecognition.Metadata), "" otherwise.
+func voiceMetadata(name string, labels map[string]string, embedderModel, family, weights string) voicerecognition.Metadata {
+	return voicerecognition.Metadata{Name: name, Labels: labels, Model: embedderModel, EncoderFamily: family, EncoderWeights: weights}
 }

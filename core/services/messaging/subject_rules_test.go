@@ -98,3 +98,29 @@ var _ = Describe("Subject rules", func() {
 		}
 	})
 })
+
+var _ = Describe("ValidateBroadcastSubject", func() {
+	DescribeTable("accepts the subjects of the broadcast roots",
+		func(subject string) {
+			Expect(messaging.ValidateBroadcastSubject(subject)).To(Succeed())
+		},
+		Entry("exact", "jobs.j1.progress"),
+		Entry("wildcard", "agent.*.events.*"),
+		Entry("finetune", "finetune.job1.progress"),
+	)
+
+	DescribeTable("refuses a control root with the class of an unserved subject",
+		func(subject string) {
+			err := messaging.ValidateBroadcastSubject(subject)
+			Expect(errors.Is(err, messaging.ErrUnservedSubject)).To(BeTrue(), "got %v", err)
+			Expect(err.Error()).To(ContainSubstring(subject))
+		},
+		Entry("nodes", "nodes.n1.backend.stop"),
+		Entry("mcp", "mcp.a1.tools"),
+	)
+
+	It("keeps every refusal that ValidateSubject makes", func() {
+		Expect(errors.Is(messaging.ValidateBroadcastSubject("bogus.x"), messaging.ErrUnservedSubject)).To(BeTrue())
+		Expect(errors.Is(messaging.ValidateBroadcastSubject("jobs.>"), messaging.ErrUnsupportedWildcard)).To(BeTrue())
+	})
+})

@@ -221,6 +221,10 @@ unaffected.
 
 ## Pinned tasks
 
+The upstream `turn` task performs turn detection. LocalAI has no RPC for this
+task, so requests to a model that only advertises `turn` are refused. It is not
+routed through voice activity detection (`vad`).
+
 Two routes are unreachable by auto-routing and need `task:` in the model config, because
 nothing in a request distinguishes them from a task the same family also advertises:
 

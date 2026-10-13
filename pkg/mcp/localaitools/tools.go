@@ -63,6 +63,11 @@ const (
 	// ToolListFailoverChains is read-only but lives here so the failover
 	// tools stay grouped; the catalog tests assert its read-only placement.
 	ToolListFailoverChains = "list_failover_chains"
+
+	// ToolGetClusterCarrier is read-only. There is no tool that changes the
+	// carrier: a change moves every frontend and worker of the cluster, so an
+	// admin makes it in the dashboard or with the `local-ai cluster` command.
+	ToolGetClusterCarrier = "get_cluster_carrier"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when

@@ -36,16 +36,28 @@ type loadOperationHarness interface {
 	NoRoute()
 	// TimesOut makes every later call get no reply in time.
 	TimesOut()
+	// PathFails makes every later call fail on the way to the worker with a
+	// failure that is not a missing route: a link between two frontends that
+	// dies, a connection of the bus that is closed.
+	PathFails()
+	// InfrastructureFails makes every later call fail because something the
+	// carrier depends on, and that is not the worker, does not answer: the
+	// database that names the owner of a tunnel, the server of the bus.
+	InfrastructureFails()
 	// WorkerRefuses makes the worker answer every call with its own refusal.
 	WorkerRefuses()
 	// WorkerAnswers makes the worker answer every call with success.
 	WorkerAnswers()
+	// WorkerAnswersUnreadably makes the worker answer every call with a body
+	// that is no reply of the verb.
+	WorkerAnswersUnreadably()
 	// Sent returns the requests the carrier sent, in order.
 	Sent() []sentRequest
 }
 
 var loadOperationCarriers = map[string]func() loadOperationHarness{
-	"the NATS carrier": newNATSLoadOperationHarness,
+	"the NATS carrier":   newNATSLoadOperationHarness,
+	"the tunnel carrier": newHTTPLoadOperationHarness,
 }
 
 type natsLoadOperationHarness struct {
@@ -80,12 +92,30 @@ func (h *natsLoadOperationHarness) TimesOut() {
 	}
 }
 
+func (h *natsLoadOperationHarness) PathFails() {
+	for _, s := range h.subjects() {
+		h.mc.scriptErr(s, nats.ErrConnectionClosed)
+	}
+}
+
+func (h *natsLoadOperationHarness) InfrastructureFails() {
+	for _, s := range h.subjects() {
+		h.mc.scriptErr(s, errors.New("the server of the bus does not answer"))
+	}
+}
+
 func (h *natsLoadOperationHarness) WorkerRefuses() {
 	const node = conformanceNode
 	h.mc.scriptReply(messaging.SubjectNodeBackendInstall(node), workerctl.BackendInstallReply{Success: false, Error: "disk full"})
 	h.mc.scriptReply(messaging.SubjectNodeModelStop(node), workerctl.ModelStopReply{Matched: true, Error: "does not belong to operation"})
 	h.mc.scriptReply(messaging.SubjectNodeModelOp(node), workerctl.OperationReply{Unknown: []string{"op"}})
 	h.mc.scriptReply(messaging.SubjectNodeModelUnload(node), workerctl.ModelUnloadReply{Success: false, Error: "process was replaced during unload"})
+}
+
+func (h *natsLoadOperationHarness) WorkerAnswersUnreadably() {
+	for _, s := range h.subjects() {
+		h.mc.scriptReply(s, "this is not a reply")
+	}
 }
 
 func (h *natsLoadOperationHarness) WorkerAnswers() {
@@ -174,6 +204,35 @@ var _ = Describe("LoadOperationControl conformance", func() {
 					err := c.run()
 					Expect(err).To(HaveOccurred(), c.verb)
 					Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: a slow worker is not an absent one", c.verb)
+				}
+			})
+
+			It("does not report a broken path or an infrastructure failure as ErrNoRoute", func() {
+				for name, fail := range map[string]func(){"a path that fails": h.PathFails, "an infrastructure that fails": h.InfrastructureFails} {
+					fail()
+					for _, c := range calls() {
+						err := c.run()
+						Expect(err).To(HaveOccurred(), "%s: %s", name, c.verb)
+						Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: %s: %v", name, c.verb, err)
+					}
+				}
+			})
+
+			It("does not report the budget of the caller running out as ErrNoRoute", func() {
+				h.TimesOut()
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+				_, err := h.Control().StopLoadOperation(ctx, conformanceNode, workerctl.ModelStopRequest{ProcessKey: "m#0", OperationID: "op"})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "an impatient caller says nothing about the node: %v", err)
+			})
+
+			It("does not take an unreadable reply for a route that is missing, or for the answer of a worker", func() {
+				h.WorkerAnswersUnreadably()
+				for _, c := range calls() {
+					err := c.run()
+					Expect(err).To(HaveOccurred(), c.verb)
+					Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "%s: %v", c.verb, err)
 				}
 			})
 

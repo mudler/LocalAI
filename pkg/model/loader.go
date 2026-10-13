@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -716,7 +717,13 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		if process == nil {
 			// Remote/distributed model — no local process to check.
 			// Only evict on definitive connection errors (node is down).
-			// Timeouts may mean the node is busy, so keep the model cached.
+			// Timeouts may mean the node is busy, so keep the model cached. So
+			// does a dial that failed in the transport: it says nothing about
+			// the backend.
+			if transportErr := grpc.TransportFailureOf(client); transportErr != nil {
+				xlog.Warn("Remote model health check failed in the transport, keeping cached", "model", s, "error", transportErr)
+				return m
+			}
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
 				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {

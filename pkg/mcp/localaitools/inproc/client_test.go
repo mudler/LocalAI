@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -303,3 +304,44 @@ func mustMarshal(v any) string {
 	Expect(err).ToNot(HaveOccurred())
 	return string(b)
 }
+
+type fakeCarrierSource struct {
+	report cluster.Report
+	err    error
+}
+
+func (f fakeCarrierSource) Status(context.Context) (cluster.Report, error) { return f.report, f.err }
+
+var _ = Describe("GetClusterCarrier", func() {
+	It("reports distributed=false when no switch is wired", func() {
+		out, err := (&Client{}).GetClusterCarrier(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeFalse())
+	})
+
+	It("maps the report to the assistant view", func() {
+		c := &Client{Carrier: fakeCarrierSource{report: cluster.Report{
+			Active: cluster.CarrierTunnel, State: cluster.StateStable, Epoch: 4,
+			DrainRemaining: 90 * time.Second,
+			Replicas:       []cluster.ReplicaStatus{{ID: "r1", Version: "v1", ReadyEpoch: 4}},
+			Workers: []cluster.WorkerStatus{{ID: "w1", Name: "gpu", Attached: []cluster.Carrier{cluster.CarrierTunnel},
+				CanFollow: false, Reason: "no routable address", FollowError: "no address"}},
+		}}}
+		out, err := c.GetClusterCarrier(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeTrue())
+		Expect(out.Active).To(Equal("tunnel"))
+		Expect(out.Epoch).To(Equal(int64(4)))
+		Expect(out.DrainRemainingSeconds).To(BeNumerically("==", 90))
+		Expect(out.Replicas).To(ConsistOf(localaitools.ClusterReplicaInfo{ID: "r1", Version: "v1", ReadyEpoch: 4}))
+		Expect(out.Workers).To(HaveLen(1))
+		Expect(out.Workers[0].Attached).To(Equal([]string{"tunnel"}))
+		Expect(out.Workers[0].CanFollow).To(BeFalse())
+		Expect(out.Workers[0].FollowError).To(Equal("no address"))
+	})
+
+	It("passes an error from the switch on", func() {
+		_, err := (&Client{Carrier: fakeCarrierSource{err: errors.New("db down")}}).GetClusterCarrier(context.Background())
+		Expect(err).To(MatchError(ContainSubstring("db down")))
+	})
+})

@@ -20,6 +20,25 @@ const (
 	QueueWorkers        = "workers"
 )
 
+// SubjectCarrierChanged is the hint that the cluster carrier row moved. The
+// leader and the admin publish it after each move, on the carrier in use, and
+// every replica listens on it. It carries the new row and is only a courtesy: a
+// replica that never hears it reads the row at its next poll, and what the row
+// says is what counts.
+const SubjectCarrierChanged = "state.carrier"
+
+// SubjectCarrierProbe asks every replica to look again at which carriers it could
+// build, and to write what it finds to the instances table. A dry run of a change
+// of carrier sends it before it reads the answers. Like the other hint it is at
+// most once, and a replica that does not hear it is reported as stale.
+const SubjectCarrierProbe = "state.carrier.probe"
+
+// SubjectClaimWake is the hint that a unit of work was put in the claim queue.
+// A consumer that hears it looks for work at once and does not wait for its next
+// poll. The hint is a broadcast and broadcasts are at-most-once, so it can be
+// lost, and the poll finds the work then.
+const SubjectClaimWake = "jobs.claim.wake"
+
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 // These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")
 const (
@@ -103,6 +122,8 @@ const (
 const (
 	SubjectJobResultWildcard       = "jobs.*.result"
 	SubjectJobProgressWildcard     = "jobs.*.progress"
+	SubjectJobCancelWildcard       = "jobs.*.cancel"
+	SubjectAgentEventsWildcard     = "agent.*.events.*"
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"

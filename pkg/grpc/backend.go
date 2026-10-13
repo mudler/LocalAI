@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"net"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
@@ -29,7 +31,109 @@ func NewClientWithToken(address string, parallel bool, wd WatchDog, enableWatchD
 	return buildClient(address, parallel, wd, enableWatchDog, token)
 }
 
-func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) Backend {
+// NewClientWithDialer creates a gRPC client that reaches its backend through
+// dialer and not through a TCP connection to address. The tunnel carrier uses
+// it, and the address is then the name of a backend process of a worker.
+//
+// The outcome of every dial is recorded, so that a caller can ask why a call
+// failed: see LastDialErrorOf.
+func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string, dialer func(ctx context.Context, addr string) (net.Conn, error)) Backend {
+	if bc, ok := embeds[address]; ok {
+		return bc
+	}
+	// Assigned on the concrete type and not through an assertion that can fail:
+	// a failed assertion would hand back a client that dials the address
+	// directly, which is the bypass this constructor exists to close.
+	c := buildClient(address, parallel, wd, enableWatchDog, token)
+	c.dialer = func(ctx context.Context, addr string) (net.Conn, error) {
+		c.startDial()
+		conn, err := dialer(ctx, addr)
+		c.recordDialErr(err)
+		return conn, err
+	}
+	return c
+}
+
+// DialErrorReporter is implemented by a Backend that reaches its process through
+// a custom transport and can say whether the transport failed. It is not part of
+// Backend: the few callers that act on the difference ask for it, and widening
+// Backend would make every wrapper and every double implement a method that they
+// have no answer for.
+type DialErrorReporter interface {
+	LastDialError() error
+}
+
+// ErrDialPending is what LastDialError reports while a dial has started and has
+// not finished. It is a failure of the transport and not an answer of the host:
+// the caller knows nothing about the backend yet.
+var ErrDialPending = errors.New("grpc: the dial to the backend has not finished")
+
+// BackendAnswer is implemented by the error of a custom dialer when the dial
+// reached the host of the backend and the host answered. A refusal of the worker
+// to open a stream to a backend that is gone is one: it is evidence about the
+// backend, like a refused connection on a direct dial. An error that does not
+// implement it is a failure of the transport, and nothing was learned about the
+// backend.
+type BackendAnswer interface {
+	error
+	IsBackendAnswer() bool
+}
+
+// BackendUnwrapper is implemented by a Backend that decorates another one.
+// Every decorator must implement it: a decorator that embeds the Backend
+// interface inherits what Backend declares and nothing else, and
+// DialErrorReporter is not declared there. A wrapped client would then stop
+// answering whether the transport failed, and the guards built on the answer
+// would read nil in production while every spec that built a raw client passed.
+type BackendUnwrapper interface {
+	Unwrap() Backend
+}
+
+// maxBackendUnwrapDepth bounds the walk of LastDialErrorOf. It guards against a
+// cycle that a future wrapper could introduce, and nothing real nests this deep.
+const maxBackendUnwrapDepth = 16
+
+// LastDialErrorOf reports why the most recent dial under b failed, looking
+// through any decorators, or nil when the dial succeeded or nothing under b has a
+// custom transport.
+func LastDialErrorOf(b Backend) error {
+	for range maxBackendUnwrapDepth {
+		if b == nil {
+			return nil
+		}
+		if reporter, ok := b.(DialErrorReporter); ok {
+			return reporter.LastDialError()
+		}
+		wrapper, ok := b.(BackendUnwrapper)
+		if !ok {
+			return nil
+		}
+		b = wrapper.Unwrap()
+	}
+	return nil
+}
+
+// TransportFailureOf is LastDialErrorOf for a caller that decides whether a
+// backend is dead. It returns the error of the last dial when that error is a
+// failure of the transport, and nil when the dial succeeded or when the host
+// answered about the backend (see BackendAnswer).
+//
+// A caller that gets an error from it must not conclude anything about the
+// backend: not that it is dead, and not that it is well. It must not reap the
+// row of a model, evict a cached model or count a miss.
+func TransportFailureOf(b Backend) error {
+	err := LastDialErrorOf(b)
+	if err == nil {
+		return nil
+	}
+	var answer BackendAnswer
+	if errors.As(err, &answer) && answer.IsBackendAnswer() {
+		return nil
+	}
+	return err
+}
+
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) *Client {
 	if !enableWatchDog {
 		wd = nil
 	}

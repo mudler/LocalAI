@@ -25,6 +25,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_router_corpus_stats` — Inspect a KNN router corpus by count and label only; exemplar texts are never returned.
 - `list_aliases` — List configured model aliases and their targets.
 - `list_failover_chains` — List failover chains, their active target and target health.
+- `get_cluster_carrier` — Read which transport a distributed cluster uses (NATS or the database tunnel), the state of a change, the live frontends and the workers that cannot follow. Read-only. No tool changes the carrier.
 
 ## Mutating (require user confirmation per safety rule 1)
 

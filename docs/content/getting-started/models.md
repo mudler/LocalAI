@@ -401,6 +401,30 @@ curl http://localhost:8080/v1/models
 local-ai models list
 ```
 
+### Disk Usage
+
+The **Installed** tab shows how much disk the installed configurations use: a
+summary strip with the total on disk and the portion shared across models, and
+a per-model size in the selected model's detail panel. A file referenced by
+more than one configuration is counted once in the total; the per-model size
+notes the shared portion, since deleting that model frees only its exclusive
+files. A reference whose file is not on disk — a download that never finished,
+or a file removed by hand — is shown as a warning on the model.
+
+While no model is selected, the detail pane lists every referenced file with
+its size, which models reference it, and whether it is shared or missing;
+clicking a model name selects it.
+
+The report behind both views is available directly (admin only):
+
+```bash
+curl http://localhost:8080/api/models/storage
+```
+
+It returns per-model sizes with the shared portion split out, the
+file-to-models relation, and missing references. Files in the models directory
+that no configuration references are not included.
+
 ### Remove Models
 
 Simply delete the model file and configuration from your models directory:

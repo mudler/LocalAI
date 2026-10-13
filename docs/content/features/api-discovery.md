@@ -62,6 +62,7 @@ Returns the instance version, all available endpoint URLs (flat and categorized)
     "config_metadata": true,
     "config_patch": true,
     "vram_estimate": true,
+    "model_storage": true,
     "mcp": true,
     "agents": false,
     "p2p": false
@@ -238,6 +239,19 @@ The endpoint validates the merged config and writes it to disk as YAML.
 {{% notice context="warning" %}}
 Config management endpoints require **admin authentication** when authentication is configured. The well-known endpoint, instructions API, and Swagger `GET` routes remain available without authentication.
 {{% /notice %}}
+
+### Model storage report
+
+`GET /api/models/storage` (admin)
+
+Reports the on-disk footprint of the installed model configurations:
+per-model sizes with the portion shared with other models split out,
+every referenced file with the models referencing it, and references
+whose files are missing from disk.
+
+```bash
+curl http://localhost:8080/api/models/storage
+```
 
 ### VRAM estimation
 

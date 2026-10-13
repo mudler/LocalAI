@@ -402,6 +402,11 @@ func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*
 	return &RouterCorpusClearResult{Router: routerModel}, nil
 }
 
+func (f *fakeClient) GetClusterCarrier(_ context.Context) (*ClusterCarrierStatus, error) {
+	f.record("GetClusterCarrier", nil)
+	return &ClusterCarrierStatus{Distributed: true, Active: "tunnel", State: "stable", Epoch: 1}, nil
+}
+
 func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
 	f.record("ListFailoverChains", nil)
 	if f.listFailoverChains != nil {

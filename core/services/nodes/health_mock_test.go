@@ -133,7 +133,12 @@ func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelNa
 type fakeBackendClient struct {
 	healthy bool
 	err     error
+	// dialErr is what LastDialError reports: the error of the custom dialer of a
+	// client whose transport failed.
+	dialErr error
 }
+
+func (c *fakeBackendClient) LastDialError() error { return c.dialErr }
 
 func (c *fakeBackendClient) IsBusy() bool { return false }
 func (c *fakeBackendClient) HealthCheck(_ context.Context) (bool, error) {

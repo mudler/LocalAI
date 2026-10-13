@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ClusterOverview from '../components/nodes/ClusterOverview'
+import ClusterTransport from '../components/nodes/ClusterTransport'
 import NodeFleetTable from '../components/nodes/NodeFleetTable'
 import NodeInspector from '../components/nodes/NodeInspector'
 import ModelFleetTable from '../components/nodes/ModelFleetTable'
@@ -28,8 +29,7 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
   const isAgent = nodeType === 'agent'
   const workerCmd = isAgent ? 'agent-worker' : 'worker'
   const flags = dockerFlags(option)
-  const flagsString = flags ? `${flags} \
-  ` : ''
+  const flagsString = flags ? `${flags} ` : ''
   return (
     <div className="card pad-lg mb-xl">
       <h3 className="panel-title"><i className={`fas ${hasWorkers ? 'fa-plus-circle' : 'fa-info-circle'} text-primary`} />{hasWorkers ? 'Register another worker' : 'No workers registered yet'}</h3>
@@ -37,16 +37,10 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
       <p className="form-label">Select your hardware</p>
       <ImageSelector selected={selected} onSelect={setSelected} dev={dev} onDevChange={setDev} />
       <div className="stack">
-        <div><p className="form-label">CLI</p><CommandBlock command={`local-ai ${workerCmd} \
-  --register-to "${frontendUrl}" \
-  --nats-url "nats://nats:4222" \
-  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`} addToast={addToast} /></div>
-        <div><p className="form-label">Docker</p><CommandBlock command={`docker run --net host ${flagsString}\
-  -e LOCALAI_REGISTER_TO="${frontendUrl}" \
-  -e LOCALAI_NATS_URL="nats://nats:4222" \
-  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \
-  ${dockerImage(option, dev)} ${workerCmd}`} addToast={addToast} /></div>
+        <div><p className="form-label">CLI</p><CommandBlock command={`local-ai ${workerCmd} \\\n  --register-to "${frontendUrl}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`} addToast={addToast} /></div>
+        <div><p className="form-label">Docker</p><CommandBlock command={`docker run --net host ${flagsString}\\\n  -e LOCALAI_REGISTER_TO="${frontendUrl}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${dockerImage(option, dev)} ${workerCmd}`} addToast={addToast} /></div>
       </div>
+      <p className="text-note mt-md" data-testid="worker-hint-carrier">The worker learns the cluster transport from this frontend, so it needs no NATS address. Add <code>--nats-url</code> (<code>LOCALAI_NATS_URL</code>) only to override the address that the frontend hands over.</p>
     </div>
   )
 }
@@ -340,6 +334,7 @@ export default function Nodes() {
       <div role="radiogroup" aria-label="Worker type" className="segmented node-filter">
         {[['backend', 'Backend'], ['agent', 'Agent']].map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={emptyNodeType === value} className={`segmented__item${emptyNodeType === value ? ' is-active' : ''}`} onClick={() => setEmptyNodeType(value)}>{label}</button>)}
       </div>
+      <ClusterTransport addToast={addToast} />
       <WorkerHintCard addToast={addToast} nodeType={emptyNodeType} />
     </div>
   )
@@ -348,6 +343,7 @@ export default function Nodes() {
     <div className={`page page--wide nodes-fleet-page${inspectedNode || inspectedModel || drilledNode ? ' nodes-fleet-page--inspecting' : ''}`}>
       <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
       {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
+      <ClusterTransport addToast={addToast} />
       <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
 
       <section className="fleet-workbench" aria-label="Fleet workbench">

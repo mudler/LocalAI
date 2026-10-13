@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -112,6 +113,10 @@ type SmartRouterOptions struct {
 	// (LOCALAI_NATS_MODEL_LOAD_TIMEOUT) and always wins over the derived budget,
 	// in BOTH directions: an operator who wants faster failure gets it.
 	ModelLoadTimeout time.Duration
+	// ActiveCarrier says which carrier the cluster uses now. With it, the router
+	// leaves out the nodes that cannot be reached on that carrier: a worker that
+	// is attached to another carrier and cannot follow. Nil keeps every node.
+	ActiveCarrier func() cluster.Carrier
 	// StagingStallWindow is how long file staging may report zero bytes before
 	// the cold load is declared wedged and the advisory lock released. While
 	// bytes keep moving the hold extends, so transfer size no longer bounds the
@@ -165,6 +170,9 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
+	// activeCarrier is optional. See SmartRouterOptions.ActiveCarrier.
+	activeCarrier    func() cluster.Carrier
+	unroutable       unroutableCache
 	registry         ModelRouter
 	unloader         NodeCommandSender // optional, for NATS-driven load/unload
 	modelCleanup     *ModelCleanupService
@@ -260,6 +268,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	}
 	return &SmartRouter{
 		registry:            registry,
+		activeCarrier:       opts.ActiveCarrier,
 		unloader:            opts.Unloader,
 		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,
@@ -699,6 +708,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if err != nil {
 		return nil, err
 	}
+	// A node that cannot be reached on the active carrier is not asked for a
+	// replica, so that its recorded address is never dialled.
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, trackingKey, candidateNodeIDs); err != nil {
+		return nil, err
+	}
 
 	// Compute the prefix-cache preference once for this request. pref biases
 	// FindAndLockNodeWithModel toward the warm-cache node; observeChain is
@@ -760,6 +774,11 @@ type routeAttempt struct {
 	observeChain     []uint64
 }
 
+// warmProbeRetryDelay is how long the warm path waits before it probes a replica
+// again, when the first probe could not reach the worker. A variable, so that a
+// spec does not wait for it.
+var warmProbeRetryDelay = 500 * time.Millisecond
+
 // tryWarmPath returns a route to an already-loaded, reachable replica, or nil
 // when the model has to be cold-loaded. It is the authority on readiness: a
 // waiter woken by a finished job re-runs it rather than trusting the signal,
@@ -776,7 +795,31 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	replicaIdx := nm.ReplicaIndex
 
 	// Verify the backend process is still alive via gRPC health check
-	if !r.probeHealth(ctx, node, modelAddr) {
+	verdict := r.probeHealth(ctx, node, modelAddr)
+	if verdict == probeUnknown {
+		// A relay that dropped for a moment looks the same as a worker that cannot
+		// be reached. Loading the model again at once would put a second replica
+		// beside one that is well, so the probe is repeated once first.
+		select {
+		case <-time.After(warmProbeRetryDelay):
+			verdict = r.probeHealth(ctx, node, modelAddr)
+		case <-ctx.Done():
+		}
+	}
+	switch verdict {
+	case probeUnknown:
+		// The transport failed, so nothing is known about the backend. The row
+		// stays: a replica that is loaded on a worker that cannot be reached from
+		// here for the moment is not a replica that is gone. This request goes
+		// to a cold load, which places the model where a route exists.
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release routing reservation of an unreachable replica",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Backend not reachable through the transport, keeping its row and falling through to a load elsewhere",
+			"node", node.Name, "model", att.modelName, "replica", replicaIdx)
+		return nil
+	case probeDead:
 		// Stale — roll back the increment, remove the specific replica row, fall through
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
@@ -1112,6 +1155,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	sched, _ := r.registry.GetGoverningScheduling(ctx, modelID)
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
+		return nil, "", 0, err
+	}
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, modelID, candidateNodeIDs); err != nil {
 		return nil, "", 0, err
 	}
 
@@ -2043,15 +2089,25 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // burst of N requests for a cold cache costs at most one round-trip, not N.
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
-func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+//
+// The verdict is three-valued. A probe that could not get a stream to the backend
+// because the transport failed learned nothing, and it must not read as a dead
+// backend: the caller would remove the row of a model that is loaded.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) probeVerdict {
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
+	return r.probeCache.DoOrCachedVerdict(key, func() probeVerdict {
 		client := r.buildClientForAddr(node, addr, false)
 		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, _ := client.HealthCheck(checkCtx)
-		return ok
+		switch {
+		case ok:
+			return probeAlive
+		case grpc.TransportFailureOf(client) != nil:
+			return probeUnknown
+		}
+		return probeDead
 	})
 }
 

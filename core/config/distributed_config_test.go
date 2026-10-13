@@ -88,7 +88,42 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
 		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),
+		Entry("model config resync interval", config.FlagModelConfigResyncInterval, "model-config-resync-interval"),
+		Entry("carrier prepare timeout", config.FlagCarrierPrepareTimeout, "carrier-prepare-timeout"),
+		Entry("carrier transition window", config.FlagCarrierTransitionWindow, "carrier-transition-window"),
+		Entry("carrier max drain", config.FlagCarrierMaxDrain, "carrier-max-drain"),
 	)
+})
+
+var _ = Describe("DistributedConfig without a NATS URL", func() {
+	It("is valid: a deployment with only PostgreSQL runs on the tunnel carrier", func() {
+		Expect(config.DistributedConfig{Enabled: true}.Validate()).To(Succeed())
+	})
+
+	It("keeps the NATS URL when one is given", func() {
+		o := config.NewApplicationConfig(config.WithNatsURL("nats://localhost:4222"))
+		Expect(o.Distributed.NatsURL).To(Equal("nats://localhost:4222"))
+	})
+
+	DescribeTable("rejects a negative timing of a change of carrier",
+		func(set func(*config.DistributedConfig), flag string) {
+			c := config.DistributedConfig{Enabled: true}
+			set(&c)
+			err := c.Validate()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(flag))
+		},
+		Entry("prepare timeout", func(c *config.DistributedConfig) { c.CarrierPrepareTimeout = -time.Second }, config.FlagCarrierPrepareTimeout),
+		Entry("transition window", func(c *config.DistributedConfig) { c.CarrierTransitionWindow = -time.Second }, config.FlagCarrierTransitionWindow),
+		Entry("max drain", func(c *config.DistributedConfig) { c.CarrierMaxDrain = -time.Second }, config.FlagCarrierMaxDrain),
+	)
+
+	It("sets the timings with the options", func() {
+		o := config.NewApplicationConfig(config.WithCarrierTimings(10*time.Second, 20*time.Second, 30*time.Second))
+		Expect(o.Distributed.CarrierPrepareTimeout).To(Equal(10 * time.Second))
+		Expect(o.Distributed.CarrierTransitionWindow).To(Equal(20 * time.Second))
+		Expect(o.Distributed.CarrierMaxDrain).To(Equal(30 * time.Second))
+	})
 })
 
 var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
@@ -102,6 +137,23 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(config.FlagBackendInstallTimeout))
 		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("rejects a negative ModelConfigResyncInterval with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:                   true,
+			NatsURL:                   "nats://localhost:4222",
+			ModelConfigResyncInterval: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagModelConfigResyncInterval))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("defaults the model config resync interval", func() {
+		Expect(config.DistributedConfig{}.ModelConfigResyncIntervalOrDefault()).To(Equal(config.DefaultModelConfigResyncInterval))
+		Expect(config.DistributedConfig{ModelConfigResyncInterval: time.Minute}.ModelConfigResyncIntervalOrDefault()).To(Equal(time.Minute))
 	})
 
 	It("rejects a negative BackendUpgradeTimeout with the flag name in the error", func() {

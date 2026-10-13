@@ -163,9 +163,15 @@ type RunCMD struct {
 	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	// Distributed / Horizontal Scaling
-	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
+	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL; NATS is optional)" group:"distributed"`
 	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
+	PeerAddress                  string `env:"LOCALAI_PEER_ADDRESS" help:"host:port at which the other frontends dial this one to reach a worker tunnel it holds (found from the route to the database if empty)" group:"distributed"`
+	PeerTLS                      bool   `env:"LOCALAI_PEER_TLS" default:"false" help:"dial the other frontends over wss; they must sit behind TLS at the address they publish. Without it the peer link, which carries the credential of this replica and relayed requests, is clear text" group:"distributed"`
+	PeerTLSCA                    string `name:"peer-tls-ca" env:"LOCALAI_PEER_TLS_CA" type:"existingfile" help:"PEM file with the CA that signs the certificate of the other frontends (system roots if empty); use with --peer-tls" group:"distributed"`
 	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	CarrierPrepareTimeout        string `env:"LOCALAI_CARRIER_PREPARE_TIMEOUT" help:"How long a change of carrier waits for every frontend to be ready before it is aborted (default 1m). The cluster setting switch.prepare_timeout, when stored, wins." group:"distributed"`
+	CarrierTransitionWindow      string `env:"LOCALAI_CARRIER_TRANSITION_WINDOW" help:"How long a change of carrier waits for every frontend to confirm that it uses the new carrier (default 2m). The cluster setting switch.transition_window, when stored, wins." group:"distributed"`
+	CarrierMaxDrain              string `env:"LOCALAI_CARRIER_MAX_DRAIN" help:"How long the previous carrier stays attached after a change of carrier, so that work that started on it can finish (default 15m). Work still running after that is failed by the reaper. The cluster setting switch.max_drain, when stored, wins." group:"distributed"`
 	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
 	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
 	StorageRegion                string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
@@ -185,6 +191,7 @@ type RunCMD struct {
 	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
 	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
 	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
+	ModelConfigResyncInterval    string `env:"LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL" help:"How often each frontend compares its model configs with the shared models directory (default 30s). Frontends normally learn about a model install, edit or removal from a message on NATS; this pass catches a change whose message a frontend missed, for example during a NATS reconnect, so an old config is served for at most this long. A pass reads only the config files and skips the parse when none of them changed." group:"distributed"`
 	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -363,6 +370,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.InstanceID != "" {
 		opts = append(opts, config.WithDistributedInstanceID(r.InstanceID))
 	}
+	if r.PeerAddress != "" {
+		opts = append(opts, config.WithDistributedPeerAddress(r.PeerAddress))
+	}
+	if r.PeerTLS || r.PeerTLSCA != "" {
+		opts = append(opts, config.WithDistributedPeerTLS(r.PeerTLSCA))
+	}
 	if r.NatsURL != "" {
 		opts = append(opts, config.WithNatsURL(r.NatsURL))
 	}
@@ -422,6 +435,33 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
+	}
+	if r.CarrierPrepareTimeout != "" || r.CarrierTransitionWindow != "" || r.CarrierMaxDrain != "" {
+		var prepare, window, drain time.Duration
+		var err error
+		for _, f := range []struct {
+			env, value string
+			into       *time.Duration
+		}{
+			{"LOCALAI_CARRIER_PREPARE_TIMEOUT", r.CarrierPrepareTimeout, &prepare},
+			{"LOCALAI_CARRIER_TRANSITION_WINDOW", r.CarrierTransitionWindow, &window},
+			{"LOCALAI_CARRIER_MAX_DRAIN", r.CarrierMaxDrain, &drain},
+		} {
+			if f.value == "" {
+				continue
+			}
+			if *f.into, err = parseDistributedDuration(f.env, f.value); err != nil {
+				return err
+			}
+		}
+		opts = append(opts, config.WithCarrierTimings(prepare, window, drain))
+	}
+	if r.ModelConfigResyncInterval != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL", r.ModelConfigResyncInterval)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelConfigResyncInterval(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))

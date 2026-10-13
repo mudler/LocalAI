@@ -11,13 +11,35 @@ import (
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
-// When Enabled is true, PostgreSQL and NATS are required.
+// When Enabled is true, PostgreSQL is required. NATS is needed only while the
+// cluster runs on the NATS carrier.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
-	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
-	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// PeerAddress is the host and port at which the other frontends dial this
+	// one, to reach a worker tunnel that this one holds. Empty means that the
+	// address is found from the route to the database. LOCALAI_PEER_ADDRESS.
+	PeerAddress string
+	// PeerTLS makes this frontend dial the other frontends over wss. They must sit
+	// behind TLS at the address that they publish. LOCALAI_PEER_TLS.
+	PeerTLS bool
+	// PeerTLSCA is a PEM file with the certificate authority that signs the
+	// certificate of the other frontends. Empty uses the system roots.
+	// LOCALAI_PEER_TLS_CA.
+	PeerTLSCA string
+	// NatsURL is the NATS server of a deployment that uses NATS. A deployment with
+	// no URL and no row in the database runs on the tunnel carrier. The URL is
+	// copied into the cluster settings when none is stored there, and the cluster
+	// setting wins afterwards, so that every replica uses the same one.
+	NatsURL string // --nats-url / LOCALAI_NATS_URL
+	// CarrierPrepareTimeout, CarrierTransitionWindow and CarrierMaxDrain are the
+	// waits of a change of carrier on the replica that leads it, used when the
+	// cluster settings do not set them. Zero means the default.
+	CarrierPrepareTimeout   time.Duration // --carrier-prepare-timeout
+	CarrierTransitionWindow time.Duration // --carrier-transition-window
+	CarrierMaxDrain         time.Duration // --carrier-max-drain
+	StorageURL              string        // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
+	RegistrationToken       string        // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
@@ -64,6 +86,10 @@ type DistributedConfig struct {
 	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
 	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
 	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
+	// ModelConfigResyncInterval is how often a frontend compares its model
+	// configs with the shared models directory, to catch a change whose
+	// invalidation event it missed (default 30s).
+	ModelConfigResyncInterval time.Duration
 	// DisablePerModelHealthCheck turns off the health monitor's per-model
 	// gRPC probe. When enabled (the default), the monitor pings each model's
 	// gRPC address and removes stale node_models rows whose backend has
@@ -138,9 +164,9 @@ func (c DistributedConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.NatsURL == "" {
-		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
-	}
+	// No NATS URL is required. The carrier is a setting of the cluster in the
+	// database: a new deployment with only PostgreSQL runs on the tunnel, and a
+	// deployment with a NATS URL stays on NATS.
 	// S3 credentials must be paired
 	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
@@ -162,7 +188,11 @@ func (c DistributedConfig) Validate() error {
 	if err := c.NatsTLSFiles().Validate(); err != nil {
 		return err
 	}
-	c.NatsAuthConfig().WarnIfInsecure(true)
+	// A deployment with no NATS URL runs on the tunnel and has no NATS bus to warn
+	// about. The warning comes back when a URL is configured.
+	if c.NatsURL != "" {
+		c.NatsAuthConfig().WarnIfInsecure(true)
+	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:          c.MCPToolTimeout,
@@ -181,6 +211,18 @@ func (c DistributedConfig) Validate() error {
 			return fmt.Errorf("%s must not be negative", name)
 		}
 	}
+	if c.ModelConfigResyncInterval < 0 {
+		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
+	}
+	for name, d := range map[string]time.Duration{
+		FlagCarrierPrepareTimeout:   c.CarrierPrepareTimeout,
+		FlagCarrierTransitionWindow: c.CarrierTransitionWindow,
+		FlagCarrierMaxDrain:         c.CarrierMaxDrain,
+	} {
+		if d < 0 {
+			return fmt.Errorf("%s must not be negative", name)
+		}
+	}
 	return nil
 }
 
@@ -193,6 +235,23 @@ var EnableDistributed = func(o *ApplicationConfig) {
 func WithDistributedInstanceID(id string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.InstanceID = id
+	}
+}
+
+// WithDistributedPeerAddress sets the address at which other frontends dial this
+// one.
+func WithDistributedPeerAddress(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerAddress = addr
+	}
+}
+
+// WithDistributedPeerTLS makes this frontend dial its peers over wss, trusting
+// the CA in caFile, or the system roots when caFile is empty.
+func WithDistributedPeerTLS(caFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerTLS = true
+		o.Distributed.PeerTLSCA = caFile
 	}
 }
 
@@ -338,6 +397,14 @@ func WithModelLoadWait(d time.Duration) AppOption {
 	}
 }
 
+// WithModelConfigResyncInterval sets how often a frontend resyncs its model
+// configs from the shared models directory. Zero means the default.
+func WithModelConfigResyncInterval(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ModelConfigResyncInterval = d
+	}
+}
+
 // WithStaleNodeThreshold sets how long a node may go without a durable
 // heartbeat before the health monitor marks it offline. It has to be raised
 // alongside WithNodeHeartbeatCheckpoint: a checkpoint interval wider than this
@@ -430,6 +497,32 @@ const (
 	// log line knows exactly which knob produced it.
 	FlagDiskHeadroomCheck = "distributed-disk-headroom-check"
 )
+
+// Names of the timings of a change of carrier.
+const (
+	FlagCarrierPrepareTimeout   = "carrier-prepare-timeout"
+	FlagCarrierTransitionWindow = "carrier-transition-window"
+	FlagCarrierMaxDrain         = "carrier-max-drain"
+)
+
+// WithCarrierTimings sets the waits of a change of carrier: how long prepare
+// waits for every replica, how long commit waits for every replica to confirm,
+// and how long the previous carrier stays attached. A zero keeps the default.
+func WithCarrierTimings(prepareTimeout, transitionWindow, maxDrain time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.CarrierPrepareTimeout = prepareTimeout
+		o.Distributed.CarrierTransitionWindow = transitionWindow
+		o.Distributed.CarrierMaxDrain = maxDrain
+	}
+}
+
+// FlagModelConfigResyncInterval names the model config resync interval.
+const FlagModelConfigResyncInterval = "model-config-resync-interval"
+
+// DefaultModelConfigResyncInterval bounds how long a frontend that missed a
+// models invalidation serves an old model config. It matches the tick of the
+// replica reconciler, which acts on those configs.
+const DefaultModelConfigResyncInterval = 30 * time.Second
 
 // Defaults for distributed timeouts.
 const (
@@ -544,6 +637,12 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 }
 
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
+// ModelConfigResyncIntervalOrDefault returns the configured interval or the
+// default.
+func (c DistributedConfig) ModelConfigResyncIntervalOrDefault() time.Duration {
+	return cmp.Or(c.ModelConfigResyncInterval, DefaultModelConfigResyncInterval)
+}
+
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
 }

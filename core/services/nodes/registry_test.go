@@ -1911,3 +1911,37 @@ var _ = Describe("ModelScheduling spread + seeding", func() {
 		Expect(n.SpreadAll).To(BeTrue())
 	})
 })
+
+var _ = Describe("NodeRegistry carrier attachment", func() {
+	var (
+		db       *gorm.DB
+		registry *NodeRegistry
+	)
+
+	BeforeEach(func() {
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("stores no attachment for a node that reports none", func() {
+		node := &BackendNode{Name: "plain", NodeType: NodeTypeBackend, Address: "10.0.0.3:50051"}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(BeEmpty())
+		Expect(got.AttachedEpoch).To(BeZero())
+	})
+
+	It("keeps the attachment a node reported", func() {
+		node := &BackendNode{Name: "dual", NodeType: NodeTypeBackend, Address: "10.0.0.4:50051", Attached: "nats,tunnel", AttachedEpoch: 3}
+		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+		var got BackendNode
+		Expect(db.First(&got, "id = ?", node.ID).Error).To(Succeed())
+		Expect(got.Attached).To(Equal("nats,tunnel"))
+		Expect(got.AttachedEpoch).To(Equal(int64(3)))
+	})
+})

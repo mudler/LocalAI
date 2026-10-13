@@ -55,6 +55,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerPIITools(srv, client, opts)
 	registerMiddlewareTools(srv, client, opts)
 	registerFailoverTools(srv, client, opts)
+	registerClusterTools(srv, client)
 
 	return srv
 }

@@ -4,15 +4,18 @@ package advisorylock
 // These keys are global across the database — avoid collisions with
 // other applications sharing the same PostgreSQL instance.
 const (
-	KeyCronScheduler    int64 = 100
-	KeyStaleNodeCleanup int64 = 101
-	KeyGalleryDedup     int64 = 102
-	KeyAgentScheduler   int64 = 103
-	KeyHealthCheck      int64 = 104
-	KeySchemaMigrate        int64 = 105
-	KeyBackendUpgradeCheck  int64 = 106
-	KeyStateReconciler      int64 = 107
+	KeyCronScheduler       int64 = 100
+	KeyStaleNodeCleanup    int64 = 101
+	KeyGalleryDedup        int64 = 102
+	KeyAgentScheduler      int64 = 103
+	KeyHealthCheck         int64 = 104
+	KeySchemaMigrate       int64 = 105
+	KeyBackendUpgradeCheck int64 = 106
+	KeyStateReconciler     int64 = 107
 	// KeyFailoverProber elects the one frontend that probes failover
 	// targets, decides chains and preloads warm targets.
-	KeyFailoverProber       int64 = 108
+	KeyFailoverProber int64 = 108
+	// KeyCarrierSwitch elects the one frontend that makes the next move of a
+	// change of carrier.
+	KeyCarrierSwitch int64 = 109
 )

@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
@@ -92,6 +93,10 @@ type Client struct {
 	// running" — the same as a deployment with no failover chains
 	// configured.
 	Failover *failover.Manager
+
+	// Carrier backs get_cluster_carrier. nil on a frontend that is not
+	// distributed, where the tool reports distributed=false.
+	Carrier CarrierStatusSource
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -1112,6 +1117,42 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 		return nil, err
 	}
 	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
+}
+
+// ---- Cluster carrier ----
+
+// CarrierStatusSource is what get_cluster_carrier reads. *cluster.Switch is one.
+type CarrierStatusSource interface {
+	Status(ctx context.Context) (cluster.Report, error)
+}
+
+func (c *Client) GetClusterCarrier(ctx context.Context) (*localaitools.ClusterCarrierStatus, error) {
+	if c.Carrier == nil {
+		return &localaitools.ClusterCarrierStatus{Distributed: false}, nil
+	}
+	rep, err := c.Carrier.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := &localaitools.ClusterCarrierStatus{
+		Distributed:           true,
+		Active:                string(rep.Active),
+		State:                 string(rep.State),
+		Target:                string(rep.Target),
+		Epoch:                 rep.Epoch,
+		DrainRemainingSeconds: rep.DrainRemaining.Seconds(),
+	}
+	for _, r := range rep.Replicas {
+		out.Replicas = append(out.Replicas, localaitools.ClusterReplicaInfo{ID: r.ID, Version: r.Version, ReadyEpoch: r.ReadyEpoch, ReadyReason: r.ReadyReason})
+	}
+	for _, w := range rep.Workers {
+		attached := make([]string, 0, len(w.Attached))
+		for _, a := range w.Attached {
+			attached = append(attached, string(a))
+		}
+		out.Workers = append(out.Workers, localaitools.ClusterWorkerInfo{ID: w.ID, Name: w.Name, Attached: attached, CanFollow: w.CanFollow, Reason: w.Reason, FollowError: w.FollowError})
+	}
+	return out, nil
 }
 
 // ---- Failover chains ----

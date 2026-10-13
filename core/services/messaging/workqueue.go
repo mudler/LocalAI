@@ -1,6 +1,16 @@
 package messaging
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrCarrierReleased is the cause that a context is cancelled with when the
+// carrier its work ran on is released at the end of a drain. Work that sees it
+// was cut off by the change of carrier, and not by its own caller or by a
+// failure of its own, so it must not be run again on the carrier that took over:
+// it did start, and the reaper decides what happens to its job.
+var ErrCarrierReleased = errors.New("the carrier of this work was released")
 
 // WorkKind names a unit of competing-consumer work. The values match the claim
 // kinds of the self-hosted carrier so the two map one to one.
@@ -21,7 +31,12 @@ const (
 // apply to the queue.
 //
 // The NATS carrier ignores ctx: its publish takes none and returns once the
-// message is buffered, so there is nothing for a cancellation to interrupt.
+// message is buffered, so there is nothing for a cancellation to interrupt. The
+// claim queue (jobs.ClaimQueue) writes a row with ctx, and keeps it until the
+// work has an answer, so a nil error from it also means that the work is not
+// lost if no consumer exists yet.
+//
+// Both refuse a payload above MaxWorkPayloadBytes.
 type WorkQueue interface {
 	Enqueue(ctx context.Context, kind WorkKind, payload any) error
 }

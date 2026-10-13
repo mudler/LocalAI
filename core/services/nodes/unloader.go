@@ -2,9 +2,9 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -45,17 +45,61 @@ type NodeCommandSender interface {
 	LoadOperationControl
 }
 
-// RemoteUnloaderAdapter implements NodeCommandSender and model.RemoteModelUnloader
-// by publishing NATS events for backend process lifecycle. The worker process
-// subscribes and handles the actual process start/stop.
+// nodeControl implements NodeControl over a controlLink. It holds what every
+// carrier shares: which request each method sends, the timeout of each, how a
+// reply is read, and the bookkeeping that follows a stop. The link holds only how
+// one request travels and how its failure is told apart.
+//
+// A carrier is a link. RemoteUnloaderAdapter is nodeControl over NATS, and
+// TunnelControl is nodeControl over the HTTP control plane of a worker.
+type nodeControl struct {
+	registry       ModelLocator
+	link           controlLink
+	installTimeout time.Duration
+	upgradeTimeout time.Duration
+}
+
+// controlLink carries one control request to one node.
+//
+// It is also where the four conditions are told apart (see
+// .agents/distributed-seams.md), because only the carrier knows what its own
+// failure looks like. request returns nil error when the worker answered, and a
+// refusal of the worker is then in the reply. It wraps ErrNoRoute for a route
+// that does not exist right now and for nothing else. It never wraps ErrNoRoute
+// for a timeout, a failure to read the reply or a worker's refusal.
+type controlLink interface {
+	// request sends req as verb to the node and decodes the reply into reply. A
+	// nil reply is for a verb that answers with no body. timeout bounds the whole
+	// call.
+	request(ctx context.Context, nodeID, verb string, req, reply any, timeout time.Duration) error
+	// requestWithProgress is request for a verb that reports progress while it
+	// runs. onProgress receives the events of operation opID, and it is nil when
+	// the caller wants none. Every event arrives before the call returns.
+	requestWithProgress(ctx context.Context, nodeID, verb, opID string, req, reply any, timeout time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) error
+	// label names the carrier in a log line: "NATS" or "tunnel".
+	label() string
+	// describe names where a request for verb goes, for an error message.
+	describe(nodeID, verb string) string
+	// waitExpired reports whether err says that the wait for a reply ran out.
+	// The wait of an install or an upgrade that runs out means that the worker
+	// may still be working.
+	waitExpired(err error) bool
+	// acknowledgementMissing reports whether err is exactly the carrier's own
+	// signal that nothing replied in time, and nothing looser. A carrier that
+	// reads silence as an older worker that did not reply says true. A carrier
+	// that cannot tell silence from a failure says false.
+	acknowledgementMissing(err error) bool
+}
+
+// RemoteUnloaderAdapter implements NodeControl over NATS: it sends each control
+// verb as a request to a per-node subject. The worker process subscribes and
+// handles the actual process start/stop.
 //
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but
 // over NATS for remote nodes.
 type RemoteUnloaderAdapter struct {
-	registry       ModelLocator
-	nats           messaging.MessagingClient
-	installTimeout time.Duration
-	upgradeTimeout time.Duration
+	*nodeControl
+	nats messaging.MessagingClient
 }
 
 // NewRemoteUnloaderAdapter creates a new adapter. installTimeout and
@@ -65,17 +109,20 @@ type RemoteUnloaderAdapter struct {
 // BackendUpgradeTimeoutOrDefault() at construction.
 func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient, installTimeout, upgradeTimeout time.Duration) *RemoteUnloaderAdapter {
 	return &RemoteUnloaderAdapter{
-		registry:       registry,
-		nats:           nats,
-		installTimeout: installTimeout,
-		upgradeTimeout: upgradeTimeout,
+		nodeControl: &nodeControl{
+			registry:       registry,
+			link:           &natsLink{bus: nats},
+			installTimeout: installTimeout,
+			upgradeTimeout: upgradeTimeout,
+		},
+		nats: nats,
 	}
 }
 
 // InstallTimeout returns the configured backend.install round-trip timeout.
 // Used by DistributedBackendManager to push NextRetryAt out by this duration
 // when a worker times out replying but is still installing in the background.
-func (a *RemoteUnloaderAdapter) InstallTimeout() time.Duration {
+func (a *nodeControl) InstallTimeout() time.Duration {
 	return a.installTimeout
 }
 
@@ -89,6 +136,8 @@ var (
 	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
 	_ ExactModelStopper                = (*RemoteUnloaderAdapter)(nil)
+	_ NodeControl                      = (*RemoteUnloaderAdapter)(nil)
+	_ NodeControl                      = (*TunnelControl)(nil)
 )
 
 const exactModelStopTimeout = 10 * time.Second
@@ -96,7 +145,7 @@ const exactModelStopTimeout = 10 * time.Second
 // StopModelReplica stops only the process represented by replica. Configuration
 // cleanup intentionally has no backend.stop fallback: an old worker that does
 // not understand this request leaves the quarantine row for a later retry.
-func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (workerctl.ModelStopReply, error) {
+func (a *nodeControl) StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (workerctl.ModelStopReply, error) {
 	return a.stopModelExact(ctx, nodeID, workerctl.ModelStopRequest{
 		ModelName:       replica.ModelName,
 		ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
@@ -112,14 +161,14 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 // worker refuses unless the operation, the process key and, when given, the
 // address and process instance all match its own records, so a stop of a load
 // that finished cannot become an unload of the model.
-func (a *RemoteUnloaderAdapter) StopLoadOperation(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+func (a *nodeControl) StopLoadOperation(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
 	if req.OperationID == "" {
 		return workerctl.ModelStopReply{}, errors.New("a load stop needs an operation id")
 	}
 	return a.stopModelExact(ctx, nodeID, req)
 }
 
-func (a *RemoteUnloaderAdapter) stopModelExact(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
+func (a *nodeControl) stopModelExact(ctx context.Context, nodeID string, req workerctl.ModelStopRequest) (workerctl.ModelStopReply, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -132,7 +181,7 @@ func (a *RemoteUnloaderAdapter) stopModelExact(ctx context.Context, nodeID strin
 	}
 	done := make(chan result, 1)
 	go func() {
-		reply, err := controlRequestJSON[workerctl.ModelStopRequest, workerctl.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), req, exactModelStopTimeout)
+		reply, err := callVerb[workerctl.ModelStopRequest, workerctl.ModelStopReply](ctx, a.link, nodeID, workerctl.VerbModelStop, req, exactModelStopTimeout)
 		done <- result{reply: reply, err: err}
 	}()
 
@@ -150,20 +199,33 @@ func (a *RemoteUnloaderAdapter) stopModelExact(ctx context.Context, nodeID strin
 // OperationControl renews and completes load operations on a node. A worker
 // that predates operations never answers; the caller treats that as a node it
 // cannot confirm stops on.
-func (a *RemoteUnloaderAdapter) OperationControl(nodeID string, req workerctl.OperationRequest) (*workerctl.OperationReply, error) {
-	return controlRequestJSON[workerctl.OperationRequest, workerctl.OperationReply](a.nats, messaging.SubjectNodeModelOp(nodeID), req, operationControlTimeout)
+func (a *nodeControl) OperationControl(nodeID string, req workerctl.OperationRequest) (*workerctl.OperationReply, error) {
+	return callVerb[workerctl.OperationRequest, workerctl.OperationReply](context.Background(), a.link, nodeID, workerctl.VerbModelOp, req, operationControlTimeout)
 }
 
 const operationControlTimeout = 5 * time.Second
 
+// replicaIndex32 converts the index of a replica for the wire. An index is a
+// small count; a value outside the range of the field is clamped to its end and
+// not wrapped, so that it can never name another replica.
+func replicaIndex32(i int) int32 {
+	switch {
+	case i > math.MaxInt32:
+		return math.MaxInt32
+	case i < math.MinInt32:
+		return math.MinInt32
+	}
+	return int32(i)
+}
+
 // InstallBackendOp is InstallBackend for a load operation: the request carries
 // the operation id and the longest the load may run, so the worker can bound it.
-func (a *RemoteUnloaderAdapter) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (a *nodeControl) InstallBackendOp(nodeID, backendType, modelID, galleriesJSON string, replicaIndex int, opID, operationID string, deadline time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	return a.installBackend(nodeID, workerctl.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
-		ReplicaIndex:     int32(replicaIndex),
+		ReplicaIndex:     replicaIndex32(replicaIndex),
 		OpID:             opID,
 		OperationID:      operationID,
 		DeadlineMs:       deadline.Milliseconds(),
@@ -175,7 +237,7 @@ func (a *RemoteUnloaderAdapter) InstallBackendOp(nodeID, backendType, modelID, g
 // The worker process handles a bounded Free() followed by process termination;
 // forced shutdown skips Free().
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
-func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
+func (a *nodeControl) UnloadRemoteModel(modelName string) error {
 	return a.UnloadRemoteModelContext(context.Background(), modelName, false)
 }
 
@@ -184,7 +246,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModel(modelName string) error {
 // nothing to stop"; ShutdownModel consults this first so it can answer 404 for
 // a model loaded neither locally nor anywhere in the cluster, instead of the
 // misleading 500 "model not found" that a local-store miss used to produce.
-func (a *RemoteUnloaderAdapter) HasRemoteModel(ctx context.Context, modelName string) (bool, error) {
+func (a *nodeControl) HasRemoteModel(ctx context.Context, modelName string) (bool, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -197,7 +259,7 @@ func (a *RemoteUnloaderAdapter) HasRemoteModel(ctx context.Context, modelName st
 
 // UnloadRemoteModelContext is the cancellation-aware extension used by the
 // model loader to preserve forced shutdown across the distributed boundary.
-func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
+func (a *nodeControl) UnloadRemoteModelContext(ctx context.Context, modelName string, force bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -221,7 +283,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 			continue
 		}
 		seenNodeIDs[node.ID] = struct{}{}
-		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
+		xlog.Info("Sending "+a.link.label()+" backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
 		if err := a.stopBackend(node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
 			unloadErr = errors.Join(unloadErr, fmt.Errorf("stopping model on node %s: %w", node.ID, err))
@@ -252,7 +314,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 // For force-reinstall (admin-driven Upgrade), use UpgradeBackend instead -
 // it lives on a different NATS subject so it cannot head-of-line-block
 // routine load traffic on the same worker.
-func (a *RemoteUnloaderAdapter) InstallBackend(
+func (a *nodeControl) InstallBackend(
 	nodeID, backendType, modelID, galleriesJSON, uri, name, alias string,
 	replicaIndex int,
 	opID string,
@@ -265,67 +327,23 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 		URI:              uri,
 		Name:             name,
 		Alias:            alias,
-		ReplicaIndex:     int32(replicaIndex),
+		ReplicaIndex:     replicaIndex32(replicaIndex),
 		OpID:             opID,
 	}, onProgress)
 }
 
-func (a *RemoteUnloaderAdapter) installBackend(nodeID string, req workerctl.BackendInstallRequest, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+func (a *nodeControl) installBackend(nodeID string, req workerctl.BackendInstallRequest, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
 	backendType, modelID, replicaIndex, opID := req.Backend, req.ModelID, int(req.ReplicaIndex), req.OpID
-	subject := messaging.SubjectNodeBackendInstall(nodeID)
-	xlog.Info("Sending NATS backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
+	target := a.link.describe(nodeID, workerctl.VerbBackendInstall)
+	xlog.Info("Sending "+a.link.label()+" backend.install", "nodeID", nodeID, "backend", backendType, "modelID", modelID, "replica", replicaIndex, "opID", opID)
 
-	// Subscribe to the per-op progress subject BEFORE publishing the install
-	// request so we don't miss early events.
-	sub := a.subscribeProgress(nodeID, opID, onProgress)
-
-	reply, err := controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](a.nats, subject, req, a.installTimeout)
-
-	if sub != nil {
-		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
-			xlog.Warn("Failed to unsubscribe from backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
-		}
-	}
-
-	if err != nil && isNATSTimeout(err) {
-		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
-			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	reply, err := callVerbWithProgress[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
+		context.Background(), a.link, nodeID, workerctl.VerbBackendInstall, opID, req, a.installTimeout, onProgress)
+	if err != nil && a.link.waitExpired(err) {
+		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	return reply, err
-}
-
-// subscribeProgress subscribes to the per-op backend-install progress subject
-// so the master can stream per-node download ticks while a worker installs or
-// upgrades. Returns nil (and subscribes to nothing) when onProgress is nil or
-// opID is empty — the reconciler-driven retry path and legacy callers stay
-// silent at no cost. Shared by InstallBackend, UpgradeBackend, and the legacy
-// force-install fallback: an upgrade is a force-reinstall, so it reuses the
-// install-progress subject rather than minting a new one (no new NATS
-// permission, no new rolling-update compat surface). Caller must Unsubscribe
-// the returned subscription after the request completes.
-func (a *RemoteUnloaderAdapter) subscribeProgress(nodeID, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) messaging.Subscription {
-	if onProgress == nil || opID == "" {
-		return nil
-	}
-	progressSubject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
-	s, subErr := a.nats.Subscribe(progressSubject, func(raw []byte) {
-		var ev workerctl.BackendInstallProgressEvent
-		if err := json.Unmarshal(raw, &ev); err != nil {
-			xlog.Debug("malformed backend progress event", "subject", progressSubject, "error", err)
-			return
-		}
-		// Goroutine guard: a slow onProgress callback must not stall the NATS
-		// reader thread. Events spawn one goroutine each, so ordering at the
-		// consumer is best-effort; the worker debounces to ~250ms which dwarfs
-		// goroutine scheduling jitter, and its final Flush() is the terminal tick.
-		go onProgress(ev)
-	})
-	if subErr != nil {
-		xlog.Warn("Failed to subscribe to backend progress subject; proceeding without progress streaming",
-			"subject", progressSubject, "error", subErr)
-		return nil
-	}
-	return s
 }
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
@@ -341,31 +359,30 @@ func (a *RemoteUnloaderAdapter) subscribeProgress(nodeID, opID string, onProgres
 // Timeout: configured via DistributedConfig.BackendUpgradeTimeoutOrDefault
 // (default 15m). Real-world worst case observed: 8-10 minutes for large
 // CUDA-l4t backend images on Jetson over WiFi.
-func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
-	subject := messaging.SubjectNodeBackendUpgrade(nodeID)
-	xlog.Info("Sending NATS backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex, "opID", opID)
+func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendUpgradeReply, error) {
+	target := a.link.describe(nodeID, workerctl.VerbBackendUpgrade)
+	xlog.Info("Sending "+a.link.label()+" backend.upgrade", "nodeID", nodeID, "backend", backendType, "replica", replicaIndex, "opID", opID)
 
-	sub := a.subscribeProgress(nodeID, opID, onProgress)
+	reply, err := callVerbWithProgress[workerctl.BackendUpgradeRequest, workerctl.BackendUpgradeReply](
+		context.Background(), a.link, nodeID, workerctl.VerbBackendUpgrade, opID, workerctl.BackendUpgradeRequest{
+			Backend:          backendType,
+			BackendGalleries: galleriesJSON,
+			URI:              uri,
+			Name:             name,
+			Alias:            alias,
+			ReplicaIndex:     replicaIndex32(replicaIndex),
+			OpID:             opID,
+		}, a.upgradeTimeout, onProgress)
 
-	reply, err := controlRequestJSON[workerctl.BackendUpgradeRequest, workerctl.BackendUpgradeReply](a.nats, subject, workerctl.BackendUpgradeRequest{
-		Backend:          backendType,
-		BackendGalleries: galleriesJSON,
-		URI:              uri,
-		Name:             name,
-		Alias:            alias,
-		ReplicaIndex:     int32(replicaIndex),
-		OpID:             opID,
-	}, a.upgradeTimeout)
-
-	if sub != nil {
-		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
-			xlog.Warn("Failed to unsubscribe from backend upgrade progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
-		}
+	if err != nil && errors.Is(err, errVerbNotServed) {
+		// A worker that answers, and has no such verb, is older than the verb.
+		// The caller falls back to the install it does understand, which is what
+		// ErrNoRoute has always meant for this verb.
+		return nil, fmt.Errorf("%w: %v", ErrNoRoute, err)
 	}
-
-	if err != nil && isNATSTimeout(err) {
-		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
-			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	if err != nil && a.link.waitExpired(err) {
+		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	if err == nil {
 		a.dropStoppedReplicaRows(nodeID, "backend.upgrade", backendType, reply.StoppedProcessKeys, reply.ReportsStoppedProcesses)
@@ -373,48 +390,40 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 	return reply, err
 }
 
-// installWithForceFallback is the rolling-update fallback used by
+// InstallBackendForce is the rolling-update fallback used by
 // DistributedBackendManager.UpgradeBackend when backend.upgrade returns
 // ErrNoRoute (the worker is on a pre-2026-05-08 build that
 // doesn't subscribe to the new subject). It re-fires the legacy
 // backend.install with Force=true. Drop this once every worker is on
 // 2026-05-08 or newer.
-func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
-	subject := messaging.SubjectNodeBackendInstall(nodeID)
+func (a *nodeControl) InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
+	target := a.link.describe(nodeID, workerctl.VerbBackendInstall)
 	xlog.Warn("Falling back to legacy backend.install Force=true (old worker)", "nodeID", nodeID, "backend", backendType)
 
-	sub := a.subscribeProgress(nodeID, opID, onProgress)
+	reply, err := callVerbWithProgress[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
+		context.Background(), a.link, nodeID, workerctl.VerbBackendInstall, opID, workerctl.BackendInstallRequest{
+			Backend:          backendType,
+			BackendGalleries: galleriesJSON,
+			URI:              uri,
+			Name:             name,
+			Alias:            alias,
+			ReplicaIndex:     replicaIndex32(replicaIndex),
+			Force:            true,
+			OpID:             opID,
+		}, a.upgradeTimeout, onProgress)
 
-	reply, err := controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](a.nats, subject, workerctl.BackendInstallRequest{
-		Backend:          backendType,
-		BackendGalleries: galleriesJSON,
-		URI:              uri,
-		Name:             name,
-		Alias:            alias,
-		ReplicaIndex:     int32(replicaIndex),
-		Force:            true,
-		OpID:             opID,
-	}, a.upgradeTimeout)
-
-	if sub != nil {
-		if unsubscribeErr := sub.Unsubscribe(); unsubscribeErr != nil {
-			xlog.Warn("Failed to unsubscribe from legacy backend install progress", "nodeID", nodeID, "backend", backendType, "opID", opID, "error", unsubscribeErr)
-		}
-	}
-
-	if err != nil && isNATSTimeout(err) {
-		return nil, fmt.Errorf("%w (subject=%s nodeID=%s backend=%s): %v",
-			galleryop.ErrWorkerStillInstalling, subject, nodeID, backendType, err)
+	if err != nil && a.link.waitExpired(err) {
+		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
+			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	return reply, err
 }
 
 // ListBackends queries a worker node for its installed backends via NATS request-reply.
-func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*workerctl.BackendListReply, error) {
-	subject := messaging.SubjectNodeBackendList(nodeID)
-	xlog.Debug("Sending NATS backend.list", "nodeID", nodeID)
+func (a *nodeControl) ListBackends(nodeID string) (*workerctl.BackendListReply, error) {
+	xlog.Debug("Sending "+a.link.label()+" backend.list", "nodeID", nodeID)
 
-	return controlRequestJSON[workerctl.BackendListRequest, workerctl.BackendListReply](a.nats, subject, workerctl.BackendListRequest{}, 30*time.Second)
+	return callVerb[workerctl.BackendListRequest, workerctl.BackendListReply](context.Background(), a.link, nodeID, workerctl.VerbBackendList, workerctl.BackendListRequest{}, 30*time.Second)
 }
 
 // PingNode checks that a worker still has a live subscription on the bus.
@@ -435,15 +444,12 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*workerctl.BackendL
 // A worker that answers anything is alive. Only when every subject reports no
 // route is the node treated as absent, so adding a newer subject here can
 // never condemn an older worker.
-func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
-	subjects := []string{
-		messaging.SubjectNodeBackendList(nodeID),
-		messaging.SubjectNodeModelsRunning(nodeID),
-	}
+func (a *nodeControl) PingNode(nodeID string) error {
+	verbs := []string{workerctl.VerbBackendList, workerctl.VerbModelsRunning}
 	var lastErr error
-	for _, subject := range subjects {
-		_, err := controlRequestJSON[workerctl.BackendListRequest, workerctl.BackendListReply](
-			a.nats, subject, workerctl.BackendListRequest{}, 5*time.Second)
+	for _, verb := range verbs {
+		_, err := callVerb[workerctl.BackendListRequest, workerctl.BackendListReply](
+			context.Background(), a.link, nodeID, verb, workerctl.BackendListRequest{}, 5*time.Second)
 		if err == nil {
 			return nil
 		}
@@ -464,10 +470,9 @@ func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
 // in-memory process table, so a slow reply means the worker itself is in
 // trouble, and the caller treats no-answer as "don't know" rather than as
 // "nothing running".
-func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error) {
-	subject := messaging.SubjectNodeModelsRunning(nodeID)
-	return controlRequestJSON[workerctl.ModelsRunningRequest, workerctl.ModelsRunningReply](
-		a.nats, subject, workerctl.ModelsRunningRequest{}, 10*time.Second)
+func (a *nodeControl) ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error) {
+	return callVerb[workerctl.ModelsRunningRequest, workerctl.ModelsRunningReply](
+		context.Background(), a.link, nodeID, workerctl.VerbModelsRunning, workerctl.ModelsRunningRequest{}, 10*time.Second)
 }
 
 // backendStopAckTimeout bounds the wait for a worker's backend.stop reply.
@@ -482,7 +487,7 @@ const backendStopAckTimeout = 15 * time.Second
 // StopBackend tells a worker node to stop a specific gRPC backend process.
 // If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.
-func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
+func (a *nodeControl) StopBackend(nodeID, backend string) error {
 	return a.stopBackend(nodeID, backend, false)
 }
 
@@ -505,14 +510,13 @@ func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 // subscribes to this node's subject at all — is reported, because under the
 // old Publish it was reported too, and callers such as UnloadRemoteModel rely
 // on that to skip the registry cleanup for a node they could not reach.
-func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) error {
-	subject := messaging.SubjectNodeBackendStop(nodeID)
+func (a *nodeControl) stopBackend(nodeID, backend string, force bool) error {
 	req := workerctl.BackendStopRequest{Backend: backend, Force: force}
 
-	reply, err := controlRequestJSON[workerctl.BackendStopRequest, workerctl.BackendStopReply](
-		a.nats, subject, req, backendStopAckTimeout)
+	reply, err := callVerb[workerctl.BackendStopRequest, workerctl.BackendStopReply](
+		context.Background(), a.link, nodeID, workerctl.VerbBackendStop, req, backendStopAckTimeout)
 	if err != nil {
-		if isStrictRequestTimeout(err) {
+		if a.link.acknowledgementMissing(err) {
 			xlog.Warn("Worker did not acknowledge backend.stop; assuming an older worker delivered it",
 				"nodeID", nodeID, "backend", backend, "force", force)
 			return nil
@@ -538,11 +542,10 @@ func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) 
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).
-func (a *RemoteUnloaderAdapter) DeleteBackend(nodeID, backendName string) (*workerctl.BackendDeleteReply, error) {
-	subject := messaging.SubjectNodeBackendDelete(nodeID)
-	xlog.Info("Sending NATS backend.delete", "nodeID", nodeID, "backend", backendName)
+func (a *nodeControl) DeleteBackend(nodeID, backendName string) (*workerctl.BackendDeleteReply, error) {
+	xlog.Info("Sending "+a.link.label()+" backend.delete", "nodeID", nodeID, "backend", backendName)
 
-	reply, err := controlRequestJSON[workerctl.BackendDeleteRequest, workerctl.BackendDeleteReply](a.nats, subject, workerctl.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
+	reply, err := callVerb[workerctl.BackendDeleteRequest, workerctl.BackendDeleteReply](context.Background(), a.link, nodeID, workerctl.VerbBackendDelete, workerctl.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
 	if err != nil {
 		return reply, err
 	}
@@ -566,7 +569,7 @@ func (a *RemoteUnloaderAdapter) DeleteBackend(nodeID, backendName string) (*work
 // then indistinguishable from "stopped nothing", so it must NOT be read as a
 // completed cleanup: leave the rows alone and fall back to the probe-based
 // staleness recovery that was the only mechanism before this change.
-func (a *RemoteUnloaderAdapter) dropStoppedReplicaRows(nodeID, op, backendName string, processKeys []string, reported bool) {
+func (a *nodeControl) dropStoppedReplicaRows(nodeID, op, backendName string, processKeys []string, reported bool) {
 	if !reported {
 		xlog.Debug("Worker did not report stopped processes; relying on probe-based staleness recovery",
 			"nodeID", nodeID, "op", op, "backend", backendName)
@@ -600,12 +603,12 @@ func (a *RemoteUnloaderAdapter) dropStoppedReplicaRows(nodeID, op, backendName s
 //
 // Callers that remove the replica row before they unload must pass the row they
 // read first. Looking the address up afterwards finds nothing.
-func (a *RemoteUnloaderAdapter) UnloadReplica(nodeID string, replica NodeModel) error {
+func (a *nodeControl) UnloadReplica(nodeID string, replica NodeModel) error {
 	if replica.Address == "" {
 		return nil
 	}
-	xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex)
-	reply, err := controlRequestJSON[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](a.nats, messaging.SubjectNodeModelUnload(nodeID),
+	xlog.Info("Sending "+a.link.label()+" model.unload", "nodeID", nodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex)
+	reply, err := callVerb[workerctl.ModelUnloadRequest, workerctl.ModelUnloadReply](context.Background(), a.link, nodeID, workerctl.VerbModelUnload,
 		workerctl.ModelUnloadRequest{ModelName: replica.ModelName, Address: replica.Address}, 30*time.Second)
 	if err != nil {
 		return err
@@ -620,7 +623,7 @@ func (a *RemoteUnloaderAdapter) UnloadReplica(nodeID string, replica NodeModel) 
 // each by address. It reads the replicas from the registry, so it only works
 // while their rows still exist. A caller that deletes the rows first uses
 // UnloadReplica with the row it read.
-func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) error {
+func (a *nodeControl) UnloadModelOnNode(nodeID, modelName string) error {
 	lister, ok := a.registry.(interface {
 		GetNodeModels(ctx context.Context, nodeID string) ([]NodeModel, error)
 	})
@@ -644,7 +647,7 @@ func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) erro
 
 // DeleteModelFiles sends model.delete to all nodes that have the model cached.
 // This removes model files from worker disks.
-func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
+func (a *nodeControl) DeleteModelFiles(modelName string) error {
 	nodes, err := a.registry.FindNodesWithModel(context.Background(), modelName)
 	if err != nil || len(nodes) == 0 {
 		xlog.Debug("No nodes with model for file deletion", "model", modelName)
@@ -652,10 +655,9 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 	}
 
 	for _, node := range nodes {
-		subject := messaging.SubjectNodeModelDelete(node.ID)
-		xlog.Info("Sending NATS model.delete", "nodeID", node.ID, "model", modelName)
+		xlog.Info("Sending "+a.link.label()+" model.delete", "nodeID", node.ID, "model", modelName)
 
-		reply, err := controlRequestJSON[workerctl.ModelDeleteRequest, workerctl.ModelDeleteReply](a.nats, subject, workerctl.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
+		reply, err := callVerb[workerctl.ModelDeleteRequest, workerctl.ModelDeleteReply](context.Background(), a.link, node.ID, workerctl.VerbModelDelete, workerctl.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
 		if err != nil {
 			xlog.Warn("model.delete failed on node", "node", node.Name, "error", err)
 			continue
@@ -667,8 +669,27 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 	return nil
 }
 
-// StopNode tells a worker node to shut down entirely (deregister + exit).
-func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
-	subject := messaging.SubjectNodeStop(nodeID)
-	return a.nats.Publish(subject, nil)
+// errVerbNotServed means that the worker answered and does not serve the verb.
+// It is a fact about the version of the worker. It is not a routing fact and
+// not an answer about any backend, so only a caller that has a fallback for an
+// older worker reads it, and it becomes ErrNoRoute there.
+var errVerbNotServed = workerctl.ErrVerbNotServed
+
+// callVerb sends one request and returns the decoded reply, or nil and the
+// error.
+func callVerb[Req, Reply any](ctx context.Context, link controlLink, nodeID, verb string, req Req, timeout time.Duration) (*Reply, error) {
+	var reply Reply
+	if err := link.request(ctx, nodeID, verb, req, &reply, timeout); err != nil {
+		return nil, err
+	}
+	return &reply, nil
+}
+
+// callVerbWithProgress is callVerb for a verb that reports progress.
+func callVerbWithProgress[Req, Reply any](ctx context.Context, link controlLink, nodeID, verb, opID string, req Req, timeout time.Duration, onProgress func(workerctl.BackendInstallProgressEvent)) (*Reply, error) {
+	var reply Reply
+	if err := link.requestWithProgress(ctx, nodeID, verb, opID, req, &reply, timeout, onProgress); err != nil {
+		return nil, err
+	}
+	return &reply, nil
 }

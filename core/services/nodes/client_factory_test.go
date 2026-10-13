@@ -78,4 +78,17 @@ var _ = Describe("Backend client construction carries the node id", func() {
 		Expect(f.calls()).NotTo(BeEmpty())
 		Expect(f.calls()).To(HaveEach("n1@10.0.0.2:9001"))
 	})
+
+	It("hands the node id and the replica address to the factory from the reconciler's probe", func() {
+		f := &recordingFactory{next: func() grpc.Backend { return &fakeBackendClient{healthy: true} }}
+		rc := NewReplicaReconciler(ReplicaReconcilerOptions{ClientFactory: f})
+
+		Expect(rc.prober.Probe(context.Background(), "n1", "10.0.0.3:9001")).To(Equal(ProbeAlive))
+		Expect(f.calls()).To(Equal([]string{"n1@10.0.0.3:9001"}))
+	})
+
+	It("probes with a direct client when the reconciler is given no factory", func() {
+		rc := NewReplicaReconciler(ReplicaReconcilerOptions{RegistrationToken: "t"})
+		Expect(rc.prober).To(Equal(grpcModelProber{clients: NewTokenClientFactory("t")}))
+	})
 })

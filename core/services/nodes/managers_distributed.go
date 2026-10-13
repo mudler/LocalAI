@@ -20,13 +20,13 @@ import (
 // for model deletion so worker nodes clean up stale files.
 type DistributedModelManager struct {
 	local   galleryop.ModelManager
-	adapter *RemoteUnloaderAdapter
+	adapter NodeControl
 }
 
 // NewDistributedModelManager creates a DistributedModelManager.
 // Backend auto-install is disabled because the frontend node delegates
 // inference to workers and never runs backends locally.
-func NewDistributedModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter) *DistributedModelManager {
+func NewDistributedModelManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter NodeControl) *DistributedModelManager {
 	local := galleryop.NewLocalModelManager(appConfig, ml)
 	local.SetAutoInstallBackend(false)
 	return &DistributedModelManager{
@@ -59,7 +59,7 @@ type nodeProgressSink interface {
 // for backend deletion so worker nodes clean up stale files.
 type DistributedBackendManager struct {
 	local            galleryop.BackendManager
-	adapter          *RemoteUnloaderAdapter
+	adapter          NodeControl
 	registry         *NodeRegistry
 	backendGalleries []config.Gallery
 	systemState      *system.SystemState
@@ -69,7 +69,7 @@ type DistributedBackendManager struct {
 // NewDistributedBackendManager creates a DistributedBackendManager.
 // progressSink may be nil to disable per-node OpStatus writes (single-node
 // tests don't need it).
-func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter *RemoteUnloaderAdapter, registry *NodeRegistry, progressSink nodeProgressSink) *DistributedBackendManager {
+func NewDistributedBackendManager(appConfig *config.ApplicationConfig, ml *model.ModelLoader, adapter NodeControl, registry *NodeRegistry, progressSink nodeProgressSink) *DistributedBackendManager {
 	return &DistributedBackendManager{
 		local:            galleryop.NewLocalBackendManager(appConfig, ml),
 		adapter:          adapter,
@@ -601,7 +601,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 			// Rolling-update fallback: an older worker doesn't know
 			// backend.upgrade. Try the legacy install-with-force path.
 			if errors.Is(err, ErrNoRoute) {
-				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
+				instReply, instErr := d.adapter.InstallBackendForce(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 				if instErr != nil {
 					return instErr
 				}

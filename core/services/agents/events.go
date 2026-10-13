@@ -40,24 +40,48 @@ type AgentCancelEvent struct {
 // EventBridge bridges agent events between NATS and SSE connections.
 // It enables cross-instance SSE: user connects to Frontend 1, agent runs on Frontend 2.
 type EventBridge struct {
-	nats       messaging.MessagingClient
+	nats messaging.Broadcaster
+	// pub is where events are published. It is nats unless a view bound it to
+	// the publisher of one delivery (see WithPublisher).
+	pub        messaging.Publisher
 	store      *AgentStore
 	instanceID string
 
-	// Cancel registry for running agent executions
-	cancelRegistry messaging.CancelRegistry
+	// Cancel registry for running agent executions. A view shares it with the
+	// bridge it came from, so a cancel finds the run whichever view registered it.
+	cancelRegistry *messaging.CancelRegistry
 
 	// Background NATS subscriptions owned by this bridge
 	obsPersisterSub messaging.Subscription
 }
 
 // NewEventBridge creates a new EventBridge.
-func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID string) *EventBridge {
+func NewEventBridge(nc messaging.Broadcaster, store *AgentStore, instanceID string) *EventBridge {
 	return &EventBridge{
-		nats:       nc,
-		store:      store,
-		instanceID: instanceID,
+		nats:           nc,
+		pub:            nc,
+		store:          store,
+		instanceID:     instanceID,
+		cancelRegistry: &messaging.CancelRegistry{},
 	}
+}
+
+// WithPublisher returns a view of the bridge that publishes its events on pub.
+// The view shares the cancel registry, the store and the subscriptions of the
+// bridge. A nil pub gives a view that publishes where the bridge does.
+//
+// A run is bound to the publisher of the delivery that started it, and not to
+// the process. On NATS that publisher is the NATS client itself, and the
+// subjects and payloads are the ones the bridge publishes. On the tunnel it
+// writes the events as lines of the response to the frontend that drives the
+// run. Binding per delivery is what lets a run keep its carrier when the
+// carrier of the cluster changes while it runs.
+func (b *EventBridge) WithPublisher(pub messaging.Publisher) *EventBridge {
+	view := *b
+	if pub != nil {
+		view.pub = pub
+	}
+	return &view
 }
 
 // PublishEvent publishes an agent event to NATS for SSE bridging.
@@ -70,7 +94,7 @@ func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID 
 func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) error {
 	evt.Timestamp = time.Now().UnixMilli()
 	subject := messaging.SubjectAgentEvents(agentName, userID)
-	return b.nats.Publish(subject, evt)
+	return b.pub.Publish(subject, evt)
 }
 
 // PersistObservable publishes an observable_update SSE event for real-time UI
@@ -163,7 +187,7 @@ func (b *EventBridge) CancelExecution(agentName, userID, messageID string) error
 	}
 
 	// Also publish via NATS for other instances
-	return b.nats.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
+	return b.pub.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
 		AgentName: agentName,
 		UserID:    userID,
 		MessageID: messageID,
@@ -201,7 +225,7 @@ func (b *EventBridge) StartObservablePersister() error {
 		return fmt.Errorf("no store available for observable persistence")
 	}
 	// Subscribe to all agent events using wildcard: agent.*.events.*
-	sub, err := messaging.SubscribeJSON(b.nats, "agent.*.events.*", func(evt AgentEvent) {
+	sub, err := messaging.SubscribeJSON(b.nats, messaging.SubjectAgentEventsWildcard, func(evt AgentEvent) {
 		if evt.EventType != "observable_update" {
 			return
 		}

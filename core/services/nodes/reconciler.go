@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,6 +34,10 @@ const (
 	// ProbeUnreachable: nothing is listening (connection refused), or the
 	// backend answered and affirmatively reported itself unhealthy.
 	ProbeUnreachable
+	// ProbeUnknown: the probe could not get a stream to the backend, because
+	// the transport failed. Nothing was learned about the backend, so it is not
+	// a vote to reap and not a proof of life.
+	ProbeUnknown
 )
 
 // ModelProber checks the state of a model's backend process.
@@ -43,7 +48,7 @@ type ModelProber interface {
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
-// has running. Implemented by RemoteUnloaderAdapter over NATS.
+// has running. NodeControl carries it.
 //
 // This is the sounder liveness signal: the worker owns the process table, so
 // its answer does not depend on whether a backend is busy. A health probe
@@ -67,6 +72,9 @@ func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) Prob
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
+	if !ok && grpc.TransportFailureOf(client) != nil {
+		return ProbeUnknown
+	}
 	return classifyProbeOutcome(ok, err)
 }
 
@@ -121,8 +129,8 @@ type ReplicaReconciler struct {
 	registry       *NodeRegistry
 	scheduler      ModelScheduler // interface for scheduling new models
 	unloader       NodeCommandSender
-	adapter        *RemoteUnloaderAdapter // NATS sender for pending-op drain
-	prober         ModelProber            // health probe for model gRPC addrs
+	adapter        NodeControl // sender for pending-op drain
+	prober         ModelProber // health probe for model gRPC addrs
 	db             *gorm.DB
 	interval       time.Duration
 	scaleDownDelay time.Duration
@@ -172,14 +180,18 @@ type ReplicaReconcilerOptions struct {
 	Registry  *NodeRegistry
 	Scheduler ModelScheduler
 	Unloader  NodeCommandSender
-	// Adapter is the NATS sender used to retry pending backend ops. When nil,
+	// Adapter is the control carrier used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
-	Adapter *RemoteUnloaderAdapter
+	Adapter NodeControl
 	// RegistrationToken is used by the default gRPC prober when probing model
 	// addresses. Matches the worker's token so HealthCheck auth succeeds.
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
 	Prober ModelProber
+	// ClientFactory builds the clients of the default prober, so probes dial
+	// the way the router does. When nil it dials the address directly with
+	// RegistrationToken.
+	ClientFactory BackendClientFactory
 	// ProcessLister overrides the default worker process query. When nil and
 	// no Adapter is set, the worker-authoritative pass is skipped entirely and
 	// only the port probe runs.
@@ -218,7 +230,11 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	}
 	prober := opts.Prober
 	if prober == nil {
-		prober = grpcModelProber{clients: &tokenClientFactory{token: opts.RegistrationToken}}
+		clients := opts.ClientFactory
+		if clients == nil {
+			clients = &tokenClientFactory{token: opts.RegistrationToken}
+		}
+		prober = grpcModelProber{clients: clients}
 	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
@@ -358,7 +374,7 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
 				if errors.Is(err, ErrNoRoute) {
-					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
+					instReply, instErr := rc.adapter.InstallBackendForce(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 					if instErr != nil {
 						applyErr = instErr
 					} else if !instReply.Success {
@@ -484,6 +500,12 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			// Bump updated_at so we don't probe this row again immediately.
 			_ = rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
 				Where("id = ?", m.ID).Update("updated_at", time.Now()).Error
+			continue
+		case ProbeUnknown:
+			// The transport failed. This is neither a vote to reap nor proof of
+			// life, so the streak stays as it is.
+			xlog.Debug("Reconciler: model probe could not reach the backend, not counting it",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
 			continue
 		case ProbeBusy:
 			// Reachable but mid-request. Proof of life, so clear the streak.

@@ -27,7 +27,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		// creator 404s, and the cancel never reaches the CancelFunc (#10993).
 		// Standalone deployments skip this entirely and stay process-local.
 		if err := openresponses.GetGlobalStore().EnableDistributed(
-			application.ApplicationConfig().Context, d.Nats, application.InstanceID()); err != nil {
+			application.ApplicationConfig().Context, d.Broadcaster, application.InstanceID()); err != nil {
 			xlog.Error("Failed to enable cross-replica Open Responses store", "error", err)
 		}
 	}

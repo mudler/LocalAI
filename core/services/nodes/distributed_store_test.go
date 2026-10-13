@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -129,5 +130,34 @@ var _ = Describe("DistributedModelStore", func() {
 			Expect(visited).To(HaveKey("model-x"))
 			Expect(visited).To(HaveLen(1))
 		})
+	})
+})
+
+var _ = Describe("DistributedModelStore.Range and the dial seam", func() {
+	It("builds the model of a replica it does not hold through the client factory", func() {
+		lookup := newFakeModelLookup()
+		lookup.nodes["node-t"] = &BackendNode{ID: "node-t", Address: ""}
+		lookup.allModels = []NodeModel{{NodeID: "node-t", ModelName: "tunnelled"}}
+		backend := &fakeBackendClient{healthy: true}
+		factory := &recordingFactory{next: func() grpc.Backend { return backend }}
+		store := NewDistributedModelStore(model.NewInMemoryModelStore(), lookup, WithClientFactory(factory))
+
+		var got *model.Model
+		store.Range(func(_ string, m *model.Model) bool { got = m; return true })
+
+		Expect(got).ToNot(BeNil())
+		Expect(factory.calls()).To(Equal([]string{"node-t@"}), "the node id travels, because a tunnel cannot recover it from the address")
+		Expect(got.GRPC(false, nil)).To(BeIdenticalTo(backend), "the client comes from the seam, not from a TCP dial to the address")
+	})
+
+	It("keeps the tokenless stub of old when no factory is given", func() {
+		lookup := newFakeModelLookup()
+		lookup.nodes["node-1"] = &BackendNode{ID: "node-1", Address: "10.0.0.9:50051"}
+		lookup.allModels = []NodeModel{{NodeID: "node-1", ModelName: "plain"}}
+		store := NewDistributedModelStore(model.NewInMemoryModelStore(), lookup)
+		var got *model.Model
+		store.Range(func(_ string, m *model.Model) bool { got = m; return true })
+		Expect(got).ToNot(BeNil())
+		Expect(got.Process()).To(BeNil())
 	})
 })

@@ -63,7 +63,7 @@ func (a *Application) startFailoverDistributed(ctx context.Context) {
 		xlog.Error("failover: pins will not persist, could not prepare the pin store", "error", err)
 		pins = nil // distsync.New treats a nil store as "no durable pins"
 	}
-	s, err := distsync.New(ctx, a.distributed.Nats, pins, a.failoverManager)
+	s, err := distsync.New(ctx, a.distributed.Broadcaster, pins, a.failoverManager)
 	if err != nil {
 		xlog.Error("failover: state will not be shared between frontends", "error", err)
 		return

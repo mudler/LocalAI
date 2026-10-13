@@ -35,6 +35,7 @@ const (
 	routeRouterDecisions = "/api/router/decisions"
 	routeVoiceProfiles   = "/api/voice-profiles"
 	routeFailover        = "/api/failover"
+	routeClusterCarrier  = "/api/cluster/carrier"
 )
 
 func routeJobStatus(jobID string) string {

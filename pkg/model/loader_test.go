@@ -3,6 +3,7 @@ package model_test
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -198,6 +199,34 @@ var _ = Describe("ModelLoader", func() {
 			// Within TTL, should return the model without health check
 			result := modelLoader.CheckIsLoaded("healthy-remote")
 			Expect(result).To(Equal(loaded), "recently-healthy model should be returned from cache")
+		})
+	})
+
+	Context("Remote model whose transport failed", func() {
+		// A client with its own dialer, as a tunnel gives. Its dial fails in the
+		// transport and says nothing about the backend.
+		failing := func(dialErr error) grpcPkg.Backend {
+			return grpcPkg.NewClientWithDialer("10.0.0.5:50051", false, nil, false, "", func(context.Context, string) (net.Conn, error) {
+				return nil, dialErr
+			})
+		}
+
+		load := func(id string, client grpcPkg.Backend) {
+			GinkgoHelper()
+			remote := model.NewModelWithClient(id, "10.0.0.5:50051", client)
+			_, err := modelLoader.LoadModel(id, "test.model", func(string, string, string) (*model.Model, error) { return remote, nil })
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("keeps the model cached when the transport could not reach the worker", func() {
+			load("unreachable", failing(errors.New("no tunnel is held for that node")))
+			Expect(modelLoader.CheckIsLoaded("unreachable")).ToNot(BeNil(),
+				"a worker that cannot be reached from here has not been shown to have lost the model")
+		})
+
+		It("evicts the model when the worker answered that the backend is gone", func() {
+			load("gone", failing(backendGone{errors.New("the worker could not reach the backend")}))
+			Expect(modelLoader.CheckIsLoaded("gone")).To(BeNil())
 		})
 	})
 
@@ -616,3 +645,9 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 })
+
+// backendGone is the error of a dialer whose host answered that the backend is
+// gone: evidence about the backend, like a refused connection.
+type backendGone struct{ error }
+
+func (backendGone) IsBackendAnswer() bool { return true }

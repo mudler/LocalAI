@@ -246,16 +246,21 @@ func (d *NATSDispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-// runDelivery ignores events: on NATS it is the same bus the process-wide
-// event bridge already publishes on. An undecodable event returns nil because
-// a carrier that redelivers on error would hand it back forever.
-func (d *NATSDispatcher) runDelivery(ctx context.Context, payload []byte, _ messaging.Publisher) error {
+// runDelivery binds the events of the run to the publisher of the delivery. On
+// NATS that publisher is the bus the bridge already publishes on, so nothing
+// changes there. An undecodable event returns nil because a carrier that
+// redelivers on error would hand it back forever.
+func (d *NATSDispatcher) runDelivery(ctx context.Context, payload []byte, events messaging.Publisher) error {
 	var evt AgentChatEvent
 	if err := json.Unmarshal(payload, &evt); err != nil {
 		xlog.Error("Failed to unmarshal agent chat event", "error", err)
 		return nil
 	}
-	d.handleJob(ctx, evt)
+	var bridge *EventBridge
+	if d.eventBridge != nil {
+		bridge = d.eventBridge.WithPublisher(events)
+	}
+	d.handleJob(ctx, evt, bridge)
 	return nil
 }
 
@@ -269,7 +274,7 @@ func (d *NATSDispatcher) Stop() error {
 	return nil
 }
 
-func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
+func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent, bridge *EventBridge) {
 	xlog.Info("Processing agent chat job", "agent", evt.AgentName, "user", evt.UserID)
 
 	// Prefer config from the enriched payload (no DB needed).
@@ -280,16 +285,16 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 		cfg, err = d.configs.GetAgentConfig(evt.UserID, evt.AgentName)
 		if err != nil {
 			xlog.Error("Failed to load agent config", "agent", evt.AgentName, "error", err)
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
+			if bridge != nil {
+				_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
 			}
 			return
 		}
 	}
 	if cfg == nil {
 		xlog.Error("No agent config available", "agent", evt.AgentName)
-		if d.eventBridge != nil {
-			d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
+		if bridge != nil {
+			_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
 		}
 		return
 	}
@@ -298,12 +303,12 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 	defer cancel()
 
 	// Register cancellation
-	if d.eventBridge != nil {
-		d.eventBridge.RegisterCancel(evt.MessageID, cancel)
-		defer d.eventBridge.DeregisterCancel(evt.MessageID)
+	if bridge != nil {
+		bridge.RegisterCancel(evt.MessageID, cancel)
+		defer bridge.DeregisterCancel(evt.MessageID)
 	}
 
-	cb := d.buildNATSCallbacks(evt)
+	cb := d.buildNATSCallbacks(evt, bridge)
 
 	// Build execution options: skills come from the enriched NATS payload
 	// (workers have no database access).
@@ -327,9 +332,9 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 
 	if execErr != nil {
 		xlog.Error("Distributed agent execution failed", "agent", evt.AgentName, "error", execErr)
-		if d.eventBridge != nil {
-			d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error")
-			d.eventBridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
+		if bridge != nil {
+			_ = bridge.PublishStatus(evt.AgentName, evt.UserID, "error")
+			_ = bridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
 				fmt.Sprintf("Agent execution failed: %v", execErr), evt.MessageID+"-error")
 		}
 		return
@@ -347,7 +352,7 @@ func (p *staticSkillProvider) ListSkills() ([]SkillInfo, error) {
 	return p.skills, nil
 }
 
-func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
+func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent, bridge *EventBridge) Callbacks {
 	// Observable tracking: build LocalAGI-compatible observable records
 	// from cogito callbacks so the UI can render them properly.
 	//
@@ -381,7 +386,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 
 	return Callbacks{
 		OnStream: func(ev cogito.StreamEvent) {
-			if d.eventBridge == nil {
+			if bridge == nil {
 				return
 			}
 			data := map[string]any{"timestamp": time.Now().Format(time.RFC3339)}
@@ -423,7 +428,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 			default:
 				return
 			}
-			d.eventBridge.PublishStreamEvent(evt.AgentName, evt.UserID, data)
+			_ = bridge.PublishStreamEvent(evt.AgentName, evt.UserID, data)
 		},
 		OnReasoning: func(text string) {
 			// Reasoning is buffered via OnStream
@@ -433,8 +438,8 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 		},
 		OnToolResult: func(name, result string) {
 			// Emit tool_result stream event for real-time UI display
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
+			if bridge != nil {
+				_ = bridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
 					"type":        "tool_result",
 					"tool_name":   name,
 					"tool_result": result,
@@ -450,23 +455,23 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 				obs.Completion = &coreTypes.Completion{
 					ActionResult: result,
 				}
-				if d.eventBridge != nil {
-					d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "tool_result", obs)
+				if bridge != nil {
+					bridge.PersistObservable(evt.AgentName, evt.UserID, "tool_result", obs)
 				}
 			}
 		},
 		OnStatus: func(status string) {
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, status)
+			if bridge != nil {
+				_ = bridge.PublishStatus(evt.AgentName, evt.UserID, status)
 			}
 		},
 		OnMessage: func(sender, content, msgID string) {
-			if d.eventBridge != nil {
-				d.eventBridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID)
+			if bridge != nil {
+				_ = bridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID)
 			}
 
 			// On agent response, persist the root observable with completion
-			if sender == RoleAgent && d.eventBridge != nil {
+			if sender == RoleAgent && bridge != nil {
 				rootObs.Completion = &coreTypes.Completion{
 					ActionResult: content,
 				}
@@ -480,7 +485,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 						},
 					}
 				}
-				d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "chat", rootObs)
+				bridge.PersistObservable(evt.AgentName, evt.UserID, "chat", rootObs)
 			}
 		},
 	}

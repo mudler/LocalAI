@@ -154,6 +154,9 @@ func (c *Client) Publish(subject string, data any) error {
 	if err != nil {
 		return fmt.Errorf("marshalling message for %s: %w", subject, err)
 	}
+	if err := CheckBroadcastSize(subject, len(payload)); err != nil {
+		return err
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.Publish(subject, payload)

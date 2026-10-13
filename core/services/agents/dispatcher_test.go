@@ -157,3 +157,53 @@ var _ = Describe("NATSDispatcher.Start", func() {
 		Entry("bounded", 4),
 	)
 })
+
+// handlerConsumer is a WorkConsumer that keeps the handler it is given, so a
+// spec can make a delivery with a publisher of its choice.
+type handlerConsumer struct{ handler messaging.WorkHandler }
+
+func (c *handlerConsumer) Consume(_ context.Context, _ messaging.WorkKind, _ int, h messaging.WorkHandler) (messaging.Subscription, error) {
+	c.handler = h
+	return noopSubscription{}, nil
+}
+
+var _ = Describe("NATSDispatcher delivery", func() {
+	var (
+		own      *recordingPublisher
+		consumer *handlerConsumer
+		d        *NATSDispatcher
+	)
+
+	BeforeEach(func() {
+		own = &recordingPublisher{}
+		consumer = &handlerConsumer{}
+		bridge := NewEventBridge(&broadcasterOver{Publisher: own}, nil, "worker-1")
+		d = NewNATSDispatcher(consumer, bridge, nil, "http://127.0.0.1:1", "", 0)
+		Expect(d.Start(GinkgoT().Context())).To(Succeed())
+	})
+
+	payload := func() []byte {
+		raw, err := json.Marshal(AgentChatEvent{AgentName: "a1", UserID: "u1", Message: "hi", MessageID: "m1"})
+		Expect(err).ToNot(HaveOccurred())
+		return raw
+	}
+
+	It("binds the events of a run to the publisher of the delivery, and to nothing else", func() {
+		events := &recordingPublisher{}
+		Expect(consumer.handler(GinkgoT().Context(), payload(), events)).To(Succeed())
+
+		subjects, payloads := events.seen()
+		Expect(subjects).To(Equal([]string{messaging.SubjectAgentEvents("a1", "u1")}))
+		evt := payloads[0].(AgentEvent)
+		Expect(evt.EventType).To(Equal("json_message_status"))
+		Expect(evt.Metadata).To(ContainSubstring("error: agent config not found"))
+		ownSubjects, _ := own.seen()
+		Expect(ownSubjects).To(BeEmpty())
+	})
+
+	It("keeps a delivery that has no publisher on the bridge", func() {
+		Expect(consumer.handler(GinkgoT().Context(), payload(), nil)).To(Succeed())
+		subjects, _ := own.seen()
+		Expect(subjects).To(HaveLen(1))
+	})
+})
