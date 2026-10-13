@@ -13,11 +13,14 @@ import (
 // DistributedConfig holds configuration for horizontal scaling mode.
 // When Enabled is true, PostgreSQL and NATS are required.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
-	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
-	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// InstanceIDGenerated is set when the ID above was generated at startup. A generated
+	// ID changes on every start, so on-disk state must not be keyed by it.
+	InstanceIDGenerated bool
+	NatsURL             string // --nats-url / LOCALAI_NATS_URL
+	StorageURL          string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
+	RegistrationToken   string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the

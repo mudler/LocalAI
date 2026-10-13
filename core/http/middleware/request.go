@@ -85,9 +85,11 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		bearer := strings.TrimPrefix(auth, "Bearer ")
 		if bearer != "" && bearer != auth {
 			end := diagnostics.Begin(ctx, diagnostics.PhaseBearerLookup)
-			exists, err := galleryop.CheckIfModelExistsContext(ctx, re.modelConfigLoader, re.modelLoader, bearer, galleryop.ALWAYS_INCLUDE)
-			end(diagnosticOutcome(ctx, err != nil), 0)
-			if err == nil && exists {
+			// Exact-name check: a configured name or one file in the models
+			// directory. It never enumerates the directory.
+			exists := galleryop.CheckExactModelExists(re.modelConfigLoader, re.modelLoader, bearer)
+			end(diagnosticOutcome(ctx, false), 0)
+			if exists {
 				model = bearer
 			}
 		}
@@ -127,7 +129,13 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 
 			ctx := c.Request().Context()
 			end := diagnostics.Begin(ctx, diagnostics.PhaseDefaultListing)
-			modelNames, err := galleryop.ListModelsContext(ctx, re.modelConfigLoader, re.modelLoader, filterFn, galleryop.SKIP_IF_CONFIGURED)
+			// A filter that rejects unconfigured files (every usecase filter)
+			// gains nothing from reading the models directory, so skip it.
+			policy := galleryop.SKIP_IF_CONFIGURED
+			if !config.FilterMayMatchLooseFiles(filterFn) {
+				policy = galleryop.SKIP_ALWAYS
+			}
+			modelNames, err := galleryop.ListModelsContext(ctx, re.modelConfigLoader, re.modelLoader, filterFn, policy)
 			end(diagnosticOutcome(ctx, err != nil), len(modelNames))
 			if err != nil {
 				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)

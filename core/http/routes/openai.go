@@ -159,9 +159,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 		nodeHeaderMiddleware,
 		usageMiddleware,
 		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
-		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		embeddingsModelResolution(re),
 		func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				if err := re.SetOpenAIRequest(c); err != nil {
@@ -304,4 +302,10 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	capabilitiesHandler := openai.ListModelCapabilitiesEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB())
 	app.GET("/v1/models/capabilities", capabilitiesHandler)
 	app.GET("/models/capabilities", capabilitiesHandler)
+}
+
+// embeddingsModelResolution binds the request and resolves its model. The
+// embeddings default is looked up only when the body names no model.
+func embeddingsModelResolution(re *middleware.RequestExtractor) echo.MiddlewareFunc {
+	return re.SetModelAndConfigWithDefault(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }, config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS))
 }

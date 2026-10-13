@@ -444,6 +444,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Attach the GGUF header cache now, before any model config is loaded, so the
+	// first load already starts from the shared file.
+	// Only an ID the operator set keys a per-instance file; a generated ID would
+	// give every restart its own file.
+	cacheInstanceID := ""
+	if !options.Distributed.InstanceIDGenerated {
+		cacheInstanceID = options.Distributed.InstanceID
+	}
+	config.ConfigureGGUFHeaderCache(options.Context, options.DataPath, cacheInstanceID)
+
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
 	if err := application.ModelConfigLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
