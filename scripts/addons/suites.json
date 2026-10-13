@@ -328,7 +328,11 @@
       "rejects anonymous callers and forged forwarding headers",
       "requires same-origin browser requests for cookie mutations",
       "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
-      "treats every action except the known reads as a mutation"
+      "treats every action except the known reads as a mutation",
+      "reports an account store outage as unavailable and a refused account as forbidden",
+      "serves the synthetic owner through the real chain, denies sharing and rejects named callers",
+      "lets callers through only when the deployment selected local-owner mode",
+      "keeps authentication, the feature gate and administration when accounts exist"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -372,7 +376,8 @@
           "still reports unavailable when the owner is unable to serve and not forbidden",
           "types an unknown mutation outcome as unavailable without losing its operation",
           "validates finite relay budgets and prevents disabling polling bounds",
-          "treats every action except the known reads as a mutation"
+          "treats every action except the known reads as a mutation",
+          "reports an account store outage as unavailable and a refused account as forbidden"
         ]
       },
       {
@@ -389,7 +394,10 @@
           "rejects anonymous and forged forwarding authority through real authentication",
           "rejects anonymous callers and forged forwarding headers",
           "requires same-origin browser requests for cookie mutations",
-          "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys"
+          "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
+          "serves the synthetic owner through the real chain, denies sharing and rejects named callers",
+          "lets callers through only when the deployment selected local-owner mode",
+          "keeps authentication, the feature gate and administration when accounts exist"
         ]
       }
     ]
@@ -428,7 +436,19 @@
       "invalidates pending proposals on revoke and downgrade and fails closed when it cannot",
       "requires explicit creation authority and keeps pending registrations inaccessible",
       "reconciles a registration interrupted by a crash from the durable store",
-      "maps opaque ids to the trusted addon and owner and keeps an absent policy denying"
+      "maps opaque ids to the trusted addon and owner and keeps an absent policy denying",
+      "does not acknowledge a retried downgrade while the lowered user's write still runs",
+      "retries a failed proposal invalidation after the lowered grant is already durable",
+      "keeps the drain owed across a restart",
+      "maps a store outage to unavailable and a disabled account to forbidden",
+      "caps pending and committed registrations per user and in total",
+      "applies finite defaults when no limit is configured",
+      "denies creation as unavailable when the authority cannot tell",
+      "does not start the work when revocation cancels the admission before run",
+      "rejects persisted unknown roles and trailing bytes without resetting the store",
+      "removes stale temporary files on open",
+      "stops accepting writes after a failed directory sync and keeps the applied change",
+      "retains resources and grants across a real manager uninstall and restart"
     ],
     "report": ".cache/addons/logs/policy.json"
   }

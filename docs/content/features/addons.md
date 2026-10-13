@@ -317,7 +317,11 @@ The owner loads protected sources and reconciles its journal before exposing
 Forwarding instances construct no catalog or installer and never reconcile storage.
 `AdminCheck` is mandatory on the owner and excluded from serialized settings.
 `Host` optionally sets compatibility; its zero value uses the current host and
-version-one contracts. There are no new CLI flags or runtime settings yet.
+version-one contracts. `OwnershipMode` is `named-user` (the default when empty) or
+`local-owner`; see "Explicit local-owner mode" below. There are no CLI flags or
+runtime settings for addons: like the rest of `AddonConfig` it is startup-only
+configuration that the embedding host supplies, and every frontend of one
+deployment must use the same value.
 Application bootstrap starts enabled addon processes after durable reconciliation.
 
 The host supplies an authoritative `catalog.AdminCheck`. It must check current
@@ -473,7 +477,8 @@ All participating frontends must use the authoritative named-user database. The 
 queries current account, credential, and feature state before dispatch. Missing storage,
 paused keys, revoked keys, expired sessions, and legacy synthetic identities deny access.
 The embedding host's permissive installation callback cannot override these checks when
-transport is enabled. Local-owner HTTP access is not enabled by this bootstrap.
+transport is enabled in the default named-user mode. Local-owner HTTP access exists only
+when the deployment sets `OwnershipMode: "local-owner"`; it is never inferred.
 
 The carrier requires TLS 1.3, CA verification, and explicit certificate pins. It obtains
 a fresh random audience from the pinned owner before signing each request. Each owner
@@ -573,19 +578,62 @@ caller owns every resource. A populated store opened in the other mode is refuse
 `policy.MigrateMode` changes it only while the host is stopped (the store lock must be
 free), after it wrote a backup, and shared data can never return to local-owner mode.
 
-Account and credential status are checked again at each admission. The policy keeps no
+Account and credential status are checked again at each admission. A storage outage
+of the account database is `503` (the check reports an unavailable cause), while a missing,
+disabled or unauthorized account is `403`, from every frontend. The policy keeps no
 current-user state: the actor is an argument of every call, so shared MCP sessions carry
 none. Writes to one resource run one at a time; reads run concurrently. A revocation (or
 lowering a role) is durable first, then invalidates the user's pending proposals through
 the `ProposalInvalidator` seam, cancels the user's admitted work and returns only when
 that work ended. If it does not end within the drain bound the call reports `503`
 (`ErrDrainPending`): the revocation is already effective for new work but is not
-acknowledged. Disabling or uninstalling an addon keeps its resources and grants; purge is
+acknowledged. The owed drain is stored with the change itself, so repeating the same
+`SetGrant` or `Revoke` after a failed attempt (or after a restart) waits for the user's
+admitted work and invalidates proposals again; it is acknowledged only after both
+finished, and the mark is then cleared. Disabling or uninstalling an addon keeps its resources and grants; purge is
 a separate, explicit operation that is not available to tools.
 
-A new resource needs explicit creation authority. `Register` records it pending and
-inaccessible before the addon creates anything; `Commit` activates it, and `Reconcile`
-resolves registrations left by a crash. A database with no record is never reachable.
+A new resource needs explicit creation authority. At bootstrap that authority requires a
+current account check and an addon that is installed, enabled and not changing on the
+owner; an absent addon is denied and a manager that cannot answer is `503`. `Register`
+records the resource pending and inaccessible before the addon creates anything; `Commit`
+activates it, and `Reconcile` resolves registrations left by a crash. The owner runs
+`Reconcile` at startup before it serves. Until the code that creates resources supplies
+a backing-resource existence check, the default drops pending registrations and keeps
+committed ones. A database with no record is never reachable.
+
+Registrations are bounded. Per owner user at most 8 pending and 256 total resources, and
+at most 4096 in the store (`Options.MaxPendingPerUser`, `MaxResourcesPerUser`,
+`MaxResources`; zero selects these finite defaults). A request over a limit is denied
+with `403` (`ErrQuota`); abandoning or reconciling away a registration frees its slot.
+
+The store file is validated on open: an unknown role, a grant to the owner, a second JSON
+document after the first, or an unknown field refuses the store, which is never reset.
+Leftover `.policy-*` temporary files from a crash are removed on open. If a change was
+renamed into place but the directory synchronization failed, the in-memory state follows
+the file (a revocation is not undone) and the store accepts no further writes, reporting
+`503`, until the host restarts.
+
+### Explicit local-owner mode
+
+Set `AddonConfig.OwnershipMode` to `local-owner` to select this mode. It is the only way:
+a missing credential, an absent account database or an unknown value never selects it, and
+an unknown value fails startup. The owner logs a warning at startup that unauthenticated
+callers share one authority.
+
+- Every caller that passes the addon route chain acts as one synthetic principal,
+  `local-owner`, with a fixed credential `local-owner`. Named-user mode rejects that ID,
+  so it cannot collide with a real user.
+- That principal owns every resource and sharing is disabled: `SetGrant` and `Revoke`
+  are denied.
+- With the authentication feature disabled (no account database) there is no caller
+  identity at all: any client that can reach the HTTP port shares the authority, including
+  lifecycle administration. Use this only on a trusted loopback or private network.
+- With an account database, the route chain still authenticates callers and applies the
+  addons feature gate, and lifecycle changes still need an administrator; only data
+  ownership collapses to the single local owner.
+- The store records the mode. Opening a populated store in the other mode is refused;
+  use `policy.MigrateMode` while stopped. Shared data cannot return to this mode.
 
 Resource reads obtain the current ready runtime incarnation and check the exact generation.
 Private output copying rechecks credentials and stays inside admission until completion
