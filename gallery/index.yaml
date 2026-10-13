@@ -68441,7 +68441,7 @@
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
     - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-      sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
 - name: swift-1.5-qwen3.8-27b-q5
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -68585,7 +68585,7 @@
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q8_0.gguf
     - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
       uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
-      sha256: 10a24dc46eb801ad794886ef27ea1e43634d35388dfaf2e2374b7a8b67faf526
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
 - name: lfm2.5-2.6b-turbo-brilliance
   variants:
     - model: lfm2.5-2.6b-turbo-brilliance-q6
@@ -69739,7 +69739,7 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
       uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/ba6d29fb2505241d7dae88df4fda9038999c3ca9/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
-      sha256: 0ce585403ce20cb0a77e2636cd4aeb9b1a48b88487c6b0dbce11e71ac12a6193
+      sha256: 2dfc33220a03e3e1d6c688d0cce1ffe035a83175fdcb1811b626615e3081933a
 - name: qwen3.8-27b-humanlike-chat-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -71238,7 +71238,7 @@
   files:
     - filename: llama-cpp/models/twil-lm3-pro/TwIL-LM3-Pro-Q4_K_M.gguf
       uri: https://huggingface.co/webAI-Official/TwIL-LM3-Pro/resolve/4214aaa4020cd51ac418dc6c7243c076665a811d/TwIL-LM3-Pro-Q4_K_M.gguf
-      sha256: 8a7e0f48af1feea9a107e17e2c03e8ad8d0c397c47a5dae4a73b3d92e3533377
+      sha256: 7a3edb4edbcf960f8282faa2b5f71ccd26e2a6bdbf1b4889179ff173cd13e161
 - name: twil-lm3-pro-q8
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -72000,7 +72000,7 @@
   files:
     - filename: humanizer-12b-Q4_K_M.gguf
       uri: https://huggingface.co/jialinyyzz/humanizer/resolve/4845f89d6750e5baac7baa644a7ffedc3a86b969/humanizer-12b-Q4_K_M.gguf
-      sha256: 2229574dec5178629575ee4a153dfee7d9e924ab997d0ad9d2ac622b67e44834
+      sha256: 5f0fd4bf39401e58c1d4b4a3eda3fc42f64cb9f28d7cd80bcfccca568b215a2f
 - name: humanizer-12b-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
