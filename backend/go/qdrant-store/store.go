@@ -29,6 +29,9 @@ const (
 
 	// Results carry up to 50 MiB of base64-encoded values.
 	maxRecvMsgBytes = 128 << 20
+
+	// upsertChunkSize bounds the points sent in one Upsert request.
+	upsertChunkSize = 500
 )
 
 var pointNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://localai.io/qdrant-store"))
@@ -135,15 +138,26 @@ func (s *QdrantStore) StoresSet(opts *pb.StoresSetOptions) error {
 		}
 	}
 
-	err := s.upsert(points)
+	err := upsertChunked(points, upsertChunkSize, s.upsert)
 	if isNotFound(err) {
 		if err := s.createCollection(len(opts.Keys[0].Floats)); err != nil {
 			return fmt.Errorf("qdrant-store: Set: %w", err)
 		}
-		err = s.upsert(points)
+		err = upsertChunked(points, upsertChunkSize, s.upsert)
 	}
 	if err != nil {
 		return fmt.Errorf("qdrant-store: Set: %w", err)
+	}
+	return nil
+}
+
+// upsertChunked calls send with batches of at most size points; send applies
+// its own request timeout per call, so a large batch is not bounded by one request_timeout_ms.
+func upsertChunked(points []*qdrant.PointStruct, size int, send func([]*qdrant.PointStruct) error) error {
+	for start := 0; start < len(points); start += size {
+		if err := send(points[start:min(start+size, len(points))]); err != nil {
+			return err
+		}
 	}
 	return nil
 }

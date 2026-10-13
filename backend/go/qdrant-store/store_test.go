@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"math"
 	"time"
 
@@ -71,5 +72,38 @@ var _ = Describe("QdrantStore", func() {
 		Expect(s.StoresDelete(&pb.StoresDeleteOptions{})).To(HaveOccurred())
 		_, err := s.StoresFind(&pb.StoresFindOptions{Key: &pb.StoresKey{Floats: []float32{1}}, TopK: 0})
 		Expect(err).To(MatchError(ContainSubstring("topK")))
+	})
+})
+
+var _ = Describe("upsertChunked", func() {
+	points := func(n int) []*qdrant.PointStruct {
+		return make([]*qdrant.PointStruct, n)
+	}
+
+	It("splits a batch into chunks of at most the given size", func() {
+		var sizes []int
+		err := upsertChunked(points(1201), 500, func(c []*qdrant.PointStruct) error {
+			sizes = append(sizes, len(c))
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sizes).To(Equal([]int{500, 500, 201}))
+	})
+
+	It("sends a small batch in one call", func() {
+		calls := 0
+		Expect(upsertChunked(points(3), 500, func([]*qdrant.PointStruct) error { calls++; return nil })).To(Succeed())
+		Expect(calls).To(Equal(1))
+	})
+
+	It("stops at the first failing chunk", func() {
+		boom := errors.New("boom")
+		calls := 0
+		err := upsertChunked(points(1200), 500, func([]*qdrant.PointStruct) error {
+			calls++
+			return boom
+		})
+		Expect(err).To(MatchError(boom))
+		Expect(calls).To(Equal(1))
 	})
 })
