@@ -1021,3 +1021,17 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+### GLM-5.3-Flash Maya quantizations
+
+The `glm-5.3-flash-q4` entry also offers the Maya-S, Maya-S24, Maya-M, and
+Maya-L GGUF builds as variants. Each includes all weight shards and the vision
+projector for the `llama-cpp` backend. For example, install Maya-S explicitly:
+
+```bash
+local-ai models install --variant glm-5.3-flash-maya-s glm-5.3-flash-q4
+```
+
+These entries use standard llama.cpp inference. They do not configure Project
+Maya's SSD expert offloading or enable MTP speculative decoding. The publisher's
+Project Maya memory and speed measurements do not describe these configurations.
