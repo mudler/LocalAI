@@ -101,7 +101,14 @@ func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 	go func() {
 		select {
 		case <-ctx.Done():
-			_ = rc.SetWriteDeadline(time.Now())
+			// done closes before the deferred cancel runs. When both are ready
+			// the relay already returned, and expiring the deadline now would
+			// break the caller's final write, such as a typed denial status.
+			select {
+			case <-done:
+			default:
+				_ = rc.SetWriteDeadline(time.Now())
+			}
 		case <-done:
 		}
 	}()

@@ -191,6 +191,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		json.NewEncoder(w).Encode(result)
 	}), nil
 }
+
 // StatusFor is the one mapping from a gateway error to an HTTP status. The owner
 // uses it for typed responses and the HTTP endpoints use it for local errors, so
 // the same decision has the same status from every frontend.

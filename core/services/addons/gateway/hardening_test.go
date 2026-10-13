@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing/iotest"
+	"time"
 
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -248,5 +250,37 @@ var _ = Describe("installed generation assets", func() {
 		// Without an owner journal the frontend cannot serve assets locally.
 		e = (&Gateway{Revalidate: g.Revalidate}).asset(context.Background(), admin, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: "install", Generation: 1}, Handle: "ui.js"}, httptest.NewRecorder())
 		Expect(e).To(Equal(ErrUnavailable))
+	})
+})
+
+// deadlineWriter records every write deadline the relay arms on the response.
+type deadlineWriter struct {
+	*httptest.ResponseRecorder
+	mu        sync.Mutex
+	deadlines []time.Time
+}
+
+func (d *deadlineWriter) SetWriteDeadline(t time.Time) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.deadlines = append(d.deadlines, t)
+	return nil
+}
+
+var _ = Describe("relay write deadline", func() {
+	It("never expires the response deadline after the relay returned", func() {
+		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		for i := 0; i < 200; i++ {
+			w := &deadlineWriter{ResponseRecorder: httptest.NewRecorder()}
+			e := g.Relay(context.Background(), frontActor, RelayRequest{Request: contract.Request{OperationID: "op", Action: "operation-status"}, Kind: "status"}, w)
+			Expect(e).To(MatchError(ErrUnavailable))
+			time.Sleep(time.Millisecond)
+			w.mu.Lock()
+			for _, t := range w.deadlines {
+				// The owner still writes a typed denial after Relay returns.
+				Expect(time.Until(t)).To(BeNumerically(">", time.Second), "iteration %d", i)
+			}
+			w.mu.Unlock()
+		}
 	})
 })
