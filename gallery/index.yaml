@@ -71495,6 +71495,88 @@
     - filename: llama-cpp/models/index-homura-2b/Index-Homura-2B.Q8_0.gguf
       sha256: 4bf595a8977539b1d5ff87a0284dd795a8b4f79dfb11172195e86d5cd6d84402
       uri: https://huggingface.co/mradermacher/Index-Homura-2B-GGUF/resolve/0b340d2d01d6787e23f09b67bfdde943bbb63e47/Index-Homura-2B.Q8_0.gguf
+- name: index-translate-9b-vision
+  variants:
+    - model: index-translate-9b-vision-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-9B
+    - https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF
+  description: |
+    Index-Translate-9B translates text and images across 150 languages, with
+    support for terminology, formatting, style, and context instructions.
+    This official Q4_K_M GGUF includes the Q8_0 vision projector and uses
+    llama.cpp with thinking disabled and greedy decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - translation
+    - vision
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/index-translate-9b-vision/Index-Translate-9B.mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-9b-vision/Index-Translate-9B.Q4_K_M.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-9b-vision/Index-Translate-9B.Q4_K_M.gguf
+      sha256: 9cc6758b0007f4cbf42ea3400768cbff91ae74ef8d640e467158348426d33713
+      uri: https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF/resolve/645939fbab839a656f1bc39975a872bc8ad749f8/Index-Translate-9B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/index-translate-9b-vision/Index-Translate-9B.mmproj-Q8_0.gguf
+      sha256: 0c654bbb219cea5dbb80656ec506e308c82b06aac7287f7636b9b6d06a44b957
+      uri: https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF/resolve/645939fbab839a656f1bc39975a872bc8ad749f8/Index-Translate-9B.mmproj-Q8_0.gguf
+- name: index-translate-9b-vision-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IndexTeam/Index-Translate-9B
+    - https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF
+  description: |
+    Index-Translate-9B translates text and images across 150 languages, with
+    support for terminology, formatting, style, and context instructions.
+    This official Q8_0 GGUF includes the Q8_0 vision projector and uses
+    llama.cpp with thinking disabled and greedy decoding.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - translation
+    - vision
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/index-translate-9b-vision/Index-Translate-9B.mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    chat_template_kwargs:
+      enable_thinking: false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/index-translate-9b-vision/Index-Translate-9B.Q8_0.gguf
+      temperature: 0
+  files:
+    - filename: llama-cpp/models/index-translate-9b-vision/Index-Translate-9B.Q8_0.gguf
+      sha256: 21c65d2f8402ee03cb90135b29d8b9eceba7d6ed4ef680c8fcede2def77b5184
+      uri: https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF/resolve/645939fbab839a656f1bc39975a872bc8ad749f8/Index-Translate-9B.Q8_0.gguf
+    - filename: llama-cpp/mmproj/index-translate-9b-vision/Index-Translate-9B.mmproj-Q8_0.gguf
+      sha256: 0c654bbb219cea5dbb80656ec506e308c82b06aac7287f7636b9b6d06a44b957
+      uri: https://huggingface.co/IndexTeam/Index-Translate-9B-GGUF/resolve/645939fbab839a656f1bc39975a872bc8ad749f8/Index-Translate-9B.mmproj-Q8_0.gguf
 - name: index-translate-2b
   variants:
     - model: index-translate-2b-q8
