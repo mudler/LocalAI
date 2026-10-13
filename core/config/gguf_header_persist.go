@@ -51,9 +51,9 @@ type persistedGGUFHeader struct {
 	TrainedPanic *string `json:"trained_panic,omitempty"`
 }
 
-// ggufHeaderCachePath returns the shared GGUF header cache file in dataPath.
-func ggufHeaderCachePath(dataPath string) string {
-	return headerCachePath(dataPath)
+// ggufHeaderCachePath returns the GGUF header cache file for instanceID in dataPath.
+func ggufHeaderCachePath(dataPath, instanceID string) string {
+	return headerCachePath(dataPath, instanceID)
 }
 
 // ggufEstimatorFingerprint names the inputs that decide the estimator-derived
@@ -137,6 +137,6 @@ func fromPersistedHeader(p persistedGGUFHeader) ggufHeader {
 // are loaded. An empty dataPath (standalone without data) keeps the cache in
 // memory only. Frontends that share the data volume share the file; see the
 // shared-by-file mode in the model configuration docs.
-func ConfigureGGUFHeaderCache(ctx context.Context, dataPath string) {
-	ggufHeaders.attachDisk(ctx, dataPath)
+func ConfigureGGUFHeaderCache(ctx context.Context, dataPath, instanceID string) {
+	ggufHeaders.attachDisk(ctx, dataPath, instanceID)
 }

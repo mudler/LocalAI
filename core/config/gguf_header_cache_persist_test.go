@@ -18,7 +18,7 @@ import (
 // the way startup attaches the process cache. The saver is stopped in cleanup.
 func newPersistentCache(dataPath string) *ggufHeaderCache {
 	c := newGGUFHeaderCache(ggufHeaderCacheSize)
-	c.attachDisk(context.Background(), dataPath)
+	c.attachDisk(context.Background(), dataPath, "")
 	DeferCleanup(c.stopPersist)
 	return c
 }
@@ -96,7 +96,7 @@ var _ = Describe("GGUF header cache persistence", func() {
 		dir := GinkgoT().TempDir()
 		writeHeaderCacheFile(filepath.Join(dir, "weights.gguf"), 128)
 		persistFirstEntry(dir)
-		path := ggufHeaderCachePath(dir)
+		path := ggufHeaderCachePath(dir, "")
 
 		raw, err := os.ReadFile(path)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -125,7 +125,7 @@ var _ = Describe("GGUF header cache persistence", func() {
 		dir := GinkgoT().TempDir()
 		writeHeaderCacheFile(filepath.Join(dir, "weights.gguf"), 128)
 		persistFirstEntry(dir)
-		path := ggufHeaderCachePath(dir)
+		path := ggufHeaderCachePath(dir, "")
 		valid, err := os.ReadFile(path)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -148,8 +148,8 @@ var _ = Describe("GGUF header cache persistence", func() {
 		writeHeaderCacheFile(filepath.Join(dir, "weights.gguf"), 128)
 		persistFirstEntry(dir)
 
-		Expect(ggufHeaderCachePath(dir)).To(Equal(filepath.Join(dir, "header-cache.json")))
-		Expect(ggufHeaderCachePath(dir)).To(BeAnExistingFile())
+		Expect(ggufHeaderCachePath(dir, "")).To(Equal(filepath.Join(dir, "header-cache.json")))
+		Expect(ggufHeaderCachePath(dir, "")).To(BeAnExistingFile())
 
 		other := newPersistentCache(dir)
 		Expect(other.len()).To(Equal(1), "a second frontend starts from the shared file")
@@ -161,14 +161,14 @@ var _ = Describe("GGUF header cache persistence", func() {
 		persistFirstEntry(dir)
 
 		Expect(tmpFilesIn(dir)).To(BeEmpty())
-		Expect(ggufHeaderCachePath(dir)).To(BeAnExistingFile())
+		Expect(ggufHeaderCachePath(dir, "")).To(BeAnExistingFile())
 	})
 
 	It("keeps the previous file intact when a write fails and removes its temp file", func() {
 		dir := GinkgoT().TempDir()
 		writeHeaderCacheFile(filepath.Join(dir, "weights.gguf"), 128)
 		persistFirstEntry(dir)
-		path := ggufHeaderCachePath(dir)
+		path := ggufHeaderCachePath(dir, "")
 		before, err := os.ReadFile(path)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -194,7 +194,7 @@ var _ = Describe("GGUF header cache persistence", func() {
 		}
 		Expect(c.flush()).To(Succeed())
 
-		raw, err := os.ReadFile(ggufHeaderCachePath(dir))
+		raw, err := os.ReadFile(ggufHeaderCachePath(dir, ""))
 		Expect(err).NotTo(HaveOccurred())
 		var file persistedGGUFCache
 		Expect(json.Unmarshal(raw, &file)).To(Succeed())

@@ -49,7 +49,7 @@ func fakeSpecWith(parses *int32, fingerprint string, schema int) headerCacheSpec
 // way startup attaches the GGUF cache. The saver is stopped in cleanup.
 func newFakeCache(dataPath string, spec headerCacheSpec[fakeSnap]) *headerCache[fakeSnap] {
 	c := newHeaderCache(spec, 8)
-	c.attachDisk(context.Background(), dataPath)
+	c.attachDisk(context.Background(), dataPath, "")
 	DeferCleanup(c.stopPersist)
 	return c
 }
@@ -59,7 +59,7 @@ func writeFakeModel(path string, size int) {
 }
 
 func fakeCacheFile(dataPath string) string {
-	return headerCachePath(dataPath)
+	return headerCachePath(dataPath, "")
 }
 
 var _ = Describe("Generic header cache", func() {
@@ -186,7 +186,7 @@ var _ = Describe("Generic header cache", func() {
 	})
 
 	It("uses header-cache.json for every instance", func() {
-		Expect(headerCachePath("/data")).To(Equal(filepath.Join("/data", "header-cache.json")))
+		Expect(headerCachePath("/data", "")).To(Equal(filepath.Join("/data", "header-cache.json")))
 
 		dir := GinkgoT().TempDir()
 		model := filepath.Join(dir, "model.bin")

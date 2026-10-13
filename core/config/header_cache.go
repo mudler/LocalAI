@@ -4,11 +4,14 @@ package config
 import (
 	"container/list"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -249,12 +252,12 @@ type headerFileEntry struct {
 // loads the existing file once, then starts the background saver. An empty
 // dataPath keeps the cache in memory only. Calling it again replaces the
 // previous attach.
-func (c *headerCache[S]) attachDisk(parent context.Context, dataPath string) {
+func (c *headerCache[S]) attachDisk(parent context.Context, dataPath, instanceID string) {
 	c.stopPersist()
 	if dataPath == "" {
 		return
 	}
-	path := headerCachePath(dataPath)
+	path := headerCachePath(dataPath, instanceID)
 	c.readAndMerge(path)
 
 	ctx, cancel := context.WithCancel(parent)
@@ -273,10 +276,23 @@ func (c *headerCache[S]) attachDisk(parent context.Context, dataPath string) {
 	}()
 }
 
-// headerCachePath returns the shared cache file in dataPath.
-func headerCachePath(dataPath string) string {
-	return filepath.Join(dataPath, headerCacheFileName)
+// headerCachePath returns the cache file in dataPath. An empty instanceID
+// selects the shared header-cache.json. A non-empty instanceID selects a file
+// of its own, so one frontend's entries never mix with another's. Unusual IDs
+// are hashed so the file name stays a plain token.
+func headerCachePath(dataPath, instanceID string) string {
+	if instanceID == "" {
+		return filepath.Join(dataPath, headerCacheFileName)
+	}
+	name := instanceID
+	if !headerInstanceIDPattern.MatchString(instanceID) {
+		sum := sha256.Sum256([]byte(instanceID))
+		name = "x" + hex.EncodeToString(sum[:16])
+	}
+	return filepath.Join(dataPath, "header-cache-"+name+".json")
 }
+
+var headerInstanceIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // stopPersist stops the saver after a final write of any pending change and
 // disables persistence. It is safe to call when nothing is attached.

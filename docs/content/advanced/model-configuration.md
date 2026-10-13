@@ -165,7 +165,9 @@ in by declaring the artifact explicitly.
 
 When a model config does not set a value itself, LocalAI reads the header of its GGUF file to choose defaults. The header gives the layer count, the trained context length, the chat template, the token IDs, and whether the file has an embedded multi-token-prediction head. Reading a large header takes seconds, so LocalAI keeps the result in a cache.
 
-**Mode: shared by file.** Every frontend that uses the same data path reads and writes one cache file, `header-cache.json`. A frontend can therefore use the headers another frontend has already read. This mode is valid only while all frontends mount the same data volume. A frontend with its own volume keeps its own copy of the file: its results stay correct, but it does not share the other frontends' entries.
+**Mode: shared by file.** Every frontend that uses the same data path reads and writes one cache file, `header-cache.json`. A frontend can therefore use the headers another frontend has already read. This mode is valid only while all frontends mount the same data volume.
+
+Set an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`) to give a frontend its own file, `header-cache-<id>.json`, instead of the shared one. It then keeps its own entries across restarts and does not share them with other frontends. An instance ID that is not a plain token (letters, digits, `-` and `_`, up to 64 characters) is hashed into the file name. In distributed mode, an ID that LocalAI generates at startup does not select a file of its own, because it changes on every start; such a frontend uses the shared file.
 
 {{% notice warning %}}
 All frontends that share this cache must mount the same data volume. With a ReadWriteOnce volume, the volume attaches to one node at a time, so all frontends that share the cache must run on that one node. A frontend on another node cannot mount the volume and will not start. Sharing this cache across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
@@ -192,7 +194,8 @@ The cache holds at most 256 entries. The least recently used entry is dropped fi
 
 The file is in the data path (`--data-path`, default `data/` under the LocalAI base path):
 
-- `header-cache.json`, in standalone mode and in distributed mode. The instance ID does not change the name, so every frontend that mounts the same data path uses the same file.
+- `header-cache.json`, in standalone mode and for every frontend that does not set an instance ID. Frontends that mount the same data path share it.
+- `header-cache-<id>.json`, for a frontend that sets an instance ID (`--instance-id` or `LOCALAI_INSTANCE_ID`).
 - No data path: the cache is kept in memory only. Each start parses the headers again.
 
 Files named `gguf-header-cache*.json` come from earlier versions. LocalAI does not read them, so you can delete them.

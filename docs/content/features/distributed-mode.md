@@ -676,6 +676,8 @@ Two limits apply:
 
 Frontends that mount the same data volume share one [GGUF header cache]({{% relref "advanced/model-configuration" %}}#gguf-header-cache) file, `header-cache.json`, in the data path. A header that one frontend has read is used by the others. This is the shared-by-file mode, and it requires that every frontend mounts the same data volume.
 
+A frontend that sets `--instance-id` keeps its own file, `header-cache-<id>.json`, and does not share it. Use this when a frontend should start warm after a restart without sharing its entries.
+
 With a ReadWriteOnce volume, all frontends that share the cache must run on one node. Sharing across nodes needs a ReadWriteMany volume or a shared store, and this mode does not support it.
 
 ### Model configuration revisions
