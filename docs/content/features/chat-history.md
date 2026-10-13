@@ -28,6 +28,18 @@ Every conversation also carries a server-assigned `version`: `1` after the first
 
 Within a live conversation the last write wins: there is no merge of two devices editing the same conversation at the same time. `createdAt` and `updatedAt` (Unix milliseconds) are stored as the client sends them, so clients can compare `updatedAt` to pick the newer copy; the server only fills them in when they are `0`.
 
+## How the web UI syncs
+
+On load the Chat page asks the server for the list and reconciles it with what the browser has:
+
+- A conversation the server reports as deleted is removed locally.
+- A conversation on both sides keeps the copy with the newer `updatedAt`. A message you send while the list is still loading is kept, and uploaded afterwards.
+- A conversation only in the browser is uploaded if it has never been synced (no `version`). If it has a version but the server no longer has it, it is removed locally: it was synced before, so the server dropped it (or the browser now belongs to another account).
+- A conversation only on the server is added.
+- A conversation you delete while the list is still loading is deleted on the server once the list arrives.
+
+After that, every change is saved on its own (debounced, only conversations that changed). When a save returns `410`, the UI removes that conversation locally. On any other error it keeps the browser copy and tries again with the next change. `localStorage` stays a cache of the last state either way. The web UI does not use the bulk endpoint: every upload goes through the per-conversation save, so the tombstone check applies to each one.
+
 ## API
 
 All endpoints act on the conversations of the calling user and need a session or API key.

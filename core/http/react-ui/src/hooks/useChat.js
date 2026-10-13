@@ -115,7 +115,8 @@ function loadChats() {
 }
 
 // serializeChat strips React-only state (streaming flags, transient UI bits)
-// before persistence. Used by both localStorage and the server.
+// before persistence. This is what goes to the server; `version` is the
+// server's and is never sent back.
 function serializeChat(chat) {
   return {
     id: chat.id,
@@ -140,7 +141,9 @@ function serializeChat(chat) {
 function saveChats(chats, activeChatId) {
   try {
     const data = {
-      chats: chats.map(serializeChat),
+      // The local cache keeps the server version: it is how the next load
+      // tells a chat the server has seen from a never-synced draft.
+      chats: chats.map(chat => ({ ...serializeChat(chat), version: chat.version })),
       activeChatId,
       lastSaved: Date.now(),
     }
@@ -152,18 +155,39 @@ function saveChats(chats, activeChatId) {
   }
 }
 
-// mergeRemoteAndLocal reconciles server conversations with the in-memory list.
-// Server wins for any conversation that exists on both sides — the React
-// state may have been hydrated from a stale localStorage cache on this tab.
-// Conversations that exist only locally are preserved so unsaved drafts
-// survive the first server roundtrip; they'll be pushed up on the next debounce.
-function mergeRemoteAndLocal(remote, local) {
-  const byId = new Map()
-  for (const c of remote) byId.set(c.id, c)
+// The server omits empty fields; the UI expects a history array.
+function fromServer(conv) {
+  return { ...conv, history: Array.isArray(conv.history) ? conv.history : [] }
+}
+
+// reconcileWithServer merges the server's list into the chats this tab
+// already has (from localStorage, plus anything typed while the list was
+// loading). The server is authoritative about deletions:
+//   - a chat the server lists as deleted is dropped, whatever this tab has;
+//   - a chat on both sides keeps the copy with the newer updatedAt, so an
+//     edit made during the load is not overwritten by the older server copy;
+//   - a chat only here is kept when it was never synced (no version) and
+//     uploaded afterwards. With a version the server has seen it and no
+//     longer has it, so it is dropped rather than resurrected;
+//   - a chat only on the server is added.
+function reconcileWithServer(remote, deleted, local) {
+  const gone = new Set(deleted.map(t => t.id))
+  const remoteById = new Map(remote.map(c => [c.id, fromServer(c)]))
+  const out = []
   for (const c of local) {
-    if (!byId.has(c.id)) byId.set(c.id, c)
+    if (gone.has(c.id)) continue
+    const r = remoteById.get(c.id)
+    if (r) {
+      remoteById.delete(c.id)
+      out.push((c.updatedAt || 0) > (r.updatedAt || 0) ? { ...c, version: r.version } : r)
+    } else if (!c.version) {
+      out.push(c)
+    }
   }
-  return Array.from(byId.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  for (const r of remoteById.values()) {
+    if (!gone.has(r.id)) out.push(r)
+  }
+  return out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
 }
 
 function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
@@ -221,56 +245,91 @@ export function useChat(initialModel = '') {
 
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0]
 
-  // Server-side persistence (#9432). serverEnabledRef is null while we are
-  // still probing, true once a successful list arrives, false on any error
-  // (feature disabled, auth denied, network down). serializedSentRef caches
-  // the JSON last pushed per chat so we skip no-op writes on every render.
+  // Server-side persistence. serverEnabledRef is null while we are still
+  // probing, true once a successful list arrives, false on any error
+  // (feature disabled, auth off, denied, network down). serializedSentRef
+  // caches the JSON last pushed (or received) per chat so unchanged chats
+  // are not written again. Deletes made while probing wait in
+  // pendingDeletesRef ('*' = delete all) and are sent once the server answers.
   const serverEnabledRef = useRef(null)
   const serializedSentRef = useRef(new Map())
-  const bootstrappedRef = useRef(false)
+  const pendingDeletesRef = useRef(new Set())
+
+  // Every path that empties the list must leave one chat to show.
+  const nonEmpty = useCallback((list) => (list.length > 0 ? list : [createNewChat(initialModel)]), [initialModel])
+
+  const dropChatLocally = useCallback((chatId) => {
+    serializedSentRef.current.delete(chatId)
+    setChats(prev => (prev.some(c => c.id === chatId) ? nonEmpty(prev.filter(c => c.id !== chatId)) : prev))
+  }, [nonEmpty])
 
   useEffect(() => {
     let cancelled = false
     chatHistoryApi.list()
       .then(resp => {
         if (cancelled) return
-        serverEnabledRef.current = true
         const remote = Array.isArray(resp?.conversations) ? resp.conversations : []
-        if (remote.length > 0) {
-          setChats(prev => mergeRemoteAndLocal(remote, prev))
-        } else {
-          // Empty server, populated local cache: migrate so the user keeps
-          // their previous history after enabling persistence.
-          const localOnly = chats.filter(c => c.history && c.history.length > 0)
-          if (localOnly.length > 0) {
-            chatHistoryApi.bulkReplace(localOnly.map(serializeChat)).catch(() => {})
-          }
+        const deleted = Array.isArray(resp?.deleted) ? [...resp.deleted] : []
+        const pending = pendingDeletesRef.current
+        pendingDeletesRef.current = new Set()
+        if (pending.has('*')) {
+          chatHistoryApi.deleteAll().catch(() => {})
+          for (const c of remote) deleted.push({ id: c.id })
         }
+        for (const id of pending) {
+          if (id === '*') continue
+          chatHistoryApi.delete(id).catch(() => {})
+          deleted.push({ id })
+        }
+        // What the server holds counts as sent, so adopting a server copy
+        // does not echo it straight back.
+        for (const c of remote) {
+          serializedSentRef.current.set(c.id, JSON.stringify(serializeChat(fromServer(c))))
+        }
+        serverEnabledRef.current = true
+        setChats(prev => nonEmpty(reconcileWithServer(remote, deleted, prev)))
       })
       .catch(() => {
         if (!cancelled) serverEnabledRef.current = false
-      })
-      .finally(() => {
-        if (!cancelled) bootstrappedRef.current = true
       })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // The reconcile can remove the open chat.
+  useEffect(() => {
+    if (chats.length > 0 && !chats.some(c => c.id === activeChatId)) {
+      setActiveChatId(chats[0].id)
+    }
+  }, [chats, activeChatId])
+
   useDebouncedEffect(() => {
     saveChats(chats, activeChatId)
-    if (serverEnabledRef.current === true) {
-      for (const chat of chats) {
-        const serialized = serializeChat(chat)
-        const json = JSON.stringify(serialized)
-        if (serializedSentRef.current.get(chat.id) === json) continue
-        serializedSentRef.current.set(chat.id, json)
-        chatHistoryApi.save(serialized).catch(() => {
-          // Keep localStorage as the authoritative copy on transient
-          // server failures; we'll retry on the next change.
+    if (serverEnabledRef.current !== true) return
+    for (const chat of chats) {
+      const serialized = serializeChat(chat)
+      const json = JSON.stringify(serialized)
+      if (serializedSentRef.current.get(chat.id) === json) continue
+      serializedSentRef.current.set(chat.id, json)
+      chatHistoryApi.save(serialized)
+        .then(saved => {
+          if (!saved?.version) return
+          setChats(prev => {
+            if (!prev.some(c => c.id === saved.id && c.version !== saved.version)) return prev
+            return prev.map(c => (c.id === saved.id ? { ...c, version: saved.version } : c))
+          })
+        })
+        .catch(err => {
+          if (err?.status === 410) {
+            // Deleted on another device: the server keeps it deleted, so
+            // drop this copy instead of retrying it forever.
+            dropChatLocally(chat.id)
+            return
+          }
+          // Keep localStorage as the copy on transient server failures;
+          // the next change retries.
           serializedSentRef.current.delete(chat.id)
         })
-      }
     }
   }, [chats, activeChatId])
 
@@ -320,6 +379,8 @@ export function useChat(initialModel = '') {
     serializedSentRef.current.delete(chatId)
     if (serverEnabledRef.current === true) {
       chatHistoryApi.delete(chatId).catch(() => {})
+    } else if (serverEnabledRef.current === null) {
+      pendingDeletesRef.current.add(chatId)
     }
   }, [activeChatId])
 
@@ -335,6 +396,8 @@ export function useChat(initialModel = '') {
     serializedSentRef.current.clear()
     if (serverEnabledRef.current === true) {
       chatHistoryApi.deleteAll().catch(() => {})
+    } else if (serverEnabledRef.current === null) {
+      pendingDeletesRef.current = new Set(['*'])
     }
   }, [activeChat?.model])
 
