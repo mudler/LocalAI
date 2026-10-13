@@ -202,7 +202,7 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 		}
 		pieces := [][2]int{{e.Start, e.End}}
 		if shields != nil {
-			pieces = unshieldSpan(e.Start, e.End, shields)
+			pieces = trimSpans(text, unshieldSpan(e.Start, e.End, shields))
 			if len(pieces) == 0 {
 				xlog.Debug("pii/ner: detection dropped (protected term)",
 					"group", e.Group, "score", e.Score, "start", e.Start, "end", e.End)
@@ -227,6 +227,35 @@ func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, 
 		}
 	}
 	return hits, nil
+}
+
+// trimSpans cuts leading and trailing whitespace off each span and drops
+// the ones that are empty afterwards. Cutting a protected term out of a
+// detection leaves the space next to it on the surviving piece, and a
+// mask must not swallow it ("Hotel Seeblick[REDACTED]").
+func trimSpans(text string, spans [][2]int) [][2]int {
+	out := spans[:0]
+	for _, sp := range spans {
+		s, e := sp[0], sp[1]
+		for s < e {
+			r, size := utf8.DecodeRuneInString(text[s:e])
+			if !unicode.IsSpace(r) {
+				break
+			}
+			s += size
+		}
+		for e > s {
+			r, size := utf8.DecodeLastRuneInString(text[s:e])
+			if !unicode.IsSpace(r) {
+				break
+			}
+			e -= size
+		}
+		if s < e {
+			out = append(out, [2]int{s, e})
+		}
+	}
+	return out
 }
 
 // nextWordEnd returns the end offset of the word that follows text[:end]:

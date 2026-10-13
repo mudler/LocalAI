@@ -137,6 +137,38 @@ func isWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsMark(r)
 }
 
+// isJoiner reports the characters that join two parts of one word (the
+// hyphen in "Anna-Lena", the apostrophe in "O'Brien"), consistent with the
+// word extensions in redactor.go.
+func isJoiner(r rune) bool { return r == '-' || r == '\'' }
+
+// touchesWordBefore reports whether the text ends in a word character, or
+// in a joiner that is itself preceded by one: a protected term that is the
+// tail of "Anna-Lena" is not a whole word.
+func touchesWordBefore(text string) bool {
+	r, size := utf8.DecodeLastRuneInString(text)
+	if isWordRune(r) {
+		return true
+	}
+	if !isJoiner(r) {
+		return false
+	}
+	r, _ = utf8.DecodeLastRuneInString(text[:len(text)-size])
+	return isWordRune(r)
+}
+
+// touchesWordAfter is the mirror of touchesWordBefore.
+func touchesWordAfter(text string) bool {
+	r, size := utf8.DecodeRuneInString(text)
+	if isWordRune(r) {
+		return true
+	}
+	if !isJoiner(r) {
+		return false
+	}
+	r, _ = utf8.DecodeRuneInString(text[size:])
+	return isWordRune(r)
+}
 
 // shieldProtected replaces every whole-word occurrence of a protected term
 // with protectedPlaceholder and returns the text the detector should scan
@@ -151,15 +183,11 @@ func shieldProtected(text string, re *regexp.Regexp) (string, []shield) {
 	cursor := 0
 	for _, m := range re.FindAllStringIndex(text, -1) {
 		s, e := m[0], m[1]
-		if s > 0 {
-			if r, _ := utf8.DecodeLastRuneInString(text[:s]); isWordRune(r) {
-				continue
-			}
+		if s > 0 && touchesWordBefore(text[:s]) {
+			continue
 		}
-		if e < len(text) {
-			if r, _ := utf8.DecodeRuneInString(text[e:]); isWordRune(r) {
-				continue
-			}
+		if e < len(text) && touchesWordAfter(text[e:]) {
+			continue
 		}
 		b.WriteString(text[cursor:s])
 		scanStart := b.Len()

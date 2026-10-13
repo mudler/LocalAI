@@ -125,6 +125,38 @@ var _ = Describe("ProtectedTerms", func() {
 		Expect(texts[1][res[1].Spans[1].Start:res[1].Spans[1].End]).To(Equal("Kranzberger"))
 	})
 
+	It("does not shield a term that is part of a hyphenated or apostrophe word", func() {
+		text := "Anna-Lena Meier, O'Brien, Anna Meier"
+		det := &lexiconDetector{words: map[string]NEREntity{
+			"Anna-Lena": {Group: "FIRSTNAME", Score: 0.9},
+			"Brien":     {Group: "LASTNAME", Score: 0.9},
+			"Meier":     {Group: "LASTNAME", Score: 0.9},
+		}}
+		res, err := RedactNER(ctx, text, cfg(det, "Anna", "Brien"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Redacted).To(Equal("[REDACTED:ner:FIRSTNAME] [REDACTED:ner:LASTNAME], " +
+			"O'[REDACTED:ner:LASTNAME], Anna [REDACTED:ner:LASTNAME]"))
+		Expect(det.seen[0]).To(ContainSubstring("Anna-Lena"))
+		Expect(det.seen[0]).To(ContainSubstring(protectedPlaceholder+" Meier"), "a free-standing term is still shielded")
+	})
+
+	It("still shields a term next to a hyphen that joins no word", func() {
+		scan, regions := shieldProtected("Hotel Seeblick - Gast", protectedMatcher([]string{"Hotel Seeblick"}))
+		Expect(scan).To(Equal(protectedPlaceholder + " - Gast"))
+		Expect(regions).To(HaveLen(1))
+	})
+
+	It("does not let a mask swallow the space next to a protected term", func() {
+		text := "Hotel Seeblick Meier"
+		det := &lexiconDetector{words: map[string]NEREntity{
+			protectedPlaceholder + " Meier": {Group: "LASTNAME", Score: 0.9},
+		}}
+		res, err := RedactNER(ctx, text, cfg(det, "Hotel Seeblick"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Redacted).To(Equal("Hotel Seeblick [REDACTED:ner:LASTNAME]"))
+		Expect(text[res.Spans[0].Start:res.Spans[0].End]).To(Equal("Meier"))
+	})
+
 	It("matches a term across no-break and other Unicode spaces", func() {
 		text := "Hotel\u00a0Seeblick, Hotel\u202fSeeblick, Hotel\u2003Seeblick, Seeblick"
 		det := &lexiconDetector{words: map[string]NEREntity{"Seeblick": {Group: "LASTNAME", Score: 0.9}}}
