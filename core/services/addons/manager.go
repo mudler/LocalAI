@@ -118,7 +118,15 @@ func (m *Manager) check(ctx context.Context) error {
 	return nil
 }
 
-var addonID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+// addonID matches a well-formed add-on or source ID that no host route uses.
+var addonID idMatcher
+
+// sourceIDPattern matches a library ID, which is never a path segment of a route.
+var sourceIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+
+type idMatcher struct{}
+
+func (idMatcher) MatchString(s string) bool { return contract.ValidAddonID(s) }
 
 func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	m.mu.Lock()

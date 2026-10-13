@@ -48,6 +48,23 @@ var _ = Describe("Manifest", func() {
 			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), p)
 		}
 	})
+	It("rejects add-on IDs that the host serves as a route segment", func() {
+		// Every first path segment the host uses under /api/addons/ would
+		// otherwise capture the asset URL of an add-on with that ID.
+		Expect(ReservedAddonIDs()).To(ConsistOf("apps", "proposals", "artifacts", "resources", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources"))
+		for _, id := range ReservedAddonIDs() {
+			m, _ := ParseManifest(fixture())
+			m.ID = id
+			e := ValidateManifest(m, compatible())
+			Expect(e).To(HaveOccurred(), id)
+			Expect(e.Error()).To(ContainSubstring("reserved"), id)
+			Expect(ValidAddonID(id)).To(BeFalse(), id)
+		}
+		Expect(ValidAddonID("proposals-tool")).To(BeTrue())
+		m, _ := ParseManifest(fixture())
+		m.ID = "app"
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+	})
 	It("rejects invalid versions ranges and capabilities", func() {
 		for _, v := range []string{"", "latest", "development", "v1.0.0", "01.2.3", "1.2", "1.2.3+mutable", "1.2.3-a..b", "1.2.3-a."} {
 			m, _ := ParseManifest(fixture())

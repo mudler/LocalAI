@@ -199,6 +199,18 @@ var _ = Describe("designated owner lifecycle", func() {
 		_, e = NewManager(ctx, cfg, c, i, admin)
 		Expect(e).To(HaveOccurred())
 	})
+	It("refuses commands and asset reads for an add-on ID the host serves as a route", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		for _, id := range contract.ReservedAddonIDs() {
+			cmd := command("reserved-"+id, "install")
+			cmd.AddonID = id
+			_, e := m.Submit(ctx, actor, cmd)
+			Expect(e).To(MatchError(ErrConflict), id)
+			_, e = m.CatalogDetails(ctx, actor, "local", id, "1.0.0")
+			Expect(e).To(HaveOccurred(), id)
+		}
+	})
 	It("binds duplicate operation IDs to actor and command and serializes conflicts", func() {
 		cfg, c, i := fixture()
 		m := open(cfg, c, i)

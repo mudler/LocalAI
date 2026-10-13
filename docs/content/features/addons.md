@@ -24,7 +24,14 @@ The package version uses immutable `major.minor.patch`, optionally a lowercase
 prerelease starting with a letter; moving aliases and build metadata are not
 package versions. Registry channels are separate from package identity.
 
-Namespace IDs match `[a-z][a-z0-9-]{0,63}`. IDs are never paths. Executable and UI
+Namespace IDs match `[a-z][a-z0-9-]{0,63}`. IDs are never paths. An add-on ID
+must not be one of the first path segments the host serves under `/api/addons/`:
+`apps`, `proposals`, `artifacts`, `resources`, `dispatch`, `relay`, `catalog`,
+`icon`, `assets`, `installed` and `sources`. Such a manifest is refused at
+parse, at install and when a catalog library is refreshed, because the asset URL
+`/api/addons/<id>/assets/...` would be answered by the host route of the same
+name. A test derives the registered segments from the real routes and fails when
+one is missing from this list. Executable and UI
 asset paths are normalized package-relative ASCII paths: no absolute paths,
 parent traversal, backslashes, percent escapes or URL schemes. These checks do
 not substitute for safe extraction, symlink checks, executable mode validation,

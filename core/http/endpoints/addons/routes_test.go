@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -143,6 +144,26 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			}
 		}
 		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true}))
+	})
+	It("reserves every first path segment the host registers under /api/addons", func() {
+		// An add-on ID that equals a registered literal segment would have its
+		// asset URL captured by that segment's own routes.
+		segments := map[string]bool{}
+		for _, r := range e.Routes() {
+			rest, ok := strings.CutPrefix(r.Path, "/api/addons/")
+			if !ok {
+				continue
+			}
+			first, _, _ := strings.Cut(rest, "/")
+			// A parameter or the group's own catch-all is not a literal segment.
+			if !strings.HasPrefix(first, ":") && first != "*" {
+				segments[first] = true
+			}
+		}
+		Expect(segments).NotTo(BeEmpty())
+		for first := range segments {
+			Expect(contract.ReservedAddonID(first)).To(BeTrue(), "the host registers /api/addons/"+first+" but it is not a reserved add-on ID")
+		}
 	})
 	It("gates the artifact routes by authentication and feature", func() {
 		get := func(path string, mutate func(*http.Request)) int {

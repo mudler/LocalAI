@@ -62,7 +62,7 @@ func (m *Manager) CatalogDetails(ctx context.Context, actor contract.Actor, sour
 	if e := m.authorize(ctx, actor); e != nil {
 		return CatalogDetails{}, e
 	}
-	if !addonID.MatchString(id) || !addonID.MatchString(sourceID) || version == "" || len(version) > maxVersionText {
+	if !addonID.MatchString(id) || !sourceIDPattern.MatchString(sourceID) || version == "" || len(version) > maxVersionText {
 		return CatalogDetails{}, catalog.ErrInvalid
 	}
 	release, e := m.catalog.Resolve(ctx, sourceID, id, version)
@@ -131,7 +131,7 @@ func (m *Manager) RefreshSource(ctx context.Context, actor contract.Actor, sourc
 	if m.catalog.Sources == nil {
 		return catalog.RefreshResult{}, catalog.ErrUnavailable
 	}
-	if !addonID.MatchString(sourceID) {
+	if !sourceIDPattern.MatchString(sourceID) {
 		return catalog.RefreshResult{}, catalog.ErrInvalid
 	}
 	return m.catalog.Sources.Refresh(ctx, sourceID)

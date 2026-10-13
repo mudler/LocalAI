@@ -129,6 +129,30 @@ var namespace = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 var immutableVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-z][a-z0-9-]*(\.[a-z0-9-]+)*)?$`)
 var assetPath = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
 
+// reservedAddonIDs are the first path segments the host itself serves under
+// /api/addons/. An add-on ID shares that position (/api/addons/<id>/assets/...),
+// so an add-on with one of these IDs would have its asset URLs captured by the
+// host route of the same name. A test derives the registered segments from the
+// real routes and requires each to be listed here.
+var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources"}
+
+// ReservedAddonIDs returns a copy of the reserved add-on IDs.
+func ReservedAddonIDs() []string { return append([]string(nil), reservedAddonIDs...) }
+
+// ReservedAddonID reports whether id is a path segment the host serves.
+func ReservedAddonID(id string) bool {
+	for _, r := range reservedAddonIDs {
+		if r == id {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidAddonID reports whether id is a well-formed add-on ID that no host
+// route uses.
+func ValidAddonID(id string) bool { return namespace.MatchString(id) && !ReservedAddonID(id) }
+
 func relativePath(s string) bool {
 	return s != "" && s != "." && s != ".." && assetPath.MatchString(s) && !strings.HasPrefix(s, "/") && path.Clean(s) == s && !strings.HasPrefix(s, "../")
 }
@@ -155,6 +179,9 @@ func ParseManifest(data []byte) (Manifest, error) {
 	return m, ValidateManifest(m, h)
 }
 func ValidateManifest(m Manifest, h HostCompatibility) error {
+	if ReservedAddonID(m.ID) {
+		return fmt.Errorf("add-on ID %q is reserved for a host route", m.ID)
+	}
 	if m.SchemaVersion != SchemaVersion || !namespace.MatchString(m.ID) || !immutableVersion.MatchString(m.Version) || !relativePath(m.Executable) {
 		return fmt.Errorf("invalid manifest identity, version or executable")
 	}

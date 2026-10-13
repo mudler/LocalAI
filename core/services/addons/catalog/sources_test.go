@@ -68,6 +68,20 @@ var _ = Describe("source configuration", func() {
 	})
 })
 
+var _ = Describe("reserved add-on IDs", func() {
+	It("refuses a library entry whose add-on ID is a host route segment", func() {
+		s := setup()
+		for _, id := range contract.ReservedAddonIDs() {
+			r := release()
+			r.AddonID = id
+			server := library(func(w http.ResponseWriter, _ *http.Request) { json.NewEncoder(w).Encode([]Release{r}) })
+			save(s, "one", server.URL)
+			_, e := s.Refresh(ctx, "one")
+			Expect(e).To(MatchError(ErrRefresh), id)
+		}
+	})
+})
+
 var _ = Describe("source reads", func() {
 	It("lists and gets protected source copies including disabled and empty sources after reload", func() {
 		s := setup()
