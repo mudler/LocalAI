@@ -111,6 +111,8 @@ func (b *Broker) Recover(ctx context.Context) error {
 	if _, err := b.attached(); err != nil {
 		return err
 	}
+	// Expiry that ran out while the owner was down is recorded first.
+	_ = b.Sweep()
 	for _, r := range b.store.all() {
 		if r.State != gateway.ProposalExecuting {
 			continue

@@ -55,7 +55,7 @@ func (r *fixtureRuntime) Preview(_ context.Context, e contract.Envelope) (contra
 	return contract.Preview{
 		OperationID: e.Request.OperationID,
 		Revision:    contract.Revision{Schema: 1, Data: r.data},
-		ExpiresAt:   time.Now().Add(time.Hour),
+		ExpiresAt:   time.Now().Add(100 * 24 * time.Hour),
 		Summary:     json.RawMessage(`{"count":3,"sample":[{"row":1},{"row":2}]}`),
 	}, nil
 }
@@ -158,14 +158,19 @@ type brokerFixture struct {
 	rt        *fixtureRuntime
 	instances *fixtureInstances
 	clock     *clock
+	tune      []func(*BrokerOptions)
 }
 
 // openBrokerFixture opens the policy store and the broker in dir, as a
 // restarted owner does.
-func openBrokerFixture(mode Mode, dir string, rt *fixtureRuntime, instances *fixtureInstances, c *clock, accounts *account) *brokerFixture {
+func openBrokerFixture(mode Mode, dir string, rt *fixtureRuntime, instances *fixtureInstances, c *clock, accounts *account, tune ...func(*BrokerOptions)) *brokerFixture {
 	store, err := OpenStore(filepath.Join(dir, "policy"), mode)
 	Expect(err).NotTo(HaveOccurred())
-	broker, err := OpenBroker(filepath.Join(dir, "proposals"), BrokerOptions{Runtime: instances, Now: c.now})
+	opts := BrokerOptions{Runtime: instances, Now: c.now}
+	for _, t := range tune {
+		t(&opts)
+	}
+	broker, err := OpenBroker(filepath.Join(dir, "proposals"), opts)
 	Expect(err).NotTo(HaveOccurred())
 	p := New(store, Options{
 		Revalidate:      accounts.check,
@@ -174,14 +179,14 @@ func openBrokerFixture(mode Mode, dir string, rt *fixtureRuntime, instances *fix
 		DrainTimeout:    2 * time.Second,
 	})
 	broker.Attach(p)
-	f := &brokerFixture{dir: dir, mode: mode, store: store, broker: broker, policy: p, accounts: accounts, rt: rt, instances: instances, clock: c}
+	f := &brokerFixture{dir: dir, mode: mode, store: store, broker: broker, policy: p, accounts: accounts, rt: rt, instances: instances, clock: c, tune: tune}
 	return f
 }
 
-func newBrokerFixture(mode Mode) *brokerFixture {
+func newBrokerFixture(mode Mode, tune ...func(*BrokerOptions)) *brokerFixture {
 	rt := newFixtureRuntime()
 	f := openBrokerFixture(mode, GinkgoT().TempDir(), rt, &fixtureInstances{gen: 1, rt: rt},
-		&clock{t: time.Now()}, &account{blocked: map[string]bool{}})
+		&clock{t: time.Now()}, &account{blocked: map[string]bool{}}, tune...)
 	DeferCleanup(func() { f.close() })
 	return f
 }
@@ -195,7 +200,7 @@ func (f *brokerFixture) close() {
 // durable state and the same addon runtime.
 func (f *brokerFixture) restart() *brokerFixture {
 	f.close()
-	g := openBrokerFixture(f.mode, f.dir, f.rt, f.instances, f.clock, f.accounts)
+	g := openBrokerFixture(f.mode, f.dir, f.rt, f.instances, f.clock, f.accounts, f.tune...)
 	DeferCleanup(func() { g.close() })
 	return g
 }
@@ -811,6 +816,139 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 			Expect(err).To(MatchError(ErrProposalChanged), name)
 			Expect(g.rt.applyCalls()).To(BeEmpty(), name)
 		}
+	})
+
+	It("records expiry and collects settled proposals without any read so a quiet clock cannot fill the store", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		// Past the store bound, with every proposal expiring unread.
+		rounds := MaxProposals + 100
+		for i := 0; i < rounds; i++ {
+			_, err := f.broker.Propose(ctx, owner, f.request(key, fmt.Sprintf("op-%d", i), "write", `{"rows":[1]}`))
+			Expect(err).NotTo(HaveOccurred(), "round %d", i)
+			f.clock.advance(6 * time.Minute)
+		}
+		Expect(f.stored(fmt.Sprintf("op-%d", rounds-2))).To(Equal(gateway.ProposalExpired))
+		Expect(f.stored("op-0")).To(Equal(ProposalState("")))
+		Expect(len(f.broker.store.all())).To(BeNumerically("<=", 2*int(DefaultProposalRetention/(6*time.Minute))))
+		// The record outlives a restart as expired, and the user can go on.
+		g := f.restart()
+		Expect(g.stored(fmt.Sprintf("op-%d", rounds-1))).To(Equal(gateway.ProposalExpired))
+		_, err := g.broker.Propose(ctx, owner, g.request(key, "after", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = g.broker.Confirm(ctx, session("owner"), fmt.Sprintf("op-%d", rounds-1))
+		Expect(err).To(MatchError(ErrProposalExpired))
+	})
+
+	It("records expiry durably when the owner starts and when it recovers", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		_, err := f.broker.Propose(ctx, owner, f.request(key, "unread", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.stored("unread")).To(Equal(gateway.ProposalPending))
+		f.clock.advance(contract.DefaultLimits().ProposalExpiry + time.Second)
+		g := f.restart()
+		Expect(g.stored("unread")).To(Equal(gateway.ProposalExpired))
+
+		_, err = g.broker.Propose(ctx, owner, g.request(key, "second", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		g.clock.advance(contract.DefaultLimits().ProposalExpiry + time.Second)
+		Expect(g.stored("second")).To(Equal(gateway.ProposalPending))
+		Expect(g.broker.Recover(ctx)).To(Succeed())
+		Expect(g.stored("second")).To(Equal(gateway.ProposalExpired))
+	})
+
+	It("keeps settled proposals for the retention window only", func() {
+		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.Retention = time.Hour })
+		owner := named("owner")
+		key := f.create(owner)
+		_, err := f.broker.Propose(ctx, owner, f.request(key, "done", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.broker.Cancel(ctx, owner, "done")).To(Succeed())
+		f.clock.advance(30 * time.Minute)
+		_, err = f.broker.Propose(ctx, owner, f.request(key, "a", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.stored("done")).To(Equal(gateway.ProposalCancelled))
+		f.clock.advance(31 * time.Minute)
+		_, err = f.broker.Propose(ctx, owner, f.request(key, "b", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.stored("done")).To(Equal(ProposalState("")))
+		// A live proposal is never collected, whatever its age.
+		Expect(f.stored("b")).To(Equal(gateway.ProposalPending))
+	})
+
+	It("keeps one user from starving others and never drops another user's live proposal", func() {
+		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.MaxProposals = 8; o.MaxProposalsPerUser = 4 })
+		owner := named("owner")
+		key := f.create(owner)
+		for _, u := range []string{"b", "c"} {
+			Expect(f.policy.SetGrant(ctx, owner, key, u, RoleEditor)).To(Succeed())
+		}
+		propose := func(who, id string) error {
+			_, err := f.broker.Propose(ctx, named(who), f.request(key, id, "write", `{"rows":[1]}`))
+			return err
+		}
+		for i := 0; i < 4; i++ {
+			Expect(propose("owner", fmt.Sprintf("a-%d", i))).To(Succeed())
+		}
+		// The user's own share is exhausted first, with the user's own error.
+		Expect(propose("owner", "a-4")).To(MatchError(ErrProposalUserQuota))
+		for i := 0; i < 4; i++ {
+			Expect(propose("b", fmt.Sprintf("b-%d", i))).To(Succeed())
+		}
+		// Full of other users' live proposals: refused, and nothing is dropped.
+		Expect(propose("c", "c-0")).To(MatchError(ErrProposalStoreFull))
+		Expect(propose("owner", "a-5")).To(MatchError(ErrProposalUserQuota))
+		Expect(errors.Is(ErrProposalStoreFull, ErrQuota)).To(BeTrue())
+		for i := 0; i < 4; i++ {
+			Expect(f.stored(fmt.Sprintf("a-%d", i))).To(Equal(gateway.ProposalPending))
+			Expect(f.stored(fmt.Sprintf("b-%d", i))).To(Equal(gateway.ProposalPending))
+		}
+		// A settled proposal makes room, and the proposer's own go first.
+		Expect(f.broker.Cancel(ctx, named("b"), "b-0")).To(Succeed())
+		Expect(propose("c", "c-0")).To(Succeed())
+		Expect(f.stored("b-0")).To(Equal(ProposalState("")))
+		// Expired ones make room too.
+		f.clock.advance(contract.DefaultLimits().ProposalExpiry + time.Second)
+		Expect(propose("c", "c-1")).To(Succeed())
+		Expect(len(f.broker.store.all())).To(BeNumerically("<=", 8))
+		Expect(f.stored("c-1")).To(Equal(gateway.ProposalPending))
+	})
+
+	It("bounds the stored canonical arguments per user and in total with a typed quota error", func() {
+		const args = `{"rows":[1]}`
+		n := int64(len(args))
+		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) {
+			o.MaxArgumentBytesPerUser = 2*n + 1
+			o.MaxArgumentBytes = 3*n + 1
+		})
+		owner := named("owner")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "b", RoleEditor)).To(Succeed())
+		propose := func(who, id string) error {
+			_, err := f.broker.Propose(ctx, named(who), f.request(key, id, "write", args))
+			return err
+		}
+		Expect(propose("owner", "a-0")).To(Succeed())
+		Expect(propose("owner", "a-1")).To(Succeed())
+		Expect(propose("owner", "a-2")).To(MatchError(ErrProposalBytesQuota))
+		Expect(propose("b", "b-0")).To(Succeed())
+		// The store as a whole is at its bound and everything in it is live.
+		err := propose("b", "b-1")
+		Expect(err).To(MatchError(ErrProposalBytesQuota))
+		Expect(errors.Is(err, ErrQuota)).To(BeTrue())
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+		// A settled proposal frees its bytes.
+		Expect(f.broker.Cancel(ctx, owner, "a-0")).To(Succeed())
+		Expect(propose("b", "b-1")).To(Succeed())
+		Expect(f.stored("a-0")).To(Equal(ProposalState("")))
+		// One proposal larger than the whole bound can never be stored.
+		tiny := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.MaxArgumentBytes = n - 1; o.MaxArgumentBytesPerUser = n - 1 })
+		k := tiny.create(owner)
+		_, err = tiny.broker.Propose(ctx, owner, tiny.request(k, "big", "write", args))
+		Expect(err).To(MatchError(ErrProposalBytesQuota))
 	})
 
 	It("issues resource identifiers the envelope contract accepts", func() {

@@ -30,11 +30,21 @@ type ProposalState = gateway.ProposalState
 
 const (
 	proposalFileName = "proposals.json"
-	// MaxProposalsPerUser bounds the pending proposals one user holds.
+	// MaxProposalsPerUser bounds the live proposals one user holds: pending
+	// ones that have not expired and unresolved ones.
 	MaxProposalsPerUser = 32
 	// MaxProposals bounds all stored proposals. Settled ones are dropped
-	// oldest first; unresolved ones are never dropped to make room.
+	// oldest first, the inserting user's own first. A live proposal of
+	// another user is never dropped to make room.
 	MaxProposals = 1024
+	// MaxProposalArgumentBytes bounds the canonical arguments of all stored
+	// proposals together, and MaxProposalArgumentBytesPerUser those of the
+	// live proposals of one user.
+	MaxProposalArgumentBytes        = 64 << 20
+	MaxProposalArgumentBytesPerUser = 16 << 20
+	// DefaultProposalRetention is how long a settled proposal is kept, so a
+	// repeated request or confirmation still gets its stored answer.
+	DefaultProposalRetention = 24 * time.Hour
 	// maxEffectSample bounds the sample shown to the confirming human.
 	maxEffectSample = 16 << 10
 )
@@ -51,6 +61,16 @@ var (
 	// ErrProposalChanged means the confirmation does not name the stored
 	// operation exactly.
 	ErrProposalChanged = fmt.Errorf("addon proposal digest does not match: %w", gateway.ErrForbidden)
+	// ErrProposalUserQuota means the user already holds the most live
+	// proposals allowed. It is checked before any store-wide limit, so one
+	// user can only exhaust their own share.
+	ErrProposalUserQuota = fmt.Errorf("addon proposal limit of the user reached: %w", ErrQuota)
+	// ErrProposalStoreFull means the store holds as many live proposals of
+	// other users as it may. Nothing live is dropped to make room.
+	ErrProposalStoreFull = fmt.Errorf("addon proposal store is full of live proposals: %w", ErrQuota)
+	// ErrProposalBytesQuota means the stored canonical arguments would exceed
+	// the byte bound of the user or of the store.
+	ErrProposalBytesQuota = fmt.Errorf("addon proposal storage bound reached: %w", ErrQuota)
 	// ErrOutcomeBlocked means another operation on the resource has an
 	// unresolved outcome. Resolve it by receipt lookup first.
 	ErrOutcomeBlocked = fmt.Errorf("addon operation outcome unresolved: %w", gateway.ErrForbidden)
@@ -59,22 +79,24 @@ var (
 // proposalRecord is the durable form. The proposer's credential stays here and
 // never reaches the public view.
 type proposalRecord struct {
-	ID          string                  `json:"id"`
-	Actor       contract.Actor          `json:"actor"`
-	AddonID     string                  `json:"addonId"`
-	ResourceID  string                  `json:"resourceId"`
-	Generation  uint64                  `json:"generation"`
-	Action      string                  `json:"action"`
-	Arguments   json.RawMessage         `json:"arguments"`
-	Revision    contract.Revision       `json:"revision"`
-	Digest      string                  `json:"digest"`
-	Effects     gateway.ProposalEffects `json:"effects"`
-	State       ProposalState           `json:"state"`
-	Reason      string                  `json:"reason,omitempty"`
-	CreatedAt   time.Time               `json:"createdAt"`
-	ExpiresAt   time.Time               `json:"expiresAt"`
-	Receipt     *contract.Receipt       `json:"receipt,omitempty"`
-	Reconciling bool                    `json:"-"`
+	ID         string                  `json:"id"`
+	Actor      contract.Actor          `json:"actor"`
+	AddonID    string                  `json:"addonId"`
+	ResourceID string                  `json:"resourceId"`
+	Generation uint64                  `json:"generation"`
+	Action     string                  `json:"action"`
+	Arguments  json.RawMessage         `json:"arguments"`
+	Revision   contract.Revision       `json:"revision"`
+	Digest     string                  `json:"digest"`
+	Effects    gateway.ProposalEffects `json:"effects"`
+	State      ProposalState           `json:"state"`
+	Reason     string                  `json:"reason,omitempty"`
+	CreatedAt  time.Time               `json:"createdAt"`
+	// UpdatedAt is when the state last changed. Retention counts from it.
+	UpdatedAt   time.Time         `json:"updatedAt,omitempty"`
+	ExpiresAt   time.Time         `json:"expiresAt"`
+	Receipt     *contract.Receipt `json:"receipt,omitempty"`
+	Reconciling bool              `json:"-"`
 }
 
 func (r *proposalRecord) copy() *proposalRecord {
@@ -163,6 +185,7 @@ type proposalStore struct {
 	// invalidations counts revocation sweeps per resource and user. A proposal
 	// made under admission that was invalidated meanwhile is not stored.
 	invalidations map[string]uint64
+	now           func() time.Time
 }
 
 func openProposalStore(dir string) (*proposalStore, error) {
@@ -179,7 +202,7 @@ func openProposalStore(dir string) (*proposalStore, error) {
 		_ = lock.Close()
 		return nil, err
 	}
-	return &proposalStore{dir: dir, lock: lock, doc: d, invalidations: map[string]uint64{}}, nil
+	return &proposalStore{dir: dir, lock: lock, doc: d, invalidations: map[string]uint64{}, now: time.Now}, nil
 }
 
 func (s *proposalStore) get(id string) (proposalRecord, bool) {
@@ -259,6 +282,7 @@ func (s *proposalStore) transition(id string, from []ProposalState, fn func(*pro
 			return ErrProposalClosed
 		}
 		fn(r)
+		r.UpdatedAt = s.now()
 		out = *r.copy()
 		return nil
 	})
@@ -282,6 +306,16 @@ type BrokerOptions struct {
 	// in named-user mode and the local owner in local-owner mode, never an API
 	// key.
 	ConfirmCredential func(contract.Actor) bool
+	// Retention is how long a settled proposal is kept. The zero value
+	// selects DefaultProposalRetention; retention can never be disabled.
+	Retention time.Duration
+	// MaxProposals, MaxProposalsPerUser, MaxArgumentBytes and
+	// MaxArgumentBytesPerUser lower the store bounds. Zero or a value above
+	// the package default selects the default; a bound is never disabled.
+	MaxProposals            int
+	MaxProposalsPerUser     int
+	MaxArgumentBytes        int64
+	MaxArgumentBytesPerUser int64
 }
 
 // Broker is the owner-held proposal state machine. A data or schema mutation
@@ -320,11 +354,31 @@ func OpenBroker(dir string, opts BrokerOptions) (*Broker, error) {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
+	if opts.Retention <= 0 {
+		opts.Retention = DefaultProposalRetention
+	}
+	if opts.MaxProposals <= 0 || opts.MaxProposals > MaxProposals {
+		opts.MaxProposals = MaxProposals
+	}
+	if opts.MaxProposalsPerUser <= 0 || opts.MaxProposalsPerUser > MaxProposalsPerUser {
+		opts.MaxProposalsPerUser = MaxProposalsPerUser
+	}
+	if opts.MaxArgumentBytes <= 0 || opts.MaxArgumentBytes > MaxProposalArgumentBytes {
+		opts.MaxArgumentBytes = MaxProposalArgumentBytes
+	}
+	if opts.MaxArgumentBytesPerUser <= 0 || opts.MaxArgumentBytesPerUser > MaxProposalArgumentBytesPerUser {
+		opts.MaxArgumentBytesPerUser = MaxProposalArgumentBytesPerUser
+	}
 	s, err := openProposalStore(dir)
 	if err != nil {
 		return nil, err
 	}
-	return &Broker{store: s, opts: opts, live: map[string]struct{}{}}, nil
+	s.now = opts.Now
+	b := &Broker{store: s, opts: opts, live: map[string]struct{}{}}
+	// Expiry is recorded when the owner starts, not only when a proposal is
+	// read. A failed write is not fatal: expiry also holds by the clock.
+	_ = b.Sweep()
+	return b, nil
 }
 
 // Attach binds the policy the broker admits through. It must be called once,
@@ -373,6 +427,7 @@ func (b *Broker) InvalidateProposals(_ context.Context, resource ResourceKey, us
 			if r.State == gateway.ProposalPending && r.ResourceID == resource.ResourceID && r.AddonID == resource.AddonID && r.Actor.UserID == userID {
 				r.State = gateway.ProposalCancelled
 				r.Reason = "authority lowered"
+				r.UpdatedAt = s.now()
 			}
 		}
 		return nil
@@ -557,8 +612,71 @@ func sameRequest(r proposalRecord, actor contract.Actor, key ResourceKey, reques
 		r.Generation == request.Generation && r.Action == string(action) && bytes.Equal(r.Arguments, request.Arguments)
 }
 
+// live reports a proposal that holds a share of its user's quota: a pending
+// one that has not expired, and any unresolved one.
+func (r *proposalRecord) live(now time.Time) bool {
+	return (r.State == gateway.ProposalPending && now.Before(r.ExpiresAt)) || r.unresolved()
+}
+
+// settledState reports a state that ends the proposal's life.
+func settledState(s ProposalState) bool {
+	switch s {
+	case gateway.ProposalCancelled, gateway.ProposalExpired, gateway.ProposalApplied, gateway.ProposalRejected:
+		return true
+	}
+	return false
+}
+
+// sweep records expiry and drops what is past retention. It reports whether
+// the document changed. A pending proposal is expired by the clock whether or
+// not anyone read it, so an unread proposal cannot hold quota or space.
+func (b *Broker) sweep(d *proposalDocument, now time.Time) bool {
+	changed := false
+	for id, r := range d.Proposals {
+		if r.State == gateway.ProposalPending && !now.Before(r.ExpiresAt) {
+			r.State = gateway.ProposalExpired
+			r.Reason = "expired"
+			r.UpdatedAt = now
+			changed = true
+		}
+		if settledState(r.State) {
+			since := r.UpdatedAt
+			if since.IsZero() {
+				since = r.CreatedAt
+			}
+			if now.Sub(since) >= b.opts.Retention {
+				delete(d.Proposals, id)
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
+var errNothingToSweep = errors.New("nothing to sweep")
+
+// Sweep makes expiry and retention durable now. The owner calls it on start;
+// every insertion does the same, so quota never depends on reads.
+func (b *Broker) Sweep() error {
+	s := b.store
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.mutateLocked(func(d *proposalDocument) error {
+		if !b.sweep(d, b.opts.Now()) {
+			return errNothingToSweep
+		}
+		return nil
+	})
+	if errors.Is(err, errNothingToSweep) {
+		return nil
+	}
+	return err
+}
+
 // insert stores a new pending proposal unless a revocation of the proposer's
-// authority ran meanwhile or a quota is reached.
+// authority ran meanwhile or a quota is reached. The user's own share is
+// checked first; the store-wide bounds then make room only by dropping
+// settled proposals, the inserting user's own first, never a live one.
 func (b *Broker) insert(rec *proposalRecord, inv uint64, user string, now time.Time) error {
 	s := b.store
 	s.mu.Lock()
@@ -566,45 +684,74 @@ func (b *Broker) insert(rec *proposalRecord, inv uint64, user string, now time.T
 	if s.invalidations[invalidationKey(rec.ResourceID, user)] != inv {
 		return ErrForbidden
 	}
+	// Record expiry and retention first so they hold even when the insertion
+	// is refused below.
+	_ = s.mutateLocked(func(d *proposalDocument) error {
+		if !b.sweep(d, now) {
+			return errNothingToSweep
+		}
+		return nil
+	})
 	return s.mutateLocked(func(d *proposalDocument) error {
+		b.sweep(d, now)
 		if _, dup := d.Proposals[rec.ID]; dup {
 			return ErrForbidden
 		}
-		pending := 0
+		size := int64(len(rec.Arguments))
+		liveCount, liveBytes := 0, int64(0)
 		for _, r := range d.Proposals {
-			if r.State == gateway.ProposalPending && r.Actor.UserID == user && r.ExpiresAt.After(now) {
-				pending++
+			if r.Actor.UserID == user && r.live(now) {
+				liveCount++
+				liveBytes += int64(len(r.Arguments))
 			}
 		}
-		if pending >= MaxProposalsPerUser {
-			return ErrQuota
+		if liveCount >= b.opts.MaxProposalsPerUser {
+			return ErrProposalUserQuota
 		}
-		if len(d.Proposals) >= MaxProposals && !pruneSettled(d, len(d.Proposals)-MaxProposals+1) {
-			return ErrQuota
+		if liveBytes+size > b.opts.MaxArgumentBytesPerUser {
+			return ErrProposalBytesQuota
+		}
+		if err := b.makeRoom(d, user, size); err != nil {
+			return err
 		}
 		d.Proposals[rec.ID] = rec.copy()
 		return nil
 	})
 }
 
-// pruneSettled drops the n oldest settled proposals. It reports false when
-// fewer than n are settled: an unresolved or pending one is never dropped.
-func pruneSettled(d *proposalDocument, n int) bool {
+// makeRoom drops settled proposals until one more record of size bytes fits.
+// It fails with a typed quota error when only live proposals remain.
+func (b *Broker) makeRoom(d *proposalDocument, user string, size int64) error {
+	total := int64(0)
+	for _, r := range d.Proposals {
+		total += int64(len(r.Arguments))
+	}
 	var settled []*proposalRecord
 	for _, r := range d.Proposals {
-		switch r.State {
-		case gateway.ProposalCancelled, gateway.ProposalExpired, gateway.ProposalApplied, gateway.ProposalRejected:
+		if settledState(r.State) {
 			settled = append(settled, r)
 		}
 	}
-	if len(settled) < n {
-		return false
+	// The inserting user's own records go first, then the oldest.
+	sort.Slice(settled, func(i, j int) bool {
+		a, c := settled[i], settled[j]
+		if (a.Actor.UserID == user) != (c.Actor.UserID == user) {
+			return a.Actor.UserID == user
+		}
+		return a.CreatedAt.Before(c.CreatedAt)
+	})
+	for len(d.Proposals) >= b.opts.MaxProposals || total+size > b.opts.MaxArgumentBytes {
+		if len(settled) == 0 {
+			if total+size > b.opts.MaxArgumentBytes {
+				return ErrProposalBytesQuota
+			}
+			return ErrProposalStoreFull
+		}
+		total -= int64(len(settled[0].Arguments))
+		delete(d.Proposals, settled[0].ID)
+		settled = settled[1:]
 	}
-	sort.Slice(settled, func(i, j int) bool { return settled[i].CreatedAt.Before(settled[j].CreatedAt) })
-	for _, r := range settled[:n] {
-		delete(d.Proposals, r.ID)
-	}
-	return true
+	return nil
 }
 
 // own returns the actor's stored proposal. A missing proposal and another

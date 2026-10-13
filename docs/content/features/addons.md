@@ -694,11 +694,22 @@ A proposal is in exactly one state:
 |---|---|
 | `pending` | Waiting for a human decision. |
 | `cancelled` | Withdrawn by its actor, or invalidated when the user's authority on the resource was lowered or revoked. |
-| `expired` | Not confirmed in time. Recorded when it is next read or confirmed. |
+| `expired` | Not confirmed in time. The owner records it when the clock runs out, on the next proposal, on start and on recovery, whether or not anyone read it. |
 | `executing` | Confirmed and handed to the addon. Durable before the addon sees the call. |
 | `applied` | Committed. The receipt is stored with the proposal. |
 | `rejected` | Refused by the addon (for example, the revision moved) or found stale (the addon generation changed). |
 | `outcome-unknown` | The apply may or may not have run. Only a receipt lookup resolves it. |
+
+Bounds. A user holds at most 32 live proposals (pending ones that have not expired, and
+unresolved ones) and at most 16 MiB of stored canonical arguments across them; the store
+holds at most 1024 proposals and 64 MiB of arguments. The user's own bound is checked
+first, so one user can exhaust only their own share. A limit reached is a typed quota
+denial (HTTP 403) that names which bound it was. To make room for a new proposal the owner
+drops settled proposals only (cancelled, expired, applied, rejected), the proposer's own
+first and then the oldest; a live proposal of another user is never dropped. Settled
+proposals are also dropped after a retention window of 24 hours by default
+(`BrokerOptions.Retention`), so a repeated request inside the window still gets its stored
+answer. Retention cannot be switched off.
 
 Every transition is written atomically and fsynced by the owner before it is reported. The
 store lives beside the policy store and follows the same rules: one process holds it, a
