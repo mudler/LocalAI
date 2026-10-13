@@ -3429,6 +3429,20 @@ definitions:
       model:
         type: string
     type: object
+  schema.VideoReference:
+    properties:
+      audio:
+        description: optional audio paired with this video
+        type: string
+      fps:
+        description: frame rate of the source frames; 0 means the backend default
+        type: integer
+      frames:
+        description: 'ordered frame images: URL, base64 or data URI'
+        items:
+          type: string
+        type: array
+    type: object
   schema.VideoRequest:
     properties:
       audio:
@@ -3465,6 +3479,21 @@ definitions:
       prompt:
         description: text description of the video to generate
         type: string
+      ref_audios:
+        description: reference audio clips (WAV); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_images:
+        description: reference images (URL, base64 or data URI); exclusive with start_image/end_image
+        items:
+          type: string
+        type: array
+      ref_videos:
+        description: reference videos as frame lists; exclusive with start_image/end_image
+        items:
+          $ref: '#/definitions/schema.VideoReference'
+        type: array
       response_format:
         description: output format (url or b64_json)
         type: string
