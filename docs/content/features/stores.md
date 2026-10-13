@@ -221,6 +221,14 @@ results come back nearest-first. If a collection already exists with a different
 `distance_metric`, loading the store (or, if the collection appeared later, the first `find`) fails
 rather than returning scores with the wrong meaning.
 
+{{% notice warning %}}
+Only `COSINE` returns similarity-like scores. With `DOT`, `EUCLID` or `MANHATTAN` the backend
+returns Qdrant's raw dot products or distances, which are not bounded to `[-1, 1]` and, for
+`EUCLID` and `MANHATTAN`, run in the opposite direction. Router stores, face recognition and voice
+recognition compare scores against cosine thresholds, so keep them on `COSINE`. The backend logs a
+warning at load time when a store is configured with another metric.
+{{% /notice %}}
+
 {{% notice note %}}
 The backend creates collections with Qdrant's default settings. For custom settings (sharding and
 replication on a cluster, HNSW parameters, on-disk vectors, quantization), create the collection

@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/store"
+	"github.com/mudler/xlog"
 	"github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -84,6 +85,10 @@ func (s *QdrantStore) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("qdrant-store: connect to %s: %w", cfg.Addr(), err)
 	}
 	s.client, s.cfg, s.collection = client, cfg, collectionName(cfg, opts.GetModel())
+	if cfg.Distance != qdrant.Distance_Cosine {
+		xlog.Warn("qdrant-store: non-COSINE distance_metric returns raw distances or dot products, not similarities; keep COSINE for router, face and voice stores",
+			"distance_metric", cfg.Distance.String(), "collection", s.collection)
+	}
 
 	ctx, cancel := s.ctx()
 	defer cancel()
