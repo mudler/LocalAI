@@ -542,3 +542,7 @@ operation and administration; registry-driven user asset access is a later integ
 
 Mutation MCP tools remain deliberately unavailable. The later broker integration defines
 safe listing/status tools and confirmation semantics; prompt text cannot authorize mutation.
+For that reason `/api/addons/dispatch` and `/api/addons/relay` are deliberately not mapped in
+the LocalAI Assistant tool catalog (`pkg/mcp/localaitools`) yet. The route map test only
+requires an entry for each registered tool, so no test is weakened. The routes are described
+in the generated Swagger document under the `Addons` tag.

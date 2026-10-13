@@ -22,7 +22,7 @@ type Request struct {
 	OperationID string          `json:"operationId"`
 	Generation  uint64          `json:"generation"`
 	Action      string          `json:"action"`
-	Arguments   json.RawMessage `json:"arguments"`
+	Arguments   json.RawMessage `json:"arguments" swaggertype:"object"`
 }
 type Authority struct {
 	Actor     Actor     `json:"actor"`
@@ -40,7 +40,7 @@ type OutputDescription struct {
 	Size      int64  `json:"size"`
 }
 type Result struct {
-	Payload json.RawMessage     `json:"payload,omitempty"`
+	Payload json.RawMessage     `json:"payload,omitempty" swaggertype:"object"`
 	Outputs []OutputDescription `json:"outputs,omitempty"`
 }
 type Revision struct {
@@ -51,7 +51,7 @@ type Preview struct {
 	OperationID string          `json:"operationId"`
 	Revision    Revision        `json:"revision"`
 	ExpiresAt   time.Time       `json:"expiresAt"`
-	Summary     json.RawMessage `json:"summary"`
+	Summary     json.RawMessage `json:"summary" swaggertype:"object"`
 }
 type ReceiptState string
 

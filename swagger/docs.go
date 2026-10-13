@@ -120,6 +120,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/dispatch": {
+            "post": {
+                "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Submit a typed addon lifecycle operation or read an addon resource",
+                "parameters": [
+                    {
+                        "description": "Typed addon request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/contract.Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation accepted or read result",
+                        "schema": {
+                            "$ref": "#/definitions/contract.Result"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or unknown request fields",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or owner policy denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/relay": {
+            "post": {
+                "description": "Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json",
+                    "text/event-stream",
+                    "application/octet-stream",
+                    "text/javascript",
+                    "text/css"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Relay addon status, lifecycle progress, JSON, attachments or immutable UI assets",
+                "parameters": [
+                    {
+                        "description": "Relay request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.RelayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Relayed response body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed or unknown request fields",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or owner policy denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -4740,6 +4860,60 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.OutputDescription": {
+            "type": "object",
+            "properties": {
+                "handle": {
+                    "type": "string"
+                },
+                "mediaType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "contract.Request": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "addonId": {
+                    "type": "string"
+                },
+                "arguments": {
+                    "type": "object"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "resourceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.Result": {
+            "type": "object",
+            "properties": {
+                "outputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.OutputDescription"
+                    }
+                },
+                "payload": {
+                    "type": "object"
+                }
+            }
+        },
         "failover.ChainState": {
             "type": "string",
             "enum": [
@@ -5260,6 +5434,20 @@ const docTemplate = `{
                 },
                 "total_bytes": {
                     "type": "integer"
+                }
+            }
+        },
+        "gateway.RelayRequest": {
+            "type": "object",
+            "properties": {
+                "handle": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "request": {
+                    "$ref": "#/definitions/contract.Request"
                 }
             }
         },

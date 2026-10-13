@@ -43,14 +43,24 @@ func resultError(c echo.Context, e error) error {
 	if errors.As(e, &unknown) {
 		return c.JSON(503, map[string]any{"error": map[string]any{"type": "outcome_unknown", "message": "Check operation status; do not submit a new mutation", "operationId": unknown.OperationID}})
 	}
-	if errors.Is(e, gateway.ErrUnavailable) {
+	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
 		return failure(c, 503, "Addon owner unavailable")
 	}
 	return failure(c, 403, "Addon request denied")
 }
 
 // Dispatch forwards typed operations to the explicitly configured owner.
+// @Summary Submit a typed addon lifecycle operation or read an addon resource
+// @Description Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation.
 // @Tags Addons
+// @Accept json
+// @Produce json
+// @Param request body contract.Request true "Typed addon request"
+// @Success 200 {object} contract.Result "Operation accepted or read result"
+// @Failure 400 {object} schema.ErrorResponse "Malformed or unknown request fields"
+// @Failure 401 {object} schema.ErrorResponse "Named authentication required"
+// @Failure 403 {object} schema.ErrorResponse "Feature, administration or owner policy denied the request"
+// @Failure 503 {object} schema.ErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
 // @Router /api/addons/dispatch [post]
 func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -77,7 +87,21 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 }
 
 // Relay keeps all streams on the receiving frontend.
+// @Summary Relay addon status, lifecycle progress, JSON, attachments or immutable UI assets
+// @Description Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (attachment) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.
 // @Tags Addons
+// @Accept json
+// @Produce json
+// @Produce text/event-stream
+// @Produce application/octet-stream
+// @Produce text/javascript
+// @Produce text/css
+// @Param request body gateway.RelayRequest true "Relay request"
+// @Success 200 {string} string "Relayed response body"
+// @Failure 400 {object} schema.ErrorResponse "Malformed or unknown request fields"
+// @Failure 401 {object} schema.ErrorResponse "Named authentication required"
+// @Failure 403 {object} schema.ErrorResponse "Feature or owner policy denied the request"
+// @Failure 503 {object} schema.ErrorResponse "Addons or the owner are unavailable"
 // @Router /api/addons/relay [post]
 func Relay(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {
