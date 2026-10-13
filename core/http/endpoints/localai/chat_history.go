@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/chathistory"
 )
@@ -16,12 +15,8 @@ import (
 //	@Tags		chat-history
 //	@Success	200	{object}	map[string]any
 //	@Router		/api/conversations [get]
-func ListConversationsEndpoint(app *application.Application) echo.HandlerFunc {
+func ListConversationsEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusOK, map[string]any{"conversations": []any{}})
-		}
 		convs, err := store.List(getUserID(c))
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -36,12 +31,8 @@ func ListConversationsEndpoint(app *application.Application) echo.HandlerFunc {
 //	@Tags		chat-history
 //	@Param		id	path	string	true	"Conversation ID"
 //	@Router		/api/conversations/{id} [get]
-func GetConversationEndpoint(app *application.Application) echo.HandlerFunc {
+func GetConversationEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "chat history is not enabled"})
-		}
 		conv, err := store.Get(getUserID(c), c.Param("id"))
 		if err != nil {
 			if errors.Is(err, chathistory.ErrNotFound) {
@@ -64,12 +55,8 @@ func GetConversationEndpoint(app *application.Application) echo.HandlerFunc {
 //	@Tags		chat-history
 //	@Param		body	body	schema.Conversation	true	"Conversation payload"
 //	@Router		/api/conversations [post]
-func SaveConversationEndpoint(app *application.Application) echo.HandlerFunc {
+func SaveConversationEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "chat history is not enabled"})
-		}
 		var conv schema.Conversation
 		if err := c.Bind(&conv); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -95,12 +82,8 @@ func SaveConversationEndpoint(app *application.Application) echo.HandlerFunc {
 //	@Summary	Replace all chat conversations
 //	@Tags		chat-history
 //	@Router		/api/conversations/bulk [put]
-func BulkReplaceConversationsEndpoint(app *application.Application) echo.HandlerFunc {
+func BulkReplaceConversationsEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "chat history is not enabled"})
-		}
 		var payload struct {
 			Conversations []schema.Conversation `json:"conversations"`
 		}
@@ -123,12 +106,8 @@ func BulkReplaceConversationsEndpoint(app *application.Application) echo.Handler
 //	@Tags		chat-history
 //	@Param		id	path	string	true	"Conversation ID"
 //	@Router		/api/conversations/{id} [delete]
-func DeleteConversationEndpoint(app *application.Application) echo.HandlerFunc {
+func DeleteConversationEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "chat history is not enabled"})
-		}
 		if err := store.Delete(getUserID(c), c.Param("id")); err != nil {
 			if errors.Is(err, chathistory.ErrNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": "conversation not found"})
@@ -147,12 +126,8 @@ func DeleteConversationEndpoint(app *application.Application) echo.HandlerFunc {
 //	@Summary	Delete all chat conversations for the current user
 //	@Tags		chat-history
 //	@Router		/api/conversations [delete]
-func DeleteAllConversationsEndpoint(app *application.Application) echo.HandlerFunc {
+func DeleteAllConversationsEndpoint(store *chathistory.Store) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		store := app.ChatHistoryStore()
-		if store == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "chat history is not enabled"})
-		}
 		if err := store.DeleteAll(getUserID(c)); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}

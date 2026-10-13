@@ -9,6 +9,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/chathistory"
 	compressionservice "github.com/mudler/LocalAI/core/services/compression"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -551,17 +552,25 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
 	}
 
-	// Chat history persistence (#9432). Skipped entirely when the WebUI is
-	// disabled — the store is nil in that case, and registering routes that
-	// would always return 503 only adds surface area.
-	if app != nil && app.ChatHistoryStore() != nil {
-		router.GET("/api/conversations", localai.ListConversationsEndpoint(app), chatHistoryMw)
-		router.POST("/api/conversations", localai.SaveConversationEndpoint(app), chatHistoryMw)
-		router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(app), chatHistoryMw)
-		router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(app), chatHistoryMw)
-		router.GET("/api/conversations/:id", localai.GetConversationEndpoint(app), chatHistoryMw)
-		router.PUT("/api/conversations/:id", localai.SaveConversationEndpoint(app), chatHistoryMw)
-		router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(app), chatHistoryMw)
+	// Chat history persistence (#9432). Skipped entirely when the store is
+	// nil (WebUI disabled or no auth database) — registering routes that
+	// could only ever fail adds surface area for nothing.
+	if app != nil {
+		RegisterChatHistoryRoutes(router, app.ChatHistoryStore(), chatHistoryMw)
 	}
+}
 
+// RegisterChatHistoryRoutes wires the per-user conversation endpoints. A nil
+// store registers nothing, so the React UI sees 404 and stays on localStorage.
+func RegisterChatHistoryRoutes(router *echo.Echo, store *chathistory.Store, chatHistoryMw echo.MiddlewareFunc) {
+	if store == nil {
+		return
+	}
+	router.GET("/api/conversations", localai.ListConversationsEndpoint(store), chatHistoryMw)
+	router.POST("/api/conversations", localai.SaveConversationEndpoint(store), chatHistoryMw)
+	router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(store), chatHistoryMw)
+	router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(store), chatHistoryMw)
+	router.GET("/api/conversations/:id", localai.GetConversationEndpoint(store), chatHistoryMw)
+	router.PUT("/api/conversations/:id", localai.SaveConversationEndpoint(store), chatHistoryMw)
+	router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(store), chatHistoryMw)
 }
