@@ -12,6 +12,7 @@ import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
 import ModalityChips from '../components/ModalityChips'
+import { classifyImportJob } from '../utils/importJob'
 import Icon from '../components/Icon'
 import ToolSteps from '../components/tools/ToolSteps'
 import Checks from '../components/tools/Checks'
@@ -280,32 +281,25 @@ export default function ImportModel() {
     pollRef.current = setInterval(async () => {
       try {
         const data = await modelsApi.getJobStatus(jobId)
-        if (data.cancelled || data.error || (data.message && data.message.startsWith('error:'))) {
+        // Failure is classified before completion: a failed or cancelled
+        // job also sets `processed`. Shared with the model editor.
+        const status = classifyImportJob(data)
+        if (status.state === 'failed') {
           transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
           setJob(null)
-          let msg = 'Unknown error'
-          if (data.cancelled) msg = 'Import cancelled'
-          else if (typeof data.error === 'string') msg = data.error
-          else if (data.error?.message) msg = data.error.message
-          else if (data.message) msg = data.message
-          if (msg.startsWith('error: ')) msg = msg.substring(7)
-          addToast(t('toasts.importFailed', { message: msg }), 'error')
+          addToast(t('toasts.importFailed', { message: status.message }), 'error')
           return
         }
-        // The raw /models/jobs endpoint reports `processed`, not the
-        // `completed` the /api/models/job shim synthesizes — checking
-        // only `completed` left the poll spinning after the job ended.
-        // Errors are handled above: failed jobs also set `processed`.
-        if (data.completed || data.processed) {
+        if (status.state === 'done') {
           transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
           setJob(null)
-          setDone({ name: data.gallery_element_name || '' })
+          setDone({ name: status.name })
           addToast(t('toasts.imported'), 'success')
           return
         }

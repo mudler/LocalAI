@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useOutletContext, useSearchParams, useLocation } from 'react-router-dom'
 import YAML from 'yaml'
 import { modelsApi } from '../utils/api'
+import { waitForImportJob as waitForJob } from '../utils/importJob'
 import { apiUrl } from '../utils/basePath'
 import { useConfigMetadata } from '../hooks/useConfigMetadata'
 import { useVramEstimate } from '../hooks/useVramEstimate'
@@ -118,6 +119,14 @@ export default function ModelEditor() {
   const [clearedPaths, setClearedPaths] = useState(new Set())
 
   const sectionRefs = useRef({})
+
+  // Stops the wait for a queued import when the editor unmounts. Created in
+  // the effect as well so a StrictMode remount gets a live controller.
+  const importAbortRef = useRef(new AbortController())
+  useEffect(() => {
+    importAbortRef.current = new AbortController()
+    return () => importAbortRef.current.abort()
+  }, [])
 
   const vramEstimate = useVramEstimate({
     model: name,
@@ -297,19 +306,11 @@ export default function ModelEditor() {
     const jobId = result?.uuid || result?.ID
     if (!jobId) return false
     addToast('Import queued — downloading model assets…', 'info')
-    for (;;) {
-      await new Promise(r => setTimeout(r, 1000))
-      let data
-      try { data = await modelsApi.getJobStatus(jobId) } catch { continue }
-      if (data?.cancelled) throw new Error('Import cancelled')
-      if (data?.error) {
-        throw new Error(typeof data.error === 'string' ? data.error : 'model asset download failed')
-      }
-      // The raw /models/jobs endpoint reports `processed`, not the
-      // `completed` the /api/models/job shim synthesizes; failed jobs
-      // also set `processed`, but the error branch above runs first.
-      if (data?.completed || data?.processed) return true
-    }
+    await waitForJob(jobId, {
+      getStatus: modelsApi.getJobStatus,
+      signal: importAbortRef.current.signal,
+    })
+    return true
   }
 
   // Interactive save — uses PATCH (edit mode) or importConfig (create mode)
@@ -356,6 +357,7 @@ export default function ModelEditor() {
         addToast('Configuration saved', 'success')
       }
     } catch (err) {
+      if (err?.name === 'AbortError') return
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)
@@ -407,6 +409,7 @@ export default function ModelEditor() {
         }
       }
     } catch (err) {
+      if (err?.name === 'AbortError') return
       addToast(`Save failed: ${err.message}`, 'error')
     } finally {
       setSaving(false)
