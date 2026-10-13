@@ -513,8 +513,18 @@ disconnecting still cancels the waiting lookup. Install-byte progress requires l
 `RelayLimits` has finite startup defaults: 60 seconds, 16 concurrent streams, 64 MiB
 for files, 8 MiB for assets, and 1 MiB for progress. Heartbeats default to five seconds.
 Overrides cannot remove these bounds. Streams cancel on disconnect and reject excess bytes.
+The receiving frontend applies the budget of the relay kind: `file` uses the file
+limit, `asset` the asset limit, `progress` and `status` the progress limit, and `json`
+at most 2 MiB. An unknown kind is denied on the frontend before the owner is contacted.
 Only content type, attachment disposition, cache policy, and nosniff headers cross the carrier.
 Browsers never receive an addon process address.
+
+A denial that the owner makes before it writes the first response byte (an invalid kind,
+missing admission or resolver, a refused resource, or a revoked credential) is returned
+as a typed owner status: `403` for a denial and `503` for unavailability. The receiving
+frontend decodes it, so every frontend reports the same error for the same decision.
+After the first byte the status cannot change; the owner then aborts the stream and the
+frontend reports the stream as failed, never as a clean end.
 
 ### Resource integration remains closed by default
 

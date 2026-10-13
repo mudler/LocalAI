@@ -165,23 +165,73 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Relay != nil {
-			if e = g.Relay(r.Context(), actor, *wire.Relay, w); e != nil {
-				panic(http.ErrAbortHandler)
+			tw := &trackedWriter{ResponseWriter: w}
+			if e = g.Relay(r.Context(), actor, *wire.Relay, tw); e != nil {
+				// Once a byte is committed the status cannot change: abort so the
+				// receiving frontend sees a truncated stream, never a clean end.
+				if tw.committed {
+					panic(http.ErrAbortHandler)
+				}
+				// Before the first byte the denial is a typed status that the
+				// receiving frontend decodes back, so every frontend reports the
+				// same error for the same owner decision.
+				for _, h := range []string{"Content-Type", "Content-Disposition", "Content-Length"} {
+					w.Header().Del(h)
+				}
+				http.Error(w, "addon request failed", StatusFor(e))
 			}
 			return
 		}
 		result, e := g.Dispatch(r.Context(), actor, wire.Request)
 		if e != nil {
-			code := 403
-			if errors.Is(e, ErrUnavailable) {
-				code = 503
-			}
-			http.Error(w, "addon request failed", code)
+			http.Error(w, "addon request failed", StatusFor(e))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
 	}), nil
+}
+// StatusFor is the one mapping from a gateway error to an HTTP status. The owner
+// uses it for typed responses and the HTTP endpoints use it for local errors, so
+// the same decision has the same status from every frontend.
+func StatusFor(e error) int {
+	if errors.Is(e, ErrUnavailable) || errors.Is(e, context.DeadlineExceeded) || errors.Is(e, context.Canceled) {
+		return http.StatusServiceUnavailable
+	}
+	return http.StatusForbidden
+}
+
+// trackedWriter records whether any response byte or status was committed.
+type trackedWriter struct {
+	http.ResponseWriter
+	committed bool
+}
+
+func (t *trackedWriter) WriteHeader(code int) { t.committed = true; t.ResponseWriter.WriteHeader(code) }
+func (t *trackedWriter) Write(p []byte) (int, error) {
+	t.committed = true
+	return t.ResponseWriter.Write(p)
+}
+func (t *trackedWriter) FlushError() error {
+	t.committed = true
+	return http.NewResponseController(t.ResponseWriter).Flush()
+}
+func (t *trackedWriter) Unwrap() http.ResponseWriter { return t.ResponseWriter }
+
+// relayBudget is the frontend byte bound for one relay kind.
+func (c *Carrier) relayBudget(kind string) (int64, error) {
+	l := c.config.Limits
+	switch kind {
+	case "file":
+		return l.Bytes, nil
+	case "progress", "status":
+		return l.ProgressBytes, nil
+	case "asset":
+		return l.AssetBytes, nil
+	case "json":
+		return min(l.Bytes, 2<<20), nil
+	}
+	return 0, ErrForbidden
 }
 func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/audience", nil)
@@ -255,6 +305,10 @@ func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Req
 	return result, nil
 }
 func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
+	budget, e := c.relayBudget(r.Kind)
+	if e != nil {
+		return e
+	}
 	resp, e := c.send(ctx, a, wireRequest{Request: r.Request, Relay: &r})
 	if e != nil {
 		return e
@@ -271,7 +325,7 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 		n, err := resp.Body.Read(buffer)
 		if n > 0 {
 			total += int64(n)
-			if total > c.config.Limits.Bytes {
+			if total > budget {
 				return ErrUnavailable
 			}
 			if _, e = w.Write(buffer[:n]); e != nil {
