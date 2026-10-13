@@ -358,6 +358,9 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		agiServices.FiltersConfigMeta(),
 	)
 
+	// Warn before starting legacy agents, which remain outside authenticated users' storage.
+	s.warnLegacyAuthData()
+
 	// Start all agents
 	if err := pool.StartAll(); err != nil {
 		xlog.Error("Failed to start agent pool", "error", err)
