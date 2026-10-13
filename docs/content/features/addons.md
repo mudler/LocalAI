@@ -729,12 +729,25 @@ output, on the owner's own frontend and on every forwarding frontend:
   white-space variant, an empty value and a value that is not a string are denied.
 - A key that equals `tool` only after case folding or trimming white space (`Tool`,
   `TOOL`, ` tool`) is denied, because an add-on decoder may read it as the tool.
+- A repeated key is denied at any depth of `arguments`. Keys are compared after JSON
+  unescaping, white-space trimming and Unicode case folding, so `"tool"` and
+  `"\u0074ool"` collide, and so do `"tool"` and `"TOOL"`. A runtime that keeps the
+  first value would otherwise run another tool than the one that was checked.
+- `arguments` must be exactly one JSON object. An array, a scalar, `null`, trailing
+  data after the object, invalid JSON and nesting deeper than 64 levels are denied.
+  This rule runs in the declared-tool check itself, so it holds for reads,
+  proposals, confirmations and output opening whatever validation ran earlier.
 - A denial is the standard 403, and the add-on is not contacted. A proposal is denied
   before the preview and nothing is stored. A stored proposal is checked again at
   confirmation, so a tool that an update withdrew is never applied.
-- When the manifest of the installed current generation cannot be read, the request is
-  denied. The owner reads declarations from its in-memory journal, cached for each
-  generation.
+- Only a real answer is a denial: the tool is not declared, or the generation is stale
+  or not installed. When the declarations cannot be read, the request is unavailable
+  (503) and nothing runs: the manager is closed or not the owner, the journal is
+  uncertain or runtime recovery is required, the request context is done, or the
+  source fails for any other reason. An unclassified failure is unavailable, never
+  success and never a policy denial. The owner and every forwarding frontend give the
+  same status. The owner reads declarations from its in-memory journal, cached for
+  each generation.
 
 ### Lifecycle
 
