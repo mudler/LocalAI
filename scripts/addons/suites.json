@@ -393,5 +393,43 @@
         ]
       }
     ]
+  },
+  "policy": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/policy",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/policy.json"
+      ]
+    ],
+    "cases": [
+      "enforces the viewer editor owner matrix on fixture resources",
+      "denies installation administrators and unrelated users any access to user data",
+      "does not leak resource existence and treats unknown actions as owner mutations",
+      "never grants the owner role or a grant to the owner and the synthetic principals",
+      "rejects anonymous and legacy synthetic principals in named mode",
+      "checks credential and account status on every admission",
+      "keeps no current-user state shared between concurrent admissions",
+      "disables sharing in explicit local-owner mode and lets every local caller own the resource",
+      "refuses a mode switch of populated data without a stopped backed-up migration",
+      "retains resources and grants across a restart and an uninstall of the package",
+      "refuses a corrupt store and a second opener",
+      "stops admitted work of a revoked user and acknowledges only after it ended",
+      "lets a racing revocation win against read and write admissions",
+      "serializes writes per resource while reads run concurrently",
+      "bounds the revocation wait and does not acknowledge a stuck drain",
+      "invalidates pending proposals on revoke and downgrade and fails closed when it cannot",
+      "requires explicit creation authority and keeps pending registrations inaccessible",
+      "reconciles a registration interrupted by a crash from the durable store",
+      "maps opaque ids to the trusted addon and owner and keeps an absent policy denying"
+    ],
+    "report": ".cache/addons/logs/policy.json"
   }
 }

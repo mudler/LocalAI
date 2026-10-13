@@ -542,8 +542,50 @@ frontend reports the stream as failed, never as a clean end.
 `Admission.Admit` encloses the complete private-output stream lifetime. A host-owned
 resolver maps resource references and opaque output handles to trusted records. A missing
 admission provider or resolver denies access, including access by installation administrators.
-Bootstrap does not install either provider. The later policy and artifact integrations must
-supply them; this gateway does not implement ACLs or an artifact store.
+The owner installs the policy described below as both providers at bootstrap; a frontend
+that forwards to the owner, or a host without the policy, keeps denying. Private output
+descriptions still need the artifact store, so `Output` denies until it exists.
+
+### Principals, roles and grants
+
+`core/services/addons/policy` is the owner-local authority for resource access. Its store
+is a private directory (`policy/` below the addon root, file mode 0600, one holder at a
+time) that is separate from replaceable packages, so it can be backed up and restored on
+its own. A resource is an opaque host-issued ID bound to the trusted addon identity and
+an immutable owner user ID; the addon, the model and a request never supply either.
+
+| Role | May |
+|---|---|
+| Viewer | read, and download private outputs |
+| Editor | everything a Viewer may, and mutate rows |
+| Owner | everything an Editor may, and change schema, share and delete |
+
+Grants cover whole resources, never tables or rows. Installation administration confers
+no access to user data: the policy has no administrator role. Only the owner grants or
+revokes, the owner role cannot be granted, and an action that is not classified is a
+mutation that needs the owner. A missing resource and a resource the caller may not touch
+return the same denial.
+
+Named-user mode uses the immutable user ID and rejects anonymous and legacy synthetic
+principals (such as the legacy shared API key). Explicit local-owner mode disables
+sharing and warns that every unauthenticated caller shares one authority: any local-owner
+caller owns every resource. A populated store opened in the other mode is refused.
+`policy.MigrateMode` changes it only while the host is stopped (the store lock must be
+free), after it wrote a backup, and shared data can never return to local-owner mode.
+
+Account and credential status are checked again at each admission. The policy keeps no
+current-user state: the actor is an argument of every call, so shared MCP sessions carry
+none. Writes to one resource run one at a time; reads run concurrently. A revocation (or
+lowering a role) is durable first, then invalidates the user's pending proposals through
+the `ProposalInvalidator` seam, cancels the user's admitted work and returns only when
+that work ended. If it does not end within the drain bound the call reports `503`
+(`ErrDrainPending`): the revocation is already effective for new work but is not
+acknowledged. Disabling or uninstalling an addon keeps its resources and grants; purge is
+a separate, explicit operation that is not available to tools.
+
+A new resource needs explicit creation authority. `Register` records it pending and
+inaccessible before the addon creates anything; `Commit` activates it, and `Reconcile`
+resolves registrations left by a crash. A database with no record is never reachable.
 
 Resource reads obtain the current ready runtime incarnation and check the exact generation.
 Private output copying rechecks credentials and stays inside admission until completion
@@ -557,3 +599,5 @@ For that reason `/api/addons/dispatch` and `/api/addons/relay` are deliberately 
 the LocalAI Assistant tool catalog (`pkg/mcp/localaitools`) yet. The route map test only
 requires an entry for each registered tool, so no test is weakened. The routes are described
 in the generated Swagger document under the `Addons` tag.
+
+Run `sh scripts/addons/verify.sh policy` for the policy suite.
