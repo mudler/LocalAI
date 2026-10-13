@@ -1257,8 +1257,18 @@ packages under `tests/addons/fixture/ui` are written in that form.
    call.
 3. Style sheets are read as text and scoped: every selector becomes
    `:where([data-addon="{id}"]) …`, `:root`, `html` and `body` map to the add-on's root,
-   `@import`, `@font-face` and URL values (other than `data:` images) are dropped,
-   and keyframe names are renamed. The sheet reaches only the add-on's own root.
+   `@import`, `@font-face` and every other at-rule except `@media`, `@supports`,
+   `@container`, `@layer` and `@keyframes` are dropped, and keyframe names are
+   renamed. The sheet reaches only the add-on's own root.
+   The same rule is applied to every declaration, including those inside
+   keyframes, nested rules and `@media`, `@supports`, `@container` and `@layer`
+   blocks, and to at-rule conditions: a declaration is dropped when its text,
+   after comments and CSS escapes are resolved, contains `url(`, `src(`,
+   `image-set(` (also with a vendor prefix), `cross-fade(`, `element(`,
+   `paint(`, `image(`, `expression(`, `behavior` or `-moz-binding`, or when it
+   has a backslash escape outside a quoted string. `data:` images are dropped
+   as well; an add-on that needs an image uses an asset of its own package
+   from its code.
 4. The module is imported by URL with a timeout and an abort, `createAddon` is called
    with the SDK, and the result is checked.
 5. The page component is drawn inside an error boundary in the add-on's root. A throw

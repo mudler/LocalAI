@@ -249,12 +249,69 @@ test('css: imports, fonts, external urls and unknown at-rules are dropped and ke
   `, 'notes')
   assert.doesNotMatch(css, /evil\.example|@import|@font-face|woff2/)
   assert.match(css, /\.a\{color: red\}/)
-  assert.match(css, /data:image\/png/)
-  assert.match(css, /@keyframes ad-notes-spin\{\s*from \{ opacity: 0 \}/)
+  // A data: image is dropped with every other URL-loading value.
+  assert.doesNotMatch(css, /data:image/)
+  assert.match(css, /\.b\{animation: ad-notes-spin 1s linear\}/)
+  assert.match(css, /@keyframes ad-notes-spin\{from\{opacity: 0\}to\{opacity: 1\}\}/)
   assert.match(css, /animation:\s*ad-notes-spin 1s linear/)
   assert.match(css, /\.c\{content: "a;b\}";color: green\}/)
   const kinds = dropped.map(d => d.kind)
   assert.ok(kinds.includes('import') && kinds.includes('font-face') && kinds.includes('url'))
+})
+
+// Every value below would load a resource, directly or through an escape, a
+// keyframe, a nested rule or an at-rule block. Nothing of it may survive.
+const URL_LOADING = [
+  ['image-set with a bare string', '.a{background:image-set("https://evil.example/x.png" 1x)}'],
+  ['escaped function name', '.a{background:u\\72l(https://evil.example/x.png)}'],
+  ['escaped function name with a trailing space', '.a{background:\\75 rl(https://evil.example/x.png)}'],
+  ['keyframe body', '@keyframes k{from{background:url(https://evil.example/x.png)}to{opacity:1}}'],
+  ['keyframe body with escape', '@-webkit-keyframes k{50%{background:u\\72l(https://evil.example/x.png)}}'],
+  ['nested rule', '.a{color:red;& .b{background:u\\72l(https://evil.example/x.png)}}'],
+  ['nested rule without ampersand', '.a{.b{background:url(https://evil.example/x.png)}}'],
+  ['webkit image-set with url2', '.a{background:-webkit-image-set(url2(https://evil.example/x.png) 1x)}'],
+  ['data image', '.a{background:url("data:image/png;base64,AAAA")}'],
+  ['svg data image', '.a{background:url(data:image/svg+xml;utf8,<svg/>)}'],
+  ['src function', '.a{background:src("https://evil.example/x.png")}'],
+  ['cross-fade', '.a{background:cross-fade(url(x.png), url(y.png), 50%)}'],
+  ['element', '.a{background:element(#id)}'],
+  ['paint', '.a{background:paint(worklet)}'],
+  ['image function', '.a{background:image("https://evil.example/x.png")}'],
+  ['custom property', '.a{--x:url(https://evil.example/x.png)}'],
+  ['comment between name and paren', '.a{background:url/**/(https://evil.example/x.png)}'],
+  ['uppercase', '.a{background:URL(https://evil.example/x.png)}'],
+  ['expression', '.a{width:expression(alert(1))}'],
+  ['behavior property', '.a{behavior:url(x.htc)}'],
+  ['moz binding', '.a{-moz-binding:url(x.xml#y)}'],
+  ['media block', '@media (min-width:1px){.a{background:url(https://evil.example/x.png)}}'],
+  ['supports block', '@supports (display:grid){.a{background:image-set("https://evil.example/x.png" 1x)}}'],
+  ['layer block', '@layer base{.a{background:u\\72l(https://evil.example/x.png)}}'],
+  ['container block', '@container (min-width:1px){.a{background:url(https://evil.example/x.png)}}'],
+  ['nested at-rule in a rule', '.a{@media (min-width:1px){background:url(https://evil.example/x.png)}}'],
+  ['supports condition', '@supports (background:url(https://evil.example/x.png)){.a{color:red}}'],
+  ['deeply nested', '@layer a{@media (min-width:1px){@supports (display:grid){.a{.b{& .c{background:u\\72l(https://evil.example/x.png)}}}}}}'],
+]
+
+test('css: no value that loads a URL survives anywhere in the sheet', () => {
+  for (const [name, sheet] of URL_LOADING) {
+    const { css, dropped } = scopeCss(sheet, 'notes')
+    assert.doesNotMatch(css, /evil\.example|data:|AAAA|x\.htc|x\.xml|worklet|element\(|expression|\\|url\s*\(|src\s*\(|image(-set)?\s*\(|cross-fade|paint\(|behavior|binding/i, `${name}: ${css}`)
+    assert.ok(dropped.length > 0, `${name}: something is reported as dropped`)
+  }
+})
+
+test('css: harmless values, escapes in strings and nested rules are kept', () => {
+  const { css, dropped } = scopeCss(`
+    .a { color: red; scroll-behavior: smooth; background: linear-gradient(red, blue); content: "\\201C" }
+    .b { color: blue; & .c { color: green } }
+    @media (min-width: 1px) { .d { transform: translate3d(0,0,0) } }
+  `, 'notes')
+  assert.match(css, /scroll-behavior: smooth/)
+  assert.match(css, /linear-gradient\(red, blue\)/)
+  assert.match(css, /content: "\\201C"/)
+  assert.match(css, /& \.c\{color: green\}/)
+  assert.match(css, /translate3d\(0,0,0\)/)
+  assert.deepEqual(dropped, [])
 })
 
 test('css: two add-ons that use the same class names get disjoint scopes', () => {

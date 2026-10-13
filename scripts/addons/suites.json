@@ -1640,6 +1640,8 @@
       "unit: sdk: layers are host wrappers with a bounded spec",
       "unit: css: every selector is scoped to the add-on root and the global ones are neutralised",
       "unit: css: imports, fonts, external urls and unknown at-rules are dropped and keyframes are renamed",
+      "unit: css: no value that loads a URL survives anywhere in the sheet",
+      "unit: css: harmless values, escapes in strings and nested rules are kept",
       "unit: css: two add-ons that use the same class names get disjoint scopes",
       "unit: loader: asset URLs must be same-origin immutable URLs of the add-on own package",
       "unit: loader: an incompatible SDK range is never imported and leaves a clear error",

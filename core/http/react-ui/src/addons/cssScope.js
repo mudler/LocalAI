@@ -7,7 +7,10 @@
 //   @media, @supports, @container, @layer   rewritten inside
 //   @keyframes        renamed per add-on, and animation names follow
 //   @import, @font-face, @namespace, @charset, @page   dropped
-//   declarations that load a URL (other than data: images)   dropped
+//   declarations that load a URL or run script, in any rule, keyframe or
+//   nested block (url(, src(, image-set(, cross-fade(, element(, paint(,
+//   image(, expression(, behavior, -moz-binding, any escape outside a
+//   string; data: images included)   dropped
 //
 // The scope uses :where(), so it adds no specificity: an add-on's own cascade
 // is unchanged inside its root.
@@ -115,36 +118,113 @@ function scopeSelector(selector, scope) {
   return `${scope} ${s}`
 }
 
-const URL_FN = /url\s*\(/i
-const DATA_IMAGE = /^url\(\s*(["']?)data:image\/(png|jpe?g|gif|webp|avif|svg\+xml)[;,]/i
-
-// declarations drops every declaration that would load a resource, so a sheet
-// cannot reach another origin or an undeclared package file.
-function cleanDeclarations(body, dropped, renames) {
-  const kept = []
-  for (const decl of splitTop(stripComments(body), ';')) {
-    const text = decl.trim()
-    if (!text) continue
-    const colon = text.indexOf(':')
-    if (colon < 0) { kept.push(text); continue }
-    const value = text.slice(colon + 1)
-    if (URL_FN.test(value)) {
-      const urls = value.match(/url\s*\([^)]*\)/gi) || []
-      if (!urls.every(u => DATA_IMAGE.test(u.replace(/\s+/g, ' ')))) {
-        dropped.push({ kind: 'url', detail: text.slice(0, 60) })
-        continue
-      }
+// unescape resolves CSS escapes (a backslash and up to six hex digits with one
+// optional space, or a backslash and any other character) and removes
+// comments, so a function name cannot hide behind u\72l( or url/**/(.
+function unescapeCss(text) {
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '/' && text[i + 1] === '*') { i = skipComment(text, i); continue }
+    if (ch !== '\\') { out += ch; continue }
+    const hex = /^[0-9a-fA-F]{1,6}/.exec(text.slice(i + 1, i + 7))
+    if (hex) {
+      const code = parseInt(hex[0], 16)
+      out += code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '�'
+      i += hex[0].length
+      if (/\s/.test(text[i + 1] || '')) i++
+    } else if (i + 1 < text.length) {
+      out += text[++i]
     }
-    if (/^\s*@import\b/i.test(value)) { dropped.push({ kind: 'import', detail: text.slice(0, 60) }); continue }
-    const prop = text.slice(0, colon).trim().toLowerCase()
-    if ((prop === 'animation' || prop === 'animation-name' || prop === '-webkit-animation' || prop === '-webkit-animation-name') && renames.size) {
-      const next = value.replace(/-?[A-Za-z_][A-Za-z0-9_-]*/g, (name) => renames.get(name) || name)
-      kept.push(`${text.slice(0, colon)}:${next}`)
+  }
+  return out
+}
+
+// hasEscapeOutsideString reports a backslash that is not inside a quoted
+// string. Inside a string an escape is only text; anywhere else it can spell
+// an identifier or a function name.
+function hasEscapeOutsideString(text) {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '"' || ch === '\'') { i = skipString(text, i); continue }
+    if (ch === '/' && text[i + 1] === '*') { i = skipComment(text, i); continue }
+    if (ch === '\\') return true
+  }
+  return false
+}
+
+// Functions and values that fetch a resource or run script. The check is a
+// conservative substring test on the unescaped text, so an unknown wrapper
+// such as url2( or -webkit-image-set( is caught as well. Data: images are
+// dropped too: telling a safe one from a URL needs a full value parser.
+const LOADING = /(url|src|image-set|cross-fade|element|paint|image|expression)\s*\(/i
+const LOADING_VALUE = /behavior|-moz-binding|@import/i
+const LOADING_PROP = /^(?:-[a-z]+-)?(?:behavior|binding)$|-moz-binding$/i
+
+// loadsResource reports whether a declaration, or an at-rule prelude, could
+// load something.
+function loadsResource(text, prop) {
+  if (hasEscapeOutsideString(text)) return true
+  const plain = unescapeCss(text)
+  if (LOADING.test(plain) || LOADING_VALUE.test(prop === null ? plain : plain.slice(plain.indexOf(':') + 1))) return true
+  return prop !== null && LOADING_PROP.test(unescapeCss(prop).trim())
+}
+
+const ALLOWED_BLOCK_AT_RULES = new Set(['media', 'supports', 'container', 'layer'])
+
+// cleanBlock rebuilds the inside of a declaration block, a keyframes body or
+// a nested at-rule. It is applied to every block, so a keyframe step, a nested
+// rule and a rule inside @media are held to the same rule as a top-level rule.
+function cleanBlock(body, ctx) {
+  let out = ''
+  // A declaration ends with a semicolon; a nested block needs none.
+  const decl = (text) => { out += (out && !out.endsWith('}') ? ';' : '') + text }
+  for (const item of rules(stripComments(body))) {
+    const { prelude, body: inner } = item
+    if (inner === null) {
+      for (const piece of splitTop(prelude, ';')) {
+        const text = piece.trim()
+        if (!text) continue
+        for (const d of cleanDeclaration(text, ctx)) decl(d)
+      }
       continue
     }
-    kept.push(text)
+    if (prelude.startsWith('@')) {
+      const name = (prelude.match(/^@([A-Za-z-]+)/) || [, ''])[1].toLowerCase()
+      if (!ALLOWED_BLOCK_AT_RULES.has(name) || loadsResource(prelude, null)) {
+        ctx.dropped.push({ kind: name || 'at-rule', detail: prelude.slice(0, 60) })
+        continue
+      }
+      decl(`${prelude}{${cleanBlock(inner, ctx)}}`)
+      continue
+    }
+    if (loadsResource(prelude, null)) {
+      ctx.dropped.push({ kind: 'url', detail: prelude.slice(0, 60) })
+      continue
+    }
+    decl(`${prelude}{${cleanBlock(inner, ctx)}}`)
   }
-  return kept.join(';')
+  return out
+}
+
+function cleanDeclaration(text, ctx) {
+  const colon = text.indexOf(':')
+  if (colon < 0) {
+    if (loadsResource(text, null)) { ctx.dropped.push({ kind: 'url', detail: text.slice(0, 60) }); return [] }
+    return [text]
+  }
+  const prop = text.slice(0, colon)
+  const value = text.slice(colon + 1)
+  if (loadsResource(text, prop)) {
+    ctx.dropped.push({ kind: /^\s*@import\b/i.test(value) ? 'import' : 'url', detail: text.slice(0, 60) })
+    return []
+  }
+  const lower = prop.trim().toLowerCase()
+  if ((lower === 'animation' || lower === 'animation-name' || lower === '-webkit-animation' || lower === '-webkit-animation-name') && ctx.renames.size) {
+    const next = value.replace(/-?[A-Za-z_][A-Za-z0-9_-]*/g, (name) => ctx.renames.get(name) || name)
+    return [`${prop}:${next}`]
+  }
+  return [text]
 }
 
 function transform(text, ctx) {
@@ -158,15 +238,17 @@ function transform(text, ctx) {
         ctx.dropped.push({ kind: name || 'at-rule', detail: prelude.slice(0, 60) })
         continue
       }
-      if (name === 'media' || name === 'supports' || name === 'container') {
-        out.push(`${prelude}{${transform(body, ctx)}}`)
-      } else if (name === 'layer') {
+      if (loadsResource(prelude, null)) {
+        ctx.dropped.push({ kind: 'url', detail: prelude.slice(0, 60) })
+        continue
+      }
+      if (name === 'media' || name === 'supports' || name === 'container' || name === 'layer') {
         out.push(`${prelude}{${transform(body, ctx)}}`)
       } else if (name === 'keyframes' || name === '-webkit-keyframes') {
         const original = prelude.replace(/^@[A-Za-z-]+\s*/, '').trim()
         const renamed = ctx.renames.get(original) || `${ctx.prefix}${original}`
         ctx.renames.set(original, renamed)
-        out.push(`@${name} ${renamed}{${body}}`)
+        out.push(`@${name} ${renamed}{${cleanBlock(body, ctx)}}`)
       } else {
         ctx.dropped.push({ kind: name, detail: prelude.slice(0, 60) })
       }
@@ -175,7 +257,7 @@ function transform(text, ctx) {
     if (body === null) continue
     const selectors = splitTop(prelude, ',').map(sel => scopeSelector(sel, ctx.scope)).filter(Boolean)
     if (selectors.length === 0) continue
-    out.push(`${selectors.join(',')}{${cleanDeclarations(body, ctx.dropped, ctx.renames)}}`)
+    out.push(`${selectors.join(',')}{${cleanBlock(body, ctx)}}`)
   }
   return out.join('\n')
 }
