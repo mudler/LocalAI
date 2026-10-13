@@ -6,7 +6,7 @@ import { createHostSDK, sdkAccepts, resolveSubpath, SDK_VERSION, THEME_TOKENS, I
 import { scopeCss } from '../../src/addons/cssScope.js'
 import { assertAssetUrl, loadAddonUI, validateChatActions, chatActionContext, LoadError } from '../../src/addons/loader.js'
 import { createRuntimeManager } from '../../src/addons/runtime.js'
-import { invalidReason, navigationItems, availableChatActions, appStatus, usable } from '../../src/addons/registryState.js'
+import { invalidReason, navigationItems, availableChatActions, appStatus, usable, contributesUI, shouldPoll } from '../../src/addons/registryState.js'
 import { visibleItems, buildHub } from '../../src/components/hub/hubConfig.js'
 
 const ORIGIN = 'https://host.example'
@@ -655,4 +655,29 @@ test('registry: the Add-ons tab lists page links only when the registry has usab
   // Other tabs never pick up add-on links.
   const agents = buildHub.tabs.find(t => t.id === 'agents')
   assert.deepEqual(visibleItems(agents, { ...auth, addonNavigation: nav }).map(i => i.path), ['/app/agents'])
+})
+
+test('registry: the list is read off the Add-ons page only for a viewer with the feature and a UI contribution', () => {
+  const plain = [app({ ui: undefined })]
+  const nav = [app({ ui: { ...app().ui, navigation: ['home'], chatActions: [], pages: ['home'] } })]
+  const bare = [app({ ui: { ...app().ui, navigation: [], chatActions: [], pages: [] } })]
+  assert.equal(contributesUI(plain), false)
+  assert.equal(contributesUI(bare), false)
+  assert.equal(contributesUI(nav), true)
+  // Once a list says it is disabled or crashed it contributes nothing more.
+  assert.equal(contributesUI([{ ...nav[0], enabled: false }]), false)
+  assert.equal(contributesUI([{ ...nav[0], state: 'failed' }]), false)
+  assert.equal(contributesUI(null), false)
+  const base = { allowed: true, onAddonsPage: false, apps: plain, status: 'ready', consumers: 1 }
+  // Nothing contributes and the list is known: no read at all.
+  assert.equal(shouldPoll(base), false)
+  // A contribution keeps it current, with or without a consumer.
+  assert.equal(shouldPoll({ ...base, apps: nav, consumers: 0 }), true)
+  // The Add-ons page always reads it.
+  assert.equal(shouldPoll({ ...base, onAddonsPage: true }), true)
+  // A never-read list is learned once, and only for a consumer.
+  assert.equal(shouldPoll({ ...base, status: 'idle', apps: [] }), true)
+  assert.equal(shouldPoll({ ...base, status: 'idle', apps: [], consumers: 0 }), false)
+  // Without the feature nothing ever reads, whatever else holds.
+  assert.equal(shouldPoll({ ...base, allowed: false, onAddonsPage: true, apps: nav, status: 'idle' }), false)
 })

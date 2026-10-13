@@ -254,6 +254,56 @@ test.describe('Add-ons: apps', () => {
   })
 })
 
+test.describe('Add-ons: registry polling', () => {
+  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 1 }, pages: ['home'], navigation: ['home'] }, ...over })
+
+  test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
+    await signIn(page, MEMBER, { addons: true })
+    await page.clock.install()
+    const state = await mockAddons(page, { apps: [contributing()] })
+    await page.goto('/app/addons')
+    await expect(page.locator('[data-app="notes"]')).toBeVisible()
+    await leave(page)
+    await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50)
+    await expect.poll(() => state.log.appsList).toBeGreaterThanOrEqual(1)
+    // Reads continue, one per interval and no faster. The clock only moves
+    // by runFor, and each step waits for its answer before the next one.
+    const before = state.log.appsList
+    await page.clock.runFor(4_000)
+    await page.waitForTimeout(150)
+    expect(state.log.appsList).toBe(before)
+    await page.clock.runFor(1_100)
+    await expect.poll(() => state.log.appsList).toBe(before + 1)
+    for (let n = 2; n <= 4; n++) {
+      await page.clock.runFor(5_100)
+      await expect.poll(() => state.log.appsList).toBe(before + n)
+    }
+    // The owner disables it: the next list withdraws the contribution, and
+    // with nothing left to keep current the reads stop.
+    state.apps[0].enabled = false
+    state.apps[0].state = 'stopped'
+    await page.clock.runFor(5_100)
+    await expect.poll(() => state.log.appsList).toBe(before + 5)
+    await page.waitForTimeout(150)
+    await page.clock.runFor(180_000)
+    await page.waitForTimeout(300)
+    expect(state.log.appsList).toBe(before + 5)
+  })
+
+  test('apps: a viewer without the add-ons feature never requests the list', async ({ page }) => {
+    await signIn(page, MEMBER, {})
+    await page.clock.install()
+    const state = await mockAddons(page, { apps: [contributing()] })
+    await page.goto('/app/chat')
+    await page.clock.runFor(120_000)
+    await page.goto('/app/addons')
+    await page.clock.runFor(120_000)
+    expect(state.log.appsList).toBe(0)
+  })
+})
+
 test.describe('Add-ons: browse', () => {
   test('browse: searches the libraries, pages and shows trust and platform facts', async ({ page }) => {
     await signIn(page, ADMIN)

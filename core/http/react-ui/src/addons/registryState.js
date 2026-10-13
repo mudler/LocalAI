@@ -35,6 +35,29 @@ export function appStatus(app) {
   return 'ready'
 }
 
+// Whether any listed app contributes UI to the host outside its own page
+// (navigation entries, chat actions or pages). Those contributions have to be
+// kept current, so the list is read off the Add-ons page only while this holds.
+export function contributesUI(apps) {
+  return (apps || []).some(app => {
+    // A disabled, failed or incompatible app draws nothing, so there is
+    // nothing left to keep current once a list has said so.
+    if (!usable(app)) return false
+    const ui = app.ui
+    return ['navigation', 'chatActions', 'pages'].some(k => Array.isArray(ui[k]) && ui[k].length > 0)
+  })
+}
+
+// Whether the registry reads the apps list now. Never without the feature. On
+// an Add-ons page always. Anywhere else only while a listed app contributes UI,
+// or once, to learn that, when a consumer needs a list that was never read.
+export function shouldPoll({ allowed, onAddonsPage, apps, status, consumers }) {
+  if (!allowed) return false
+  if (onAddonsPage) return true
+  if (contributesUI(apps)) return true
+  return consumers > 0 && status !== 'ready'
+}
+
 // Pages an app contributes to navigation, only while it is usable.
 export function navigationItems(apps, { language = 'en' } = {}) {
   const out = []

@@ -13,7 +13,7 @@ import SideSheet from '../components/SideSheet'
 import { createHostSDK, ICON_NAMES } from './sdk'
 import { loadAddonUI } from './loader'
 import { createRuntimeManager } from './runtime'
-import { availableChatActions, navigationItems as buildNavigation } from './registryState'
+import { availableChatActions, navigationItems as buildNavigation, shouldPoll } from './registryState'
 import { host } from './hostServices'
 import { RegistryContext } from './registryContext'
 import AddonErrorBoundary from './AddonErrorBoundary'
@@ -109,8 +109,14 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     }
   }, [api, manager])
 
+  // Off the Add-ons pages the chain runs only while an add-on contributes UI
+  // (so that its disable, crash or update is seen) and otherwise stops with no
+  // timer left. Entering /app/addons or a changed feature restarts it.
+  const pathname = location.pathname.replace(/\/+$/, '')
+  const onAddonsPage = pathname === '/app/addons' || pathname.startsWith('/app/addons/')
+  const polling = shouldPoll({ allowed, onAddonsPage, apps: list.apps, status: list.status, consumers })
   useEffect(() => {
-    if (!allowed || consumers === 0 || appsTabOwnsList) return undefined
+    if (!polling || appsTabOwnsList) return undefined
     let alive = true
     let failures = 0
     let timer = null
@@ -123,7 +129,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     tick.current = () => { clearTimeout(timer); if (alive) run() }
     run()
     return () => { alive = false; clearTimeout(timer); tick.current = null }
-  }, [allowed, consumers, refresh, appsTabOwnsList])
+  }, [polling, refresh, appsTabOwnsList])
 
   // A different user, or a user who lost the feature, never keeps another
   // session's add-on code or caches.
