@@ -10,6 +10,7 @@ import (
 
 func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	group := e.Group("/api/addons", auth.RequireFeature(a.AuthDB(), auth.FeatureAddons), auth.CSRFMiddleware(), endpoints.BrowserProtection())
-	group.POST("/dispatch", endpoints.Dispatch(a.AddonGateway(), a.AuthDB()))
-	group.POST("/relay", endpoints.Relay(a.AddonGateway(), a.AuthDB()))
+	mode := endpoints.WithOwnership(a.AddonOwnershipMode())
+	group.POST("/dispatch", endpoints.Dispatch(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/relay", endpoints.Relay(a.AddonGateway(), a.AuthDB(), mode))
 }

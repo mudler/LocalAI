@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
@@ -65,6 +66,9 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	addonPolicy          *policy.Policy
+	addonStore           *policy.Store
+	addonResourceExists  func(context.Context, policy.ResourceKey) (bool, error)
 	addonGateway         *gateway.Gateway
 	addonServer          *http.Server
 	addonSources         *catalog.Sources
@@ -556,6 +560,9 @@ func (a *Application) Shutdown() error {
 		if a.addonServer != nil {
 			_ = a.addonServer.Close()
 		}
+		if a.addonStore != nil {
+			_ = a.addonStore.Close()
+		}
 		if a.addonManager != nil {
 			err = a.addonManager.Close()
 		}
@@ -787,12 +794,23 @@ func (a *Application) startAddons() error {
 	if a.addonManager != nil {
 		return addons.ErrConflict
 	}
+	mode := a.AddonOwnershipMode()
+	if mode != auth.AddonModeNamedUser && mode != auth.AddonModeLocalOwner {
+		return addons.ErrConfiguration
+	}
 	if c.Transport != nil {
-		if a.authDB == nil {
-			return addons.ErrForbidden
-		}
-		c.AdminCheck = func(ctx context.Context, actor contract.Actor) error {
-			return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+		switch mode {
+		case auth.AddonModeLocalOwner:
+			// The HTTP layer checked the caller's role when an account database
+			// exists; here the only principal is the local owner.
+			c.AdminCheck = func(_ context.Context, actor contract.Actor) error { return auth.ValidateLocalOwnerActor(actor) }
+		default:
+			if a.authDB == nil {
+				return addons.ErrForbidden
+			}
+			c.AdminCheck = func(ctx context.Context, actor contract.Actor) error {
+				return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+			}
 		}
 	}
 	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}

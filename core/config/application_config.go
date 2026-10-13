@@ -25,8 +25,13 @@ type AddonConfig struct {
 	Enabled                                            bool
 	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
 	SharedStorage                                      bool
-	Host                                               contract.HostCompatibility
-	AdminCheck                                         func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// OwnershipMode is "named-user" (the default when empty) or "local-owner".
+	// Local-owner mode is explicit opt-in and never inferred: every caller that
+	// reaches the addon routes shares one authority and sharing is disabled.
+	// Every frontend of a deployment must use the same value.
+	OwnershipMode string
+	Host          contract.HostCompatibility
+	AdminCheck    func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
 }
 
 func WithAddons(c AddonConfig) AppOption {

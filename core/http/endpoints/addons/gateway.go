@@ -34,13 +34,60 @@ type AddonErrorResponse struct {
 func failure(c echo.Context, code int, message string) error {
 	return c.JSON(code, AddonErrorResponse{Error: AddonError{Code: code, Message: message, Type: "addon_error"}})
 }
-func actor(c echo.Context, db *gorm.DB) (contract.Actor, error) {
-	a, e := auth.AddonActor(c)
+
+// Option configures the deployment-level behaviour of a handler.
+type Option func(*settings)
+
+type settings struct{ mode string }
+
+// WithOwnership selects the ownership mode the deployment configured. The
+// default is named-user; local-owner is never inferred from a request.
+func WithOwnership(mode string) Option {
+	return func(s *settings) { s.mode = mode }
+}
+
+func resolve(opts []Option) settings {
+	s := settings{mode: auth.AddonModeNamedUser}
+	for _, o := range opts {
+		o(&s)
+	}
+	return s
+}
+
+func actor(c echo.Context, db *gorm.DB, s settings) (contract.Actor, error) {
+	a, e := auth.AddonActorForMode(c, s.mode)
 	if e != nil {
 		return a, e
 	}
-	e = auth.ValidateAddonActor(c.Request().Context(), db, a, false)
+	e = auth.AddonRevalidate(db, s.mode)(c.Request().Context(), a)
 	return a, e
+}
+
+// administrator checks the lifecycle mutation right against current storage.
+// In local-owner mode every caller shares the owner's authority, so without an
+// account database there is no role to check; with one, the authenticated
+// caller must still be an administrator.
+func administrator(c echo.Context, db *gorm.DB, a contract.Actor, s settings) error {
+	if s.mode == auth.AddonModeLocalOwner {
+		if db == nil {
+			return nil
+		}
+		named, e := auth.AddonActor(c)
+		if e != nil {
+			return e
+		}
+		a = named
+	}
+	return auth.ValidateAddonActor(c.Request().Context(), db, a, true)
+}
+
+// denied reports a failed identity step: a store outage is unavailable, any
+// other failure is an authentication problem.
+func denied(c echo.Context, e error) error {
+	if errors.Is(e, gateway.ErrUnavailable) {
+		return failure(c, 503, "Addons unavailable")
+	}
+	return failure(c, 401, "Named authentication required")
 }
 func decode(c echo.Context, v any) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 2<<20)
@@ -79,18 +126,24 @@ func resultError(c echo.Context, e error) error {
 // @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
 // @Router /api/addons/dispatch [post]
-func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
+func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
 	return func(c echo.Context) error {
-		a, e := actor(c, db)
+		a, e := actor(c, db, s)
 		if e != nil {
-			return failure(c, 401, "Named authentication required")
+			return denied(c, e)
 		}
 		var r contract.Request
 		if decode(c, &r) != nil {
 			return failure(c, 400, "Invalid addon request")
 		}
-		if r.Action != "read" && auth.ValidateAddonActor(c.Request().Context(), db, a, true) != nil {
-			return failure(c, 403, "Addon administration required")
+		if r.Action != "read" {
+			if e = administrator(c, db, a, s); e != nil {
+				if errors.Is(e, gateway.ErrUnavailable) {
+					return failure(c, 503, "Addons unavailable")
+				}
+				return failure(c, 403, "Addon administration required")
+			}
 		}
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
@@ -120,11 +173,12 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
 // @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
 // @Router /api/addons/relay [post]
-func Relay(g *gateway.Gateway, db *gorm.DB) echo.HandlerFunc {
+func Relay(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
 	return func(c echo.Context) error {
-		a, e := actor(c, db)
+		a, e := actor(c, db, s)
 		if e != nil {
-			return failure(c, 401, "Named authentication required")
+			return denied(c, e)
 		}
 		var r gateway.RelayRequest
 		if decode(c, &r) != nil {

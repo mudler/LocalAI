@@ -126,3 +126,82 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		Expect(got).To(Equal(map[string]bool{"POST /api/addons/dispatch": true, "POST /api/addons/relay": true}))
 	})
 })
+
+var _ = Describe("explicit local-owner mode on the registered routes", func() {
+	build := func(mode string, authOn bool) (*echo.Echo, *application.Application) {
+		dir := GinkgoT().TempDir()
+		models, backends := filepath.Join(dir, "models"), filepath.Join(dir, "backends")
+		Expect(os.Mkdir(models, 0750)).To(Succeed())
+		Expect(os.Mkdir(backends, 0750)).To(Succeed())
+		state, err := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
+		Expect(err).NotTo(HaveOccurred())
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		opts := []config.AppOption{config.WithContext(ctx), config.WithSystemState(state), config.WithAddons(config.AddonConfig{OwnershipMode: mode})}
+		if authOn {
+			opts = append(opts, config.WithAuthEnabled(true), config.WithAuthDatabaseURL(":memory:"), config.WithAuthAPIKeyHMACSecret(routeSecret))
+		}
+		app, err := application.New(opts...)
+		Expect(err).NotTo(HaveOccurred())
+		e := echo.New()
+		e.Use(auth.Middleware(app.AuthDB(), app.ApplicationConfig()))
+		routes.RegisterAddonRoutes(e, app)
+		return e, app
+	}
+	post := func(e *echo.Echo, action string, mutate func(*http.Request)) int {
+		body := `{"addonId":"sample","operationId":"op","generation":1,"action":"` + action + `","arguments":{}}`
+		r := httptest.NewRequest(http.MethodPost, "/api/addons/dispatch", bytes.NewBufferString(body))
+		r.Header.Set("Content-Type", "application/json")
+		if mutate != nil {
+			mutate(r)
+		}
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, r)
+		return w.Code
+	}
+	// The test application has no addon gateway: a request that clears every
+	// gate reaches the handler and reports the addons as unavailable.
+	const reached = http.StatusServiceUnavailable
+
+	It("lets callers through only when the deployment selected local-owner mode", func() {
+		named, app := build("", false)
+		Expect(app.AddonOwnershipMode()).To(Equal("named-user"))
+		Expect(post(named, "read", nil)).To(Equal(http.StatusUnauthorized))
+		Expect(post(named, "enable", nil)).To(Equal(http.StatusUnauthorized))
+		explicit, app := build("named-user", false)
+		Expect(app.AddonOwnershipMode()).To(Equal("named-user"))
+		Expect(post(explicit, "read", nil)).To(Equal(http.StatusUnauthorized))
+
+		local, app := build("local-owner", false)
+		Expect(app.AddonOwnershipMode()).To(Equal("local-owner"))
+		Expect(post(local, "read", nil)).To(Equal(reached))
+		Expect(post(local, "enable", nil)).To(Equal(reached))
+		// A forged named actor header changes nothing in either mode.
+		forged := func(r *http.Request) { r.Header.Set("X-Forwarded-Actor", "admin") }
+		Expect(post(named, "read", forged)).To(Equal(http.StatusUnauthorized))
+		// An unknown mode never grants anything.
+		bogus, _ := build("everyone", false)
+		Expect(post(bogus, "read", nil)).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("keeps authentication, the feature gate and administration when accounts exist", func() {
+		e, app := build("local-owner", true)
+		gdb := app.AuthDB()
+		keys := map[string]string{}
+		for id, role := range map[string]string{"admin": auth.RoleAdmin, "plain": auth.RoleUser, "granted": auth.RoleUser} {
+			Expect(gdb.Create(&auth.User{ID: id, Email: id + "@example.test", Name: id, Provider: auth.ProviderLocal, Role: role, Status: auth.StatusActive}).Error).To(Succeed())
+			token, _, err := auth.CreateAPIKey(gdb, id, "test", role, routeSecret, nil)
+			Expect(err).NotTo(HaveOccurred())
+			keys[id] = token
+		}
+		Expect(gdb.Create(&auth.UserPermission{ID: uuid.NewString(), UserID: "granted", Permissions: auth.PermissionMap{auth.FeatureAddons: true}}).Error).To(Succeed())
+		bearer := func(id string) func(*http.Request) {
+			return func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+keys[id]) }
+		}
+		Expect(post(e, "read", nil)).To(Equal(http.StatusUnauthorized))
+		Expect(post(e, "read", bearer("plain"))).To(Equal(http.StatusForbidden))
+		Expect(post(e, "read", bearer("granted"))).To(Equal(reached))
+		Expect(post(e, "enable", bearer("granted"))).To(Equal(http.StatusForbidden))
+		Expect(post(e, "enable", bearer("admin"))).To(Equal(reached))
+	})
+})
