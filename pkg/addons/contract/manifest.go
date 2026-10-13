@@ -75,12 +75,18 @@ type Capabilities struct {
 	UI      *UI      `json:"ui,omitempty"`
 }
 type UI struct {
-	Entry       string       `json:"entry"`
-	CSS         []string     `json:"css,omitempty"`
-	SDK         VersionRange `json:"sdk"`
-	Pages       []string     `json:"pages,omitempty"`
-	Navigation  []string     `json:"navigation,omitempty"`
-	ChatActions []string     `json:"chatActions,omitempty"`
+	Entry      string       `json:"entry"`
+	CSS        []string     `json:"css,omitempty"`
+	SDK        VersionRange `json:"sdk"`
+	Pages      []string     `json:"pages,omitempty"`
+	Navigation []string     `json:"navigation,omitempty"`
+	// ChatActions are the chat actions: a bare identifier (inert) or a full
+	// declaration with label, icon, placement and target.
+	ChatActions []ChatAction `json:"chatActions,omitempty"`
+	// Slots place exported components in closed host slots. Renderers draw
+	// the approval card or the result of one of the addon's own tools.
+	Slots     []SlotContribution `json:"slots,omitempty"`
+	Renderers []Renderer         `json:"renderers,omitempty"`
 	// MainPage is the route the Apps surface opens. It must be one of Pages;
 	// without it the addon has no Open action.
 	MainPage string `json:"mainPage,omitempty"`
@@ -201,7 +207,7 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return fmt.Errorf("invalid capabilities")
 	}
 	if u := c.UI; u != nil {
-		if !relativePath(u.Entry) || !u.SDK.accepts(h.SDK) || !uniqueIDs(u.Pages) || !uniqueIDs(u.Navigation) || !uniqueIDs(u.ChatActions) {
+		if !relativePath(u.Entry) || !u.SDK.accepts(h.SDK) || !uniqueIDs(u.Pages) || !uniqueIDs(u.Navigation) {
 			return fmt.Errorf("invalid or incompatible UI")
 		}
 		seen := map[string]bool{u.Entry: true}
@@ -230,6 +236,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			if !pages[n] {
 				return fmt.Errorf("navigation requires declared page")
 			}
+		}
+		if e := validateContributions(u, c.Tools); e != nil {
+			return e
 		}
 	}
 	return nil

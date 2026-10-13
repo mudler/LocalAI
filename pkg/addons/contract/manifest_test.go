@@ -104,9 +104,9 @@ var _ = Describe("Manifest", func() {
 	})
 	It("validates UI only when declared and rejects inconsistent contributions", func() {
 		m, _ := ParseManifest(fixture())
-		m.Capabilities.UI = &UI{Entry: "ui/main.js", SDK: VersionRange{Min: 1, Max: 1}, ChatActions: []string{"open"}}
+		m.Capabilities.UI = &UI{Entry: "ui/main.js", SDK: VersionRange{Min: 1, Max: 1}, ChatActions: []ChatAction{{ID: "open"}}}
 		Expect(ValidateManifest(m, compatible())).To(Succeed())
-		for _, u := range []*UI{{}, {Entry: "../x", SDK: VersionRange{1, 1}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, CSS: []string{"/x"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, Navigation: []string{"missing"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, ChatActions: []string{"open", "open"}}} {
+		for _, u := range []*UI{{}, {Entry: "../x", SDK: VersionRange{1, 1}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, CSS: []string{"/x"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, Navigation: []string{"missing"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, ChatActions: []ChatAction{{ID: "open"}, {ID: "open"}}}} {
 			m.Capabilities.UI = u
 			Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
 		}

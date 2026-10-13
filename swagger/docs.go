@@ -5774,6 +5774,54 @@ const docTemplate = `{
                 }
             }
         },
+        "apps.ChatActionView": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string",
+                    "example": "SummaryPanel"
+                },
+                "icon": {
+                    "description": "Icon is a host icon name, or the empty string when the action uses the\npackaged icon of the app (see the icon of the app).",
+                    "type": "string",
+                    "example": "sparkles"
+                },
+                "id": {
+                    "description": "ID is the manifest identifier of the action.",
+                    "type": "string",
+                    "example": "summarize"
+                },
+                "label": {
+                    "description": "Label is the default-language text; Labels carries every language when\nthe manifest localizes it.",
+                    "type": "string",
+                    "example": "Summarize"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "packagedIcon": {
+                    "description": "PackagedIcon is true when the action draws the packaged app icon.",
+                    "type": "boolean"
+                },
+                "placement": {
+                    "description": "Placement is composer or message.",
+                    "type": "string",
+                    "enum": [
+                        "composer",
+                        "message"
+                    ],
+                    "example": "composer"
+                },
+                "tool": {
+                    "description": "Tool is the own tool the action calls, or Component the exported\ncomponent it opens. Exactly one is set.",
+                    "type": "string",
+                    "example": "summarize"
+                }
+            }
+        },
         "apps.List": {
             "type": "object",
             "properties": {
@@ -5782,6 +5830,29 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/apps.App"
                     }
+                }
+            }
+        },
+        "apps.SlotView": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string",
+                    "example": "NotesSettings"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "notes-nav"
+                },
+                "slot": {
+                    "type": "string",
+                    "enum": [
+                        "chat.composer.actions",
+                        "chat.message.actions",
+                        "app.nav",
+                        "settings.sections"
+                    ],
+                    "example": "settings.sections"
                 }
             }
         },
@@ -5803,6 +5874,13 @@ const docTemplate = `{
         "apps.UIView": {
             "type": "object",
             "properties": {
+                "actions": {
+                    "description": "Actions are the chat actions that declare a placement and a target.\nSlots and Renderers are the other declared contributions. The manifest\nwas validated at install: every tool named here is a tool of the addon,\nevery slot is a host slot and every icon is a host icon name or the\npackaged icon. The host draws them only while the addon is enabled and\nusable by the caller.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apps.ChatActionView"
+                    }
+                },
                 "chatActions": {
                     "type": "array",
                     "items": {
@@ -5834,6 +5912,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "renderers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.Renderer"
+                    }
+                },
                 "sdk": {
                     "description": "SDK is the range of host SDK versions the module accepts.",
                     "allOf": [
@@ -5841,6 +5925,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/contract.VersionRange"
                         }
                     ]
+                },
+                "slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apps.SlotView"
+                    }
                 }
             }
         },
@@ -5971,6 +6061,20 @@ const docTemplate = `{
                 "ReceiptRejected",
                 "ReceiptUnknown"
             ]
+        },
+        "contract.Renderer": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "tool": {
+                    "type": "string"
+                }
+            }
         },
         "contract.Request": {
             "type": "object",

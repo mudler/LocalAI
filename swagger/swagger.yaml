@@ -156,12 +156,71 @@ definitions:
         example: 1.2.3
         type: string
     type: object
+  apps.ChatActionView:
+    properties:
+      component:
+        example: SummaryPanel
+        type: string
+      icon:
+        description: |-
+          Icon is a host icon name, or the empty string when the action uses the
+          packaged icon of the app (see the icon of the app).
+        example: sparkles
+        type: string
+      id:
+        description: ID is the manifest identifier of the action.
+        example: summarize
+        type: string
+      label:
+        description: |-
+          Label is the default-language text; Labels carries every language when
+          the manifest localizes it.
+        example: Summarize
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      packagedIcon:
+        description: PackagedIcon is true when the action draws the packaged app icon.
+        type: boolean
+      placement:
+        description: Placement is composer or message.
+        enum:
+        - composer
+        - message
+        example: composer
+        type: string
+      tool:
+        description: |-
+          Tool is the own tool the action calls, or Component the exported
+          component it opens. Exactly one is set.
+        example: summarize
+        type: string
+    type: object
   apps.List:
     properties:
       apps:
         items:
           $ref: '#/definitions/apps.App'
         type: array
+    type: object
+  apps.SlotView:
+    properties:
+      component:
+        example: NotesSettings
+        type: string
+      id:
+        example: notes-nav
+        type: string
+      slot:
+        enum:
+        - chat.composer.actions
+        - chat.message.actions
+        - app.nav
+        - settings.sections
+        example: settings.sections
+        type: string
     type: object
   apps.StartRequest:
     properties:
@@ -180,6 +239,17 @@ definitions:
     type: object
   apps.UIView:
     properties:
+      actions:
+        description: |-
+          Actions are the chat actions that declare a placement and a target.
+          Slots and Renderers are the other declared contributions. The manifest
+          was validated at install: every tool named here is a tool of the addon,
+          every slot is a host slot and every icon is a host icon name or the
+          packaged icon. The host draws them only while the addon is enabled and
+          usable by the caller.
+        items:
+          $ref: '#/definitions/apps.ChatActionView'
+        type: array
       chatActions:
         items:
           type: string
@@ -206,10 +276,18 @@ definitions:
         items:
           type: string
         type: array
+      renderers:
+        items:
+          $ref: '#/definitions/contract.Renderer'
+        type: array
       sdk:
         allOf:
         - $ref: '#/definitions/contract.VersionRange'
         description: SDK is the range of host SDK versions the module accepts.
+      slots:
+        items:
+          $ref: '#/definitions/apps.SlotView'
+        type: array
     type: object
   auth.WebSocketTicketResponse:
     properties:
@@ -305,6 +383,15 @@ definitions:
     - ReceiptCommitted
     - ReceiptRejected
     - ReceiptUnknown
+  contract.Renderer:
+    properties:
+      component:
+        type: string
+      kind:
+        type: string
+      tool:
+        type: string
+    type: object
   contract.Request:
     properties:
       action:

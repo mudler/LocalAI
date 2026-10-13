@@ -112,6 +112,43 @@ type UIView struct {
 	Pages       []string `json:"pages,omitempty"`
 	Navigation  []string `json:"navigation,omitempty"`
 	ChatActions []string `json:"chatActions,omitempty"`
+	// Actions are the chat actions that declare a placement and a target.
+	// Slots and Renderers are the other declared contributions. The manifest
+	// was validated at install: every tool named here is a tool of the addon,
+	// every slot is a host slot and every icon is a host icon name or the
+	// packaged icon. The host draws them only while the addon is enabled and
+	// usable by the caller.
+	Actions   []ChatActionView    `json:"actions,omitempty"`
+	Slots     []SlotView          `json:"slots,omitempty"`
+	Renderers []contract.Renderer `json:"renderers,omitempty"`
+}
+
+// ChatActionView is a declared chat action as the host draws it.
+type ChatActionView struct {
+	// ID is the manifest identifier of the action.
+	ID string `json:"id" example:"summarize"`
+	// Label is the default-language text; Labels carries every language when
+	// the manifest localizes it.
+	Label  string            `json:"label" example:"Summarize"`
+	Labels map[string]string `json:"labels,omitempty"`
+	// Icon is a host icon name, or the empty string when the action uses the
+	// packaged icon of the app (see the icon of the app).
+	Icon string `json:"icon,omitempty" example:"sparkles"`
+	// PackagedIcon is true when the action draws the packaged app icon.
+	PackagedIcon bool `json:"packagedIcon,omitempty"`
+	// Placement is composer or message.
+	Placement string `json:"placement" enums:"composer,message" example:"composer"`
+	// Tool is the own tool the action calls, or Component the exported
+	// component it opens. Exactly one is set.
+	Tool      string `json:"tool,omitempty" example:"summarize"`
+	Component string `json:"component,omitempty" example:"SummaryPanel"`
+}
+
+// SlotView is a component the manifest places in a host slot.
+type SlotView struct {
+	ID        string `json:"id" example:"notes-nav"`
+	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections" example:"settings.sections"`
+	Component string `json:"component" example:"NotesSettings"`
 }
 
 // AdminView carries the controls only an administrator is shown. The server
@@ -205,9 +242,33 @@ func uiView(id, digest string, u *contract.UI) *UIView {
 		}
 		return base + strings.Join(parts, "/")
 	}
-	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: slices.Clone(u.ChatActions)}
+	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: u.ChatActionIDs()}
+	v.Actions, v.Slots, v.Renderers = contributions(u)
 	for _, css := range u.CSS {
 		v.CSS = append(v.CSS, asset(css))
 	}
 	return v
+}
+
+// contributions turns the validated declarations into the view the host
+// draws. A bare identifier has no placement and is not drawn.
+func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Renderer) {
+	var actions []ChatActionView
+	for _, a := range u.ChatActions {
+		if !a.Declared() || a.Target == nil || a.Label == nil {
+			continue
+		}
+		v := ChatActionView{ID: a.ID, Label: a.Label.Default(), Labels: a.Label.ByLanguage, Placement: a.Placement, Tool: a.Target.Tool, Component: a.Target.Component}
+		if a.Icon != "" && a.Icon == u.Icon {
+			v.PackagedIcon = true
+		} else {
+			v.Icon = a.Icon
+		}
+		actions = append(actions, v)
+	}
+	var slots []SlotView
+	for _, s := range u.Slots {
+		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component})
+	}
+	return actions, slots, slices.Clone(u.Renderers)
 }
