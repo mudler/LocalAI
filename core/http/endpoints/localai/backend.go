@@ -31,6 +31,7 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// supersedes any pref-only line here, which the /backends/known merge would
 	// dedupe away.
 	{Name: "sglang", Modality: "text", AutoDetect: false, Description: "SGLang runtime (preference-only)"},
+	{Name: "gufo", Modality: "text", AutoDetect: false, Description: "gufo engine for AMD Strix Halo (gfx1151) (preference-only)"},
 	{Name: "tinygrad", Modality: "text", AutoDetect: false, Description: "tinygrad runtime (preference-only)"},
 	{Name: "trl", Modality: "text", AutoDetect: false, Description: "Transformers Reinforcement Learning (preference-only)"},
 	{Name: "mlx-vlm", Modality: "text", AutoDetect: false, Description: "MLX vision-language models (preference-only)"},

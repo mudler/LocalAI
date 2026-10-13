@@ -1,0 +1,14 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b921918..f11ec5e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -940,3 +940,9 @@ endif()
+ if (BUILD_TESTING)
+   include(cmake/Checks.cmake)
+ endif()
++
++# LocalAI: build the gRPC backend inside gufo's tree so it reuses gufo's
++# toolchain flags, HIP setup and its "src/..." include root.
++if(GUFO_LOCALAI_BACKEND_DIR)
++  add_subdirectory(${GUFO_LOCALAI_BACKEND_DIR} localai-backend)
++endif()

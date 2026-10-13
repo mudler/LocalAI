@@ -3396,6 +3396,22 @@ include:
     dockerfile: "./backend/Dockerfile.audio-cpp"
     context: "./"
     ubuntu-version: '2404'
+  # gufo: gufo-org/gufo, an LLM engine that runs only on AMD Strix Halo
+  # (gfx1151). This is its only image: gufo has no CUDA, CPU, arm64 or Metal
+  # build. No builder-base-image, for the same apt gRPC reason as audio-cpp.
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-gufo'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    skip-drivers: 'false'
+    backend: "gufo"
+    dockerfile: "./backend/Dockerfile.gufo"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: ''
     cuda-major-version: ""
     cuda-minor-version: ""

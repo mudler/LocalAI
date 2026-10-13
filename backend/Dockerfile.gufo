@@ -1,0 +1,67 @@
+ARG BASE_IMAGE=rocm/dev-ubuntu-24.04:7.2.1
+ARG APT_MIRROR=""
+ARG APT_PORTS_MIRROR=""
+
+# gufo: gufo-org/gufo, an LLM engine for AMD Strix Halo (gfx1151), wrapped as a
+# LocalAI gRPC backend. gufo builds only for Linux x86-64 with HIP, so the one
+# supported combination is BUILD_TYPE=hipblas on a rocm/dev-ubuntu-24.04 base.
+# backend/cpp/gufo/Makefile always configures gufo's "release" preset, which
+# turns HIP on; any other BUILD_TYPE fails at configure time.
+#
+# gRPC and protobuf come from apt, as in Dockerfile.audio-cpp, and not from
+# .docker/install-base-deps.sh or a prebuilt base-grpc image. That path drops
+# protoc 27.1 into /usr/local/bin, which shadows apt's protoc on PATH and would
+# generate protobuf-27 sources to be compiled against apt's 3.21 headers.
+#
+# AMDGPU_TARGETS is deliberately NOT declared. CI passes an 11-target list as
+# that build-arg to every image, and gufo's CMakeLists refuses any
+# CMAKE_HIP_ARCHITECTURES other than gfx1151, which it sets itself.
+FROM ${BASE_IMAGE} AS builder
+ARG BUILD_TYPE
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+
+# HIPCXX and ROCM_PATH pin CMake's HIP compiler discovery to ROCm's clang++.
+# gufo's README names a system Clang being picked as the known failure mode;
+# the base image ships none today, and this keeps it that way if one appears.
+ENV BUILD_TYPE=${BUILD_TYPE} \
+    APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    DEBIAN_FRONTEND=noninteractive \
+    ROCM_PATH=/opt/rocm \
+    HIPCXX=/opt/rocm/llvm/bin/clang++ \
+    PATH=/opt/rocm/bin:/opt/rocm/llvm/bin:${PATH}
+
+WORKDIR /build
+
+# gufo's own dependencies (its CMakeLists and README "Without Nix" section):
+# Ninja for the preset generator, ICU, curl, OpenSSL, libpng and libjpeg.
+# nlohmann-json3-dev is for the backend's message_map.h. The ROCm set is
+# hipBLAS, hipBLASLt, rocBLAS (find_package) plus the hipCUB, rocPRIM and
+# rocWMMA headers (find_path REQUIRED); the toolkit itself is in BASE_IMAGE.
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git cmake ninja-build build-essential pkg-config ca-certificates \
+        libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
+        nlohmann-json3-dev libicu-dev libcurl4-openssl-dev libssl-dev \
+        libpng-dev libjpeg-dev zlib1g-dev && \
+    if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        apt-get install -y --no-install-recommends \
+            hipblas-dev rocblas-dev hipblaslt-dev hipcub-dev rocprim-dev rocwmma-dev; \
+    fi && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . /LocalAI
+
+RUN --mount=type=cache,target=/root/.ccache,id=gufo-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+    make -C /LocalAI/backend/cpp/gufo BUILD_TYPE=${BUILD_TYPE} grpc-server package
+
+# The package directory is the whole image: run.sh, grpc-server, the bundled
+# loader and library closure, and the ROCm libraries with their kernel data.
+FROM scratch
+COPY --from=builder /LocalAI/backend/cpp/gufo/package/. ./
