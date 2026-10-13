@@ -192,6 +192,7 @@ See also: [Text Generation]({{%relref "features/text-generation" %}})
 |--------|--------------------------------|---------------------------------------|
 | 400    | Invalid or malformed request body | `Bad Request`                       |
 | 400    | Model not found in configuration | `Bad Request`                       |
+| 400    | No `model` in the body and no embeddings model configured | `Bad Request` |
 | 500    | Backend inference failure       | `Internal Server Error`              |
 
 See also: [Embeddings]({{%relref "features/embeddings" %}})

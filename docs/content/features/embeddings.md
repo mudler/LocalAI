@@ -17,6 +17,10 @@ For the API documentation you can refer to the OpenAI docs: https://platform.ope
 
 The embedding endpoint is compatible with `llama.cpp` models, `bert.cpp` models and sentence-transformers models available in huggingface.
 
+## Choosing the model
+
+Send the model name in the request body. If the body has no `model`, LocalAI uses the configured embeddings model whose name comes first alphabetically. If no embeddings model is configured, the request returns `400 Bad Request`. A model name is never taken from the bearer token unless it matches a configured model name exactly.
+
 ## Using Gallery Models
 
 LocalAI provides a model gallery with pre-configured embedding models. To use a gallery model:
