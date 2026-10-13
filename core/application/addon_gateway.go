@@ -82,7 +82,7 @@ func (a *Application) startAddonGateway() error {
 		return e
 	}
 	if mode == auth.AddonModeLocalOwner {
-		xlog.Warn("addons: local-owner mode is enabled; unauthenticated callers share one authority over every addon resource and sharing is disabled")
+		xlog.Warn(localOwnerWarning)
 	}
 	g := &gateway.Gateway{Limits: c.Limits, Manager: a.addonManager, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
 	if cfg.InstanceID != cfg.OwnerID {
@@ -160,3 +160,8 @@ func (a *Application) startAddonGateway() error {
 	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); closeState() }()
 	return nil
 }
+
+// localOwnerWarning is logged at startup in local-owner mode. There is no
+// session in that mode, so the confirmation boundary is the browser headers
+// only and does not stop a script that sets them.
+const localOwnerWarning = "addons: local-owner mode is enabled; unauthenticated callers share one authority over every addon resource and sharing is disabled; any caller that can reach this port can confirm addon proposals"

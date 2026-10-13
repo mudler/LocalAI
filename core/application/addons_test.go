@@ -429,6 +429,7 @@ var _ = Describe("addon policy bootstrap", func() {
 		Expect(a.AddonOwnershipMode()).To(Equal("local-owner"))
 		Expect(logs.String()).To(ContainSubstring("local-owner"))
 		Expect(logs.String()).To(ContainSubstring("unauthenticated callers share"))
+		Expect(logs.String()).To(ContainSubstring("can reach this port can confirm addon proposals"))
 		local := contract.Actor{UserID: "local-owner", CredentialID: "local-owner", Mode: "local-owner"}
 		key, e := a.AddonPolicy().Register(context.Background(), local, "ghost")
 		Expect(e).To(HaveOccurred(), "creation authority still needs an installed addon")

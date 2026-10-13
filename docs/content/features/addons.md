@@ -629,7 +629,8 @@ the file (a revocation is not undone) and the store accepts no further writes, r
 Set `AddonConfig.OwnershipMode` to `local-owner` to select this mode. It is the only way:
 a missing credential, an absent account database or an unknown value never selects it, and
 an unknown value fails startup. The owner logs a warning at startup that unauthenticated
-callers share one authority.
+callers share one authority and that any caller that can reach the port can confirm
+addon proposals.
 
 - Every caller that passes the addon route chain acts as one synthetic principal,
   `local-owner`, with a fixed credential `local-owner`. Named-user mode rejects that ID,
@@ -738,7 +739,17 @@ The route is reachable only from a host confirmation surface:
 
 In local-owner mode there is no session; rules 2 to 4 apply, and any API credential on the
 request is refused. The owner repeats the credential check, so a frontend cannot confirm
-for a key credential either. Plain text, a boolean in arguments, or a model saying "yes"
+for a key credential either.
+
+Limit of the confirmation boundary in local-owner mode. Without accounts there is no
+identity to bind a confirmation to. The only boundary is the set of browser headers
+above, and a script that sets them can confirm: any caller that can reach the HTTP port
+shares the authority to propose and to confirm, and that includes the proposals
+it made itself. This is inherent to local-owner mode, where unauthenticated callers
+share one authority, and it is accepted and not changed. The owner logs a warning at
+startup that says so. Use local-owner mode only on a trusted loopback or private
+network, and use named-user mode wherever a confirmation must come from a particular
+person. Plain text, a boolean in arguments, or a model saying "yes"
 are only data and never approve. Clients without a confirmation UI can propose and read;
 they never auto-apply. No MCP tool maps to confirm: the MCP exposure of proposals (list
 and status only) is a later task and must keep that rule.
