@@ -7,6 +7,31 @@
     "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
     "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
   },
+  "approval": {
+    "title": "Approval needed",
+    "from": "From {{addon}}",
+    "loading": "Loading the request",
+    "failed": "This request is not available.",
+    "rejected": "The request could not be completed. Check its state and try again.",
+    "changes": "Changes",
+    "expires": "Expires",
+    "state": "State",
+    "expired": "This request has expired. Ask for it again.",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "states": {
+      "pending": "Waiting for your decision",
+      "applied": "Applied",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "executing": "Applying",
+      "rejected": "Rejected",
+      "outcome-unknown": "Outcome unknown",
+      "abandoned-unknown": "Outcome unknown",
+      "unknown": "Unknown"
+    }
+  },
   "apps": {
     "emptyBody": "When an administrator installs and enables an add-on, it appears here.",
     "emptyTitle": "No apps yet",
@@ -219,6 +244,11 @@
     "layer": {
       "close": "Close"
     }
+  },
+  "slots": {
+    "unavailable": "Unavailable",
+    "composerMore": "Add-on actions",
+    "actionFailed": "{{label}} could not be completed."
   },
   "state": {
     "failed": "Failed",

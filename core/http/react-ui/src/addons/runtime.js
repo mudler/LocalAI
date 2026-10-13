@@ -16,6 +16,8 @@
 
 import { invalidReason } from './registryState.js'
 
+const EMPTY_COMPONENTS = Object.freeze({})
+
 export function createRuntimeManager({ load, onChange = () => {} } = {}) {
   const instances = new Map()
   let version = 0
@@ -36,6 +38,8 @@ export function createRuntimeManager({ load, onChange = () => {} } = {}) {
     dirty: r.dirty,
     Component: r.addon ? r.addon.component : null,
     chatActions: r.status === 'ready' && r.addon ? r.addon.chatActions : [],
+    components: r.status === 'ready' && r.addon && r.addon.components ? r.addon.components : EMPTY_COMPONENTS,
+    sdk: r.status === 'ready' && r.addon ? r.addon.sdk || null : null,
     version: r.token,
   })
 

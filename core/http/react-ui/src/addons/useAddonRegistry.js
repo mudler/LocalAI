@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo } from 'react'
 import { RegistryContext, EMPTY_LIST } from './registryContext'
 import { usable } from './registryState'
+import { declaresSlot, slotContributions } from './slots'
 
 export function useAddonRegistry() {
   const value = useContext(RegistryContext)
@@ -37,4 +38,47 @@ export function useAddonChatActions() {
     return () => handles.forEach(h => h.release())
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   return registry ? registry.chatActions : []
+}
+
+// Every contribution of `slot`, with the holds that keep the instances it
+// needs loaded. An instance withdrawn by a disable or a crash is loaded again
+// once the add-on is usable, so a slot comes back with the add-on.
+export function useSlotContributions(slot, enabled = true) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const hold = registry ? registry.hold : null
+  const reload = registry ? registry.reload : null
+  const allowed = registry ? registry.allowed && enabled : false
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const instances = registry ? registry.instances : EMPTY_LIST
+  const language = registry ? registry.language : 'en'
+
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+
+  const wanted = useMemo(() => apps.filter(a => usable(a) && declaresSlot(a, slot)), [apps, slot])
+  const key = wanted.map(a => `${a.id}@${a.generation}`).join(',')
+  useEffect(() => {
+    if (!hold || !allowed) return undefined
+    const handles = wanted.map(app => hold(app))
+    return () => handles.forEach(h => h.release())
+  }, [key, allowed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A withdrawn instance of an add-on that is usable again (re-enabled, or a
+  // newer generation) is replaced by a fresh load.
+  const stale = wanted.filter(app => {
+    const inst = instances.find(i => i.id === app.id)
+    return inst && inst.status === 'unavailable'
+  }).map(app => `${app.id}@${app.generation}`).join(',')
+  useEffect(() => {
+    if (!reload || !stale) return
+    for (const app of wanted) {
+      const inst = instances.find(i => i.id === app.id)
+      if (inst && inst.status === 'unavailable') reload(app)
+    }
+  }, [stale]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return useMemo(
+    () => slotContributions(slot, { apps, instances, language, allowed }),
+    [slot, apps, instances, language, allowed],
+  )
 }

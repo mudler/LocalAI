@@ -7,6 +7,31 @@
     "notApplied": "Pemilik melaporkan aksi selesai, tetapi add-on tidak berubah. Coba lagi.",
     "unknown": "Pemilik belum mengonfirmasi aksi ini. Aksi mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai aksi lain."
   },
+  "approval": {
+    "title": "Perlu persetujuan",
+    "from": "Dari {{addon}}",
+    "loading": "Memuat permintaan",
+    "failed": "Permintaan ini tidak tersedia.",
+    "rejected": "Permintaan tidak dapat diselesaikan. Periksa statusnya lalu coba lagi.",
+    "changes": "Perubahan",
+    "expires": "Kedaluwarsa",
+    "state": "Status",
+    "expired": "Permintaan ini sudah kedaluwarsa. Minta lagi.",
+    "confirm": "Konfirmasi",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "states": {
+      "pending": "Menunggu keputusan Anda",
+      "applied": "Diterapkan",
+      "cancelled": "Dibatalkan",
+      "expired": "Kedaluwarsa",
+      "executing": "Sedang diterapkan",
+      "rejected": "Ditolak",
+      "outcome-unknown": "Hasil tidak diketahui",
+      "abandoned-unknown": "Hasil tidak diketahui",
+      "unknown": "Tidak diketahui"
+    }
+  },
   "apps": {
     "emptyBody": "Saat administrator memasang dan mengaktifkan add-on, add-on itu muncul di sini.",
     "emptyTitle": "Belum ada aplikasi",
@@ -219,6 +244,11 @@
     "layer": {
       "close": "Tutup"
     }
+  },
+  "slots": {
+    "unavailable": "Tidak tersedia",
+    "composerMore": "Aksi add-on",
+    "actionFailed": "{{label}} tidak dapat diselesaikan."
   },
   "state": {
     "failed": "Gagal",

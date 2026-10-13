@@ -47,6 +47,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { useAuth } from '../context/AuthContext'
+// eslint-disable-next-line no-unused-vars
+import AddonSlot from '../addons/AddonSlot'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
@@ -211,6 +213,12 @@ export default function Chat() {
   // header items). Esc gives the user back the full chrome for the rest of
   // this session. The settings drawer offers a persistent opt-out.
   const isInConversation = (activeChat?.history?.length || 0) > 0
+  // What the composer slot of add-ons is told: the conversation and whether
+  // sending is blocked. Never the draft or the history.
+  const composerSlotContext = useMemo(
+    () => ({ conversationId: activeChat?.id, disabled: isStreaming }),
+    [activeChat?.id, isStreaming],
+  )
   const [focusOverride, setFocusOverride] = useState(false)
   const [focusModeEnabled, setFocusModeEnabled] = useState(() => {
     try { return localStorage.getItem(FOCUS_MODE_KEY) !== 'false' } catch (_) { return true }
@@ -1184,6 +1192,7 @@ export default function Chat() {
                 activityItems={row.activity}
                 getClientForTool={row.activity ? getClientForTool : undefined}
                 actions={messageActions}
+                conversationId={activeChat.id}
                 onOpenImage={openImage}
               />
             )))}
@@ -1234,6 +1243,7 @@ export default function Chat() {
               picker={picker}
               mcp={mcp}
               chips={composerChips}
+              extras={<AddonSlot slot="chat.composer.actions" context={composerSlotContext} />}
               files={files}
               onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
               onAttach={attachFiles}

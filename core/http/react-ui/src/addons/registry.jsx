@@ -17,6 +17,8 @@ import { availableChatActions, navigationItems as buildNavigation, shouldPoll } 
 import { host } from './hostServices'
 import { RegistryContext } from './registryContext'
 import AddonErrorBoundary from './AddonErrorBoundary'
+import ApprovalFrame from './ApprovalFrame'
+import { actionArguments, proposalIdOf, rendererFor, resultText } from './slots'
 import './shell.css'
 
 // The add-on registry of the shell. It polls the apps list while something
@@ -51,6 +53,16 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const listeners = useRef(new Set())
   const tick = useRef(null)
   const layerSeq = useRef(0)
+  const presentRef = useRef(null)
+  const stateRef = useRef({ apps: [], instances: [] })
+
+  // One stack of host-owned layers. Every layer is tied to an add-on and a
+  // generation and closes with it (see the effect below).
+  const pushLayer = useCallback((addonId, generation, kind, spec) => {
+    const id = ++layerSeq.current
+    setLayers(prev => [...prev, { id, addonId, generation, kind, spec }])
+    return { close: () => setLayers(prev => prev.filter(l => l.id !== id)) }
+  }, [])
 
   const manager = useMemo(() => {
     const load = (app, { signal, setDirty }) => loadAddonUI({
@@ -71,17 +83,13 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
           notify: (kind, message) => notifierRef.current?.(kind, message),
           setDirty,
           current: () => locationsRef.current.get(app.id),
-          openLayer: (kind, spec) => {
-            const id = ++layerSeq.current
-            const layer = { id, addonId: app.id, generation: app.generation, kind, spec }
-            setLayers(prev => [...prev, layer])
-            return { close: () => setLayers(prev => prev.filter(l => l.id !== id)) }
-          },
+          openLayer: (kind, spec) => pushLayer(app.id, app.generation, kind, spec),
+          presentApproval: (proposalId) => presentRef.current?.(app.id, app.generation, proposalId),
         },
       }),
     })
     return createRuntimeManager({ load, onChange: () => listeners.current.forEach(fn => fn()) })
-  }, [])
+  }, [pushLayer])
 
   const subscribe = useCallback((fn) => { listeners.current.add(fn); return () => listeners.current.delete(fn) }, [])
   const instances = useSyncExternalStore(subscribe, manager.snapshot, manager.snapshot)
@@ -153,6 +161,64 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
 
   useEffect(() => () => manager.disposeAll(), [manager])
 
+  stateRef.current = { apps: list.apps, instances }
+
+  // The host's approval frame for a stored proposal of an add-on. Confirm and
+  // Cancel are the frame's own; the add-on's card only draws the details.
+  const presentApproval = useCallback((addonId, generation, proposalId) => {
+    return pushLayer(addonId, generation, 'dialog', {
+      title: t('approval.title'),
+      render: ({ close }) => <ApprovalFrame addonId={addonId} proposalId={proposalId} onClose={close} />,
+    })
+  }, [pushLayer, t])
+  presentRef.current = presentApproval
+
+  // Runs one declared chat action. A component target opens the add-on's
+  // component in a host dialog. A tool target is one typed call of the add-on
+  // for the tool the manifest named, through the SDK of that add-on, and the
+  // answer is drawn by its declared tool-result renderer or the generic view.
+  const runAction = useCallback(async (c, context) => {
+    const { apps, instances: live } = stateRef.current
+    const app = apps.find(a => a.id === c.addonId)
+    const instance = live.find(i => i.id === c.addonId)
+    if (!app || !instance || instance.status !== 'ready' || instance.generation !== c.generation) return false
+    if (c.target.component) {
+      const Body = c.Component
+      pushLayer(c.addonId, c.generation, 'dialog', {
+        title: c.label,
+        render: ({ close }) => <Body {...(context || {})} close={close} />,
+      })
+      return true
+    }
+    const args = actionArguments(c, context)
+    if (!args || !c.sdk) return false
+    let payload
+    try {
+      payload = await c.sdk.api.read({ arguments: args })
+    } catch {
+      // The page has no notifier of its own, so the host says it in a dialog.
+      pushLayer(c.addonId, c.generation, 'dialog', {
+        title: c.label,
+        render: () => <p role="alert" data-testid="addon-action-failed">{t('slots.actionFailed', { label: c.label })}</p>,
+      })
+      return false
+    }
+    const proposalId = proposalIdOf(payload)
+    if (proposalId) {
+      presentApproval(c.addonId, c.generation, proposalId)
+      return true
+    }
+    const latest = stateRef.current
+    const Renderer = rendererFor(latest.apps.find(a => a.id === c.addonId), latest.instances.find(i => i.id === c.addonId), 'tool-result', args.tool)
+    pushLayer(c.addonId, c.generation, 'dialog', {
+      title: c.label,
+      render: () => (Renderer
+        ? <Renderer result={payload} tool={args.tool} />
+        : <pre className="ad-result" data-testid="addon-result">{resultText(payload)}</pre>),
+    })
+    return true
+  }, [pushLayer, presentApproval, t])
+
   const acquire = useCallback(() => {
     let done = false
     setConsumers(n => n + 1)
@@ -168,6 +234,10 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     refresh,
     ingest,
     acquire,
+    language: i18n.language,
+    runAction,
+    openLayer: pushLayer,
+    presentApproval,
     hold: (app) => manager.hold(app),
     reload: (app) => manager.reload(app),
     setNotifier: (fn) => { notifierRef.current = fn },
@@ -176,7 +246,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language])
+  }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

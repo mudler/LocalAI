@@ -7,6 +7,31 @@
     "notApplied": "El propietario informó de la acción como completada, pero el complemento no cambió. Vuelve a intentarlo.",
     "unknown": "El propietario aún no confirmó la acción. Aún puede aplicarse. Comprueba su estado o descártala antes de iniciar otra acción."
   },
+  "approval": {
+    "title": "Se necesita aprobación",
+    "from": "De {{addon}}",
+    "loading": "Cargando la solicitud",
+    "failed": "Esta solicitud no está disponible.",
+    "rejected": "No se pudo completar la solicitud. Revisa su estado e inténtalo de nuevo.",
+    "changes": "Cambios",
+    "expires": "Caduca",
+    "state": "Estado",
+    "expired": "Esta solicitud ha caducado. Vuelve a pedirla.",
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "states": {
+      "pending": "Esperando tu decisión",
+      "applied": "Aplicada",
+      "cancelled": "Cancelada",
+      "expired": "Caducada",
+      "executing": "Aplicando",
+      "rejected": "Rechazada",
+      "outcome-unknown": "Resultado desconocido",
+      "abandoned-unknown": "Resultado desconocido",
+      "unknown": "Desconocido"
+    }
+  },
   "apps": {
     "emptyBody": "Cuando un administrador instala y habilita un complemento, aparece aquí.",
     "emptyTitle": "Aún no hay apps",
@@ -219,6 +244,11 @@
     "layer": {
       "close": "Cerrar"
     }
+  },
+  "slots": {
+    "unavailable": "No disponible",
+    "composerMore": "Acciones de complementos",
+    "actionFailed": "No se pudo completar {{label}}."
   },
   "state": {
     "failed": "Con error",

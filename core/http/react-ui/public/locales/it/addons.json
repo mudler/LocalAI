@@ -7,6 +7,31 @@
     "notApplied": "Il proprietario ha segnalato l'azione come completata, ma il componente non è cambiato. Riprova.",
     "unknown": "Il proprietario non ha ancora confermato l'azione. Potrebbe ancora essere applicata. Controlla lo stato o ignorala prima di avviare un'altra azione."
   },
+  "approval": {
+    "title": "Serve la tua approvazione",
+    "from": "Da {{addon}}",
+    "loading": "Caricamento della richiesta",
+    "failed": "Questa richiesta non è disponibile.",
+    "rejected": "Non è stato possibile completare la richiesta. Controlla il suo stato e riprova.",
+    "changes": "Modifiche",
+    "expires": "Scade",
+    "state": "Stato",
+    "expired": "Questa richiesta è scaduta. Chiedila di nuovo.",
+    "confirm": "Conferma",
+    "cancel": "Annulla",
+    "close": "Chiudi",
+    "states": {
+      "pending": "In attesa della tua decisione",
+      "applied": "Applicata",
+      "cancelled": "Annullata",
+      "expired": "Scaduta",
+      "executing": "In applicazione",
+      "rejected": "Rifiutata",
+      "outcome-unknown": "Esito sconosciuto",
+      "abandoned-unknown": "Esito sconosciuto",
+      "unknown": "Sconosciuto"
+    }
+  },
   "apps": {
     "emptyBody": "Quando un amministratore installa e abilita un componente, compare qui.",
     "emptyTitle": "Ancora nessuna app",
@@ -219,6 +244,11 @@
     "layer": {
       "close": "Chiudi"
     }
+  },
+  "slots": {
+    "unavailable": "Non disponibile",
+    "composerMore": "Azioni dei componenti aggiuntivi",
+    "actionFailed": "Impossibile completare {{label}}."
   },
   "state": {
     "failed": "Errore",

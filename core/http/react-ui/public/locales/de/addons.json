@@ -7,6 +7,31 @@
     "notApplied": "Der Betreiber meldete die Aktion als erledigt, aber das Add-on hat sich nicht geändert. Versuche es erneut.",
     "unknown": "Der Betreiber hat die Aktion noch nicht bestätigt. Sie kann noch angewendet werden. Prüfe den Status oder verwirf sie, bevor du eine weitere Aktion startest."
   },
+  "approval": {
+    "title": "Freigabe erforderlich",
+    "from": "Von {{addon}}",
+    "loading": "Anfrage wird geladen",
+    "failed": "Diese Anfrage ist nicht verfügbar.",
+    "rejected": "Die Anfrage konnte nicht abgeschlossen werden. Prüfe den Status und versuche es erneut.",
+    "changes": "Änderungen",
+    "expires": "Läuft ab",
+    "state": "Status",
+    "expired": "Diese Anfrage ist abgelaufen. Fordere sie erneut an.",
+    "confirm": "Bestätigen",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "states": {
+      "pending": "Wartet auf deine Entscheidung",
+      "applied": "Angewendet",
+      "cancelled": "Abgebrochen",
+      "expired": "Abgelaufen",
+      "executing": "Wird angewendet",
+      "rejected": "Abgelehnt",
+      "outcome-unknown": "Ergebnis unbekannt",
+      "abandoned-unknown": "Ergebnis unbekannt",
+      "unknown": "Unbekannt"
+    }
+  },
   "apps": {
     "emptyBody": "Sobald ein Administrator ein Add-on installiert und aktiviert, erscheint es hier.",
     "emptyTitle": "Noch keine Apps",
@@ -219,6 +244,11 @@
     "layer": {
       "close": "Schließen"
     }
+  },
+  "slots": {
+    "unavailable": "Nicht verfügbar",
+    "composerMore": "Aktionen von Add-ons",
+    "actionFailed": "{{label}} konnte nicht abgeschlossen werden."
   },
   "state": {
     "failed": "Fehlgeschlagen",

@@ -7,6 +7,31 @@
     "notApplied": "所有者报告操作已完成，但附加组件没有变化。请重试。",
     "unknown": "所有者尚未确认该操作。它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
   },
+  "approval": {
+    "title": "需要审批",
+    "from": "来自 {{addon}}",
+    "loading": "正在加载请求",
+    "failed": "此请求不可用。",
+    "rejected": "无法完成该请求。请检查其状态后重试。",
+    "changes": "变更",
+    "expires": "到期时间",
+    "state": "状态",
+    "expired": "此请求已过期。请重新发起。",
+    "confirm": "确认",
+    "cancel": "取消",
+    "close": "关闭",
+    "states": {
+      "pending": "等待你的决定",
+      "applied": "已应用",
+      "cancelled": "已取消",
+      "expired": "已过期",
+      "executing": "正在应用",
+      "rejected": "已拒绝",
+      "outcome-unknown": "结果未知",
+      "abandoned-unknown": "结果未知",
+      "unknown": "未知"
+    }
+  },
   "apps": {
     "emptyBody": "管理员安装并启用附加组件后,它会显示在这里。",
     "emptyTitle": "还没有应用",
@@ -215,6 +240,11 @@
     "layer": {
       "close": "关闭"
     }
+  },
+  "slots": {
+    "unavailable": "不可用",
+    "composerMore": "附加组件操作",
+    "actionFailed": "无法完成“{{label}}”。"
   },
   "state": {
     "failed": "失败",

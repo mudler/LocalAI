@@ -36,13 +36,13 @@ export function isFinalPhase(phase) {
 export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
   const doFetch = (...args) => (fetchImpl || globalThis.fetch)(...args)
 
-  async function call(path, { method = 'GET', body, signal } = {}) {
+  async function call(path, { method = 'GET', body, signal, headers: extra } = {}) {
     let response
     try {
       response = await doFetch(base(path), {
         method,
         signal,
-        headers: body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' },
+        headers: { ...(body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' }), ...(extra || {}) },
         body: body === undefined ? undefined : JSON.stringify(body),
         credentials: 'same-origin',
       })

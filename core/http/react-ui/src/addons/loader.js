@@ -11,6 +11,7 @@
 
 import { sdkAccepts } from './sdk.js'
 import { scopeCss } from './cssScope.js'
+import { declaredComponents } from './slots.js'
 
 export class LoadError extends Error {
   constructor(code, message) {
@@ -125,6 +126,38 @@ function isComponent(value) {
   return Boolean(value) && typeof value === 'object' && '$$typeof' in value
 }
 
+const devWarn = (message) => {
+  try {
+    if (import.meta.env && import.meta.env.DEV) console.warn(`[addons] ${message}`)
+  } catch { /* no dev flag outside the bundler */ }
+}
+
+// validateComponents returns the components the module supplies for the names
+// its manifest declared, and nothing else. A name the manifest does not
+// declare is ignored and, in development, logged: a module cannot add a
+// contribution by exporting a component.
+export function validateComponents(raw, declared, warn = devWarn) {
+  if (raw === undefined || raw === null) return Object.freeze({})
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new LoadError('invalid_module', 'components must be an object')
+  const allowed = declared instanceof Set ? declared : new Set(declared || [])
+  const out = {}
+  for (const name of Object.keys(raw)) {
+    if (!allowed.has(name)) {
+      warn(`component "${name}" is not declared in the manifest and was ignored`)
+      continue
+    }
+    if (!isComponent(raw[name])) {
+      warn(`component "${name}" is not a React component and was ignored`)
+      continue
+    }
+    out[name] = raw[name]
+  }
+  for (const name of allowed) {
+    if (!(name in out) && !(raw && Object.keys(raw).includes(name))) warn(`component "${name}" is declared in the manifest but the module does not supply it`)
+  }
+  return Object.freeze(out)
+}
+
 async function fetchCss(url, fetchImpl, signal, maxBytes) {
   const response = await fetchImpl(url, { credentials: 'same-origin', signal, headers: { Accept: 'text/css' } })
   if (!response.ok) throw new LoadError('css_failed', `Style sheet answered ${response.status}`)
@@ -213,8 +246,10 @@ export async function loadAddonUI({
       throw new LoadError('invalid_module', 'Component is not a React component')
     }
     const chatActions = validateChatActions(created.chatActions, ui.chatActions, iconNames)
+    const components = validateComponents(created.components, declaredComponents(ui))
     return {
       component: created.Component || null,
+      components,
       chatActions,
       sdk,
       styles,

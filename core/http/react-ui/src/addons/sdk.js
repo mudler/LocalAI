@@ -263,6 +263,16 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       // A write is only ever stored as a proposal; the host confirms it.
       propose: (request, options) => callApi('propose', request || {}, options),
     }),
+    // Asks the host to show the stored proposal of this add-on in the host's
+    // approval frame. The frame, Confirm and Cancel stay the host's: the
+    // add-on only names the proposal and may supply the card of its details.
+    approvals: Object.freeze({
+      present(proposalId) {
+        alive()
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(String(proposalId))) throw new TypeError('A proposal identifier is required')
+        bindings.presentApproval?.(String(proposalId))
+      },
+    }),
     notify: Object.freeze({
       info: notify('info'),
       success: notify('success'),
