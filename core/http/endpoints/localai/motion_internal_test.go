@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -74,6 +75,21 @@ var _ = Describe("Motion streaming endpoints", func() {
 		s.definition = motionBytes(&motion.Output{Payload: &motion.Output_Definition{Definition: &motion.Definition{Schema: "test", Profile: "smpl24"}}})
 		m.sessions[s.id] = s
 		m.reserved[s.model] = true
+	})
+	It("caps the sessions one user can hold and frees the slot on close", func() {
+		m.reserved = map[string]bool{}
+		m.perOwner = map[string]int{}
+		for i := 0; i < motionMaxSessionsPerUser; i++ {
+			Expect(m.reserve("alice", fmt.Sprintf("model-%d", i))).To(Succeed())
+		}
+		Expect(m.reserve("alice", "one-more")).NotTo(Succeed())
+		Expect(m.reserve("bob", "one-more")).To(Succeed())
+		// A model that is already reserved stays exclusive.
+		Expect(m.reserve("bob", "model-0")).NotTo(Succeed())
+		m.mu.Lock()
+		m.releaseLocked("alice", "model-0")
+		m.mu.Unlock()
+		Expect(m.reserve("alice", "one-more-again")).To(Succeed())
 	})
 	It("does not expose another user's session", func() {
 		c := echo.New().NewContext(httptest.NewRequest("GET", "/", nil), httptest.NewRecorder())

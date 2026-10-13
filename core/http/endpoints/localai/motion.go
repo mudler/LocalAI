@@ -29,6 +29,15 @@ import (
 
 const motionIdleTimeout = 2 * time.Minute
 
+// Capacity limits. A model serves one session at a time, so a session
+// holds that model until it closes or goes idle. The per-user cap keeps
+// one user from holding every model slot; the global cap bounds the
+// total.
+const (
+	motionMaxSessions        = 16
+	motionMaxSessionsPerUser = 4
+)
+
 type MotionSessionRequest struct {
 	Model      string `json:"model"`
 	Profile    string `json:"profile"`
@@ -65,6 +74,7 @@ type MotionEndpoints struct {
 	mu               sync.Mutex
 	sessions         map[string]*motionSession
 	reserved         map[string]bool
+	perOwner         map[string]int
 	active           metric.Int64UpDownCounter
 	outcomes, resets metric.Int64Counter
 	latency, stages  metric.Float64Histogram
@@ -72,7 +82,7 @@ type MotionEndpoints struct {
 
 func NewMotionEndpoints(app *application.Application) *MotionEndpoints {
 	meter := otel.Meter("github.com/mudler/LocalAI/motion")
-	m := &MotionEndpoints{app: app, sessions: map[string]*motionSession{}, reserved: map[string]bool{}}
+	m := &MotionEndpoints{app: app, sessions: map[string]*motionSession{}, reserved: map[string]bool{}, perOwner: map[string]int{}}
 	m.active, _ = meter.Int64UpDownCounter("localai_motion_sessions", metric.WithDescription("Active motion sessions"))
 	m.ingress, _ = meter.Int64Counter("localai_motion_uploads", metric.WithDescription("Duplex frames accepted or dropped before inference"))
 	m.outcomes, _ = meter.Int64Counter("localai_motion_frames", metric.WithDescription("Motion outcomes and rejected input"))
@@ -97,6 +107,31 @@ func (m *MotionEndpoints) attrs(s *motionSession) metric.MeasurementOption {
 func (s *motionSession) info() MotionSessionInfo {
 	return MotionSessionInfo{UploadAccepted: s.uploadAccepted.Load(), UploadDropped: s.uploadDropped.Load(), ID: s.id, Model: s.model, Profile: s.profile, TimeOrigin: s.origin, Frames: s.frames.Load(), Poses: s.poses.Load()}
 }
+
+// reserve claims the model and one of the owner's session slots.
+func (m *MotionEndpoints) reserve(owner, model string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.reserved) >= motionMaxSessions || m.reserved[model] {
+		return echo.NewHTTPError(429, "motion capacity exhausted; one session per loaded model")
+	}
+	if m.perOwner[owner] >= motionMaxSessionsPerUser {
+		return echo.NewHTTPError(429, "too many motion sessions for this user")
+	}
+	m.reserved[model] = true
+	m.perOwner[owner]++
+	return nil
+}
+
+// releaseLocked frees a model reservation and the owner's slot. Callers hold m.mu.
+func (m *MotionEndpoints) releaseLocked(owner, model string) {
+	delete(m.reserved, model)
+	if m.perOwner[owner] <= 1 {
+		delete(m.perOwner, owner)
+	} else {
+		m.perOwner[owner]--
+	}
+}
 func (m *MotionEndpoints) lookup(c echo.Context) (*motionSession, error) {
 	m.mu.Lock()
 	s := m.sessions[c.Param("id")]
@@ -117,7 +152,7 @@ func (m *MotionEndpoints) close(s *motionSession, reason string) {
 		}
 		m.mu.Lock()
 		delete(m.sessions, s.id)
-		delete(m.reserved, s.model)
+		m.releaseLocked(s.owner, s.model)
 		m.mu.Unlock()
 		m.active.Add(context.Background(), -1, m.attrs(s))
 		failure := ""
@@ -162,18 +197,15 @@ func (m *MotionEndpoints) Create(c echo.Context) error {
 	if !cfg.HasUsecases(config.FLAG_MOTION) {
 		return echo.NewHTTPError(400, "model does not support motion")
 	}
-	m.mu.Lock()
-	if len(m.reserved) >= 16 || m.reserved[req.Model] {
-		m.mu.Unlock()
-		return echo.NewHTTPError(429, "motion capacity exhausted; one session per loaded model")
+	owner := motionOwner(c)
+	if err := m.reserve(owner, req.Model); err != nil {
+		return err
 	}
-	m.reserved[req.Model] = true
-	m.mu.Unlock()
 	success := false
 	defer func() {
 		if !success {
 			m.mu.Lock()
-			delete(m.reserved, req.Model)
+			m.releaseLocked(owner, req.Model)
 			m.mu.Unlock()
 		}
 	}()
@@ -210,7 +242,7 @@ func (m *MotionEndpoints) Create(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	s := &motionSession{id: uuid.NewString(), owner: motionOwner(c), model: req.Model, engine: cfg.Backend, profile: req.Profile, origin: req.TimeOrigin, ctx: ctx, cancel: cancel, stream: stream, definition: definition, started: time.Now()}
+	s := &motionSession{id: uuid.NewString(), owner: owner, model: req.Model, engine: cfg.Backend, profile: req.Profile, origin: req.TimeOrigin, ctx: ctx, cancel: cancel, stream: stream, definition: definition, started: time.Now()}
 	s.last.Store(time.Now().UnixNano())
 	if conf := m.app.ApplicationConfig(); conf.EnableTracing {
 		trace.InitBackendTracingIfEnabled(conf.TracingMaxItems, conf.TracingMaxBodyBytes)
