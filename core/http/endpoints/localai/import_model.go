@@ -131,7 +131,11 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 // @Description is enqueued on the gallery job queue and answered with a job id
 // @Description plus status URL to poll, like a gallery install; a config with
 // @Description no downloads is written synchronously and answered with a
-// @Description plain success response.
+// @Description plain success response. A queued import runs the gallery
+// @Description installer, which also adds recommended inference defaults the
+// @Description config leaves unset and installs the backend when automatic
+// @Description backend installation is enabled; the synchronous path stores
+// @Description the body as posted.
 // @Tags models
 // @Accept json
 // @Produce json

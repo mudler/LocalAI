@@ -2859,7 +2859,7 @@ const docTemplate = `{
         },
         "/models/import": {
             "post": {
-                "description": "Writes the posted model configuration. A config referencing\nremote assets (download_files entries, URI-valued model/mmproj)\nis enqueued on the gallery job queue and answered with a job id\nplus status URL to poll, like a gallery install; a config with\nno downloads is written synchronously and answered with a\nplain success response.",
+                "description": "Writes the posted model configuration. A config referencing\nremote assets (download_files entries, URI-valued model/mmproj)\nis enqueued on the gallery job queue and answered with a job id\nplus status URL to poll, like a gallery install; a config with\nno downloads is written synchronously and answered with a\nplain success response. A queued import runs the gallery\ninstaller, which also adds recommended inference defaults the\nconfig leaves unset and installs the backend when automatic\nbackend installation is enabled; the synchronous path stores\nthe body as posted.",
                 "consumes": [
                     "application/json"
                 ],

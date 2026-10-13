@@ -5628,7 +5628,11 @@ paths:
         is enqueued on the gallery job queue and answered with a job id
         plus status URL to poll, like a gallery install; a config with
         no downloads is written synchronously and answered with a
-        plain success response.
+        plain success response. A queued import runs the gallery
+        installer, which also adds recommended inference defaults the
+        config leaves unset and installs the backend when automatic
+        backend installation is enabled; the synchronous path stores
+        the body as posted.
       parameters:
       - description: model configuration (YAML or JSON body)
         in: body
