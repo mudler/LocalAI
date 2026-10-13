@@ -77,6 +77,23 @@ var _ = Describe("realtime interrupt_response", func() {
 		Entry("server", "server_vad"), Entry("semantic", "semantic_vad"),
 	)
 
+	It("still emits sound detection for a skipped overlapping turn", func() {
+		s := &Session{TurnDetection: decode("server_vad", `,"interrupt_response":false`),
+			InputAudioTranscription: &types.AudioTranscription{}, SoundDetectionEnabled: true,
+			ModelInterface: &fakeModel{cfg: &config.ModelConfig{}, transcribeFinal: &schema.TranscriptionResult{Text: "next turn"},
+				soundDetectionResult: &schema.SoundClassificationResult{Detections: []schema.SoundClassification{{Label: "Dog", Score: 0.9}}}},
+			ModelConfig: &config.ModelConfig{}, respSink: newResponseSink()}
+		holdResponse(s)
+		conv, tr := &Conversation{}, &fakeTransport{}
+		committed := make(chan struct{})
+		s.issueCommit(context.Background(), respcoord.SourceVAD, func(turnCtx context.Context, slot *commitSlot) {
+			commitUtteranceWithTranscript(turnCtx, []byte{1, 2, 3, 4}, nil, nil, "", s, conv, tr, slot)
+			close(committed)
+		})
+		Eventually(committed).Should(BeClosed())
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemSoundDetection)).To(Equal(1))
+	})
+
 	It("applies session updates to interruption and echoes false", func() {
 		s := &Session{TurnDetection: defaultTurnDetection(nil), ModelConfig: &config.ModelConfig{}}
 		var update types.SessionUpdateEvent

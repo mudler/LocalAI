@@ -2094,7 +2094,10 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// committed window and emit its scored AudioSet tags as a separate event.
 	// A failure here is logged but must never abort the turn.
 	if session.SoundDetectionEnabled {
-		if sderr := emitSoundDetection(ctx, t, session, generateItemID(), f.Name()); sderr != nil {
+		// Session context, like the transcription: a turn whose response
+		// context is already cancelled (a skipped overlapping turn, a barge-in)
+		// still gets its sound events.
+		if sderr := emitSoundDetection(sctx, t, session, generateItemID(), f.Name()); sderr != nil {
 			xlog.Error("sound detection failed", "error", sderr)
 		}
 	}
