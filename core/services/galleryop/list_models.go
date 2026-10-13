@@ -2,6 +2,8 @@ package galleryop
 
 import (
 	"context"
+	"path/filepath"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -131,4 +133,22 @@ func checkRequestModelExistsContext(ctx context.Context, bcl *config.ModelConfig
 		return true, nil
 	}
 	return checkIfModelExistsContext(ctx, bcl, ml, modelName, ALWAYS_INCLUDE)
+}
+
+// CheckExactModelExists reports whether modelName is a configured model name or
+// a single entry in the models directory. It never lists the directory. Unlike
+// CheckIfModelExists, modelName is a literal, not a regular expression, and a
+// name that is not a local relative path never matches a file.
+func CheckExactModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string) bool {
+	return checkExactModelExists(bcl, ml, modelName)
+}
+
+func checkExactModelExists(bcl *config.ModelConfigLoader, ml discoveryFiles, modelName string) bool {
+	if _, exists := bcl.GetModelConfig(modelName); exists {
+		return true
+	}
+	if !filepath.IsLocal(modelName) {
+		return false
+	}
+	return ml.ExistsInModelPath(modelName)
 }
