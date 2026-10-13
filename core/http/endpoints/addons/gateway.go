@@ -15,9 +15,11 @@ import (
 
 // AddonError is the error object of every failure response of the addon endpoints.
 type AddonError struct {
-	// Type is addon_error, outcome_unknown when a mutation may have run, or
+	// Type is addon_error, outcome_unknown when a mutation may have run,
 	// proposal_unavailable when a proposal call could not be served and the
-	// same call can be repeated by the same proposal ID after reading it.
+	// same call can be repeated by the same proposal ID after reading it, or
+	// outcome_blocked (403) when another operation on the resource has an
+	// unresolved outcome and the caller is the resource's owner role.
 	Type string `json:"type" example:"outcome_unknown"`
 	// Message describes the failure and never carries owner details.
 	Message string `json:"message"`
@@ -27,6 +29,10 @@ type AddonError struct {
 	// proposal call. It is present only with type outcome_unknown or
 	// proposal_unavailable.
 	OperationID string `json:"operationId,omitempty"`
+	// BlockedBy is the unresolved operation that blocks the write. It is
+	// present only with type outcome_blocked, and only for the owner role of
+	// the resource.
+	BlockedBy string `json:"blockedBy,omitempty"`
 }
 
 // AddonErrorResponse is the body of every failure response of the addon endpoints.
@@ -109,6 +115,10 @@ func resultError(c echo.Context, e error) error {
 	var unknown *gateway.OutcomeUnknown
 	if errors.As(e, &unknown) {
 		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "outcome_unknown", Message: "Check operation status; do not submit a new mutation", OperationID: unknown.OperationID}})
+	}
+	var blocked *gateway.OutcomeBlocked
+	if errors.As(e, &blocked) && blocked.BlockedBy != "" && gateway.StatusFor(e) == http.StatusForbidden {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "outcome_blocked", Code: 403, Message: "Another operation on the resource has an unresolved outcome; resolve it first", BlockedBy: blocked.BlockedBy}})
 	}
 	var unavailable *gateway.ProposalUnavailable
 	if errors.As(e, &unavailable) {

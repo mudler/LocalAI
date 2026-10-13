@@ -23,6 +23,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/addons/proposals/:id/cancel", FeatureAddons},
 	{"POST", "/api/addons/proposals/:id/reconcile", FeatureAddons},
 	{"POST", "/api/addons/proposals/:id/resolve", FeatureAddons},
+	{"GET", "/api/addons/resources/:resourceId/proposals", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},

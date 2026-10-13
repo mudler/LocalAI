@@ -505,6 +505,9 @@ owner election, or failover. An absent owner returns unavailable.
   `POST /api/addons/proposals/{id}/confirm`, `.../cancel`, `.../reconcile` and
   `.../resolve` store, read, apply, withdraw and resolve data or schema proposals. See
   [Proposals and confirmation](#proposals-and-confirmation).
+- `GET /api/addons/resources/{resourceId}/proposals?state=unresolved` lists, for the owner
+  role of the resource only, the proposals on it whose outcome is unresolved, whoever
+  proposed them. See [Unknown outcomes and recovery](#unknown-outcomes-and-recovery).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
 unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
@@ -763,8 +766,15 @@ proposal, and every frontend reports the same answer for the same owner state:
 
 | Response | Meaning | What to do |
 |---|---|---|
-| `503` `proposal_unavailable` with `operationId` | The owner could not serve the call and the proposal did not reach the addon (or the call was a proposal, a cancellation or a resolution, which never run it). | Read the proposal with `GET`, then repeat the same call with the same ID. |
+| `503` `proposal_unavailable` with `operationId` | The owner could not serve this call, and this call sent nothing to the addon. The proposal is in the state the owner recorded, which can be any state: pending, or already settled by an earlier call. | Read the proposal with `GET`, then repeat the same call with the same ID. |
 | `503` `outcome_unknown` with `operationId` | The proposal reached the addon on the owner (`executing` or `outcome-unknown`). | Do not confirm again as a new operation. Reconcile, wait for the automatic lookups, or resolve. |
+
+Which type a route can emit does not depend on who proposed the operation. A proposal,
+a confirmation and a cancellation by the proposer can be either type. A resolution is
+always `proposal_unavailable`, because resolving never applies anything and the resolver
+is the resource owner, who is not always the proposer. A confirmation that the addon
+committed answers `200` with the applied proposal; the owner does not read the record
+back through a second account check that could fail after the apply.
 
 A reply lost between a forwarding frontend and the owner for a confirmation is reported
 as `outcome_unknown`, because the frontend cannot know whether the owner started it.
@@ -780,7 +790,10 @@ and records a committed or rejected result. It is read-only toward the addon and
 repeated. An addon that has no receipt for the operation stays `outcome-unknown`: a
 missing receipt does not prove the call never ran. While an outcome is unresolved, every
 other write or schema proposal on the same resource is denied and names the blocking
-operation (`blockedBy`); reads continue. On start the owner settles proposals left
+operation (`blockedBy`); reads continue. A write denied for this reason is `403`. For
+the owner role of the resource only, the body is type `outcome_blocked` and carries
+`blockedBy`, the operation ID to resolve. Any other user gets the plain denial and never
+learns another user's operation ID. On start the owner settles proposals left
 `executing` by a crash the same way and never applies them.
 
 Recovery has three steps and none of them submits the operation again:
@@ -791,9 +804,18 @@ Recovery has three steps and none of them submits the operation again:
    counted from the moment the apply was handed to the addon. A final receipt settles the
    proposal and lifts the block. After the window, only an explicit lookup remains.
 2. **Explicit lookup.** `reconcile`, by the proposer, at any time.
-3. **Owner resolution.** `POST /api/addons/proposals/{id}/resolve` with
-   `{"digest": "...", "reason": "..."}` lets the owner role of the resource stop
-   waiting. It is accepted only from the same confirmation surface as confirm (the
+3. **Owner resolution.** The owner role first finds what to resolve:
+   `GET /api/addons/resources/{resourceId}/proposals?state=unresolved` lists every
+   unresolved or abandoned proposal on the resource, whoever proposed it, with its ID,
+   state, proposing user, action, exact effect count and bounded effect sample, expiry,
+   digest and age in seconds, oldest first. It never returns the proposed arguments or a
+   credential. Only the owner role of that resource may call it, from the same
+   confirmation surface as resolve with `X-LocalAI-Confirm` equal to the resource ID;
+   editors, installation administrators and API keys are denied, and no MCP tool maps
+   to it. Then `POST /api/addons/proposals/{id}/resolve` with
+   `{"digest": "...", "reason": "..."}` (the digest from the list, required and checked
+   by the owner itself, not only by the HTTP route) lets the owner role of the resource
+   stop waiting. It is accepted only from the same confirmation surface as confirm (the
    owner's own browser session, a same-origin fetch, `X-LocalAI-Confirm` equal to the
    proposal ID, no tool or agent marker). The proposer's role is not enough, an
    installation administrator without an owner role on the resource has no access, and

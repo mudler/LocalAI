@@ -23,4 +23,7 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	// Resolve is the owner's explicit recovery for an unresolved outcome. It
 	// has the same confirmation-surface rules as confirm and no MCP tool.
 	group.POST("/proposals/:id/resolve", endpoints.ResolveProposal(a.AddonGateway(), a.AuthDB(), mode))
+	// The owner role lists the unresolved proposals of its resource, which
+	// resolve needs, under the same confirmation-surface rules and no MCP tool.
+	group.GET("/resources/:resourceId/proposals", endpoints.ListUnresolvedProposals(a.AddonGateway(), a.AuthDB(), mode))
 }

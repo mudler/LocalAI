@@ -179,6 +179,16 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			call := *wire.Proposal
 			// The owner classifies by the call, not by the action the peer wrote.
 			wire.Request.Action = call.wireAction(wire.Request)
+			if call.Op == proposalList {
+				list, e := g.listLocal(r.Context(), actor, wire.Request, call)
+				if e != nil {
+					proposalFailure(w, call, wire.Request.OperationID, e)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(list)
+				return
+			}
 			p, e := g.proposalLocal(r.Context(), actor, wire.Request, call)
 			if e != nil {
 				proposalFailure(w, call, wire.Request.OperationID, e)
@@ -330,6 +340,10 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	if resp.StatusCode != 200 {
 		defer resp.Body.Close()
 		if resp.StatusCode == 403 {
+			if wire.Proposal != nil {
+				// A denial of a proposal call may name the blocking operation.
+				return nil, proposalDenied(resp.Body, wire.Request.OperationID)
+			}
 			return nil, ErrForbidden
 		}
 		if wire.Proposal != nil {
@@ -362,7 +376,7 @@ func mutationOutcome(r contract.Request, e error) error {
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile"
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list"
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

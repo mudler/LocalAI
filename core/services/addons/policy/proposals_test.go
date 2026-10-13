@@ -38,12 +38,22 @@ type fixtureRuntime struct {
 	commitFirst bool // commit, then fail the reply
 	failFirst   bool // fail without committing
 	holdReply   func(ctx context.Context)
-	receiptMode string // "", "pending", "unavailable"
+	receiptMode string // "", "pending", "unavailable", "block"
 	lookups     int
+	// afterCommit runs once an apply committed and its reply is about to be
+	// returned.
+	afterCommit func()
+	// entered is signalled when a lookup in "block" mode starts. The lookup
+	// then waits for its context or for release.
+	entered chan struct{}
+	release chan struct{}
+	// returned is closed when a blocked lookup came back.
+	returned     chan struct{}
+	returnedOnce sync.Once
 }
 
 func newFixtureRuntime() *fixtureRuntime {
-	return &fixtureRuntime{data: 1, receipts: map[string]contract.Receipt{}, seenArgs: map[string]string{}}
+	return &fixtureRuntime{data: 1, receipts: map[string]contract.Receipt{}, seenArgs: map[string]string{}, entered: make(chan struct{}, 16), release: make(chan struct{}), returned: make(chan struct{})}
 }
 
 func (r *fixtureRuntime) Read(context.Context, contract.Envelope) (contract.Result, error) {
@@ -94,13 +104,29 @@ func (r *fixtureRuntime) Apply(ctx context.Context, e contract.Envelope, rev con
 	if commitFirst {
 		return contract.Receipt{}, errors.New("reply lost")
 	}
+	r.mu.Lock()
+	after := r.afterCommit
+	r.mu.Unlock()
+	if after != nil {
+		after()
+	}
 	return receipt, nil
 }
 
-func (r *fixtureRuntime) Receipt(_ context.Context, id string) (contract.Receipt, error) {
+func (r *fixtureRuntime) Receipt(ctx context.Context, id string) (contract.Receipt, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.lookups++
+	if r.receiptMode == "block" {
+		r.mu.Unlock()
+		r.entered <- struct{}{}
+		select {
+		case <-ctx.Done():
+		case <-r.release:
+		}
+		r.returnedOnce.Do(func() { close(r.returned) })
+		return contract.Receipt{}, errors.New("lookup interrupted")
+	}
+	defer r.mu.Unlock()
 	switch r.receiptMode {
 	case "unavailable":
 		return contract.Receipt{}, errors.New("runtime unavailable")
@@ -1156,18 +1182,24 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 	})
 
 	It("refuses a stored abandonment that names nobody and keeps looking up in the background", func() {
-		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.LookupInterval = 5 * time.Millisecond })
+		f := newBrokerFixture(ModeNamedUser)
 		owner := named("owner")
 		key := f.create(owner)
 		lose(f, owner, key, "lost")
 		f.rt.setReceiptMode("pending")
+		// The ticker is injected: a tick is accepted only after the previous
+		// round finished, so no wait or sleep decides the outcome.
+		tick := make(chan time.Time)
+		f.broker.tickC = tick
 		ictx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})
 		before := f.rt.lookupCount()
 		go func() { f.broker.Run(ictx); close(done) }()
-		Eventually(f.rt.lookupCount, 5*time.Second, 5*time.Millisecond).Should(BeNumerically(">", before))
+		tick <- time.Now()
+		tick <- time.Now()
+		Expect(f.rt.lookupCount()).To(BeNumerically(">", before))
 		cancel()
-		Eventually(done, 5*time.Second).Should(BeClosed())
+		<-done
 
 		f.close()
 		file := filepath.Join(f.dir, "proposals", proposalFileName)
@@ -1181,6 +1213,268 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		Expect(os.WriteFile(file, b, 0o600)).To(Succeed())
 		_, err = OpenBroker(filepath.Join(f.dir, "proposals"), BrokerOptions{Runtime: f.instances})
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("keeps executing, outcome-unknown and abandoned records far past retention and still dedupes them", func() {
+		f := newBrokerFixture(ModeNamedUser, func(o *BrokerOptions) { o.Retention = time.Hour })
+		owner := named("owner")
+		spare := f.create(owner)
+		keys := map[string]ResourceKey{}
+		for _, id := range []string{"executing", "unknown", "abandoned"} {
+			keys[id] = f.create(owner)
+		}
+		// executing: confirmed and handed over, with no process running it.
+		_, err := f.broker.Propose(ctx, owner, f.request(keys["executing"], "executing", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = f.broker.store.transition("executing", []ProposalState{gateway.ProposalPending}, func(x *proposalRecord) {
+			x.State = gateway.ProposalExecuting
+			x.UnknownSince = f.clock.now()
+		})
+		Expect(err).NotTo(HaveOccurred())
+		lose(f, owner, keys["unknown"], "unknown")
+		gone := lose(f, owner, keys["abandoned"], "abandoned")
+		f.rt.setReceiptMode("pending")
+		_, err = f.broker.Resolve(ctx, session("owner"), "abandoned", gone.Digest, "waited long enough")
+		Expect(err).NotTo(HaveOccurred())
+
+		want := map[string]ProposalState{"executing": gateway.ProposalExecuting, "unknown": gateway.ProposalOutcomeUnknown, "abandoned": gateway.ProposalAbandoned}
+		// Past retention, but inside the longer window of an abandoned outcome.
+		f.clock.advance(100 * time.Hour)
+		Expect(f.broker.Sweep()).To(Succeed())
+		for id, state := range want {
+			Expect(f.stored(id)).To(Equal(state), id)
+		}
+		// An insertion sweeps and makes room as well; none of them may go.
+		for i := 0; i < 3; i++ {
+			_, err = f.broker.Propose(ctx, owner, f.request(spare, fmt.Sprintf("filler-%d", i), "write", `{"rows":[9]}`))
+			Expect(err).NotTo(HaveOccurred())
+		}
+		for id, state := range want {
+			Expect(f.stored(id)).To(Equal(state), id)
+		}
+		// The operation ID still names the stored operation: the same request
+		// returns it, another one under that ID is a denial, and nothing runs.
+		calls := f.rt.applyCalls()
+		for id, state := range want {
+			got, err := f.broker.Propose(ctx, owner, f.request(keys[id], id, "write", `{"rows":[1]}`))
+			Expect(err).NotTo(HaveOccurred(), id)
+			Expect(got.State).To(Equal(state), id)
+			_, err = f.broker.Propose(ctx, owner, f.request(keys[id], id, "write", `{"rows":[2]}`))
+			Expect(err).To(MatchError(ErrForbidden), id)
+		}
+		Expect(f.rt.applyCalls()).To(Equal(calls))
+		// Only the abandoned record has a finite life, and it is much longer.
+		f.clock.advance(AbandonedRetention)
+		Expect(f.broker.Sweep()).To(Succeed())
+		Expect(f.stored("abandoned")).To(Equal(ProposalState("")))
+		Expect(f.stored("executing")).To(Equal(gateway.ProposalExecuting))
+		Expect(f.stored("unknown")).To(Equal(gateway.ProposalOutcomeUnknown))
+	})
+
+	It("waits for the background run and for lookups in flight before it closes, and writes nothing after", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		lose(f, owner, key, "lost")
+		f.rt.setReceiptMode("block")
+		tick := make(chan time.Time)
+		f.broker.tickC = tick
+		done := make(chan struct{})
+		go func() { f.broker.Run(ctx); close(done) }()
+		tick <- time.Now()
+		// The lookup is inside the runtime now.
+		<-f.rt.entered
+		file := filepath.Join(f.dir, "proposals", proposalFileName)
+		Expect(f.broker.Close()).To(Succeed())
+		// The lookup in flight was cut short and has come back by now, and
+		// the run then ends: it is not left behind a closed store.
+		select {
+		case <-f.rt.returned:
+		default:
+			Fail("Close returned while a lookup was still in flight")
+		}
+		<-done
+		// The round the close interrupted has finished its bookkeeping by now;
+		// from here on the file must not change.
+		before, err := os.ReadFile(file)
+		Expect(err).NotTo(HaveOccurred())
+		// Nothing is served or written once it is closed.
+		_, err = f.broker.Reconcile(ctx, "lost")
+		Expect(gateway.StatusFor(err)).To(Equal(503))
+		Expect(f.broker.Sweep()).NotTo(Succeed())
+		_, err = f.broker.Propose(ctx, owner, f.request(key, "late", "write", `{"rows":[5]}`))
+		Expect(err).To(HaveOccurred())
+		again, err := os.ReadFile(file)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(again)).To(Equal(string(before)))
+	})
+
+	It("lets the owner role list the unresolved proposals of its resource and abandon one by the listed digest", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		// The editor's confirmation reply is lost; the owner cannot read it by ID.
+		lost := lose(f, editor, key, "lost")
+		_, err := f.broker.Get(ctx, owner, "lost")
+		Expect(err).To(MatchError(ErrForbidden))
+		f.rt.setReceiptMode("pending")
+		f.clock.advance(90 * time.Second)
+
+		list, err := f.broker.Unresolved(ctx, session("owner"), key.ResourceID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		got := list[0]
+		Expect(got.ID).To(Equal("lost"))
+		Expect(got.State).To(Equal(gateway.ProposalOutcomeUnknown))
+		Expect(got.ProposerID).To(Equal("editor"))
+		Expect(got.Action).To(Equal("write"))
+		Expect(got.ResourceID).To(Equal(key.ResourceID))
+		Expect(got.Digest).To(Equal(lost.Digest))
+		Expect(got.Effects.Count).To(BeEquivalentTo(3))
+		Expect(got.ExpiresAt).To(BeTemporally("==", lost.ExpiresAt))
+		Expect(got.AgeSeconds).To(BeNumerically(">=", 90))
+		// The proposed rows are not part of the owner's view.
+		raw, err := json.Marshal(list)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(`"rows":[1]`))
+		Expect(string(raw)).NotTo(ContainSubstring("arguments"))
+		Expect(string(raw)).NotTo(ContainSubstring("credential"))
+
+		// Only the owner role of this resource, from a human surface, may list.
+		other := f.create(editor)
+		for name, who := range map[string]contract.Actor{"editor session": session("editor"), "admin session": session("admin"), "owner key": owner, "editor key": editor} {
+			_, err = f.broker.Unresolved(ctx, who, key.ResourceID)
+			Expect(err).To(MatchError(ErrForbidden), name)
+		}
+		_, err = f.broker.Unresolved(ctx, session("owner"), other.ResourceID)
+		Expect(err).To(MatchError(ErrForbidden))
+		_, err = f.broker.Unresolved(ctx, session("owner"), "no-such-resource")
+		Expect(err).To(MatchError(ErrForbidden))
+		// A resource with nothing unresolved lists nothing.
+		empty, err := f.broker.Unresolved(ctx, session("editor"), other.ResourceID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(empty).To(BeEmpty())
+
+		// The owner abandons it with the digest it was listed with.
+		done, err := f.broker.Resolve(ctx, session("owner"), got.ID, got.Digest, "the addon was reset")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(done.State).To(Equal(gateway.ProposalAbandoned))
+		after, err := f.broker.Unresolved(ctx, session("owner"), key.ResourceID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(HaveLen(1))
+		Expect(after[0].State).To(Equal(gateway.ProposalAbandoned))
+		Expect(after[0].Resolution).NotTo(BeNil())
+		Expect(after[0].Resolution.ActorID).To(Equal("owner"))
+		// Settled proposals are not listed.
+		f.rt.setReceiptMode("")
+		f.rt.mu.Lock()
+		f.rt.receipts["lost"] = contract.Receipt{OperationID: "lost", State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 2}}
+		f.rt.mu.Unlock()
+		_, err = f.broker.Reconcile(ctx, "lost")
+		Expect(err).NotTo(HaveOccurred())
+		settled, err := f.broker.Unresolved(ctx, session("owner"), key.ResourceID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(settled).To(BeEmpty())
+	})
+
+	It("names the blocking proposal in the denial only to the resource owner", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		waiting, err := f.broker.Propose(ctx, owner, f.request(key, "waiting", "write", `{"rows":[0]}`))
+		Expect(err).NotTo(HaveOccurred())
+		lose(f, editor, key, "lost")
+
+		_, err = f.broker.Propose(ctx, editor, f.request(key, "by-editor", "write", `{"rows":[3]}`))
+		Expect(err).To(MatchError(ErrOutcomeBlocked))
+		var blocked *gateway.OutcomeBlocked
+		Expect(errors.As(err, &blocked)).To(BeFalse())
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+
+		_, err = f.broker.Propose(ctx, owner, f.request(key, "by-owner", "write", `{"rows":[4]}`))
+		Expect(err).To(MatchError(ErrOutcomeBlocked))
+		Expect(errors.As(err, &blocked)).To(BeTrue())
+		Expect(blocked.BlockedBy).To(Equal("lost"))
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+
+		// The same holds for a confirmation that finds the resource blocked.
+		_, err = f.broker.Confirm(ctx, session("owner"), waiting.ID)
+		Expect(err).To(MatchError(ErrOutcomeBlocked))
+		blocked = nil
+		Expect(errors.As(err, &blocked)).To(BeTrue())
+		Expect(blocked.BlockedBy).To(Equal("lost"))
+	})
+
+	It("refuses an unbound digest when the owner abandons through the gateway or the broker", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		lost := lose(f, owner, key, "lost")
+		f.rt.setReceiptMode("pending")
+		calls := f.rt.applyCalls()
+		for _, digest := range []string{"", "not-the-digest"} {
+			_, err := f.broker.Gateway().Resolve(ctx, session("owner"), "lost", digest, "reason")
+			Expect(err).To(MatchError(ErrProposalChanged), digest)
+			_, err = f.broker.Resolve(ctx, session("owner"), "lost", digest, "reason")
+			Expect(err).To(MatchError(ErrProposalChanged), digest)
+			Expect(f.stored("lost")).To(Equal(gateway.ProposalOutcomeUnknown))
+		}
+		got, err := f.broker.Gateway().Resolve(ctx, session("owner"), "lost", lost.Digest, "reason")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(gateway.ProposalAbandoned))
+		Expect(f.rt.applyCalls()).To(Equal(calls))
+	})
+
+	It("answers the same typed outage for a resolution whoever proposed the operation", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		own := lose(f, owner, key, "own")
+		f.rt.setReceiptMode("pending")
+		// The frontend's own account check passes; the owner's store is down.
+		g := &gateway.Gateway{Proposals: f.broker.Gateway(), Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		f.accounts.setDown(true)
+		_, err := g.ResolveProposal(ctx, session("owner"), "own", own.Digest, "reason")
+		var unavailable *gateway.ProposalUnavailable
+		var unknown *gateway.OutcomeUnknown
+		Expect(errors.As(err, &unavailable)).To(BeTrue())
+		Expect(errors.As(err, &unknown)).To(BeFalse())
+		Expect(unavailable.ProposalID).To(Equal("own"))
+		f.accounts.setDown(false)
+		Expect(f.stored("own")).To(Equal(gateway.ProposalOutcomeUnknown))
+		done, err := f.broker.Gateway().Resolve(ctx, session("owner"), "own", own.Digest, "reason")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(done.State).To(Equal(gateway.ProposalAbandoned))
+
+		// Another proposer's operation gets the same type.
+		theirs := lose(f, editor, key, "theirs")
+		f.accounts.setDown(true)
+		_, err = g.ResolveProposal(ctx, session("owner"), "theirs", theirs.Digest, "reason")
+		unavailable, unknown = nil, nil
+		Expect(errors.As(err, &unavailable)).To(BeTrue())
+		Expect(errors.As(err, &unknown)).To(BeFalse())
+		Expect(unavailable.ProposalID).To(Equal("theirs"))
+	})
+
+	It("returns the applied proposal when the owner cannot read it back after a successful apply", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		p, err := f.broker.Propose(ctx, owner, f.request(key, "done", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		// The account store goes down right after the addon committed.
+		f.rt.mu.Lock()
+		f.rt.afterCommit = func() { f.accounts.setDown(true) }
+		f.rt.mu.Unlock()
+		got, err := f.broker.Gateway().Confirm(ctx, session("owner"), "done", p.Digest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(gateway.ProposalApplied))
+		Expect(got.Receipt).NotTo(BeNil())
+		Expect(f.stored("done")).To(Equal(gateway.ProposalApplied))
+		Expect(f.rt.applyCalls()).To(Equal([]string{"done"}))
 	})
 
 	It("issues resource identifiers the envelope contract accepts", func() {

@@ -132,14 +132,15 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/proposals/:id/reconcile": true,
 			"POST /api/addons/proposals/:id/resolve":   true,
 		}))
-		// Reading a proposal is the only registered GET.
+		// Reading a proposal and the owner's list of unresolved ones are the
+		// only registered GETs.
 		reads := map[string]bool{}
 		for _, r := range e.Routes() {
 			if strings.HasPrefix(r.Path, "/api/addons") && r.Method == http.MethodGet {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true}))
 	})
 	It("gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked", func() {
 		do := func(method, path, body string, mutate func(*http.Request)) int {
@@ -154,6 +155,9 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		Expect(do("POST", "/api/addons/proposals", propose, func(r *http.Request) {})).To(Equal(http.StatusUnauthorized))
 		Expect(do("POST", "/api/addons/proposals", propose, bearer("plain"))).To(Equal(http.StatusForbidden))
 		Expect(do("GET", "/api/addons/proposals/op", "", bearer("plain"))).To(Equal(http.StatusForbidden))
+		Expect(do("GET", "/api/addons/resources/r/proposals?state=unresolved", "", bearer("plain"))).To(Equal(http.StatusForbidden))
+		// A key, even a granted one, is never a confirmation surface.
+		Expect(do("GET", "/api/addons/resources/r/proposals?state=unresolved", "", bearer("granted"))).To(Equal(http.StatusForbidden))
 		// A granted key clears the gates; the test application has no owner.
 		Expect(do("POST", "/api/addons/proposals", propose, bearer("granted"))).To(Equal(reached))
 		Expect(do("GET", "/api/addons/proposals/op", "", bearer("granted"))).To(Equal(reached))

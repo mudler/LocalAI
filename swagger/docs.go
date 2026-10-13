@@ -222,13 +222,13 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Feature, resource policy or request binding denied the proposal",
+                        "description": "Feature, resource policy or request binding denied the proposal. Type outcome_blocked (with blockedBy) when the caller is the owner role of the resource and another operation on it has an unresolved outcome; other callers get the plain denial",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -322,7 +322,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -387,7 +387,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -499,7 +499,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable. Type proposal_unavailable (with operationId): read the proposal and repeat the same call with the same ID",
+                        "description": "Addons or the owner are unavailable. Always type proposal_unavailable (with operationId), whoever proposed the operation, because resolving is not an apply: the owner could not serve this call and it sent nothing to the addon; read the proposal for its state and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -556,6 +556,69 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Feature or owner policy denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/proposals": {
+            "get": {
+                "description": "Returns the proposals on the resource whose outcome is unresolved (executing, outcome-unknown) or abandoned-unknown, whoever proposed them, so the resource owner can learn the operation ID and digest that resolve needs. Each entry has the proposal ID, state, the proposing user, the action, the exact effect count and the bounded effect sample the proposer saw, the expiry, the digest and the age in seconds. It never returns the proposed arguments or any credential. Read-only. Only the owner role of the resource may call it; installation administrators, editors and viewers are denied. It is accepted only from a host confirmation surface with the rules of resolve: the owner's own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal to the resource ID, and no tool, agent or MCP marker. API keys are refused and no MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "List the unresolved addon proposals of a resource as its owner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "unresolved"
+                        ],
+                        "type": "string",
+                        "description": "Only unresolved is supported",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Unresolved proposals, oldest first",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ProposalList"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or unsupported state filter",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human confirmation surface, not the owner role of the resource, feature denied or unknown resource",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5113,6 +5176,10 @@ const docTemplate = `{
         "addons.AddonError": {
             "type": "object",
             "properties": {
+                "blockedBy": {
+                    "description": "BlockedBy is the unresolved operation that blocks the write. It is\npresent only with type outcome_blocked, and only for the owner role of\nthe resource.",
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code repeats the HTTP status. It is absent from outcome_unknown responses.",
                     "type": "integer"
@@ -5126,7 +5193,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type is addon_error, outcome_unknown when a mutation may have run, or\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it.",
+                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role.",
                     "type": "string",
                     "example": "outcome_unknown"
                 }
@@ -5861,6 +5928,65 @@ const docTemplate = `{
                 }
             }
         },
+        "gateway.BlockingProposal": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "addonId": {
+                    "type": "string"
+                },
+                "ageSeconds": {
+                    "description": "AgeSeconds is how long the outcome has been unresolved, counted from\nthe hand-over to the addon.",
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "digest": {
+                    "description": "Digest is what the owner names to resolve the proposal.",
+                    "type": "string"
+                },
+                "effects": {
+                    "$ref": "#/definitions/gateway.ProposalEffects"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is the proposal identifier, which is its operation identifier.",
+                    "type": "string"
+                },
+                "proposerId": {
+                    "description": "ProposerID is the user who proposed the operation.",
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why the outcome is unresolved.",
+                    "type": "string"
+                },
+                "resolution": {
+                    "description": "Resolution is present once the owner stopped waiting.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/gateway.ProposalResolution"
+                        }
+                    ]
+                },
+                "resourceId": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is executing, outcome-unknown or abandoned-unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/gateway.ProposalState"
+                        }
+                    ]
+                }
+            }
+        },
         "gateway.Proposal": {
             "type": "object",
             "properties": {
@@ -5947,6 +6073,17 @@ const docTemplate = `{
                 "sample": {
                     "description": "Sample is a bounded excerpt of the effects, or the whole preview summary\nwhen the addon did not separate one.",
                     "type": "object"
+                }
+            }
+        },
+        "gateway.ProposalList": {
+            "type": "object",
+            "properties": {
+                "proposals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.BlockingProposal"
+                    }
                 }
             }
         },

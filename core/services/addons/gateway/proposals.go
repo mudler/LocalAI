@@ -95,6 +95,66 @@ type Proposal struct {
 	Resolution *ProposalResolution `json:"resolution,omitempty"`
 }
 
+// BlockingProposal is what the owner role of a resource sees of an unresolved
+// proposal on it, whoever proposed it. It names the operation and what is
+// needed to resolve it. It carries neither the proposed arguments nor the
+// proposer's credential; the effect sample is the bounded one the proposer's
+// own view carries.
+type BlockingProposal struct {
+	// ID is the proposal identifier, which is its operation identifier.
+	ID         string `json:"id"`
+	AddonID    string `json:"addonId"`
+	ResourceID string `json:"resourceId"`
+	// State is executing, outcome-unknown or abandoned-unknown.
+	State ProposalState `json:"state"`
+	// ProposerID is the user who proposed the operation.
+	ProposerID string          `json:"proposerId"`
+	Action     string          `json:"action"`
+	Effects    ProposalEffects `json:"effects"`
+	ExpiresAt  time.Time       `json:"expiresAt"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	// Digest is what the owner names to resolve the proposal.
+	Digest string `json:"digest"`
+	// AgeSeconds is how long the outcome has been unresolved, counted from
+	// the hand-over to the addon.
+	AgeSeconds int64 `json:"ageSeconds"`
+	// Reason says why the outcome is unresolved.
+	Reason string `json:"reason,omitempty"`
+	// Resolution is present once the owner stopped waiting.
+	Resolution *ProposalResolution `json:"resolution,omitempty"`
+}
+
+// ProposalList is the answer to the owner's list of unresolved proposals.
+type ProposalList struct {
+	Proposals []BlockingProposal `json:"proposals"`
+}
+
+// OutcomeBlocked is the denial of a write on a resource that has an
+// unresolved outcome. It names the blocking operation, and the owner builds
+// it only for a caller that holds the owner role of the resource: others get
+// the plain denial and never learn another user's operation identifier.
+type OutcomeBlocked struct {
+	// BlockedBy is the identifier of the unresolved operation.
+	BlockedBy string
+	// Cause is the plain denial, matched by errors.Is.
+	Cause error
+}
+
+func (e *OutcomeBlocked) Error() string {
+	if e.Cause != nil {
+		return e.Cause.Error()
+	}
+	return "addon operation outcome unresolved"
+}
+
+// Unwrap lets errors.Is match the denial and its status classification.
+func (e *OutcomeBlocked) Unwrap() error {
+	if e.Cause != nil {
+		return e.Cause
+	}
+	return ErrForbidden
+}
+
 // ProposalBroker is the owner-held proposal state machine. Only the designated
 // owner implements it; other frontends reach it through the carrier.
 type ProposalBroker interface {
@@ -110,6 +170,9 @@ type ProposalBroker interface {
 	// outcome. It never applies anything. digest must equal the proposal's
 	// digest; reason is required.
 	Resolve(ctx context.Context, actor contract.Actor, id, digest, reason string) (Proposal, error)
+	// Unresolved lists the proposals on a resource whose outcome is unresolved,
+	// whoever proposed them. Only the resource's owner role may call it.
+	Unresolved(ctx context.Context, actor contract.Actor, resourceID string) ([]BlockingProposal, error)
 }
 
 // Proposal call operations on the carrier. They travel in ProposalCall, never
@@ -121,6 +184,9 @@ const (
 	proposalGet       = "get"
 	proposalReconcile = "reconcile"
 	proposalResolve   = "resolve"
+	// proposalList lists the unresolved proposals of a resource for its owner
+	// role. It is read-only. The call's ID is the resource identifier.
+	proposalList = "list"
 )
 
 // ProposalCall is the body a frontend forwards to the owner.
@@ -141,13 +207,14 @@ func (c ProposalCall) wireAction(request contract.Request) string {
 	return "proposal-" + c.Op
 }
 
-// ProposalUnavailable means a proposal call could not be served and the
-// owner's state of that proposal was not changed past a state the client can
-// read. The proposal ID is the original operation ID. A proposal call is a
-// single-use state machine keyed by that ID, so the client reads the proposal
-// (GET) and repeats the same call with the same ID; a repeat never creates a
-// second operation. OutcomeUnknown is reserved for a proposal that reached
-// the addon on the owner.
+// ProposalUnavailable means a proposal call could not be served by the owner
+// and that this call sent nothing to the addon. The proposal is in the state
+// the owner recorded, which a read shows: pending, or already settled by an
+// earlier call. The proposal ID is the original operation ID. A proposal call
+// is a single-use state machine keyed by that ID, so the client reads the
+// proposal (GET) and repeats the same call with the same ID; a repeat never
+// creates a second operation. OutcomeUnknown is reserved for a proposal that
+// reached the addon on the owner.
 type ProposalUnavailable struct {
 	ProposalID string `json:"operationId"`
 }
@@ -250,6 +317,41 @@ func (g *Gateway) ResolveProposal(ctx context.Context, a contract.Actor, id, dig
 	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalResolve, ID: id, Digest: digest, Reason: reason})
 }
 
+// UnresolvedProposals lists the proposals on a resource whose outcome is
+// unresolved, whoever proposed them. The owner answers only the resource's
+// owner role, from a credential that stands for a human at a confirmation
+// surface. It is read-only and shows no proposed arguments.
+func (g *Gateway) UnresolvedProposals(ctx context.Context, a contract.Actor, resourceID string) (ProposalList, error) {
+	if e := g.revalidate(ctx, a); e != nil {
+		return ProposalList{}, e
+	}
+	request := contract.Request{OperationID: resourceID, ResourceID: resourceID}
+	call := ProposalCall{Op: proposalList, ID: resourceID}
+	request.Action = call.wireAction(request)
+	if g.Forward != nil {
+		return g.Forward.proposalList(ctx, a, request, call)
+	}
+	return g.listLocal(ctx, a, request, call)
+}
+
+// listLocal serves the list call on the owner itself.
+func (g *Gateway) listLocal(ctx context.Context, a contract.Actor, request contract.Request, call ProposalCall) (ProposalList, error) {
+	if g.Proposals == nil {
+		return ProposalList{}, ErrUnavailable
+	}
+	if call.Op != proposalList || call.ID == "" || request.OperationID != call.ID || request.ResourceID != call.ID {
+		return ProposalList{}, ErrForbidden
+	}
+	list, e := g.Proposals.Unresolved(ctx, a, call.ID)
+	if e != nil {
+		return ProposalList{}, e
+	}
+	if list == nil {
+		list = []BlockingProposal{}
+	}
+	return ProposalList{Proposals: list}, nil
+}
+
 // uncertainProposal is the answer when the reply of the owner was lost or not
 // understood. Only a confirmation can have reached the addon, so only it is an
 // unknown outcome; the other calls are repeated by the same ID after a read.
@@ -267,11 +369,15 @@ func uncertainProposal(call ProposalCall, id string) error {
 type proposalWire struct {
 	Type        string `json:"type"`
 	OperationID string `json:"operationId"`
+	BlockedBy   string `json:"blockedBy,omitempty"`
 }
 
 const (
 	wireOutcomeUnknown      = "outcome_unknown"
 	wireProposalUnavailable = "proposal_unavailable"
+	// wireOutcomeBlocked is a 403 that names the blocking operation. The owner
+	// sends it only for the resource's owner role.
+	wireOutcomeBlocked = "outcome_blocked"
 )
 
 // proposalFailure writes the owner's typed failure of a proposal call. An
@@ -281,7 +387,14 @@ func proposalFailure(w http.ResponseWriter, call ProposalCall, id string, e erro
 	e = proposalOutcome(call, id, e)
 	var unknown *OutcomeUnknown
 	var unavailable *ProposalUnavailable
+	var blocked *OutcomeBlocked
 	body := proposalWire{OperationID: id}
+	if errors.As(e, &blocked) && blocked.BlockedBy != "" && StatusFor(e) == http.StatusForbidden {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(proposalWire{Type: wireOutcomeBlocked, OperationID: id, BlockedBy: blocked.BlockedBy})
+		return
+	}
 	switch {
 	case errors.As(e, &unknown):
 		body.Type, body.OperationID = wireOutcomeUnknown, unknown.OperationID
@@ -296,11 +409,23 @@ func proposalFailure(w http.ResponseWriter, call ProposalCall, id string, e erro
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+// proposalDenied reads a 403 of an owner's proposal call. A denial is a
+// denial: it stays one when its body is not understood, and only a typed body
+// adds the blocking operation.
+func proposalDenied(r io.Reader, id string) error {
+	var b proposalWire
+	if decode(io.LimitReader(r, 4096), &b) == nil && b.OperationID == id && b.Type == wireOutcomeBlocked && b.BlockedBy != "" && len(b.BlockedBy) <= 256 {
+		return &OutcomeBlocked{BlockedBy: b.BlockedBy, Cause: ErrForbidden}
+	}
+	return ErrForbidden
+}
+
 // proposalReplyError reads the typed failure of an owner's proposal call.
 func proposalReplyError(r io.Reader, call ProposalCall, id string) error {
 	var b proposalWire
 	if decode(io.LimitReader(r, 4096), &b) == nil && b.OperationID == id {
 		switch b.Type {
+
 		case wireOutcomeUnknown:
 			return &OutcomeUnknown{OperationID: id}
 		case wireProposalUnavailable:
@@ -322,4 +447,18 @@ func (c *Carrier) Proposal(ctx context.Context, a contract.Actor, r contract.Req
 		return Proposal{}, uncertainProposal(call, r.OperationID)
 	}
 	return p, nil
+}
+
+// proposalList forwards the list call to the owner.
+func (c *Carrier) proposalList(ctx context.Context, a contract.Actor, r contract.Request, call ProposalCall) (ProposalList, error) {
+	resp, e := c.send(ctx, a, wireRequest{Request: r, Proposal: &call})
+	if e != nil {
+		return ProposalList{}, e
+	}
+	defer resp.Body.Close()
+	var l ProposalList
+	if e = decode(io.LimitReader(resp.Body, 2<<20), &l); e != nil {
+		return ProposalList{}, ErrUnavailable
+	}
+	return l, nil
 }

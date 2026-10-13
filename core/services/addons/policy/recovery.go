@@ -3,6 +3,7 @@ package policy
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -19,6 +20,12 @@ func (b *Broker) Reconcile(ctx context.Context, operationID string) (contract.Re
 	if _, err := b.attached(); err != nil {
 		return contract.Receipt{}, err
 	}
+	// A lookup in flight is part of the broker: Close cancels and waits for it.
+	ctx, leave, err := b.enter(ctx)
+	if err != nil {
+		return contract.Receipt{}, err
+	}
+	defer leave()
 	r, ok := b.store.get(operationID)
 	if !ok || operationID == "" {
 		return contract.Receipt{}, ErrForbidden
@@ -211,15 +218,24 @@ func (b *Broker) RetryUnresolved(ctx context.Context) int {
 // Run keeps expiry recorded and repeats due receipt lookups until ctx ends or
 // the broker is closed. It is the owner's background recovery.
 func (b *Broker) Run(ctx context.Context) {
-	t := time.NewTicker(b.opts.LookupInterval)
-	defer t.Stop()
+	ctx, leave, err := b.enter(ctx)
+	if err != nil {
+		return
+	}
+	defer leave()
+	tick := b.tickC
+	if tick == nil {
+		t := time.NewTicker(b.opts.LookupInterval)
+		defer t.Stop()
+		tick = t.C
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-b.done:
 			return
-		case <-t.C:
+		case <-tick:
 			_ = b.Sweep()
 			b.RetryUnresolved(ctx)
 		}
@@ -264,7 +280,8 @@ func (b *Broker) Resolve(ctx context.Context, actor contract.Actor, id, digest, 
 		if !ok {
 			return ErrForbidden
 		}
-		if digestOf(&cur) != cur.Digest || (digest != "" && digest != cur.Digest) {
+		// The owner names what was shown. An empty digest is not a wildcard.
+		if digestOf(&cur) != cur.Digest || digest == "" || digest != cur.Digest {
 			return ErrProposalChanged
 		}
 		switch cur.State {
@@ -300,4 +317,52 @@ func (b *Broker) Resolve(ctx context.Context, actor contract.Actor, id, digest, 
 		return nil
 	})
 	return out, err
+}
+
+// Unresolved lists the proposals on a resource whose outcome is unresolved or
+// abandoned, whoever proposed them. It is the owner's way to learn the ID and
+// digest that Resolve needs: a proposal is otherwise readable by its proposer
+// only. The caller must hold the resource's owner role and a credential that
+// stands for a human at a confirmation surface, as for Resolve; installation
+// administrators and keys are refused. It is read-only and shows no proposed
+// arguments, only the bounded effect sample the proposer saw.
+func (b *Broker) Unresolved(ctx context.Context, actor contract.Actor, resourceID string) ([]gateway.BlockingProposal, error) {
+	p, err := b.attached()
+	if err != nil {
+		return nil, err
+	}
+	if err = p.current(ctx, actor); err != nil {
+		return nil, err
+	}
+	if !b.confirmCredential(p, actor) {
+		return nil, ErrForbidden
+	}
+	rec, ok := p.store.get(resourceID)
+	if !ok || resourceID == "" {
+		return nil, ErrForbidden
+	}
+	if err = p.check(actor, ResourceKey{AddonID: rec.AddonID, ResourceID: resourceID}, ActionResolve); err != nil {
+		return nil, err
+	}
+	now := b.opts.Now()
+	out := []gateway.BlockingProposal{}
+	for _, r := range b.store.all() {
+		if r.ResourceID != resourceID || r.AddonID != rec.AddonID || (!r.unresolved() && r.State != gateway.ProposalAbandoned) {
+			continue
+		}
+		since := r.UnknownSince
+		if since.IsZero() {
+			since = r.UpdatedAt
+		}
+		age := int64(0)
+		if !since.IsZero() && now.After(since) {
+			age = int64(now.Sub(since) / time.Second)
+		}
+		out = append(out, gateway.BlockingProposal{ID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, State: r.State,
+			ProposerID: r.Actor.UserID, Action: r.Action, Effects: r.Effects, ExpiresAt: r.ExpiresAt, CreatedAt: r.CreatedAt,
+			Digest: r.Digest, AgeSeconds: age, Reason: r.Reason, Resolution: r.Resolution})
+	}
+	// Oldest first, so the owner sees what has waited longest.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	return out, nil
 }

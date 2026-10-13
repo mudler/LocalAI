@@ -38,17 +38,23 @@ func named(id string) contract.Actor {
 type account struct {
 	mu      sync.Mutex
 	blocked map[string]bool
+	// down makes the account store unavailable, which is not a denial.
+	down bool
 }
 
 func (a *account) check(_ context.Context, actor contract.Actor) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.down {
+		return fmt.Errorf("account store down")
+	}
 	if a.blocked[actor.UserID] {
 		return fmt.Errorf("account paused: %w", gateway.ErrForbidden)
 	}
 	return nil
 }
 func (a *account) block(id string) { a.mu.Lock(); a.blocked[id] = true; a.mu.Unlock() }
+func (a *account) setDown(v bool)  { a.mu.Lock(); a.down = v; a.mu.Unlock() }
 
 type proposals struct {
 	mu    sync.Mutex

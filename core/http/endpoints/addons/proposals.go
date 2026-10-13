@@ -87,8 +87,8 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 // @Success 200 {object} gateway.Proposal "Stored proposal"
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
-// @Failure 403 {object} AddonErrorResponse "Feature, resource policy or request binding denied the proposal"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
+// @Failure 403 {object} AddonErrorResponse "Feature, resource policy or request binding denied the proposal. Type outcome_blocked (with blockedBy) when the caller is the owner role of the resource and another operation on it has an unresolved outcome; other callers get the plain denial"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID"
 // @Router /api/addons/proposals [post]
 func Propose(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -138,7 +138,7 @@ func GetProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFu
 // @Success 200 {object} gateway.Proposal "Cancelled proposal"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature denied, the proposal is not the caller's, or it is not pending"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/cancel [post]
 func CancelProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	return proposalCall(g, db, opts, func(c echo.Context, g *gateway.Gateway, a contract.Actor) (gateway.Proposal, error) {
@@ -193,7 +193,7 @@ func proposalCall(g *gateway.Gateway, db *gorm.DB, opts []Option, call func(echo
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, feature denied, or the proposal is not pending, is expired, stale, changed or blocked"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal had been handed to the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve this call and this call sent nothing to the addon; read the proposal for its state, which may already be settled, and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/confirm [post]
 func ConfirmProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -243,7 +243,7 @@ type ResolveRequest struct {
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, not the resource owner, feature denied, digest changed or the proposal is not unresolved"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type proposal_unavailable (with operationId): read the proposal and repeat the same call with the same ID"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Always type proposal_unavailable (with operationId), whoever proposed the operation, because resolving is not an apply: the owner could not serve this call and it sent nothing to the addon; read the proposal for its state and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/resolve [post]
 func ResolveProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -268,5 +268,44 @@ func ResolveProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Handl
 			return resultError(c, e)
 		}
 		return c.JSON(200, p)
+	}
+}
+
+// ListUnresolvedProposals lists the unresolved proposals of a resource for its
+// owner role.
+// @Summary List the unresolved addon proposals of a resource as its owner
+// @Description Returns the proposals on the resource whose outcome is unresolved (executing, outcome-unknown) or abandoned-unknown, whoever proposed them, so the resource owner can learn the operation ID and digest that resolve needs. Each entry has the proposal ID, state, the proposing user, the action, the exact effect count and the bounded effect sample the proposer saw, the expiry, the digest and the age in seconds. It never returns the proposed arguments or any credential. Read-only. Only the owner role of the resource may call it; installation administrators, editors and viewers are denied. It is accepted only from a host confirmation surface with the rules of resolve: the owner's own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal to the resource ID, and no tool, agent or MCP marker. API keys are refused and no MCP tool maps to this route.
+// @Tags Addons
+// @Produce json
+// @Param resourceId path string true "Resource ID"
+// @Param state query string true "Only unresolved is supported" Enums(unresolved)
+// @Success 200 {object} gateway.ProposalList "Unresolved proposals, oldest first"
+// @Failure 400 {object} AddonErrorResponse "Missing or unsupported state filter"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, not the owner role of the resource, feature denied or unknown resource"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Router /api/addons/resources/{resourceId}/proposals [get]
+func ListUnresolvedProposals(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		resourceID := c.Param("resourceId")
+		if !humanSurface(c, s, a, resourceID) {
+			return failure(c, 403, "Listing requires the resource owner's own browser session")
+		}
+		if c.QueryParam("state") != "unresolved" {
+			return failure(c, 400, "Only state=unresolved is supported")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		list, e := g.UnresolvedProposals(c.Request().Context(), a, resourceID)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, list)
 	}
 }

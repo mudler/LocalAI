@@ -195,6 +195,7 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.POST("/proposals/:id/cancel", CancelProposal(g, s.db, mode))
 	group.POST("/proposals/:id/reconcile", ReconcileProposal(g, s.db, mode))
 	group.POST("/proposals/:id/resolve", ResolveProposal(g, s.db, mode))
+	group.GET("/resources/:resourceId/proposals", ListUnresolvedProposals(g, s.db, mode))
 	return e
 }
 
@@ -256,6 +257,10 @@ func (b *stubBroker) Reconcile(context.Context, contract.Actor, string) (gateway
 func (b *stubBroker) Resolve(context.Context, contract.Actor, string, string, string) (gateway.Proposal, error) {
 	return b.fail()
 }
+func (b *stubBroker) Unresolved(context.Context, contract.Actor, string) ([]gateway.BlockingProposal, error) {
+	b.calls++
+	return nil, b.err
+}
 
 type reply struct {
 	code int
@@ -270,6 +275,12 @@ func (r reply) state() string {
 func (r reply) errType() string {
 	m, _ := r.body["error"].(map[string]any)
 	t, _ := m["type"].(string)
+	return t
+}
+
+func (r reply) errBlockedBy() string {
+	m, _ := r.body["error"].(map[string]any)
+	t, _ := m["blockedBy"].(string)
 	return t
 }
 
@@ -475,6 +486,12 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		// A different change on the same resource is blocked until it resolves.
 		blocked := send(a, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["alice"]))
 		Expect(blocked.code).To(Equal(403))
+		// The resource's owner role is told which operation blocks it, from
+		// every frontend.
+		Expect(blocked.errType()).To(Equal("outcome_blocked"))
+		Expect(blocked.errBlockedBy()).To(Equal("lost-1"))
+		Expect(send(b, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["alice"])).errBlockedBy()).To(Equal("lost-1"))
+		Expect(send(s.frontend(s.gateway), "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["alice"])).errBlockedBy()).To(Equal("lost-1"))
 		// The lookup resolves it from either frontend, without applying again.
 		resolved := send(a, "POST", "/api/addons/proposals/lost-1/reconcile", ``, bearerOf(s.tokens["alice"]))
 		Expect(resolved.code).To(Equal(200), "%v", resolved.body)
@@ -539,6 +556,109 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		Expect(s.rt.calls()).To(Equal([]string{"stuck-1"}))
 	})
 
+	It("lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		own := s.frontend(s.gateway)
+		a, b := s.forwardingFrontends(s.gateway)
+		Expect(s.policy.SetGrant(context.Background(), s.owner, s.key, "bob", policy.RoleEditor)).To(Succeed())
+		p := send(own, "POST", "/api/addons/proposals", s.proposeBody("stuck-1"), bearerOf(s.tokens["bob"]))
+		Expect(p.code).To(Equal(200), "%v", p.body)
+		digest, _ := p.body["digest"].(string)
+		s.rt.mu.Lock()
+		s.rt.dropApply = true
+		s.rt.mu.Unlock()
+		lost := send(own, "POST", "/api/addons/proposals/stuck-1/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["bob"], "stuck-1"))
+		Expect(lost.errType()).To(Equal("outcome_unknown"))
+		// The owner cannot read the proposal by ID: it is the editor's.
+		Expect(send(own, "GET", "/api/addons/proposals/stuck-1", "", bearerOf(s.tokens["alice"])).code).To(Equal(403))
+
+		path := "/api/addons/resources/" + s.key.ResourceID + "/proposals?state=unresolved"
+		tab := humanTab(s.cookies["alice"], s.key.ResourceID)
+		for name, e := range map[string]http.Handler{"owner": own, "front-a": a, "front-b": b} {
+			got := send(e, "GET", path, "", tab)
+			Expect(got.code).To(Equal(200), name+" %v", got.body)
+			list, _ := got.body["proposals"].([]any)
+			Expect(list).To(HaveLen(1), name)
+			entry, _ := list[0].(map[string]any)
+			Expect(entry["id"]).To(Equal("stuck-1"), name)
+			Expect(entry["state"]).To(Equal("outcome-unknown"), name)
+			Expect(entry["proposerId"]).To(Equal("bob"), name)
+			Expect(entry["action"]).To(Equal("write"), name)
+			Expect(entry["digest"]).To(Equal(digest), name)
+			Expect(entry).To(HaveKey("ageSeconds"), name)
+			Expect(entry["effects"].(map[string]any)["count"]).To(BeEquivalentTo(2), name)
+			Expect(entry).NotTo(HaveKey("arguments"), name)
+			Expect(entry).NotTo(HaveKey("actor"), name)
+		}
+
+		// Nobody else, no key, no other header and no other filter lists it.
+		denied := map[string]func(*http.Request){
+			"the editor's tab":     humanTab(s.cookies["bob"], s.key.ResourceID),
+			"the owner's key":      bearerOf(s.tokens["alice"]),
+			"another resource tab": humanTab(s.cookies["alice"], "other"),
+			"a tool call marker":   with(tab, "X-LocalAI-Tool-Call", "1"),
+			"a cross-site page":    with(tab, "Sec-Fetch-Site", "cross-site"),
+			"no credential":        nil,
+		}
+		for _, e := range []http.Handler{own, a, b} {
+			for name, h := range denied {
+				Expect(send(e, "GET", path, "", h).code).To(BeElementOf(400, 401, 403), name)
+			}
+			Expect(send(e, "GET", "/api/addons/resources/"+s.key.ResourceID+"/proposals", "", tab).code).To(Equal(400))
+			Expect(send(e, "GET", "/api/addons/resources/"+s.key.ResourceID+"/proposals?state=all", "", tab).code).To(Equal(400))
+			Expect(send(e, "GET", "/api/addons/resources/nope/proposals?state=unresolved", "", humanTab(s.cookies["alice"], "nope")).code).To(Equal(403))
+		}
+		// The editor is an installation administrator here, and still not the
+		// owner of the resource.
+		Expect(send(own, "GET", path, "", humanTab(s.cookies["bob"], s.key.ResourceID)).code).To(Equal(403))
+
+		// The listed ID and digest are what resolve needs.
+		done := send(a, "POST", "/api/addons/proposals/stuck-1/resolve", `{"digest":"`+digest+`","reason":"the addon lost the call"}`, humanTab(s.cookies["alice"], "stuck-1"))
+		Expect(done.code).To(Equal(200), "%v", done.body)
+		Expect(done.state()).To(Equal("abandoned-unknown"))
+		after := send(b, "GET", path, "", tab)
+		list, _ := after.body["proposals"].([]any)
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].(map[string]any)["state"]).To(Equal("abandoned-unknown"))
+		// The editor's own writes work again, and the editor was never told
+		// another operation's ID by a denial.
+		Expect(send(own, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["bob"])).code).To(Equal(200))
+	})
+
+	It("tells an editor of a blocked write only that it is denied", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		own := s.frontend(s.gateway)
+		a, _ := s.forwardingFrontends(s.gateway)
+		Expect(s.policy.SetGrant(context.Background(), s.owner, s.key, "bob", policy.RoleEditor)).To(Succeed())
+		p := send(own, "POST", "/api/addons/proposals", s.proposeBody("stuck-1"), bearerOf(s.tokens["alice"]))
+		digest, _ := p.body["digest"].(string)
+		s.rt.mu.Lock()
+		s.rt.dropApply = true
+		s.rt.mu.Unlock()
+		Expect(send(own, "POST", "/api/addons/proposals/stuck-1/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["alice"], "stuck-1")).errType()).To(Equal("outcome_unknown"))
+		for _, e := range []http.Handler{own, a} {
+			got := send(e, "POST", "/api/addons/proposals", s.proposeBody("by-editor"), bearerOf(s.tokens["bob"]))
+			Expect(got.code).To(Equal(403))
+			Expect(got.errType()).To(Equal("addon_error"))
+			Expect(got.errBlockedBy()).To(BeEmpty())
+			Expect(got.body).NotTo(HaveKey("blockedBy"))
+		}
+	})
+
+	It("returns the applied proposal when the confirmed operation committed", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		a, _ := s.forwardingFrontends(s.gateway)
+		p := send(a, "POST", "/api/addons/proposals", s.proposeBody("done-1"), bearerOf(s.tokens["alice"]))
+		digest, _ := p.body["digest"].(string)
+		done := send(a, "POST", "/api/addons/proposals/done-1/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["alice"], "done-1"))
+		Expect(done.code).To(Equal(200), "%v", done.body)
+		Expect(done.state()).To(Equal("applied"))
+		// A repeat of the confirmation is the stored answer, not a new apply.
+		again := send(a, "POST", "/api/addons/proposals/done-1/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["alice"], "done-1"))
+		Expect(again.state()).To(Equal("applied"))
+		Expect(s.rt.calls()).To(Equal([]string{"done-1"}))
+	})
+
 	It("answers an owner outage by the owner's state with the same type from every frontend", func() {
 		s := newOwnerStack(auth.AddonModeNamedUser, true)
 		stub := &stubBroker{}
@@ -594,7 +714,12 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		s := newOwnerStack(auth.AddonModeNamedUser, true)
 		own := s.frontend(s.gateway)
 		a, b := s.forwardingFrontends(s.gateway)
-		for name, e := range map[string]http.Handler{"owner": own, "front-a": a, "front-b": b} {
+		// An ordered list: the assertion below reads the addon's call order.
+		for _, front := range []struct {
+			name string
+			e    http.Handler
+		}{{"owner", own}, {"front-a", a}, {"front-b", b}} {
+			name, e := front.name, front.e
 			id := "op-" + name
 			p := send(own, "POST", "/api/addons/proposals", s.proposeBody(id), bearerOf(s.tokens["alice"]))
 			Expect(p.code).To(Equal(200), "%v", p.body)
@@ -630,25 +755,52 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		}
 		Expect(json.Unmarshal(spec, &doc)).To(Succeed())
 		for path, method := range map[string]string{
-			"/api/addons/proposals":                "post",
-			"/api/addons/proposals/{id}":           "get",
-			"/api/addons/proposals/{id}/confirm":   "post",
-			"/api/addons/proposals/{id}/cancel":    "post",
-			"/api/addons/proposals/{id}/reconcile": "post",
-			"/api/addons/proposals/{id}/resolve":   "post",
+			"/api/addons/proposals":                        "post",
+			"/api/addons/proposals/{id}":                   "get",
+			"/api/addons/proposals/{id}/confirm":           "post",
+			"/api/addons/proposals/{id}/cancel":            "post",
+			"/api/addons/proposals/{id}/reconcile":         "post",
+			"/api/addons/proposals/{id}/resolve":           "post",
+			"/api/addons/resources/{resourceId}/proposals": "get",
 		} {
 			Expect(doc.Paths).To(HaveKey(path))
 			Expect(doc.Paths[path]).To(HaveKey(method), path)
 		}
+		var b []byte
 		confirm, _ := json.Marshal(doc.Paths["/api/addons/proposals/{id}/confirm"])
 		Expect(string(confirm)).To(ContainSubstring("X-LocalAI-Confirm"))
 		Expect(string(confirm)).To(ContainSubstring("no MCP tool"))
+		list, _ := json.Marshal(doc.Paths["/api/addons/resources/{resourceId}/proposals"])
+		Expect(string(list)).To(ContainSubstring("X-LocalAI-Confirm"))
+		Expect(string(list)).To(ContainSubstring("no MCP tool"))
+		Expect(string(list)).To(ContainSubstring("gateway.ProposalList"))
+		// Every proposal call that can end in an outage documents the typed
+		// 503 bodies it can emit, and resolve documents only the one it does.
+		for _, path := range []string{"/api/addons/proposals", "/api/addons/proposals/{id}/cancel", "/api/addons/proposals/{id}/confirm"} {
+			text, _ := json.Marshal(doc.Paths[path])
+			Expect(string(text)).To(ContainSubstring("outcome_unknown"), path)
+			Expect(string(text)).To(ContainSubstring("proposal_unavailable"), path)
+			Expect(string(text)).NotTo(ContainSubstring("did not reach the addon"), path)
+		}
+		resolveDoc, _ := json.Marshal(doc.Paths["/api/addons/proposals/{id}/resolve"])
+		Expect(string(resolveDoc)).To(ContainSubstring("proposal_unavailable"))
+		Expect(string(resolveDoc)).NotTo(ContainSubstring("Type outcome_unknown"))
+		blocking := doc.Definitions["gateway.BlockingProposal"]
+		b, err = json.Marshal(gateway.BlockingProposal{Reason: "r", Resolution: &gateway.ProposalResolution{}})
+		Expect(err).NotTo(HaveOccurred())
+		var shown map[string]any
+		Expect(json.Unmarshal(b, &shown)).To(Succeed())
+		for field := range shown {
+			Expect(blocking.Properties).To(HaveKey(field), field)
+		}
+		Expect(blocking.Properties).NotTo(HaveKey("arguments"))
+		Expect(doc.Definitions["addons.AddonError"].Properties).To(HaveKey("blockedBy"))
 		proposal := doc.Definitions["gateway.Proposal"]
 		for _, field := range []string{"id", "operationId", "arguments", "revision", "digest", "effects", "state", "expiresAt", "receipt", "blockedBy"} {
 			Expect(proposal.Properties).To(HaveKey(field))
 		}
 		// Every response field the proposal view emits is documented.
-		b, err := json.Marshal(gateway.Proposal{Receipt: &contract.Receipt{}, BlockedBy: "x", Reason: "y"})
+		b, err = json.Marshal(gateway.Proposal{Receipt: &contract.Receipt{}, BlockedBy: "x", Reason: "y"})
 		Expect(err).NotTo(HaveOccurred())
 		var emitted map[string]any
 		Expect(json.Unmarshal(b, &emitted)).To(Succeed())

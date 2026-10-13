@@ -344,7 +344,10 @@
       "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
       "answers an owner outage by the owner's state with the same type from every frontend",
       "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
-      "documents the proposal routes and the proposal schema in the Swagger spec"
+      "documents the proposal routes and the proposal schema in the Swagger spec",
+      "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+      "tells an editor of a blocked write only that it is denied",
+      "returns the applied proposal when the confirmed operation committed"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -421,7 +424,10 @@
           "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
           "answers an owner outage by the owner's state with the same type from every frontend",
           "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
-          "documents the proposal routes and the proposal schema in the Swagger spec"
+          "documents the proposal routes and the proposal schema in the Swagger spec",
+          "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+          "tells an editor of a blocked write only that it is denied",
+          "returns the applied proposal when the confirmed operation committed"
         ]
       }
     ]
@@ -509,7 +515,14 @@
       "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
       "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
       "issues resource identifiers the envelope contract accepts",
-      "is unavailable until it is attached to a policy and a runtime"
+      "is unavailable until it is attached to a policy and a runtime",
+      "keeps executing, outcome-unknown and abandoned records far past retention and still dedupes them",
+      "waits for the background run and for lookups in flight before it closes, and writes nothing after",
+      "lets the owner role list the unresolved proposals of its resource and abandon one by the listed digest",
+      "names the blocking proposal in the denial only to the resource owner",
+      "refuses an unbound digest when the owner abandons through the gateway or the broker",
+      "answers the same typed outage for a resolution whoever proposed the operation",
+      "returns the applied proposal when the owner cannot read it back after a successful apply"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -633,7 +646,17 @@
       "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
       "answers an owner outage by the owner's state with the same type from every frontend",
       "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
-      "documents the proposal routes and the proposal schema in the Swagger spec"
+      "documents the proposal routes and the proposal schema in the Swagger spec",
+      "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+      "tells an editor of a blocked write only that it is denied",
+      "returns the applied proposal when the confirmed operation committed",
+      "keeps executing, outcome-unknown and abandoned records far past retention and still dedupes them",
+      "waits for the background run and for lookups in flight before it closes, and writes nothing after",
+      "lets the owner role list the unresolved proposals of its resource and abandon one by the listed digest",
+      "names the blocking proposal in the denial only to the resource owner",
+      "refuses an unbound digest when the owner abandons through the gateway or the broker",
+      "answers the same typed outage for a resolution whoever proposed the operation",
+      "returns the applied proposal when the owner cannot read it back after a successful apply"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -707,7 +730,14 @@
           "binds the digest to the operation, actor, resource, generation, action, arguments and revision",
           "refuses a stored proposal whose operation, actor, resource, generation or arguments changed at rest",
           "issues resource identifiers the envelope contract accepts",
-          "is unavailable until it is attached to a policy and a runtime"
+          "is unavailable until it is attached to a policy and a runtime",
+          "keeps executing, outcome-unknown and abandoned records far past retention and still dedupes them",
+          "waits for the background run and for lookups in flight before it closes, and writes nothing after",
+          "lets the owner role list the unresolved proposals of its resource and abandon one by the listed digest",
+          "names the blocking proposal in the denial only to the resource owner",
+          "refuses an unbound digest when the owner abandons through the gateway or the broker",
+          "answers the same typed outage for a resolution whoever proposed the operation",
+          "returns the applied proposal when the owner cannot read it back after a successful apply"
         ]
       },
       {
@@ -738,7 +768,10 @@
           "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
           "answers an owner outage by the owner's state with the same type from every frontend",
           "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
-          "documents the proposal routes and the proposal schema in the Swagger spec"
+          "documents the proposal routes and the proposal schema in the Swagger spec",
+          "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+          "tells an editor of a blocked write only that it is denied",
+          "returns the applied proposal when the confirmed operation committed"
         ]
       }
     ]

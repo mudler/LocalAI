@@ -198,6 +198,9 @@ type proposalStore struct {
 	// failed is set when a change was renamed into place but could not be made
 	// durable. Memory then holds it and no further write is accepted.
 	failed bool
+	// closed is set when the store is released. No change is written after
+	// that, so a late caller cannot touch a file that another process may own.
+	closed bool
 	// invalidations counts revocation sweeps per resource and user. A proposal
 	// made under admission that was invalidated meanwhile is not stored.
 	invalidations map[string]uint64
@@ -250,7 +253,7 @@ func (s *proposalStore) mutate(fn func(*proposalDocument) error) error {
 }
 
 func (s *proposalStore) mutateLocked(fn func(*proposalDocument) error) error {
-	if s.failed {
+	if s.failed || s.closed {
 		return ErrUnavailable
 	}
 	next := s.doc.clone()
@@ -305,8 +308,16 @@ func (s *proposalStore) transition(id string, from []ProposalState, fn func(*pro
 	return out, err
 }
 
-// Close releases the store.
-func (s *proposalStore) Close() error { return s.lock.Close() }
+// Close releases the store. Nothing is written after it returns.
+func (s *proposalStore) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	return s.lock.Close()
+}
 
 // BrokerOptions are the host-supplied dependencies of a Broker.
 type BrokerOptions struct {
@@ -351,8 +362,15 @@ type Broker struct {
 	// hooks let tests stop the broker at a named point, as a crash would.
 	hooks brokerHooks
 	// done ends Run when the broker is closed.
-	done      chan struct{}
-	closeOnce sync.Once
+	done chan struct{}
+	// ctx is cancelled when the broker closes. It cuts every lookup short, and
+	// work waits on running before the store is released.
+	ctx     context.Context
+	closeFn context.CancelFunc
+	running sync.WaitGroup
+	closed  bool
+	// tickC replaces the ticker of Run. Tests inject it.
+	tickC <-chan time.Time
 }
 
 type brokerHooks struct {
@@ -400,6 +418,7 @@ func OpenBroker(dir string, opts BrokerOptions) (*Broker, error) {
 	}
 	s.now = opts.Now
 	b := &Broker{store: s, opts: opts, live: map[string]struct{}{}, done: make(chan struct{})}
+	b.ctx, b.closeFn = context.WithCancel(context.Background())
 	// Expiry is recorded when the owner starts, not only when a proposal is
 	// read. A failed write is not fatal: expiry also holds by the clock.
 	_ = b.Sweep()
@@ -414,10 +433,34 @@ func (b *Broker) Attach(p *Policy) {
 	b.mu.Unlock()
 }
 
-// Close releases the durable state.
+// Close stops the background run, cancels the lookups in flight and waits for
+// them, then releases the durable state. Nothing is written after it returns.
 func (b *Broker) Close() error {
-	b.closeOnce.Do(func() { close(b.done) })
+	b.mu.Lock()
+	if !b.closed {
+		b.closed = true
+		close(b.done)
+	}
+	b.mu.Unlock()
+	b.closeFn()
+	b.running.Wait()
 	return b.store.Close()
+}
+
+// enter registers a lookup or the background run with the broker. The context
+// it returns ends when the caller's does or when the broker closes. It fails
+// once the broker is closed, so Close never waits for work that starts later.
+func (b *Broker) enter(ctx context.Context) (context.Context, func(), error) {
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		return nil, nil, ErrUnavailable
+	}
+	b.running.Add(1)
+	b.mu.Unlock()
+	inner, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(b.ctx, cancel)
+	return inner, func() { stop(); cancel(); b.running.Done() }, nil
 }
 
 // Gateway adapts the broker to the gateway's ProposalBroker.
@@ -535,6 +578,16 @@ func (b *Broker) blockedBy(resourceID, except string) string {
 	return ""
 }
 
+// blocked is the denial of a write on a resource with an unresolved outcome.
+// Only the resource's owner role is told which operation blocks it: another
+// user's operation identifier is not for an editor to read.
+func (b *Broker) blocked(p *Policy, actor contract.Actor, key ResourceKey, blocker string) error {
+	if rec, ok := p.store.get(key.ResourceID); ok && p.role(actor, rec) == RoleOwner {
+		return &gateway.OutcomeBlocked{BlockedBy: blocker, Cause: ErrOutcomeBlocked}
+	}
+	return ErrOutcomeBlocked
+}
+
 // runtime resolves the addon's current instance, which must have a client.
 func (b *Broker) runtime(ctx context.Context, addonID string) (addonruntime.Instance, error) {
 	instance, err := b.opts.Runtime.Runtime(ctx, addonID)
@@ -591,7 +644,7 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			return ErrForbidden
 		}
 		if blocker := b.blockedBy(key.ResourceID, ""); blocker != "" {
-			return ErrOutcomeBlocked
+			return b.blocked(p, actor, key, blocker)
 		}
 		instance, e := b.runtime(rctx, key.AddonID)
 		if e != nil {
@@ -945,7 +998,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		return contract.Receipt{}, ErrProposalExpired
 	}
 	if blocker := b.blockedBy(r.ResourceID, r.ID); blocker != "" {
-		return contract.Receipt{}, ErrOutcomeBlocked
+		return contract.Receipt{}, b.blocked(b.policy, actor, ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}, blocker)
 	}
 	instance, err := b.runtime(ctx, r.AddonID)
 	if err != nil {
@@ -1052,8 +1105,14 @@ func (g gatewayBroker) Confirm(ctx context.Context, a contract.Actor, id, digest
 	if _, err := g.b.ConfirmBound(ctx, a, id, digest); err != nil {
 		return Proposal{}, g.byState(a, id, err)
 	}
-	p, err := g.b.Get(ctx, a, id)
-	return p, g.byState(a, id, err)
+	// The confirmation already proved the caller's identity and ownership of
+	// the proposal. Reading the record back needs no second check: one that
+	// failed here would report an outage for an operation that was applied.
+	r, ok := g.b.store.get(id)
+	if !ok {
+		return Proposal{}, ErrUnavailable
+	}
+	return g.b.view(r), nil
 }
 
 func (g gatewayBroker) Cancel(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
@@ -1068,11 +1127,19 @@ func (g gatewayBroker) Get(ctx context.Context, a contract.Actor, id string) (Pr
 	return g.b.Get(ctx, a, id)
 }
 
+// Resolve is never classified by the state of the proposal: the resolver is
+// the resource owner, who is not always the proposer, and the answer must not
+// depend on who proposed. An outage of the resolution is a
+// proposal_unavailable from every frontend; the proposal itself stays in the
+// state the owner recorded, and reading it tells the client which.
 func (g gatewayBroker) Resolve(ctx context.Context, a contract.Actor, id, digest, reason string) (Proposal, error) {
-	p, err := g.b.Resolve(ctx, a, id, digest, reason)
-	return p, g.byState(a, id, err)
+	return g.b.Resolve(ctx, a, id, digest, reason)
 }
 
 func (g gatewayBroker) Reconcile(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
 	return g.b.reconcileFor(ctx, a, id)
+}
+
+func (g gatewayBroker) Unresolved(ctx context.Context, a contract.Actor, resourceID string) ([]gateway.BlockingProposal, error) {
+	return g.b.Unresolved(ctx, a, resourceID)
 }

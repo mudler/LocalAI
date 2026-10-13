@@ -2,6 +2,12 @@ basePath: /
 definitions:
   addons.AddonError:
     properties:
+      blockedBy:
+        description: |-
+          BlockedBy is the unresolved operation that blocks the write. It is
+          present only with type outcome_blocked, and only for the owner role of
+          the resource.
+        type: string
       code:
         description: Code repeats the HTTP status. It is absent from outcome_unknown
           responses.
@@ -17,9 +23,11 @@ definitions:
         type: string
       type:
         description: |-
-          Type is addon_error, outcome_unknown when a mutation may have run, or
+          Type is addon_error, outcome_unknown when a mutation may have run,
           proposal_unavailable when a proposal call could not be served and the
-          same call can be repeated by the same proposal ID after reading it.
+          same call can be repeated by the same proposal ID after reading it, or
+          outcome_blocked (403) when another operation on the resource has an
+          unresolved outcome and the caller is the resource's owner role.
         example: outcome_unknown
         type: string
     type: object
@@ -542,6 +550,46 @@ definitions:
       total_bytes:
         type: integer
     type: object
+  gateway.BlockingProposal:
+    properties:
+      action:
+        type: string
+      addonId:
+        type: string
+      ageSeconds:
+        description: |-
+          AgeSeconds is how long the outcome has been unresolved, counted from
+          the hand-over to the addon.
+        type: integer
+      createdAt:
+        type: string
+      digest:
+        description: Digest is what the owner names to resolve the proposal.
+        type: string
+      effects:
+        $ref: '#/definitions/gateway.ProposalEffects'
+      expiresAt:
+        type: string
+      id:
+        description: ID is the proposal identifier, which is its operation identifier.
+        type: string
+      proposerId:
+        description: ProposerID is the user who proposed the operation.
+        type: string
+      reason:
+        description: Reason says why the outcome is unresolved.
+        type: string
+      resolution:
+        allOf:
+        - $ref: '#/definitions/gateway.ProposalResolution'
+        description: Resolution is present once the owner stopped waiting.
+      resourceId:
+        type: string
+      state:
+        allOf:
+        - $ref: '#/definitions/gateway.ProposalState'
+        description: State is executing, outcome-unknown or abandoned-unknown.
+    type: object
   gateway.Proposal:
     properties:
       action:
@@ -610,6 +658,13 @@ definitions:
           Sample is a bounded excerpt of the effects, or the whole preview summary
           when the addon did not separate one.
         type: object
+    type: object
+  gateway.ProposalList:
+    properties:
+      proposals:
+        items:
+          $ref: '#/definitions/gateway.BlockingProposal'
+        type: array
     type: object
   gateway.ProposalResolution:
     properties:
@@ -4115,15 +4170,19 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "403":
-          description: Feature, resource policy or request binding denied the proposal
+          description: Feature, resource policy or request binding denied the proposal.
+            Type outcome_blocked (with blockedBy) when the caller is the owner role
+            of the resource and another operation on it has an unresolved outcome;
+            other callers get the plain denial
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
           description: 'Addons or the owner are unavailable. Type outcome_unknown
-            (with operationId): the proposal reached the addon and its outcome is
-            unknown, reconcile it. Type proposal_unavailable (with operationId): the
-            owner could not serve the call and the proposal did not reach the addon;
-            read the proposal and repeat the same call with the same ID'
+            (with operationId): the proposal had been handed to the addon and its
+            outcome is unknown, reconcile it. Type proposal_unavailable (with operationId):
+            the owner could not serve this call and this call sent nothing to the
+            addon; read the proposal for its state, which may already be settled,
+            and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Propose an addon data or schema mutation for confirmation
@@ -4190,10 +4249,11 @@ paths:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
           description: 'Addons or the owner are unavailable. Type outcome_unknown
-            (with operationId): the proposal reached the addon and its outcome is
-            unknown, reconcile it. Type proposal_unavailable (with operationId): the
-            owner could not serve the call and the proposal did not reach the addon;
-            read the proposal and repeat the same call with the same ID'
+            (with operationId): the proposal had been handed to the addon and its
+            outcome is unknown, reconcile it. Type proposal_unavailable (with operationId):
+            the owner could not serve this call and this call sent nothing to the
+            addon; read the proposal for its state, which may already be settled,
+            and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Cancel a pending addon proposal
@@ -4246,10 +4306,11 @@ paths:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
           description: 'Addons or the owner are unavailable. Type outcome_unknown
-            (with operationId): the proposal reached the addon and its outcome is
-            unknown, reconcile it. Type proposal_unavailable (with operationId): the
-            owner could not serve the call and the proposal did not reach the addon;
-            read the proposal and repeat the same call with the same ID'
+            (with operationId): the proposal had been handed to the addon and its
+            outcome is unknown, reconcile it. Type proposal_unavailable (with operationId):
+            the owner could not serve this call and this call sent nothing to the
+            addon; read the proposal for its state, which may already be settled,
+            and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Confirm and apply a pending addon proposal
@@ -4340,9 +4401,11 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: 'Addons or the owner are unavailable. Type proposal_unavailable
-            (with operationId): read the proposal and repeat the same call with the
-            same ID'
+          description: 'Addons or the owner are unavailable. Always type proposal_unavailable
+            (with operationId), whoever proposed the operation, because resolving
+            is not an apply: the owner could not serve this call and it sent nothing
+            to the addon; read the proposal for its state and repeat the same call
+            with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Abandon an unresolved addon proposal outcome as the resource owner
@@ -4394,6 +4457,60 @@ paths:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Relay addon status, lifecycle progress, JSON, attachments or immutable
         UI assets
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/proposals:
+    get:
+      description: 'Returns the proposals on the resource whose outcome is unresolved
+        (executing, outcome-unknown) or abandoned-unknown, whoever proposed them,
+        so the resource owner can learn the operation ID and digest that resolve needs.
+        Each entry has the proposal ID, state, the proposing user, the action, the
+        exact effect count and the bounded effect sample the proposer saw, the expiry,
+        the digest and the age in seconds. It never returns the proposed arguments
+        or any credential. Read-only. Only the owner role of the resource may call
+        it; installation administrators, editors and viewers are denied. It is accepted
+        only from a host confirmation surface with the rules of resolve: the owner''s
+        own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal
+        to the resource ID, and no tool, agent or MCP marker. API keys are refused
+        and no MCP tool maps to this route.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Only unresolved is supported
+        enum:
+        - unresolved
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Unresolved proposals, oldest first
+          schema:
+            $ref: '#/definitions/gateway.ProposalList'
+        "400":
+          description: Missing or unsupported state filter
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human confirmation surface, not the owner role of the
+            resource, feature denied or unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the unresolved addon proposals of a resource as its owner
       tags:
       - Addons
   /api/agent/jobs:
