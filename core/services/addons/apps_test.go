@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -143,6 +144,52 @@ var _ = Describe("apps and stale lifecycle generations", func() {
 		_, e = m.Apps(ctx, user)
 		Expect(e).To(MatchError(ErrRecoveryRequired))
 		_, e = m.AppIcon(ctx, user, "on", 2)
+		Expect(e).To(MatchError(ErrRecoveryRequired))
+	})
+})
+
+var _ = Describe("immutable app assets", Label("assets"), func() {
+	It("resolves a package for the current enabled generation and digest only", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		dir := GinkgoT().TempDir()
+		v := contract.VersionRange{Min: 1, Max: 1}
+		hex := func(c string) string { return strings.Repeat(c, 64) }
+		receipt := func(id, digest string, ui *contract.UI) packages.PackageReceipt {
+			return packages.PackageReceipt{Directory: dir, Digest: "sha256:" + digest, Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, UI: ui}}}
+		}
+		ui := &contract.UI{Entry: "ui.js", SDK: v, Pages: []string{"home"}}
+		old := receipt("on", hex("1"), ui)
+		current := receipt("on", hex("2"), ui)
+		for id, st := range map[string]Status{
+			"on":      {Installed: true, DesiredEnabled: true, Generation: 2, Generations: []Generation{{Number: 1, Receipt: old}, {Number: 2, Receipt: current}}},
+			"off":     {Installed: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt("off", hex("3"), ui)}}},
+			"removed": {Installed: false, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt("removed", hex("4"), ui)}}},
+			"plain":   {Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt("plain", hex("5"), nil)}}},
+		} {
+			st.AddonID = id
+			m.journal.Addons[id] = st
+		}
+		got, generation, e := m.AppAsset(ctx, user, "on", hex("2"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(generation).To(Equal(uint64(2)))
+		Expect(got.Directory).To(Equal(dir))
+		for name, call := range map[string]func() error{
+			"a digest of an older generation": func() error { _, _, e := m.AppAsset(ctx, user, "on", hex("1")); return e },
+			"another digest":                  func() error { _, _, e := m.AppAsset(ctx, user, "on", hex("9")); return e },
+			"disabled for a reader":           func() error { _, _, e := m.AppAsset(ctx, user, "off", hex("3")); return e },
+			"disabled for an administrator":   func() error { _, _, e := m.AppAsset(ctx, actor, "off", hex("3")); return e },
+			"uninstalled":                     func() error { _, _, e := m.AppAsset(ctx, actor, "removed", hex("4")); return e },
+			"no UI":                           func() error { _, _, e := m.AppAsset(ctx, actor, "plain", hex("5")); return e },
+			"unknown":                         func() error { _, _, e := m.AppAsset(ctx, actor, "missing", hex("2")); return e },
+			"traversing identifier":           func() error { _, _, e := m.AppAsset(ctx, actor, "../on", hex("2")); return e },
+			"an empty digest":                 func() error { _, _, e := m.AppAsset(ctx, actor, "on", ""); return e },
+			"a prefixed digest":               func() error { _, _, e := m.AppAsset(ctx, actor, "on", "sha256:"+hex("2")); return e },
+		} {
+			Expect(call()).To(MatchError(ErrForbidden), name)
+		}
+		m.uncertain = true
+		_, _, e = m.AppAsset(ctx, user, "on", hex("2"))
 		Expect(e).To(MatchError(ErrRecoveryRequired))
 	})
 })

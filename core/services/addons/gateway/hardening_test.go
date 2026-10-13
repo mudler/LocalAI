@@ -14,6 +14,7 @@ import (
 	"testing/iotest"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -186,58 +187,75 @@ var _ = Describe("certificate pins", func() {
 
 func sha256Of(c tls.Certificate) [32]byte { return sha256.Sum256(c.Certificate[0]) }
 
-var _ = Describe("installed generation assets", func() {
-	It("serves declared assets for the actor's own operation and generation only", func() {
+var _ = Describe("installed generation assets", Label("assets"), func() {
+	It("serves declared assets of the current enabled generation by package digest only", func() {
 		admin := contract.Actor{UserID: "admin", CredentialID: "k", Mode: "named-user"}
+		reader := contract.Actor{UserID: "reader", CredentialID: "k", Mode: "named-user"}
 		m := ownerManager(admin, true)
+		_, e := m.Submit(context.Background(), admin, addons.LifecycleCommand{AddonID: "sample", OperationID: "enable", Action: "enable", Generation: 1})
+		Expect(e).NotTo(HaveOccurred())
+		status, e := m.Status(context.Background(), "sample")
+		Expect(e).NotTo(HaveOccurred())
+		digest := strings.TrimPrefix(status.Generations[0].Receipt.Digest, "sha256:")
+		Expect(digest).To(HaveLen(64))
 		limits := DefaultRelayLimits()
 		limits.AssetBytes = 16
 		g := &Gateway{Manager: m, Limits: limits, Revalidate: func(context.Context, contract.Actor) error { return nil }}
-		fetch := func(a contract.Actor, op string, generation uint64, handle string) (*httptest.ResponseRecorder, error) {
+		fetch := func(a contract.Actor, id, digest, handle string) (*httptest.ResponseRecorder, error) {
 			w := httptest.NewRecorder()
-			e := g.Relay(context.Background(), a, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: op, Generation: generation, Action: "read"}, Kind: "asset", Handle: handle}, w)
+			e := g.Relay(context.Background(), a, RelayRequest{Request: contract.Request{AddonID: id, OperationID: "asset-op", Action: "app-asset"}, Kind: "asset", Handle: handle, Digest: digest}, w)
 			return w, e
 		}
-		w, e := fetch(admin, "install", 1, "ui.css")
+		// Any caller the route admitted may read the code of an enabled addon.
+		w, e := fetch(reader, "sample", digest, "ui.css")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(w.Body.String()).To(Equal("body{}"))
 		Expect(w.Header().Get("Content-Type")).To(Equal("text/css"))
 		Expect(w.Header().Get("X-Content-Type-Options")).To(Equal("nosniff"))
+		Expect(w.Header().Get("Cache-Control")).To(Equal("private, max-age=31536000, immutable"))
+		Expect(w.Header().Get("Content-Length")).To(Equal("6"))
+		Expect(w.Header().Get("Content-Disposition")).To(BeEmpty())
 
 		// The entry is 18 bytes, over the 16 byte asset budget: refused before any byte.
-		w, e = fetch(admin, "install", 1, "ui.js")
+		w, e = fetch(reader, "sample", digest, "ui.js")
 		Expect(e).To(Equal(ErrForbidden))
 		Expect(w.Body.Len()).To(BeZero())
 		limits.AssetBytes = 1 << 10
 		g.Limits = limits
-		w, e = fetch(admin, "install", 1, "ui.js")
+		w, e = fetch(reader, "sample", digest, "ui.js")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(w.Body.String()).To(Equal("export default {};"))
 		Expect(w.Header().Get("Content-Type")).To(Equal("text/javascript"))
 
-		// Generation must match the installed generation.
-		_, e = fetch(admin, "install", 2, "ui.js")
-		Expect(e).To(Equal(ErrForbidden))
-		// The operation must exist and belong to the actor.
-		_, e = fetch(admin, "unknown", 1, "ui.js")
-		Expect(e).To(Equal(ErrForbidden))
-		other := contract.Actor{UserID: "other", CredentialID: "k", Mode: "named-user"}
-		_, e = fetch(other, "install", 1, "ui.js")
-		Expect(e).To(Equal(ErrForbidden))
-		// Only declared assets, never other package files or traversal.
-		for _, handle := range []string{"secret.txt", "bin/sample", "manifest.json", "../manifest.json", "/etc/passwd", "ui/../ui.js", ""} {
-			w, e = fetch(admin, "install", 1, handle)
+		// Only the digest of the current package, never another or an earlier one.
+		for _, wrong := range []string{"", strings.Repeat("f", 64), "sha256:" + digest, strings.ToUpper(digest), digest[:63], digest + "0"} {
+			w, e = fetch(reader, "sample", wrong, "ui.js")
+			Expect(e).To(Equal(ErrForbidden), wrong)
+			Expect(w.Body.Len()).To(BeZero(), wrong)
+			Expect(w.Header().Get("Cache-Control")).NotTo(ContainSubstring("immutable"), "denials are never cached as immutable")
+		}
+		// Only declared assets, never other package files, directories or traversal.
+		for _, handle := range []string{"secret.txt", "bin/sample", "manifest.json", "../manifest.json", "/etc/passwd", "ui/../ui.js", "./ui.js", "ui.js/", "UI.JS", ""} {
+			w, e = fetch(reader, "sample", digest, handle)
 			Expect(e).To(Equal(ErrForbidden), handle)
 			Expect(w.Body.Len()).To(BeZero(), handle)
 		}
-		// Another addon identity has no installed generation.
-		w = httptest.NewRecorder()
-		e = g.Relay(context.Background(), admin, RelayRequest{Request: contract.Request{AddonID: "absent", OperationID: "install", Generation: 1}, Kind: "asset", Handle: "ui.js"}, w)
-		Expect(e).To(HaveOccurred())
+		// Another addon identity has no package with this digest.
+		w, e = fetch(reader, "absent", digest, "ui.js")
+		Expect(e).To(Equal(ErrForbidden))
 		Expect(w.Body.Len()).To(BeZero())
 		// Without an owner journal the frontend cannot serve assets locally.
-		e = (&Gateway{Revalidate: g.Revalidate}).asset(context.Background(), admin, RelayRequest{Request: contract.Request{AddonID: "sample", OperationID: "install", Generation: 1}, Handle: "ui.js"}, httptest.NewRecorder())
+		e = (&Gateway{Revalidate: g.Revalidate}).asset(context.Background(), reader, RelayRequest{Request: contract.Request{AddonID: "sample"}, Handle: "ui.js", Digest: digest}, httptest.NewRecorder())
 		Expect(e).To(Equal(ErrUnavailable))
+
+		// A disabled addon serves nothing, to a reader or an administrator.
+		_, e = m.Submit(context.Background(), admin, addons.LifecycleCommand{AddonID: "sample", OperationID: "disable", Action: "disable", Generation: 1})
+		Expect(e).NotTo(HaveOccurred())
+		for _, who := range []contract.Actor{reader, admin} {
+			w, e = fetch(who, "sample", digest, "ui.js")
+			Expect(e).To(Equal(ErrForbidden))
+			Expect(w.Body.Len()).To(BeZero())
+		}
 	})
 })
 

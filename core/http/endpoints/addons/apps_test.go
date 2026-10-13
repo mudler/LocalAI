@@ -64,9 +64,11 @@ func newAppsStack() *appsStack {
 	archives := map[string][]byte{}
 	for id, files := range map[string]map[string][]byte{
 		"notes": {
-			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","sdk":{"min":1,"max":1},"pages":["home"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
+			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","css":["ui/style.css"],"sdk":{"min":1,"max":1},"pages":["home"],"navigation":["home"],"chatActions":["summarize"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
 			"ui.js":         []byte("export default {};"),
+			"ui/style.css":  []byte(".notes{color:red}"),
 			"ui/icon.png":   s.icon,
+			"secret.txt":    []byte("owner only"),
 		},
 		"headless": {
 			"manifest.json": []byte(`{"schemaVersion":1,"id":"headless","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"tools":["query"]}}`),
@@ -386,8 +388,8 @@ var _ = Describe("apps routes outcomes and documentation", Label("apps"), func()
 			Expect(json.Unmarshal(b, &m)).To(Succeed())
 			return m
 		}
-		full := apps.App{ID: "a", Name: "a", Title: "t", Titles: map[string]string{"en": "t"}, Description: "d", Descriptions: map[string]string{"en": "d"}, Icon: "i", Version: "1", Generation: 1, Enabled: true, State: "running", MainPage: "/m", HasUI: true, LaunchMode: "always", Tools: []string{"x"}, ToolCount: 1, Admin: &apps.AdminView{CanStart: true, CanStop: true, ManagementURL: "/x"}}
-		for name, v := range map[string]any{"apps.App": full, "apps.AdminView": *full.Admin, "apps.List": apps.List{Apps: []apps.App{full}}} {
+		full := apps.App{ID: "a", Name: "a", Title: "t", Titles: map[string]string{"en": "t"}, Description: "d", Descriptions: map[string]string{"en": "d"}, Icon: "i", Version: "1", Generation: 1, Enabled: true, State: "running", MainPage: "/m", HasUI: true, LaunchMode: "always", Tools: []string{"x"}, ToolCount: 1, UI: &apps.UIView{Entry: "/e", CSS: []string{"/c"}, SDK: contract.VersionRange{Min: 1, Max: 1}, Pages: []string{"p"}, Navigation: []string{"p"}, ChatActions: []string{"a"}}, Admin: &apps.AdminView{CanStart: true, CanStop: true, ManagementURL: "/x"}}
+		for name, v := range map[string]any{"apps.App": full, "apps.AdminView": *full.Admin, "apps.UIView": *full.UI, "contract.VersionRange": full.UI.SDK, "apps.List": apps.List{Apps: []apps.App{full}}} {
 			def, ok := doc.Definitions[name]
 			Expect(ok).To(BeTrue(), name)
 			shape := emitted(v)

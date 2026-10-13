@@ -146,6 +146,12 @@ definitions:
         items:
           type: string
         type: array
+      ui:
+        allOf:
+        - $ref: '#/definitions/apps.UIView'
+        description: |-
+          UI describes what the shell loads for this app. It is present only for
+          an enabled addon with a UI whose installed package has a sha256 digest.
       version:
         example: 1.2.3
         type: string
@@ -171,6 +177,39 @@ definitions:
           to poll.
         example: start-notes-1
         type: string
+    type: object
+  apps.UIView:
+    properties:
+      chatActions:
+        items:
+          type: string
+        type: array
+      css:
+        description: CSS are the URLs of the declared style sheets.
+        items:
+          type: string
+        type: array
+      entry:
+        description: |-
+          Entry is the URL of the packaged ES module. Every asset URL names the
+          package digest, so a new package is a new URL.
+        example: /api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js
+        type: string
+      navigation:
+        items:
+          type: string
+        type: array
+      pages:
+        description: |-
+          Pages, Navigation and ChatActions are the identifiers the manifest
+          declares. The host decides where each one is shown.
+        items:
+          type: string
+        type: array
+      sdk:
+        allOf:
+        - $ref: '#/definitions/contract.VersionRange'
+        description: SDK is the range of host SDK versions the module accepts.
     type: object
   auth.WebSocketTicketResponse:
     properties:
@@ -295,6 +334,13 @@ definitions:
       data:
         type: integer
       schema:
+        type: integer
+    type: object
+  contract.VersionRange:
+    properties:
+      max:
+        type: integer
+      min:
         type: integer
     type: object
   failover.ChainState:
@@ -894,6 +940,11 @@ definitions:
     - ProposalAbandoned
   gateway.RelayRequest:
     properties:
+      digest:
+        description: |-
+          Digest names the installed package an asset belongs to: the lower-case
+          hex of its sha256. Only the kind "asset" uses it.
+        type: string
       handle:
         type: string
       kind:
@@ -4287,6 +4338,68 @@ paths:
       summary: Applies watertight print remeshing to an existing 3D asset.
       tags:
       - 3d
+  /api/addons/{id}/assets/{digest}/{path}:
+    get:
+      description: 'Streams one file the addon manifest declares as UI code (the entry
+        module or a style sheet) from the verified package on the owner, relayed through
+        the receiving frontend. The digest in the path is the sha256 of the installed
+        package, in lower-case hex, as listed in the ui entry of the apps list. The
+        file is served only while the addon is installed and enabled and the digest
+        is the current one; a file the manifest does not declare, a traversal, a directory,
+        another addon, an older package, a disabled or uninstalled addon and a missing
+        feature all give a denial without any file content, and a denial is never
+        cached. The response is text/javascript or text/css with X-Content-Type-Options
+        nosniff and Cache-Control private, max-age=31536000, immutable: the URL changes
+        with the package, so the file never changes under it. The caller is authenticated
+        by an API key header or by the same-origin browser session; a credential in
+        the URL is never accepted. The addon process is never asked.'
+      parameters:
+      - description: Addon ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Package digest, 64 lower-case hex characters
+        in: path
+        name: digest
+        required: true
+        type: string
+      - description: Declared package file, for example ui.js
+        in: path
+        name: path
+        required: true
+        type: string
+      produces:
+      - text/javascript
+      - text/css
+      responses:
+        "200":
+          description: File bytes
+          headers:
+            Cache-Control:
+              description: private, max-age=31536000, immutable
+              type: string
+            X-Content-Type-Options:
+              description: nosniff
+              type: string
+          schema:
+            type: string
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, or the file, addon or package digest is not
+            currently served
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read an immutable file of an addon UI package
+      tags:
+      - Addons
   /api/addons/apps:
     get:
       description: Returns the installed addons that are enabled, for every authenticated

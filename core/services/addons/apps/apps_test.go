@@ -97,6 +97,44 @@ var _ = Describe("apps list", func() {
 		s.Receipt.Icon = nil
 		Expect(Build([]Snapshot{s}, false)[0].Icon).To(BeEmpty())
 	})
+	It("describes the immutable UI assets of an enabled addon by the package digest and never otherwise", Label("assets"), func() {
+		hex := strings.Repeat("ab", 32)
+		ui := page("home")
+		ui.Entry = "ui/main.js"
+		ui.CSS = []string{"ui/a b.css"}
+		ui.Navigation = []string{"home", "other"}
+		ui.ChatActions = []string{"summarize"}
+		s := snapshot("notes", true, "running", ui, "add")
+		s.Receipt.Digest = "sha256:" + hex
+		a := Build([]Snapshot{s}, false)[0]
+		Expect(a.UI).NotTo(BeNil())
+		Expect(a.UI.Entry).To(Equal("/api/addons/notes/assets/" + hex + "/ui/main.js"))
+		Expect(a.UI.CSS).To(Equal([]string{"/api/addons/notes/assets/" + hex + "/ui/a%20b.css"}))
+		Expect(a.UI.SDK).To(Equal(contract.VersionRange{Min: 1, Max: 1}))
+		Expect(a.UI.Pages).To(Equal([]string{"home", "other"}))
+		Expect(a.UI.Navigation).To(Equal([]string{"home", "other"}))
+		Expect(a.UI.ChatActions).To(Equal([]string{"summarize"}))
+		b, e := json.Marshal(a)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring("sha256:"), "only the bare hex is part of the URL")
+		Expect(string(b)).NotTo(ContainSubstring(secretDir))
+
+		// A disabled addon has no UI for anyone, administrators included.
+		off := s
+		off.Enabled = false
+		Expect(Build([]Snapshot{off}, true)[0].UI).To(BeNil())
+		// A headless addon and an addon whose digest is not a sha256 have none.
+		Expect(Build([]Snapshot{snapshot("headless", true, "running", nil, "q")}, false)[0].UI).To(BeNil())
+		for _, digest := range []string{"", "sha256:aaaa", "md5:" + hex, "sha256:" + strings.ToUpper(hex), hex} {
+			bad := s
+			bad.Receipt.Digest = digest
+			Expect(Build([]Snapshot{bad}, false)[0].UI).To(BeNil(), digest)
+		}
+		// A failed process still lists its UI so the shell can say why it is unavailable.
+		failed := s
+		failed.State = "failed"
+		Expect(Build([]Snapshot{failed}, false)[0].UI).NotTo(BeNil())
+	})
 	It("bounds the tool summary and coerces unknown process states to failed", func() {
 		tools := []string{}
 		for i := 0; i < MaxTools+10; i++ {

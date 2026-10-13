@@ -202,6 +202,7 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.GET("/apps/:id/icon", GetAppIcon(g, s.db, mode))
 	group.POST("/apps/:id/start", StartApp(g, s.db, mode))
 	group.POST("/apps/:id/stop", StopApp(g, s.db, mode))
+	group.GET("/:id/assets/:digest/*", GetAsset(g, s.db, mode))
 	return e
 }
 

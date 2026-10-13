@@ -142,7 +142,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true}))
 	})
 	It("gates the artifact routes by authentication and feature", func() {
 		get := func(path string, mutate func(*http.Request)) int {

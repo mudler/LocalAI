@@ -1164,3 +1164,47 @@ page has no log view; the `state` and `restarts` fields are the health evidence 
 Uninstalling stops the addon and removes its package from use. Its data, identity and
 grants are kept, so a later install of the same addon picks them up. The page says so
 before it submits the uninstall.
+
+## Add-on UI assets
+
+An add-on with a `ui` object ships UI code: the packaged ES module the manifest names and
+its style sheets. The owner serves that code, and only that code, through an immutable
+asset route, so the web UI can load it after the host itself was built.
+
+### The UI entry of an app
+
+An enabled app whose installed package has a sha256 digest carries a `ui` object in
+`GET /api/addons/apps`. A disabled app, a headless app and an app without a digest do not.
+
+| Field | Meaning |
+|---|---|
+| `entry` | The same-origin URL of the module: `/api/addons/{id}/assets/{digest}/{path}`. |
+| `css` | The URLs of the declared style sheets, under the same digest. |
+| `sdk` | `{min, max}`, the host SDK versions the module accepts. |
+| `pages`, `navigation`, `chatActions` | The identifiers the manifest declares. The host decides where each is shown. |
+
+`digest` is the package sha256 in lower-case hex. A new package is a new URL, which is
+why the files are immutable.
+
+### The asset route
+
+`GET /api/addons/{id}/assets/{digest}/{path}` streams one declared file (the entry module
+or a style sheet) from the verified package on the owner, relayed by the frontend that
+received the request. It is a read for every caller who holds the `addons` feature.
+
+- The file is served only while the add-on is installed and enabled and the digest is
+  the current one. An older package, another add-on's digest, a disabled or uninstalled
+  add-on, a file the manifest does not declare, a traversal, a directory and a missing
+  feature all give the same denial without any file content, and a denial is never
+  cached. (A path that ends in a slash is stripped by the app's router first, so it gives
+  404 instead of 403.)
+- The owner serves the bytes, never the add-on process, and a file that is not a regular
+  file of the package is refused.
+- The response is `text/javascript` or `text/css` with `X-Content-Type-Options: nosniff`
+  and `Cache-Control: private, max-age=31536000, immutable`.
+- The browser authenticates with its same-origin session cookie. An API key goes in the
+  `Authorization` header. A credential in the URL is never accepted, and a cookie
+  request without same-origin fetch metadata is refused.
+- A replica relays the response from the owner: the same bytes, headers and denials.
+
+There is no MCP tool for this route, as for the other Apps routes.

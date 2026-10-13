@@ -234,7 +234,8 @@
       "keeps a result for a short time so polling does not walk again",
       "stops at the time bound and reports a truncated size",
       "does not keep a result cut short by the caller",
-      "is what the installed view reports for the data directory"
+      "is what the installed view reports for the data directory",
+      "resolves a package for the current enabled generation and digest only"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -328,7 +329,6 @@
       "still reports unavailable when the owner is unable to serve and not forbidden",
       "reaches the same decision through both frontends and delivers bytes when allowed",
       "keeps aborting when revocation happens after bytes were written",
-      "serves declared assets for the actor's own operation and generation only",
       "bounds progress, asset and file relays by their own limit",
       "alternates real owner journal status and terminates coarse progress without submitting again",
       "reports an account store outage as unavailable and a refused account as forbidden",
@@ -400,7 +400,15 @@
       "saves, refreshes and removes a library by reference and leaves installed addons alone",
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
-      "documents the management actions and every emitted field of the installed view"
+      "documents the management actions and every emitted field of the installed view",
+      "serves declared assets of the current enabled generation by package digest only",
+      "serves the declared files of the current package through every frontend with immutable headers",
+      "lists the same URLs the route serves, and only for an enabled addon",
+      "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+      "accepts a same-origin browser session and refuses a cross-site or direct one",
+      "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+      "refuses a declared file that is not a regular file of the package",
+      "documents the asset route and its binary response in the Swagger spec"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -429,7 +437,6 @@
           "still reports unavailable when the owner is unable to serve and not forbidden",
           "reaches the same decision through both frontends and delivers bytes when allowed",
           "keeps aborting when revocation happens after bytes were written",
-          "serves declared assets for the actor's own operation and generation only",
           "bounds progress, asset and file relays by their own limit",
           "alternates real owner journal status and terminates coarse progress without submitting again",
           "reports an account store outage as unavailable and a refused account as forbidden",
@@ -450,7 +457,8 @@
           "rechecks revoked credentials during attachment copying",
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
           "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
-          "denies private relays without host resolution and admission"
+          "denies private relays without host resolution and admission",
+          "serves declared assets of the current enabled generation by package digest only"
         ]
       },
       {
@@ -506,7 +514,14 @@
           "saves, refreshes and removes a library by reference and leaves installed addons alone",
           "upgrades an installed addon through the typed action and keeps its earlier generation",
           "reports a lost source change as an unknown outcome and a lost read as unavailable",
-          "documents the management actions and every emitted field of the installed view"
+          "documents the management actions and every emitted field of the installed view",
+          "serves the declared files of the current package through every frontend with immutable headers",
+          "lists the same URLs the route serves, and only for an enabled addon",
+          "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+          "accepts a same-origin browser session and refuses a cross-site or direct one",
+          "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+          "refuses a declared file that is not a regular file of the package",
+          "documents the asset route and its binary response in the Swagger spec"
         ]
       }
     ]
@@ -759,7 +774,14 @@
       "saves, refreshes and removes a library by reference and leaves installed addons alone",
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
-      "documents the management actions and every emitted field of the installed view"
+      "documents the management actions and every emitted field of the installed view",
+      "serves the declared files of the current package through every frontend with immutable headers",
+      "lists the same URLs the route serves, and only for an enabled addon",
+      "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+      "accepts a same-origin browser session and refuses a cross-site or direct one",
+      "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+      "refuses a declared file that is not a regular file of the package",
+      "documents the asset route and its binary response in the Swagger spec"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -897,7 +919,14 @@
           "saves, refreshes and removes a library by reference and leaves installed addons alone",
           "upgrades an installed addon through the typed action and keeps its earlier generation",
           "reports a lost source change as an unknown outcome and a lost read as unavailable",
-          "documents the management actions and every emitted field of the installed view"
+          "documents the management actions and every emitted field of the installed view",
+          "serves the declared files of the current package through every frontend with immutable headers",
+          "lists the same URLs the route serves, and only for an enabled addon",
+          "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+          "accepts a same-origin browser session and refuses a cross-site or direct one",
+          "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+          "refuses a declared file that is not a regular file of the package",
+          "documents the asset route and its binary response in the Swagger spec"
         ]
       }
     ]
@@ -994,7 +1023,6 @@
       "still reports unavailable when the owner is unable to serve and not forbidden",
       "reaches the same decision through both frontends and delivers bytes when allowed",
       "keeps aborting when revocation happens after bytes were written",
-      "serves declared assets for the actor's own operation and generation only",
       "bounds progress, asset and file relays by their own limit",
       "alternates real owner journal status and terminates coarse progress without submitting again",
       "reports an account store outage as unavailable and a refused account as forbidden",
@@ -1066,7 +1094,15 @@
       "saves, refreshes and removes a library by reference and leaves installed addons alone",
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
-      "documents the management actions and every emitted field of the installed view"
+      "documents the management actions and every emitted field of the installed view",
+      "serves declared assets of the current enabled generation by package digest only",
+      "serves the declared files of the current package through every frontend with immutable headers",
+      "lists the same URLs the route serves, and only for an enabled addon",
+      "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+      "accepts a same-origin browser session and refuses a cross-site or direct one",
+      "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+      "refuses a declared file that is not a regular file of the package",
+      "documents the asset route and its binary response in the Swagger spec"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1132,7 +1168,6 @@
           "still reports unavailable when the owner is unable to serve and not forbidden",
           "reaches the same decision through both frontends and delivers bytes when allowed",
           "keeps aborting when revocation happens after bytes were written",
-          "serves declared assets for the actor's own operation and generation only",
           "bounds progress, asset and file relays by their own limit",
           "alternates real owner journal status and terminates coarse progress without submitting again",
           "reports an account store outage as unavailable and a refused account as forbidden",
@@ -1153,7 +1188,8 @@
           "rechecks revoked credentials during attachment copying",
           "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
           "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
-          "denies private relays without host resolution and admission"
+          "denies private relays without host resolution and admission",
+          "serves declared assets of the current enabled generation by package digest only"
         ]
       },
       {
@@ -1209,7 +1245,14 @@
           "saves, refreshes and removes a library by reference and leaves installed addons alone",
           "upgrades an installed addon through the typed action and keeps its earlier generation",
           "reports a lost source change as an unknown outcome and a lost read as unavailable",
-          "documents the management actions and every emitted field of the installed view"
+          "documents the management actions and every emitted field of the installed view",
+          "serves the declared files of the current package through every frontend with immutable headers",
+          "lists the same URLs the route serves, and only for an enabled addon",
+          "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+          "accepts a same-origin browser session and refuses a cross-site or direct one",
+          "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+          "refuses a declared file that is not a regular file of the package",
+          "documents the asset route and its binary response in the Swagger spec"
         ]
       }
     ]
@@ -1363,7 +1406,16 @@
       "saves, refreshes and removes a library by reference and leaves installed addons alone",
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
-      "documents the management actions and every emitted field of the installed view"
+      "documents the management actions and every emitted field of the installed view",
+      "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
+      "resolves a package for the current enabled generation and digest only",
+      "serves the declared files of the current package through every frontend with immutable headers",
+      "lists the same URLs the route serves, and only for an enabled addon",
+      "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+      "accepts a same-origin browser session and refuses a cross-site or direct one",
+      "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+      "refuses a declared file that is not a regular file of the package",
+      "documents the asset route and its binary response in the Swagger spec"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1373,7 +1425,8 @@
           "lists installed enabled addons for users and adds installed disabled ones only for administrators",
           "derives display fields, the main page and the icon URL from the verified manifest only",
           "bounds the tool summary and coerces unknown process states to failed",
-          "shows controls and the management link only to administrators and never leaks owner details"
+          "shows controls and the management link only to administrators and never leaks owner details",
+          "describes the immutable UI assets of an enabled addon by the package digest and never otherwise"
         ]
       },
       {
@@ -1402,7 +1455,8 @@
           "keeps a result for a short time so polling does not walk again",
           "stops at the time bound and reports a truncated size",
           "does not keep a result cut short by the caller",
-          "is what the installed view reports for the data directory"
+          "is what the installed view reports for the data directory",
+          "resolves a package for the current enabled generation and digest only"
         ]
       },
       {
@@ -1485,7 +1539,14 @@
           "saves, refreshes and removes a library by reference and leaves installed addons alone",
           "upgrades an installed addon through the typed action and keeps its earlier generation",
           "reports a lost source change as an unknown outcome and a lost read as unavailable",
-          "documents the management actions and every emitted field of the installed view"
+          "documents the management actions and every emitted field of the installed view",
+          "serves the declared files of the current package through every frontend with immutable headers",
+          "lists the same URLs the route serves, and only for an enabled addon",
+          "denies every other path, digest, addon and credential form with one answer and no immutable caching",
+          "accepts a same-origin browser session and refuses a cross-site or direct one",
+          "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
+          "refuses a declared file that is not a regular file of the package",
+          "documents the asset route and its binary response in the Swagger spec"
         ]
       }
     ]

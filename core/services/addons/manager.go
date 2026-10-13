@@ -584,6 +584,31 @@ func currentReceipt(st Status) (packages.PackageReceipt, bool) {
 	return packages.PackageReceipt{}, false
 }
 
+// AppAsset returns the package of an enabled addon whose current installed
+// package has the given digest, and its generation. The digest is the bare
+// lower-case hex of the package digest. A disabled, uninstalled or replaced
+// package is the same denial for every caller, administrators included: a page
+// that is still open must not be able to fetch code the owner has withdrawn.
+func (m *Manager) AppAsset(ctx context.Context, actor contract.Actor, id, digest string) (packages.PackageReceipt, uint64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return packages.PackageReceipt{}, 0, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return packages.PackageReceipt{}, 0, ErrRecoveryRequired
+	}
+	st, ok := m.journal.Addons[id]
+	if !ok || !addonID.MatchString(id) || !st.Installed || !st.DesiredEnabled || st.Generation == 0 || len(digest) != 64 {
+		return packages.PackageReceipt{}, 0, ErrForbidden
+	}
+	receipt, ok := currentReceipt(st)
+	if !ok || receipt.Manifest.Capabilities.UI == nil || receipt.Digest != "sha256:"+digest {
+		return packages.PackageReceipt{}, 0, ErrForbidden
+	}
+	return receipt, st.Generation, nil
+}
+
 // AppIcon returns the receipt of an app the actor may see when the generation
 // is the installed one and the package has a verified icon. Every other case
 // is the same denial, so the answer reveals nothing about hidden addons.

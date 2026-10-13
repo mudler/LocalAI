@@ -986,6 +986,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/{id}/assets/{digest}/{path}": {
+            "get": {
+                "description": "Streams one file the addon manifest declares as UI code (the entry module or a style sheet) from the verified package on the owner, relayed through the receiving frontend. The digest in the path is the sha256 of the installed package, in lower-case hex, as listed in the ui entry of the apps list. The file is served only while the addon is installed and enabled and the digest is the current one; a file the manifest does not declare, a traversal, a directory, another addon, an older package, a disabled or uninstalled addon and a missing feature all give a denial without any file content, and a denial is never cached. The response is text/javascript or text/css with X-Content-Type-Options nosniff and Cache-Control private, max-age=31536000, immutable: the URL changes with the package, so the file never changes under it. The caller is authenticated by an API key header or by the same-origin browser session; a credential in the URL is never accepted. The addon process is never asked.",
+                "produces": [
+                    "text/javascript",
+                    "text/css"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read an immutable file of an addon UI package",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Addon ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Package digest, 64 lower-case hex characters",
+                        "name": "digest",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Declared package file, for example ui.js",
+                        "name": "path",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File bytes",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "private, max-age=31536000, immutable"
+                            },
+                            "X-Content-Type-Options": {
+                                "type": "string",
+                                "description": "nosniff"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the file, addon or package digest is not currently served",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -5688,6 +5760,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "ui": {
+                    "description": "UI describes what the shell loads for this app. It is present only for\nan enabled addon with a UI whose installed package has a sha256 digest.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.UIView"
+                        }
+                    ]
+                },
                 "version": {
                     "type": "string",
                     "example": "1.2.3"
@@ -5717,6 +5797,50 @@ const docTemplate = `{
                     "description": "OperationID names the lifecycle operation. Repeating it never runs the\nchange twice and, after an outcome_unknown answer, it is the identifier\nto poll.",
                     "type": "string",
                     "example": "start-notes-1"
+                }
+            }
+        },
+        "apps.UIView": {
+            "type": "object",
+            "properties": {
+                "chatActions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "css": {
+                    "description": "CSS are the URLs of the declared style sheets.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "entry": {
+                    "description": "Entry is the URL of the packaged ES module. Every asset URL names the\npackage digest, so a new package is a new URL.",
+                    "type": "string",
+                    "example": "/api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js"
+                },
+                "navigation": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pages": {
+                    "description": "Pages, Navigation and ChatActions are the identifiers the manifest\ndeclares. The host decides where each one is shown.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sdk": {
+                    "description": "SDK is the range of host SDK versions the module accepts.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.VersionRange"
+                        }
+                    ]
                 }
             }
         },
@@ -5892,6 +6016,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "schema": {
+                    "type": "integer"
+                }
+            }
+        },
+        "contract.VersionRange": {
+            "type": "object",
+            "properties": {
+                "max": {
+                    "type": "integer"
+                },
+                "min": {
                     "type": "integer"
                 }
             }
@@ -6703,6 +6838,10 @@ const docTemplate = `{
         "gateway.RelayRequest": {
             "type": "object",
             "properties": {
+                "digest": {
+                    "description": "Digest names the installed package an asset belongs to: the lower-case\nhex of its sha256. Only the kind \"asset\" uses it.",
+                    "type": "string"
+                },
                 "handle": {
                     "type": "string"
                 },

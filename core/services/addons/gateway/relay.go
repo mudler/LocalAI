@@ -4,6 +4,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -284,48 +286,48 @@ func (g *Gateway) copy(ctx context.Context, a contract.Actor, w io.Writer, r io.
 		}
 	}
 }
+
+// asset serves one declared file of the installed package of an enabled addon,
+// named by the package digest. The owner's journal decides: a disabled,
+// uninstalled or replaced package, a digest that is not the current one and a
+// file the manifest does not declare are all the same denial, so an old page
+// that is still open cannot fetch withdrawn code. The bytes never come from an
+// addon process and only a response for the current digest is cacheable as
+// immutable.
 func (g *Gateway) asset(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
 	limits, err := g.Limits.resolved()
 	if err != nil {
 		return err
 	}
-	// Installation administration is sufficient only for immutable package code,
-	// never for resource data. Status itself has no actor check.
 	if g.Manager == nil {
 		return ErrUnavailable
 	}
-	if _, e := g.Manager.OperationStatus(ctx, a, r.Request.OperationID); e != nil {
+	p, _, e := g.Manager.AppAsset(ctx, a, r.Request.AddonID, r.Digest)
+	if errors.Is(e, addons.ErrForbidden) {
 		return ErrForbidden
 	}
-	status, e := g.Manager.Status(ctx, r.Request.AddonID)
 	if e != nil {
 		return e
 	}
-	if !status.Installed || status.Generation != r.Request.Generation {
+	f, e := openAsset(p, r.Handle)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	info, e := f.Stat()
+	if e != nil || !info.Mode().IsRegular() || info.Size() > limits.AssetBytes {
 		return ErrForbidden
 	}
-	for _, generation := range status.Generations {
-		if generation.Number != r.Request.Generation {
-			continue
-		}
-		p := generation.Receipt
-		f, e := openAsset(p, r.Handle)
-		if e != nil {
-			return e
-		}
-		defer f.Close()
-		info, e := f.Stat()
-		if e != nil || !info.Mode().IsRegular() || info.Size() > limits.AssetBytes {
-			return ErrForbidden
-		}
-		media := "text/javascript"
-		if filepath.Ext(r.Handle) == ".css" {
-			media = "text/css"
-		}
-		w.Header().Set("Content-Type", media)
-		return g.copy(ctx, a, w, f, info.Size())
+	media := "text/javascript"
+	if filepath.Ext(r.Handle) == ".css" {
+		media = "text/css"
 	}
-	return ErrForbidden
+	h := w.Header()
+	h.Set("Content-Type", media)
+	h.Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	h.Set("Cache-Control", "private, max-age=31536000, immutable")
+	h.Set("X-Content-Type-Options", "nosniff")
+	return g.copy(ctx, a, w, f, info.Size())
 }
 
 func openAsset(p packages.PackageReceipt, name string) (*os.File, error) {

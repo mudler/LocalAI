@@ -65,6 +65,9 @@ type RelayRequest struct {
 	Request contract.Request `json:"request"`
 	Kind    string           `json:"kind"`
 	Handle  string           `json:"handle,omitempty"`
+	// Digest names the installed package an asset belongs to: the lower-case
+	// hex of its sha256. Only the kind "asset" uses it.
+	Digest string `json:"digest,omitempty"`
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {

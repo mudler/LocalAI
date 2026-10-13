@@ -40,4 +40,8 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	group.GET("/apps/:id/icon", endpoints.GetAppIcon(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/apps/:id/start", endpoints.StartApp(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/apps/:id/stop", endpoints.StopApp(a.AddonGateway(), a.AuthDB(), mode))
+	// Immutable UI code of an installed, enabled addon, by package digest. A
+	// read for every caller with the feature; the owner serves only declared
+	// files of the current package. No MCP tool maps to it.
+	group.GET("/:id/assets/:digest/*", endpoints.GetAsset(a.AddonGateway(), a.AuthDB(), mode))
 }

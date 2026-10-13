@@ -6,9 +6,11 @@ package apps
 
 import (
 	"net/url"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -85,8 +87,31 @@ type App struct {
 	// full number. The manifest carries no tool descriptions.
 	Tools     []string `json:"tools"`
 	ToolCount int      `json:"toolCount"`
+	// UI describes what the shell loads for this app. It is present only for
+	// an enabled addon with a UI whose installed package has a sha256 digest.
+	UI *UIView `json:"ui,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// UIView is the registry entry of an addon UI: the same-origin URLs of its
+// immutable assets for the installed generation, the SDK versions it accepts
+// and the contributions its manifest declares. The page loads nothing from any
+// other place, and a URL here stops being served the moment the generation is
+// replaced or the addon is disabled.
+type UIView struct {
+	// Entry is the URL of the packaged ES module. Every asset URL names the
+	// package digest, so a new package is a new URL.
+	Entry string `json:"entry" example:"/api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js"`
+	// CSS are the URLs of the declared style sheets.
+	CSS []string `json:"css,omitempty"`
+	// SDK is the range of host SDK versions the module accepts.
+	SDK contract.VersionRange `json:"sdk"`
+	// Pages, Navigation and ChatActions are the identifiers the manifest
+	// declares. The host decides where each one is shown.
+	Pages       []string `json:"pages,omitempty"`
+	Navigation  []string `json:"navigation,omitempty"`
+	ChatActions []string `json:"chatActions,omitempty"`
 }
 
 // AdminView carries the controls only an administrator is shown. The server
@@ -140,6 +165,9 @@ func build(s Snapshot, admin bool) App {
 		if s.Enabled && u.MainPage != "" && slices.Contains(u.Pages, u.MainPage) {
 			a.MainPage = "/app/addons/" + url.PathEscape(id) + "/" + url.PathEscape(u.MainPage)
 		}
+		if s.Enabled {
+			a.UI = uiView(id, s.Receipt.Digest, u)
+		}
 	}
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
@@ -158,4 +186,28 @@ func state(s Snapshot) string {
 		return s.State
 	}
 	return "failed"
+}
+
+var packageDigest = regexp.MustCompile(`^sha256:([0-9a-f]{64})$`)
+
+// uiView returns the UI registry entry, or nil when the package digest is not
+// a sha256: without it there is no immutable URL to name.
+func uiView(id, digest string, u *contract.UI) *UIView {
+	m := packageDigest.FindStringSubmatch(digest)
+	if m == nil {
+		return nil
+	}
+	base := "/api/addons/" + url.PathEscape(id) + "/assets/" + m[1] + "/"
+	asset := func(p string) string {
+		parts := strings.Split(p, "/")
+		for i := range parts {
+			parts[i] = url.PathEscape(parts[i])
+		}
+		return base + strings.Join(parts, "/")
+	}
+	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: slices.Clone(u.ChatActions)}
+	for _, css := range u.CSS {
+		v.CSS = append(v.CSS, asset(css))
+	}
+	return v
 }
