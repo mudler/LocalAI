@@ -3,6 +3,7 @@
 package packages
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -224,6 +225,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			return out, ErrPackage
 		}
 	}
+	var icon *PackageIcon
+	if u := m.Capabilities.UI; u != nil && u.Icon != "" {
+		if icon, e = verifyIcon(dir, u.Icon); e != nil {
+			return out, e
+		}
+	}
 	if _, e = os.Lstat(filepath.Join(dir, "receipt.json")); !os.IsNotExist(e) {
 		return out, ErrPackage
 	}
@@ -233,7 +240,50 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if progress != nil {
 		progress(Progress{Phase: "verified", Bytes: x.bytes})
 	}
-	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m}}}, nil
+	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon}}}, nil
+}
+
+// verifyIcon opens the declared icon inside the staged package without
+// following links, bounds its size and checks that its bytes have the
+// signature of the declared type. An icon that cannot be served as an
+// immutable image is a package error, never a warning.
+func verifyIcon(dir, name string) (*PackageIcon, error) {
+	media := contract.IconTypes[strings.ToLower(filepath.Ext(name))]
+	if media == "" || !filepath.IsLocal(name) {
+		return nil, ErrPackage
+	}
+	root, e := os.OpenRoot(dir)
+	if e != nil {
+		return nil, ErrPackage
+	}
+	defer root.Close()
+	info, e := root.Lstat(name)
+	if e != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > contract.MaxIconBytes {
+		return nil, ErrPackage
+	}
+	f, e := root.Open(name)
+	if e != nil {
+		return nil, ErrPackage
+	}
+	defer f.Close()
+	b, e := io.ReadAll(io.LimitReader(f, contract.MaxIconBytes+1))
+	if e != nil || int64(len(b)) != info.Size() {
+		return nil, ErrPackage
+	}
+	signature := false
+	switch media {
+	case "image/png":
+		signature = bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n"))
+	case "image/jpeg":
+		signature = bytes.HasPrefix(b, []byte{0xff, 0xd8, 0xff})
+	case "image/webp":
+		signature = len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP"
+	}
+	if !signature {
+		return nil, ErrPackage
+	}
+	sum := sha256.Sum256(b)
+	return &PackageIcon{Path: name, Digest: fmt.Sprintf("sha256:%x", sum), Size: int64(len(b)), MediaType: media}, nil
 }
 func (i *Installer) download(ctx context.Context, r io.Reader, digest, root string) (f *os.File, err error) {
 	f, err = os.CreateTemp(root, "download-")

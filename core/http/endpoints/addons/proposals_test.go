@@ -198,6 +198,10 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.GET("/resources/:resourceId/proposals", ListUnresolvedProposals(g, s.db, mode))
 	group.GET("/artifacts/:id", GetArtifact(g, s.db, mode))
 	group.GET("/artifacts/:id/download", DownloadArtifact(g, s.db, mode))
+	group.GET("/apps", ListApps(g, s.db, mode))
+	group.GET("/apps/:id/icon", GetAppIcon(g, s.db, mode))
+	group.POST("/apps/:id/start", StartApp(g, s.db, mode))
+	group.POST("/apps/:id/stop", StopApp(g, s.db, mode))
 	return e
 }
 

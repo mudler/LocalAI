@@ -91,7 +91,7 @@ func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 	if e := g.revalidate(ctx, a); e != nil {
 		return e
 	}
-	if r.Kind != "status" && r.Kind != "progress" && r.Kind != "file" && r.Kind != "asset" && r.Kind != "json" {
+	if r.Kind != "status" && r.Kind != "progress" && r.Kind != "file" && r.Kind != "asset" && r.Kind != "icon" && r.Kind != "json" {
 		return ErrForbidden
 	}
 	if r.Kind == "json" && (g.Admission == nil || g.Resolver == nil) && g.Forward == nil {
@@ -204,6 +204,8 @@ func (g *Gateway) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 		return g.file(ctx, a, r, w)
 	case "asset":
 		return g.asset(ctx, a, r, w)
+	case "icon":
+		return g.icon(ctx, a, r, w)
 	}
 	return ErrForbidden
 }

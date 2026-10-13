@@ -10,9 +10,30 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 const SchemaVersion = 1
+
+// Bounds of the optional apps-surface fields. They are character counts, not
+// bytes, so a title in any script has the same room.
+const (
+	MaxTitleChars       = 80
+	MaxDescriptionChars = 280
+	MaxLanguages        = 16
+	// MaxIconBytes bounds a packaged icon. Package validation enforces it
+	// against the real file.
+	MaxIconBytes = 256 << 10
+	maxAssetPath = 256
+)
+
+// LaunchModeAlways is the only launch mode of version one: the owner runs the
+// addon for as long as it is enabled. An absent mode means the same.
+const LaunchModeAlways = "always"
+
+// IconTypes maps the extensions an icon may have to their media type.
+var IconTypes = map[string]string{".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 
 type VersionRange struct {
 	Min uint64 `json:"min"`
@@ -43,7 +64,10 @@ type Manifest struct {
 	API           VersionRange `json:"api"`
 	Protocol      VersionRange `json:"protocol"`
 	DataFormat    VersionRange `json:"dataFormat"`
-	Capabilities  Capabilities `json:"capabilities"`
+	// LaunchMode is absent or "always": the owner starts the addon while it is
+	// enabled. "on-demand" is reserved and rejected until it is implemented.
+	LaunchMode   string       `json:"launchMode,omitempty"`
+	Capabilities Capabilities `json:"capabilities"`
 }
 type Capabilities struct {
 	Service bool     `json:"service,omitempty"`
@@ -57,6 +81,48 @@ type UI struct {
 	Pages       []string     `json:"pages,omitempty"`
 	Navigation  []string     `json:"navigation,omitempty"`
 	ChatActions []string     `json:"chatActions,omitempty"`
+	// MainPage is the route the Apps surface opens. It must be one of Pages;
+	// without it the addon has no Open action.
+	MainPage string `json:"mainPage,omitempty"`
+	// Icon is a packaged immutable image, never a URL.
+	Icon string `json:"icon,omitempty"`
+	// Title and Description are plain text, either one string or a map of
+	// BCP 47 language tag to string.
+	Title       *Localized `json:"title,omitempty"`
+	Description *Localized `json:"description,omitempty"`
+}
+
+// Localized is plain text that is either one string or a map of language tag
+// to string. Exactly one of Text and ByLanguage is set.
+type Localized struct {
+	Text       string
+	ByLanguage map[string]string
+}
+
+func (l Localized) MarshalJSON() ([]byte, error) {
+	if l.ByLanguage != nil {
+		return json.Marshal(l.ByLanguage)
+	}
+	return json.Marshal(l.Text)
+}
+func (l *Localized) UnmarshalJSON(b []byte) error {
+	b = bytes.TrimSpace(b)
+	var out Localized
+	switch {
+	case len(b) > 0 && b[0] == '"':
+		if e := json.Unmarshal(b, &out.Text); e != nil {
+			return e
+		}
+	case len(b) > 0 && b[0] == '{':
+		out.ByLanguage = map[string]string{}
+		if e := json.Unmarshal(b, &out.ByLanguage); e != nil {
+			return e
+		}
+	default:
+		return fmt.Errorf("localized text must be a string or a language map")
+	}
+	*l = out
+	return nil
 }
 
 var namespace = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
@@ -92,6 +158,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if m.SchemaVersion != SchemaVersion || !namespace.MatchString(m.ID) || !immutableVersion.MatchString(m.Version) || !relativePath(m.Executable) {
 		return fmt.Errorf("invalid manifest identity, version or executable")
 	}
+	// on-demand is reserved: accepting it would promise behavior the owner does
+	// not implement, so every value but the default is refused at install.
+	if m.LaunchMode != "" && m.LaunchMode != LaunchModeAlways {
+		return fmt.Errorf("unsupported launch mode")
+	}
 	if !namespace.MatchString(m.OS) || !namespace.MatchString(m.Arch) || m.OS != h.OS || m.Arch != h.Arch {
 		return fmt.Errorf("incompatible platform")
 	}
@@ -113,9 +184,20 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			}
 			seen[css] = true
 		}
+		if u.Icon != "" {
+			if !ValidIconPath(u.Icon) || seen[u.Icon] {
+				return fmt.Errorf("invalid UI icon")
+			}
+		}
+		if u.Title != nil && !u.Title.valid(MaxTitleChars) || u.Description != nil && !u.Description.valid(MaxDescriptionChars) {
+			return fmt.Errorf("invalid UI title or description")
+		}
 		pages := map[string]bool{}
 		for _, p := range u.Pages {
 			pages[p] = true
+		}
+		if u.MainPage != "" && !pages[u.MainPage] {
+			return fmt.Errorf("main page requires declared page")
 		}
 		for _, n := range u.Navigation {
 			if !pages[n] {
@@ -124,6 +206,72 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		}
 	}
 	return nil
+}
+
+var languageTag = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$`)
+
+// ValidIconPath reports whether p is a package-relative path of an allowed
+// image type. A URL, an absolute path and a traversal never are.
+func ValidIconPath(p string) bool {
+	return len(p) <= maxAssetPath && IconTypes[strings.ToLower(path.Ext(p))] != "" && relativePath(p)
+}
+
+// ValidPlainText reports whether s is non-empty display text of at most max
+// characters with no markup, control characters or direction overrides.
+func ValidPlainText(s string, max int) bool { return plainText(s, max) }
+
+// ValidName reports whether s is a page, tool or addon identifier.
+func ValidName(s string) bool { return namespace.MatchString(s) }
+
+// plainText accepts text that cannot carry markup, control characters or
+// direction overrides, within max characters.
+func plainText(s string, max int) bool {
+	n := utf8.RuneCountInString(s)
+	if !utf8.ValidString(s) || n == 0 || n > max || strings.TrimSpace(s) != s {
+		return false
+	}
+	for _, r := range s {
+		if r == '<' || r == '>' || unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return false
+		}
+	}
+	return true
+}
+
+func (l Localized) valid(max int) bool {
+	if l.ByLanguage == nil {
+		return plainText(l.Text, max)
+	}
+	if l.Text != "" || len(l.ByLanguage) == 0 || len(l.ByLanguage) > MaxLanguages {
+		return false
+	}
+	seen := map[string]bool{}
+	for tag, text := range l.ByLanguage {
+		key := strings.ToLower(tag)
+		if len(tag) > 35 || !languageTag.MatchString(tag) || seen[key] || !plainText(text, max) {
+			return false
+		}
+		seen[key] = true
+	}
+	return true
+}
+
+// Default is the text a caller that does not choose a language gets: the
+// plain string, else the English entry, else the first tag in sorted order.
+func (l Localized) Default() string {
+	if l.ByLanguage == nil {
+		return l.Text
+	}
+	if t, ok := l.ByLanguage["en"]; ok {
+		return t
+	}
+	best := ""
+	for tag := range l.ByLanguage {
+		if best == "" || tag < best {
+			best = tag
+		}
+	}
+	return l.ByLanguage[best]
 }
 
 // strictJSON rejects duplicate keys as well as unknown fields. The token walk

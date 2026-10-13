@@ -18,6 +18,10 @@ type Status struct {
 }
 type LifecycleCommand struct {
 	OperationID, AddonID, Action, SourceID, Version string
+	// Generation, when not zero, is the generation the caller saw. enable and
+	// disable are denied as stale when the installed generation differs, and
+	// nothing is recorded. Zero means the caller made no claim.
+	Generation uint64
 }
 type OperationStatus struct {
 	OperationID, AddonID, Phase string

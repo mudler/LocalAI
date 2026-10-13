@@ -114,6 +114,8 @@ type wireRequest struct {
 	Proposal *ProposalCall `json:"proposal,omitempty"`
 	// Artifact marks a read-only lookup in the owner's artifact store.
 	Artifact *artifactCall `json:"artifact,omitempty"`
+	// Apps marks a read of the apps list.
+	Apps *appsCall `json:"apps,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -171,6 +173,20 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.Apps != nil {
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Request.Action != appsListAction {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			list, e := g.appsLocal(r.Context(), actor)
+			if e != nil {
+				typedError(w, e)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(list)
 			return
 		}
 		if wire.Artifact != nil {
@@ -245,7 +261,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 }
 
 // denials are authorization, policy and request-level rejections.
-var denials = []error{ErrForbidden, addons.ErrForbidden, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+var denials = []error{ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
 
 // unavailable are operational failures. They say the owner could not serve the
 // request, not that it ran nothing: the owner can return them after it recorded
@@ -305,7 +321,7 @@ func (c *Carrier) relayBudget(kind string) (int64, error) {
 		return l.Bytes, nil
 	case "progress", "status":
 		return l.ProgressBytes, nil
-	case "asset":
+	case "asset", "icon":
 		return l.AssetBytes, nil
 	case "json":
 		return min(l.Bytes, 2<<20), nil
@@ -394,7 +410,7 @@ func mutationOutcome(r contract.Request, e error) error {
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status"
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

@@ -107,7 +107,12 @@
       "rejects incomplete expired or forged authority shapes",
       "rejects unknown and oversized wire payloads",
       "validates finite defaults overrides and cross field bounds",
-      "validates preview receipt states and output descriptions"
+      "validates preview receipt states and output descriptions",
+      "accepts the apps surface fields and keeps headless manifests valid",
+      "rejects unknown and reserved launch modes",
+      "rejects remote data absolute and traversing icon paths",
+      "requires the main page to be one of the declared pages",
+      "bounds localized titles and descriptions and rejects markup"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },
@@ -140,7 +145,9 @@
       "lists and gets protected source copies including disabled and empty sources after reload",
       "requires current authoritative administration and context for source reads",
       "serializes source reads with concurrent configuration edits",
-      "pins channels and restricts package transport to secure or opted in loopback origins"
+      "pins channels and restricts package transport to secure or opted in loopback origins",
+      "surfaces optional UI metadata in search results and resolutions without changing plain entries",
+      "rejects entries with remote icons, reserved launch modes, markup or overlong display text"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -177,7 +184,8 @@
       "bounds expanded bytes cumulatively across real OCI layers",
       "bounds sparse logical output across files and layers preserving old packages",
       "accepts exact sparse output budget and cancels synthesized writes",
-      "stages real trusted signatures and rejects signed identity digest and trust mismatches offline"
+      "stages real trusted signatures and rejects signed identity digest and trust mismatches offline",
+      "records the digest of a packaged immutable icon in the receipt and refuses unusable icons"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
@@ -210,7 +218,10 @@
       "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
       "retries runtime synchronization after canceled disable and generation upgrade",
       "binds lifecycle lookup to current admin and original actor without writes or repair",
-      "cancels status lookup while a lifecycle writer holds the journal lock"
+      "cancels status lookup while a lifecycle writer holds the journal lock",
+      "denies enable and disable for a stale generation without recording anything",
+      "lists apps by visibility and serves an icon only for a visible app at its generation",
+      "reports the supervisor state of an app through a crash and a restart"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -248,7 +259,9 @@
       "fails closed on ambiguous launch identities and preserves unrelated reused PIDs",
       "retains a canceled restart slot until cleanup completes and rejects duplicate supervisors",
       "refuses a missing established ledger and fences failed cleanup publication",
-      "withdraws and initiates every live slot before a cleanup timeout"
+      "withdraws and initiates every live slot before a cleanup timeout",
+      "reports stopped, running, failed, starting and running again across a crash and a restart",
+      "keeps reporting failed once the restart budget is exhausted"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
@@ -360,7 +373,14 @@
       "reports an unavailable read as plain unavailability",
       "reports a denial as forbidden",
       "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-      "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+      "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+      "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+      "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+      "serves the verified icon through the host route and denies it identically otherwise",
+      "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+      "documents the apps routes and every field of the app view in the Swagger spec",
+      "lists every registered addon route in the feature registry",
+      "gates the apps routes by authentication, feature and administration"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -453,7 +473,14 @@
           "reports an unavailable read as plain unavailability",
           "reports a denial as forbidden",
           "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-          "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+          "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+          "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+          "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+          "serves the verified icon through the host route and denies it identically otherwise",
+          "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+          "documents the apps routes and every field of the app view in the Swagger spec",
+          "lists every registered addon route in the feature registry",
+          "gates the apps routes by authentication, feature and administration"
         ]
       }
     ]
@@ -693,7 +720,14 @@
       "reports an unavailable read as plain unavailability",
       "reports a denial as forbidden",
       "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-      "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+      "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+      "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+      "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+      "serves the verified icon through the host route and denies it identically otherwise",
+      "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+      "documents the apps routes and every field of the app view in the Swagger spec",
+      "lists every registered addon route in the feature registry",
+      "gates the apps routes by authentication, feature and administration"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -818,7 +852,14 @@
           "reports an unavailable read as plain unavailability",
           "reports a denial as forbidden",
           "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-          "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+          "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+          "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+          "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+          "serves the verified icon through the host route and denies it identically otherwise",
+          "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+          "documents the apps routes and every field of the app view in the Swagger spec",
+          "lists every registered addon route in the feature registry",
+          "gates the apps routes by authentication, feature and administration"
         ]
       }
     ]
@@ -974,7 +1015,14 @@
       "reports an unavailable read as plain unavailability",
       "reports a denial as forbidden",
       "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-      "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+      "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+      "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+      "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+      "serves the verified icon through the host route and denies it identically otherwise",
+      "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+      "documents the apps routes and every field of the app view in the Swagger spec",
+      "lists every registered addon route in the feature registry",
+      "gates the apps routes by authentication, feature and administration"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1104,7 +1152,262 @@
           "reports an unavailable read as plain unavailability",
           "reports a denial as forbidden",
           "reports an unclassified account check error as unavailable and a definite denial as forbidden",
-          "reports an unknown mutation outcome from the owner's own frontend with the original operation"
+          "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+          "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+          "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+          "serves the verified icon through the host route and denies it identically otherwise",
+          "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+          "documents the apps routes and every field of the app view in the Swagger spec",
+          "lists every registered addon route in the feature registry",
+          "gates the apps routes by authentication, feature and administration"
+        ]
+      }
+    ]
+  },
+  "apps": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/apps",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/apps.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons",
+        "-ginkgo.json-report=../../../.cache/addons/logs/apps-lifecycle.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/runtime",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/apps-runtime.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/http/endpoints/addons",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/apps-http.json"
+      ]
+    ],
+    "cases": [
+      "lists installed enabled addons for users and adds installed disabled ones only for administrators",
+      "derives display fields, the main page and the icon URL from the verified manifest only",
+      "bounds the tool summary and coerces unknown process states to failed",
+      "shows controls and the management link only to administrators and never leaks owner details",
+      "denies enable and disable for a stale generation without recording anything",
+      "lists apps by visibility and serves an icon only for a visible app at its generation",
+      "cancels status lookup while a lifecycle writer holds the journal lock",
+      "retries runtime synchronization after canceled disable and generation upgrade",
+      "rejects symlinked package roots without touching external staging",
+      "recovers every durable journal boundary without replaying publication",
+      "removes abandoned staging without removing published packages on recovery",
+      "keeps immutable history on successful upgrade and reinstallation",
+      "excludes competing owners and rejects conflicting durable identities",
+      "never opens replica roots or elects an absent owner",
+      "binds duplicate operation IDs to actor and command and serializes conflicts",
+      "retains generations identity data and grants across uninstall and restart",
+      "preserves old packages and active generation on manager upgrade failure",
+      "requires current authoritative administration even for idempotent retries",
+      "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
+      "binds lifecycle lookup to current admin and original actor without writes or repair",
+      "reports the supervisor state of an app through a crash and a restart",
+      "registers only ready generation bound service headless and UI capabilities",
+      "rejects forged registration nonloopback and stale incarnation handshakes",
+      "bounds readiness and handles exit during start and stop",
+      "withdraws immediately drains boundedly and rejects stale process identities",
+      "exhausts restart budget without retaining dead registrations",
+      "does not inherit secrets and exits when the private parent channel closes",
+      "fails closed on ambiguous launch identities and preserves unrelated reused PIDs",
+      "retains a canceled restart slot until cleanup completes and rejects duplicate supervisors",
+      "rejects nonloopback endpoints and bounds oversized streams and concurrency",
+      "reports stopped, running, failed, starting and running again across a crash and a restart",
+      "keeps reporting failed once the restart budget is exhausted",
+      "rejects foreign supervisor handles and numeric PID substitutions",
+      "resets restart budget only after sustained authenticated health",
+      "kills the exact paused child of a killed owner before launching its replacement",
+      "reserves a draining slot against concurrent starts",
+      "waits for a restart launch worker before acknowledging stop",
+      "exposes a new incarnation client after restart without reviving the old client",
+      "refuses a missing established ledger and fences failed cleanup publication",
+      "authenticates every request and separates trusted authority from model arguments",
+      "bounds output streams cancellation deadlines and stop admission",
+      "withdraws and initiates every live slot before a cleanup timeout",
+      "rejects anonymous and forged forwarding authority through real authentication",
+      "lets callers through only when the deployment selected local-owner mode",
+      "keeps authentication, the feature gate and administration when accounts exist",
+      "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+      "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+      "serves the verified icon through the host route and denies it identically otherwise",
+      "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+      "documents the apps routes and every field of the app view in the Swagger spec",
+      "rejects anonymous callers and forged forwarding headers",
+      "gates the feature and then administration for named keys",
+      "requires same-origin browser requests for cookie mutations",
+      "registers only the dispatch, relay and proposal mutations",
+      "gates the artifact routes by authentication and feature",
+      "lists every registered addon route in the feature registry",
+      "gates the apps routes by authentication, feature and administration",
+      "gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked",
+      "checks browser CSRF feature and admin access with real stored keys",
+      "stores a proposal from an API key and lets only the proposer's browser session confirm it",
+      "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
+      "denies sharing and deletion proposals and an unauthenticated caller",
+      "serves the local owner's confirmation only from a same-origin fetch of the host page",
+      "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+      "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+      "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+      "tells an editor of a blocked write only that it is denied",
+      "returns the applied proposal when the confirmed operation committed",
+      "answers an owner outage by the owner's state with the same type from every frontend",
+      "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
+      "documents the proposal routes and the proposal schema in the Swagger spec",
+      "reports an unknown mutation outcome from a forwarding frontend with the original operation",
+      "documents every field the error responses emit in the Swagger schema",
+      "reports an unavailable read as plain unavailability",
+      "reports a denial as forbidden",
+      "reports an unclassified account check error as unavailable and a definite denial as forbidden",
+      "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+      "serves a private file result as a safe attachment over real HTTP",
+      "never renders hostile names or active media types inline",
+      "answers one 403 for unknown, foreign, incomplete and expired artifacts and requires the feature and a principal",
+      "denies the download of a disabled addon and serves it again after enable",
+      "relays the same bytes, headers and denials through two forwarding frontends",
+      "keeps a file result of a read denied whole without an artifact store",
+      "serves the local owner's file only in local-owner mode",
+      "documents the artifact routes and the artifact schema in the Swagger spec",
+      "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
+      "serves the synthetic owner through the real chain, denies sharing and rejects named callers"
+    ],
+    "report": ".cache/addons/logs/apps.json",
+    "reports": [
+      {
+        "path": ".cache/addons/logs/apps.json",
+        "cases": [
+          "lists installed enabled addons for users and adds installed disabled ones only for administrators",
+          "derives display fields, the main page and the icon URL from the verified manifest only",
+          "bounds the tool summary and coerces unknown process states to failed",
+          "shows controls and the management link only to administrators and never leaks owner details"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/apps-lifecycle.json",
+        "cases": [
+          "denies enable and disable for a stale generation without recording anything",
+          "lists apps by visibility and serves an icon only for a visible app at its generation",
+          "cancels status lookup while a lifecycle writer holds the journal lock",
+          "retries runtime synchronization after canceled disable and generation upgrade",
+          "rejects symlinked package roots without touching external staging",
+          "recovers every durable journal boundary without replaying publication",
+          "removes abandoned staging without removing published packages on recovery",
+          "keeps immutable history on successful upgrade and reinstallation",
+          "excludes competing owners and rejects conflicting durable identities",
+          "never opens replica roots or elects an absent owner",
+          "binds duplicate operation IDs to actor and command and serializes conflicts",
+          "retains generations identity data and grants across uninstall and restart",
+          "preserves old packages and active generation on manager upgrade failure",
+          "requires current authoritative administration even for idempotent retries",
+          "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
+          "binds lifecycle lookup to current admin and original actor without writes or repair",
+          "reports the supervisor state of an app through a crash and a restart"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/apps-runtime.json",
+        "cases": [
+          "registers only ready generation bound service headless and UI capabilities",
+          "rejects forged registration nonloopback and stale incarnation handshakes",
+          "bounds readiness and handles exit during start and stop",
+          "withdraws immediately drains boundedly and rejects stale process identities",
+          "exhausts restart budget without retaining dead registrations",
+          "does not inherit secrets and exits when the private parent channel closes",
+          "fails closed on ambiguous launch identities and preserves unrelated reused PIDs",
+          "retains a canceled restart slot until cleanup completes and rejects duplicate supervisors",
+          "rejects nonloopback endpoints and bounds oversized streams and concurrency",
+          "reports stopped, running, failed, starting and running again across a crash and a restart",
+          "keeps reporting failed once the restart budget is exhausted",
+          "rejects foreign supervisor handles and numeric PID substitutions",
+          "resets restart budget only after sustained authenticated health",
+          "kills the exact paused child of a killed owner before launching its replacement",
+          "reserves a draining slot against concurrent starts",
+          "waits for a restart launch worker before acknowledging stop",
+          "exposes a new incarnation client after restart without reviving the old client",
+          "refuses a missing established ledger and fences failed cleanup publication",
+          "authenticates every request and separates trusted authority from model arguments",
+          "bounds output streams cancellation deadlines and stop admission",
+          "withdraws and initiates every live slot before a cleanup timeout"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/apps-http.json",
+        "cases": [
+          "rejects anonymous and forged forwarding authority through real authentication",
+          "lets callers through only when the deployment selected local-owner mode",
+          "keeps authentication, the feature gate and administration when accounts exist",
+          "lists the enabled installed apps for a reader and the disabled ones too for administrators, the same from every frontend",
+          "lets only administrators start and stop, through the lifecycle manager, and denies a stale generation",
+          "serves the verified icon through the host route and denies it identically otherwise",
+          "reports a lost start as an unknown outcome with its original operation and a lost list as unavailable",
+          "documents the apps routes and every field of the app view in the Swagger spec",
+          "rejects anonymous callers and forged forwarding headers",
+          "gates the feature and then administration for named keys",
+          "requires same-origin browser requests for cookie mutations",
+          "registers only the dispatch, relay and proposal mutations",
+          "gates the artifact routes by authentication and feature",
+          "lists every registered addon route in the feature registry",
+          "gates the apps routes by authentication, feature and administration",
+          "gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked",
+          "checks browser CSRF feature and admin access with real stored keys",
+          "stores a proposal from an API key and lets only the proposer's browser session confirm it",
+          "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
+          "denies sharing and deletion proposals and an unauthenticated caller",
+          "serves the local owner's confirmation only from a same-origin fetch of the host page",
+          "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
+          "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+          "lets the owner role list an editor's unresolved proposal and abandon it by the listed digest from every frontend",
+          "tells an editor of a blocked write only that it is denied",
+          "returns the applied proposal when the confirmed operation committed",
+          "answers an owner outage by the owner's state with the same type from every frontend",
+          "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
+          "documents the proposal routes and the proposal schema in the Swagger spec",
+          "reports an unknown mutation outcome from a forwarding frontend with the original operation",
+          "documents every field the error responses emit in the Swagger schema",
+          "reports an unavailable read as plain unavailability",
+          "reports a denial as forbidden",
+          "reports an unclassified account check error as unavailable and a definite denial as forbidden",
+          "reports an unknown mutation outcome from the owner's own frontend with the original operation",
+          "serves a private file result as a safe attachment over real HTTP",
+          "never renders hostile names or active media types inline",
+          "answers one 403 for unknown, foreign, incomplete and expired artifacts and requires the feature and a principal",
+          "denies the download of a disabled addon and serves it again after enable",
+          "relays the same bytes, headers and denials through two forwarding frontends",
+          "keeps a file result of a read denied whole without an artifact store",
+          "serves the local owner's file only in local-owner mode",
+          "documents the artifact routes and the artifact schema in the Swagger spec",
+          "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys",
+          "serves the synthetic owner through the real chain, denies sharing and rejects named callers"
         ]
       }
     ]

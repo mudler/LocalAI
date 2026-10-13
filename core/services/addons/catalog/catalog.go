@@ -23,6 +23,26 @@ type VerificationPolicy struct {
 	Issuer           string `json:"issuer,omitempty"`
 	Identity         string `json:"identity,omitempty"`
 }
+
+// EntryUI is optional display metadata a catalog may offer for an entry. It is
+// a hint for browsing before install, never authority: the manifest inside the
+// verified package decides what an installed addon shows and can open. Every
+// field is plain text or a path inside the package, never a URL, so no entry
+// can make the host fetch an image from the catalog's own servers.
+type EntryUI struct {
+	// Title and Description are the default-language text. Localized text is
+	// part of the package manifest and reaches users from the installed addon.
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	// MainPage is the route the addon opens as an app, if it has one.
+	MainPage string `json:"mainPage,omitempty"`
+	// Icon is a path inside the package. The host serves an icon only after
+	// the package is installed and verified.
+	Icon string `json:"icon,omitempty"`
+	// LaunchMode is absent or "always".
+	LaunchMode string `json:"launchMode,omitempty"`
+}
+
 type Release struct {
 	Channel           string `json:"channel,omitempty"`
 	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
@@ -39,6 +59,9 @@ type Release struct {
 	OS          string             `json:"os"`
 	Arch        string             `json:"arch"`
 	Policy      VerificationPolicy `json:"policy"`
+	// UI is the optional display metadata of the entry. It is comparable on
+	// purpose: a release is compared with its trusted resolution at staging.
+	UI EntryUI `json:"ui,omitzero"`
 }
 type Query struct {
 	Text, SourceID string

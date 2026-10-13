@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -222,5 +223,70 @@ var _ = Describe("package references", func() {
 			Expect(got.Version).To(Equal("1.0.0"))
 			Expect(got.Digest).To(Equal(r.Digest))
 		}
+	})
+})
+
+var _ = Describe("catalog display metadata", func() {
+	entries := func(mutate func(*Release)) []Release {
+		plain := release()
+		app := release()
+		app.AddonID, app.Name = "notes", "Notes"
+		app.UI = EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}
+		if mutate != nil {
+			mutate(&app)
+		}
+		return []Release{plain, app}
+	}
+	refresh := func(releases []Release) (Catalog, error) {
+		server := library(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(releases) })
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}, e
+	}
+	It("surfaces optional UI metadata in search results and resolutions without changing plain entries", func() {
+		c, e := refresh(entries(nil))
+		Expect(e).NotTo(HaveOccurred())
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(2))
+		byID := map[string]Release{}
+		for _, r := range page.Releases {
+			byID[r.AddonID] = r
+		}
+		Expect(byID["tables"].UI).To(Equal(EntryUI{}))
+		Expect(byID["notes"].UI).To(Equal(EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}))
+		r, e := c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r.UI).To(Equal(byID["notes"].UI))
+		// A plain entry keeps its wire form: no empty ui object appears.
+		b, e := json.Marshal(byID["tables"])
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring(`"ui"`))
+	})
+	It("rejects entries with remote icons, reserved launch modes, markup or overlong display text", func() {
+		for name, mutate := range map[string]func(*Release){
+			"https icon":     func(r *Release) { r.UI.Icon = "https://cdn.example/i.png" },
+			"scheme-less":    func(r *Release) { r.UI.Icon = "//cdn.example/i.png" },
+			"data icon":      func(r *Release) { r.UI.Icon = "data:image/png;base64,AAAA" },
+			"absolute icon":  func(r *Release) { r.UI.Icon = "/etc/passwd.png" },
+			"traversal icon": func(r *Release) { r.UI.Icon = "../i.png" },
+			"svg icon":       func(r *Release) { r.UI.Icon = "ui/icon.svg" },
+			"on-demand":      func(r *Release) { r.UI.LaunchMode = "on-demand" },
+			"unknown mode":   func(r *Release) { r.UI.LaunchMode = "sometimes" },
+			"markup title":   func(r *Release) { r.UI.Title = "<img src=x onerror=alert(1)>" },
+			"long title":     func(r *Release) { r.UI.Title = strings.Repeat("t", 81) },
+			"long text":      func(r *Release) { r.UI.Description = strings.Repeat("d", 281) },
+			"control text":   func(r *Release) { r.UI.Description = "a\nb" },
+			"bad main page":  func(r *Release) { r.UI.MainPage = "../home" },
+		} {
+			_, e := refresh(entries(mutate))
+			Expect(e).To(MatchError(ErrRefresh), name)
+		}
+		// One bad entry never leaves the others served as if it were fine.
+		c, e := refresh(entries(func(r *Release) { r.UI.Icon = "https://cdn.example/i.png" }))
+		Expect(e).To(HaveOccurred())
+		_, e = c.Search(ctx, Query{})
+		Expect(e).To(HaveOccurred())
 	})
 })

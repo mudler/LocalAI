@@ -246,6 +246,9 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 		if r.Channel != "" && (!channelPattern.MatchString(r.Channel) || versionPattern.MatchString(r.Channel)) {
 			return nil, ErrRefresh
 		}
+		if !validEntryUI(r.UI) {
+			return nil, ErrRefresh
+		}
 		r.Selection = ""
 		r.SourceID = src.ID
 		r.SourceURL = src.URL
@@ -258,6 +261,17 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 		seen[key] = true
 	}
 	return releases, nil
+}
+
+// validEntryUI applies to catalog display hints the same rules the manifest
+// applies to the real values, so a hint can never promise what install would
+// refuse.
+func validEntryUI(u EntryUI) bool {
+	return (u.Title == "" || contract.ValidPlainText(u.Title, contract.MaxTitleChars)) &&
+		(u.Description == "" || contract.ValidPlainText(u.Description, contract.MaxDescriptionChars)) &&
+		(u.MainPage == "" || contract.ValidName(u.MainPage)) &&
+		(u.Icon == "" || contract.ValidIconPath(u.Icon)) &&
+		(u.LaunchMode == "" || u.LaunchMode == contract.LaunchModeAlways)
 }
 
 var channelPattern = regexp.MustCompile(`^[a-z][a-z0-9/_-]{0,127}$`)

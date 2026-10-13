@@ -2,6 +2,7 @@
 package contract
 
 import (
+	"bytes"
 	"encoding/json"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,6 +92,150 @@ var _ = Describe("Manifest", func() {
 		for _, u := range []*UI{{}, {Entry: "../x", SDK: VersionRange{1, 1}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, CSS: []string{"/x"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, Navigation: []string{"missing"}}, {Entry: "ui/main.js", SDK: VersionRange{1, 1}, ChatActions: []string{"open", "open"}}} {
 			m.Capabilities.UI = u
 			Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		}
+	})
+	It("accepts the apps surface fields and keeps headless manifests valid", func() {
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/app.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.LaunchMode).To(Equal("always"))
+		u := m.Capabilities.UI
+		Expect(u.MainPage).To(Equal("home"))
+		Expect(u.Icon).To(Equal("ui/icon.png"))
+		Expect(u.Title.ByLanguage).To(Equal(map[string]string{"en": "Sample", "it": "Esempio"}))
+		Expect(u.Description.Text).To(Equal("A sample addon."))
+		// The canonical wire form is stable: decoding and encoding it again
+		// gives the same bytes.
+		out, e := json.Marshal(m)
+		Expect(e).NotTo(HaveOccurred())
+		var compact bytes.Buffer
+		Expect(json.Compact(&compact, b)).To(Succeed())
+		Expect(string(out)).To(Equal(compact.String()))
+		// Every field is optional: a headless manifest and a UI without a
+		// main page stay valid, and an explicit launch mode is not required.
+		for _, name := range []string{"headless", "service", "page", "chat"} {
+			b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/" + name + ".json")
+			Expect(e).NotTo(HaveOccurred())
+			m, e := ParseManifest(b)
+			Expect(e).NotTo(HaveOccurred(), name)
+			Expect(m.LaunchMode).To(BeEmpty())
+			if m.Capabilities.UI != nil {
+				Expect(m.Capabilities.UI.MainPage).To(BeEmpty())
+			}
+		}
+		headless, e := ParseManifest(fixture())
+		Expect(e).NotTo(HaveOccurred())
+		headless.LaunchMode = "always"
+		Expect(ValidateManifest(headless, compatible())).To(Succeed())
+	})
+	It("rejects unknown and reserved launch modes", func() {
+		for _, mode := range []string{"on-demand", "ON-DEMAND", "Always", "never", "manual", " always", "always ", "lazy"} {
+			m, _ := ParseManifest(fixture())
+			m.LaunchMode = mode
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), mode)
+			b, _ := json.Marshal(m)
+			_, e := ParseManifest(b)
+			Expect(e).To(HaveOccurred(), mode)
+		}
+	})
+	It("rejects remote data absolute and traversing icon paths", func() {
+		app := func() Manifest {
+			b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/app.json")
+			Expect(e).NotTo(HaveOccurred())
+			m, e := ParseManifest(b)
+			Expect(e).NotTo(HaveOccurred())
+			return m
+		}
+		for _, icon := range []string{"http://example.test/i.png", "https://example.test/i.png", "//example.test/i.png", "data:image/png;base64,AAAA", "/etc/icon.png", "../icon.png", "ui/../../icon.png", "ui//icon.png", "./ui/icon.png", `ui\icon.png`, "C:/icon.png", "ui/icon.png?x=1", "ui/icon.png#x", "ui/icon", "ui/icon.svg", "ui/icon.html", "ui/icon.js", "ui/", ".", "..", strings.Repeat("a/", 200) + "icon.png"} {
+			m := app()
+			m.Capabilities.UI.Icon = icon
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), icon)
+		}
+		// An icon cannot also be the module or a stylesheet.
+		for _, icon := range []string{"ui/main.js", "ui/main.css"} {
+			m := app()
+			m.Capabilities.UI.Icon = icon
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), icon)
+		}
+		for _, icon := range []string{"ui/icon.png", "assets/icon.webp", "icon.jpg", "ui/icon.jpeg"} {
+			m := app()
+			m.Capabilities.UI.Icon = icon
+			Expect(ValidateManifest(m, compatible())).To(Succeed(), icon)
+		}
+	})
+	It("requires the main page to be one of the declared pages", func() {
+		app := func() Manifest {
+			b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/app.json")
+			Expect(e).NotTo(HaveOccurred())
+			m, e := ParseManifest(b)
+			Expect(e).NotTo(HaveOccurred())
+			return m
+		}
+		for _, page := range []string{"missing", "Home", "../home", "/home", "home/", "home x"} {
+			m := app()
+			m.Capabilities.UI.MainPage = page
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), page)
+		}
+		// A main page without any declared page is not a route either.
+		m := app()
+		m.Capabilities.UI.Pages = nil
+		m.Capabilities.UI.Navigation = nil
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		m.Capabilities.UI.MainPage = ""
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		// A main page need not be in the navigation.
+		m = app()
+		m.Capabilities.UI.MainPage = "settings"
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+	})
+	It("bounds localized titles and descriptions and rejects markup", func() {
+		app := func() Manifest {
+			b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/app.json")
+			Expect(e).NotTo(HaveOccurred())
+			m, e := ParseManifest(b)
+			Expect(e).NotTo(HaveOccurred())
+			return m
+		}
+		many := map[string]string{}
+		for i := 0; i < 40; i++ {
+			many[string(rune('a'+i%26))+string(rune('a'+i/26))+"-US"] = "x"
+		}
+		bad := []*Localized{
+			{Text: ""}, {Text: strings.Repeat("a", 281)}, {Text: "<b>Sample</b>"}, {Text: "a > b"}, {Text: "line\nbreak"}, {Text: "bell\a"}, {Text: "bidi \u202e override"}, {Text: "\xff\xfe"},
+			{ByLanguage: map[string]string{}}, {ByLanguage: many}, {ByLanguage: map[string]string{"en": ""}}, {ByLanguage: map[string]string{"en": strings.Repeat("a", 281)}},
+			{ByLanguage: map[string]string{"": "x"}}, {ByLanguage: map[string]string{"not a tag": "x"}}, {ByLanguage: map[string]string{"en_US": "x"}}, {ByLanguage: map[string]string{"en": "x", "EN": "y"}}, {ByLanguage: map[string]string{"en": "<i>x</i>"}}, {ByLanguage: map[string]string{strings.Repeat("a", 40): "x"}},
+		}
+		for i, l := range bad {
+			m := app()
+			m.Capabilities.UI.Title = l
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "title %d", i)
+			m = app()
+			m.Capabilities.UI.Description = l
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "description %d", i)
+		}
+		m := app()
+		m.Capabilities.UI.Title = &Localized{Text: strings.Repeat("a", 81)}
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "title is limited to 80 characters")
+		m.Capabilities.UI.Title = &Localized{ByLanguage: map[string]string{"en": strings.Repeat("a", 81)}}
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		m = app()
+		m.Capabilities.UI.Description = &Localized{Text: strings.Repeat("a", 280)}
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		m.Capabilities.UI.Description = &Localized{Text: strings.Repeat("a", 281)}
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		m.Capabilities.UI.Title = &Localized{Text: strings.Repeat("\u00e8", 80)}
+		m.Capabilities.UI.Description = nil
+		Expect(ValidateManifest(m, compatible())).To(Succeed(), "bounds count characters")
+		// Wire shapes: a string and a map decode, anything else is rejected.
+		for _, w := range []string{`"title":7`, `"title":["a"]`, `"title":null,"x":1`, `"title":{"en":7}`, `"title":{"en":"a","en":"b"}`} {
+			b, _ := os.ReadFile("../../../tests/addons/fixtures/contracts/app.json")
+			c := strings.Replace(string(b), `"title": {
+        "en": "Sample",
+        "it": "Esempio"
+      }`, w, 1)
+			_, e := ParseManifest([]byte(c))
+			Expect(e).To(HaveOccurred(), w)
 		}
 	})
 })

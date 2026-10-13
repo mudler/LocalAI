@@ -40,6 +40,17 @@ host-controlled overflow-menu entries opening addon panels, not DOM hooks or
 permission to read chat history. Platform tuple equality is compatibility only,
 not evidence that any release platform has passed native runtime tests.
 
+Four optional fields describe how an addon appears as an app (see [Apps](#apps)).
+Every one is optional, so earlier manifests stay valid and a headless manifest
+needs none of them.
+
+| Field | Meaning and bounds |
+|---|---|
+| `launchMode` (top level) | Absent or `always`: the owner runs the addon while it is enabled. `on-demand` is reserved and, like any other value, is rejected at install. |
+| `ui.mainPage` | The page the Open action navigates to. It must be one of `ui.pages`. Without it the addon has no Open action. `ui.entry` keeps its meaning: the packaged ES module. |
+| `ui.icon` | A packaged image: `.png`, `.webp`, `.jpg` or `.jpeg`, a normalized package-relative path of at most 256 bytes, at most 256 KiB. A remote URL, a `data:` URL, an absolute path and a traversal are rejected. It cannot also be the module or a stylesheet. |
+| `ui.title`, `ui.description` | Plain text: one string, or a map of BCP 47 language tag to string (at most 16 tags). At most 80 and 280 characters. Markup characters (`<`, `>`), control characters and direction overrides are rejected. |
+
 ## Runtime wire version 1
 
 JSON field names and ordering follow the exported DTO declarations and
@@ -180,6 +191,13 @@ come from protected source configuration, not from the remote release.
 The policy describes requirements for later package verification; refresh does
 not claim to verify executable signatures.
 
+A release may carry an optional `ui` object of display hints: `title`, `description`
+(default-language plain text), `mainPage`, `icon` (a path inside the package, never a
+URL) and `launchMode`. They follow the manifest rules for bounds, markup and
+launch mode, and a catalog that breaks them fails refresh as a whole. They only
+help browsing before install: the manifest inside the verified package is what an
+installed addon shows, and the host serves an icon only after install.
+
 Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
 within a source fail. Duplicate names across sources remain distinct. Search
 matches names, IDs and descriptions, sorts by source/release identity and uses
@@ -229,6 +247,13 @@ Sigstore verifier when the configured source requires signatures. The original
 reference and selected channel are retained alongside the actual digest. OCI
 credentials remain in the registry credential store; catalog HTTP credentials
 are never passed to a registry or package URL. Registry redirects are refused.
+
+When the manifest declares `ui.icon`, staging opens it inside the package without
+following links and requires a regular file of 1 byte to 256 KiB whose first bytes
+are the signature of the declared type (PNG, WebP or JPEG). A missing, empty,
+oversize, linked or mistyped icon fails staging. The receipt records the icon's path,
+SHA-256 digest, size and media type; the host serves the icon only if the bytes still
+match that digest.
 
 HTTPS package URLs distribute uncompressed tar archives with a required catalog
 SHA256. HTTP is rejected unless an administrator explicitly sets the source's
@@ -513,6 +538,9 @@ owner election, or failover. An absent owner returns unavailable.
 - `GET /api/addons/artifacts/{id}` and `GET /api/addons/artifacts/{id}/download` read
   the state of, and download, a private file result of the caller. See
   [Private file results](#private-file-results).
+- `GET /api/addons/apps`, `GET /api/addons/apps/{id}/icon?generation=N`,
+  `POST /api/addons/apps/{id}/start` and `.../stop` list and control the addons as
+  apps. See [Apps](#apps).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
 unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
@@ -970,3 +998,76 @@ artifact and uses no more quota.
   writes nothing afterwards.
 
 Run `sh scripts/addons/verify.sh artifacts` for the artifact suites.
+
+## Apps
+
+Enabled addons behave like apps: a list of what is available, with an icon, a title,
+a state and, when the addon has a page to open, an Open action.
+
+### Who sees what
+
+`GET /api/addons/apps` needs named authentication and the `addons` feature. The
+owner builds the answer from its own journal, so every frontend gives the same
+answer:
+
+- A caller sees every addon that is installed **and** desired-enabled. Version one has
+  no per-addon access list; the data an addon holds stays under its own per-resource
+  ACLs, which every call checks again. The apps a caller sees are the addons the same
+  caller could call. Hiding an entry is never the control.
+- An administrator also sees installed addons that are disabled (state `stopped`,
+  `enabled: false`), so that a stopped addon can be started. The owner decides who is
+  an administrator from its own current account check, never from the request. If that
+  check cannot answer, the caller gets the reader's view.
+- A headless addon is listed with its state and tools and has no `mainPage`, `icon`
+  or `title` beyond its identifier.
+
+Each entry has `id`, `name` (the same as `id`), `title`, `description` (the
+default-language text; `titles` and `descriptions` carry every language when the
+manifest localizes them), `icon`, `version`, `generation`, `enabled`, `state`,
+`mainPage`, `hasUI`, `launchMode`, `tools` (at most 32 names; the manifest has no tool
+descriptions) and `toolCount`. Administrators also get `admin` with `canStart`,
+`canStop` and `managementUrl`. Nothing of the package location, its source or the
+addon's own endpoint is returned.
+
+`state` is an observation of the process, separate from `enabled`:
+
+| State | Meaning |
+|---|---|
+| `running` | The process is alive and admitting calls. |
+| `starting` | A launch is between exec and readiness, at first start or restart. |
+| `failed` | The process is not serving and no launch is under way. The supervisor restarts it after its backoff while its budget lasts, so `failed` can be followed by `starting`; when the budget is spent it stays `failed` until an administrator stops and starts the addon. |
+| `stopped` | The addon is disabled, or no process of this generation is held. |
+
+`update-pending` is not reported in this release: the owner has no authoritative update
+check yet, and a label is never turned into one.
+
+`mainPage` is `/app/addons/{id}/{page}` and is present only for an enabled addon whose
+manifest declares a `ui.mainPage` that is one of its pages. `icon` is
+`/api/addons/apps/{id}/icon?generation=N`. The route is served by the host from the
+verified package, relayed from the owner, with `X-Content-Type-Options: nosniff` and
+`Cache-Control: private, no-store`. It is never an addon process port and never a URL
+the manifest names. A stale generation, an unknown or hidden app and an app without a
+verified icon give the same 403.
+
+### Start and stop
+
+`POST /api/addons/apps/{id}/start` and `.../stop` take
+`{"operationId": "...", "generation": N}`. They are thin routes over the typed `enable`
+and `disable` lifecycle actions: the same administrator check, the same owner
+forwarding, the same operation identity and the same outcome-unknown rule. Stop drains
+the process and keeps data.
+
+- Only administrators can start or stop. Everyone else gets 403 whatever the body says,
+  before the body is read.
+- `generation` is the generation the caller saw in the list. If the installed
+  generation differs, the request is denied (403) before any operation is recorded.
+- A repeated `operationId` replays; it never runs twice. After an `outcome_unknown`
+  response, keep the `operationId` and poll `operation-status` with it.
+- Health stays a separate observation: a successful start records intent and starts the
+  process; the list's `state` says whether it is running.
+
+The typed `enable` and `disable` actions of `POST /api/addons/dispatch` accept the same
+generation precondition through the request's `generation` field when it is not zero.
+
+No MCP tool maps to the Apps routes in this release. The admin mutation tools for addons
+are a later task and will have their own review.

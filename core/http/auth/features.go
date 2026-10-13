@@ -26,6 +26,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/addons/resources/:resourceId/proposals", FeatureAddons},
 	{"GET", "/api/addons/artifacts/:id", FeatureAddons},
 	{"GET", "/api/addons/artifacts/:id/download", FeatureAddons},
+	{"GET", "/api/addons/apps", FeatureAddons},
+	{"GET", "/api/addons/apps/:id/icon", FeatureAddons},
+	{"POST", "/api/addons/apps/:id/start", FeatureAddons},
+	{"POST", "/api/addons/apps/:id/stop", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},

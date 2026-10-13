@@ -277,6 +277,68 @@ var _ = Describe("Restart safety regressions", func() {
 	})
 })
 
+var _ = Describe("Process state observation", func() {
+	// slowBackoff leaves a window between a crash and the next launch in which
+	// the failed state can be observed without racing the restart.
+	slowBackoff := func() *Supervisor {
+		l := contract.DefaultLimits()
+		l.ReadTimeout = 300 * time.Millisecond
+		l.ShutdownTimeout = 100 * time.Millisecond
+		l.BackoffInitial = 1500 * time.Millisecond
+		l.BackoffMax = 2 * time.Second
+		l.BackoffAttempts = 3
+		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 300 * time.Millisecond, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
+		return s
+	}
+	It("reports stopped, running, failed, starting and running again across a crash and a restart", func() {
+		s := slowBackoff()
+		Expect(s.State("sample", 1)).To(Equal(StateStopped), "nothing was started")
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.State("sample", 1)).To(Equal(StateRunning))
+		Expect(s.State("sample", 2)).To(Equal(StateStopped), "another generation is not this process")
+		Expect(s.State("other", 1)).To(Equal(StateStopped))
+
+		// Hold the restart after exec and before readiness: the process is
+		// starting, not failed and not running.
+		started := make(chan *process, 1)
+		release := make(chan struct{})
+		var once sync.Once
+		DeferCleanup(func() { once.Do(func() { close(release) }) })
+		s.mu.Lock()
+		s.launchStarted = func(p *process) { started <- p; <-release }
+		s.mu.Unlock()
+		Expect(i.process.cmd.Process.Kill()).To(Succeed())
+		Eventually(func() string { return s.State("sample", 1) }, time.Second).Should(Equal(StateFailed), "the child died and no launch is under way")
+		Consistently(func() string { return s.State("sample", 1) }, 100*time.Millisecond).Should(Equal(StateFailed))
+		Eventually(started, 3*time.Second).Should(Receive())
+		Expect(s.State("sample", 1)).To(Equal(StateStarting))
+		once.Do(func() { close(release) })
+		Eventually(func() string { return s.State("sample", 1) }, 3*time.Second).Should(Equal(StateRunning))
+		r, e := s.Registry.Snapshot(context.Background())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r).To(HaveLen(1), "the observation agrees with the registry")
+
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(s.State("sample", 1)).To(Equal(StateStopped))
+	})
+	It("keeps reporting failed once the restart budget is exhausted", func() {
+		s := supervisor()
+		_, e := s.Start(context.Background(), fixture("crash", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		s.mu.Lock()
+		slot := s.slots["sample"]
+		s.mu.Unlock()
+		// The monitor returns only when the budget is spent.
+		Eventually(slot.workerDone, 5*time.Second).Should(BeClosed())
+		Expect(s.Attempts("sample")).To(Equal(2))
+		Expect(s.State("sample", 1)).To(Equal(StateFailed))
+		Consistently(func() string { return s.State("sample", 1) }, 300*time.Millisecond).Should(Equal(StateFailed))
+	})
+})
+
 var _ = Describe("Durable orphan recovery", func() {
 	It("kills the exact paused child of a killed owner before launching its replacement", func() {
 		root := GinkgoT().TempDir()

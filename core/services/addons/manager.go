@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -28,6 +29,9 @@ var (
 	ErrConflict         = errors.New("conflicting addon lifecycle command")
 	ErrOperationFailed  = errors.New("addon operation failed; use a new operation ID for an explicit retry")
 	ErrRecoveryRequired = errors.New("addon journal requires reconciliation")
+	// ErrStaleGeneration is a denial: the caller acted on a generation that is
+	// no longer the installed one. Nothing was recorded.
+	ErrStaleGeneration = errors.New("addon generation changed")
 )
 
 // These hooks are contracts for the runtime/migration tasks. This manager does
@@ -186,6 +190,12 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	case "upgrade", "enable", "disable", "uninstall":
 		if !next.Installed {
 			return OperationStatus{}, ErrConflict
+		}
+		// A caller that names the generation it saw must not change a newer
+		// one. This precedes the intent record, so a stale request leaves
+		// nothing behind and cannot block the addon.
+		if (cmd.Action == "enable" || cmd.Action == "disable") && cmd.Generation != 0 && cmd.Generation != next.Generation {
+			return OperationStatus{}, ErrStaleGeneration
 		}
 	default:
 		return OperationStatus{}, ErrConflict
@@ -528,3 +538,72 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 }
 
 var ErrOperationNotFound = errors.New("addon lifecycle operation not found")
+
+// Apps returns the apps the actor may see. The owner decides who is an
+// administrator from its own check, never from the request; a check that
+// cannot answer yields the reader's view, which has fewer rights.
+//
+// Visibility in version one: an addon that is installed and desired-enabled is
+// visible to every authenticated caller who holds the addons feature, which
+// the gateway checks first. No per-addon ACL exists; data access stays under
+// per-resource ACLs on every call. An administrator also sees installed addons
+// that are disabled, so a stopped addon can be started.
+func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return nil, ErrRecoveryRequired
+	}
+	isAdmin := m.admin != nil && m.admin(ctx, actor) == nil
+	snaps := make([]apps.Snapshot, 0, len(m.journal.Addons))
+	for id, st := range m.journal.Addons {
+		receipt, ok := currentReceipt(st)
+		if !ok {
+			continue
+		}
+		snap := apps.Snapshot{AddonID: id, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
+		if st.DesiredEnabled && m.runtime != nil {
+			snap.State = m.runtime.State(id, st.Generation)
+		}
+		snaps = append(snaps, snap)
+	}
+	return apps.Build(snaps, isAdmin), nil
+}
+
+func currentReceipt(st Status) (packages.PackageReceipt, bool) {
+	for _, g := range st.Generations {
+		if g.Number == st.Generation {
+			return g.Receipt, true
+		}
+	}
+	return packages.PackageReceipt{}, false
+}
+
+// AppIcon returns the receipt of an app the actor may see when the generation
+// is the installed one and the package has a verified icon. Every other case
+// is the same denial, so the answer reveals nothing about hidden addons.
+func (m *Manager) AppIcon(ctx context.Context, actor contract.Actor, id string, generation uint64) (packages.PackageReceipt, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return packages.PackageReceipt{}, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return packages.PackageReceipt{}, ErrRecoveryRequired
+	}
+	st, ok := m.journal.Addons[id]
+	if !ok || !addonID.MatchString(id) || !st.Installed || generation == 0 || generation != st.Generation {
+		return packages.PackageReceipt{}, ErrForbidden
+	}
+	if !st.DesiredEnabled && (m.admin == nil || m.admin(ctx, actor) != nil) {
+		return packages.PackageReceipt{}, ErrForbidden
+	}
+	receipt, ok := currentReceipt(st)
+	if !ok || receipt.Icon == nil || receipt.Manifest.Capabilities.UI == nil || receipt.Manifest.Capabilities.UI.Icon != receipt.Icon.Path {
+		return packages.PackageReceipt{}, ErrForbidden
+	}
+	return receipt, nil
+}

@@ -11,6 +11,15 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
+// PackageIcon records the verified icon of a package. The digest is of the
+// packaged bytes, so a host that serves the icon can pin what it serves.
+type PackageIcon struct {
+	Path      string `json:"path"`
+	Digest    string `json:"digest"`
+	Size      int64  `json:"size"`
+	MediaType string `json:"mediaType"`
+}
+
 type PackageReceipt struct {
 	Digest       string            `json:"digest"`
 	SourceID     string            `json:"sourceId"`
@@ -21,6 +30,9 @@ type PackageReceipt struct {
 	Verification string            `json:"verification"`
 	Manifest     contract.Manifest `json:"manifest"`
 	Directory    string            `json:"directory"`
+	// Icon is set only when the manifest declares one and the package holds a
+	// valid immutable file of the declared type.
+	Icon *PackageIcon `json:"icon,omitempty"`
 }
 
 // StagedPackage is an opaque, single-use capability bound to the creating installer.

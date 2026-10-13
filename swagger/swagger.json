@@ -117,6 +117,246 @@
                 }
             }
         },
+        "/api/addons/apps": {
+            "get": {
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. Update-pending is not reported in this release.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "List the addon apps the caller may use",
+                "responses": {
+                    "200": {
+                        "description": "Apps visible to the caller",
+                        "schema": {
+                            "$ref": "#/definitions/apps.List"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or owner policy denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/apps/{id}/icon": {
+            "get": {
+                "description": "Streams the immutable icon image of the app at the generation named in the query. The image comes from the verified package on the owner, relayed through the receiving frontend; it is never served from an addon process and never from a URL the manifest names. It is served only for an app the caller may see at the generation that was listed. An unknown app, a hidden app, an app without a verified icon and a stale generation give the same 403. The response is an image with X-Content-Type-Options nosniff and Cache-Control private, no-store.",
+                "produces": [
+                    "image/png",
+                    "image/webp",
+                    "image/jpeg"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read the icon of an addon app",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Addon ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Installed generation from the apps list",
+                        "name": "generation",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Icon bytes",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "private, no-store"
+                            },
+                            "X-Content-Type-Options": {
+                                "type": "string",
+                                "description": "nosniff"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or malformed generation",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the app is unknown, hidden, has no icon or the generation is stale",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/apps/{id}/start": {
+            "post": {
+                "description": "Administrators only. Records the desired state enabled through the same lifecycle manager and owner as the typed enable action; the owner starts the process and health stays a separate observation. The body carries the generation the caller saw in the apps list: a different installed generation is denied before anything is recorded. The operationId is the identity of the change: repeat it to replay safely, and after an outcome_unknown response poll operation-status with it instead of submitting a new operation. Non-administrators are denied (403) whatever the body says.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Start an addon app",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Addon ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation and the generation the caller saw",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/apps.StartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation accepted; the payload is the operation status",
+                        "schema": {
+                            "$ref": "#/definitions/contract.Result"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body, missing operationId or generation",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or generation denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/apps/{id}/stop": {
+            "post": {
+                "description": "Administrators only. Records the desired state disabled through the same lifecycle manager and owner as the typed disable action; the owner drains and stops the process and keeps all data. The body carries the generation the caller saw in the apps list: a different installed generation is denied before anything is recorded. The operationId is the identity of the change: repeat it to replay safely, and after an outcome_unknown response poll operation-status with it instead of submitting a new operation. Non-administrators are denied (403) whatever the body says.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Stop an addon app",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Addon ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation and the generation the caller saw",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/apps.StartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation accepted; the payload is the operation status",
+                        "schema": {
+                            "$ref": "#/definitions/contract.Result"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body, missing operationId or generation",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or generation denied the request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/artifacts/{id}": {
             "get": {
                 "description": "Returns the caller's own artifact: its state (transferring, complete, failed or cancelled), the sanitized file name, the media type, the exact size and the expiry. Only the principal that requested the result can read it; an unknown identifier and another user's artifact give the same 403, so identifiers cannot be probed. The response never carries a storage path or an addon handle. This is the status lookup of the background transfer; it is read-only.",
@@ -5337,6 +5577,143 @@
                 "reason": {
                     "description": "Reason is why the owner stops waiting. Required, at most 512 characters.",
                     "type": "string"
+                }
+            }
+        },
+        "apps.AdminView": {
+            "type": "object",
+            "properties": {
+                "canStart": {
+                    "type": "boolean"
+                },
+                "canStop": {
+                    "type": "boolean"
+                },
+                "managementUrl": {
+                    "description": "ManagementURL opens the management view of the addon.",
+                    "type": "string",
+                    "example": "/app/addons?manage=notes"
+                }
+            }
+        },
+        "apps.App": {
+            "type": "object",
+            "properties": {
+                "admin": {
+                    "description": "Admin is present only for administrators.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.AdminView"
+                        }
+                    ]
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Keep notes."
+                },
+                "descriptions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "description": "Enabled is the durable desired state. Health is State, a separate\nobservation: an enabled app can be failed.",
+                    "type": "boolean"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation. A Start or Stop request must\ncarry the value that was listed; a stale value is denied.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "hasUI": {
+                    "description": "HasUI is true when the addon contributes any UI.",
+                    "type": "boolean"
+                },
+                "icon": {
+                    "description": "Icon is a same-origin URL of the verified immutable icon of this\ngeneration. It is absent when the manifest declares none.",
+                    "type": "string",
+                    "example": "/api/addons/apps/notes/icon?generation=3"
+                },
+                "id": {
+                    "description": "ID is the addon identifier and Name its stable machine name. They are\nthe same in version one: the receipt records no separate catalog name.",
+                    "type": "string",
+                    "example": "notes"
+                },
+                "launchMode": {
+                    "type": "string",
+                    "example": "always"
+                },
+                "mainPage": {
+                    "description": "MainPage is the path the Open action navigates to. It is present only\nfor an enabled addon whose manifest declares a main page that is one of\nits pages.",
+                    "type": "string",
+                    "example": "/app/addons/notes/home"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "notes"
+                },
+                "state": {
+                    "description": "State is running, starting, failed or stopped. update-pending is not\nreported in this release: the owner has no authoritative update check.",
+                    "type": "string",
+                    "enum": [
+                        "running",
+                        "starting",
+                        "failed",
+                        "stopped"
+                    ],
+                    "example": "running"
+                },
+                "title": {
+                    "description": "Title and Description are the default-language text of the manifest.\nTitles and Descriptions carry every language when the manifest\nlocalizes the text, keyed by BCP 47 tag; they are absent otherwise.",
+                    "type": "string",
+                    "example": "Notes"
+                },
+                "titles": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "toolCount": {
+                    "type": "integer"
+                },
+                "tools": {
+                    "description": "Tools are the tool names of the manifest, at most 32. ToolCount is the\nfull number. The manifest carries no tool descriptions.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "type": "string",
+                    "example": "1.2.3"
+                }
+            }
+        },
+        "apps.List": {
+            "type": "object",
+            "properties": {
+                "apps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apps.App"
+                    }
+                }
+            }
+        },
+        "apps.StartRequest": {
+            "type": "object",
+            "properties": {
+                "generation": {
+                    "description": "Generation is the installed generation the caller saw in the list.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "operationId": {
+                    "description": "OperationID names the lifecycle operation. Repeating it never runs the\nchange twice and, after an outcome_unknown answer, it is the identifier\nto poll.",
+                    "type": "string",
+                    "example": "start-notes-1"
                 }
             }
         },

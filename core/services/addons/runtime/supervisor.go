@@ -71,6 +71,9 @@ type slot struct {
 	cancel     context.CancelFunc
 	attempts   int
 	original   *process
+	// launching is true while a launch of this slot is between exec and
+	// readiness, for the first start and for every restart.
+	launching  bool
 	workerDone chan struct{}
 	stopDone   chan struct{}
 	stopErr    error
@@ -169,6 +172,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 	}
 	life, cancel := context.WithCancel(context.Background())
 	slot := &slot{owner: s, pkg: pkg, generation: generation, cancel: cancel, workerDone: make(chan struct{}), stopDone: make(chan struct{})}
+	slot.launching = true
 	s.slots[pkg.Manifest.ID] = slot
 	s.workers.Add(1)
 	s.mu.Unlock()
@@ -193,6 +197,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 		close(slot.workerDone)
 		return Instance{}, ErrRuntime
 	}
+	slot.launching = false
 	slot.current = p
 	slot.original = p
 	i := Instance{PID: p.cmd.Process.Pid, Incarnation: p.registration.Incarnation, Generation: generation, Client: p.client, process: p, slot: slot}
@@ -400,7 +405,13 @@ func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
 				return
 			case <-timer.C:
 			}
+			s.mu.Lock()
+			slot.launching = true
+			s.mu.Unlock()
 			next, e := s.launch(ctx, slot.pkg, slot.generation)
+			s.mu.Lock()
+			slot.launching = false
+			s.mu.Unlock()
 			if e != nil {
 				continue
 			}
@@ -416,6 +427,49 @@ func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
 			break
 		}
 	}
+}
+
+// Observed process states. They are an observation of the supervisor, not
+// durable intent.
+const (
+	StateRunning  = "running"
+	StateStarting = "starting"
+	StateFailed   = "failed"
+	StateStopped  = "stopped"
+)
+
+// State observes the process of one addon generation. It never starts,
+// restarts or stops anything.
+//
+//   - running: the incarnation is alive and admitting calls.
+//   - starting: a launch is between exec and readiness.
+//   - failed: the process is not serving and no launch is under way. The
+//     supervisor restarts it after its backoff while the budget lasts, so
+//     failed can be followed by starting; once the budget is spent it stays.
+//   - stopped: no process of this generation is held, or it is draining.
+func (s *Supervisor) State(id string, generation uint64) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slot := s.slots[id]
+	if s.closed || slot == nil || slot.generation != generation || slot.stopped {
+		return StateStopped
+	}
+	if slot.launching {
+		return StateStarting
+	}
+	p := slot.current
+	if p == nil {
+		return StateFailed
+	}
+	select {
+	case <-p.done:
+		return StateFailed
+	default:
+	}
+	if !p.client.admitting() {
+		return StateFailed
+	}
+	return StateRunning
 }
 func (s *Supervisor) Attempts(id string) int {
 	s.mu.Lock()

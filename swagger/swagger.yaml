@@ -52,6 +52,126 @@ definitions:
           characters.
         type: string
     type: object
+  apps.AdminView:
+    properties:
+      canStart:
+        type: boolean
+      canStop:
+        type: boolean
+      managementUrl:
+        description: ManagementURL opens the management view of the addon.
+        example: /app/addons?manage=notes
+        type: string
+    type: object
+  apps.App:
+    properties:
+      admin:
+        allOf:
+        - $ref: '#/definitions/apps.AdminView'
+        description: Admin is present only for administrators.
+      description:
+        example: Keep notes.
+        type: string
+      descriptions:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        description: |-
+          Enabled is the durable desired state. Health is State, a separate
+          observation: an enabled app can be failed.
+        type: boolean
+      generation:
+        description: |-
+          Generation is the installed generation. A Start or Stop request must
+          carry the value that was listed; a stale value is denied.
+        example: 3
+        type: integer
+      hasUI:
+        description: HasUI is true when the addon contributes any UI.
+        type: boolean
+      icon:
+        description: |-
+          Icon is a same-origin URL of the verified immutable icon of this
+          generation. It is absent when the manifest declares none.
+        example: /api/addons/apps/notes/icon?generation=3
+        type: string
+      id:
+        description: |-
+          ID is the addon identifier and Name its stable machine name. They are
+          the same in version one: the receipt records no separate catalog name.
+        example: notes
+        type: string
+      launchMode:
+        example: always
+        type: string
+      mainPage:
+        description: |-
+          MainPage is the path the Open action navigates to. It is present only
+          for an enabled addon whose manifest declares a main page that is one of
+          its pages.
+        example: /app/addons/notes/home
+        type: string
+      name:
+        example: notes
+        type: string
+      state:
+        description: |-
+          State is running, starting, failed or stopped. update-pending is not
+          reported in this release: the owner has no authoritative update check.
+        enum:
+        - running
+        - starting
+        - failed
+        - stopped
+        example: running
+        type: string
+      title:
+        description: |-
+          Title and Description are the default-language text of the manifest.
+          Titles and Descriptions carry every language when the manifest
+          localizes the text, keyed by BCP 47 tag; they are absent otherwise.
+        example: Notes
+        type: string
+      titles:
+        additionalProperties:
+          type: string
+        type: object
+      toolCount:
+        type: integer
+      tools:
+        description: |-
+          Tools are the tool names of the manifest, at most 32. ToolCount is the
+          full number. The manifest carries no tool descriptions.
+        items:
+          type: string
+        type: array
+      version:
+        example: 1.2.3
+        type: string
+    type: object
+  apps.List:
+    properties:
+      apps:
+        items:
+          $ref: '#/definitions/apps.App'
+        type: array
+    type: object
+  apps.StartRequest:
+    properties:
+      generation:
+        description: Generation is the installed generation the caller saw in the
+          list.
+        example: 3
+        type: integer
+      operationId:
+        description: |-
+          OperationID names the lifecycle operation. Repeating it never runs the
+          change twice and, after an outcome_unknown answer, it is the identifier
+          to poll.
+        example: start-notes-1
+        type: string
+    type: object
   auth.WebSocketTicketResponse:
     properties:
       expires_at:
@@ -4167,6 +4287,199 @@ paths:
       summary: Applies watertight print remeshing to an existing 3D asset.
       tags:
       - 3d
+  /api/addons/apps:
+    get:
+      description: Returns the installed addons that are enabled, for every authenticated
+        caller who holds the addons feature. The owner decides what a caller sees;
+        hiding an entry is never the control, because every call the entry leads to
+        is authorized again. Each app has its title, description, icon URL, version
+        and installed generation, a process state (running, starting, failed or stopped;
+        the state is an observation, separate from the enabled flag), the path of
+        its main page when its manifest declares a valid one, and a bounded tool summary.
+        A headless addon is listed without a main page. Administrators additionally
+        see installed addons that are disabled and, per app, the start and stop controls
+        and the management link. Update-pending is not reported in this release.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Apps visible to the caller
+          schema:
+            $ref: '#/definitions/apps.List'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or owner policy denied the request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the addon apps the caller may use
+      tags:
+      - Addons
+  /api/addons/apps/{id}/icon:
+    get:
+      description: Streams the immutable icon image of the app at the generation named
+        in the query. The image comes from the verified package on the owner, relayed
+        through the receiving frontend; it is never served from an addon process and
+        never from a URL the manifest names. It is served only for an app the caller
+        may see at the generation that was listed. An unknown app, a hidden app, an
+        app without a verified icon and a stale generation give the same 403. The
+        response is an image with X-Content-Type-Options nosniff and Cache-Control
+        private, no-store.
+      parameters:
+      - description: Addon ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Installed generation from the apps list
+        in: query
+        name: generation
+        required: true
+        type: integer
+      produces:
+      - image/png
+      - image/webp
+      - image/jpeg
+      responses:
+        "200":
+          description: Icon bytes
+          headers:
+            Cache-Control:
+              description: private, no-store
+              type: string
+            X-Content-Type-Options:
+              description: nosniff
+              type: string
+          schema:
+            type: string
+        "400":
+          description: Missing or malformed generation
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, or the app is unknown, hidden, has no icon
+            or the generation is stale
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read the icon of an addon app
+      tags:
+      - Addons
+  /api/addons/apps/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only. Records the desired state enabled through
+        the same lifecycle manager and owner as the typed enable action; the owner
+        starts the process and health stays a separate observation. The body carries
+        the generation the caller saw in the apps list: a different installed generation
+        is denied before anything is recorded. The operationId is the identity of
+        the change: repeat it to replay safely, and after an outcome_unknown response
+        poll operation-status with it instead of submitting a new operation. Non-administrators
+        are denied (403) whatever the body says.'
+      parameters:
+      - description: Addon ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Operation and the generation the caller saw
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apps.StartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Operation accepted; the payload is the operation status
+          schema:
+            $ref: '#/definitions/contract.Result'
+        "400":
+          description: Malformed body, missing operationId or generation
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature, administration or generation denied the request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable, or the outcome is unknown
+            (type outcome_unknown, with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Start an addon app
+      tags:
+      - Addons
+  /api/addons/apps/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only. Records the desired state disabled through
+        the same lifecycle manager and owner as the typed disable action; the owner
+        drains and stops the process and keeps all data. The body carries the generation
+        the caller saw in the apps list: a different installed generation is denied
+        before anything is recorded. The operationId is the identity of the change:
+        repeat it to replay safely, and after an outcome_unknown response poll operation-status
+        with it instead of submitting a new operation. Non-administrators are denied
+        (403) whatever the body says.'
+      parameters:
+      - description: Addon ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Operation and the generation the caller saw
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/apps.StartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Operation accepted; the payload is the operation status
+          schema:
+            $ref: '#/definitions/contract.Result'
+        "400":
+          description: Malformed body, missing operationId or generation
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature, administration or generation denied the request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable, or the outcome is unknown
+            (type outcome_unknown, with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Stop an addon app
+      tags:
+      - Addons
   /api/addons/artifacts/{id}:
     get:
       description: 'Returns the caller''s own artifact: its state (transferring, complete,

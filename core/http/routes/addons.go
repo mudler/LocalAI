@@ -31,4 +31,13 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	// maps to them in this release.
 	group.GET("/artifacts/:id", endpoints.GetArtifact(a.AddonGateway(), a.AuthDB(), mode))
 	group.GET("/artifacts/:id/download", endpoints.DownloadArtifact(a.AddonGateway(), a.AuthDB(), mode))
+	// The Apps surface. The list and the icon are reads for every caller with
+	// the addons feature; the owner decides what each caller sees. Start and
+	// stop are administrator-only lifecycle changes through the same owner and
+	// operation identity as typed dispatch. No MCP tool maps to these routes
+	// in this release; the admin mutation tools are a later task.
+	group.GET("/apps", endpoints.ListApps(a.AddonGateway(), a.AuthDB(), mode))
+	group.GET("/apps/:id/icon", endpoints.GetAppIcon(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/apps/:id/start", endpoints.StartApp(a.AddonGateway(), a.AuthDB(), mode))
+	group.POST("/apps/:id/stop", endpoints.StopApp(a.AddonGateway(), a.AuthDB(), mode))
 }

@@ -131,6 +131,8 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/proposals/:id/cancel":    true,
 			"POST /api/addons/proposals/:id/reconcile": true,
 			"POST /api/addons/proposals/:id/resolve":   true,
+			"POST /api/addons/apps/:id/start":          true,
+			"POST /api/addons/apps/:id/stop":           true,
 		}))
 		// Reading a proposal, the owner's list of unresolved ones and the two
 		// private artifact reads are the only registered GETs.
@@ -140,7 +142,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true}))
 	})
 	It("gates the artifact routes by authentication and feature", func() {
 		get := func(path string, mutate func(*http.Request)) int {
@@ -157,6 +159,48 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			Expect(get(path, bearer("plain"))).To(Equal(http.StatusForbidden), path)
 			// Administration is not access to another user's file.
 			Expect(get(path, bearer("granted"))).To(Equal(reached), path)
+		}
+	})
+	It("lists every registered addon route in the feature registry", func() {
+		registered := map[string]bool{}
+		for _, entry := range auth.RouteFeatureRegistry {
+			if entry.Feature == auth.FeatureAddons {
+				registered[entry.Method+" "+entry.Pattern] = true
+			}
+		}
+		count := 0
+		for _, r := range e.Routes() {
+			if strings.HasPrefix(r.Path, "/api/addons") && (r.Method == http.MethodGet || r.Method == http.MethodPost) {
+				count++
+				Expect(registered).To(HaveKey(r.Method+" "+r.Path), "an addon route without a feature registry entry")
+			}
+		}
+		Expect(count).To(Equal(len(registered)), "the registry holds exactly the registered addon routes")
+	})
+	It("gates the apps routes by authentication, feature and administration", func() {
+		do := func(method, path, body string, mutate func(*http.Request)) int {
+			r := httptest.NewRequest(method, path, bytes.NewBufferString(body))
+			r.Header.Set("Content-Type", "application/json")
+			mutate(r)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, r)
+			return w.Code
+		}
+		start := `{"operationId":"op","generation":1}`
+		for _, path := range []string{"/api/addons/apps", "/api/addons/apps/sample/icon?generation=1"} {
+			Expect(do("GET", path, "", func(r *http.Request) {})).To(Equal(http.StatusUnauthorized), path)
+			Expect(do("GET", path, "", func(r *http.Request) { forged(r) })).To(Equal(http.StatusUnauthorized), path)
+			Expect(do("GET", path, "", bearer("plain"))).To(Equal(http.StatusForbidden), path)
+			// The feature is enough to read; the test application has no owner.
+			Expect(do("GET", path, "", bearer("granted"))).To(Equal(reached), path)
+		}
+		for _, path := range []string{"/api/addons/apps/sample/start", "/api/addons/apps/sample/stop"} {
+			Expect(do("POST", path, start, func(r *http.Request) {})).To(Equal(http.StatusUnauthorized), path)
+			Expect(do("POST", path, start, bearer("plain"))).To(Equal(http.StatusForbidden), path)
+			// The feature alone never starts or stops an addon.
+			Expect(do("POST", path, start, bearer("granted"))).To(Equal(http.StatusForbidden), path)
+			Expect(do("POST", path, "{}", bearer("granted"))).To(Equal(http.StatusForbidden), path)
+			Expect(do("POST", path, start, bearer("admin"))).To(Equal(reached), path)
 		}
 	})
 	It("gates the proposal routes by feature and refuses a confirmation from a key before the owner is asked", func() {

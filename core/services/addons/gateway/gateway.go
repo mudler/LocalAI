@@ -92,7 +92,13 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 		if g.Manager == nil {
 			return contract.Result{}, ErrUnavailable
 		}
-		status, err := g.Manager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: request.OperationID, AddonID: request.AddonID, Action: request.Action, SourceID: args.SourceID, Version: args.Version})
+		cmd := addons.LifecycleCommand{OperationID: request.OperationID, AddonID: request.AddonID, Action: request.Action, SourceID: args.SourceID, Version: args.Version}
+		if request.Action == "enable" || request.Action == "disable" {
+			// The generation the caller saw is a precondition of enable and
+			// disable; a stale one is denied before anything is recorded.
+			cmd.Generation = request.Generation
+		}
+		status, err := g.Manager.Submit(ctx, actor, cmd)
 		if err != nil {
 			return contract.Result{}, err
 		}
