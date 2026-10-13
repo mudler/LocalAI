@@ -243,6 +243,10 @@ type commitSlot struct {
 	// its own response unless that was cancelled — AND the predecessor has
 	// finished, so the next commit is released in order.
 	done chan struct{}
+	// appended records that this commit appended its user item to the
+	// conversation. It is written by the commit goroutine before done closes
+	// and must only be read after done is closed.
+	appended bool
 }
 
 // nextCommitSlot claims the next position in the commit order. It is called
@@ -326,10 +330,60 @@ func (session *Session) issueClientResponse(resp types.ResponseCreateParams, con
 			select {
 			case <-tail.done:
 			case <-ctx.Done():
+			}
+			if ctx.Err() != nil {
+				// Cancelled, superseded or torn down while waiting: close the
+				// response the way a cancelled one is closed, so the client is
+				// never left without a terminal event.
+				sendUnstartedResponse(t, &resp, types.ResponseStatusCancelled, nil)
+				return
+			}
+			if !tail.appended {
+				// The commit this response waited for produced no user item
+				// (transcription error, empty transcript, voice gate
+				// rejection; the commit already reported the cause). Do not
+				// run the LLM on a history that lacks the turn.
+				sendUnstartedResponse(t, &resp, types.ResponseStatusFailed, &types.StatusDetail{
+					Type: "failed",
+					Error: &types.Error{
+						Type:    "invalid_request_error",
+						Code:    "input_not_committed",
+						Message: "the committed input audio produced no transcript, so no response was generated",
+					},
+				})
 				return
 			}
 		}
 		triggerResponse(ctx, session, conv, t, &resp)
+	})
+}
+
+// sendUnstartedResponse emits the response.created / response.done pair for a
+// response that ended before the LLM started, so the client sees a complete
+// lifecycle with the given terminal status.
+func sendUnstartedResponse(t Transport, overrides *types.ResponseCreateParams, status types.ResponseStatus, details *types.StatusDetail) {
+	r := &liveResponse{id: generateUniqueID()}
+	if overrides != nil {
+		r.metadata = overrides.Metadata
+	}
+	sendEvent(t, types.ResponseCreatedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:       r.id,
+			Object:   "realtime.response",
+			Status:   types.ResponseStatusInProgress,
+			Metadata: r.metadata,
+		},
+	})
+	sendEvent(t, types.ResponseDoneEvent{
+		ServerEventBase: types.ServerEventBase{},
+		Response: types.Response{
+			ID:            r.id,
+			Object:        "realtime.response",
+			Status:        status,
+			StatusDetails: details,
+			Metadata:      r.metadata,
+		},
 	})
 }
 
@@ -2218,9 +2272,11 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// when the session context was cancelled.)
 		if ctx.Err() != nil {
 			xlog.Debug("skipping response: turn context cancelled during transcription (barge-in); committing user item only")
+			slot.appended = true
 			appendUserItem(conv, t, utt, transcript, speaker)
 			return
 		}
+		slot.appended = true
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }

@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/respcoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 )
 
@@ -105,6 +107,95 @@ var _ = Describe("realtime client-commit LLM/STT ordering", func() {
 
 		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
 	})
+	// responseDones returns the response.done payloads sent so far.
+	responseDones := func(tr *fakeTransport) []types.Response {
+		var out []types.Response
+		for _, ev := range tr.events() {
+			if d, ok := ev.(types.ResponseDoneEvent); ok {
+				out = append(out, d.Response)
+			}
+		}
+		return out
+	}
+
+	// predictCalled reports whether the response LLM ran: Predict records the
+	// prompt it was given.
+	predictCalled := func(m *heldTranscribeModel) bool { return m.lastMessages != nil }
+
+	DescribeTable("does not run the LLM when the commit produced no user item",
+		func(texts []string, errs []error) {
+			m := newModel(texts...)
+			m.errs = errs
+			session := newSession(m)
+			tr := &fakeTransport{}
+			conv := &Conversation{}
+
+			session.issueClientCommit(utt, conv, tr)
+			Eventually(m.started, "2s").Should(Receive(Equal(int32(1))))
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			close(m.release)
+			session.respSink.wait()
+
+			Expect(predictCalled(m)).To(BeFalse())
+			Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
+			dones := responseDones(tr)
+			Expect(dones).To(HaveLen(1))
+			Expect(dones[0].Status).To(Equal(types.ResponseStatusFailed))
+			Expect(dones[0].StatusDetails).NotTo(BeNil())
+			Expect(dones[0].StatusDetails.Error).NotTo(BeNil())
+			Expect(dones[0].StatusDetails.Error.Code).To(Equal("input_not_committed"))
+			conv.Lock.Lock()
+			defer conv.Lock.Unlock()
+			Expect(conv.Items).To(BeEmpty())
+		},
+		Entry("STT error", []string{"x"}, []error{errors.New("stt down")}),
+		Entry("empty transcript", []string{"   "}, nil),
+	)
+
+	It("closes the response when it is cancelled while waiting for the commit", func() {
+		m := newModel("hello there")
+		session := newSession(m)
+		tr := &fakeTransport{}
+		conv := &Conversation{}
+
+		session.issueClientCommit(utt, conv, tr)
+		Eventually(m.started, "2s").Should(Receive(Equal(int32(1))))
+		session.issueClientResponse(types.ResponseCreateParams{Metadata: map[string]string{"k": "v"}}, conv, tr)
+		Consistently(func() int { return len(responseDones(tr)) }, 100*time.Millisecond).Should(BeZero())
+
+		session.respSink.cancel(respcoord.SourceClient)
+		Eventually(func() []types.Response { return responseDones(tr) }, "2s").Should(HaveLen(1))
+		dones := responseDones(tr)
+		Expect(dones[0].Status).To(Equal(types.ResponseStatusCancelled))
+		Expect(dones[0].Metadata).To(HaveKeyWithValue("k", "v"))
+		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
+		Expect(predictCalled(m)).To(BeFalse())
+
+		close(m.release)
+		session.respSink.wait()
+		Expect(responseDones(tr)).To(HaveLen(1))
+	})
+
+	It("closes the response when a newer response supersedes it during the wait", func() {
+		m := newModel("hello there")
+		session := newSession(m)
+		tr := &fakeTransport{}
+		conv := &Conversation{}
+
+		session.issueClientCommit(utt, conv, tr)
+		Eventually(m.started, "2s").Should(Receive(Equal(int32(1))))
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		Eventually(func() []types.Response { return responseDones(tr) }, "2s").Should(HaveLen(1))
+		Expect(responseDones(tr)[0].Status).To(Equal(types.ResponseStatusCancelled))
+
+		close(m.release)
+		session.respSink.wait()
+		dones := responseDones(tr)
+		Expect(dones).To(HaveLen(2))
+		Expect(dones[1].Status).To(Equal(types.ResponseStatusCompleted))
+	})
+
 	It("orders commit, commit, response: the LLM sees both turns in speech order", func() {
 		m := newModel("first turn", "second turn")
 		session := newSession(m)
@@ -128,6 +219,30 @@ var _ = Describe("realtime client-commit LLM/STT ordering", func() {
 		session.respSink.wait()
 
 		Expect(userMsgTextsOf(m)).To(Equal([]string{"first turn", "second turn"}))
+		dones := responseDones(tr)
+		Expect(dones).To(HaveLen(1))
+		Expect(dones[0].Status).To(Equal(types.ResponseStatusCompleted))
 	})
 
+	It("does not fail a standalone response after an earlier commit failed", func() {
+		m := newModel("x")
+		m.errs = []error{errors.New("stt down")}
+		session := newSession(m)
+		tr := &fakeTransport{}
+		conv := &Conversation{}
+
+		close(m.release)
+		session.issueClientCommit(utt, conv, tr)
+		session.respSink.wait()
+		Expect(predictCalled(m)).To(BeFalse())
+
+		// The failed commit is long finished: a later response.create is not
+		// about it and runs on the history as it is.
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+		Expect(predictCalled(m)).To(BeTrue())
+		dones := responseDones(tr)
+		Expect(dones).To(HaveLen(1))
+		Expect(dones[0].Status).To(Equal(types.ResponseStatusCompleted))
+	})
 })
