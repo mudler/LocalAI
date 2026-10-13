@@ -501,3 +501,112 @@ func upscaleTestRoot() string {
 	Expect(os.WriteFile(filepath.Join(root, "model.gguf"), []byte("model"), 0600)).To(Succeed())
 	return root
 }
+
+var _ = DescribeTable("detectVideoPartition",
+	func(modelFile string, options []string, want string) {
+		Expect(detectVideoPartition(modelFile, options)).To(Equal(want))
+	},
+	Entry("fl2va from the file name", "minimax_h3_fl2va-Q4_K_M.gguf", nil, partitionFL2VA),
+	Entry("ref2va from the file name", "minimax_h3_ref2va-Q4_K_M.gguf", nil, partitionRef2VA),
+	Entry("name match ignores case and directories", "/m/MiniMax_H3_REF2VA-Q4.gguf", nil, partitionRef2VA),
+	Entry("diffusion_model_path option", "x.gguf", []string{"diffusion_model_path:minimax_h3_fl2va-Q4_K_M.gguf"}, partitionFL2VA),
+	Entry("explicit option beats the name", "minimax_h3_fl2va-Q4_K_M.gguf", []string{"video_partition:ref2va"}, partitionRef2VA),
+	Entry("bad option value falls back to the name", "minimax_h3_ref2va.gguf", []string{"video_partition:nope"}, partitionRef2VA),
+	Entry("unknown model", "wan2.2.gguf", nil, ""),
+)
+
+var _ = Describe("MiniMax-H3 video conditioning", func() {
+	gather := func(opts *pb.GenerateVideoRequest, params map[string]string) videoReferences {
+		extra, err := parseVideoRequestParams(params)
+		Expect(err).ToNot(HaveOccurred())
+		refs, err := gatherVideoReferences(opts, extra)
+		Expect(err).ToNot(HaveOccurred())
+		return refs
+	}
+
+	It("maps ref_image and ref_video params and ignores unknown keys", func() {
+		extra, err := parseVideoRequestParams(map[string]string{"ref_image": " /tmp/a.png ", "ref_video": "/tmp/frames", "other": "1"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(extra.refImage).To(Equal("/tmp/a.png"))
+		Expect(extra.refVideo).To(Equal("/tmp/frames"))
+	})
+
+	It("keeps the phase 1 spellings: params.ref_image and audio", func() {
+		refs := gather(&pb.GenerateVideoRequest{Audio: "a.wav"}, map[string]string{"ref_image": "a.png"})
+		Expect(refs.images).To(Equal([]string{"a.png"}))
+		Expect(refs.audios).To(Equal([]string{"a.wav"}))
+		Expect(refs.videos).To(BeEmpty())
+	})
+
+	It("appends the repeated proto fields after the legacy ones", func() {
+		refs := gather(&pb.GenerateVideoRequest{
+			Audio:     "a.wav",
+			RefImages: []string{"b.png", "c.png"},
+			RefAudios: []string{"d.wav"},
+			RefVideos: []*pb.VideoReference{{FramesDir: "/f1", Fps: 12, Audio: "v.wav"}, {FramesDir: "/f2"}},
+		}, map[string]string{"ref_image": "a.png"})
+		Expect(refs.images).To(Equal([]string{"a.png", "b.png", "c.png"}))
+		Expect(refs.audios).To(Equal([]string{"a.wav", "d.wav"}))
+		Expect(refs.videos).To(HaveLen(2))
+		Expect(refs.videos[0].GetFps()).To(Equal(int32(12)))
+	})
+
+	It("encodes the references for the C++ side", func() {
+		images, videos, audios := encodeVideoReferences(videoReferences{
+			images: []string{"a.png", "b.png"},
+			videos: []*pb.VideoReference{{FramesDir: "/f1", Fps: 12, Audio: "v.wav"}, {FramesDir: "/f2"}},
+			audios: []string{"a.wav"},
+		})
+		Expect(images).To(Equal("a.png\nb.png"))
+		Expect(videos).To(Equal("/f1\x1f12\x1fv.wav\n/f2\x1f0\x1f"))
+		Expect(audios).To(Equal("a.wav"))
+	})
+
+	DescribeTable("rejects references the hand-off cannot carry",
+		func(opts *pb.GenerateVideoRequest) {
+			_, err := gatherVideoReferences(opts, videoExtraParams{})
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("empty image", &pb.GenerateVideoRequest{RefImages: []string{" "}}),
+		Entry("newline in an image path", &pb.GenerateVideoRequest{RefImages: []string{"a\nb.png"}}),
+		Entry("empty frames dir", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{}}}),
+		Entry("negative fps", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{FramesDir: "/f", Fps: -1}}}),
+		Entry("separator in the paired audio", &pb.GenerateVideoRequest{RefVideos: []*pb.VideoReference{{FramesDir: "/f", Audio: "a\x1fb"}}}),
+		Entry("empty reference audio", &pb.GenerateVideoRequest{RefAudios: []string{""}}),
+	)
+
+	It("accepts t2va and keyframes on FL2VA", func() {
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, videoReferences{})).To(Succeed())
+		Expect(checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{StartImage: "a.png"}, videoReferences{})).To(Succeed())
+	})
+
+	DescribeTable("refuses every kind of reference on FL2VA",
+		func(refs videoReferences) {
+			err := checkPartitionConditioning(partitionFL2VA, &pb.GenerateVideoRequest{}, refs)
+			Expect(err).To(MatchError(ContainSubstring("REF2VA")))
+		},
+		Entry("image", videoReferences{images: []string{"a.png"}}),
+		Entry("video", videoReferences{videos: []*pb.VideoReference{{FramesDir: "/f"}}}),
+		Entry("audio", videoReferences{audios: []string{"a.wav"}}),
+	)
+
+	It("accepts every kind of reference on REF2VA and on an unknown partition", func() {
+		refs := videoReferences{
+			images: []string{"a.png", "b.png"},
+			videos: []*pb.VideoReference{{FramesDir: "/f", Fps: 24}},
+			audios: []string{"a.wav", "b.wav"},
+		}
+		Expect(checkPartitionConditioning(partitionRef2VA, &pb.GenerateVideoRequest{}, refs)).To(Succeed())
+		Expect(checkPartitionConditioning("", &pb.GenerateVideoRequest{}, refs)).To(Succeed())
+	})
+
+	DescribeTable("refuses keyframes mixed with references",
+		func(opts *pb.GenerateVideoRequest, refs videoReferences) {
+			err := checkPartitionConditioning(partitionRef2VA, opts, refs)
+			Expect(err).To(MatchError(ContainSubstring("cannot be used together")))
+		},
+		Entry("end image and a reference image", &pb.GenerateVideoRequest{EndImage: "e.png"}, videoReferences{images: []string{"a.png"}}),
+		Entry("start image and a reference video", &pb.GenerateVideoRequest{StartImage: "s.png"}, videoReferences{videos: []*pb.VideoReference{{FramesDir: "/f"}}}),
+		Entry("start image and reference audio", &pb.GenerateVideoRequest{StartImage: "s.png"}, videoReferences{audios: []string{"a.wav"}}),
+	)
+})

@@ -728,6 +728,19 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+  // Reference conditioning (MiniMax-H3 Ref2VA). Additive: `audio` and
+  // params["ref_image"] keep working and count as one more reference each.
+  // Keyframes (start_image/end_image) and references are mutually exclusive.
+  repeated string ref_images = 16;          // Staged paths of reference images
+  repeated VideoReference ref_videos = 17;  // Reference videos given as frame directories
+  repeated string ref_audios = 18;          // Staged paths of reference audio clips (WAV)
+}
+
+// VideoReference is one reference video for GenerateVideoRequest.
+message VideoReference {
+  string frames_dir = 1;  // Staged directory of frame images, read in lexicographic file-name order
+  int32 fps = 2;          // Frame rate of the source frames; 0 means the backend default
+  string audio = 3;       // Optional staged WAV path paired with this video
 }
 
 // A named conditioning input. Media references are staged local paths by the

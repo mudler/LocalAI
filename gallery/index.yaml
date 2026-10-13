@@ -21726,28 +21726,35 @@
         source:
           type: huggingface
           repo: Qwen/Qwen3-0.6B
-- name: minimax-h3-fl2va-q4
+- &minimax-h3-fl2va-unpruned-q4
+  name: minimax-h3-fl2va-unpruned-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/MiniMaxAI/MiniMax-H3
     - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4
     - https://github.com/mudler/vllm.cpp
   description: |
     MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly from a text prompt, so a clip comes back as an MP4
-    with a real soundtrack rather than a silent render: ask for speech in the
-    prompt and the model lip-syncs it.
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
 
-    This is the Q4_K_M quantisation of the FL2VA partition, which serves
-    text-to-video (t2va) and first/last-frame conditioning (fl2va). Reference
-    conditioning (ref2va) is a different checkpoint and is refused by this one.
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    unpruned. Format: Q4_K_M.
 
-    Roughly 40 GB of weights across five files, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768
-    at 124 frames and 24 fps, about 5.2 seconds. Generation is slow — measured
-    at roughly 176 s per denoise step at that canvas on a 20-SM device, so the
-    50-step default is a multi-hour job. Muxing the finished frames needs
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
+
+    Render status: verified render (end to end on the vllm.cpp model page).
+    Q3_K_M of the same DiT is verified BAD and is not offered.
+
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
     ffmpeg on the host.
   license: other
   icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
@@ -21761,7 +21768,7 @@
     - cuda
     - gpu
     - dgx-spark
-  last_checked: "2026-08-09"
+  last_checked: "2026-10-13"
   overrides:
     backend: vllm-cpp
     # The video engine has no auto device slot; this is what selects CUDA over
@@ -21783,13 +21790,14 @@
       - video_vae_config:minimax-h3/video_vae_config.json
       - audio_vae:minimax-h3/audio_vae.safetensors
       - audio_vae_config:minimax-h3/audio_vae_config.json
-      # The community GGUF strips the release metadata and the FL2VA and Ref2VA
-      # DiTs are byte-structurally identical, so the partition must be declared.
-      # This is the FL2VA checkpoint: t2va and fl2va, never ref2va.
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
       - video_partition:fl2va
       - video_device:cuda
-      # Q4_K_M streams up as bf16; keep-quant is for the NVFP4 arm.
-      - video_dequant_bf16:true
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
       # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
       - video_width:1344
       - video_height:768
@@ -21803,53 +21811,58 @@
     - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
       sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
       uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
     - filename: minimax-h3/video_vae.safetensors
-      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
-      uri: huggingface://lilcheaty/MiniMax-H3-NVFP4/vae/minimax_h3_video_vae_fp16.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
     - filename: minimax-h3/audio_vae.safetensors
       sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
     # Each VAE config carries its per-channel latents_mean / latents_std and the
-    # temporal clip_length / token_drop. The decode is wrong without them, so
-    # they ship with the weights rather than being optional extras.
+    # temporal clip_length / token_drop. The decode is wrong without them.
     - filename: minimax-h3/video_vae_config.json
-      sha256: 3edd2cdd1ebc823c868be55ef917e1b3b8a398fde4d3150dae44a3bf05d9f627
-      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
     - filename: minimax-h3/audio_vae_config.json
       sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
     - filename: minimax-h3/tokenizer.json
       sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
-- name: minimax-h3-ref2va-q4
+- !!merge <<: *minimax-h3-fl2va-unpruned-q4
+  # Earlier name of the entry above, kept so existing configs resolve.
+  name: minimax-h3-fl2va-q4
+- &minimax-h3-ref2va-unpruned-q4
+  name: minimax-h3-ref2va-unpruned-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/MiniMaxAI/MiniMax-H3
     - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
-    - https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4
     - https://github.com/mudler/vllm.cpp
   description: |
     MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
-    video AND audio jointly, so a clip comes back as an MP4 with a real
-    soundtrack rather than a silent render.
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
 
-    This is the Q4_K_M quantisation of the Ref2VA partition, the one that takes
-    REFERENCE conditioning: a reference image, a reference clip, or reference
-    audio, prepended as their own blocks so the subject or style carries into the
-    generated video. For plain text-to-video or first/last-frame conditioning use
-    minimax-h3-fl2va-q4 instead - the two partitions are separate checkpoints and
-    each refuses the other's tasks.
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    unpruned. Format: Q4_K_M.
 
-    Use this Q4_K_M build, NOT the NVFP4 Ref2VA weights: NVFP4 renders a
-    multicolour patch grid, and it took three investigations upstream to
-    establish that the fault is the quantisation rather than the reference path.
-    On Q4_K_M the same code renders coherently.
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the original time-embedder DiT (~19.9 GB).
 
-    Roughly 40 GB of weights across five files, plus the two VAE configs that
-    carry the latent statistics. The default canvas is 1344x768 at 124 frames and
-    24 fps, about 5.2 seconds. Generation is slow - roughly 176 s per denoise
-    step at that canvas on a 20-SM device, so the 50-step default is a multi-hour
-    job. Muxing the finished frames needs ffmpeg on the host.
+    Render status: verified render (end to end on the vllm.cpp model page).
+    Do NOT use the NVFP4 Ref2VA weights: they render a multicolour patch grid.
+    Q3_K_M of the same DiT is verified BAD and is not offered.
+
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
   license: other
   icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
   tags:
@@ -21863,7 +21876,7 @@
     - cuda
     - gpu
     - dgx-spark
-  last_checked: "2026-08-10"
+  last_checked: "2026-10-13"
   overrides:
     backend: vllm-cpp
     # The video engine has no auto device slot; this is what selects CUDA over
@@ -21880,21 +21893,21 @@
       - video
     options:
       # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
-      # is the DiT and the rest of the set is named here. Everything except the
-      # DiT is shared with the FL2VA entry.
+      # is the DiT and the rest of the set is named here.
       - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
       - video_tokenizer:minimax-h3/tokenizer.json
       - video_vae:minimax-h3/video_vae.safetensors
       - video_vae_config:minimax-h3/video_vae_config.json
       - audio_vae:minimax-h3/audio_vae.safetensors
       - audio_vae_config:minimax-h3/audio_vae_config.json
-      # The community GGUF strips the release metadata and the FL2VA and Ref2VA
-      # DiTs are byte-structurally identical, so the partition must be declared.
-      # This is the Ref2VA checkpoint: ref2va only, never t2va or fl2va.
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
       - video_partition:ref2va
       - video_device:cuda
-      # Q4_K_M streams up as bf16; keep-quant is for the NVFP4 arm.
-      - video_dequant_bf16:true
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
       # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
       - video_width:1344
       - video_height:768
@@ -21908,24 +21921,1587 @@
     - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
       sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
       uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
     - filename: minimax-h3/video_vae.safetensors
-      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
-      uri: huggingface://lilcheaty/MiniMax-H3-NVFP4/vae/minimax_h3_video_vae_fp16.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
     - filename: minimax-h3/audio_vae.safetensors
       sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
     # Each VAE config carries its per-channel latents_mean / latents_std and the
-    # temporal clip_length / token_drop. The decode is wrong without them, so
-    # they ship with the weights rather than being optional extras.
+    # temporal clip_length / token_drop. The decode is wrong without them.
     - filename: minimax-h3/video_vae_config.json
-      sha256: 3edd2cdd1ebc823c868be55ef917e1b3b8a398fde4d3150dae44a3bf05d9f627
-      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
     - filename: minimax-h3/audio_vae_config.json
       sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
     - filename: minimax-h3/tokenizer.json
       sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
       uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- !!merge <<: *minimax-h3-ref2va-unpruned-q4
+  # Earlier name of the entry above, kept so existing configs resolve.
+  name: minimax-h3-ref2va-q4
+- name: minimax-h3-fl2va-pruned-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q8_0.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~21.4 GB).
+
+    Render status: loads and renders (vllm.cpp model page, pruned Q8_0 A/B).
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q8_0.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q8_0.gguf
+      sha256: 1c77759fd30e4b41dd4fb341d684518177f544428c6186fd9f5fd96f8ebf55d4
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q8_0.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q6_K.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~16.6 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q6_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q6_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q6_K.gguf
+      sha256: cf9453a5654833fbf4e432d71ae53ad2f58ff8f735aa64d4770f1e182c0a5868
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q6_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q5_0.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~13.9 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q5_0 file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q5_0.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q5_0.gguf
+      sha256: e7e7d16af6fe7cbb832441ce8b517155fa32c7ba03d8d1aab086ea64e82104dc
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q5_0.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q4_K.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~11.4 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q4_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q4_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q4_K.gguf
+      sha256: dd948e08ad0ba3c71bd42f368e283dd82e790f5122a63b276e22a3e0283d0c10
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q4_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-q3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q3_K.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~8.8 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q3_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q3_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q3_K.gguf
+      sha256: 2c3cadbcc87ce2ed550b9be1e3b099198ba31a33a83f051411254c5149f6f59f
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q3_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-q2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: Q2_K.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~6.7 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q2_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
+      sha256: 696866a3c98ea0bb7e96b8a273aafb7c588ca8e6fb669303956eb270cedb68aa
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q2_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q8_0.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~21.4 GB).
+
+    Render status: loads and renders (vllm.cpp model page, pruned Q8_0 A/B).
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q8_0.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q8_0.gguf
+      sha256: 60f8a47434ec9a925f0aea41d9e0db9cb78ebc46791b7488d621dbd6905e5d89
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q8_0.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q6_K.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~16.6 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q6_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q6_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q6_K.gguf
+      sha256: 4a7a3b9103844ceec6d1d47c9c099f896770130201ea41d9f5d53bbbf274d0d4
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q6_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q5_0.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~13.9 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q5_0 file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q5_0.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q5_0.gguf
+      sha256: b91ca85cecff15371d4dadcb10c98fa0735e3e493fdd9534bef1ed764b1f5fa5
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q5_0.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q4_K.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~11.4 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q4_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q4_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q4_K.gguf
+      sha256: 2fa5840021cf6967843eaeefde9aaa277e540de02986d5ee3d5b0e6a7a8c9dec
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q4_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q3_K.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~8.7 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q3_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q3_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q3_K.gguf
+      sha256: 1e93dbb3b88177c2ea459bcc86bed45c98e60dd39447306ce65680b590045559
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q3_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-ref2va-pruned-q2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: ref2va. DiT layout:
+    pruned. Format: Q2_K.
+
+    This entry is the Ref2VA partition, which takes REFERENCE conditioning (reference images, clips and audio) so the subject or voice carries into the clip. It refuses plain text-to-video and first/last-frame requests: for those use the matching fl2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~6.7 GB).
+
+    Render status: loads, not rendered. The vllm.cpp model page says the pruned Q2_K file loads through the same path as Q8_0; only Q8_0 has been rendered.
+    The vllm.cpp page records its renders with the DiT expanded to bf16. This
+    entry does not expand it and keeps the quantised weights resident, so a
+    render in that mode is not covered by the page.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the ref2va checkpoint.
+      - video_partition:ref2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
+  files:
+    - filename: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
+      sha256: 12089d0a9935b3616c19e430a2e9e0e14e4b391f773363a167619ad245c1ab6f
+      uri: huggingface://unsloth/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q2_K.gguf
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-pruned-nvfp4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/MiniMaxAI/MiniMax-H3
+    - https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4
+    - https://huggingface.co/realrebelai/MiniMax-H3_GGUFs
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    MiniMax-H3 served by vllm.cpp, LocalAI's own C++ port of vLLM. It generates
+    video AND audio jointly, so a clip comes back as an MP4 with a soundtrack.
+    Ask for speech in the prompt and the model lip-syncs it.
+
+    Runtime: vllm.cpp (backend vllm-cpp). Partition: fl2va. DiT layout:
+    pruned. Format: NVFP4.
+
+    This entry is the FL2VA partition, which serves text-to-video (t2va) and first/last-frame conditioning (fl2va). It refuses reference conditioning: for that use the matching ref2va entry. The DiT is the pruned DiT (AdaLN curve table in place of the per-block modulation projection; about 20B instead of 33B parameters) (~12.5 GB).
+
+    Render status: loads, not rendered (vllm.cpp model page: NVFP4 exists and loads, pruned
+    and unpruned). The quantised weights stay resident; nothing here expands them.
+
+
+    The weights are one DiT, the Qwen3-VL-32B encoder (~14.6 GB), the video VAE
+    (~10.4 GB), the audio VAE and the tokenizer, plus the two VAE configs that
+    carry the latent statistics. The default canvas is 1344x768 at 124 frames
+    and 24 fps, about 5.2 seconds. Generation is slow: roughly 176 s per denoise
+    step at that canvas on a 20-SM device. Muxing the finished frames needs
+    ffmpeg on the host.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - vllm-cpp
+    - cuda
+    - gpu
+    - dgx-spark
+    - nvfp4
+  last_checked: "2026-10-13"
+  overrides:
+    backend: vllm-cpp
+    # The video engine has no auto device slot; this is what selects CUDA over
+    # the CPU queue, which for a multi-hour render is not a small difference.
+    cuda: true
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      # MiniMax-H3 is a checkpoint SET, not one model directory: parameters.model
+      # is the DiT and the rest of the set is named here.
+      - video_encoder:minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      - video_tokenizer:minimax-h3/tokenizer.json
+      - video_vae:minimax-h3/video_vae.safetensors
+      - video_vae_config:minimax-h3/video_vae_config.json
+      - audio_vae:minimax-h3/audio_vae.safetensors
+      - audio_vae_config:minimax-h3/audio_vae_config.json
+      # The community quantisations strip the release metadata and the two
+      # partitions are structurally identical, so the partition must be declared.
+      # This is the fl2va checkpoint.
+      - video_partition:fl2va
+      - video_device:cuda
+      # No video_dequant_bf16 here: expanding a quantised DiT to bf16 is the
+      # suspected cause of a host out-of-memory on a large node. The quantised
+      # weights stay resident.
+      # H3's trained canvas and clip length. Frame counts sit on a 17n+5 grid.
+      - video_width:1344
+      - video_height:768
+      - video_num_frames:124
+    parameters:
+      model: minimax-h3/minimax_h3_fl2va_pruned_nvfp4.safetensors
+  files:
+    - filename: minimax-h3/minimax_h3_fl2va_pruned_nvfp4.safetensors
+      sha256: 72fa9269ce551fb63ff42a32d9b46d0c122e84b4b2c511e22fa698287b088f70
+      uri: huggingface://lilcheaty/MiniMax-H3-NVFP4/minimax_h3_fl2va_pruned_nvfp4.safetensors
+    - filename: minimax-h3/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+      sha256: 1bf75e038c5895b97b6ea16cc1e3d32076254b06ec3df10657650d86dc82279e
+      uri: huggingface://realrebelai/MiniMax-H3_GGUFs/qwen3vl-32B-MiniMax-H3-Q4_K_M.gguf
+    # The video VAE weights and their config come from the same directory
+    # (FL2VA/video_vae/source/), as the vllm.cpp model page requires.
+    - filename: minimax-h3/video_vae.safetensors
+      sha256: 5f0c2e161d895a9fee7645ca32d4a7e3a22b90cacfcbeba62ec999cdbbefe0d3
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/model.safetensors
+    - filename: minimax-h3/audio_vae.safetensors
+      sha256: 37dddc2f3e6d5d5139d823d5ea283bbf304dadcb885b1ccda818aa13dade5ea2
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/model.safetensors
+    # Each VAE config carries its per-channel latents_mean / latents_std and the
+    # temporal clip_length / token_drop. The decode is wrong without them.
+    - filename: minimax-h3/video_vae_config.json
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/video_vae/source/config.json
+    - filename: minimax-h3/audio_vae_config.json
+      sha256: d8f3bcc62e23c7e9806970fa63cca6139c06faa3797cf9c94034f60db8512771
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/audio_vae/config.json
+    - filename: minimax-h3/tokenizer.json
+      sha256: a5d85b6dcc535e6b93115a9ef287e6132fdbf30270da6218194ba742261173c7
+      uri: huggingface://MiniMaxAI/MiniMax-H3/FL2VA/tokenizer/tokenizer.json
+- name: minimax-h3-fl2va-unpruned-q4-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/leejet/MiniMax-H3-GGUF
+    - https://huggingface.co/Comfy-Org/MiniMax-H3
+    - https://github.com/leejet/stable-diffusion.cpp
+  description: |
+    MiniMax-H3 served by stable-diffusion.cpp. It generates video AND stereo
+    audio jointly from a text prompt, so a clip comes back as an MP4 with a
+    soundtrack. Muxing the finished frames needs ffmpeg on the host.
+
+    Runtime: stable-diffusion.cpp (backend stablediffusion-ggml). Partition:
+    fl2va. DiT layout: unpruned. Format: Q4_K_M.
+
+    This entry is the FL2VA partition: text-to-video, first-frame (I2VA) and first/last-frame (FL2VA) conditioning. It refuses reference conditioning (reference image or audio): that needs minimax-h3-ref2va-pruned-q4-ggml, which is a separate checkpoint.
+
+    Render status: verified render (the stable-diffusion.cpp page shows a text-to-video and
+    an image-to-video render with this file).
+
+    Weights are the Q4_K_M quantisation of the DiT (~18.8 GB), the
+    Qwen3-VL-32B MiniMax-H3 text encoder (~18 GB), the fp16 video VAE (~5 GB)
+    and the fp32 audio VAE (~0.6 GB). MiniMax-H3 runs at 24 fps and the width
+    and height are rounded up to a multiple of 32. The frame count is
+    rounded up to the 17k + 5 grid.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - stablediffusion-ggml
+    - gguf
+    - quantized
+    - gpu
+  last_checked: "2026-10-13"
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1.0
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      - diffusion_model
+      - llm_path:qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      - vae_path:minimax_h3_video_vae_fp16.safetensors
+      - audio_vae_path:minimax_h3_audio_vae_fp32.safetensors
+      # stable-diffusion.cpp cannot tell the FL2VA and REF2VA DiTs apart from
+      # the weights. The backend reads this to refuse reference input on FL2VA.
+      - video_partition:fl2va
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: minimax_h3_fl2va-Q4_K_M.gguf
+  files:
+    - filename: minimax_h3_fl2va-Q4_K_M.gguf
+      sha256: a25ee3184dd56e7fc5c8db1508d2e48a7e3c92919b516935c6059e4228e16107
+      uri: huggingface://leejet/MiniMax-H3-GGUF/minimax_h3_fl2va-Q4_K_M.gguf
+    - filename: qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: huggingface://leejet/MiniMax-H3-GGUF/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+    - filename: minimax_h3_video_vae_fp16.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax_h3_audio_vae_fp32.safetensors
+      sha256: 8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors
+- name: minimax-h3-fl2va-pruned-q4-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/leejet/MiniMax-H3-GGUF
+    - https://huggingface.co/Comfy-Org/MiniMax-H3
+    - https://github.com/leejet/stable-diffusion.cpp
+  description: |
+    MiniMax-H3 served by stable-diffusion.cpp. It generates video AND stereo
+    audio jointly from a text prompt, so a clip comes back as an MP4 with a
+    soundtrack. Muxing the finished frames needs ffmpeg on the host.
+
+    Runtime: stable-diffusion.cpp (backend stablediffusion-ggml). Partition:
+    fl2va. DiT layout: pruned. Format: Q4_K_M.
+
+    This entry is the FL2VA partition: text-to-video, first-frame (I2VA) and first/last-frame (FL2VA) conditioning. It refuses reference conditioning (reference image or audio): that needs minimax-h3-ref2va-pruned-q4-ggml, which is a separate checkpoint. It is the smaller, pruned counterpart of minimax-h3-fl2va-unpruned-q4-ggml.
+
+    Render status: rendered with stable-diffusion.cpp on CUDA (text-to-video, 512x288, 22 frames, with audio). Not yet rendered through LocalAI.
+
+    Weights are the Q4_K_M quantisation of the DiT (~11.4 GB), the
+    Qwen3-VL-32B MiniMax-H3 text encoder (~18 GB), the fp16 video VAE (~5 GB)
+    and the fp32 audio VAE (~0.6 GB). MiniMax-H3 runs at 24 fps and the width
+    and height are rounded up to a multiple of 32. The frame count is
+    rounded up to the 17k + 5 grid.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - stablediffusion-ggml
+    - gguf
+    - quantized
+    - gpu
+  last_checked: "2026-10-13"
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1.0
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+    known_output_modalities:
+      - video
+    options:
+      - diffusion_model
+      - llm_path:qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      - vae_path:minimax_h3_video_vae_fp16.safetensors
+      - audio_vae_path:minimax_h3_audio_vae_fp32.safetensors
+      # stable-diffusion.cpp cannot tell the FL2VA and REF2VA DiTs apart from
+      # the weights. The backend reads this to refuse reference input on FL2VA.
+      - video_partition:fl2va
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: minimax_h3_fl2va_pruned-Q4_K_M.gguf
+  files:
+    - filename: minimax_h3_fl2va_pruned-Q4_K_M.gguf
+      sha256: dd948e08ad0ba3c71bd42f368e283dd82e790f5122a63b276e22a3e0283d0c10
+      uri: huggingface://leejet/MiniMax-H3-GGUF/minimax_h3_fl2va_pruned-Q4_K_M.gguf
+    - filename: qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: huggingface://leejet/MiniMax-H3-GGUF/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+    - filename: minimax_h3_video_vae_fp16.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax_h3_audio_vae_fp32.safetensors
+      sha256: 8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors
+- name: minimax-h3-ref2va-pruned-q4-ggml
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/leejet/MiniMax-H3-GGUF
+    - https://huggingface.co/Comfy-Org/MiniMax-H3
+    - https://github.com/leejet/stable-diffusion.cpp
+  description: |
+    MiniMax-H3 served by stable-diffusion.cpp. It generates video AND stereo
+    audio jointly from a text prompt, so a clip comes back as an MP4 with a
+    soundtrack. Muxing the finished frames needs ffmpeg on the host.
+
+    Runtime: stable-diffusion.cpp (backend stablediffusion-ggml). Partition:
+    ref2va. DiT layout: pruned. Format: Q4_K_M.
+
+    This entry is the REF2VA partition, the one that takes REFERENCE conditioning: reference images, reference videos (a directory of frames, with an optional paired soundtrack) and reference audio steer the subject and the voice of the clip. It does not serve first/last-frame keyframes, and keyframes cannot be mixed with references. For plain text-to-video or keyframes use minimax-h3-fl2va-unpruned-q4-ggml.
+
+    Render status: verified render (the stable-diffusion.cpp page shows a reference-to-video
+    render with this file).
+
+    Weights are the Q4_K_M quantisation of the DiT (~11.4 GB), the
+    Qwen3-VL-32B MiniMax-H3 text encoder (~18 GB), the fp16 video VAE (~5 GB)
+    and the fp32 audio VAE (~0.6 GB). MiniMax-H3 runs at 24 fps and the width
+    and height are rounded up to a multiple of 32. The frame count is
+    rounded up to the 17k + 5 grid.
+  license: other
+  icon: https://huggingface.co/MiniMaxAI/MiniMax-H3/resolve/main/assets/minimax-h3.png
+  tags:
+    - text-to-video
+    - image-to-video
+    - video-generation
+    - audio-video-generation
+    - minimax-h3
+    - stablediffusion-ggml
+    - gguf
+    - quantized
+    - gpu
+  last_checked: "2026-10-13"
+  overrides:
+    backend: stablediffusion-ggml
+    cfg_scale: 1.0
+    known_usecases:
+      - video
+    known_input_modalities:
+      - text
+      - image
+      - video
+      - audio
+    known_output_modalities:
+      - video
+    options:
+      - diffusion_model
+      - llm_path:qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      - vae_path:minimax_h3_video_vae_fp16.safetensors
+      - audio_vae_path:minimax_h3_audio_vae_fp32.safetensors
+      # stable-diffusion.cpp cannot tell the FL2VA and REF2VA DiTs apart from
+      # the weights. The backend reads this to refuse reference input on FL2VA.
+      - video_partition:ref2va
+      - diffusion_flash_attn:true
+      - offload_params_to_cpu:true
+    parameters:
+      model: minimax_h3_ref2va_pruned-Q4_K_M.gguf
+  files:
+    - filename: minimax_h3_ref2va_pruned-Q4_K_M.gguf
+      sha256: 9ca1aef9f4609a56c2c751484013e1b20fe352f892122e5ab0a428fb95a7956e
+      uri: huggingface://leejet/MiniMax-H3-GGUF/minimax_h3_ref2va_pruned-Q4_K_M.gguf
+    - filename: qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: huggingface://leejet/MiniMax-H3-GGUF/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+    - filename: minimax_h3_video_vae_fp16.safetensors
+      sha256: 7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_video_vae_fp16.safetensors
+    - filename: minimax_h3_audio_vae_fp32.safetensors
+      sha256: 8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48
+      uri: huggingface://Comfy-Org/MiniMax-H3/vae/minimax_h3_audio_vae_fp32.safetensors
 - name: vllm-omni-qwen3-omni-30b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

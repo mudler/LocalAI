@@ -32,7 +32,7 @@ void sd_vid_gen_params_set_prompts(sd_vid_gen_params_t *params, const char *prom
 void sd_vid_gen_params_set_dimensions(sd_vid_gen_params_t *params, int width, int height);
 void sd_vid_gen_params_set_seed(sd_vid_gen_params_t *params, int64_t seed);
 void sd_vid_gen_params_set_video_frames(sd_vid_gen_params_t *params, int n);
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image);
+int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios);
 #ifdef __cplusplus
 }
 #endif

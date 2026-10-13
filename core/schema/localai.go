@@ -49,6 +49,13 @@ type GalleryResponse struct {
 	EstimatedSizeDisplay string `json:"estimated_size_display,omitempty"`
 }
 
+// VideoReference is one reference video, given as an ordered list of frames.
+type VideoReference struct {
+	Frames []string `json:"frames" yaml:"frames"`                   // ordered frame images: URL, base64 or data URI
+	FPS    int32    `json:"fps,omitempty" yaml:"fps,omitempty"`     // frame rate of the source frames; 0 means the backend default
+	Audio  string   `json:"audio,omitempty" yaml:"audio,omitempty"` // optional audio paired with this video
+}
+
 type VideoRequest struct {
 	BasicModelRequest
 	Prompt         string            `json:"prompt" yaml:"prompt"`                                       // text description of the video to generate
@@ -56,6 +63,9 @@ type VideoRequest struct {
 	StartImage     string            `json:"start_image" yaml:"start_image"`                             // URL or base64 of the first frame
 	EndImage       string            `json:"end_image" yaml:"end_image"`                                 // URL or base64 of the last frame
 	Audio          string            `json:"audio,omitempty" yaml:"audio,omitempty"`                     // URL or base64 audio for audio-conditioned generation
+	RefImages      []string          `json:"ref_images,omitempty" yaml:"ref_images,omitempty"`           // reference images (URL, base64 or data URI); exclusive with start_image/end_image
+	RefVideos      []VideoReference  `json:"ref_videos,omitempty" yaml:"ref_videos,omitempty"`           // reference videos as frame lists; exclusive with start_image/end_image
+	RefAudios      []string          `json:"ref_audios,omitempty" yaml:"ref_audios,omitempty"`           // reference audio clips (WAV); exclusive with start_image/end_image
 	Width          int32             `json:"width" yaml:"width"`                                         // output width in pixels
 	Height         int32             `json:"height" yaml:"height"`                                       // output height in pixels
 	NumFrames      int32             `json:"num_frames" yaml:"num_frames"`                               // total number of frames to generate
@@ -74,15 +84,15 @@ type VideoRequest struct {
 // (TRELLIS.2 has no text-prompt path); the response is a binary glTF (.glb).
 type Model3DRequest struct {
 	BasicModelRequest
-	Image          string            `json:"image" yaml:"image"`                                           // conditioning image: URL, base64, or data URI (required)
-	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                         // random seed; <=0 picks a random seed
-	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                         // flow sampling steps (backend default 12)
-	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`               // classifier-free guidance scale (backend default 7.5)
-	TextureSteps   int32             `json:"texture_steps,omitempty" yaml:"texture_steps,omitempty"`       // texture flow sampling steps (backend default 12)
-	Quality        string            `json:"quality,omitempty" yaml:"quality,omitempty"`                   // mesh pipeline: auto|coarse|512|1024
-	Background     string            `json:"background,omitempty" yaml:"background,omitempty"`             // background handling: auto|keep|black|white
-	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"`   // output format (url or b64_json)
-	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                     // backend-specific generation parameters
+	Image          string            `json:"image" yaml:"image"`                                         // conditioning image: URL, base64, or data URI (required)
+	Seed           int32             `json:"seed,omitempty" yaml:"seed,omitempty"`                       // random seed; <=0 picks a random seed
+	Step           int32             `json:"step,omitempty" yaml:"step,omitempty"`                       // flow sampling steps (backend default 12)
+	CFGScale       float32           `json:"cfg_scale,omitempty" yaml:"cfg_scale,omitempty"`             // classifier-free guidance scale (backend default 7.5)
+	TextureSteps   int32             `json:"texture_steps,omitempty" yaml:"texture_steps,omitempty"`     // texture flow sampling steps (backend default 12)
+	Quality        string            `json:"quality,omitempty" yaml:"quality,omitempty"`                 // mesh pipeline: auto|coarse|512|1024
+	Background     string            `json:"background,omitempty" yaml:"background,omitempty"`           // background handling: auto|keep|black|white
+	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"` // output format (url or b64_json)
+	Params         map[string]string `json:"params,omitempty" yaml:"params,omitempty"`                   // backend-specific generation parameters
 }
 
 // @Description Print-remesh an existing trellis2.cpp GLB. The multipart mesh
