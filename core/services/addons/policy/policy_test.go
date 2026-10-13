@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -653,6 +654,154 @@ var _ = Describe("retry-safe downgrades", func() {
 	})
 })
 
+var _ = Describe("drain epochs", func() {
+	// start admits a write of user and returns once it entered. The work ends
+	// when release closes, or when it is cancelled unless it is stubborn like a
+	// host call that ignores cancellation. ctxErr is the context error the work
+	// saw when it ended.
+	type work struct {
+		release chan struct{}
+		done    chan struct{}
+		ctxErr  atomic.Value
+	}
+	start := func(p *Policy, user string, key ResourceKey, stubborn ...bool) *work {
+		w := &work{release: make(chan struct{}), done: make(chan struct{})}
+		entered := make(chan struct{})
+		go func() {
+			defer close(w.done)
+			defer GinkgoRecover()
+			_ = p.Admit(context.Background(), named(user), key, ActionWrite, func(c context.Context) error {
+				close(entered)
+				if len(stubborn) > 0 && stubborn[0] {
+					<-w.release
+				} else {
+					select {
+					case <-w.release:
+					case <-c.Done():
+					}
+				}
+				w.ctxErr.Store(fmt.Sprint(c.Err()))
+				return nil
+			})
+		}()
+		<-entered
+		return w
+	}
+	cancelled := func(w *work) bool { v, _ := w.ctxErr.Load().(string); return v != "<nil>" && v != "" }
+
+	It("does not cancel work admitted under a later grant when a lowering is retried", func() {
+		f := newFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		// The regrant is durable, but the drain of the earlier revocation is still owed.
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(MatchError(ErrDrainPending))
+		fresh := start(f.policy, "editor", key)
+		f.prop.err = nil
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		close(fresh.release)
+		<-fresh.done
+		Expect(cancelled(fresh)).To(BeFalse(), "work admitted after the regrant must keep running")
+		Expect(allowed(f, named("editor"), key, ActionWrite)).To(BeTrue())
+	})
+
+	It("still waits for and cancels work admitted before the lowering when the regrant is retried", func() {
+		f := newFixture(ModeNamedUser)
+		f.opts.DrainTimeout = 30 * time.Millisecond
+		f.policy = New(f.store, f.opts)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		old := start(f.policy, "editor", key, true)
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(MatchError(ErrDrainPending))
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(MatchError(ErrDrainPending))
+		close(old.release)
+		<-old.done
+		Expect(cancelled(old)).To(BeTrue(), "work from before the revocation is stopped")
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+	})
+
+	It("stops work admitted after a regrant when the role is lowered again", func() {
+		f := newFixture(ModeNamedUser)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(MatchError(ErrDrainPending))
+		fresh := start(f.policy, "editor", key)
+		f.prop.err = nil
+		// A new lowering is a new epoch and covers the work admitted since.
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(Succeed())
+		close(fresh.release)
+		<-fresh.done
+		Expect(cancelled(fresh)).To(BeTrue())
+	})
+
+	It("keeps the epoch of the owed drain across a restart", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "policy")
+		f := open(ModeNamedUser, dir)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(MatchError(ErrDrainPending))
+		Expect(f.store.Close()).To(Succeed())
+
+		g := open(ModeNamedUser, dir)
+		fresh := start(g.policy, "editor", key)
+		Expect(g.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		close(fresh.release)
+		<-fresh.done
+		Expect(cancelled(fresh)).To(BeFalse(), "an admission after the restart is newer than the persisted mark")
+		Expect(g.prop.calls).To(Equal([]string{key.ResourceID + "/editor"}))
+		disk, err := os.ReadFile(filepath.Join(dir, fileName))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(disk)).NotTo(ContainSubstring("drain"))
+		// The counter survives the cleared mark: the next lowering still outranks
+		// the work admitted before it.
+		again := start(g.policy, "editor", key)
+		Expect(g.policy.Revoke(ctx, owner, key, "editor")).To(Succeed())
+		close(again.release)
+		<-again.done
+		Expect(cancelled(again)).To(BeTrue())
+	})
+
+	It("keeps a drain mark that a concurrent lowering replaced while a retry was waiting", func() {
+		f := newFixture(ModeNamedUser)
+		f.opts.DrainTimeout = 5 * time.Second
+		f.policy = New(f.store, f.opts)
+		owner := named("owner")
+		key := f.create(owner)
+		ctx := context.Background()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		old := start(f.policy, "editor", key, true)
+		first := make(chan error, 1)
+		go func() { first <- f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer) }()
+		// The downgrade cancels the run and waits for it to end.
+		calls := func() int { f.prop.mu.Lock(); defer f.prop.mu.Unlock(); return len(f.prop.calls) }
+		Eventually(calls).Should(Equal(1))
+		f.prop.err = errors.New("store down")
+		Expect(f.policy.Revoke(ctx, owner, key, "editor")).To(MatchError(ErrDrainPending))
+		close(old.release)
+		<-old.done
+		Expect(<-first).To(Or(Succeed(), MatchError(ErrDrainPending)))
+		// Revoke left its own drain owed; the first call must not have cleared it.
+		f.prop.err = nil
+		before := calls()
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleViewer)).To(Succeed())
+		Expect(calls()).To(Equal(before + 1))
+	})
+})
+
 var _ = Describe("account store failures", func() {
 	It("maps a store outage to unavailable and a disabled account to forbidden", func() {
 		f := newFixture(ModeNamedUser)
@@ -819,6 +968,10 @@ var _ = Describe("store integrity", func() {
 		Expect(reopen(`{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"u":"owner"}}}}`)).To(HaveOccurred())
 		Expect(reopen(`{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","grants":{"o":"viewer"}}}}`)).To(HaveOccurred())
 		Expect(reopen(good + `{"version":1}`)).To(HaveOccurred())
+		marked := `{"version":1,"mode":"named-user","resources":{"r":{"addonId":"a","owner":"o","state":"active","epoch":2,"drain":{"u":{"writes":2}}}}}`
+		Expect(reopen(marked)).To(Succeed())
+		Expect(reopen(strings.Replace(marked, `"writes":2`, `"writes":3`, 1))).To(HaveOccurred())
+		Expect(reopen(strings.Replace(marked, `"writes":2`, `"writes":0`, 1))).To(HaveOccurred())
 		Expect(reopen(good + "\n  \n")).To(Succeed())
 	})
 

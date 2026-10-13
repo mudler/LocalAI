@@ -590,10 +590,13 @@ lowering a role) is durable first, then invalidates the user's pending proposals
 the `ProposalInvalidator` seam, cancels the user's admitted work and returns only when
 that work ended. If it does not end within the drain bound the call reports `503`
 (`ErrDrainPending`): the revocation is already effective for new work but is not
-acknowledged. The owed drain is stored with the change itself, so repeating the same
-`SetGrant` or `Revoke` after a failed attempt (or after a restart) waits for the user's
-admitted work and invalidates proposals again; it is acknowledged only after both
-finished, and the mark is then cleared. Disabling or uninstalling an addon keeps its resources and grants; purge is
+acknowledged. The owed drain is stored with the change itself, together with the
+resource's authority epoch at the lowering. Every admission carries the epoch it was
+admitted under. Repeating the same `SetGrant` or `Revoke` after a failed attempt (or after
+a restart) invalidates proposals again and waits only for the user's work admitted before
+that lowering; it is acknowledged only after both finished, and the mark is then cleared.
+Work admitted after the grant became durable again is neither cancelled nor waited on by
+the retry. A later lowering starts a new epoch and covers it. Disabling or uninstalling an addon keeps its resources and grants; purge is
 a separate, explicit operation that is not available to tools.
 
 A new resource needs explicit creation authority. At bootstrap that authority requires a

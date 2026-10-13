@@ -77,8 +77,10 @@ func New(store *Store, opts Options) *Policy {
 type admitted struct {
 	user     string
 	mutation bool
-	cancel   context.CancelFunc
-	done     chan struct{}
+	// epoch is the resource's authority epoch when the work was admitted.
+	epoch  uint64
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // gate serializes everything that can change or depend on one resource's
@@ -178,6 +180,10 @@ func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource Resou
 		cancel()
 		return err
 	}
+	// The epoch is read under the gate, the same lock that serializes grant
+	// changes, so it names exactly the lowerings this work was admitted after.
+	rec, _ := p.store.get(resource.ResourceID)
+	adm.epoch = rec.Epoch
 	g.active[adm] = struct{}{}
 	g.mu.Unlock()
 	defer func() {
@@ -263,11 +269,25 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		return ErrForbidden
 	}
 	prev := r.Grants[userID]
-	owed := r.Drain[userID]
+	owed, isOwed := r.Drain[userID]
+	// Only a change that takes authority away starts a new epoch. A retry of
+	// that change, or a regrant while its drain is still owed, keeps the mark
+	// as it is: the cutoff must stay at the lowering that created it, or the
+	// retry would stop work admitted under the later grant.
+	lowering := (prev != "" && (remove || role.rank() < prev.rank())) || (remove && !isOwed)
+	// A removal after a downgrade keeps the older read cutoff, which the copy
+	// of the owed mark carries; a newer lowering only ever raises a cutoff.
+	mark := owed
+	if lowering {
+		mark.Writes = r.Epoch + 1
+		if remove {
+			mark.Reads = r.Epoch + 1
+		}
+	}
 	// A previous call may have made the grant durable and then failed to finish
 	// the drain, so the stored grant alone cannot say whether work above the new
 	// role is still running. The retry waits whenever a drain is owed.
-	lowered := remove || owed || (prev != "" && role.rank() < prev.rank())
+	lowered := lowering || isOwed
 	mutErr := p.store.mutate(func(d *document) error {
 		rec := d.Resources[resource.ResourceID]
 		if remove {
@@ -275,11 +295,12 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		} else {
 			rec.Grants[userID] = role
 		}
-		if lowered {
+		if lowering {
+			rec.Epoch++
 			if rec.Drain == nil {
-				rec.Drain = map[string]bool{}
+				rec.Drain = map[string]drainMark{}
 			}
-			rec.Drain[userID] = true
+			rec.Drain[userID] = mark
 		}
 		return nil
 	})
@@ -300,7 +321,14 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	var victims []*admitted
 	if lowered {
 		for a := range g.active {
-			if a.user == userID && (remove || a.mutation) {
+			if a.user != userID {
+				continue
+			}
+			cutoff := mark.Reads
+			if a.mutation {
+				cutoff = mark.Writes
+			}
+			if a.epoch < cutoff {
 				a.cancel()
 				victims = append(victims, a)
 			}
@@ -330,7 +358,9 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 		return mutErr
 	}
 	return p.store.mutate(func(d *document) error {
-		if rec := d.Resources[resource.ResourceID]; rec != nil {
+		// A lowering that ran meanwhile replaced the mark with a later cutoff
+		// and owes its own drain; only the mark this call drained is cleared.
+		if rec := d.Resources[resource.ResourceID]; rec != nil && rec.Drain[userID] == mark {
 			delete(rec.Drain, userID)
 		}
 		return nil

@@ -27,12 +27,27 @@ type record struct {
 	Owner   string          `json:"owner"`
 	State   string          `json:"state"`
 	Grants  map[string]Role `json:"grants,omitempty"`
+	// Epoch counts the lowerings of authority on this resource. Every
+	// admission carries the epoch it was admitted under, so a drain can tell
+	// work that predates a lowering from work admitted after the grant became
+	// durable again.
+	Epoch uint64 `json:"epoch,omitempty"`
 	// Drain names users whose grant was lowered or removed and whose admitted
 	// work and pending proposals are not yet known to be stopped. The mark is
 	// durable with the change itself and cleared only after the drain
 	// completed, so a retry of the same change can never be acknowledged
-	// early.
-	Drain map[string]bool `json:"drain,omitempty"`
+	// early. It holds the epoch of the lowering, not a flag, so a retry stops
+	// and waits for the older work only.
+	Drain map[string]drainMark `json:"drain,omitempty"`
+}
+
+// drainMark is the cutoff of an owed drain: admitted work of the user with an
+// epoch below the value was admitted under authority that was lowered. Writes
+// and reads have separate cutoffs because lowering a role to viewer leaves
+// reads alone while a removal stops both. Zero means nothing is owed for it.
+type drainMark struct {
+	Writes uint64 `json:"writes,omitempty"`
+	Reads  uint64 `json:"reads,omitempty"`
 }
 
 func (r *record) copy() *record {
@@ -43,9 +58,9 @@ func (r *record) copy() *record {
 	}
 	n.Drain = nil
 	if len(r.Drain) > 0 {
-		n.Drain = make(map[string]bool, len(r.Drain))
-		for u := range r.Drain {
-			n.Drain[u] = true
+		n.Drain = make(map[string]drainMark, len(r.Drain))
+		for u, m := range r.Drain {
+			n.Drain[u] = m
 		}
 	}
 	return &n
@@ -134,8 +149,8 @@ func load(dir string) (*document, error) {
 				return nil, errors.New("addon policy store is corrupt")
 			}
 		}
-		for u := range r.Drain {
-			if u == "" {
+		for u, m := range r.Drain {
+			if u == "" || (m.Writes == 0 && m.Reads == 0) || m.Writes > r.Epoch || m.Reads > r.Epoch {
 				return nil, errors.New("addon policy store is corrupt")
 			}
 		}
