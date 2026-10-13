@@ -32,7 +32,12 @@
       "contracts-empty",
       "contracts-skipped",
       "gateway-missing-report",
-      "gateway-skipped-report"
+      "gateway-skipped-report",
+      "ui-report-failed",
+      "ui-report-skipped",
+      "ui-report-flaky",
+      "ui-report-empty",
+      "ui-report-missing"
     ],
     "readiness": {
       "ginkgo": {
@@ -1461,6 +1466,52 @@
           "documents the management actions and every emitted field of the installed view"
         ]
       }
+    ]
+  },
+  "gallery-ui": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/gallery_ui.sh"
+      ]
+    ],
+    "cases": [
+      "unit: query normalization bounds text, library and page",
+      "unit: an operation book keeps one identity per action until it is done",
+      "unit: responses classify the same way everywhere",
+      "unit: polling backs off on failure, slows when hidden and stays bounded",
+      "unit: library drafts accept references and refuse secrets before sending",
+      "unit: tabs: the server decides, the page only avoids showing what it will refuse",
+      "unit: app chips never turn an unknown state into running",
+      "unit: titles follow the language, then the default text, then the id",
+      "unit: update status comes only from an authoritative check",
+      "unit: the api sends one dispatch shape and classifies refusals",
+      "unit: an unknown outcome is read with the original identity and never resubmitted",
+      "unit: a denial is not retried and an exhausted read is reported as unknown",
+      "apps: lists enabled apps with state chips, the icon route and Open only for a main page",
+      "apps: a headless add-on shows its tools and no Open action",
+      "apps: a reader gets no start, stop, manage or management tabs",
+      "apps: an administrator starts an app with a fresh operation ID and the listed generation",
+      "apps: a lost start is read with the same operation ID and never submitted again",
+      "apps: a refused start shows the server denial and refreshes the list",
+      "apps: the list refreshes on a bounded interval, backs off on errors and stops when left",
+      "browse: searches the libraries, pages and shows trust and platform facts",
+      "browse: installing asks first and leaves the add-on disabled until it is enabled",
+      "installed: health is separate from enabled and the details show trust, compatibility and storage",
+      "installed: an update is shown only from the owner update field and upgrade sends that version",
+      "installed: uninstalling warns that data is kept before anything is submitted",
+      "installed: a headless add-on keeps its details, health and tools",
+      "installed: a refusal from the server is shown even though the tab was offered",
+      "libraries: a private library is saved by credential reference and never carries a secret",
+      "libraries: removing a library says installed add-ons stay and leaves them installed",
+      "libraries: a refresh reports its result and a failed fetch is shown as failed",
+      "keyboard: the tab list moves with the arrow keys and actions are reachable",
+      "narrow: at 400 px the apps page is one column without sideways scrolling",
+      "theme: the apps page follows the light and dark tokens",
+      "i18n: the page follows the interface language",
+      "hub: the Add-ons tab appears only for an account that holds the feature",
+      "regression: the backends catalog still searches, pages and shows its empty state"
     ]
   }
 }

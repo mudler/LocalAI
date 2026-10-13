@@ -19,6 +19,9 @@ import BackendsTable from '../components/operate/BackendsTable'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
+import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
+import CatalogPager from '../components/catalog/CatalogPager'
+import CatalogEmpty from '../components/catalog/CatalogEmpty'
 import './operate.css'
 
 const CATALOG_FILTERS = [
@@ -737,17 +740,12 @@ export default function Backends() {
           </Link>
         </div>
 
-        <div className="dk-input-icon bk-search">
-          <Icon name="search" className="dk-icon" />
-          <input
-            className="dk-input"
-            type="text"
-            aria-label={activeView === 'installed' ? t('backends.searchInstalled') : t('backends.searchCatalog')}
-            placeholder={activeView === 'installed' ? t('backends.searchInstalled') : t('backends.searchCatalog')}
-            value={activeView === 'installed' ? query : search}
-            onChange={e => (activeView === 'installed' ? updateUrlParam('q', e.target.value) : handleSearch(e.target.value))}
-          />
-        </div>
+        <CatalogSearchBox
+          className="bk-search"
+          label={activeView === 'installed' ? t('backends.searchInstalled') : t('backends.searchCatalog')}
+          value={activeView === 'installed' ? query : search}
+          onChange={value => (activeView === 'installed' ? updateUrlParam('q', value) : handleSearch(value))}
+        />
 
         <div className="bk-bar__acts">
           {updateNames.length > 0 && (
@@ -871,16 +869,11 @@ export default function Backends() {
         <div className="op-loading"><LoadingSpinner size="lg" /></div>
       ) : activeView === 'installed' ? (
         installed.length === 0 && !globalError ? (
-          <div className="dk-empty">
-            <div className="dk-empty-icon"><Icon name="server" /></div>
-            <h2 className="dk-empty-title">{t('backends.emptyTitle')}</h2>
-            <p className="dk-empty-text">{t('backends.emptyBody')}</p>
+          <CatalogEmpty icon="server" title={t('backends.emptyTitle')} text={t('backends.emptyBody')}>
             <Link className="dk-btn dk-btn--primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Link>
-          </div>
+          </CatalogEmpty>
         ) : installedRows.length === 0 ? (
-          <div className="dk-empty">
-            <div className="dk-empty-icon"><Icon name="filter" /></div>
-            <p className="dk-empty-text">{t('backends.noMatches')}</p>
+          <CatalogEmpty icon="filter" text={t('backends.noMatches')}>
             <button
               type="button"
               className="dk-btn dk-btn--ghost"
@@ -893,7 +886,7 @@ export default function Backends() {
             >
               {t('backends.clearFilters')}
             </button>
-          </div>
+          </CatalogEmpty>
         ) : (
           <BackendsTable
             rows={installedRows}
@@ -904,11 +897,7 @@ export default function Backends() {
           />
         )
       ) : catalogRows.length === 0 ? (
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="server" /></div>
-          <h2 className="dk-empty-title">{t('backends.noneFound')}</h2>
-          <p className="dk-empty-text">{search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')}</p>
-        </div>
+        <CatalogEmpty icon="server" title={t('backends.noneFound')} text={search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')} />
       ) : (
         <>
           <BackendsTable
@@ -923,17 +912,13 @@ export default function Backends() {
             caption={t('backends.catalogAria')}
           />
           <p className="bk-count">{t('backends.shown', { shown: catalogPage.length, total: allBackends.length })}</p>
-          {totalPages > 1 && (
-            <div className="bk-pager">
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} aria-label={t('backends.prevPage')}>
-                <Icon name="chevron-left" />
-              </button>
-              <span className="dk-mono">{page} / {totalPages}</span>
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} aria-label={t('backends.nextPage')}>
-                <Icon name="chevron-right" />
-              </button>
-            </div>
-          )}
+          <CatalogPager
+            className="bk-pager"
+            page={page}
+            totalPages={totalPages}
+            onPage={setPage}
+            labels={{ previous: t('backends.prevPage'), next: t('backends.nextPage') }}
+          />
         </>
       )}
 

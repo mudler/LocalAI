@@ -63,7 +63,8 @@
     "overview": "Übersicht",
     "thisMachine": "Dieser Rechner",
     "failover": "Failover",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "Add-ons"
   },
   "footer": {
     "github": "GitHub",
@@ -93,7 +94,8 @@
       "quantize": "Verkleinere ein Modell, damit es auf kleinerer Hardware läuft.",
       "import": "Füge ein Modell aus einer Datei, einer URL oder einem Hugging-Face-Repository hinzu.",
       "voices": "Erkenne Sprecher und verwalte eine Bibliothek von Stimmprofilen.",
-      "faces": "Gesichter erkennen, vergleichen und zuordnen."
+      "faces": "Gesichter erkennen, vergleichen und zuordnen.",
+      "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen."
     }
   }
 }

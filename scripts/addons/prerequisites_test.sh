@@ -8,7 +8,7 @@ mkdir -p "$TMPDIR"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/scripts/addons" "$fixture/bin"
-for file in prepare.sh verify.sh suites.json; do
+for file in prepare.sh verify.sh suites.json ui_cases.py; do
     test -f "$root/scripts/addons/$file" || { echo "missing implementation: $file" >&2; exit 1; }
     cp "$root/scripts/addons/$file" "$fixture/scripts/addons/$file"
 done
@@ -66,6 +66,24 @@ printf '#!/bin/sh\nexit 0\n' > "$fixture/scripts/addons/prerequisites_test.sh"
 reject zero-tests 'required' sh "$verify" prerequisites
 printf '#!/bin/sh\necho '\''{"case":"required","status":"skipped"}'\''\n' > "$fixture/scripts/addons/prerequisites_test.sh"
 reject skipped-tests 'required' sh "$verify" prerequisites
+# The Playwright report converter must never turn a failed, skipped, retried,
+# empty or missing report into a passing case.
+cat > "$fixture/scripts/addons/suites.json" <<'JSON'
+{"prerequisites":{"kind":"shell","commands":[["python3","-I","scripts/addons/ui_cases.py","playwright","report.json"]],"cases":["first","second"]}}
+JSON
+ui_report() {
+    printf '{"suites":[{"title":"f.spec.js","specs":[{"title":"first","tests":[{"status":"expected","results":[{"status":"passed"}]}]},{"title":"second","tests":[{"status":"%s","results":%s}]}]}]}' "$1" "$2" > "$fixture/report.json"
+}
+ui_report unexpected '[{"status":"failed"}]'
+reject ui-report-failed 'required case not passed: second' sh "$verify" prerequisites
+ui_report skipped '[]'
+reject ui-report-skipped 'required case not passed: second' sh "$verify" prerequisites
+ui_report flaky '[{"status":"failed"},{"status":"passed"}]'
+reject ui-report-flaky 'required case not passed: second' sh "$verify" prerequisites
+printf '{"suites":[]}' > "$fixture/report.json"
+reject ui-report-empty 'playwright-report-empty' sh "$verify" prerequisites
+rm -f "$fixture/report.json"
+reject ui-report-missing 'playwright-report' sh "$verify" prerequisites
 # Machine-readable Ginkgo reports must reject empty and skipped selections.
 cat > "$fixture/scripts/addons/suites.json" <<'JSON'
 {"prerequisites":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture","-ginkgo.json-report=.cache/report.json"]],"cases":["sqlite transaction"],"report":".cache/report.json"}}

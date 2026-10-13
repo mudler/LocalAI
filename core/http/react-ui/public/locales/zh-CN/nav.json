@@ -63,7 +63,8 @@
     "overview": "概览",
     "thisMachine": "本机",
     "failover": "故障转移",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "附加组件"
   },
   "footer": {
     "github": "GitHub",
@@ -93,7 +94,8 @@
       "quantize": "压缩模型，使其能在更小的硬件上运行。",
       "import": "从文件、URL 或 Hugging Face 仓库添加模型。",
       "voices": "识别说话人，并维护声音档案库。",
-      "faces": "检测、比较和匹配人脸。"
+      "faces": "检测、比较和匹配人脸。",
+      "addons": "安装附加组件并打开它们提供的应用。"
     }
   }
 }

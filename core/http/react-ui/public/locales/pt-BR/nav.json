@@ -64,7 +64,8 @@
     "overview": "Visão geral",
     "thisMachine": "Esta máquina",
     "failover": "Failover",
-    "p2p": "P2P"
+    "p2p": "P2P",
+    "addons": "Complementos"
   },
   "footer": {
     "github": "GitHub",
@@ -96,7 +97,8 @@
       "quantize": "Reduza um modelo para rodar em hardware menor.",
       "import": "Adicione um modelo de um arquivo, uma URL ou um repositório do Hugging Face.",
       "voices": "Identifique falantes e mantenha uma biblioteca de perfis de voz.",
-      "faces": "Detecte, compare e associe rostos."
+      "faces": "Detecte, compare e associe rostos.",
+      "addons": "Instale complementos e abra os apps que eles oferecem."
     }
   }
 }

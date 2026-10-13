@@ -154,6 +154,10 @@ const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
+const Addons = page('addons', () => import('./pages/Addons'))
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
+const AddonPage = page(null, () => import('./pages/AddonPage'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
 const BuildOverview = page('build', () => import('./pages/BuildOverview'))
@@ -231,6 +235,10 @@ const appChildren = [
       { path: 'voice/:model', element: <Feature feature="voice_recognition" disabled={<FeatureOff feature="voice" />}><VoiceRecognition /></Feature> },
       { path: 'voice-library', element: <Admin><VoiceRecognition tab="speech" /></Admin> },
       { path: 'import-model', element: <Admin><ImportModel /></Admin> },
+      // Add-ons: Apps for everyone with the feature; Browse, Installed and
+      // Libraries are administrator tabs that the server checks on every call.
+      { path: 'addons', element: <Feature feature="addons"><Addons /></Feature> },
+      { path: 'addons/:addonId/*', element: <Feature feature="addons"><AddonPage /></Feature> },
     ],
   },
   // Build deep flows: full-width, no tab bar.
