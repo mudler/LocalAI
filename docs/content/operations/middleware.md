@@ -123,6 +123,11 @@ A word is a run of letters, digits, combining marks, `-`, `'` and inner dots
 line break, and it does nothing when no word follows. Only one word is added,
 so a multi-word town ("Frankfurt am Main") keeps its tail.
 
+The extension is deliberately blunt: the next word can also be a number or a
+date (`ZIPCODE` followed by `12 Mar 2026` takes `12`), so it trades some
+over-masking for fewer leaks. Use it only for groups whose neighbour is
+identifying.
+
 #### Protected terms
 
 The opposite failure is a value the model tags although it must reach the
@@ -149,6 +154,12 @@ of a detection that fall on the placeholder are cut out. Event offsets
 still address the original text. Terms shorter than three characters are
 ignored, and a missing or unreadable file is skipped with a warning (fewer
 protected terms means more masking, never less).
+
+A term that is only part of a longer word is not protected: with the term
+`Anna`, `Anna-Lena` and `O'Anna` are still passed to the detector. Protected
+terms apply to the NER tier only. A pattern detector
+(`backend: pattern`) always scans the original text and may still mask a
+match inside a protected term.
 
 A protected term passes **everywhere** in the text: if the same string is
 also a person's name, that occurrence passes too. Keep the list to values
