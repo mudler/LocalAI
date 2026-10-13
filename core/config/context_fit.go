@@ -86,7 +86,7 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 	return vram >= footprint+footprint/contextFitHeadroomDivisor
 }
 
-// autoContextSize picks the default context to use for f when the user did not
+// autoContextSize picks the default context to use when the user did not
 // set context_size. The choice is deliberately conservative, NOT
 // VRAM-maximizing:
 //
@@ -100,10 +100,13 @@ func contextFitsVRAM(footprint, vram uint64) bool {
 //     DefaultContextSize. When VRAM is unknown we skip this — the base cap is
 //     already safe and we must not regress CPU / detection-gap hosts.
 //
+// footprint reports the per-device VRAM footprint of the model at a context; it
+// is a parameter so the caller can supply a snapshot instead of the parsed file.
+//
 // trainedMax <= 0 means the estimate yielded nothing usable; the caller keeps
 // its existing DefaultContextSize fallback in that case, so this is only called
 // with a positive trainedMax.
-func autoContextSize(f *gguf.GGUFFile, trainedMax int) int {
+func autoContextSize(footprint func(ctx int) uint64, trainedMax int) int {
 	chosen := trainedMax
 	if chosen > DefaultAutoContextSize {
 		chosen = DefaultAutoContextSize
@@ -118,7 +121,7 @@ func autoContextSize(f *gguf.GGUFFile, trainedMax int) int {
 		return chosen
 	}
 
-	if contextFitsVRAM(estimateContextVRAM(f, chosen), vram) {
+	if contextFitsVRAM(footprint(chosen), vram) {
 		return chosen
 	}
 
@@ -128,7 +131,7 @@ func autoContextSize(f *gguf.GGUFFile, trainedMax int) int {
 		if cand > chosen || cand < DefaultContextSize {
 			continue
 		}
-		if contextFitsVRAM(estimateContextVRAM(f, cand), vram) {
+		if contextFitsVRAM(footprint(cand), vram) {
 			xlog.Debug("[context_fit] capped auto context to fit per-device VRAM",
 				"context", cand, "base_cap", chosen, "vram_gib", vram>>30)
 			return cand
