@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -851,10 +852,33 @@ func (s MCPRemoteServer) Validate() error {
 	if o.TokenURL == "" {
 		return errors.New("oauth2.token_url is required")
 	}
+	if err := validateTokenURL(o.TokenURL); err != nil {
+		return err
+	}
 	if err := exactlyOne("client_id", o.ClientID, o.ClientIDEnv); err != nil {
 		return err
 	}
 	return exactlyOne("client_secret", o.ClientSecret, o.ClientSecretEnv)
+}
+
+// validateTokenURL requires https for the token endpoint so the client
+// secret is not sent in clear text. Loopback hosts are exempt to allow
+// local identity providers and tests.
+func validateTokenURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("oauth2.token_url %q is not a valid absolute URL", raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		switch u.Hostname() {
+		case "localhost", "127.0.0.1", "::1":
+			return nil
+		}
+	}
+	return errors.New("oauth2.token_url must use https (http is allowed only for localhost, 127.0.0.1 and ::1)")
 }
 
 func exactlyOne(field, literal, env string) error {

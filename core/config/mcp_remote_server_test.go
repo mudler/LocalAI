@@ -58,6 +58,24 @@ var _ = Describe("MCP remote server OAuth2 configuration", func() {
 			"mutually exclusive"),
 	)
 
+	DescribeTable("validates the token_url scheme",
+		func(tokenURL string, ok bool) {
+			_, err := parse(fmt.Sprintf(`{"mcpServers": {"s": {"url": "https://x", "oauth2": {"token_url": %q, "client_id": "a", "client_secret": "b"}}}}`, tokenURL))
+			if ok {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("token_url")))
+			}
+		},
+		Entry("https", "https://idp.example.com/token", true),
+		Entry("http on a remote host", "http://idp.example.com/token", false),
+		Entry("http on localhost", "http://localhost:8080/token", true),
+		Entry("http on 127.0.0.1", "http://127.0.0.1:9000/token", true),
+		Entry("http on ::1", "http://[::1]:9000/token", true),
+		Entry("non-http scheme", "ftp://localhost/token", false),
+		Entry("no scheme", "idp.example.com/token", false),
+	)
+
 	It("does not write credentials to logs", func() {
 		var buf bytes.Buffer
 		logger := slog.New(slog.NewTextHandler(&buf, nil))

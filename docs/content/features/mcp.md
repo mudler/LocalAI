@@ -127,9 +127,9 @@ mcp:
 
 | Field | Description |
 |---|---|
-| `token_url` | Token endpoint of the identity provider (required) |
+| `token_url` | Token endpoint of the identity provider (required). Must use `https`; plain `http` is accepted only for `localhost`, `127.0.0.1` and `::1` |
 | `client_id` / `client_id_env` | Client ID, literally or as the name of an environment variable (exactly one is required) |
-| `client_secret` / `client_secret_env` | Client secret, literally or as the name of an environment variable (exactly one is required). Prefer `client_secret_env` so the secret is not stored in the model YAML |
+| `client_secret` / `client_secret_env` | Client secret, literally or as the name of an environment variable (exactly one is required). Use `client_secret_env` instead of a literal `client_secret` so the secret is not stored in the model YAML or the server configuration |
 | `scopes` | Scopes to request (optional) |
 | `endpoint_params` | Extra form parameters for the token request, e.g. `audience` or `resource` (RFC 8707) (optional) |
 
@@ -142,6 +142,7 @@ Behaviour:
 - Debug logs of remote server entries redact static tokens and OAuth2 client secrets in both text and JSON formats.
 - Token caches and retry timers are local to each connection-owning process. Workers obtain and refresh their own tokens; this cache is not shared across the cluster.
 - The environment variables are read by the process that connects to the MCP server. In distributed mode that is the agent worker, so set them there.
+- Sessions and cached tokens are keyed by the server configuration, not by the value of an environment variable. After you rotate a secret that is referenced by `client_secret_env` (or `client_id_env`), restart the process that connects to the MCP server so it picks up the new value.
 
 Servers configured with a static `token` behave exactly as before.
 
