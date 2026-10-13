@@ -523,6 +523,11 @@ A denial that the owner makes before it writes the first response byte (an inval
 missing admission or resolver, a refused resource, or a revoked credential) is returned
 as a typed owner status: `403` for a denial and `503` for unavailability. The receiving
 frontend decodes it, so every frontend reports the same error for the same decision.
+Only an authorization, policy or request rejection is `403`. A runtime that is not
+installed, enabled or serving, an owner that is busy or in recovery, an output that ends
+before its first byte, and any unclassified owner error are `503`, never a denial. An
+owner that refused a mutation before running it says so, and the frontend reports plain
+unavailability instead of an unknown outcome.
 After the first byte the status cannot change; the owner then aborts the stream and the
 frontend reports the stream as failed, never as a clean end.
 

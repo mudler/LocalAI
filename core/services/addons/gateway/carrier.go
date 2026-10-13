@@ -17,6 +17,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
@@ -178,13 +182,13 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				for _, h := range []string{"Content-Type", "Content-Disposition", "Content-Length"} {
 					w.Header().Del(h)
 				}
-				http.Error(w, "addon request failed", StatusFor(e))
+				typedError(w, e)
 			}
 			return
 		}
 		result, e := g.Dispatch(r.Context(), actor, wire.Request)
 		if e != nil {
-			http.Error(w, "addon request failed", StatusFor(e))
+			typedError(w, e)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -192,14 +196,47 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 	}), nil
 }
 
+// refusedHeader marks a typed 503 in which the owner states that it refused the
+// request before it executed anything. A frontend decodes it back to plain
+// unavailability even for a mutation, so a refusal is not reported as an unknown
+// outcome. A 503 without the marker keeps the conservative reading.
+const refusedHeader = "X-Addon-Refused"
+
+// denials are authorization, policy and request-level rejections.
+var denials = []error{ErrForbidden, addons.ErrForbidden, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+
+// refusals are operational failures known to happen before any execution.
+var refusals = []error{ErrUnavailable, addonruntime.ErrRuntime, addons.ErrNotOwner, addons.ErrRecoveryRequired, addons.ErrOwnerBusy, io.ErrUnexpectedEOF, catalog.ErrUnavailable, catalog.ErrCredential, catalog.ErrRefresh}
+
+func matches(e error, set []error) bool {
+	for _, c := range set {
+		if errors.Is(e, c) {
+			return true
+		}
+	}
+	return false
+}
+
 // StatusFor is the one mapping from a gateway error to an HTTP status. The owner
 // uses it for typed responses and the HTTP endpoints use it for local errors, so
-// the same decision has the same status from every frontend.
+// the same decision has the same status from every frontend. Only an explicit
+// denial is 403. Every other error, including an unclassified one, is
+// unavailable: an unknown failure is never reported as success or as a policy
+// decision.
 func StatusFor(e error) int {
-	if errors.Is(e, ErrUnavailable) || errors.Is(e, context.DeadlineExceeded) || errors.Is(e, context.Canceled) {
-		return http.StatusServiceUnavailable
+	if e != nil && !matches(e, refusals) && matches(e, denials) {
+		return http.StatusForbidden
 	}
-	return http.StatusForbidden
+	return http.StatusServiceUnavailable
+}
+
+// typedError writes the owner's typed failure response.
+func typedError(w http.ResponseWriter, e error) {
+	status := StatusFor(e)
+	if status == http.StatusServiceUnavailable && matches(e, refusals) {
+		w.Header().Set(refusedHeader, "1")
+	}
+	http.Error(w, "addon request failed", status)
 }
 
 // trackedWriter records whether any response byte or status was committed.
@@ -275,9 +312,13 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrUnavailable
 	}
 	if resp.StatusCode != 200 {
+		refused := resp.Header.Get(refusedHeader) == "1"
 		resp.Body.Close()
 		if resp.StatusCode == 403 {
 			return nil, ErrForbidden
+		}
+		if resp.StatusCode == http.StatusServiceUnavailable && refused {
+			return nil, ErrUnavailable
 		}
 		if mutation(wire.Request.Action) {
 			return nil, &OutcomeUnknown{OperationID: wire.Request.OperationID}
@@ -315,9 +356,19 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 		return e
 	}
 	defer resp.Body.Close()
-	for _, h := range []string{"Content-Type", "Content-Disposition", "Cache-Control", "X-Content-Type-Options"} {
-		if v := resp.Header.Get(h); v != "" {
-			w.Header().Set(h, v)
+	// Owner headers are copied only once the first byte is about to be committed
+	// or the stream ended cleanly, so a failed first read leaves no attachment
+	// headers on the error response.
+	published := false
+	publish := func() {
+		if published {
+			return
+		}
+		published = true
+		for _, h := range []string{"Content-Type", "Content-Disposition", "Cache-Control", "X-Content-Type-Options"} {
+			if v := resp.Header.Get(h); v != "" {
+				w.Header().Set(h, v)
+			}
 		}
 	}
 	var total int64
@@ -329,6 +380,7 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 			if total > budget {
 				return ErrUnavailable
 			}
+			publish()
 			if _, e = w.Write(buffer[:n]); e != nil {
 				return e
 			}
@@ -341,6 +393,9 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 		if err == io.EOF {
 			// An end of stream that races a canceled or expired context is not
 			// proof that the owner finished: never report it as complete.
+			if ctx.Err() == nil {
+				publish()
+			}
 			return ctx.Err()
 		}
 		if err != nil {
