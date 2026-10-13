@@ -118,16 +118,6 @@ var _ = Describe("localVectorStore tracing", func() {
 })
 
 var _ = Describe("resolveStoreBackend", func() {
-	valkeyCfg := func(opts ...string) *config.ModelConfigLoader {
-		cl := config.NewModelConfigLoader(GinkgoT().TempDir())
-		cl.ReplaceModelConfigs([]config.ModelConfig{{
-			Name:    "faces",
-			Backend: model.ValkeyStoreBackend,
-			Options: opts,
-		}})
-		return cl
-	}
-
 	It("defaults to local-store with no config and no explicit backend", func() {
 		name, opts, id := resolveStoreBackend(nil, "some-store", "")
 		Expect(name).To(Equal(model.LocalStoreBackend))
@@ -136,24 +126,42 @@ var _ = Describe("resolveStoreBackend", func() {
 	})
 
 	It("uses the store's model config backend and options", func() {
-		name, opts, id := resolveStoreBackend(valkeyCfg("addr:valkey:6379"), "faces", "")
-		Expect(name).To(Equal(model.ValkeyStoreBackend))
-		Expect(opts).To(Equal([]string{"addr:valkey:6379"}))
+		cl := config.NewModelConfigLoader(GinkgoT().TempDir())
+		cl.ReplaceModelConfigs([]config.ModelConfig{{
+			Name:    "faces",
+			Backend: model.QdrantStoreBackend,
+			Options: []string{"addr:qdrant:6334"},
+		}})
+		name, opts, id := resolveStoreBackend(cl, "faces", "")
+		Expect(name).To(Equal(model.QdrantStoreBackend))
+		Expect(opts).To(Equal([]string{"addr:qdrant:6334"}))
 		Expect(id).To(Equal("faces"))
 	})
 
 	It("keeps the config's options and slot when the explicit backend is the configured one (aliases included)", func() {
-		name, opts, id := resolveStoreBackend(valkeyCfg("addr:valkey:6379"), "faces", "valkey")
-		Expect(name).To(Equal("valkey"))
-		Expect(opts).To(Equal([]string{"addr:valkey:6379"}))
+		cl := config.NewModelConfigLoader(GinkgoT().TempDir())
+		cl.ReplaceModelConfigs([]config.ModelConfig{{
+			Name:    "faces",
+			Backend: model.QdrantStoreBackend,
+			Options: []string{"addr:qdrant:6334"},
+		}})
+		name, opts, id := resolveStoreBackend(cl, "faces", "qdrant")
+		Expect(name).To(Equal("qdrant"))
+		Expect(opts).To(Equal([]string{"addr:qdrant:6334"}))
 		Expect(id).To(Equal("faces"))
 	})
 
 	It("gives an explicit override of another backend its own slot and not the config's options", func() {
-		name, opts, id := resolveStoreBackend(valkeyCfg("addr:valkey:6379"), "faces", model.LocalStoreBackend)
-		Expect(name).To(Equal(model.LocalStoreBackend))
+		cl := config.NewModelConfigLoader(GinkgoT().TempDir())
+		cl.ReplaceModelConfigs([]config.ModelConfig{{
+			Name:    "faces",
+			Backend: model.ValkeyStoreBackend,
+			Options: []string{"addr:valkey:6379"},
+		}})
+		name, opts, id := resolveStoreBackend(cl, "faces", model.QdrantStoreBackend)
+		Expect(name).To(Equal(model.QdrantStoreBackend))
 		Expect(opts).To(BeEmpty())
-		Expect(id).To(Equal("faces@local-store"))
+		Expect(id).To(Equal("faces@qdrant-store"))
 	})
 
 	It("passes the options of a config without backend: to an explicit backend", func() {
@@ -169,17 +177,17 @@ var _ = Describe("resolveStoreBackend", func() {
 	})
 
 	It("separates an override from the default local-store slot when there is no config", func() {
-		_, _, id := resolveStoreBackend(nil, "mix", "valkey")
-		Expect(id).To(Equal("mix@valkey-store"))
+		_, _, id := resolveStoreBackend(nil, "mix", "qdrant")
+		Expect(id).To(Equal("mix@qdrant-store"))
 		_, _, id = resolveStoreBackend(nil, "mix", "embedded-store")
 		Expect(id).To(Equal("mix"))
 	})
 
 	It("compares backends by canonical name (aliases, case)", func() {
-		Expect(model.CanonicalBackend("valkey")).To(Equal(model.ValkeyStoreBackend))
+		Expect(model.CanonicalBackend("qdrant")).To(Equal(model.QdrantStoreBackend))
 		Expect(model.CanonicalBackend("Valkey")).To(Equal(model.ValkeyStoreBackend))
 		Expect(model.CanonicalBackend("embedded-store")).To(Equal(model.LocalStoreBackend))
-		Expect(model.CanonicalBackend(model.ValkeyStoreBackend)).To(Equal(model.ValkeyStoreBackend))
-		Expect(model.CanonicalBackend("Valkey-Store")).To(Equal(model.ValkeyStoreBackend))
+		Expect(model.CanonicalBackend(model.QdrantStoreBackend)).To(Equal(model.QdrantStoreBackend))
+		Expect(model.CanonicalBackend("Qdrant-Store")).To(Equal(model.QdrantStoreBackend))
 	})
 })

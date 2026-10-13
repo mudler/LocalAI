@@ -30,6 +30,7 @@ var Aliases = map[string]string{
 	"ik-llama":               IKLLamaCPP,
 	"embedded-store":         LocalStoreBackend,
 	"valkey":                 ValkeyStoreBackend,
+	"qdrant":                 QdrantStoreBackend,
 	"huggingface-embeddings": TransformersBackend,
 	"transformers-musicgen":  TransformersBackend,
 	"sentencetransformers":   TransformersBackend,
@@ -60,6 +61,7 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
+	QdrantStoreBackend  = "qdrant-store"
 
 	// Proxy backends serve a model by forwarding to another server instead
 	// of loading weights. Core special-cases both (credentials, failover
