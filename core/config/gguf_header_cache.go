@@ -2,12 +2,6 @@
 package config
 
 import (
-	"container/list"
-	"context"
-	"os"
-	"path/filepath"
-	"sync"
-
 	gguf "github.com/gpustack/gguf-parser-go"
 )
 
@@ -127,97 +121,31 @@ func estimateNonUMAAt(f *gguf.GGUFFile, ctx int) (used uint64) {
 	return used
 }
 
-// ggufIdentity is what a cached header is validated against. A changed size or
-// modification time means the file was rewritten, so the entry is not used.
-type ggufIdentity struct {
-	size  int64
-	mtime int64 // UnixNano
-}
+// ggufIdentity is what a cached header is validated against.
+type ggufIdentity = headerIdentity
 
-type ggufHeaderEntry struct {
-	path     string
-	identity ggufIdentity
-	header   ggufHeader
-}
+// ggufHeaderCache is the GGUF instance of the generic header cache.
+type ggufHeaderCache = headerCache[ggufHeader]
 
-// ggufHeaderCache is a bounded LRU keyed by absolute path. It is safe for
-// concurrent use. Lookups hold the lock only for the map and list operations,
-// never while a header is parsed.
-type ggufHeaderCache struct {
-	mu    sync.Mutex
-	max   int
-	order *list.List // front is most recently used; values are *ggufHeaderEntry
-	index map[string]*list.Element
-
-	// Disk persistence, set by attachDisk. Empty persistPath means memory only.
-	// See gguf_header_persist.go.
-	persistPath string
-	dirty       bool
-	saveCh      chan struct{}
-	stopSaver   context.CancelFunc
-	saverDone   chan struct{}
-	// persistMu serializes file writes so the saver and an explicit flush never
-	// race on the same temp name or rename order.
-	persistMu sync.Mutex
-}
+// persistedGGUFCache is the GGUF cache file as read back from disk.
+type persistedGGUFCache = headerFile
 
 func newGGUFHeaderCache(max int) *ggufHeaderCache {
-	return &ggufHeaderCache{max: max, order: list.New(), index: make(map[string]*list.Element)}
+	return newHeaderCache(ggufHeaderSpec, max)
 }
 
 // ggufHeaders is the process-wide header cache used by llamaCppDefaults.
 var ggufHeaders = newGGUFHeaderCache(ggufHeaderCacheSize)
 
-func (c *ggufHeaderCache) get(path string, id ggufIdentity) (ggufHeader, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	el, ok := c.index[path]
-	if !ok {
-		return ggufHeader{}, false
+// parseGGUFHeader parses modelFile with parse and reduces the result to a
+// snapshot. Only the scalar metadata and array lengths are read, see
+// llamaCppDefaultsWithParser for why.
+func parseGGUFHeader(modelFile string, parse ggufParser) (ggufHeader, error) {
+	f, err := parse(modelFile, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	if err != nil {
+		return ggufHeader{}, err
 	}
-	e := el.Value.(*ggufHeaderEntry)
-	if e.identity != id {
-		// The file changed since it was cached. Drop the stale entry now so the
-		// fresh parse replaces it rather than sitting beside it.
-		c.order.Remove(el)
-		delete(c.index, path)
-		c.markDirtyLocked()
-		return ggufHeader{}, false
-	}
-	c.order.MoveToFront(el)
-	return e.header, true
-}
-
-// put stores a snapshot and schedules a background save when the cache is
-// persisted. It never touches the disk itself, so it is safe on the request path.
-func (c *ggufHeaderCache) put(path string, id ggufIdentity, h ggufHeader) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.insertLocked(path, id, h)
-	c.markDirtyLocked()
-}
-
-// insertLocked adds or replaces an entry and enforces the bound. It does not
-// mark the cache dirty, so loading from disk does not schedule a rewrite.
-func (c *ggufHeaderCache) insertLocked(path string, id ggufIdentity, h ggufHeader) {
-	if el, ok := c.index[path]; ok {
-		e := el.Value.(*ggufHeaderEntry)
-		e.identity, e.header = id, h
-		c.order.MoveToFront(el)
-		return
-	}
-	c.index[path] = c.order.PushFront(&ggufHeaderEntry{path: path, identity: id, header: h})
-	for c.order.Len() > c.max {
-		oldest := c.order.Back()
-		c.order.Remove(oldest)
-		delete(c.index, oldest.Value.(*ggufHeaderEntry).path)
-	}
-}
-
-func (c *ggufHeaderCache) len() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.order.Len()
+	return readGGUFHeader(f), nil
 }
 
 // loadGGUFHeader returns the header snapshot for modelFile, parsing it only when
@@ -225,28 +153,7 @@ func (c *ggufHeaderCache) len() int {
 // stat'ed or parsed is never cached, so the caller sees the same error path as
 // before the cache existed.
 func loadGGUFHeader(modelFile string, parse ggufParser) (ggufHeader, error) {
-	abs, absErr := filepath.Abs(modelFile)
-	info, statErr := os.Stat(modelFile)
-	if absErr != nil || statErr != nil {
-		f, err := parse(modelFile, gguf.UseMMap(), gguf.SkipLargeMetadata())
-		if err != nil {
-			return ggufHeader{}, err
-		}
-		return readGGUFHeader(f), nil
-	}
-
-	// The identity is read before the parse. If the file is rewritten during the
-	// parse, the entry is keyed by the older identity and the next call misses.
-	id := ggufIdentity{size: info.Size(), mtime: info.ModTime().UnixNano()}
-	if h, ok := ggufHeaders.get(abs, id); ok {
-		return h, nil
-	}
-
-	f, err := parse(modelFile, gguf.UseMMap(), gguf.SkipLargeMetadata())
-	if err != nil {
-		return ggufHeader{}, err
-	}
-	h := readGGUFHeader(f)
-	ggufHeaders.put(abs, id, h)
-	return h, nil
+	return ggufHeaders.loadVia(modelFile, func(p string) (ggufHeader, error) {
+		return parseGGUFHeader(p, parse)
+	})
 }

@@ -61,9 +61,9 @@ var _ = Describe("GGUF header cache persistence", func() {
 		GinkgoT().Setenv("LOCALAI_DISABLE_GUESSING", "false")
 		// Keep the background saver out of the way: each test flushes explicitly,
 		// so a timer-driven write cannot race the rename override or the assertions.
-		prev := ggufHeaderSaveDebounce
-		ggufHeaderSaveDebounce = time.Hour
-		DeferCleanup(func() { ggufHeaderSaveDebounce = prev })
+		prev := headerCacheSaveDebounce
+		headerCacheSaveDebounce = time.Hour
+		DeferCleanup(func() { headerCacheSaveDebounce = prev })
 	})
 
 	It("serves entries written by an earlier instance without parsing", func() {
@@ -191,9 +191,9 @@ var _ = Describe("GGUF header cache persistence", func() {
 		c := newPersistentCache(dir, "frontend-a")
 		c.put(filepath.Join(dir, "other.gguf"), ggufIdentity{size: 1, mtime: 1}, ggufHeader{Name: "other"})
 
-		prevRename := ggufHeaderCacheRename
-		ggufHeaderCacheRename = func(string, string) error { return errors.New("simulated rename failure") }
-		DeferCleanup(func() { ggufHeaderCacheRename = prevRename })
+		prevRename := headerCacheRename
+		headerCacheRename = func(string, string) error { return errors.New("simulated rename failure") }
+		DeferCleanup(func() { headerCacheRename = prevRename })
 
 		Expect(c.flush()).To(HaveOccurred())
 		after, err := os.ReadFile(path)
