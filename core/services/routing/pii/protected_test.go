@@ -125,6 +125,21 @@ var _ = Describe("ProtectedTerms", func() {
 		Expect(texts[1][res[1].Spans[1].Start:res[1].Spans[1].End]).To(Equal("Kranzberger"))
 	})
 
+	It("matches a term across no-break and other Unicode spaces", func() {
+		text := "Hotel\u00a0Seeblick, Hotel\u202fSeeblick, Hotel\u2003Seeblick, Seeblick"
+		det := &lexiconDetector{words: map[string]NEREntity{"Seeblick": {Group: "LASTNAME", Score: 0.9}}}
+		res, err := RedactNER(ctx, text, cfg(det, "Hotel Seeblick"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Redacted).To(Equal("Hotel\u00a0Seeblick, Hotel\u202fSeeblick, Hotel\u2003Seeblick, [REDACTED:ner:LASTNAME]"))
+	})
+
+	It("returns the cached matcher for an equal term list", func() {
+		a := protectedMatcher([]string{"Gasthof Adler", "Café Lindenhof"})
+		b := protectedMatcher([]string{"Gasthof Adler", "Café Lindenhof"})
+		Expect(a).NotTo(BeNil())
+		Expect(b).To(BeIdenticalTo(a))
+	})
+
 	It("is a no-op without terms", func() {
 		scan, regions := shieldProtected(hotel, protectedMatcher(nil))
 		Expect(scan).To(Equal(hotel))

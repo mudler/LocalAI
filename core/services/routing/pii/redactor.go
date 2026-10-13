@@ -158,6 +158,10 @@ func RedactNERSegments(ctx context.Context, texts []string, cfgs []NERConfig) ([
 // back onto the original text with the placeholder parts cut out, so a
 // protected term is never masked or blocked and the detector never sees
 // it as context.
+//
+// On the multi-segment path text is the segments joined with
+// segmentSeparator, so the protected matcher runs over that joined
+// document and a term can match across a segment boundary.
 func collectNERHits(ctx context.Context, text string, cfg NERConfig) ([]rawHit, error) {
 	if cfg.Detector == nil || text == "" {
 		return nil, nil
