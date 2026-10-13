@@ -745,6 +745,21 @@ and status only) is a later task and must keep that rule.
 
 ### Unknown outcomes and recovery
 
+Every proposal call is idempotent by the proposal ID: a proposal is a single-use state
+machine, and repeating a call with the same ID returns the stored state and never starts
+a second operation. The owner therefore answers an outage by what it knows about the
+proposal, and every frontend reports the same answer for the same owner state:
+
+| Response | Meaning | What to do |
+|---|---|---|
+| `503` `proposal_unavailable` with `operationId` | The owner could not serve the call and the proposal did not reach the addon (or the call was a proposal, a cancellation or a resolution, which never run it). | Read the proposal with `GET`, then repeat the same call with the same ID. |
+| `503` `outcome_unknown` with `operationId` | The proposal reached the addon on the owner (`executing` or `outcome-unknown`). | Do not confirm again as a new operation. Reconcile, wait for the automatic lookups, or resolve. |
+
+A reply lost between a forwarding frontend and the owner for a confirmation is reported
+as `outcome_unknown`, because the frontend cannot know whether the owner started it.
+The lifecycle dispatch rule is unchanged: any uncertain lifecycle mutation is an unknown
+outcome with its original operation ID.
+
 If the reply to a confirmation is lost, or the owner restarts while a proposal is
 `executing`, the proposal is `outcome-unknown` and the response is `outcome_unknown` with
 the original `operationId`. The mutation is never submitted again under any ID.

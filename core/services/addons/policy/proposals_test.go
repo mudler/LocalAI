@@ -534,9 +534,14 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		old := syncDirectory
 		syncDirectory = func(*os.File) error { return errors.New("sync failed") }
 		DeferCleanup(func() { syncDirectory = old })
-		_, err = f.broker.Confirm(ctx, session("owner"), p.ID)
+		_, err = f.broker.Gateway().Confirm(ctx, session("owner"), p.ID, p.Digest)
 		Expect(err).To(HaveOccurred())
 		Expect(gateway.StatusFor(err)).To(Equal(503))
+		// The owner's record says it reached executing, so the answer is an
+		// unknown outcome with the original operation, not a plain outage.
+		var unknown *gateway.OutcomeUnknown
+		Expect(errors.As(err, &unknown)).To(BeTrue())
+		Expect(unknown.OperationID).To(Equal("op-1"))
 		Expect(f.rt.applyCalls()).To(BeEmpty())
 		// The store accepts no further writes until it is reopened.
 		_, err = f.broker.Propose(ctx, owner, f.request(key, "op-2", "write", `{"rows":[2]}`))

@@ -1024,6 +1024,22 @@ func (b *Broker) settle(id string, state ProposalState, receipt *contract.Receip
 // gatewayBroker adapts Broker to gateway.ProposalBroker.
 type gatewayBroker struct{ b *Broker }
 
+// byState decides what an outage of a state-changing call means by the
+// owner's own record of the proposal: one that reached the addon (executing
+// or outcome-unknown) is an unknown outcome with the original operation ID,
+// whatever error the call ended with. Anything else is left to the caller as
+// a plain outage. Only the proposer's own record is consulted.
+func (g gatewayBroker) byState(actor contract.Actor, id string, err error) error {
+	var unknown *gateway.OutcomeUnknown
+	if err == nil || errors.As(err, &unknown) || gateway.StatusFor(err) != 503 {
+		return err
+	}
+	if r, ok := g.b.store.get(id); ok && r.Actor.UserID == actor.UserID && r.Actor.Mode == actor.Mode && r.unresolved() {
+		return &gateway.OutcomeUnknown{OperationID: id}
+	}
+	return err
+}
+
 func (g gatewayBroker) Propose(ctx context.Context, a contract.Actor, r contract.Request) (Proposal, error) {
 	return g.b.Propose(ctx, a, r)
 }
@@ -1034,15 +1050,16 @@ func (g gatewayBroker) Confirm(ctx context.Context, a contract.Actor, id, digest
 		return Proposal{}, ErrProposalChanged
 	}
 	if _, err := g.b.ConfirmBound(ctx, a, id, digest); err != nil {
-		return Proposal{}, err
+		return Proposal{}, g.byState(a, id, err)
 	}
-	return g.b.Get(ctx, a, id)
+	p, err := g.b.Get(ctx, a, id)
+	return p, g.byState(a, id, err)
 }
 
 func (g gatewayBroker) Cancel(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
 	r, err := g.b.cancel(ctx, a, id)
 	if err != nil {
-		return Proposal{}, err
+		return Proposal{}, g.byState(a, id, err)
 	}
 	return g.b.view(r), nil
 }
@@ -1052,7 +1069,8 @@ func (g gatewayBroker) Get(ctx context.Context, a contract.Actor, id string) (Pr
 }
 
 func (g gatewayBroker) Resolve(ctx context.Context, a contract.Actor, id, digest, reason string) (Proposal, error) {
-	return g.b.Resolve(ctx, a, id, digest, reason)
+	p, err := g.b.Resolve(ctx, a, id, digest, reason)
+	return p, g.byState(a, id, err)
 }
 
 func (g gatewayBroker) Reconcile(ctx context.Context, a contract.Actor, id string) (Proposal, error) {

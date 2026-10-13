@@ -181,7 +181,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			wire.Request.Action = call.wireAction(wire.Request)
 			p, e := g.proposalLocal(r.Context(), actor, wire.Request, call)
 			if e != nil {
-				typedError(w, mutationOutcome(wire.Request, e))
+				proposalFailure(w, call, wire.Request.OperationID, e)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -319,15 +319,23 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	req.Header.Set("Content-Type", "application/json")
 	resp, e = c.client.Do(req)
 	if e != nil {
+		if wire.Proposal != nil {
+			return nil, uncertainProposal(*wire.Proposal, wire.Request.OperationID)
+		}
 		if wire.Relay == nil && mutation(wire.Request.Action) {
 			return nil, &OutcomeUnknown{OperationID: wire.Request.OperationID}
 		}
 		return nil, ErrUnavailable
 	}
 	if resp.StatusCode != 200 {
-		resp.Body.Close()
+		defer resp.Body.Close()
 		if resp.StatusCode == 403 {
 			return nil, ErrForbidden
+		}
+		if wire.Proposal != nil {
+			// The owner types its failure of a proposal call, so the answer
+			// is the owner's state and not a guess of this frontend.
+			return nil, proposalReplyError(resp.Body, *wire.Proposal, wire.Request.OperationID)
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
 		// the owner may have recorded or applied it before it failed.

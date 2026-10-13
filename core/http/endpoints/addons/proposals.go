@@ -88,7 +88,7 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature, resource policy or request binding denied the proposal"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
 // @Router /api/addons/proposals [post]
 func Propose(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -138,7 +138,7 @@ func GetProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFu
 // @Success 200 {object} gateway.Proposal "Cancelled proposal"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature denied, the proposal is not the caller's, or it is not pending"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/cancel [post]
 func CancelProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	return proposalCall(g, db, opts, func(c echo.Context, g *gateway.Gateway, a contract.Actor) (gateway.Proposal, error) {
@@ -193,7 +193,7 @@ func proposalCall(g *gateway.Gateway, db *gorm.DB, opts []Option, call func(echo
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, feature denied, or the proposal is not pending, is expired, stale, changed or blocked"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/confirm [post]
 func ConfirmProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)
@@ -243,7 +243,7 @@ type ResolveRequest struct {
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human confirmation surface, not the resource owner, feature denied, digest changed or the proposal is not unresolved"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable. Type proposal_unavailable (with operationId): read the proposal and repeat the same call with the same ID"
 // @Router /api/addons/proposals/{id}/resolve [post]
 func ResolveProposal(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)

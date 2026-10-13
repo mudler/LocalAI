@@ -4,7 +4,9 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -139,16 +141,53 @@ func (c ProposalCall) wireAction(request contract.Request) string {
 	return "proposal-" + c.Op
 }
 
+// ProposalUnavailable means a proposal call could not be served and the
+// owner's state of that proposal was not changed past a state the client can
+// read. The proposal ID is the original operation ID. A proposal call is a
+// single-use state machine keyed by that ID, so the client reads the proposal
+// (GET) and repeats the same call with the same ID; a repeat never creates a
+// second operation. OutcomeUnknown is reserved for a proposal that reached
+// the addon on the owner.
+type ProposalUnavailable struct {
+	ProposalID string `json:"operationId"`
+}
+
+func (e *ProposalUnavailable) Error() string {
+	return "addon proposal call unavailable; read the proposal and repeat the same call"
+}
+func (e *ProposalUnavailable) Unwrap() error { return ErrUnavailable }
+
+// stateChanging reports the proposal calls that can move a proposal. Get and
+// reconcile only look, so their outages stay plain unavailability.
+func (c ProposalCall) stateChanging() bool {
+	return c.Op == proposalPropose || c.Op == proposalConfirm || c.Op == proposalCancel || c.Op == proposalResolve
+}
+
+// proposalOutcome classifies a failed proposal call by the owner's state, the
+// same way for the owner's own frontend and for forwarding frontends. An
+// unknown outcome passes through unchanged. Any other outage of a
+// state-changing call is ProposalUnavailable: the owner reports
+// OutcomeUnknown itself when the proposal reached the addon.
+func proposalOutcome(call ProposalCall, id string, e error) error {
+	var unknown *OutcomeUnknown
+	var unavailable *ProposalUnavailable
+	if e == nil || errors.As(e, &unknown) || errors.As(e, &unavailable) || !call.stateChanging() || StatusFor(e) != http.StatusServiceUnavailable {
+		return e
+	}
+	return &ProposalUnavailable{ProposalID: id}
+}
+
 func (g *Gateway) proposal(ctx context.Context, a contract.Actor, request contract.Request, call ProposalCall) (Proposal, error) {
 	if e := g.revalidate(ctx, a); e != nil {
 		return Proposal{}, e
 	}
 	request.Action = call.wireAction(request)
 	if g.Forward != nil {
-		return g.Forward.Proposal(ctx, a, request, call)
+		p, e := g.Forward.Proposal(ctx, a, request, call)
+		return p, proposalOutcome(call, request.OperationID, e)
 	}
 	p, e := g.proposalLocal(ctx, a, request, call)
-	return p, mutationOutcome(request, e)
+	return p, proposalOutcome(call, request.OperationID, e)
 }
 
 // proposalLocal serves a proposal call on the owner itself.
@@ -211,6 +250,66 @@ func (g *Gateway) ResolveProposal(ctx context.Context, a contract.Actor, id, dig
 	return g.proposal(ctx, a, contract.Request{OperationID: id}, ProposalCall{Op: proposalResolve, ID: id, Digest: digest, Reason: reason})
 }
 
+// uncertainProposal is the answer when the reply of the owner was lost or not
+// understood. Only a confirmation can have reached the addon, so only it is an
+// unknown outcome; the other calls are repeated by the same ID after a read.
+func uncertainProposal(call ProposalCall, id string) error {
+	switch call.Op {
+	case proposalConfirm:
+		return &OutcomeUnknown{OperationID: id}
+	case proposalPropose, proposalCancel, proposalResolve:
+		return &ProposalUnavailable{ProposalID: id}
+	}
+	return ErrUnavailable
+}
+
+// proposalWire is the typed body of an owner's failed proposal call.
+type proposalWire struct {
+	Type        string `json:"type"`
+	OperationID string `json:"operationId"`
+}
+
+const (
+	wireOutcomeUnknown      = "outcome_unknown"
+	wireProposalUnavailable = "proposal_unavailable"
+)
+
+// proposalFailure writes the owner's typed failure of a proposal call. An
+// unknown outcome and an unavailable call are both 503 and are told apart by
+// the body, so a forwarding frontend reports what the owner knows.
+func proposalFailure(w http.ResponseWriter, call ProposalCall, id string, e error) {
+	e = proposalOutcome(call, id, e)
+	var unknown *OutcomeUnknown
+	var unavailable *ProposalUnavailable
+	body := proposalWire{OperationID: id}
+	switch {
+	case errors.As(e, &unknown):
+		body.Type, body.OperationID = wireOutcomeUnknown, unknown.OperationID
+	case errors.As(e, &unavailable):
+		body.Type, body.OperationID = wireProposalUnavailable, unavailable.ProposalID
+	default:
+		typedError(w, e)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_ = json.NewEncoder(w).Encode(body)
+}
+
+// proposalReplyError reads the typed failure of an owner's proposal call.
+func proposalReplyError(r io.Reader, call ProposalCall, id string) error {
+	var b proposalWire
+	if decode(io.LimitReader(r, 4096), &b) == nil && b.OperationID == id {
+		switch b.Type {
+		case wireOutcomeUnknown:
+			return &OutcomeUnknown{OperationID: id}
+		case wireProposalUnavailable:
+			return &ProposalUnavailable{ProposalID: id}
+		}
+	}
+	return uncertainProposal(call, id)
+}
+
 // Proposal forwards a proposal call to the owner.
 func (c *Carrier) Proposal(ctx context.Context, a contract.Actor, r contract.Request, call ProposalCall) (Proposal, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r, Proposal: &call})
@@ -220,10 +319,7 @@ func (c *Carrier) Proposal(ctx context.Context, a contract.Actor, r contract.Req
 	defer resp.Body.Close()
 	var p Proposal
 	if e = decode(io.LimitReader(resp.Body, 2<<20), &p); e != nil {
-		if mutation(r.Action) {
-			return Proposal{}, &OutcomeUnknown{OperationID: r.OperationID}
-		}
-		return Proposal{}, ErrUnavailable
+		return Proposal{}, uncertainProposal(call, r.OperationID)
 	}
 	return p, nil
 }

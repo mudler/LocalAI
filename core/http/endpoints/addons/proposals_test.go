@@ -44,6 +44,9 @@ type proposalRuntime struct {
 	// dropApply fails the next apply before the addon records anything, so
 	// no receipt ever exists for it.
 	dropApply bool
+	// down makes the addon runtime unreachable, so the owner can dispatch
+	// nothing.
+	down bool
 }
 
 func newProposalRuntime() *proposalRuntime {
@@ -108,6 +111,12 @@ func (r *proposalRuntime) calls() []string {
 type proposalInstances struct{ rt *proposalRuntime }
 
 func (p proposalInstances) Runtime(context.Context, string) (addonruntime.Instance, error) {
+	p.rt.mu.Lock()
+	down := p.rt.down
+	p.rt.mu.Unlock()
+	if down {
+		return addonruntime.Instance{}, errors.New("addon runtime unavailable")
+	}
 	return addonruntime.Instance{Generation: 1, Incarnation: "current", Client: p.rt}, nil
 }
 
@@ -187,6 +196,65 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.POST("/proposals/:id/reconcile", ReconcileProposal(g, s.db, mode))
 	group.POST("/proposals/:id/resolve", ResolveProposal(g, s.db, mode))
 	return e
+}
+
+// forwardingFrontends serves the same routes as two other frontends that reach
+// the owner gateway only through the signed, pinned carrier.
+func (s *ownerStack) forwardingFrontends(owner *gateway.Gateway) (*echo.Echo, *echo.Echo) {
+	certs, roots := certificates()
+	pins := map[string][32]byte{}
+	keys := map[string]ed25519.PublicKey{}
+	private := map[string]ed25519.PrivateKey{}
+	for _, id := range []string{"owner", "front-a", "front-b"} {
+		pins[id] = sha256.Sum256(certs[id].Certificate[0])
+		pub, priv, err := ed25519.GenerateKey(rand.Reader)
+		Expect(err).NotTo(HaveOccurred())
+		keys[id], private[id] = pub, priv
+	}
+	server := httptest.NewUnstartedServer(nil)
+	carriers := map[string]*gateway.Carrier{}
+	for _, id := range []string{"owner", "front-a", "front-b"} {
+		c, err := gateway.NewCarrier(gateway.CarrierConfig{InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
+		Expect(err).NotTo(HaveOccurred())
+		carriers[id] = c
+	}
+	var err error
+	server.Config.Handler, err = carriers["owner"].OwnerHandler(owner)
+	Expect(err).NotTo(HaveOccurred())
+	server.TLS = carriers["owner"].ServerTLS()
+	server.StartTLS()
+	DeferCleanup(server.Close)
+	revalidate := auth.AddonRevalidate(s.db, s.mode)
+	a := s.frontend(&gateway.Gateway{Forward: carriers["front-a"], Revalidate: revalidate})
+	b := s.frontend(&gateway.Gateway{Forward: carriers["front-b"], Revalidate: revalidate})
+	return a, b
+}
+
+// stubBroker answers every proposal call with a fixed error, as an owner
+// whose state is known would.
+type stubBroker struct {
+	err   error
+	calls int
+}
+
+func (b *stubBroker) fail() (gateway.Proposal, error) { b.calls++; return gateway.Proposal{}, b.err }
+func (b *stubBroker) Propose(context.Context, contract.Actor, contract.Request) (gateway.Proposal, error) {
+	return b.fail()
+}
+func (b *stubBroker) Confirm(context.Context, contract.Actor, string, string) (gateway.Proposal, error) {
+	return b.fail()
+}
+func (b *stubBroker) Cancel(context.Context, contract.Actor, string) (gateway.Proposal, error) {
+	return b.fail()
+}
+func (b *stubBroker) Get(context.Context, contract.Actor, string) (gateway.Proposal, error) {
+	return b.fail()
+}
+func (b *stubBroker) Reconcile(context.Context, contract.Actor, string) (gateway.Proposal, error) {
+	return b.fail()
+}
+func (b *stubBroker) Resolve(context.Context, contract.Actor, string, string, string) (gateway.Proposal, error) {
+	return b.fail()
 }
 
 type reply struct {
@@ -382,32 +450,7 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 
 	It("reports a lost reply with the original operation from forwarding frontends and resolves it by receipt", func() {
 		s := newOwnerStack(auth.AddonModeNamedUser, true)
-		certs, roots := certificates()
-		pins := map[string][32]byte{}
-		keys := map[string]ed25519.PublicKey{}
-		private := map[string]ed25519.PrivateKey{}
-		for _, id := range []string{"owner", "front-a", "front-b"} {
-			pins[id] = sha256.Sum256(certs[id].Certificate[0])
-			pub, priv, err := ed25519.GenerateKey(rand.Reader)
-			Expect(err).NotTo(HaveOccurred())
-			keys[id], private[id] = pub, priv
-		}
-		server := httptest.NewUnstartedServer(nil)
-		carriers := map[string]*gateway.Carrier{}
-		for _, id := range []string{"owner", "front-a", "front-b"} {
-			c, err := gateway.NewCarrier(gateway.CarrierConfig{InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
-			Expect(err).NotTo(HaveOccurred())
-			carriers[id] = c
-		}
-		var err error
-		server.Config.Handler, err = carriers["owner"].OwnerHandler(s.gateway)
-		Expect(err).NotTo(HaveOccurred())
-		server.TLS = carriers["owner"].ServerTLS()
-		server.StartTLS()
-		DeferCleanup(server.Close)
-		revalidate := auth.AddonRevalidate(s.db, auth.AddonModeNamedUser)
-		a := s.frontend(&gateway.Gateway{Forward: carriers["front-a"], Revalidate: revalidate})
-		b := s.frontend(&gateway.Gateway{Forward: carriers["front-b"], Revalidate: revalidate})
+		a, b := s.forwardingFrontends(s.gateway)
 
 		p := send(a, "POST", "/api/addons/proposals", s.proposeBody("lost-1"), bearerOf(s.tokens["alice"]))
 		Expect(p.code).To(Equal(200), "%v", p.body)
@@ -494,6 +537,86 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		Expect(late.state()).To(Equal("applied"))
 		Expect(late.body).To(HaveKey("resolution"))
 		Expect(s.rt.calls()).To(Equal([]string{"stuck-1"}))
+	})
+
+	It("answers an owner outage by the owner's state with the same type from every frontend", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		stub := &stubBroker{}
+		ownerGateway := &gateway.Gateway{Revalidate: auth.AddonRevalidate(s.db, auth.AddonModeNamedUser), Proposals: stub}
+		own := s.frontend(ownerGateway)
+		a, b := s.forwardingFrontends(ownerGateway)
+		calls := map[string]func(e http.Handler) reply{
+			"propose": func(e http.Handler) reply {
+				return send(e, "POST", "/api/addons/proposals", s.proposeBody("op-1"), bearerOf(s.tokens["alice"]))
+			},
+			"confirm": func(e http.Handler) reply {
+				return send(e, "POST", "/api/addons/proposals/op-1/confirm", `{"digest":"d"}`, humanTab(s.cookies["alice"], "op-1"))
+			},
+			"cancel": func(e http.Handler) reply {
+				return send(e, "POST", "/api/addons/proposals/op-1/cancel", ``, bearerOf(s.tokens["alice"]))
+			},
+			"resolve": func(e http.Handler) reply {
+				return send(e, "POST", "/api/addons/proposals/op-1/resolve", `{"digest":"d","reason":"r"}`, humanTab(s.cookies["alice"], "op-1"))
+			},
+		}
+		fronts := map[string]http.Handler{"owner": own, "front-a": a, "front-b": b}
+		// Nothing was dispatched: the proposal call is unavailable, names the
+		// proposal and says nothing about an unknown outcome.
+		stub.err = gateway.ErrUnavailable
+		for name, call := range calls {
+			for front, e := range fronts {
+				got := call(e)
+				Expect(got.code).To(Equal(503), name+" "+front)
+				Expect(got.errType()).To(Equal("proposal_unavailable"), name+" "+front)
+				Expect(got.errOperation()).To(Equal("op-1"), name+" "+front)
+			}
+		}
+		// The owner says the operation reached the addon: unknown outcome.
+		stub.err = &gateway.OutcomeUnknown{OperationID: "op-1"}
+		for name, call := range calls {
+			for front, e := range fronts {
+				got := call(e)
+				Expect(got.code).To(Equal(503), name+" "+front)
+				Expect(got.errType()).To(Equal("outcome_unknown"), name+" "+front)
+				Expect(got.errOperation()).To(Equal("op-1"), name+" "+front)
+			}
+		}
+		// A denial stays a denial everywhere.
+		stub.err = gateway.ErrForbidden
+		for name, call := range calls {
+			for front, e := range fronts {
+				Expect(call(e).code).To(Equal(403), name+" "+front)
+			}
+		}
+	})
+
+	It("keeps a proposal confirmable by the same ID after the owner could not reach the addon", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		own := s.frontend(s.gateway)
+		a, b := s.forwardingFrontends(s.gateway)
+		for name, e := range map[string]http.Handler{"owner": own, "front-a": a, "front-b": b} {
+			id := "op-" + name
+			p := send(own, "POST", "/api/addons/proposals", s.proposeBody(id), bearerOf(s.tokens["alice"]))
+			Expect(p.code).To(Equal(200), "%v", p.body)
+			digest, _ := p.body["digest"].(string)
+			s.rt.mu.Lock()
+			s.rt.down = true
+			s.rt.mu.Unlock()
+			down := send(e, "POST", "/api/addons/proposals/"+id+"/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["alice"], id))
+			Expect(down.code).To(Equal(503), name)
+			Expect(down.errType()).To(Equal("proposal_unavailable"), name)
+			Expect(down.errOperation()).To(Equal(id), name)
+			Expect(s.rt.calls()).NotTo(ContainElement(id), name)
+			// The owner's state is still pending, and the same ID applies.
+			s.rt.mu.Lock()
+			s.rt.down = false
+			s.rt.mu.Unlock()
+			Expect(send(e, "GET", "/api/addons/proposals/"+id, "", bearerOf(s.tokens["alice"])).state()).To(Equal("pending"), name)
+			done := send(e, "POST", "/api/addons/proposals/"+id+"/confirm", `{"digest":"`+digest+`"}`, humanTab(s.cookies["alice"], id))
+			Expect(done.code).To(Equal(200), "%s %v", name, done.body)
+			Expect(done.state()).To(Equal("applied"), name)
+		}
+		Expect(s.rt.calls()).To(Equal([]string{"op-owner", "op-front-a", "op-front-b"}))
 	})
 
 	It("documents the proposal routes and the proposal schema in the Swagger spec", func() {

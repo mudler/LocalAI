@@ -11,12 +11,15 @@ definitions:
         type: string
       operationId:
         description: |-
-          OperationID is the original operation to poll. It is present only with
-          type outcome_unknown.
+          OperationID is the original operation, which is the proposal ID for a
+          proposal call. It is present only with type outcome_unknown or
+          proposal_unavailable.
         type: string
       type:
-        description: Type is addon_error, or outcome_unknown when a mutation may have
-          run.
+        description: |-
+          Type is addon_error, outcome_unknown when a mutation may have run, or
+          proposal_unavailable when a proposal call could not be served and the
+          same call can be repeated by the same proposal ID after reading it.
         example: outcome_unknown
         type: string
     type: object
@@ -4116,8 +4119,11 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable, or the outcome is unknown
-            (type outcome_unknown, with operationId)
+          description: 'Addons or the owner are unavailable. Type outcome_unknown
+            (with operationId): the proposal reached the addon and its outcome is
+            unknown, reconcile it. Type proposal_unavailable (with operationId): the
+            owner could not serve the call and the proposal did not reach the addon;
+            read the proposal and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Propose an addon data or schema mutation for confirmation
@@ -4183,8 +4189,11 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable, or the outcome is unknown
-            (type outcome_unknown, with operationId)
+          description: 'Addons or the owner are unavailable. Type outcome_unknown
+            (with operationId): the proposal reached the addon and its outcome is
+            unknown, reconcile it. Type proposal_unavailable (with operationId): the
+            owner could not serve the call and the proposal did not reach the addon;
+            read the proposal and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Cancel a pending addon proposal
@@ -4236,8 +4245,11 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable, or the outcome is unknown
-            (type outcome_unknown, with operationId)
+          description: 'Addons or the owner are unavailable. Type outcome_unknown
+            (with operationId): the proposal reached the addon and its outcome is
+            unknown, reconcile it. Type proposal_unavailable (with operationId): the
+            owner could not serve the call and the proposal did not reach the addon;
+            read the proposal and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Confirm and apply a pending addon proposal
@@ -4328,7 +4340,9 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable
+          description: 'Addons or the owner are unavailable. Type proposal_unavailable
+            (with operationId): read the proposal and repeat the same call with the
+            same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Abandon an unresolved addon proposal outcome as the resource owner

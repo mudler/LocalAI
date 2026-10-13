@@ -342,6 +342,8 @@
       "serves the local owner's confirmation only from a same-origin fetch of the host page",
       "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
       "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+      "answers an owner outage by the owner's state with the same type from every frontend",
+      "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
       "documents the proposal routes and the proposal schema in the Swagger spec"
     ],
     "report": ".cache/addons/logs/gateway.json",
@@ -417,6 +419,8 @@
           "serves the local owner's confirmation only from a same-origin fetch of the host page",
           "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
           "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+          "answers an owner outage by the owner's state with the same type from every frontend",
+          "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
           "documents the proposal routes and the proposal schema in the Swagger spec"
         ]
       }
@@ -627,6 +631,8 @@
       "serves the local owner's confirmation only from a same-origin fetch of the host page",
       "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
       "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+      "answers an owner outage by the owner's state with the same type from every frontend",
+      "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
       "documents the proposal routes and the proposal schema in the Swagger spec"
     ],
     "report": ".cache/addons/logs/proposals.json",
@@ -730,6 +736,8 @@
           "serves the local owner's confirmation only from a same-origin fetch of the host page",
           "reports a lost reply with the original operation from forwarding frontends and resolves it by receipt",
           "lets only the resource owner's browser session abandon an unresolved outcome and then accepts writes",
+          "answers an owner outage by the owner's state with the same type from every frontend",
+          "keeps a proposal confirmable by the same ID after the owner could not reach the addon",
           "documents the proposal routes and the proposal schema in the Swagger spec"
         ]
       }

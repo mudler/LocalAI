@@ -228,7 +228,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -322,7 +322,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -387,7 +387,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable, or the outcome is unknown (type outcome_unknown, with operationId)",
+                        "description": "Addons or the owner are unavailable. Type outcome_unknown (with operationId): the proposal reached the addon and its outcome is unknown, reconcile it. Type proposal_unavailable (with operationId): the owner could not serve the call and the proposal did not reach the addon; read the proposal and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -499,7 +499,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable",
+                        "description": "Addons or the owner are unavailable. Type proposal_unavailable (with operationId): read the proposal and repeat the same call with the same ID",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5122,11 +5122,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "operationId": {
-                    "description": "OperationID is the original operation to poll. It is present only with\ntype outcome_unknown.",
+                    "description": "OperationID is the original operation, which is the proposal ID for a\nproposal call. It is present only with type outcome_unknown or\nproposal_unavailable.",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type is addon_error, or outcome_unknown when a mutation may have run.",
+                    "description": "Type is addon_error, outcome_unknown when a mutation may have run, or\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it.",
                     "type": "string",
                     "example": "outcome_unknown"
                 }

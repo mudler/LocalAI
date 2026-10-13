@@ -15,14 +15,17 @@ import (
 
 // AddonError is the error object of every failure response of the addon endpoints.
 type AddonError struct {
-	// Type is addon_error, or outcome_unknown when a mutation may have run.
+	// Type is addon_error, outcome_unknown when a mutation may have run, or
+	// proposal_unavailable when a proposal call could not be served and the
+	// same call can be repeated by the same proposal ID after reading it.
 	Type string `json:"type" example:"outcome_unknown"`
 	// Message describes the failure and never carries owner details.
 	Message string `json:"message"`
 	// Code repeats the HTTP status. It is absent from outcome_unknown responses.
 	Code int `json:"code,omitempty"`
-	// OperationID is the original operation to poll. It is present only with
-	// type outcome_unknown.
+	// OperationID is the original operation, which is the proposal ID for a
+	// proposal call. It is present only with type outcome_unknown or
+	// proposal_unavailable.
 	OperationID string `json:"operationId,omitempty"`
 }
 
@@ -106,6 +109,10 @@ func resultError(c echo.Context, e error) error {
 	var unknown *gateway.OutcomeUnknown
 	if errors.As(e, &unknown) {
 		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "outcome_unknown", Message: "Check operation status; do not submit a new mutation", OperationID: unknown.OperationID}})
+	}
+	var unavailable *gateway.ProposalUnavailable
+	if errors.As(e, &unavailable) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "proposal_unavailable", Message: "Proposal call unavailable; read the proposal and repeat the same call with the same proposal ID", OperationID: unavailable.ProposalID}})
 	}
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
 		return failure(c, 503, "Addon owner unavailable")
