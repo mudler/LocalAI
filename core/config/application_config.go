@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -18,6 +19,9 @@ import (
 // AddonConfig is startup-only deployment configuration. Authority is injected
 // by the embedding host and cannot be loaded from runtime settings.
 type AddonConfig struct {
+	Transport     *gateway.CarrierConfig `json:"-" yaml:"-"`
+	ListenAddress string
+
 	Enabled                                            bool
 	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
 	SharedStorage                                      bool

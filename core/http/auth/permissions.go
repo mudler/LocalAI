@@ -34,6 +34,7 @@ const (
 	FeatureLocalAIAssistant = "localai_assistant"
 
 	// General features (default OFF for new users)
+	FeatureAddons       = "addons"
 	FeatureFineTuning   = "fine_tuning"
 	FeatureQuantization = "quantization"
 
@@ -71,7 +72,7 @@ const (
 var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs, FeatureLocalAIAssistant}
 
 // GeneralFeatures lists general features (default OFF).
-var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
+var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization}
 
 // APIFeatures lists API endpoint features (default ON).
 var APIFeatures = []string{

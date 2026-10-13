@@ -480,6 +480,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
+	routes.RegisterAddonRoutes(e, application)
 
 	// Register routing-module usage endpoints. Unlike /api/auth/usage
 	// these go through the StatsRecorder and work in no-auth single-user

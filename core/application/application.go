@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math/rand/v2"
+	"net/http"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
@@ -63,6 +65,8 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
+	addonGateway         *gateway.Gateway
+	addonServer          *http.Server
 	addonSources         *catalog.Sources
 	addonManager         *addons.Manager
 	webSocketTicketsOnce sync.Once
@@ -549,6 +553,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		if a.addonServer != nil {
+			_ = a.addonServer.Close()
+		}
 		if a.addonManager != nil {
 			err = a.addonManager.Close()
 		}
@@ -780,6 +787,14 @@ func (a *Application) startAddons() error {
 	if a.addonManager != nil {
 		return addons.ErrConflict
 	}
+	if c.Transport != nil {
+		if a.authDB == nil {
+			return addons.ErrForbidden
+		}
+		c.AdminCheck = func(ctx context.Context, actor contract.Actor) error {
+			return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+		}
+	}
 	owner := addons.OwnerConfig{InstanceID: c.InstanceID, OwnerID: c.OwnerID, OwnerAddress: c.OwnerAddress, StorageID: c.StorageID, Root: c.Root, SharedStorage: c.SharedStorage}
 	var cat catalog.Catalog
 	var installer *packages.Installer
@@ -830,5 +845,9 @@ func (a *Application) startAddons() error {
 	}
 	a.addonSources = cat.Sources
 	a.addonManager = m
+	if err := a.startAddonGateway(); err != nil {
+		_ = m.Close()
+		return err
+	}
 	return nil
 }

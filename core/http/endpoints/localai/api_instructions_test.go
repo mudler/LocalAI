@@ -68,7 +68,8 @@ var _ = Describe("API Instructions Endpoints", func() {
 			}
 
 			Expect(names).To(ContainElements(
-				"chat-inference",
+				"addons",
+ "chat-inference",
 				"moderation",
 				"config-management",
 				"model-management",

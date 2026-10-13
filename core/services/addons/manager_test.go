@@ -285,3 +285,59 @@ var _ = Describe("designated owner lifecycle", func() {
 		Expect(e).To(MatchError(ErrForbidden))
 	})
 })
+
+var _ = Describe("read-only lifecycle operation lookup", func() {
+	It("binds lifecycle lookup to current admin and original actor without writes or repair", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("lookup-install", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		before, e := os.ReadFile(filepath.Join(cfg.Root, "journal.json"))
+		Expect(e).NotTo(HaveOccurred())
+		m.boundary = func(string) error { Fail("lookup must not persist"); return nil }
+		s, e := m.OperationStatus(ctx, actor, "lookup-install")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.Phase).To(Equal("completed"))
+		Expect(s.RuntimeState).To(Equal("not-observed"))
+		s.AddonID = "changed"
+		s, e = m.OperationStatus(ctx, actor, "lookup-install")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.AddonID).To(Equal("sample"))
+		_, e = m.OperationStatus(ctx, actor, "missing")
+		Expect(e).To(Equal(ErrOperationNotFound))
+		other := actor
+		other.UserID = "other"
+		m.admin = func(context.Context, contract.Actor) error { return nil }
+		_, e = m.OperationStatus(ctx, other, "lookup-install")
+		Expect(e).To(Equal(ErrOperationNotFound))
+		op := m.journal.Operations["lookup-install"]
+		op.Actor = contract.Actor{}
+		m.journal.Operations["legacy"] = op
+		_, e = m.OperationStatus(ctx, actor, "legacy")
+		Expect(e).To(Equal(ErrOperationNotFound))
+		m.runtimeRecoveryRequired = true
+		s, e = m.OperationStatus(ctx, actor, "lookup-install")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.RuntimeState).To(Equal("recovery-required"))
+		m.admin = func(context.Context, contract.Actor) error { return ErrForbidden }
+		_, e = m.OperationStatus(ctx, actor, "lookup-install")
+		Expect(e).To(Equal(ErrForbidden))
+		after, e := os.ReadFile(filepath.Join(cfg.Root, "journal.json"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(after).To(Equal(before))
+	})
+})
+
+var _ = Describe("cancellable operation observation", func() {
+	It("cancels status lookup while a lifecycle writer holds the journal lock", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		m.mu.Lock()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		done := make(chan error, 1)
+		go func() { _, e := m.OperationStatus(ctx, actor, "unknown"); done <- e }()
+		defer m.mu.Unlock()
+		Eventually(done).Should(Receive(Equal(context.Canceled)))
+	})
+})

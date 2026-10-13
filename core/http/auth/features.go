@@ -15,6 +15,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},
 	{"GET", "/api/motion/sessions/:id/poses", FeatureMotion},
 	{"POST", "/api/motion/sessions/:id/tickets", FeatureMotion},
+	{"POST", "/api/addons/dispatch", FeatureAddons},
+	{"POST", "/api/addons/relay", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
@@ -190,6 +192,7 @@ func AgentFeatureMetas() []FeatureMeta {
 // GeneralFeatureMetas returns metadata for general features.
 func GeneralFeatureMetas() []FeatureMeta {
 	return []FeatureMeta{
+		{FeatureAddons, "Addons", false},
 		{FeatureFineTuning, "Fine-Tuning", false},
 		{FeatureQuantization, "Quantization", false},
 	}

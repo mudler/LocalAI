@@ -208,3 +208,10 @@ var _ = Describe("addon bootstrap", func() {
 		}
 	})
 })
+
+var _ = Describe("addon gateway bootstrap", func() {
+	It("keeps public gateway unavailable without explicit transport bootstrap", func() {
+		a := &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
+		Expect(a.AddonGateway()).To(BeNil())
+	})
+})

@@ -25,6 +25,7 @@ type instructionDef struct {
 
 var instructionDefs = []instructionDef{
 	{Name: "motion", Description: "Live human pose capture with Protobuf over WebSocket.", Tags: []string{"motion"}, Intro: "Create /api/motion/sessions and negotiate localai.motion.v2 on /poses for binary Protobuf RGB uploads and pose outputs with JSON flow credits. Browsers can POST /api/motion/sessions/{id}/tickets for a single-use 30-second WebSocket ticket. No SONIC controller or offline export."},
+	{Name: "addons", Description: "Owner-routed addon lifecycle and response relays", Tags: []string{"Addons"}, Intro: "POST /api/addons/dispatch submits typed lifecycle operations or reads actor-bound operation-status. POST /api/addons/relay serves status and coarse lifecycle progress on the receiving frontend. Named authentication and the addons feature are required; lifecycle operations require administration. Preserve operationId after outcome_unknown and poll status, never submit a new mutation. Resource and output routes deny access until host admission and resolution providers are installed."},
 	{
 		Name:        "chat-inference",
 		Description: "OpenAI-compatible chat completions, text completions, and embeddings",

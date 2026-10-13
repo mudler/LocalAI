@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -494,3 +495,36 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 	}
 	return m.runtime.Current(ctx, id, state.Generation)
 }
+
+// OperationStatus only observes lifecycle intent. It never resumes a command or
+// infers runtime completion from a completed journal publication.
+func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id string) (OperationStatus, error) {
+	// A slow lifecycle publication must not strand disconnected status readers.
+	for !m.mu.TryLock() {
+		timer := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return OperationStatus{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	defer m.mu.Unlock()
+	if err := m.check(ctx); err != nil {
+		return OperationStatus{}, err
+	}
+	if m.admin == nil || m.admin(ctx, actor) != nil {
+		return OperationStatus{}, ErrForbidden
+	}
+	op, ok := m.journal.Operations[id]
+	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || op.Actor != actor {
+		return OperationStatus{}, ErrOperationNotFound
+	}
+	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed"}
+	if m.uncertain || m.runtimeRecoveryRequired {
+		result.RuntimeState = "recovery-required"
+	}
+	return result, nil
+}
+
+var ErrOperationNotFound = errors.New("addon lifecycle operation not found")

@@ -49,7 +49,9 @@ def ginkgo_report(path, expected):
 
 seen = []
 if entry['kind'] == 'ginkgo':
-    (root/entry['report']).unlink(missing_ok=True)
+    reports = entry.get('reports', [dict(path=entry['report'], cases=entry['cases'])])
+    if not reports: sys.exit('empty report inventory')
+    for report in reports: (root/report['path']).unlink(missing_ok=True)
 for command in entry['commands']:
     if entry['kind'] == 'ginkgo' and (command[:3] != ['go', 'test', '-count=1'] or '-tags' not in command or 'auth' not in command):
         sys.exit('Ginkgo command requires go test -count=1 -tags auth')
@@ -60,7 +62,8 @@ for command in entry['commands']:
             if item.get('status') != 'passed': sys.exit('required case not passed: '+item['case'])
             seen.append(item['case'])
 if entry['kind'] == 'ginkgo':
-    seen = ginkgo_report(root/entry['report'], entry['cases'])
+    seen = []
+    for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases']))
 if sorted(seen) != sorted(entry['cases']):
     sys.exit('required case inventory mismatch: '+repr(seen))
 # Run real readiness only after the shell test inventory has passed.

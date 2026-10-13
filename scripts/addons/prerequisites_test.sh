@@ -87,6 +87,12 @@ open(p,'w').write(json.dumps(v))
 JSON
 reject contracts-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" contracts
 reject contracts-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" contracts
+# Every gateway report is mandatory, including a missing second report.
+cat > "$fixture/scripts/addons/suites.json" <<'JSON'
+{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"cases":["sqlite transaction","http"],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]},{"path":".cache/second.json","cases":["http"]}]}}
+JSON
+reject gateway-missing-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
+reject gateway-skipped-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
 # A commit at a tagged module resolves to the tag, with an exact module sum.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh

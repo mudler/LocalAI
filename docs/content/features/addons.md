@@ -460,3 +460,75 @@ success using retained instance handles. Repair the storage fault, successfully
 close the manager, and create a new owner manager and supervisor to reconcile the
 durable journal. The existing Linux proc/pidfd identity checks still apply;
 ambiguous pending launches require operator recovery rather than an unsafe kill.
+
+## Owner forwarding and HTTP relays
+
+The embedding host can configure `AddonConfig.Transport` at startup. The configuration
+contains the owner HTTPS address, instance identities, CA roots, leaf certificate
+SHA-256 pins, and Ed25519 signing keys. The owner also needs `ListenAddress` for its
+separate mTLS listener. These settings are not runtime settings or browser inputs.
+Without transport configuration, the public addon gateway remains unavailable.
+
+All participating frontends must use the authoritative named-user database. The owner
+queries current account, credential, and feature state before dispatch. Missing storage,
+paused keys, revoked keys, expired sessions, and legacy synthetic identities deny access.
+The embedding host's permissive installation callback cannot override these checks when
+transport is enabled. Local-owner HTTP access is not enabled by this bootstrap.
+
+The carrier requires TLS 1.3, CA verification, and explicit certificate pins. It obtains
+a fresh random audience from the pinned owner before signing each request. Each owner
+handler generates its own audience at construction. Restart therefore invalidates all
+previous envelopes, including envelopes whose expiry has not passed. A bounded nonce
+cache prevents replay within that handler. This cache is a documented per-owner exception;
+it does not require shared storage because no other process can use that audience.
+
+The signed payload binds the peer, actor, credential reference, operation ID, request
+body, audience, nonce, and expiry. The carrier never forwards browser authorization,
+cookies, or actor headers. It has no proxy discovery, redirects, affinity, fan-out,
+owner election, or failover. An absent owner returns unavailable.
+
+### Public API
+
+- `POST /api/addons/dispatch` accepts a contract request. Supported lifecycle actions
+  are `install`, `enable`, `disable`, and `uninstall`. `operation-status` is read-only.
+- `POST /api/addons/relay` accepts `{request, kind, handle}`. Kinds are `status`,
+  `progress`, `json`, `file`, and `asset`. Handles are not filesystem paths.
+- Both routes require named authentication and the `addons` feature. Lifecycle
+  dispatch additionally requires current administration rights. Cookie requests require
+  same-origin fetch metadata; header-authenticated clients use their validated keys.
+
+Keep the original `operationId` after an `outcome_unknown` response. Query
+`operation-status`; do not create another mutation. The carrier never retries mutations.
+`Manager.OperationStatus` binds the lookup to the original actor and current administrator.
+It does not submit, repair, start processes, or write the journal. `completed` describes
+durable lifecycle publication, not runtime health. `runtimeState: not-observed` makes
+that distinction explicit. Ambiguous legacy actor bindings deny lookup.
+
+Progress is coarse lifecycle-state SSE, not byte counts or percentage completion.
+The stream sends an initial snapshot, changed snapshots, and a heartbeat snapshot.
+It polls no faster than 250 milliseconds and rechecks authority on each poll.
+It closes on a completed or failed operation. A lifecycle writer can delay observation;
+disconnecting still cancels the waiting lookup. Install-byte progress requires later integration.
+
+`RelayLimits` has finite startup defaults: 60 seconds, 16 concurrent streams, 64 MiB
+for files, 8 MiB for assets, and 1 MiB for progress. Heartbeats default to five seconds.
+Overrides cannot remove these bounds. Streams cancel on disconnect and reject excess bytes.
+Only content type, attachment disposition, cache policy, and nosniff headers cross the carrier.
+Browsers never receive an addon process address.
+
+### Resource integration remains closed by default
+
+`Admission.Admit` encloses the complete private-output stream lifetime. A host-owned
+resolver maps resource references and opaque output handles to trusted records. A missing
+admission provider or resolver denies access, including access by installation administrators.
+Bootstrap does not install either provider. The later policy and artifact integrations must
+supply them; this gateway does not implement ACLs or an artifact store.
+
+Resource reads obtain the current ready runtime incarnation and check the exact generation.
+Private output copying rechecks credentials and stays inside admission until completion
+or cancellation. Immutable assets use installed package receipts, declared entry/CSS paths,
+and a contained filesystem root. Asset access currently requires an actor-bound lifecycle
+operation and administration; registry-driven user asset access is a later integration.
+
+Mutation MCP tools remain deliberately unavailable. The later broker integration defines
+safe listing/status tools and confirmation semantics; prompt text cannot authorize mutation.

@@ -30,7 +30,9 @@
       "configured-browser-missing",
       "configured-browser-setup",
       "contracts-empty",
-      "contracts-skipped"
+      "contracts-skipped",
+      "gateway-missing-report",
+      "gateway-skipped-report"
     ],
     "readiness": {
       "ginkgo": {
@@ -206,7 +208,9 @@
       "requires current authoritative administration even for idempotent retries",
       "rejects symlinked package roots without touching external staging",
       "executes enabled owner intent on startup and stops on disable and close without forwarder execution",
-      "retries runtime synchronization after canceled disable and generation upgrade"
+      "retries runtime synchronization after canceled disable and generation upgrade",
+      "binds lifecycle lookup to current admin and original actor without writes or repair",
+      "cancels status lookup while a lifecycle writer holds the journal lock"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -247,5 +251,87 @@
       "withdraws and initiates every live slot before a cleanup timeout"
     ],
     "report": ".cache/addons/logs/runtime.json"
+  },
+  "gateway": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/services/addons/gateway",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/gateway.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/http/endpoints/addons",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-http.json"
+      ]
+    ],
+    "cases": [
+      "rotates the enforced audience on restart and rejects captured requests",
+      "requires pinned mutual identities and never retries uncertain mutation dispatch",
+      "denies resources without host resolution and holds admission through canceled streams",
+      "resolves host resource bindings inside admission and cancels private output streams",
+      "validates finite relay budgets and prevents disabling polling bounds",
+      "rejects untrusted peers wrong audience body expiry replay and revoked credentials",
+      "fails closed without current identity and resource policy and preserves unknown mutation IDs",
+      "rejects unknown lifecycle argument fields before any owner dispatch",
+      "alternates real owner journal status and terminates coarse progress without submitting again",
+      "keeps resolved resources under admission for JSON and attachment bytes",
+      "closes interrupted output and releases admission on disconnect",
+      "rechecks revoked credentials during attachment copying",
+      "propagates interrupted progress cancellation through the receiving frontend",
+      "serves only declared installed generation assets and rejects traversal",
+      "alternates pinned frontends and rejects untrusted certificates without local fallback",
+      "reports the original operation after lost mutation replies without retrying",
+      "rejects a stream longer than its receiving frontend budget",
+      "rejects anonymous and forged forwarding authority through real authentication",
+      "checks browser CSRF feature and admin access with real stored keys",
+      "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys"
+    ],
+    "report": ".cache/addons/logs/gateway.json",
+    "reports": [
+      {
+        "path": ".cache/addons/logs/gateway.json",
+        "cases": [
+          "rotates the enforced audience on restart and rejects captured requests",
+          "requires pinned mutual identities and never retries uncertain mutation dispatch",
+          "denies resources without host resolution and holds admission through canceled streams",
+          "resolves host resource bindings inside admission and cancels private output streams",
+          "validates finite relay budgets and prevents disabling polling bounds",
+          "rejects untrusted peers wrong audience body expiry replay and revoked credentials",
+          "fails closed without current identity and resource policy and preserves unknown mutation IDs",
+          "rejects unknown lifecycle argument fields before any owner dispatch",
+          "alternates real owner journal status and terminates coarse progress without submitting again",
+          "keeps resolved resources under admission for JSON and attachment bytes",
+          "closes interrupted output and releases admission on disconnect",
+          "rechecks revoked credentials during attachment copying",
+          "propagates interrupted progress cancellation through the receiving frontend",
+          "serves only declared installed generation assets and rejects traversal",
+          "alternates pinned frontends and rejects untrusted certificates without local fallback",
+          "reports the original operation after lost mutation replies without retrying",
+          "rejects a stream longer than its receiving frontend budget"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/gateway-http.json",
+        "cases": [
+          "rejects anonymous and forged forwarding authority through real authentication",
+          "checks browser CSRF feature and admin access with real stored keys",
+          "serves one owner journal through two real authenticated HTTP frontends and rejects paused keys"
+        ]
+      }
+    ]
   }
 }

@@ -138,3 +138,16 @@ Do not commit caches, generated distributions, or test binaries.
 Keep the command and required-case inventory in `scripts/addons/suites.json` synchronized with the runner.
 Add future suites only when their actual tests and commands exist.
 A successful prerequisite gate demonstrates readiness, not acceptance of addon functionality that has no tests yet.
+
+## Gateway verification
+
+Run `sh scripts/addons/verify.sh gateway` for the owner carrier and real-auth HTTP suites.
+The inventory lists each report separately and requires their exact combined case count.
+Missing reports, skipped cases, empty reports, and unsuccessful child commands fail the gate.
+The tests use local certificate authorities, pinned mTLS peers, two receiving frontends,
+and a real SQLite identity database. No external identity service or addon port is exposed.
+
+The disconnect fixture consumes the POST envelope before waiting for cancellation.
+Leaving that body unread prevents the HTTP/1 server from observing disconnect while
+its handler waits, which can strand test-server cleanup. Production owner handlers decode
+the bounded envelope before starting a relay.
