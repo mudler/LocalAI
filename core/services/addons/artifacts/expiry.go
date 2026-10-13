@@ -176,7 +176,7 @@ func (a *Artifacts) Sweep(ctx context.Context) (Swept, error) {
 	// they are being removed. Whatever removal misses, the orphan pass finds.
 	var errs []error
 	for _, id := range append(drop, abandoned...) {
-		if err := a.blobs.Delete(ctx, id); err != nil {
+		if err := a.objects.Delete(ctx, id); err != nil {
 			errs = append(errs, err)
 		}
 	}

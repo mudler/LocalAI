@@ -216,7 +216,7 @@ func (a *Artifacts) reserve(actor contract.Actor, request contract.Request, sour
 		return record{}, false, nil, err
 	}
 	for _, old := range replace {
-		_ = a.blobs.Delete(context.Background(), old)
+		_ = a.objects.Delete(context.Background(), old)
 	}
 	ctx, cancel := context.WithTimeout(a.ctx, a.limits.TransferTimeout)
 	j := &job{principal: actor.UserID, cancel: cancel, done: make(chan struct{}), ctx: ctx}
@@ -316,7 +316,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 		case <-stop:
 		}
 	}()
-	if err = a.blobs.Put(ctx, rec.ID, &sizedReader{ctx: ctx, r: reader, want: rec.Size}); err != nil {
+	if err = a.objects.Put(ctx, rec.ID, &sizedReader{ctx: ctx, r: reader, want: rec.Size}); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -336,7 +336,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 		if !a.now().Before(rec.ExpiresAt) {
 			return errExpired
 		}
-		meta, err := a.blobs.Head(ctx, rec.ID)
+		meta, err := a.objects.Head(ctx, rec.ID)
 		if err != nil || meta.Size != rec.Size {
 			return errSizeMismatch
 		}
@@ -350,7 +350,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 		})
 	}
 	if err = complete(); err != nil {
-		_ = a.blobs.Delete(context.Background(), rec.ID)
+		_ = a.objects.Delete(context.Background(), rec.ID)
 		return err
 	}
 	return nil
@@ -412,7 +412,7 @@ func (a *Artifacts) download(ctx context.Context, actor contract.Actor, id strin
 		if err = a.addonReady(ctx, cur.AddonID, cur.Generation); err != nil {
 			return err
 		}
-		meta, err := a.blobs.Head(ctx, id)
+		meta, err := a.objects.Head(ctx, id)
 		if err != nil || meta.Size != cur.Size {
 			a.corrupt(id)
 			return ErrCorrupt
@@ -422,7 +422,7 @@ func (a *Artifacts) download(ctx context.Context, actor contract.Actor, id strin
 				return err
 			}
 		}
-		file, err := a.blobs.Get(ctx, id)
+		file, err := a.objects.Get(ctx, id)
 		if err != nil {
 			a.corrupt(id)
 			return ErrCorrupt
@@ -496,7 +496,7 @@ func (a *Artifacts) corrupt(id string) {
 		}
 		return nil
 	})
-	_ = a.blobs.Delete(context.Background(), id)
+	_ = a.objects.Delete(context.Background(), id)
 }
 
 // adopt replaces the outputs of a read result by artifact identifiers and
@@ -558,5 +558,5 @@ func (a *Artifacts) discard(id string) {
 		delete(d.Artifacts, id)
 		return nil
 	})
-	_ = a.blobs.Delete(context.Background(), id)
+	_ = a.objects.Delete(context.Background(), id)
 }

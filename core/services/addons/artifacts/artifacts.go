@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -112,7 +113,10 @@ type Artifacts struct {
 	limits Limits
 	meta   *metaStore
 	blobs  *stagedStore
-	now    func() time.Time
+	// objects is the byte store behind the ObjectStore boundary. It is the
+	// staged store; the field lets a test put a faulty store in its place.
+	objects storage.ObjectStore
+	now     func() time.Time
 
 	// ctx ends every transfer, stream and the sweep loop when the store closes.
 	ctx    context.Context
@@ -164,7 +168,7 @@ func Open(opts Options) (*Artifacts, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &Artifacts{opts: opts, limits: limits, meta: meta, blobs: blobs, now: now, ctx: ctx, cancel: cancel, jobs: map[string]*job{}}
+	a := &Artifacts{opts: opts, limits: limits, meta: meta, blobs: blobs, objects: blobs, now: now, ctx: ctx, cancel: cancel, jobs: map[string]*job{}}
 	if err = a.recover(); err != nil {
 		cancel()
 		_ = meta.Close()
@@ -362,6 +366,6 @@ func (a *Artifacts) settle(ctx context.Context, id string, state gateway.Artifac
 	})
 	// The bytes go whatever the metadata write did: a failed record with bytes
 	// would be worse than bytes that are gone.
-	derr := a.blobs.Delete(ctx, id)
+	derr := a.objects.Delete(ctx, id)
 	return errors.Join(err, derr)
 }
