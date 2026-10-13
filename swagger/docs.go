@@ -9458,6 +9458,26 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.VideoReference": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "description": "optional audio paired with this video",
+                    "type": "string"
+                },
+                "fps": {
+                    "description": "frame rate of the source frames; 0 means the backend default",
+                    "type": "integer"
+                },
+                "frames": {
+                    "description": "ordered frame images: URL, base64 or data URI",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.VideoRequest": {
             "type": "object",
             "properties": {
@@ -9506,6 +9526,27 @@ const docTemplate = `{
                 "prompt": {
                     "description": "text description of the video to generate",
                     "type": "string"
+                },
+                "ref_audios": {
+                    "description": "reference audio clips (WAV); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_images": {
+                    "description": "reference images (URL, base64 or data URI); exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ref_videos": {
+                    "description": "reference videos as frame lists; exclusive with start_image/end_image",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.VideoReference"
+                    }
                 },
                 "response_format": {
                     "description": "output format (url or b64_json)",
