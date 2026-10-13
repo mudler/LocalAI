@@ -37,7 +37,7 @@ var (
 	UpscalerDestroy func(uintptr)
 	LoadModel       func(model, model_apth string, options []uintptr, threads int32, diff int) int
 	GenImage        func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
-	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string, refImage string, refAudio string) int
+	GenVideo        func(params uintptr, steps int, dst string, cfgScale float32, fps int, initImage string, endImage string, refImages string, refVideos string, refAudios string) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -192,34 +192,118 @@ func detectVideoPartition(modelFile string, options []string) string {
 // videoExtraParams holds the per-request knobs that have no proto field.
 type videoExtraParams struct {
 	refImage string
+	// refVideo is a directory of frames; it is read at the backend default fps.
+	refVideo string
+}
+
+// videoReferences is every reference input of a request, from the proto fields
+// and from the legacy params/audio spellings, in the order they are passed to
+// stable-diffusion.cpp.
+type videoReferences struct {
+	images []string
+	videos []*pb.VideoReference
+	audios []string
+}
+
+func (r videoReferences) any() bool {
+	return len(r.images) > 0 || len(r.videos) > 0 || len(r.audios) > 0
 }
 
 // parseVideoRequestParams reads GenerateVideoRequest.Params. Unknown keys are
-// ignored, as before. ref_video needs a decoded frame sequence the proto cannot
-// carry yet, so it is refused instead of being dropped silently.
+// ignored, as before.
 func parseVideoRequestParams(params map[string]string) (videoExtraParams, error) {
 	var extra videoExtraParams
-	if v := strings.TrimSpace(params["ref_video"]); v != "" {
-		return extra, fmt.Errorf("stablediffusion-ggml: params.ref_video is not supported yet")
-	}
 	extra.refImage = strings.TrimSpace(params["ref_image"])
+	extra.refVideo = strings.TrimSpace(params["ref_video"])
 	return extra, nil
+}
+
+// gatherVideoReferences merges the repeated proto fields with params.ref_image,
+// params.ref_video and the single `audio` field, which stay valid. It rejects
+// entries the flattened hand-off to C++ cannot carry.
+func gatherVideoReferences(opts *pb.GenerateVideoRequest, extra videoExtraParams) (videoReferences, error) {
+	var refs videoReferences
+	clean := func(what, v string) (string, error) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return "", fmt.Errorf("stablediffusion-ggml: %s is empty", what)
+		}
+		if strings.ContainsAny(v, "\n\x1f") {
+			return "", fmt.Errorf("stablediffusion-ggml: %s contains a control character", what)
+		}
+		return v, nil
+	}
+	if extra.refImage != "" {
+		refs.images = append(refs.images, extra.refImage)
+	}
+	for i, v := range opts.GetRefImages() {
+		path, err := clean(fmt.Sprintf("ref_images[%d]", i), v)
+		if err != nil {
+			return refs, err
+		}
+		refs.images = append(refs.images, path)
+	}
+	if extra.refVideo != "" {
+		refs.videos = append(refs.videos, &pb.VideoReference{FramesDir: extra.refVideo})
+	}
+	for i, v := range opts.GetRefVideos() {
+		what := fmt.Sprintf("ref_videos[%d]", i)
+		dir, err := clean(what+".frames_dir", v.GetFramesDir())
+		if err != nil {
+			return refs, err
+		}
+		if v.GetFps() < 0 {
+			return refs, fmt.Errorf("stablediffusion-ggml: %s.fps must not be negative", what)
+		}
+		entry := &pb.VideoReference{FramesDir: dir, Fps: v.GetFps()}
+		if strings.TrimSpace(v.GetAudio()) != "" {
+			if entry.Audio, err = clean(what+".audio", v.GetAudio()); err != nil {
+				return refs, err
+			}
+		}
+		refs.videos = append(refs.videos, entry)
+	}
+	if opts.GetAudio() != "" {
+		path, err := clean("audio", opts.GetAudio())
+		if err != nil {
+			return refs, err
+		}
+		refs.audios = append(refs.audios, path)
+	}
+	for i, v := range opts.GetRefAudios() {
+		path, err := clean(fmt.Sprintf("ref_audios[%d]", i), v)
+		if err != nil {
+			return refs, err
+		}
+		refs.audios = append(refs.audios, path)
+	}
+	return refs, nil
+}
+
+// encodeVideoReferences flattens the references for the C++ side: paths are
+// newline-separated and each video is "frames_dir\x1ffps\x1faudio".
+func encodeVideoReferences(refs videoReferences) (images, videos, audios string) {
+	vids := make([]string, 0, len(refs.videos))
+	for _, v := range refs.videos {
+		vids = append(vids, fmt.Sprintf("%s\x1f%d\x1f%s", v.GetFramesDir(), v.GetFps(), v.GetAudio()))
+	}
+	return strings.Join(refs.images, "\n"), strings.Join(vids, "\n"), strings.Join(refs.audios, "\n")
 }
 
 // checkPartitionConditioning refuses conditioning the loaded MiniMax-H3 DiT
 // cannot serve. A reference input on the FL2VA checkpoint does not fail in
 // stable-diffusion.cpp; it renders a wrong video, so fail before generating.
-func checkPartitionConditioning(partition string, opts *pb.GenerateVideoRequest, extra videoExtraParams) error {
+func checkPartitionConditioning(partition string, opts *pb.GenerateVideoRequest, refs videoReferences) error {
 	hasKeyframe := opts.GetStartImage() != "" || opts.GetEndImage() != ""
-	hasReference := extra.refImage != "" || opts.GetAudio() != ""
+	hasReference := refs.any()
 
 	if hasKeyframe && hasReference {
 		return fmt.Errorf("stablediffusion-ggml: keyframes (start_image/end_image) and reference " +
-			"conditioning (params.ref_image/audio) cannot be used together")
+			"conditioning (ref_images/ref_videos/ref_audios/audio/params.ref_image/params.ref_video) cannot be used together")
 	}
 	if partition == partitionFL2VA && hasReference {
 		return fmt.Errorf("stablediffusion-ggml: the FL2VA checkpoint serves t2va and keyframes only; " +
-			"reference conditioning (params.ref_image/audio) needs the REF2VA checkpoint. " +
+			"reference conditioning (ref_images/ref_videos/ref_audios/audio) needs the REF2VA checkpoint. " +
 			"Use start_image for first-frame conditioning instead")
 	}
 	return nil
@@ -428,9 +512,14 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	if err != nil {
 		return err
 	}
-	if err := checkPartitionConditioning(sd.videoPartition, opts, extra); err != nil {
+	refs, err := gatherVideoReferences(opts, extra)
+	if err != nil {
 		return err
 	}
+	if err := checkPartitionConditioning(sd.videoPartition, opts, refs); err != nil {
+		return err
+	}
+	refImages, refVideos, refAudios := encodeVideoReferences(refs)
 
 	// sd_vid_gen_params_new allocates; gen_video frees it after the generation call.
 	p := VidGenParamsNew()
@@ -442,7 +531,7 @@ func (sd *SDGGML) GenerateVideo(opts *pb.GenerateVideoRequest) error {
 	fmt.Fprintf(os.Stderr, "GenerateVideo: dst=%s size=%dx%d frames=%d fps=%d steps=%d cfg=%.2f\n",
 		dst, width, height, numFrames, fps, steps, cfg)
 
-	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage, extra.refImage, opts.Audio)
+	ret := GenVideo(p, steps, dst, cfg, fps, opts.StartImage, opts.EndImage, refImages, refVideos, refAudios)
 	if ret != 0 {
 		return fmt.Errorf("video inference failed (code %d)", ret)
 	}

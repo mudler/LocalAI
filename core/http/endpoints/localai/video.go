@@ -31,6 +31,16 @@ import (
 
 const maxVideoInputBytes = 128 << 20
 
+// Reference inputs are bounded so one request cannot stage an unbounded number
+// of files. A reference frame is a single image, so its limit is lower than the
+// one for audio or keyframes.
+const (
+	maxVideoRefsPerKind     = 16
+	maxVideoRefFrames       = 512
+	maxVideoRefFrameBytes   = 32 << 20
+	videoRefFrameNameFormat = "%06d"
+)
+
 func newVideoDownloadClient() *http.Client {
 	client := httpclient.NewWithTimeout(30*time.Second, httpclient.WithFollowRedirects())
 	checkRedirect := client.CheckRedirect
@@ -130,6 +140,107 @@ func stageVideoMediaWithLimit(ctx context.Context, directory, ref string, maxByt
 	return outputPath, nil
 }
 
+// stagedVideoRefs holds the staged reference inputs of one request.
+type stagedVideoRefs struct {
+	images []string
+	videos []backend.VideoReferenceOptions
+	audios []string
+	// paths are the files and directories to remove once the request is done.
+	paths []string
+}
+
+func (s *stagedVideoRefs) cleanup() {
+	for _, p := range s.paths {
+		_ = os.RemoveAll(p)
+	}
+}
+
+// stageVideoReferences stages ref_images, ref_videos and ref_audios with the
+// same path as start_image/end_image/audio (stageVideoMedia). A reference video
+// becomes a private directory of frames renamed to a zero-padded index, so the
+// backend can read them in order. On error everything staged so far is removed.
+func stageVideoReferences(ctx context.Context, directory string, input *schema.VideoRequest) (refs *stagedVideoRefs, err error) {
+	refs = &stagedVideoRefs{}
+	defer func() {
+		if err != nil {
+			refs.cleanup()
+			refs = nil
+		}
+	}()
+
+	if len(input.RefImages) > maxVideoRefsPerKind || len(input.RefVideos) > maxVideoRefsPerKind || len(input.RefAudios) > maxVideoRefsPerKind {
+		return refs, echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("too many reference inputs: at most %d of each kind", maxVideoRefsPerKind))
+	}
+	invalid := func(name string, cause error) error {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid %s: %v", name, cause))
+	}
+
+	for i, ref := range input.RefImages {
+		if ref == "" {
+			return refs, invalid(fmt.Sprintf("ref_images[%d]", i), fmt.Errorf("empty reference"))
+		}
+		path, serr := stageVideoMedia(ctx, directory, ref)
+		if serr != nil {
+			return refs, invalid(fmt.Sprintf("ref_images[%d]", i), serr)
+		}
+		refs.paths = append(refs.paths, path)
+		refs.images = append(refs.images, path)
+	}
+	for i, ref := range input.RefAudios {
+		if ref == "" {
+			return refs, invalid(fmt.Sprintf("ref_audios[%d]", i), fmt.Errorf("empty reference"))
+		}
+		path, serr := stageVideoMedia(ctx, directory, ref)
+		if serr != nil {
+			return refs, invalid(fmt.Sprintf("ref_audios[%d]", i), serr)
+		}
+		refs.paths = append(refs.paths, path)
+		refs.audios = append(refs.audios, path)
+	}
+	for i, video := range input.RefVideos {
+		name := fmt.Sprintf("ref_videos[%d]", i)
+		if len(video.Frames) == 0 {
+			return refs, invalid(name, fmt.Errorf("frames is empty"))
+		}
+		if len(video.Frames) > maxVideoRefFrames {
+			return refs, invalid(name, fmt.Errorf("at most %d frames are accepted", maxVideoRefFrames))
+		}
+		if video.FPS < 0 {
+			return refs, invalid(name, fmt.Errorf("fps must not be negative"))
+		}
+		dir, merr := os.MkdirTemp(directory, "video-ref-frames-*")
+		if merr != nil {
+			return refs, fmt.Errorf("creating reference frame directory: %w", merr)
+		}
+		refs.paths = append(refs.paths, dir)
+		for j, frame := range video.Frames {
+			if frame == "" {
+				return refs, invalid(fmt.Sprintf("%s.frames[%d]", name, j), fmt.Errorf("empty reference"))
+			}
+			path, serr := stageVideoMediaWithLimit(ctx, dir, frame, maxVideoRefFrameBytes)
+			if serr != nil {
+				return refs, invalid(fmt.Sprintf("%s.frames[%d]", name, j), serr)
+			}
+			if rerr := os.Rename(path, filepath.Join(dir, fmt.Sprintf(videoRefFrameNameFormat, j))); rerr != nil {
+				_ = os.Remove(path)
+				return refs, fmt.Errorf("naming reference frame: %w", rerr)
+			}
+		}
+		entry := backend.VideoReferenceOptions{FramesDir: dir, FPS: video.FPS}
+		if video.Audio != "" {
+			path, serr := stageVideoMedia(ctx, directory, video.Audio)
+			if serr != nil {
+				return refs, invalid(name+".audio", serr)
+			}
+			refs.paths = append(refs.paths, path)
+			entry.Audio = path
+		}
+		refs.videos = append(refs.videos, entry)
+	}
+	return refs, nil
+}
+
 //
 
 /*
@@ -199,6 +310,12 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		if audioSrc != "" {
 			defer func() { _ = os.Remove(audioSrc) }()
 		}
+
+		refs, err := stageVideoReferences(c.Request().Context(), appConfig.GeneratedContentDir, input)
+		if err != nil {
+			return err
+		}
+		defer refs.cleanup()
 
 		xlog.Debug("Parameter Config", "config", config)
 
@@ -274,6 +391,9 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 				StartImage:     src,
 				EndImage:       endSrc,
 				Audio:          audioSrc,
+				RefImages:      refs.images,
+				RefVideos:      refs.videos,
+				RefAudios:      refs.audios,
 				Destination:    output,
 				NumFrames:      input.NumFrames,
 				FPS:            input.FPS,

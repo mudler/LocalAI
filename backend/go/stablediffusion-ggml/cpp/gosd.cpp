@@ -1446,7 +1446,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     return 0;
 }
 
-int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_image, char *ref_audio) {
+int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int fps, char *init_image, char *end_image, char *ref_images, char *ref_videos, char *ref_audios) {
     if (!p) return 1;
     if (!dst || strlen(dst) == 0) {
         fprintf(stderr, "gen_video: dst is empty\n");
@@ -1498,33 +1498,93 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     // MiniMax-H3 Ref2VA references. Keyframes and references are mutually
     // exclusive upstream; the Go side rejects the mix before getting here.
-    uint8_t* ref_buf = nullptr;
-    sd_image_t ref_img = {0, 0, 0, nullptr};
-    sd_audio_t ref_aud = {0, 0, 0, nullptr};
+    // The lists arrive flattened because purego cannot pass arrays of strings
+    // here: ref_images and ref_audios are newline-separated paths, ref_videos
+    // is one "frames_dir\x1ffps\x1faudio" record per line.
+    std::vector<uint8_t*> ref_bufs;                  // owned pixel buffers
+    std::vector<sd_image_t> ref_imgs;
+    std::vector<std::vector<sd_image_t>> ref_vid_frames;
+    std::vector<sd_ref_video_t> ref_vids;
+    std::vector<sd_audio_t> ref_auds;                // standalone clips, then video audio via ref_vids
+    std::vector<float*> ref_audio_bufs;              // owned audio buffers
     auto free_inputs = [&]() {
         if (init_buf) free(init_buf);
         if (end_buf) free(end_buf);
-        if (ref_buf) free(ref_buf);
-        if (ref_aud.data) free(ref_aud.data);
+        for (auto* b : ref_bufs) free(b);
+        for (auto* b : ref_audio_bufs) free(b);
     };
-    if (ref_image && strlen(ref_image) > 0) {
+    auto fail = [&]() { free_inputs(); std::free(p); return 1; };
+    auto split = [](const char* list, char sep) {
+        std::vector<std::string> out;
+        if (!list) return out;
+        std::string cur;
+        for (const char* c = list; *c; c++) {
+            if (*c == sep) { if (!cur.empty()) out.push_back(cur); cur.clear(); }
+            else cur += *c;
+        }
+        if (!cur.empty()) out.push_back(cur);
+        return out;
+    };
+    auto load_ref_image = [&](const std::string& path, sd_image_t* out) {
         // Keep the native size: upstream keeps the aspect ratio of a reference
         // image and only downscales it when it exceeds the output canvas.
-        int rc_ = 0, rw = 0, rh = 0;
-        ref_buf = stbi_load(ref_image, &rw, &rh, &rc_, 3);
-        if (!ref_buf) {
-            fprintf(stderr, "Failed to load reference image from '%s'\n", ref_image);
-            free_inputs(); std::free(p); return 1;
+        int c = 0, w = 0, h = 0;
+        uint8_t* buf = stbi_load(path.c_str(), &w, &h, &c, 3);
+        if (!buf) { fprintf(stderr, "Failed to load reference image from '%s'\n", path.c_str()); return false; }
+        ref_bufs.push_back(buf);
+        *out = {(uint32_t)w, (uint32_t)h, 3, buf};
+        return true;
+    };
+    auto load_ref_audio = [&](const std::string& path, sd_audio_t* out) {
+        if (!load_wav_audio(path.c_str(), out)) return false;
+        ref_audio_bufs.push_back(out->data);
+        return true;
+    };
+
+    for (const auto& path : split(ref_images, '\n')) {
+        sd_image_t img;
+        if (!load_ref_image(path, &img)) return fail();
+        ref_imgs.push_back(img);
+    }
+    for (const auto& path : split(ref_audios, '\n')) {
+        sd_audio_t aud;
+        if (!load_ref_audio(path, &aud)) return fail();
+        ref_auds.push_back(aud);
+    }
+    auto video_records = split(ref_videos, '\n');
+    ref_vid_frames.resize(video_records.size());  // fixed size: frame pointers must stay valid
+    for (size_t v = 0; v < video_records.size(); v++) {
+        const std::string& rec = video_records[v];
+        size_t sep1 = rec.find('\x1f');
+        size_t sep2 = sep1 == std::string::npos ? std::string::npos : rec.find('\x1f', sep1 + 1);
+        if (sep2 == std::string::npos) { fprintf(stderr, "Malformed reference video record\n"); return fail(); }
+        std::string dir = rec.substr(0, sep1);
+        int vid_fps = atoi(rec.substr(sep1 + 1, sep2 - sep1 - 1).c_str());
+        std::string vid_audio = rec.substr(sep2 + 1);
+
+        std::vector<std::string> files;
+        std::error_code ec;
+        for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+            if (entry.is_regular_file()) files.push_back(entry.path().string());
         }
-        ref_img = {(uint32_t)rw, (uint32_t)rh, 3, ref_buf};
-        p->ref_images = &ref_img;
-        p->ref_images_count = 1;
+        if (ec || files.empty()) {
+            fprintf(stderr, "Reference video directory '%s' is missing or has no frames\n", dir.c_str());
+            return fail();
+        }
+        std::sort(files.begin(), files.end());
+        ref_vid_frames[v].reserve(files.size());
+        for (const auto& file : files) {
+            sd_image_t frame;
+            if (!load_ref_image(file, &frame)) return fail();
+            ref_vid_frames[v].push_back(frame);
+        }
+        sd_audio_t vid_aud = {0, 0, 0, nullptr};
+        if (!vid_audio.empty() && !load_ref_audio(vid_audio, &vid_aud)) return fail();
+        ref_vids.push_back({ref_vid_frames[v].data(), (int)ref_vid_frames[v].size(), vid_fps, vid_aud});
     }
-    if (ref_audio && strlen(ref_audio) > 0) {
-        if (!load_wav_audio(ref_audio, &ref_aud)) { free_inputs(); std::free(p); return 1; }
-        p->ref_audios = &ref_aud;
-        p->ref_audios_count = 1;
-    }
+    if (!ref_imgs.empty()) { p->ref_images = ref_imgs.data(); p->ref_images_count = (int)ref_imgs.size(); }
+    if (!ref_vids.empty()) { p->ref_videos = ref_vids.data(); p->ref_videos_count = (int)ref_vids.size(); }
+    if (!ref_auds.empty()) { p->ref_audios = ref_auds.data(); p->ref_audios_count = (int)ref_auds.size(); }
 
     // Generate
     int num_frames_out = 0;
