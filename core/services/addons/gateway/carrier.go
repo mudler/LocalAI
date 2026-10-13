@@ -339,7 +339,9 @@ func (c *Carrier) Relay(ctx context.Context, a contract.Actor, r RelayRequest, w
 			}
 		}
 		if err == io.EOF {
-			return nil
+			// An end of stream that races a canceled or expired context is not
+			// proof that the owner finished: never report it as complete.
+			return ctx.Err()
 		}
 		if err != nil {
 			return err
