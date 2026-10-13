@@ -130,3 +130,5 @@ jobs:
       # ride along here instead of waiting on a multi-GB backend image build.
       - name: run shared python backend helper tests
         run: make test-python-helpers
+      - name: run Chatterbox variant tests
+        run: make -C backend/python/chatterbox test-unit
