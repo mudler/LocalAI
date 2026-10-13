@@ -24619,6 +24619,82 @@
     - filename: mmproj/mmproj-Huihui-Qwen3-VL-30B-A3B-F16.gguf
       sha256: 4bfd655851a5609b29201154e0bd4fe5f9274073766b8ab35b3a8acba0dd77a7
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/mmproj-F16.gguf
+- name: aescode-8b
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/AesCode-8B
+    - https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF
+  description: |
+    AesCode-8B is Microsoft's Qwen3-VL-8B-Instruct fine-tune for generating
+    editable HTML/CSS slides, posters, dashboards, and reports from text and
+    optional reference images. This Q4_K_M GGUF build includes the BF16 vision
+    projector and runs with llama.cpp.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - chat
+    - vision
+    - multimodal
+    - coding
+    - qwen3-vl
+    - 8b
+  overrides:
+    context_size: 32768
+    mmproj: AesCode-8B.mmproj-bf16.gguf
+    parameters:
+      model: AesCode-8B.Q4_K_M.gguf
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+  files:
+    - filename: AesCode-8B.Q4_K_M.gguf
+      sha256: 2b44aec7c86797ceef5e9ccedd2ed4176dd4d05130563b88b84c565098f2f4fd
+      uri: https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF/resolve/a6ef8818897d0227234281414809167915d37d1d/AesCode-8B.Q4_K_M.gguf
+    - filename: AesCode-8B.mmproj-bf16.gguf
+      sha256: 1c346bdc38669f9b5dd656063b83488978529f52d4dd849cfefb0d745918910a
+      uri: https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF/resolve/a6ef8818897d0227234281414809167915d37d1d/AesCode-8B.mmproj-bf16.gguf
+  variants:
+    - model: aescode-8b-q8
+- name: aescode-8b-q8
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  urls:
+    - https://huggingface.co/microsoft/AesCode-8B
+    - https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF
+  description: |
+    AesCode-8B is Microsoft's Qwen3-VL-8B-Instruct fine-tune for generating
+    editable HTML/CSS slides, posters, dashboards, and reports from text and
+    optional reference images. This Q8_0 GGUF build includes the BF16 vision
+    projector and runs with llama.cpp.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - chat
+    - vision
+    - multimodal
+    - coding
+    - qwen3-vl
+    - 8b
+  overrides:
+    context_size: 32768
+    mmproj: AesCode-8B.mmproj-bf16.gguf
+    parameters:
+      model: AesCode-8B.Q8_0.gguf
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+  files:
+    - filename: AesCode-8B.Q8_0.gguf
+      sha256: 5ad5d6b65beeab160a71deee99a31a2710fcebbd6ff93d15c2f4d3601f11815e
+      uri: https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF/resolve/a6ef8818897d0227234281414809167915d37d1d/AesCode-8B.Q8_0.gguf
+    - filename: AesCode-8B.mmproj-bf16.gguf
+      sha256: 1c346bdc38669f9b5dd656063b83488978529f52d4dd849cfefb0d745918910a
+      uri: https://huggingface.co/prithivMLmods/microsoft-AesCode-8B-GGUF/resolve/a6ef8818897d0227234281414809167915d37d1d/AesCode-8B.mmproj-bf16.gguf
 - name: insight-doc-8b-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
