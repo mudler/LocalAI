@@ -59122,6 +59122,38 @@
     - filename: parakeet-cpp/parakeet-bundle-moondream-redux.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/parakeet-bundle-moondream-redux.gguf
       sha256: d7c5bff66b1dbc02f4c7a83148b0836b57805676c844193c214c751249853d7b
+- name: parakeet-cpp-fluid-speech-mini
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/FluidVoice-Labs/fluid-speech-mini-gguf
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Fluid Speech Mini, a compact English dictation model by FluidVoice built on NVIDIA Parakeet TDT 0.6B v3
+    and Moondream Parakeet Ultra. Matches Parakeet Ultra accuracy (4.53% WER on Open ASR Leaderboard's
+    8 public English sets) at about a quarter of the download size (347 MB). Trained to keep transcribing
+    the right speaker when another voice is in the room. Q2_K/Q4_K mixed-precision GGUF for the parakeet-cpp
+    backend; loads in the stock parakeet.cpp runtime on CPU and CUDA.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - dictation
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-fluid-speech-mini
+    parameters:
+      model: parakeet-cpp/fluid-speech-mini-q2k-q4k.gguf
+  files:
+    - filename: parakeet-cpp/fluid-speech-mini-q2k-q4k.gguf
+      uri: huggingface://FluidVoice-Labs/fluid-speech-mini-gguf/fluid-speech-mini-q2k-q4k.gguf
+      sha256: f0796bf40274cc49d3db58563c23cd024b52ca7e2ae4749ccf27af85841726b5
 - name: moss-transcribe-cpp-0.9b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
