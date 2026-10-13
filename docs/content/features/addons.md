@@ -1142,8 +1142,12 @@ Each entry of `addons-installed` has `id`, `title`, `description`, `icon`, `vers
 `digest`, `platform` (`os`, `arch`), `compatibility` (the `host`, `api`, `protocol` and
 `dataFormat` ranges of the manifest), `tools`, `toolCount`, `hasUI`, `mainPage`,
 `launchMode`, `generations` (retained installed generations), `restarts` (supervisor restart
-attempts), `storage` (`bytes` and `truncated` for the retained data, counted up to a fixed
-number of files) and `update`.
+attempts), `storage` (`bytes` and `truncated` for the retained data) and `update`.
+
+The size of the retained data is read in small batches, never follows symbolic links, and
+stops after 20000 entries or about 0.75 seconds, whichever comes first; `truncated` is then
+true and `bytes` is a lower bound. The owner keeps the last result for 30 seconds, so a
+page that polls does not walk the tree again.
 
 `update` is present only when the owner has an authoritative update check. This release
 has none, so the field is absent and the page says that the update status is unknown; it

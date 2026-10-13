@@ -3,8 +3,6 @@ package addons
 
 import (
 	"context"
-	"io/fs"
-	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -14,9 +12,8 @@ import (
 
 // Limits of the management reads.
 const (
-	maxSearchText   = 256
-	maxVersionText  = 64
-	maxStorageFiles = 20000
+	maxSearchText  = 256
+	maxVersionText = 64
 )
 
 // authorize admits only the current owner and an administrator the owner's own
@@ -178,34 +175,7 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 		id := list[i].ID
 		list[i].Generations = generations[id]
 		list[i].Restarts = restarts[id]
-		list[i].Storage = storage(ctx, dirs[id])
+		list[i].Storage = m.scanner.size(ctx, dirs[id])
 	}
 	return list, ctx.Err()
-}
-
-// storage adds up the files below dir, stopping at a fixed number of entries so
-// a large data directory cannot stall the view. A missing directory is empty.
-func storage(ctx context.Context, dir string) apps.Storage {
-	var out apps.Storage
-	if dir == "" {
-		return out
-	}
-	seen := 0
-	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil || ctx.Err() != nil {
-			return fs.SkipAll
-		}
-		seen++
-		if seen > maxStorageFiles {
-			out.Truncated = true
-			return fs.SkipAll
-		}
-		if d.Type().IsRegular() {
-			if info, e := d.Info(); e == nil {
-				out.Bytes += info.Size()
-			}
-		}
-		return nil
-	})
-	return out
 }

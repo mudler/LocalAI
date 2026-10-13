@@ -61,6 +61,8 @@ type Manager struct {
 	runtimeRecoveryRequired bool
 	runtime                 *addonruntime.Supervisor
 	instances               map[string]addonruntime.Instance
+	// scanner reads the size of data directories outside mu.
+	scanner storageScanner
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
