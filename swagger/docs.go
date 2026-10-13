@@ -6158,6 +6158,10 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "localaiAssistant": {
+                    "description": "LocalAIAssistant wires the chat to the in-process admin MCP server\n(the LocalAI Assistant mode of the Chat page).",
+                    "type": "boolean"
+                },
                 "mcpMode": {
                     "type": "boolean"
                 },

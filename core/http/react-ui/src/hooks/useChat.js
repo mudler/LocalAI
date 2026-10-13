@@ -128,6 +128,7 @@ function serializeChat(chat) {
     mcpServers: chat.mcpServers,
     mcpResources: chat.mcpResources,
     clientMCPServers: chat.clientMCPServers,
+    localaiAssistant: chat.localaiAssistant,
     temperature: chat.temperature,
     topP: chat.topP,
     topK: chat.topK,

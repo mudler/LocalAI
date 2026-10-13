@@ -182,4 +182,16 @@ test.describe('Chat history sync with the server', () => {
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Delete me' })).toHaveCount(0)
     expect(server.saves('b')).toHaveLength(0)
   })
+
+  test('the LocalAI Assistant toggle survives the trip to the server and back', async ({ page }) => {
+    const server = await fakeHistoryServer(page, {
+      conversations: [chatOf('remote', 'Assistant on the phone', 'qwen3-8b', pair('q', 'a'), { version: 1, localaiAssistant: true }, T0)],
+    })
+    await openChat(page, [chatOf('local', 'Assistant draft', 'qwen3-8b', pair('q', 'a'), { localaiAssistant: true }, T0 + 1_000)])
+
+    await expect.poll(() => server.saves('local').length).toBe(1)
+    expect(server.saves('local')[0].body.localaiAssistant).toBe(true)
+    await expect.poll(async () => (await storedChats(page)).chats.map(c => [c.id, !!c.localaiAssistant]))
+      .toEqual([['local', true], ['remote', true]])
+  })
 })

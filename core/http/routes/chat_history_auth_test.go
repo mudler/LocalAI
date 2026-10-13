@@ -161,6 +161,27 @@ var _ = Describe("Chat history endpoints", func() {
 		Expect(listedIDs(s.do("alice", http.MethodGet, "/api/conversations", nil))).To(ConsistOf("c2"))
 	})
 
+	It("round-trips every field the UI stores on a chat", func() {
+		body := conversationBody("c1", "Assistant chat")
+		body["localaiAssistant"] = true
+		body["mcpMode"] = true
+		body["mcpServers"] = []string{"github"}
+		body["mcpResources"] = []string{"res://a"}
+		body["clientMCPServers"] = []map[string]any{{"id": "local", "url": "http://localhost:9000"}}
+		body["systemPrompt"] = "be brief"
+		body["temperature"] = 0.2
+		body["contextSize"] = 8192
+		Expect(s.do("alice", http.MethodPut, "/api/conversations/c1", body).Code).To(Equal(http.StatusOK))
+
+		rec := s.do("alice", http.MethodGet, "/api/conversations/c1", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		got := decodeJSON(rec)
+		for _, key := range []string{"localaiAssistant", "mcpMode", "mcpServers", "mcpResources", "clientMCPServers", "systemPrompt", "temperature", "contextSize"} {
+			Expect(got).To(HaveKey(key), "field %q was dropped", key)
+		}
+		Expect(got["localaiAssistant"]).To(BeTrue())
+	})
+
 	It("takes the id from the path over the body", func() {
 		rec := s.do("alice", http.MethodPut, "/api/conversations/from-path", conversationBody("from-body", "x"))
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
