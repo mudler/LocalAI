@@ -73402,6 +73402,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/LocalAI-io/GEM-X-GGUF
+  license: nvidia-open-model-license
   description: |
     Live human motion capture with GEM-X on CPU/Vulkan. Streams SOMA-77 or
     SMPL-24 poses through /api/motion; no body mesh or SAM3D dependency.

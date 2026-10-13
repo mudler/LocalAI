@@ -2359,8 +2359,11 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if u&FLAG_UPSCALE != 0 {
 		return false
 	}
-	if u&FLAG_MOTION != 0 && c.Backend != "gemxcpp" {
-		return false
+	if u&FLAG_MOTION != 0 {
+		// Motion is declared by the backend registry, never inferred from templates.
+		if cap := GetBackendCapability(c.Backend); cap == nil || !slices.Contains(cap.PossibleUsecases, UsecaseMotion) {
+			return false
+		}
 	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{

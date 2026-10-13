@@ -7,7 +7,6 @@ option java_outer_classname = "LocalAIBackend";
 
 package backend;
 
-
 service Backend {
   rpc Health(HealthMessage) returns (Reply) {}
   rpc Free(HealthMessage) returns (Result) {}

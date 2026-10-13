@@ -3,8 +3,9 @@ package motion
 
 import (
 	"fmt"
-	motionpb "github.com/mudler/LocalAI/pkg/motion/proto"
 	"math"
+
+	motionpb "github.com/mudler/LocalAI/pkg/motion/proto"
 )
 
 // ValidateFrame bounds allocation and rejects invalid subject boxes before a
