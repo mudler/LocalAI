@@ -83,6 +83,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"3d",
 				"failover",
 				"decisions",
+				"chat-history",
 			))
 		})
 	})

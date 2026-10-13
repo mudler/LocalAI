@@ -50,7 +50,7 @@ Enter sends, Shift+Enter adds a line. Paste an image to attach it. Under the box
 
 Press `Ctrl+K` (`Cmd+K`) or **Chats** to open the list of conversations, grouped by day like **Jump back in** on Home. Type to search names and message text. Arrow keys move, `Enter` opens, `F2` renames and `Delete` removes. Each row also offers rename, duplicate, copy and export. Removing a chat hides it and shows an **Undo** toast; the chat is deleted for good when the toast goes away. The name in the header can be renamed with a click.
 
-The history is stored in this browser (`localai_chats_data`), not on the server.
+The history is stored in this browser (`localai_chats_data`). When [user authentication]({{%relref "features/authentication" %}}) is enabled it is also kept on the server for each user and follows you to other devices; see [Chat History]({{%relref "features/chat-history" %}}).
 
 ## Settings
 

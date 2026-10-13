@@ -201,4 +201,64 @@ var _ = Describe("Chat history endpoints", func() {
 		Expect(s.do("alice", http.MethodDelete, "/api/conversations", nil).Code).To(Equal(http.StatusOK))
 		Expect(listedIDs(s.do("alice", http.MethodGet, "/api/conversations", nil))).To(BeEmpty())
 	})
+
+	// Review on #9902: a conversation deleted on device A must not come back
+	// when device B, holding a stale copy, reconnects and writes it again.
+	Context("a stale client reconnecting after a remote deletion", func() {
+		It("gets 410 for the write, and the deletion stays visible to everyone", func() {
+			// Device A and device B both have c1.
+			Expect(s.do("alice", http.MethodPut, "/api/conversations/c1", conversationBody("c1", "shared")).Code).To(Equal(http.StatusOK))
+			// Device A deletes it.
+			Expect(s.do("alice", http.MethodDelete, "/api/conversations/c1", nil).Code).To(Equal(http.StatusOK))
+
+			// Device B comes back with its stale copy and pushes it.
+			rec := s.do("alice", http.MethodPut, "/api/conversations/c1", conversationBody("c1", "stale copy"))
+			Expect(rec.Code).To(Equal(http.StatusGone), rec.Body.String())
+			rec = s.do("alice", http.MethodPost, "/api/conversations", conversationBody("c1", "stale copy"))
+			Expect(rec.Code).To(Equal(http.StatusGone), rec.Body.String())
+
+			// The list keeps it out and tells B why, so B can drop its copy
+			// instead of treating it as an unsynced draft.
+			rec = s.do("alice", http.MethodGet, "/api/conversations", nil)
+			Expect(listedIDs(rec)).To(BeEmpty())
+			deleted := decodeJSON(rec)["deleted"].([]any)
+			Expect(deleted).To(HaveLen(1))
+			tomb := deleted[0].(map[string]any)
+			Expect(tomb["id"]).To(Equal("c1"))
+			Expect(tomb["deletedAt"]).To(BeNumerically(">", 0))
+			Expect(tomb["version"]).To(BeNumerically("==", 2))
+
+			Expect(s.do("alice", http.MethodGet, "/api/conversations/c1", nil).Code).To(Equal(http.StatusGone))
+		})
+
+		It("is not undone by a bulk upload either", func() {
+			Expect(s.do("alice", http.MethodPut, "/api/conversations/c1", conversationBody("c1", "shared")).Code).To(Equal(http.StatusOK))
+			Expect(s.do("alice", http.MethodDelete, "/api/conversations", nil).Code).To(Equal(http.StatusOK))
+
+			rec := s.do("alice", http.MethodPut, "/api/conversations/bulk", map[string]any{
+				"conversations": []any{conversationBody("c1", "stale"), conversationBody("fresh", "new")},
+			})
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			body := decodeJSON(rec)
+			Expect(body["count"]).To(BeNumerically("==", 1))
+			Expect(body["skipped"]).To(ConsistOf("c1"))
+			Expect(listedIDs(s.do("alice", http.MethodGet, "/api/conversations", nil))).To(ConsistOf("fresh"))
+		})
+
+		It("holds even when the delete reached the server before the first save", func() {
+			Expect(s.do("alice", http.MethodDelete, "/api/conversations/never-saved", nil).Code).To(Equal(http.StatusOK))
+			Expect(s.do("alice", http.MethodPut, "/api/conversations/never-saved", conversationBody("never-saved", "late")).Code).To(Equal(http.StatusGone))
+		})
+
+		It("leaves a genuinely new conversation alone", func() {
+			Expect(s.do("alice", http.MethodPut, "/api/conversations/gone", conversationBody("gone", "x")).Code).To(Equal(http.StatusOK))
+			Expect(s.do("alice", http.MethodDelete, "/api/conversations/gone", nil).Code).To(Equal(http.StatusOK))
+
+			rec := s.do("alice", http.MethodPut, "/api/conversations/draft", conversationBody("draft", "new draft"))
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodeJSON(rec)["version"]).To(BeNumerically("==", 1))
+			// A tombstone is per user: bob may use the same id.
+			Expect(s.do("bob", http.MethodPut, "/api/conversations/gone", conversationBody("gone", "bob")).Code).To(Equal(http.StatusOK))
+		})
+	})
 })

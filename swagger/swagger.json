@@ -878,6 +878,280 @@
                 }
             }
         },
+        "/api/conversations": {
+            "get": {
+                "description": "Returns the live conversations, newest first, and in `deleted` the conversations the user deleted. A client must drop any local copy whose id appears in `deleted` instead of uploading it again.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "List chat conversations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ConversationList"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Stores the conversation and returns it with its new server-assigned `version`. `createdAt`/`updatedAt` are kept as sent (Unix ms). Writing a conversation the user deleted returns 410 and does not bring it back.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Save a chat conversation (upsert)",
+                "parameters": [
+                    {
+                        "description": "Conversation payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Conversation"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Conversation"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Delete all chat conversations for the current user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/conversations/bulk": {
+            "put": {
+                "description": "Upserts every conversation in the payload and deletes the user's other live conversations. Ids the user deleted earlier are not written and are listed in `skipped`.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Replace all chat conversations",
+                "parameters": [
+                    {
+                        "description": "Conversations",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ConversationBulkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ConversationBulkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/conversations/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Get a chat conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Conversation"
+                        }
+                    },
+                    "404": {
+                        "description": "Never existed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Save a chat conversation by id (upsert)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID (overrides the body id)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Conversation payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Conversation"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.Conversation"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or body",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes the conversation and keeps a tombstone so no client can write it back. Deleting an unknown or already deleted id succeeds.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat-history"
+                ],
+                "summary": "Delete a chat conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/failover": {
             "get": {
                 "produces": [
@@ -5839,6 +6113,155 @@
                     "type": "integer"
                 },
                 "summary_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ConvTokenUsage": {
+            "type": "object",
+            "properties": {
+                "completion": {
+                    "type": "integer"
+                },
+                "prompt": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.Conversation": {
+            "type": "object",
+            "properties": {
+                "clientMCPServers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "contextSize": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "integer"
+                },
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mcpMode": {
+                    "type": "boolean"
+                },
+                "mcpResources": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcpServers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "systemPrompt": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "tokenUsage": {
+                    "$ref": "#/definitions/schema.ConvTokenUsage"
+                },
+                "topK": {
+                    "type": "number"
+                },
+                "topP": {
+                    "type": "number"
+                },
+                "updatedAt": {
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "Version is assigned by the server: 1 on the first save, +1 on every\nlater write including the delete. Clients use a non-zero version to\ntell a conversation the server has seen from a never-synced draft.\nIgnored on input.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ConversationBulkRequest": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.Conversation"
+                    }
+                }
+            }
+        },
+        "schema.ConversationBulkResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ConversationList": {
+            "type": "object",
+            "properties": {
+                "conversations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.Conversation"
+                    }
+                },
+                "deleted": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ConversationTombstone"
+                    }
+                }
+            }
+        },
+        "schema.ConversationTombstone": {
+            "type": "object",
+            "properties": {
+                "deletedAt": {
+                    "description": "Unix milliseconds",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "integer"
                 }
             }

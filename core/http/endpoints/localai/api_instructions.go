@@ -150,9 +150,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "chat-history",
-		Description: "Server-side persistence of WebUI chat conversations (#9432)",
+		Description: "Server-side persistence of WebUI chat conversations",
 		Tags:        []string{"chat-history"},
-		Intro:       "Per-user CRUD over chat conversations. POST/PUT upsert by id; PUT /bulk replaces the entire conversation set in one shot (used for localStorage migration).",
+		Intro:       "Per-user CRUD over chat conversations; only registered when user auth is enabled, and gated by the `chat_history` feature. POST /api/conversations and PUT /api/conversations/{id} upsert and return the conversation with a server-assigned `version` (1 on the first save, +1 per write). createdAt/updatedAt are client Unix milliseconds stored as sent, so clients compare updatedAt to pick the newer copy. Deletes are final: DELETE leaves a tombstone (idempotent, also for ids never saved), any later write of that id returns 410 Gone, and GET /api/conversations returns tombstones under `deleted` so a client drops stale local copies instead of re-uploading them. PUT /api/conversations/bulk makes the payload the live set (others are tombstoned) and reports refused deleted ids in `skipped`.",
 	},
 }
 

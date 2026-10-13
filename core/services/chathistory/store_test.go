@@ -26,14 +26,21 @@ func newConv(id, name string) schema.Conversation {
 	}
 }
 
-var _ = Describe("Store", func() {
+// The store runs on whichever database backs auth: SQLite by default,
+// PostgreSQL in distributed setups. Every spec runs against both so the
+// tombstone and version SQL cannot drift into one dialect.
+var _ = Describe("Store on PostgreSQL", func() {
+	describeStore(testutil.SetupTestDB)
+})
+
+func describeStore(openDB func() *gorm.DB) {
 	var (
 		db    *gorm.DB
 		store *chathistory.Store
 	)
 
 	BeforeEach(func() {
-		db = testutil.SetupTestDB()
+		db = openDB()
 		var err error
 		store, err = chathistory.New(db)
 		Expect(err).NotTo(HaveOccurred())
@@ -60,7 +67,7 @@ var _ = Describe("Store", func() {
 
 			Expect(store.Delete(userID, "c1")).To(Succeed())
 			_, err = store.Get(userID, "c1")
-			Expect(err).To(MatchError(chathistory.ErrNotFound))
+			Expect(err).To(MatchError(chathistory.ErrDeleted))
 		})
 	})
 
@@ -128,7 +135,8 @@ var _ = Describe("Store", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			Expect(store.ReplaceAll(userID, []schema.Conversation{newConv("z", "z")})).To(Succeed())
+			// Second return value (error) must be nil; the skipped list empty.
+			Expect(store.ReplaceAll(userID, []schema.Conversation{newConv("z", "z")})).To(BeEmpty())
 
 			list, err := store.List(userID)
 			Expect(err).NotTo(HaveOccurred())
@@ -176,4 +184,182 @@ var _ = Describe("Store", func() {
 			Expect(bobList).To(HaveLen(1))
 		})
 	})
-})
+	// A conversation deleted on one device must stay deleted when a client
+	// with a stale copy writes it again (review on #9902). Deletes leave a
+	// tombstone the store refuses to overwrite.
+	Context("tombstones", func() {
+		const userID = "alice"
+
+		It("rejects a save after delete instead of resurrecting the row", func() {
+			_, err := store.Save(userID, newConv("c1", "First"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+
+			_, err = store.Save(userID, newConv("c1", "stale copy"))
+			Expect(err).To(MatchError(chathistory.ErrDeleted))
+
+			list, err := store.List(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(BeEmpty())
+			Expect(tombstoneIDs(store, userID)).To(ConsistOf("c1"))
+			_, err = store.Get(userID, "c1")
+			Expect(err).To(MatchError(chathistory.ErrDeleted))
+		})
+
+		It("drops the content of a deleted conversation", func() {
+			_, err := store.Save(userID, newConv("c1", "secret"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+
+			var row chathistory.ConversationRecord
+			Expect(db.Unscoped().Where("user_id = ? AND conv_id = ?", userID, "c1").Take(&row).Error).To(Succeed())
+			Expect(row.DeletedAt.Valid).To(BeTrue())
+			Expect(row.Content).To(BeEmpty())
+		})
+
+		It("records a delete that arrives before the conversation's first save", func() {
+			// The UI deletes right away while a debounced PUT may still be in
+			// flight; whichever lands second must not bring the chat back.
+			Expect(store.Delete(userID, "early")).To(Succeed())
+			_, err := store.Save(userID, newConv("early", "late write"))
+			Expect(err).To(MatchError(chathistory.ErrDeleted))
+		})
+
+		It("treats a repeated delete as success", func() {
+			_, err := store.Save(userID, newConv("c1", "First"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+			Expect(tombstoneIDs(store, userID)).To(ConsistOf("c1"))
+		})
+
+		It("tombstones every conversation on DeleteAll", func() {
+			for _, id := range []string{"a", "b"} {
+				_, err := store.Save(userID, newConv(id, id))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			_, err := store.Save("bob", newConv("a", "bob's a"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(store.DeleteAll(userID)).To(Succeed())
+			Expect(tombstoneIDs(store, userID)).To(ConsistOf("a", "b"))
+			_, err = store.Save(userID, newConv("a", "stale"))
+			Expect(err).To(MatchError(chathistory.ErrDeleted))
+
+			// bob shares the id, not the tombstone.
+			_, err = store.Save("bob", newConv("a", "bob again"))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("does not let ReplaceAll resurrect deleted ids and tombstones what it replaces", func() {
+			for _, id := range []string{"a", "b"} {
+				_, err := store.Save(userID, newConv(id, id))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(store.Delete(userID, "b")).To(Succeed())
+
+			skipped, err := store.ReplaceAll(userID, []schema.Conversation{newConv("b", "stale b"), newConv("c", "c")})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(skipped).To(ConsistOf("b"))
+
+			list, err := store.List(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].ID).To(Equal("c"))
+			// "a" was replaced away: other devices must see it as deleted too.
+			Expect(tombstoneIDs(store, userID)).To(ConsistOf("a", "b"))
+		})
+	})
+
+	Context("versions", func() {
+		const userID = "alice"
+
+		It("starts at 1 and bumps on every write, including the delete", func() {
+			Expect(savedVersion(store, userID, newConv("c1", "v1"))).To(Equal(int64(1)))
+			Expect(savedVersion(store, userID, newConv("c1", "v2"))).To(Equal(int64(2)))
+
+			list, err := store.List(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list[0].Version).To(Equal(int64(2)))
+
+			Expect(store.Delete(userID, "c1")).To(Succeed())
+			tombs, err := store.Tombstones(userID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tombs).To(HaveLen(1))
+			Expect(tombs[0].Version).To(Equal(int64(3)))
+			Expect(tombs[0].DeletedAt).NotTo(BeZero())
+		})
+
+		It("ignores a client-supplied version", func() {
+			conv := newConv("c1", "x")
+			conv.Version = 41
+			Expect(savedVersion(store, userID, conv)).To(Equal(int64(1)))
+		})
+
+		It("counts every one of many concurrent writes", func() {
+			Expect(savedVersion(store, userID, newConv("hot", "seed"))).To(Equal(int64(1)))
+			const writers = 8
+			errs := make(chan error, writers)
+			for i := 0; i < writers; i++ {
+				go func() {
+					defer GinkgoRecover()
+					_, err := store.Save(userID, newConv("hot", "concurrent"))
+					errs <- err
+				}()
+			}
+			for i := 0; i < writers; i++ {
+				Expect(<-errs).NotTo(HaveOccurred())
+			}
+			got, err := store.Get(userID, "hot")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Version).To(Equal(int64(1 + writers)))
+		})
+	})
+
+	Context("timestamps", func() {
+		const userID = "alice"
+
+		// The UI decides which copy is newer by comparing updatedAt across
+		// devices, so the server must store the client's value rather than
+		// its own clock.
+		It("keeps the client's updatedAt and createdAt", func() {
+			conv := newConv("c1", "x")
+			conv.CreatedAt = 1000
+			conv.UpdatedAt = 2000
+			_, err := store.Save(userID, conv)
+			Expect(err).NotTo(HaveOccurred())
+			got, err := store.Get(userID, "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.CreatedAt).To(Equal(int64(1000)))
+			Expect(got.UpdatedAt).To(Equal(int64(2000)))
+		})
+
+		It("keeps the original createdAt when an update omits it", func() {
+			conv := newConv("c1", "x")
+			conv.CreatedAt = 1000
+			_, err := store.Save(userID, conv)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Save(userID, newConv("c1", "y"))
+			Expect(err).NotTo(HaveOccurred())
+			got, err := store.Get(userID, "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.CreatedAt).To(Equal(int64(1000)))
+		})
+	})
+}
+
+func savedVersion(store *chathistory.Store, userID string, conv schema.Conversation) int64 {
+	saved, err := store.Save(userID, conv)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return saved.Version
+}
+
+func tombstoneIDs(store *chathistory.Store, userID string) []string {
+	tombs, err := store.Tombstones(userID)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ids := []string{}
+	for _, t := range tombs {
+		ids = append(ids, t.ID)
+	}
+	return ids
+}

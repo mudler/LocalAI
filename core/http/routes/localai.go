@@ -571,6 +571,6 @@ func RegisterChatHistoryRoutes(router *echo.Echo, store *chathistory.Store, chat
 	router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(store), chatHistoryMw)
 	router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(store), chatHistoryMw)
 	router.GET("/api/conversations/:id", localai.GetConversationEndpoint(store), chatHistoryMw)
-	router.PUT("/api/conversations/:id", localai.SaveConversationEndpoint(store), chatHistoryMw)
+	router.PUT("/api/conversations/:id", localai.SaveConversationByIDEndpoint(store), chatHistoryMw)
 	router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(store), chatHistoryMw)
 }
