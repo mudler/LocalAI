@@ -152,30 +152,49 @@ func (a *Artifacts) Sweep(ctx context.Context) (Swept, error) {
 			gone[r.ID] = &out.Uninstalled
 		}
 	}
+	// The snapshot above is stale by now: a transfer that looked abandoned can
+	// have completed since. What is dropped, and which bytes go with it, is
+	// decided again under the metadata lock, and only the records this
+	// mutation really changed lose their bytes. a.mu is held across it, as in
+	// reserve, so a record that is transferring and has no worker is
+	// abandoned for certain.
+	var removed, settled []string
 	if len(drop) > 0 || len(abandoned) > 0 {
+		a.mu.Lock()
 		err := a.meta.mutate(func(d *document) error {
+			removed, settled = nil, nil
 			for _, id := range drop {
-				delete(d.Artifacts, id)
+				if d.Artifacts[id] != nil {
+					delete(d.Artifacts, id)
+					removed = append(removed, id)
+				}
 			}
 			for _, id := range abandoned {
-				if r := d.Artifacts[id]; r != nil && r.State == gateway.ArtifactTransferring {
-					r.State, r.Reason = gateway.ArtifactFailed, "transfer abandoned"
+				r := d.Artifacts[id]
+				if r == nil || r.State != gateway.ArtifactTransferring {
+					continue
 				}
+				if _, live := a.jobs[id]; live {
+					continue
+				}
+				r.State, r.Reason = gateway.ArtifactFailed, "transfer abandoned"
+				settled = append(settled, id)
 			}
 			return nil
 		})
+		a.mu.Unlock()
 		if err != nil {
 			return out, err
 		}
-		for _, id := range drop {
+		for _, id := range removed {
 			*gone[id]++
 		}
-		out.Abandoned = len(abandoned)
+		out.Abandoned = len(settled)
 	}
 	// The record is gone or settled first, so bytes are never reachable while
 	// they are being removed. Whatever removal misses, the orphan pass finds.
 	var errs []error
-	for _, id := range append(drop, abandoned...) {
+	for _, id := range append(removed, settled...) {
 		if err := a.objects.Delete(ctx, id); err != nil {
 			errs = append(errs, err)
 		}

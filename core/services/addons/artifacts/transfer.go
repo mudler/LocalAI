@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -350,7 +351,7 @@ func (a *Artifacts) transfer(ctx context.Context, actor contract.Actor, request 
 		})
 	}
 	if err = complete(); err != nil {
-		_ = a.objects.Delete(context.Background(), rec.ID)
+		a.dropUnlessComplete(rec.ID)
 		return err
 	}
 	return nil
@@ -413,9 +414,11 @@ func (a *Artifacts) download(ctx context.Context, actor contract.Actor, id strin
 			return err
 		}
 		meta, err := a.objects.Head(ctx, id)
-		if err != nil || meta.Size != cur.Size {
-			a.corrupt(id)
-			return ErrCorrupt
+		if err != nil {
+			return a.unreadable(ctx, actor, id, err)
+		}
+		if meta.Size != cur.Size {
+			return a.unreadable(ctx, actor, id, nil)
 		}
 		if begin != nil {
 			if err = begin(cur.view()); err != nil {
@@ -424,8 +427,7 @@ func (a *Artifacts) download(ctx context.Context, actor contract.Actor, id strin
 		}
 		file, err := a.objects.Get(ctx, id)
 		if err != nil {
-			a.corrupt(id)
-			return ErrCorrupt
+			return a.unreadable(ctx, actor, id, err)
 		}
 		defer file.Close()
 		r = cur
@@ -485,6 +487,32 @@ func (a *Artifacts) stream(ctx context.Context, actor contract.Actor, r record, 
 			return err
 		}
 	}
+}
+
+// unreadable decides what a failed read of the bytes means. Only bytes that are
+// definitely absent, not regular or of another size are corruption. Any other
+// error is a store that cannot answer now: it is unavailable and leaves the
+// bytes and the record as they are. A record that is gone, expired or no
+// longer complete was removed by a sweep or a cancel while the download was
+// admitted, and is answered like any other expired identifier.
+func (a *Artifacts) unreadable(ctx context.Context, actor contract.Actor, id string, err error) error {
+	if err != nil {
+		if cerr := ctx.Err(); cerr != nil {
+			return cerr
+		}
+		if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, ErrCorrupt) {
+			return fmt.Errorf("addon artifact bytes: %w", gateway.ErrUnavailable)
+		}
+	}
+	cur, lerr := a.lookup(actor, id)
+	if lerr != nil {
+		return lerr
+	}
+	if cur.State != gateway.ArtifactComplete {
+		return ErrNotReady
+	}
+	a.corrupt(id)
+	return ErrCorrupt
 }
 
 // corrupt records an artifact whose bytes do not match the record as failed

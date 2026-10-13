@@ -365,7 +365,21 @@ func (a *Artifacts) settle(ctx context.Context, id string, state gateway.Artifac
 		return nil
 	})
 	// The bytes go whatever the metadata write did: a failed record with bytes
-	// would be worse than bytes that are gone.
+	// would be worse than bytes that are gone. The one exception is a record
+	// that is complete: its bytes are what it names.
+	if cur, ok := a.meta.get(id); ok && cur.State == gateway.ArtifactComplete {
+		return err
+	}
 	derr := a.objects.Delete(ctx, id)
 	return errors.Join(err, derr)
+}
+
+// dropUnlessComplete removes the bytes of a transfer that did not complete. A
+// record that is complete, as it can be when only the durability of its write
+// failed, keeps them.
+func (a *Artifacts) dropUnlessComplete(id string) {
+	if cur, ok := a.meta.get(id); ok && cur.State == gateway.ArtifactComplete {
+		return
+	}
+	_ = a.objects.Delete(context.Background(), id)
 }

@@ -15,12 +15,14 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1612,5 +1614,222 @@ var _ = Describe("artifact gateway adapter", func() {
 		err = provider.Serve(context.Background(), f.alice, adopted.Outputs[0].Handle, func(Artifact) error { return gateway.ErrForbidden }, &body)
 		Expect(err).To(MatchError(gateway.ErrForbidden))
 		Expect(body.Len()).To(BeZero())
+	})
+})
+
+// faultyStore wraps the staged store and fails reads on demand.
+type faultyStore struct {
+	storage.ObjectStore
+	mu      sync.Mutex
+	headErr error
+	getErr  error
+	// beforeHead runs before every Head, as a concurrent sweep would.
+	beforeHead func()
+}
+
+func (s *faultyStore) set(head, get error) {
+	s.mu.Lock()
+	s.headErr, s.getErr = head, get
+	s.mu.Unlock()
+}
+
+func (s *faultyStore) Head(ctx context.Context, key string) (*storage.ObjectMeta, error) {
+	s.mu.Lock()
+	err, hook := s.headErr, s.beforeHead
+	s.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.ObjectStore.Head(ctx, key)
+}
+
+func (s *faultyStore) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+	s.mu.Lock()
+	err := s.getErr
+	s.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	return s.ObjectStore.Get(ctx, key)
+}
+
+// reopenWith reopens the artifact store of the fixture with another addon
+// lifecycle answer.
+func (f *fixture) reopenWith(addon func(context.Context, string) (AddonState, error)) {
+	Expect(f.arts.Close()).To(Succeed())
+	var err error
+	f.arts, err = Open(Options{Dir: filepath.Join(f.dir, "artifacts"), Policy: f.spy, Runtime: f.inst, Addon: addon, Limits: f.limits, Now: f.clock.now})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = f.arts.Close() })
+}
+
+// decoy inserts a complete record of another addon whose identifier sorts
+// before every issued one, so a sweep looks at it first.
+func (f *fixture) decoy() {
+	id := "a" + strings.Repeat("0", 32)
+	Expect(f.arts.meta.mutate(func(d *document) error {
+		d.Artifacts[id] = &record{ID: id, Principal: "alice", Mode: "named-user", Sources: []gateway.ArtifactResource{{AddonID: "other", ResourceID: f.key.ResourceID}},
+			AddonID: "other", Generation: 1, OperationID: "op-decoy", Binding: strings.Repeat("0", 64), Name: "d.csv", MediaType: "text/csv", Size: 0,
+			State: gateway.ArtifactComplete, CreatedAt: f.clock.now(), ExpiresAt: f.clock.now().Add(time.Hour)}
+		return nil
+	})).To(Succeed())
+}
+
+func (f *fixture) job(id string) *job {
+	f.arts.mu.Lock()
+	defer f.arts.mu.Unlock()
+	return f.arts.jobs[id]
+}
+
+var _ = Describe("artifact bytes and metadata stay consistent", func() {
+	It("keeps the bytes of a transfer that completes while a sweep is running", func() {
+		f := newFixture()
+		var hook atomic.Pointer[func()]
+		f.reopenWith(func(ctx context.Context, addonID string) (AddonState, error) {
+			if h := hook.Load(); addonID == "other" && h != nil {
+				(*h)()
+			}
+			return f.addon.get(ctx, addonID)
+		})
+		f.decoy()
+		art2, b2, err := f.blockedStart(f.alice, "op-live", "h-live", 10)
+		Expect(err).NotTo(HaveOccurred())
+		<-b2.started
+		j2 := f.job(art2.ID)
+		Expect(j2).NotTo(BeNil())
+		// The sweep has the transferring record in its snapshot when it asks
+		// about the decoy's addon. The transfer completes before it decides.
+		var once sync.Once
+		h := func() {
+			once.Do(func() {
+				close(b2.release)
+				<-j2.done
+			})
+		}
+		hook.Store(&h)
+		_, err = f.arts.Sweep(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		cur, err := f.arts.Status(context.Background(), f.alice, art2.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cur.State).To(Equal(gateway.ArtifactComplete))
+		body, err := f.download(f.alice, art2.ID)
+		Expect(err).NotTo(HaveOccurred(), "a complete artifact lost its bytes to the sweep")
+		Expect(body).To(Equal("xxxxxyyyyy"))
+	})
+
+	It("never loses the bytes of a complete artifact when sweeps race with several completing transfers", func() {
+		f := newFixture(func(l *Limits) { l.UserCount, l.TotalCount = 64, 64 })
+		var hook atomic.Pointer[func()]
+		f.reopenWith(func(ctx context.Context, addonID string) (AddonState, error) {
+			if h := hook.Load(); addonID == "other" && h != nil {
+				(*h)()
+			}
+			return f.addon.get(ctx, addonID)
+		})
+		f.decoy()
+		for round := range 6 {
+			var ids []string
+			var blocked []*blocking
+			var jobs []*job
+			for i := range 4 {
+				art, b, err := f.blockedStart(f.alice, fmt.Sprintf("op-%d-%d", round, i), fmt.Sprintf("h-%d-%d", round, i), 10)
+				Expect(err).NotTo(HaveOccurred())
+				<-b.started
+				ids, blocked, jobs = append(ids, art.ID), append(blocked, b), append(jobs, f.job(art.ID))
+			}
+			var once sync.Once
+			h := func() {
+				once.Do(func() {
+					for i := range blocked {
+						close(blocked[i].release)
+					}
+					for _, j := range jobs {
+						<-j.done
+					}
+				})
+			}
+			hook.Store(&h)
+			var wg sync.WaitGroup
+			for range 3 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					_, _ = f.arts.Sweep(context.Background())
+				}()
+			}
+			wg.Wait()
+			hook.Store(nil)
+			for _, id := range ids {
+				body, err := f.download(f.alice, id)
+				Expect(err).NotTo(HaveOccurred(), "round %d lost the bytes of %s", round, id)
+				Expect(body).To(Equal("xxxxxyyyyy"))
+			}
+		}
+	})
+
+	It("answers a transient storage error as unavailable and keeps the bytes and the record", func() {
+		f := newFixture()
+		art := f.ingest(f.alice, "op-1", "h1", "keep me")
+		fs := &faultyStore{ObjectStore: f.arts.blobs}
+		f.arts.objects = fs
+		for _, c := range []struct{ head, get error }{
+			{head: syscall.EMFILE}, {head: syscall.EIO}, {get: syscall.EMFILE}, {get: errors.New("transient")},
+		} {
+			fs.set(c.head, c.get)
+			_, err := f.download(f.alice, art.ID)
+			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(MatchError(ErrCorrupt))
+			Expect(gateway.StatusFor(err)).To(Equal(503))
+			cur, serr := f.arts.Status(context.Background(), f.alice, art.ID)
+			Expect(serr).NotTo(HaveOccurred())
+			Expect(cur.State).To(Equal(gateway.ArtifactComplete))
+			Expect(f.stagedFiles()).To(HaveLen(1))
+		}
+		fs.set(nil, nil)
+		body, err := f.download(f.alice, art.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body).To(Equal("keep me"))
+	})
+
+	It("marks an artifact corrupt only for missing bytes or a size mismatch", func() {
+		f := newFixture()
+		missing := f.ingest(f.alice, "op-1", "h1", "gone")
+		short := f.ingest(f.alice, "op-2", "h2", "truncated")
+		Expect(os.Remove(filepath.Join(f.dir, "artifacts", blobDir, missing.ID))).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(f.dir, "artifacts", blobDir, short.ID), []byte("tr"), 0o600)).To(Succeed())
+		for _, id := range []string{missing.ID, short.ID} {
+			_, err := f.download(f.alice, id)
+			Expect(err).To(MatchError(ErrCorrupt))
+			cur, serr := f.arts.Status(context.Background(), f.alice, id)
+			Expect(serr).NotTo(HaveOccurred())
+			Expect(cur.State).To(Equal(gateway.ArtifactFailed))
+		}
+		Expect(f.stagedFiles()).To(BeEmpty())
+	})
+
+	It("answers a download that races with an expiry or a drop like any expired identifier", func() {
+		f := newFixture()
+		art := f.ingest(f.alice, "op-1", "h1", "dropped")
+		_, expiredErr := f.download(f.alice, "a"+strings.Repeat("9", 32))
+		Expect(expiredErr).To(MatchError(ErrNotFound))
+		fs := &faultyStore{ObjectStore: f.arts.blobs}
+		f.arts.objects = fs
+		var once sync.Once
+		// The sweep removes the record, then the bytes, between the lookup and
+		// the read of the download.
+		fs.beforeHead = func() {
+			once.Do(func() {
+				Expect(f.arts.meta.mutate(func(d *document) error { delete(d.Artifacts, art.ID); return nil })).To(Succeed())
+				Expect(f.arts.blobs.Delete(context.Background(), art.ID)).To(Succeed())
+			})
+		}
+		_, err := f.download(f.alice, art.ID)
+		Expect(err).To(MatchError(ErrNotFound))
+		Expect(err).NotTo(MatchError(ErrCorrupt))
+		Expect(gateway.StatusFor(err)).To(Equal(403))
+		Expect(err.Error()).To(Equal(expiredErr.Error()))
 	})
 })

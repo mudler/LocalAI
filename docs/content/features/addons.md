@@ -949,7 +949,14 @@ artifact and uses no more quota.
   worker owns, artifacts of an uninstalled addon and files that no record names; opening
   the store also settles interrupted transfers and removes unreferenced files. An
   expired artifact is never served, even if the sweep did not run yet or the expiry falls
-  while a download is being admitted or streamed.
+  while a download is being admitted or streamed. A download that meets a sweep which
+  removes the artifact at that moment gets the same `403` as any expired or unknown
+  identifier, never a corruption error. The sweep removes the bytes only of records it
+  really changed: a transfer that completes while the sweep runs keeps its bytes.
+- **Storage errors.** Only bytes that are definitely missing, not a regular file or of
+  another size than recorded mark the artifact `failed` and remove the bytes (`503`). A
+  transient storage error (for example too many open files or an I/O error) is `503`
+  and leaves the bytes and the record as they are, so a later download can succeed.
 - **Disable.** A disabled addon denies downloads and accepts no new file result. The
   complete bytes are kept until their normal expiry. Enabling it again serves an artifact
   only while it is unexpired and only to a principal that can still read every source
