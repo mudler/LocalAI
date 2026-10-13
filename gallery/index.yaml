@@ -937,6 +937,94 @@
     - filename: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
       sha256: ff348f3180a63188aa7285db85f550fe38acb61dd013c599eb8bad08d2cc2576
       uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+- name: qwen3.8-27b-fable-5-coding-distilled
+  variants:
+    - model: qwen3.8-27b-fable-5-coding-distilled-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/khazarai/Qwen3.8-27B-Fable-5-Coding-Distilled
+    - https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF
+  description: |
+    A 27B Qwen3.8 fine-tune for coding, debugging, and agentic reasoning.
+    This Q4_K_M GGUF build uses llama.cpp, the embedded chat template, and the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-11"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Qwen3.8-27B-Fable-5-Coding-Distilled.Q4_K_M.gguf
+  files:
+    - filename: Qwen3.8-27B-Fable-5-Coding-Distilled.Q4_K_M.gguf
+      sha256: f730bb8dd54fc9ae404d5fbe65fe2cbde54d099ac76214a87641c70328dc6c5c
+      uri: https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF/resolve/e8eeb91df17f4b8c107dbaaf3edeeff9f9bfb928/Qwen3.8-27B-Fable-5-Coding-Distilled.Q4_K_M.gguf
+    - filename: Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
+      sha256: 5311f1ec862e2e3745f1ba89a958ceea754d048ca883baf5b11a8333d2e5f060
+      uri: https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF/resolve/e8eeb91df17f4b8c107dbaaf3edeeff9f9bfb928/Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
+- name: qwen3.8-27b-fable-5-coding-distilled-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/khazarai/Qwen3.8-27B-Fable-5-Coding-Distilled
+    - https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF
+  description: |
+    A 27B Qwen3.8 fine-tune for coding, debugging, and agentic reasoning.
+    This Q8_0 GGUF build uses llama.cpp, the embedded chat template, and the F16 vision projector.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+    - vision
+    - multimodal
+  last_checked: "2026-10-11"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Qwen3.8-27B-Fable-5-Coding-Distilled.Q8_0.gguf
+  files:
+    - filename: Qwen3.8-27B-Fable-5-Coding-Distilled.Q8_0.gguf
+      sha256: 07896593624778f6a0912bd2553ff17332d7bd169c818e8ff8413abdd931a842
+      uri: https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF/resolve/e8eeb91df17f4b8c107dbaaf3edeeff9f9bfb928/Qwen3.8-27B-Fable-5-Coding-Distilled.Q8_0.gguf
+    - filename: Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
+      sha256: 5311f1ec862e2e3745f1ba89a958ceea754d048ca883baf5b11a8333d2e5f060
+      uri: https://huggingface.co/mradermacher/Qwen3.8-27B-Fable-5-Coding-Distilled-GGUF/resolve/e8eeb91df17f4b8c107dbaaf3edeeff9f9bfb928/Qwen3.8-27B-Fable-5-Coding-Distilled.mmproj-f16.gguf
 - name: thinkingcap-qwen3.8-27b
   variants:
     - model: thinkingcap-qwen3.8-27b-q8
