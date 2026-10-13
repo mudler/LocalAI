@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -73,6 +74,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// owner checks its callers against it in named-user mode, and has no
 	// identity to check them with when it starts first.
 	if options.Auth.Enabled {
+		if err := ensureAuthDBDirs(options); err != nil {
+			return nil, err
+		}
 		authDB, err := auth.InitDB(options.Auth.DatabaseURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize auth database: %w", err)
@@ -791,4 +795,34 @@ func (a *Application) registerFailoverMetrics() {
 		return
 	}
 	failover.RegisterMetrics(a.failoverManager, a.metricsService.Meter)
+}
+
+// ensureAuthDBDirs creates the directories the auth database file lives in.
+// The database opens before the general directory setup, and its default
+// location is inside the data directory, which may not exist on first start.
+// Directories keep the 0750 mode of the later setup. PostgreSQL URLs and
+// in-memory databases have no directory.
+func ensureAuthDBDirs(options *config.ApplicationConfig) error {
+	if options.DataPath != "" {
+		if err := os.MkdirAll(options.DataPath, 0o750); err != nil {
+			return fmt.Errorf("unable to create DataPath: %q", err)
+		}
+	}
+	u := options.Auth.DatabaseURL
+	if strings.HasPrefix(u, "postgres://") || strings.HasPrefix(u, "postgresql://") {
+		return nil
+	}
+	if i := strings.IndexByte(u, '?'); i >= 0 {
+		u = u[:i]
+	}
+	u = strings.TrimPrefix(u, "file:")
+	if u == "" || u == ":memory:" || strings.HasPrefix(u, ":memory:") {
+		return nil
+	}
+	if dir := filepath.Dir(u); dir != "." {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("unable to create the auth database directory: %w", err)
+		}
+	}
+	return nil
 }
