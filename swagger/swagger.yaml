@@ -601,11 +601,13 @@ definitions:
           Arguments are the canonical stored arguments. They are the only
           arguments that can ever be submitted for this proposal.
         type: object
-      blockedBy:
+      blocked:
         description: |-
-          BlockedBy is the operation whose unresolved outcome blocks this
-          proposal. Resolve that operation first.
-        type: string
+          Blocked reports that another operation on the resource has an
+          unresolved outcome, so confirming is denied until it is resolved. The
+          operation itself belongs to its proposer and is shown only to the
+          resource's owner role, in the unresolved listing and in the denial.
+        type: boolean
       createdAt:
         type: string
       digest:

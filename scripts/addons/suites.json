@@ -522,7 +522,8 @@
       "names the blocking proposal in the denial only to the resource owner",
       "refuses an unbound digest when the owner abandons through the gateway or the broker",
       "answers the same typed outage for a resolution whoever proposed the operation",
-      "returns the applied proposal when the owner cannot read it back after a successful apply"
+      "returns the applied proposal when the owner cannot read it back after a successful apply",
+      "does not show another user's blocking operation in a proposal view"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -656,7 +657,8 @@
       "names the blocking proposal in the denial only to the resource owner",
       "refuses an unbound digest when the owner abandons through the gateway or the broker",
       "answers the same typed outage for a resolution whoever proposed the operation",
-      "returns the applied proposal when the owner cannot read it back after a successful apply"
+      "returns the applied proposal when the owner cannot read it back after a successful apply",
+      "does not show another user's blocking operation in a proposal view"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -737,7 +739,8 @@
           "names the blocking proposal in the denial only to the resource owner",
           "refuses an unbound digest when the owner abandons through the gateway or the broker",
           "answers the same typed outage for a resolution whoever proposed the operation",
-          "returns the applied proposal when the owner cannot read it back after a successful apply"
+          "returns the applied proposal when the owner cannot read it back after a successful apply",
+          "does not show another user's blocking operation in a proposal view"
         ]
       },
       {

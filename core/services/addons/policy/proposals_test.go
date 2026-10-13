@@ -617,7 +617,7 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		Expect(err).To(MatchError(ErrOutcomeBlocked))
 		blocked, err := f.broker.Get(ctx, owner, other.ID)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(blocked.BlockedBy).To(Equal("dropped"))
+		Expect(blocked.Blocked).To(BeTrue())
 		// Reads are not blocked.
 		Expect(f.policy.Authorize(ctx, owner, key, ActionRead)).To(Succeed())
 		callsBefore := f.rt.applyCalls()
@@ -1405,6 +1405,23 @@ var _ = Describe("proposal broker", Label("proposals"), func() {
 		blocked = nil
 		Expect(errors.As(err, &blocked)).To(BeTrue())
 		Expect(blocked.BlockedBy).To(Equal("lost"))
+	})
+
+	It("does not show another user's blocking operation in a proposal view", func() {
+		f := newBrokerFixture(ModeNamedUser)
+		owner, editor := named("owner"), named("editor")
+		key := f.create(owner)
+		Expect(f.policy.SetGrant(ctx, owner, key, "editor", RoleEditor)).To(Succeed())
+		pre, err := f.broker.Propose(ctx, editor, f.request(key, "pre-editor", "write", `{"rows":[1]}`))
+		Expect(err).NotTo(HaveOccurred())
+		lose(f, owner, key, "lost")
+
+		got, err := f.broker.Get(ctx, session("editor"), pre.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Blocked).To(BeTrue())
+		raw, err := json.Marshal(got)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring("lost"))
 	})
 
 	It("refuses an unbound digest when the owner abandons through the gateway or the broker", func() {

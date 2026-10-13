@@ -789,11 +789,11 @@ the original `operationId`. The mutation is never submitted again under any ID.
 and records a committed or rejected result. It is read-only toward the addon and can be
 repeated. An addon that has no receipt for the operation stays `outcome-unknown`: a
 missing receipt does not prove the call never ran. While an outcome is unresolved, every
-other write or schema proposal on the same resource is denied and names the blocking
-operation (`blockedBy`); reads continue. A write denied for this reason is `403`. For
+other write or schema proposal on the same resource is denied; a pending proposal
+shows `blocked: true`; reads continue. A write denied for this reason is `403`. For
 the owner role of the resource only, the body is type `outcome_blocked` and carries
 `blockedBy`, the operation ID to resolve. Any other user gets the plain denial and never
-learns another user's operation ID. On start the owner settles proposals left
+learns another user's operation ID, also not in a proposal view. On start the owner settles proposals left
 `executing` by a crash the same way and never applies them.
 
 Recovery has three steps and none of them submits the operation again:

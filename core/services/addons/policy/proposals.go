@@ -563,7 +563,7 @@ func (b *Broker) view(r proposalRecord) Proposal {
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
 		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution}
 	if r.State == gateway.ProposalPending {
-		p.BlockedBy = b.blockedBy(r.ResourceID, r.ID)
+		p.Blocked = b.blockedBy(r.ResourceID, r.ID) != ""
 	}
 	return p
 }

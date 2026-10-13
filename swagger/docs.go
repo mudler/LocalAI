@@ -6000,9 +6000,9 @@ const docTemplate = `{
                     "description": "Arguments are the canonical stored arguments. They are the only\narguments that can ever be submitted for this proposal.",
                     "type": "object"
                 },
-                "blockedBy": {
-                    "description": "BlockedBy is the operation whose unresolved outcome blocks this\nproposal. Resolve that operation first.",
-                    "type": "string"
+                "blocked": {
+                    "description": "Blocked reports that another operation on the resource has an\nunresolved outcome, so confirming is denied until it is resolved. The\noperation itself belongs to its proposer and is shown only to the\nresource's owner role, in the unresolved listing and in the denial.",
+                    "type": "boolean"
                 },
                 "createdAt": {
                     "type": "string"

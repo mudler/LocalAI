@@ -796,11 +796,11 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		Expect(blocking.Properties).NotTo(HaveKey("arguments"))
 		Expect(doc.Definitions["addons.AddonError"].Properties).To(HaveKey("blockedBy"))
 		proposal := doc.Definitions["gateway.Proposal"]
-		for _, field := range []string{"id", "operationId", "arguments", "revision", "digest", "effects", "state", "expiresAt", "receipt", "blockedBy"} {
+		for _, field := range []string{"id", "operationId", "arguments", "revision", "digest", "effects", "state", "expiresAt", "receipt", "blocked"} {
 			Expect(proposal.Properties).To(HaveKey(field))
 		}
 		// Every response field the proposal view emits is documented.
-		b, err = json.Marshal(gateway.Proposal{Receipt: &contract.Receipt{}, BlockedBy: "x", Reason: "y"})
+		b, err = json.Marshal(gateway.Proposal{Receipt: &contract.Receipt{}, Blocked: true, Reason: "y"})
 		Expect(err).NotTo(HaveOccurred())
 		var emitted map[string]any
 		Expect(json.Unmarshal(b, &emitted)).To(Succeed())

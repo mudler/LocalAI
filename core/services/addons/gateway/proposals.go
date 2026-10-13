@@ -87,9 +87,11 @@ type Proposal struct {
 	Receipt *contract.Receipt `json:"receipt,omitempty"`
 	// Reason says why a proposal is cancelled, expired or rejected.
 	Reason string `json:"reason,omitempty"`
-	// BlockedBy is the operation whose unresolved outcome blocks this
-	// proposal. Resolve that operation first.
-	BlockedBy string `json:"blockedBy,omitempty"`
+	// Blocked reports that another operation on the resource has an
+	// unresolved outcome, so confirming is denied until it is resolved. The
+	// operation itself belongs to its proposer and is shown only to the
+	// resource's owner role, in the unresolved listing and in the denial.
+	Blocked bool `json:"blocked,omitempty"`
 	// Resolution is present once the resource owner stopped waiting for an
 	// unresolved outcome. It stays after a late receipt is recorded.
 	Resolution *ProposalResolution `json:"resolution,omitempty"`
