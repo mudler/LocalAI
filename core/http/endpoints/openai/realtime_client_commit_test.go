@@ -105,4 +105,29 @@ var _ = Describe("realtime client-commit LLM/STT ordering", func() {
 
 		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
 	})
+	It("orders commit, commit, response: the LLM sees both turns in speech order", func() {
+		m := newModel("first turn", "second turn")
+		session := newSession(m)
+		tr := &fakeTransport{}
+		conv := &Conversation{}
+
+		session.issueClientCommit(utt, conv, tr)
+		Eventually(m.started, "2s").Should(Receive(Equal(int32(1))))
+		session.issueClientCommit(utt, conv, tr)
+		Eventually(m.started, "2s").Should(Receive(Equal(int32(2))))
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+
+		// The second transcription finishes first, but the response must wait
+		// for the whole chain.
+		Eventually(m.finished, "2s").Should(Receive(Equal(int32(2))))
+		Consistently(func() int {
+			return tr.countEvents(types.ServerEventTypeResponseCreated)
+		}, 200*time.Millisecond).Should(BeZero())
+
+		close(m.release)
+		session.respSink.wait()
+
+		Expect(userMsgTextsOf(m)).To(Equal([]string{"first turn", "second turn"}))
+	})
+
 })

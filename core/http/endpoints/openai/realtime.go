@@ -220,15 +220,6 @@ type Session struct {
 	// user-item appends in speech order, not transcription-completion order
 	// (see commitSlot).
 	commitTail *commitSlot
-
-	// clientCommitMu guards clientCommitDone.
-	clientCommitMu sync.Mutex
-	// clientCommitDone is the done channel of the in-flight client commit
-	// (input_audio_buffer.commit), closed once that commit has transcribed and
-	// appended its user item. A response.create issued while it is open waits
-	// on it so the LLM starts only after the STT is complete (client-commit
-	// LLM/STT race, see clientCommitDone).
-	clientCommitDone chan struct{}
 }
 
 // commitSlot orders committed user turns in the conversation. The
@@ -247,9 +238,10 @@ type commitSlot struct {
 	// this commit's item append waits on it, and its slot release waits on it
 	// too (on every exit path).
 	prevDone chan struct{}
-	// done is closed when this commit has fully finished — appended its user
-	// item or aborted (error, empty transcript, teardown) — AND the
-	// predecessor has finished, so the next commit is released in order.
+	// done is closed when the commit function has returned — it appended its
+	// user item or aborted (error, empty transcript, teardown), and generated
+	// its own response unless that was cancelled — AND the predecessor has
+	// finished, so the next commit is released in order.
 	done chan struct{}
 }
 
@@ -290,13 +282,10 @@ func (session *Session) nextCommitSlotLocked() *commitSlot {
 // registers the body and applies the coordinator start; the commit work runs
 // in the spawned goroutine — so holding the lock across it does not stall
 // VAD/barge-in handling.
-func (session *Session) issueCommit(parent context.Context, source respcoord.Source, slotSink func(*commitSlot), run func(ctx context.Context, slot *commitSlot)) {
+func (session *Session) issueCommit(parent context.Context, source respcoord.Source, run func(ctx context.Context, slot *commitSlot)) {
 	session.commitOrderMu.Lock()
 	defer session.commitOrderMu.Unlock()
 	slot := session.nextCommitSlotLocked()
-	if slotSink != nil {
-		slotSink(slot)
-	}
 	// A non-interrupting VAD commit must not supersede a response at speech end.
 	ifIdle := source == respcoord.SourceVAD && !session.interruptResponseEnabled()
 	session.respSink.issueWithPolicy(parent, source, ifIdle, func(ctx context.Context) {
@@ -304,57 +293,38 @@ func (session *Session) issueCommit(parent context.Context, source respcoord.Sou
 	})
 }
 
-// setClientCommitDone records the in-flight client commit's slot done channel
-// (closed once that commit has transcribed and appended its user item) so a
-// following response.create can wait for the STT to complete. See
-// getClientCommitDone.
-func (session *Session) setClientCommitDone(done chan struct{}) {
-	session.clientCommitMu.Lock()
-	session.clientCommitDone = done
-	session.clientCommitMu.Unlock()
-}
-
-// getClientCommitDone returns the in-flight client commit's slot done channel
-// (nil if none is in flight). With client-driven turns (turn_detection null,
-// e.g. a client VAD / speaker gate) the client sends input_audio_buffer.commit
-// and response.create back-to-back; without waiting on this channel the LLM
-// (fast) races the commit's STT (slow) and answers an empty transcript while
-// the response on the real transcript is discarded (client-commit LLM/STT
-// race).
-func (session *Session) getClientCommitDone() chan struct{} {
-	session.clientCommitMu.Lock()
-	defer session.clientCommitMu.Unlock()
-	return session.clientCommitDone
-}
-
 // issueClientCommit issues a client commit (input_audio_buffer.commit) through
-// the shared commit-ordering boundary (slot claim + issue under one lock, shared
-// with the VAD commit path) and records the in-flight commit's slot done channel
-// so the back-to-back response.create can wait for the STT before the LLM starts
-// (client-commit LLM/STT race).
+// the shared commit-ordering boundary, so slot order == issue order across the
+// client and VAD producers.
 func (session *Session) issueClientCommit(allAudio []byte, conv *Conversation, t Transport) {
-	var cs *commitSlot
-	session.issueCommit(context.Background(), respcoord.SourceClient, func(slot *commitSlot) {
-		cs = slot
-	}, func(ctx context.Context, slot *commitSlot) {
+	session.issueCommit(context.Background(), respcoord.SourceClient, func(ctx context.Context, slot *commitSlot) {
 		commitUtterance(ctx, allAudio, session, conv, t, slot)
 	})
-	if cs != nil {
-		session.setClientCommitDone(cs.done)
-	}
 }
 
 // issueClientResponse issues a client response (response.create). With
-// client-driven turns the commit and response.create are sent back-to-back; the
-// response waits for the in-flight commit's STT (and user-item append) to finish
-// so the LLM answers the real transcript, not an empty one (client-commit
-// LLM/STT race).
+// client-driven turns the commit and response.create are sent back-to-back, so
+// the response waits for the newest commit (client or VAD) to finish before the
+// LLM starts: the LLM must answer the real transcript, not an empty one
+// (client-commit LLM/STT race). Reading the commit tail and issuing the
+// response happen under the same lock as issueCommit, so the response is
+// ordered after every commit issued before it and before any issued later.
 func (session *Session) issueClientResponse(resp types.ResponseCreateParams, conv *Conversation, t Transport) {
-	commitDone := session.getClientCommitDone()
+	session.commitOrderMu.Lock()
+	defer session.commitOrderMu.Unlock()
+	tail := session.commitTail
+	pending := false
+	if tail != nil {
+		select {
+		case <-tail.done:
+		default:
+			pending = true
+		}
+	}
 	session.respSink.issue(context.Background(), respcoord.SourceClient, func(ctx context.Context) {
-		if commitDone != nil {
+		if pending {
 			select {
-			case <-commitDone:
+			case <-tail.done:
 			case <-ctx.Done():
 				return
 			}
