@@ -458,8 +458,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// could never read a token to send back.
 	if !application.ApplicationConfig().DisableCSRF {
 		xlog.Debug("Enabling CSRF middleware (Sec-Fetch-Site mode)")
-		e.Use(auth.CSRFMiddlewareWithCORS(
-			application.ApplicationConfig().CORS && application.ApplicationConfig().CORSAllowOrigins != ""))
+		e.Use(auth.CSRFMiddleware())
 	}
 
 	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise

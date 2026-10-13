@@ -174,36 +174,20 @@ var _ = Describe("Motion streaming endpoints", func() {
 		Expect(response.StatusCode).To(Equal(403))
 		Expect(response.Body.Close()).To(Succeed())
 	})
-	DescribeTable("honors explicitly enabled CORS for browser connections", func(enabled bool, allowed []string, origin string, accept bool) {
-		m.corsEnabled = enabled
+	DescribeTable("never derives the WebSocket origin check from the CORS allowlist", func(allowed []string, origin string) {
 		e := echo.New()
 		e.Use(echomiddleware.CORSWithConfig(echomiddleware.CORSConfig{AllowOrigins: allowed}))
 		e.GET("/api/motion/sessions/:id/poses", m.Poses)
 		server := httptest.NewServer(e)
 		DeferCleanup(server.Close)
-		ws, response, err := (&websocket.Dialer{Subprotocols: []string{"localai.motion.v2"}}).Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/api/motion/sessions/session/poses", http.Header{"Origin": []string{origin}})
-		if !accept {
-			Expect(err).To(HaveOccurred())
-			Expect(response.StatusCode).To(Equal(403))
-			Expect(response.Body.Close()).To(Succeed())
-			return
-		}
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(ws.Close()).To(Succeed()) })
-		Expect(response.StatusCode).To(Equal(101))
-		kind, data, err := ws.ReadMessage()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(kind).To(Equal(websocket.BinaryMessage))
-		out := &motion.Output{}
-		Expect(proto.Unmarshal(data, out)).To(Succeed())
-		Expect(out.GetDefinition().Profile).To(Equal("smpl24"))
+		_, response, err := (&websocket.Dialer{Subprotocols: []string{"localai.motion.v2"}}).Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/api/motion/sessions/session/poses", http.Header{"Origin": []string{origin}})
+		Expect(err).To(HaveOccurred())
+		Expect(response.StatusCode).To(Equal(403))
+		Expect(response.Body.Close()).To(Succeed())
 	},
-		Entry("explicit allowed origin", true, []string{"https://consumer.example"}, "https://consumer.example", true),
-		Entry("explicit wildcard policy", true, []string{"*"}, "http://localhost:3000", true),
-		Entry("subdomain policy", true, []string{"https://*.example.com"}, "https://consumer.example.com", true),
-		Entry("disallowed origin", true, []string{"https://consumer.example"}, "https://untrusted.example", false),
-		Entry("different port", true, []string{"http://localhost:3000"}, "http://localhost:3001", false),
-		Entry("default HTTP wildcard does not enable cross-origin sockets", false, []string{"*"}, "https://untrusted.example", false),
+		Entry("explicitly allowed origin", []string{"https://consumer.example"}, "https://consumer.example"),
+		Entry("wildcard policy", []string{"*"}, "http://localhost:3000"),
+		Entry("subdomain policy", []string{"https://*.example.com"}, "https://consumer.example.com"),
 	)
 
 	DescribeTable("bypasses origins only for validated header credentials", func(header, value string, status int) {

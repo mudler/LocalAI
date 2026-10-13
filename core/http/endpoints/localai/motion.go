@@ -62,7 +62,6 @@ type motionSession struct {
 type MotionEndpoints struct {
 	ingress          metric.Int64Counter
 	app              *application.Application
-	corsEnabled      bool
 	mu               sync.Mutex
 	sessions         map[string]*motionSession
 	reserved         map[string]bool
@@ -74,9 +73,6 @@ type MotionEndpoints struct {
 func NewMotionEndpoints(app *application.Application) *MotionEndpoints {
 	meter := otel.Meter("github.com/mudler/LocalAI/motion")
 	m := &MotionEndpoints{app: app, sessions: map[string]*motionSession{}, reserved: map[string]bool{}}
-	if app != nil {
-		m.corsEnabled = app.ApplicationConfig().CORS && app.ApplicationConfig().CORSAllowOrigins != ""
-	}
 	m.active, _ = meter.Int64UpDownCounter("localai_motion_sessions", metric.WithDescription("Active motion sessions"))
 	m.ingress, _ = meter.Int64Counter("localai_motion_uploads", metric.WithDescription("Duplex frames accepted or dropped before inference"))
 	m.outcomes, _ = meter.Int64Counter("localai_motion_frames", metric.WithDescription("Motion outcomes and rejected input"))
@@ -384,8 +380,9 @@ func (m *MotionEndpoints) Poses(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	// Validated header credentials or an explicit CORS policy extend the origin default.
-	// Reuse middleware approval to keep origin matching consistent with HTTP.
+	// A non-same-origin upgrade is accepted only with a single-use ticket or
+	// validated header credentials. The CORS allowlist never relaxes this: a
+	// cookie-authenticated cross-origin page is rejected by the default check.
 	duplex := false
 	for _, protocol := range websocket.Subprotocols(c.Request()) {
 		if protocol == "localai.motion.v2" {
@@ -400,9 +397,7 @@ func (m *MotionEndpoints) Poses(c echo.Context) error {
 	}
 	defer s.frameMu.Unlock()
 	upgrader := websocket.Upgrader{Subprotocols: []string{"localai.motion.v2"}}
-	origin := c.Request().Header.Get(echo.HeaderOrigin)
-	allowedOrigin := c.Response().Header().Get(echo.HeaderAccessControlAllowOrigin)
-	if auth.WebSocketTicketAuthenticated(c) || auth.HeaderAuthenticated(c) || (m.corsEnabled && origin != "" && (allowedOrigin == "*" || allowedOrigin == origin)) {
+	if auth.WebSocketTicketAuthenticated(c) || auth.HeaderAuthenticated(c) {
 		upgrader.CheckOrigin = func(*http.Request) bool { return true }
 	}
 	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
