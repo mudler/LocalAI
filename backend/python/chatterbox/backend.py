@@ -177,9 +177,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.AudioPath = os.path.join(modelFileBase, request.AudioPath)
         try:
             print("Preparing models, please wait", file=sys.stderr)
-            if "multilingual" in self.options:
-                # remove key from options
-                del self.options["multilingual"]
+            selectors = {}
+            for name in ("multilingual", "turbo", "nano"):
+                value = self.options.pop(name, False)
+                if not isinstance(value, bool):
+                    raise ValueError(f"{name} must be true or false")
+                selectors[name] = value
+            if sum(selectors.values()) > 1:
+                raise ValueError("Only one of multilingual, turbo, or nano can be true")
+            self.variant = next((name for name, enabled in selectors.items() if enabled), "original")
+            if self.variant in ("turbo", "nano"):
+                # Older installations can still load the original models.
+                from chatterbox.tts_turbo import ChatterboxTurboTTS
+                if self.variant == "nano":
+                    self.model = ChatterboxTurboTTS.from_pretrained(device=device, nano=True)
+                else:
+                    self.model = ChatterboxTurboTTS.from_pretrained(device=device)
+            elif self.variant == "multilingual":
                 self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
             else:
                 self.model = ChatterboxTTS.from_pretrained(device=device)
@@ -212,6 +226,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     if key == "ref_text":
                         continue
                     kwargs[key] = coerce_param_value(value)
+
+            # Selectors apply only at load time, including when supplied in params.
+            for name in ("multilingual", "turbo", "nano"):
+                kwargs.pop(name, None)
+            if self.variant in ("turbo", "nano"):
+                # These controls belong to the original model's sampler.
+                for name in ("cfg_weight", "exaggeration", "min_p"):
+                    kwargs.pop(name, None)
 
             # Check if text exceeds 250 characters
             # (chatterbox does not support long text)
