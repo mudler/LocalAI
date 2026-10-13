@@ -38,13 +38,15 @@ def is_int(s):
     except ValueError:
         return False
 
-def coerce_param_value(value):
+def coerce_param_value(value, key=None):
     """Coerce a TTSRequest.params value (string on the wire) to the type the
     Chatterbox generate() kwargs expect (float/int/bool), matching how static
     YAML options are coerced at load time. Non-string values pass through."""
     if not isinstance(value, str):
         return value
-    if is_int(value):
+    # Transformers requires top_k to be an int, but float controls such as
+    # temperature must remain floats even when written without a decimal point.
+    if key == "top_k" and is_int(value):
         return int(value)
     if is_float(value):
         return float(value)
@@ -157,7 +159,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if ":" not in opt:
                 continue
             key, value = opt.split(":")
-            self.options[key] = coerce_param_value(value)
+            self.options[key] = coerce_param_value(value, key)
 
         self.AudioPath = None
 
@@ -218,7 +220,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 for key, value in request.params.items():
                     if key == "ref_text":
                         continue
-                    kwargs[key] = coerce_param_value(value)
+                    kwargs[key] = coerce_param_value(value, key)
 
             # Selectors apply only at load time, including when supplied in params.
             for name in ("multilingual", "turbo", "nano"):

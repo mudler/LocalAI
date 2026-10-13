@@ -134,6 +134,19 @@ class VariantTests(unittest.TestCase):
                     self.assertIs(type(top_k), int)
                     self.assertEqual(top_k, expected)
 
+    def test_integral_float_controls_remain_floats(self):
+        for variant in ("turbo", "nano"):
+            for params, expected in (({}, 2.0), ({"temperature": "3", "repetition_penalty": "3"}, 3.0)):
+                with self.subTest(variant=variant, params=params):
+                    self.assertTrue(self.load([
+                        f"{variant}:true", "temperature:2", "repetition_penalty:2",
+                    ]).success)
+                    self.assertTrue(self.speak(params).success)
+                    kwargs = self.service.model.generate.call_args.kwargs
+                    for name in ("temperature", "repetition_penalty"):
+                        self.assertIs(type(kwargs[name]), float)
+                        self.assertEqual(kwargs[name], expected)
+
     def test_static_unsupported_knobs_are_filtered(self):
         self.assertTrue(self.load(["nano:true", "cfg_weight:0.4", "exaggeration:0.6", "min_p:0.1"]).success)
         self.assertTrue(self.speak().success)
