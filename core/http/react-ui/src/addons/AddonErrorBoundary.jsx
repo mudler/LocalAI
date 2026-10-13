@@ -22,11 +22,13 @@ export default class AddonErrorBoundary extends Component {
   render() {
     if (!this.state.error) return this.props.children
     const { title, text, retryLabel } = this.props.labels || {}
+    const { closeLabel, onClose } = this.props
     return (
       <div className="ad-boundary" role="alert" data-testid="addon-error">
         <h2 className="ad-boundary__title">{title}</h2>
         <p className="ad-boundary__text">{text}</p>
         <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={this.retry}>{retryLabel}</button>
+        {onClose && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={onClose}>{closeLabel}</button>}
       </div>
     )
   }

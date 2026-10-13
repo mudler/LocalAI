@@ -63,7 +63,19 @@ export function createAddon(sdk) {
           title: 'Fixture dialog',
           render: ({ close }) => h('div', null, h('p', null, 'Opened by the add-on.'), h(Button, { onClick: close }, 'Done')),
         }),
-      }, 'Open dialog'))
+      }, 'Open dialog'),
+      h(Button, {
+        onClick: () => sdk.layers.openDialog({
+          title: 'Broken dialog',
+          render: () => { throw new Error('fixture layer failure') },
+        }),
+      }, 'Open broken dialog'),
+      h(Button, {
+        onClick: () => sdk.layers.openPanel({
+          title: 'Broken panel',
+          render: () => { throw new Error('fixture panel failure') },
+        }),
+      }, 'Open broken panel'))
   }
 
   function Root(props) {

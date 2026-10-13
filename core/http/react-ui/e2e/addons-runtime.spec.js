@@ -318,6 +318,23 @@ test.describe('Add-on UI runtime', () => {
     await context.close()
   })
 
+  test('esm: a dialog or panel whose render throws is contained and the host app keeps running', async ({ browser }) => {
+    const { context, page } = await browserAs(browser, 'member')
+    await page.goto('/app/addons/uifixture/dialog')
+    for (const [button, title] of [['Open broken dialog', 'Broken dialog'], ['Open broken panel', 'Broken panel']]) {
+      await page.getByRole('button', { name: button }).click({ timeout: 20_000 })
+      const layer = page.getByRole('dialog', { name: title })
+      await expect(layer.getByTestId('addon-error')).toBeVisible()
+      // The router error page never replaces the host.
+      await expect(page.getByText('Unexpected Application Error')).toHaveCount(0)
+      await expect(page.locator('.sidebar-nav')).toBeVisible()
+      await expect(page.locator('h1.page-title')).toHaveText('UI fixture')
+      await layer.getByRole('button', { name: 'Close' }).last().click()
+      await expect(layer).toHaveCount(0)
+    }
+    await context.close()
+  })
+
   test('esm: unsaved edits are guarded when leaving the page', async ({ browser }) => {
     const { context, page } = await browserAs(browser, 'member')
     await page.goto('/app/addons/uifixture/home')

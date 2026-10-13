@@ -31,6 +31,10 @@ import './shell.css'
 
 const EMPTY = { status: 'idle', apps: [], error: null }
 
+function guarded(build) {
+  try { return build() } catch { return [] }
+}
+
 export function AddonRegistryProvider({ children, api = addonsApi }) {
   const { hasFeature, user, isAdmin } = useAuth()
   const navigate = useNavigate()
@@ -162,8 +166,10 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     reload: (app) => manager.reload(app),
     setNotifier: (fn) => { notifierRef.current = fn },
     setLocation: (id, loc) => { locationsRef.current.set(id, loc) },
-    navigationItems: buildNavigation(list.apps, { language: i18n.language }),
-    chatActions: availableChatActions(instances, list.apps, { hasFeature: () => allowed }),
+    // Both lists are built from add-on supplied data. A failure while building
+    // them leaves the host with no entries, never with a broken render.
+    navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
+    chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
   }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
@@ -178,14 +184,25 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   )
 }
 
+// The content of a layer. The add-on's render runs here, as a component under
+// the boundary of AddonLayer, never during the host's own render: a throw
+// draws the contained error card and the host app stays.
+function LayerBody({ render, close }) {
+  return render({ close })
+}
+
 // A dialog or a side panel an add-on asked for. The host owns its lifecycle:
 // focus, Escape, the veil and the unmount are the kit's, and the add-on only
 // supplies the content.
 function AddonLayer({ layer, labels, closeLabel, onClose }) {
   const { spec, kind } = layer
-  const close = () => { try { spec.onClose?.() } finally { onClose() } }
+  const close = () => {
+    try { spec.onClose?.() } catch { /* an add-on callback never blocks the host closing it */ } finally { onClose() }
+  }
   const body = (
-    <AddonErrorBoundary labels={labels}>{spec.render({ close })}</AddonErrorBoundary>
+    <AddonErrorBoundary labels={labels} closeLabel={closeLabel} onClose={close}>
+      <LayerBody render={spec.render} close={close} />
+    </AddonErrorBoundary>
   )
   if (kind === 'panel') {
     return <SideSheet title={spec.title} description={spec.description} wide={spec.wide} closeLabel={closeLabel} onClose={close} labelId={`addon-layer-${layer.id}`}>{body}</SideSheet>

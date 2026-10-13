@@ -1676,6 +1676,7 @@
       "esm: the server decides asset access: undeclared files, traversal, other add-ons, credentials in URLs and foreign sessions are denied",
       "esm: an add-on navigates only to its own declared pages and the host draws the add-on navigation",
       "esm: dialogs an add-on opens are owned by the host: focus, Escape and the close button",
+      "esm: a dialog or panel whose render throws is contained and the host app keeps running",
       "esm: unsaved edits are guarded when leaving the page",
       "esm: the page keeps inside the viewport at 400 px and follows the light and dark themes",
       "esm: a member without the add-ons feature gets no add-on page and no code",
