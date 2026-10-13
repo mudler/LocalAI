@@ -131,6 +131,7 @@ For client-controlled turns, set `turn_detection` to `null` in `session.update`.
 After sending audio, send `input_audio_buffer.commit`, followed by `response.create`.
 If transcription is still running, the response waits for the committed user item before starting the LLM.
 A standalone `response.create` with no pending client commit starts without this wait.
+If the commit produces no user item (transcription error, empty transcript or a voice gate rejection), the server does not run the LLM. It sends `response.done` with status `failed` and an `input_not_committed` error, after the error event that describes the cause. If you cancel the response while it waits, you get `response.done` with status `cancelled`.
 
 Turn detection decides when the user has finished speaking and the pipeline should respond. Two modes are supported, matching the OpenAI session schema:
 
