@@ -45,7 +45,7 @@ var _ = Describe("ExtendToPreviousWord", func() {
 	})
 
 	It("never swallows a word with digits (amounts, dates, codes stay intact)", func() {
-		for _, text := range []string{"Betrag 12,50 Waldmeister", "am 11.08.2026 Waldmeister", "Zimmer 4711 Waldmeister", "Code A1b Waldmeister"} {
+		for _, text := range []string{"Betrag 12,50 Waldmeister", "am 11.08.2026 Waldmeister", "Zimmer 4711 Waldmeister", "Code A1b Waldmeister", "12 Waldmeister"} {
 			det := &stubNERDetector{entities: []NEREntity{ent(text, "Waldmeister", "LASTNAME", 0.9)}}
 			res, err := RedactNER(ctx, text, []NERConfig{{Detector: det, DefaultAction: ActionMask, ExtendToPreviousWord: []string{"LASTNAME"}}})
 			Expect(err).NotTo(HaveOccurred())

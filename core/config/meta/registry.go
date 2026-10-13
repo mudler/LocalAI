@@ -1067,21 +1067,21 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Label:       "Extend To Previous Word",
 			Description: "Entity groups (e.g. LASTNAME) whose detections also cover the word right before them on the same line, with the same action, when that word consists of letters only. Use it when the model tags a surname reliably but scores the first name before it below the threshold.",
 			Component:   "string-list",
-			Order:       215,
+			Order:       216,
 		},
 		"pii_detection.protected_terms": {
 			Section:     "pii",
 			Label:       "Protected Terms",
 			Description: "Values that must pass the filter unchanged even when the model tags them, e.g. known business names a name model reads as surnames. Hidden from the detector behind a placeholder and restored afterwards; matched whole-word and case-insensitively, minimum three characters.",
 			Component:   "string-list",
-			Order:       216,
+			Order:       217,
 		},
 		"pii_detection.protected_terms_files": {
 			Section:     "pii",
 			Label:       "Protected Terms Files",
 			Description: "Files inside the models path with one protected term per line ('#' starts a comment). Re-read when they change, so an external process can keep the list current without a restart. A missing file is skipped with a warning.",
 			Component:   "string-list",
-			Order:       217,
+			Order:       218,
 		},
 
 		// --- Cloud passthrough proxy ---
