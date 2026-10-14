@@ -105,6 +105,11 @@ func toolSourceError(err error) error {
 
 const maxToolArgumentDepth = 64
 
+// CheckToolArguments applies the structural rule of AuthorizeTool to a
+// consumer that builds the arguments itself: exactly one JSON object with no
+// repeated key at any depth, no trailing data and bounded nesting.
+func CheckToolArguments(arguments []byte) error { return checkObject(arguments) }
+
 // checkObject accepts exactly one JSON object with no repeated key at any
 // depth and nothing after it.
 func checkObject(b []byte) error {
