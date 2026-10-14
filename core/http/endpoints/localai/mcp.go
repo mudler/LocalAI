@@ -75,6 +75,14 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 			return echo.ErrBadRequest
 		}
 
+		// A request for add-on tools is refused before anything else is
+		// looked at: whether the model has MCP servers must not change the
+		// answer, which is the same typed rejection as on the other surfaces
+		// that serve no add-on tools.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		modelConfig, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || modelConfig == nil {
 			return echo.ErrBadRequest
