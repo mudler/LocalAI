@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -153,6 +154,89 @@ var _ = Describe("lifecycle service over the real fixture process", func() {
 		_, err = o.submit("found-tool", "upgrade", 0, "3.0.0")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(o.ready("found-tool", 2)).To(BeTrue(), "the good release is the next generation")
+	})
+
+	It("restores the last good generation and resumes the same operation when the request is canceled during an upgrade start", func() {
+		Expect(lib.Add(cluster.ToolPackage("1.0.0", nil), effects)).To(Succeed())
+		Expect(lib.Add(cluster.ToolPackage("2.0.0", map[string]any{"mode": "never-ready"}), effects)).To(Succeed())
+		Expect(lib.Add(cluster.ToolPackage("3.0.0", nil), effects)).To(Succeed())
+		o, root := makeOwner(lib, 5*time.Second)
+		bg := context.Background()
+		_, err := o.submit("found-tool", "install", 0, "1.0.0")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = o.submit("found-tool", "enable", 1, "")
+		Expect(err).NotTo(HaveOccurred())
+		first, err := o.m.Runtime(bg, "found-tool")
+		Expect(err).NotTo(HaveOccurred())
+
+		command := addons.LifecycleCommand{OperationID: nextID("cancel"), AddonID: "found-tool", Action: "upgrade", SourceID: "fixture", Version: "2.0.0"}
+		timeout, cancel := context.WithTimeout(bg, 800*time.Millisecond)
+		defer cancel()
+		started := time.Now()
+		status, err := o.m.Submit(timeout, o.actor, command)
+		Expect(err).To(HaveOccurred())
+		Expect(status.Phase).NotTo(Equal("failed"), "a canceled request is not a terminal failure of the operation")
+		Expect(time.Since(started)).To(BeNumerically("<", 10*time.Second), "the restore is bounded")
+		// The last good generation runs again, as a new process, and the
+		// canceled candidate and the first process do not overlap with it.
+		current, err := o.m.Runtime(bg, "found-tool")
+		Expect(err).NotTo(HaveOccurred(), "the last good generation is back without another command")
+		Expect(current.Generation).To(Equal(uint64(1)))
+		Expect(current.PID).NotTo(Equal(first.PID))
+		Expect(syscall.Kill(first.PID, 0)).NotTo(Succeed(), "the stopped process is gone")
+		Expect(o.ready("found-tool", 1)).To(BeTrue())
+		regs, err := o.s.Registry.Snapshot(bg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(regs).To(HaveLen(1))
+
+		// The same operation ID is retried and settles on the same outcome
+		// as the first attempt would have without the cancellation: the
+		// candidate never becomes ready, so it is a terminal failure with
+		// the last good generation kept.
+		_, err = o.m.Submit(bg, o.actor, command)
+		Expect(err).To(MatchError(addons.ErrOperationFailed))
+		_, err = o.m.Runtime(bg, "found-tool")
+		Expect(err).NotTo(HaveOccurred())
+		again, err := o.m.Submit(bg, o.actor, command)
+		Expect(err).To(MatchError(addons.ErrOperationFailed))
+		Expect(again.Phase).To(Equal("failed"))
+		Expect(o.ready("found-tool", 1)).To(BeTrue())
+		// The failure leaves nothing behind that blocks a good upgrade.
+		_, err = o.submit("found-tool", "upgrade", 0, "3.0.0")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(o.ready("found-tool", 2)).To(BeTrue())
+		_ = root
+	})
+
+	It("converges on the last good generation after a crash that follows the rollback start and precedes any journal write", func() {
+		Expect(lib.Add(cluster.ToolPackage("1.0.0", nil), effects)).To(Succeed())
+		Expect(lib.Add(cluster.ToolPackage("2.0.0", map[string]any{"mode": "never-ready"}), effects)).To(Succeed())
+		o, root := makeOwner(lib, 5*time.Second)
+		bg := context.Background()
+		_, err := o.submit("found-tool", "install", 0, "1.0.0")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = o.submit("found-tool", "enable", 1, "")
+		Expect(err).NotTo(HaveOccurred())
+		command := addons.LifecycleCommand{OperationID: nextID("crash"), AddonID: "found-tool", Action: "upgrade", SourceID: "fixture", Version: "2.0.0"}
+		timeout, cancel := context.WithTimeout(bg, 800*time.Millisecond)
+		defer cancel()
+		_, err = o.m.Submit(timeout, o.actor, command)
+		Expect(err).To(HaveOccurred())
+		Expect(o.ready("found-tool", 1)).To(BeTrue())
+		// The owner dies here: the journal still says generation 1 and the
+		// operation never reached prepared.
+		Expect(o.s.Close(bg)).To(Succeed())
+		Expect(o.m.Close()).To(Succeed())
+		again, err := openOwner(root, lib, 5*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = again.s.Close(bg); _ = again.m.Close() })
+		status, err := again.m.Status(bg, "found-tool")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status.Generation).To(Equal(uint64(1)))
+		Expect(again.ready("found-tool", 1)).To(BeTrue())
+		regs, err := again.s.Registry.Snapshot(bg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(regs).To(HaveLen(1))
 	})
 
 	It("starts the owner when an enabled add-on cannot become ready and fails only that add-on", func() {

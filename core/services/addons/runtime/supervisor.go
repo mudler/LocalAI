@@ -140,22 +140,20 @@ func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, gen
 		e error
 	}
 	done := make(chan result, 1)
-	accepted := make(chan bool, 1)
+	// A canceled caller still waits for the launch to finish cleaning up. The
+	// slot of the add-on stays reserved until then, and a caller that must
+	// start another generation right away would otherwise be refused. The wait
+	// is bounded: the launch itself stops at the ready timeout.
 	go func() {
 		i, e := s.start(wait, pkg, generation)
-		done <- result{i, e}
-		if keep := <-accepted; !keep && e == nil {
+		if e == nil && wait.Err() != nil {
 			_ = s.Stop(context.Background(), i)
+			i, e = Instance{}, wait.Err()
 		}
+		done <- result{i, e}
 	}()
-	select {
-	case r := <-done:
-		accepted <- true
-		return r.i, r.e
-	case <-wait.Done():
-		accepted <- false
-		return Instance{}, wait.Err()
-	}
+	r := <-done
+	return r.i, r.e
 }
 
 func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (Instance, error) {

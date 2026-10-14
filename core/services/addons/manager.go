@@ -67,6 +67,15 @@ type Manager struct {
 	// restart tries again, and one add-on that cannot start never stops the
 	// owner or fails the commands of another add-on.
 	startFailed map[string]error
+	// canceled holds the upgrades whose request was canceled while the
+	// candidate started. The package is already published and the last good
+	// generation runs again; the same operation ID continues from here.
+	// In memory only: a restart marks the intent failed and starts the
+	// journaled generation.
+	canceled map[string]packages.PackageReceipt
+	// restoreTimeout bounds the work that puts the last good generation back
+	// and does not depend on the request. Zero means the default.
+	restoreTimeout time.Duration
 	// scanner reads the size of data directories outside mu.
 	scanner storageScanner
 }
@@ -177,6 +186,8 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if m.uncertain || m.runtimeRecoveryRequired {
 		return OperationStatus{}, ErrRecoveryRequired
 	}
+	var op journalOperation
+	resumed := false
 	if !addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
 		return OperationStatus{}, ErrConflict
 	}
@@ -185,22 +196,34 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			return OperationStatus{}, ErrConflict
 		}
 		if old.Status.Phase == "failed" {
+			// The answer stays the failure, but the add-on must not stay
+			// down because the failing attempt could not put it back.
+			if e := m.syncRuntime(ctx, cmd.AddonID); e != nil {
+				return old.Status, e
+			}
 			return old.Status, ErrOperationFailed
 		}
-		if old.Status.Phase != "completed" {
-			return old.Status, ErrRecoveryRequired
+		if _, again := m.canceled[cmd.OperationID]; again && old.Status.Phase == "intent" {
+			resumed = true
+			op = old
+		} else {
+			if old.Status.Phase != "completed" {
+				return old.Status, ErrRecoveryRequired
+			}
+			return old.Status, m.syncFor(ctx, cmd.AddonID)
 		}
-		return old.Status, m.syncFor(ctx, cmd.AddonID)
 	}
-	for _, op := range m.journal.Operations {
-		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
-			return OperationStatus{}, ErrRecoveryRequired
+	if !resumed {
+		for _, other := range m.journal.Operations {
+			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != "completed" && other.Status.Phase != "failed" {
+				return OperationStatus{}, ErrRecoveryRequired
+			}
 		}
 	}
 	next := copyStatus(m.journal.Addons[cmd.AddonID])
 	switch cmd.Action {
 	case "install":
-		if next.Installed {
+		if next.Installed && !resumed {
 			return OperationStatus{}, ErrConflict
 		}
 	case "upgrade", "enable", "disable", "uninstall":
@@ -216,10 +239,12 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	default:
 		return OperationStatus{}, ErrConflict
 	}
-	op := journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "intent"}}
-	m.journal.Operations[cmd.OperationID] = op
-	if e := m.persist("intent"); e != nil {
-		return op.Status, e
+	if !resumed {
+		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "intent"}}
+		m.journal.Operations[cmd.OperationID] = op
+		if e := m.persist("intent"); e != nil {
+			return op.Status, e
+		}
 	}
 	fail := func() (OperationStatus, error) {
 		op.Status.Phase = "failed"
@@ -237,27 +262,31 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	}
 	switch cmd.Action {
 	case "install", "upgrade":
-		r, e := m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
-		if e != nil {
-			return fail()
-		}
-		staged, e := m.installer.Stage(ctx, r, nil)
-		if e != nil {
-			return fail()
-		}
-		receipt, e := m.installer.Commit(ctx, staged)
-		if e != nil {
-			return fail()
-		}
-		// Installer publication alone is not a power-loss durability promise. Flush
-		// every immutable file and directory before journaling its generation.
-		if e = syncPackage(receipt.Directory); e != nil {
-			return fail()
-		}
-		if m.boundary != nil {
-			if e = m.boundary("published"); e != nil {
-				m.uncertain = true
-				return op.Status, e
+		receipt, published := m.canceled[cmd.OperationID]
+		delete(m.canceled, cmd.OperationID)
+		if !published {
+			r, e := m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+			if e != nil {
+				return fail()
+			}
+			staged, e := m.installer.Stage(ctx, r, nil)
+			if e != nil {
+				return fail()
+			}
+			receipt, e = m.installer.Commit(ctx, staged)
+			if e != nil {
+				return fail()
+			}
+			// Installer publication alone is not a power-loss durability promise. Flush
+			// every immutable file and directory before journaling its generation.
+			if e = syncPackage(receipt.Directory); e != nil {
+				return fail()
+			}
+			if m.boundary != nil {
+				if e = m.boundary("published"); e != nil {
+					m.uncertain = true
+					return op.Status, e
+				}
 			}
 		}
 		next.Generation++
@@ -268,6 +297,16 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// last good generation runs again and the operation fails.
 		if cmd.Action == "upgrade" {
 			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
+				if ctx.Err() != nil {
+					// The caller went away, which says nothing about the
+					// candidate. Keep the operation open so the same ID
+					// can continue; the last good generation is running.
+					if m.canceled == nil {
+						m.canceled = map[string]packages.PackageReceipt{}
+					}
+					m.canceled[cmd.OperationID] = receipt
+					return op.Status, e
+				}
 				return fail()
 			}
 		}
@@ -501,7 +540,12 @@ func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, re
 	if !running || instance.Generation != prev.Generation {
 		return nil
 	}
-	if e := m.runtime.Stop(ctx, instance); e != nil {
+	// Stopping and restoring belong to the owner, not to the request: a
+	// cancellation must not leave the last good generation stopped, and the
+	// old and the new process never run at once.
+	detached, release := m.detached(ctx)
+	defer release()
+	if e := m.runtime.Stop(detached, instance); e != nil {
 		return e
 	}
 	delete(m.instances, id)
@@ -515,13 +559,26 @@ func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, re
 		if g.Number != prev.Generation {
 			continue
 		}
-		// If this does not work either (a cancelled context, say), the next
-		// synchronization starts the journaled generation again.
-		if back, be := m.runtime.Start(ctx, g.Receipt, g.Number); be == nil {
+		back, be := m.runtime.Start(detached, g.Receipt, g.Number)
+		if be == nil {
 			m.instances[id] = back
+			delete(m.startFailed, id)
+			continue
 		}
+		// Recorded so that the next command on this add-on, with any
+		// operation ID, tries the journaled generation again.
+		m.startFailed[id] = be
 	}
 	return e
+}
+
+// detached returns a bounded context that a canceled request cannot cancel.
+func (m *Manager) detached(ctx context.Context) (context.Context, context.CancelFunc) {
+	d := m.restoreTimeout
+	if d <= 0 {
+		d = 2 * time.Minute
+	}
+	return context.WithTimeout(context.WithoutCancel(ctx), d)
 }
 
 // syncRuntime makes the running processes match the journal. A start failure

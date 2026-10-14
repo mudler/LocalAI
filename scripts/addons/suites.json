@@ -1807,6 +1807,8 @@
       "go: keeps retained data and a consistent lifecycle when the owner is killed in the middle of an enable",
       "go: keeps the files of the package of an installed add-on read only",
       "go: keeps the last good generation running and the retained data when the new generation cannot start",
+      "go: restores the last good generation and resumes the same operation when the request is canceled during an upgrade start",
+      "go: converges on the last good generation after a crash that follows the rollback start and precedes any journal write",
       "go: starts the owner when an enabled add-on cannot become ready and fails only that add-on",
       "go: gives an ordinary account the apps list and no management on any node",
       "go: returns the same typed denial from the owner and from each frontend",
