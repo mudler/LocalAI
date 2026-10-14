@@ -71,7 +71,11 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 		if err != nil {
 			return contract.Result{}, mapErr(err)
 		}
-		return contract.Result{Payload: payload(p)}, nil
+		b, err := json.Marshal(p)
+		if err != nil {
+			return contract.Result{}, ErrBadRequest
+		}
+		return contract.Result{Payload: b}, nil
 	case ToolRowsAggregate:
 		if a.Columns != nil || a.Sort != nil || a.Cursor != "" || a.Rows != nil || a.Set != nil || a.IDs != nil {
 			return contract.Result{}, ErrBadRequest
@@ -80,7 +84,11 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 		if err != nil {
 			return contract.Result{}, mapErr(err)
 		}
-		return contract.Result{Payload: payload(r)}, nil
+		b, err := json.Marshal(r)
+		if err != nil {
+			return contract.Result{}, ErrBadRequest
+		}
+		return contract.Result{Payload: b}, nil
 	}
 	return contract.Result{}, ErrBadRequest
 }

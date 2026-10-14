@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -811,6 +812,11 @@ func (s *Store) Aggregate(ctx context.Context, resourceID string, q AggregateQue
 			}
 			for i := range exprs {
 				g.Values[i] = decodeValue(types[i], raw[off+i])
+				// A real sum or average can overflow to infinity, which JSON
+				// cannot carry: report it as the typed arithmetic error.
+				if f, ok := g.Values[i].(float64); ok && (math.IsInf(f, 0) || math.IsNaN(f)) {
+					return fmt.Errorf("%w: %s is not finite", ErrArithmetic, names[i])
+				}
 			}
 			out.Groups = append(out.Groups, g)
 		}

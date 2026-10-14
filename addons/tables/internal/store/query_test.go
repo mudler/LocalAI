@@ -507,6 +507,15 @@ var _ = Describe("Tables structured row queries", func() {
 		Expect(e).To(MatchError(store.ErrArithmetic))
 	})
 
+	It("reports a real sum or average that overflows as the typed arithmetic error", func() {
+		r := newRowsRig(store.Options{})
+		r.insert(map[string]any{"Name": "a", "Score": 1.7e308}, map[string]any{"Name": "b", "Score": 1.7e308})
+		for _, fn := range []string{"sum", "avg"} {
+			_, e := r.s.Aggregate(ctx, idA, store.AggregateQuery{Table: "People", Aggregates: []store.Aggregation{{Fn: fn, Column: "Score"}}})
+			Expect(e).To(MatchError(store.ErrArithmetic), fn)
+		}
+	})
+
 	It("never lets a label, operator or value reach SQL as text", func() {
 		r := newRowsRig(store.Options{})
 		r.insert(map[string]any{"Name": "a"}, map[string]any{"Name": "b"})
