@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/artifacts"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/addons/resources"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
@@ -139,9 +140,13 @@ func (a *Application) startAddonGateway() error {
 	})
 	broker.Attach(p)
 	var files *artifacts.Artifacts
+	var selections *resources.SelectionStore
 	closeState := func() {
 		if files != nil {
 			_ = files.Close()
+		}
+		if selections != nil {
+			_ = selections.Close()
 		}
 		if a.addonReconcile != nil {
 			a.addonReconcile.Close()
@@ -161,12 +166,29 @@ func (a *Application) startAddonGateway() error {
 	if rep.Kept > 0 {
 		xlog.Warn("addons: pending resource registrations could not be settled yet and stay pending", "settled", rep.Settled, "kept", rep.Kept)
 	}
+	// The conversation selections and the UI-only resource management sit
+	// beside the policy store and are held only here.
+	selections, e = resources.OpenSelections(filepath.Join(cfg.Root, "selections"), resources.SelectionOptions{})
+	if e != nil {
+		closeState()
+		return errors.Join(e, addons.ErrRecoveryRequired)
+	}
+	resourceOpts := resources.Options{Policy: p, Broker: broker, Users: auth.NewAddonUsers(a.authDB), Selections: selections, BackingExists: exists, Limits: contract.DefaultLimits()}
+	if a.addonManager != nil {
+		resourceOpts.Runtime, resourceOpts.Capabilities, resourceOpts.Tools = a.addonManager, a.addonManager, a.addonManager
+	}
+	manage := resources.New(resourceOpts)
+	g.Resources = manage
 	loop := policy.NewReconcileLoop(p, exists, a.addonReconcileTick)
+	loop.Resume = manage.Resume
 	loop.Report = func(r policy.ReconcileReport, err error) {
 		if err != nil || r.Kept > 0 {
 			xlog.Warn("addons: pending resource registrations remain", "settled", r.Settled, "kept", r.Kept, "error", err)
 		}
 	}
+	// A deletion a crash left is resumed before anything is served; one that
+	// cannot be finished now stays inaccessible and the loop retries it.
+	manage.Resume(a.applicationConfig.Context)
 	loop.Start(a.applicationConfig.Context)
 	a.addonReconcile = loop
 	// A proposal that was executing when the owner stopped is settled by
