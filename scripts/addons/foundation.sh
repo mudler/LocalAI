@@ -32,12 +32,35 @@ done
 
 work=$(mktemp -d "$cache/tmp/foundation-gate.XXXXXX")
 cluster_pid=
+. "$root/scripts/addons/leaks.sh"
+leaked=0
 cleanup() {
-    [ -z "$cluster_pid" ] || { kill "$cluster_pid" 2>/dev/null || true; wait "$cluster_pid" 2>/dev/null || true; }
+    code=$?
+    trap - EXIT HUP INT TERM
+    if [ -n "$cluster_pid" ]; then
+        # The cluster tears its servers down on SIGTERM; wait for it, bounded.
+        kill "$cluster_pid" 2>/dev/null || true
+        n=0
+        while kill -0 "$cluster_pid" 2>/dev/null && [ "$n" -lt 60 ]; do
+            n=$((n + 1))
+            sleep 0.5
+        done
+        kill -KILL "$cluster_pid" 2>/dev/null || true
+        wait "$cluster_pid" 2>/dev/null || true
+    fi
+    # Nothing that names the work or scratch directories may survive. Whatever
+    # does is killed, and the gate fails.
+    reap_leaks "$work" foundation || leaked=1
+    reap_leaks "$cache/tmp/" foundation || leaked=1
     find "$work" -type d -exec chmod u+rwx {} + 2>/dev/null || true
     rm -rf "$work"
+    if [ "$leaked" -ne 0 ] && [ "$code" -eq 0 ]; then
+        code=1
+    fi
+    exit "$code"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 143' HUP INT TERM
 
 # The binaries are built here, never taken from an earlier build: the server
 # embeds the UI build and every other part of the fixture.

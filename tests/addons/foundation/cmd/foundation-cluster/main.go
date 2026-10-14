@@ -42,6 +42,16 @@ func run(dir string, p cluster.Paths, ready string) error {
 		return err
 	}
 	defer c.Down()
+	// A signal during start-up or serving tears everything down first.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	interrupted := make(chan struct{})
+	go func() {
+		<-stop
+		c.Down()
+		close(interrupted)
+		os.Exit(1)
+	}()
 	if err := c.Library.Add(cluster.UIPackage("1.0.0", nil), c.Effects); err != nil {
 		return err
 	}
@@ -83,8 +93,6 @@ func run(dir string, p cluster.Paths, ready string) error {
 	if err := os.Rename(tmp, ready); err != nil {
 		return err
 	}
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
+	<-interrupted
 	return nil
 }

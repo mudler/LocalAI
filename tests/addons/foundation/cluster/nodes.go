@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -24,8 +25,14 @@ type Node struct {
 	ServerPath string
 	MockPath   string
 
+	mu   sync.Mutex
 	cmd  *exec.Cmd
 	done chan struct{}
+	// groups are the process groups of every process this node ever started.
+	// A server leads a group of its own and its add-on and mock processes
+	// stay in it, even after the server is killed on purpose, so a sweep of
+	// the groups reaches an orphan that the scenario left behind.
+	groups []int
 }
 
 // URL is the HTTP address of the node.
@@ -35,7 +42,9 @@ func (n *Node) URL() string {
 
 // Start launches the process. It does not wait for readiness.
 func (n *Node) Start() error {
-	if n.cmd != nil && !n.Exited() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.cmd != nil && !n.exitedLocked() {
 		return fmt.Errorf("%s is already running", n.Name)
 	}
 	logFile, err := os.OpenFile(filepath.Join(n.Config.Dir, n.Name+".log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
@@ -50,18 +59,24 @@ func (n *Node) Start() error {
 		"--foundation-role="+n.Name)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	cmd.Env = append(os.Environ(), "TMPDIR="+node.Dir)
+	// Own process group, so teardown reaches every descendant. The server
+	// dies with the harness (Linux), so a killed test run leaves no server.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
 		return err
 	}
 	done := make(chan struct{})
 	n.cmd, n.done = cmd, done
+	n.groups = append(n.groups, cmd.Process.Pid)
 	go func() { _ = cmd.Wait(); _ = logFile.Close(); close(done) }()
 	return nil
 }
 
 // PID is the process id, or zero when it was never started.
 func (n *Node) PID() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	if n.cmd == nil || n.cmd.Process == nil {
 		return 0
 	}
@@ -70,6 +85,12 @@ func (n *Node) PID() int {
 
 // Exited reports whether the process has ended.
 func (n *Node) Exited() bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.exitedLocked()
+}
+
+func (n *Node) exitedLocked() bool {
 	if n.done == nil {
 		return true
 	}
@@ -83,11 +104,14 @@ func (n *Node) Exited() bool {
 
 // Wait blocks until the process ended or the timeout passed.
 func (n *Node) Wait(timeout time.Duration) bool {
-	if n.done == nil {
+	n.mu.Lock()
+	done := n.done
+	n.mu.Unlock()
+	if done == nil {
 		return true
 	}
 	select {
-	case <-n.done:
+	case <-done:
 		return true
 	case <-time.After(timeout):
 		return false
@@ -113,21 +137,62 @@ func (n *Node) Ready(timeout time.Duration) error {
 	return fmt.Errorf("%s was not ready in %s: %s", n.Name, timeout, n.Tail(15))
 }
 
-// Kill ends the process without any chance to clean up.
+// Kill ends the server process alone, without any chance to clean up. Its
+// descendants are left running on purpose: a scenario uses this to orphan an
+// add-on. Stop sweeps them.
 func (n *Node) Kill() {
-	if n.cmd != nil && n.cmd.Process != nil && !n.Exited() {
-		_ = n.cmd.Process.Signal(syscall.SIGKILL)
+	n.mu.Lock()
+	cmd := n.cmd
+	n.mu.Unlock()
+	if cmd != nil && cmd.Process != nil && !n.Exited() {
+		_ = cmd.Process.Signal(syscall.SIGKILL)
 		n.Wait(15 * time.Second)
 	}
 }
 
-// Stop asks the process to end and then makes sure it did.
+// Stop asks the server to end, waits a bounded time, and then kills every
+// process of every group the node started. It is idempotent and also reaps
+// what an earlier Kill left behind.
 func (n *Node) Stop() {
-	if n.cmd != nil && n.cmd.Process != nil && !n.Exited() {
-		_ = n.cmd.Process.Signal(syscall.SIGTERM)
+	n.mu.Lock()
+	cmd := n.cmd
+	n.mu.Unlock()
+	if cmd != nil && cmd.Process != nil && !n.Exited() {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
 		if !n.Wait(20 * time.Second) {
 			n.Kill()
 		}
+	}
+	n.sweep(5 * time.Second)
+}
+
+// sweep stops what is left in the process groups of the node: SIGTERM, a
+// bounded wait, then SIGKILL.
+func (n *Node) sweep(grace time.Duration) {
+	n.mu.Lock()
+	groups := append([]int(nil), n.groups...)
+	n.mu.Unlock()
+	live := func() []int {
+		var out []int
+		for _, g := range groups {
+			if syscall.Kill(-g, 0) == nil {
+				out = append(out, g)
+			}
+		}
+		return out
+	}
+	for _, g := range live() {
+		_ = syscall.Kill(-g, syscall.SIGTERM)
+	}
+	deadline := time.Now().Add(grace)
+	for len(live()) > 0 && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	for _, g := range live() {
+		_ = syscall.Kill(-g, syscall.SIGKILL)
+	}
+	for len(live()) > 0 && time.Now().Before(deadline.Add(5*time.Second)) {
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,9 @@ type Cluster struct {
 	Creds   *Credentials
 	// Effects is where the fixture add-ons keep their durable commit logs.
 	Effects string
+
+	mu   sync.Mutex
+	down bool
 }
 
 // Paths are the executables a cluster needs.
@@ -50,7 +54,14 @@ func New(dir string, p Paths) (*Cluster, error) {
 // Up starts the owner, waits for it, and then starts the frontends.
 func (c *Cluster) Up() error {
 	for _, name := range Instances {
-		if err := c.Nodes[name].Start(); err != nil {
+		c.mu.Lock()
+		if c.down {
+			c.mu.Unlock()
+			return fmt.Errorf("the cluster is down")
+		}
+		err := c.Nodes[name].Start()
+		c.mu.Unlock()
+		if err != nil {
 			return err
 		}
 		if err := c.Nodes[name].Ready(120 * time.Second); err != nil {
@@ -65,12 +76,19 @@ func (c *Cluster) Up() error {
 	return nil
 }
 
-// Down stops every process and the catalog.
+// Down stops every process and the catalog. It is idempotent, safe to call
+// from a signal handler, and no node starts after it.
 func (c *Cluster) Down() {
+	c.mu.Lock()
+	first := !c.down
+	c.down = true
+	c.mu.Unlock()
 	for _, name := range []string{FrontB, FrontA, Owner} {
 		c.Nodes[name].Stop()
 	}
-	c.Library.Close()
+	if first {
+		c.Library.Close()
+	}
 }
 
 // Token returns a client of one node authenticated with the API key of a user.

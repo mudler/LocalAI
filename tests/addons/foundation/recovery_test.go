@@ -109,7 +109,7 @@ var _ = Describe("owner failure and recovery", func() {
 		Expect(err).NotTo(HaveOccurred())
 		second := &cluster.Node{Name: cluster.Owner, Config: dup, ServerPath: paths.Server, MockPath: paths.Mock}
 		Expect(second.Start()).To(Succeed())
-		DeferCleanup(second.Kill)
+		DeferCleanup(second.Stop)
 		Expect(second.Wait(60*time.Second)).To(BeTrue(), "a second owner on the same storage must not keep running: "+second.Tail(8))
 		Expect(fixtureChildren(second.PID())).To(BeZero())
 		// The first owner keeps its single process and keeps serving.
@@ -141,6 +141,30 @@ var _ = Describe("owner failure and recovery", func() {
 			Expect(pid).NotTo(Equal(orphan))
 		}
 		Expect(actorOf(read(c.Token(cluster.FrontA, "member"), "found-tool", res["found-tool"], 1, map[string]any{"tool": "echo"}))).To(Equal("fnd-member"))
+	})
+
+	It("leaves no process behind when a cluster with an orphaned add-on is taken down", func() {
+		c, _ := serving([]cluster.Package{cluster.ToolPackage("1.0.0", map[string]any{"mode": "orphan"})}, map[string]string{"found-tool": "1.0.0"})
+		owner := c.Nodes[cluster.Owner]
+		first := owner.PID()
+		var orphan int
+		for pid := range cluster.ChildrenOf(first) {
+			orphan = pid
+		}
+		Expect(orphan).NotTo(BeZero())
+		owner.Kill()
+		restartOwner(c)
+		var current int
+		for pid := range cluster.ChildrenOf(owner.PID()) {
+			current = pid
+		}
+		Expect(current).NotTo(BeZero())
+		// The teardown a failing spec reaches: every process must be gone.
+		c.Down()
+		for _, pid := range []int{first, owner.PID(), orphan, current, c.Nodes[cluster.FrontA].PID(), c.Nodes[cluster.FrontB].PID()} {
+			Expect(cluster.Alive(pid)).To(BeFalse(), "process %d survived Down", pid)
+		}
+		c.Down()
 	})
 
 	It("keeps the files of the package of an installed add-on read only", func() {

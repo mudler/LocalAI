@@ -12,13 +12,22 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
 cache="$root/.cache/addons"
-mkdir -p "$cache/logs"
+mkdir -p "$cache/logs" "$cache/tmp"
+. "$root/scripts/addons/leaks.sh"
 suites='prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots foundation-acceptance'
 results="$cache/logs/foundation-gate-$$.jsonl"
 : >"$results"
 for suite in $suites; do
     out="$cache/logs/foundation-gate-$suite.out"
-    if sh scripts/addons/verify.sh "$suite" >"$out" 2>&1; then
+    # A suite that leaves a process that names the scratch directory behind
+    # fails, whatever its own result was; the leftover is killed.
+    leak=0
+    ok=0
+    sh scripts/addons/verify.sh "$suite" >"$out" 2>&1 || ok=1
+    reap_leaks "$cache/tmp/" "$suite" >>"$out" 2>&1 || leak=1
+    if [ "$leak" -eq 1 ]; then
+        printf '{"suite":"%s","passed":0,"skipped":0,"status":"leaked-processes","log":"%s"}\n' "$suite" "$out" >>"$results"
+    elif [ "$ok" -eq 0 ]; then
         line=$(tail -n 1 "$out")
         printf '%s\n' "$line" | python3 -I -c 'import json,sys; d=json.loads(sys.stdin.read()); assert d["suite"]=="'"$suite"'"; print(json.dumps({"suite":d["suite"],"passed":d["passed"],"skipped":d["skipped"],"status":"passed" if d["skipped"]==0 else "skipped"}))' >>"$results" 2>/dev/null \
             || printf '{"suite":"%s","passed":0,"skipped":0,"status":"no-result"}\n' "$suite" >>"$results"

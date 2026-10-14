@@ -1802,6 +1802,7 @@
       "go: fails closed on every frontend while the owner is down, executes nothing locally and recovers the last good package and data on restart",
       "go: refuses a second owner on the same storage and keeps one process per add-on",
       "go: stops an add-on process orphaned by an owner crash before it starts the next one",
+      "go: leaves no process behind when a cluster with an orphaned add-on is taken down",
       "go: keeps the last good generation running and its data when an upgrade fails to start",
       "go: keeps the last good code and data when the owner is killed in the middle of an upgrade and recovers on restart",
       "go: keeps retained data and a consistent lifecycle when the owner is killed in the middle of an enable",
