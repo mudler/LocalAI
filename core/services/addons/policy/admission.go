@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -490,25 +491,61 @@ func (p *Policy) Abandon(ctx context.Context, actor contract.Actor, key Resource
 	})
 }
 
-// Reconcile resolves registrations left pending by a crash. exists reports
-// whether the addon created the backing resource: it is then activated for the
-// owner recorded before creation, otherwise the record is dropped. A resource
-// with no record is never reachable, so an orphan database stays private.
+// ReconcileReport counts what one Reconcile pass did.
+type ReconcileReport struct {
+	// Settled is the number of records activated or dropped.
+	Settled int
+	// Kept is the number of records left pending: the existence check could
+	// not answer, or a proposal or creation still holds the reservation.
+	Kept int
+}
+
+// Reconcile resolves registrations left pending by a crash. It is
+// ReconcileReport without the report: a record that cannot be settled now
+// stays pending and is not an error.
 func (p *Policy) Reconcile(ctx context.Context, exists func(context.Context, ResourceKey) (bool, error)) error {
+	_, err := p.ReconcileReport(ctx, exists)
+	return err
+}
+
+// ReconcileReport resolves registrations left pending by a crash. exists
+// reports whether the addon created the backing resource: it is then
+// activated for the owner recorded before creation, otherwise the record is
+// dropped. A resource with no record is never reachable, so an orphan
+// database stays private.
+//
+// It is fail-soft per record. A record whose existence cannot be established
+// now (the addon is disabled, not installed correctly or failed to start)
+// stays pending, is never dropped or committed, and the pass goes on with the
+// rest. Pending records are invisible and hold their quota until a later pass
+// settles them. An error is returned only for a failed store write or a
+// cancelled context.
+func (p *Policy) ReconcileReport(ctx context.Context, exists func(context.Context, ResourceKey) (bool, error)) (ReconcileReport, error) {
+	var rep ReconcileReport
 	for _, id := range p.store.pending() {
+		if err := ctx.Err(); err != nil {
+			return rep, err
+		}
 		r, ok := p.store.get(id)
-		if !ok || p.busy(id) {
+		if !ok {
+			continue
+		}
+		if p.busy(id) {
+			rep.Kept++
 			continue
 		}
 		found, err := exists(ctx, ResourceKey{AddonID: r.AddonID, ResourceID: id})
 		if err != nil {
-			return ErrUnavailable
+			rep.Kept++
+			continue
 		}
+		settled := false
 		err = p.store.mutate(func(d *document) error {
 			rec := d.Resources[id]
 			if rec == nil || rec.State != statePend || p.busy(id) {
 				return nil
 			}
+			settled = true
 			if found {
 				rec.State = stateActive
 			} else {
@@ -517,10 +554,98 @@ func (p *Policy) Reconcile(ctx context.Context, exists func(context.Context, Res
 			return nil
 		})
 		if err != nil {
-			return err
+			return rep, err
+		}
+		if settled {
+			rep.Settled++
+		} else {
+			rep.Kept++
 		}
 	}
-	return nil
+	return rep, nil
+}
+
+// ReconcileLoop re-runs Reconcile for records that were kept pending, so an
+// add-on that becomes ready after startup settles them. It is bounded: it
+// does nothing while no record is pending, stops on Close or when its context
+// ends, and Close waits for a running pass.
+type ReconcileLoop struct {
+	p      *Policy
+	exists func(context.Context, ResourceKey) (bool, error)
+	ticks  <-chan time.Time
+	kick   chan struct{}
+	stop   chan struct{}
+	done   chan struct{}
+	once   sync.Once
+	began  atomic.Bool
+	// Report receives the result of every pass that had work. Optional.
+	Report func(ReconcileReport, error)
+}
+
+// DefaultReconcileInterval is the retry period of a ReconcileLoop.
+const DefaultReconcileInterval = 30 * time.Second
+
+// NewReconcileLoop builds a loop. ticks drives the passes; nil selects a real
+// ticker of DefaultReconcileInterval that Close stops.
+func NewReconcileLoop(p *Policy, exists func(context.Context, ResourceKey) (bool, error), ticks <-chan time.Time) *ReconcileLoop {
+	return &ReconcileLoop{p: p, exists: exists, ticks: ticks, kick: make(chan struct{}, 1), stop: make(chan struct{}), done: make(chan struct{})}
+}
+
+// Kick asks for a pass now, for example when an add-on start succeeded. It
+// never blocks and coalesces.
+func (l *ReconcileLoop) Kick() {
+	select {
+	case l.kick <- struct{}{}:
+	default:
+	}
+}
+
+// Start runs the loop until ctx ends or Close is called.
+func (l *ReconcileLoop) Start(ctx context.Context) {
+	if !l.began.CompareAndSwap(false, true) {
+		return
+	}
+	ticks := l.ticks
+	var ticker *time.Ticker
+	if ticks == nil {
+		ticker = time.NewTicker(DefaultReconcileInterval)
+		ticks = ticker.C
+	}
+	go func() {
+		defer close(l.done)
+		if ticker != nil {
+			defer ticker.Stop()
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-l.stop:
+				return
+			case <-ticks:
+			case <-l.kick:
+			}
+			if len(l.p.store.pending()) == 0 {
+				continue
+			}
+			rep, err := l.p.ReconcileReport(ctx, l.exists)
+			if l.Report != nil {
+				l.Report(rep, err)
+			}
+		}
+	}()
+}
+
+// Close stops the loop and waits for a running pass.
+func (l *ReconcileLoop) Close() {
+	l.once.Do(func() { close(l.stop) })
+	if !l.began.Load() {
+		return
+	}
+	select {
+	case <-l.done:
+	case <-time.After(30 * time.Second):
+	}
 }
 
 // Resolve maps the opaque resource ID of a request to the host record. The

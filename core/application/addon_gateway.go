@@ -130,16 +130,32 @@ func (a *Application) startAddonGateway() error {
 		if files != nil {
 			_ = files.Close()
 		}
+		if a.addonReconcile != nil {
+			a.addonReconcile.Close()
+		}
 		_ = broker.Close()
 		_ = store.Close()
 	}
 	// Registrations left pending by a crash are settled before anything is
-	// served. Without a backing-resource check they are dropped and committed
-	// resources are kept; the check is supplied by the code that creates them.
-	if e = p.Reconcile(a.applicationConfig.Context, exists); e != nil {
+	// served. A record whose backing cannot be confirmed now (its addon is
+	// disabled or failed to start) stays pending and hidden; it never stops
+	// the host from starting, and the loop below settles it later.
+	rep, e := p.ReconcileReport(a.applicationConfig.Context, exists)
+	if e != nil {
 		closeState()
 		return errors.Join(e, addons.ErrRecoveryRequired)
 	}
+	if rep.Kept > 0 {
+		xlog.Warn("addons: pending resource registrations could not be settled yet and stay pending", "settled", rep.Settled, "kept", rep.Kept)
+	}
+	loop := policy.NewReconcileLoop(p, exists, a.addonReconcileTick)
+	loop.Report = func(r policy.ReconcileReport, err error) {
+		if err != nil || r.Kept > 0 {
+			xlog.Warn("addons: pending resource registrations remain", "settled", r.Settled, "kept", r.Kept, "error", err)
+		}
+	}
+	loop.Start(a.applicationConfig.Context)
+	a.addonReconcile = loop
 	// A proposal that was executing when the owner stopped is settled by
 	// receipt lookup, or recorded as outcome-unknown. Nothing is applied again.
 	if e = broker.Recover(a.applicationConfig.Context); e != nil {

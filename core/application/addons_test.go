@@ -407,6 +407,51 @@ var _ = Describe("addon policy bootstrap", func() {
 		Expect(a.applicationConfig.Addons.OwnershipMode).To(BeEmpty())
 	})
 
+	It("starts with a pending registration whose addon cannot answer and settles it when the addon is ready", func() {
+		c := base()
+		Expect(os.MkdirAll(c.Root, 0o700)).To(Succeed())
+		store, e := policy.OpenStore(policyDir(c), policy.ModeNamedUser)
+		Expect(e).NotTo(HaveOccurred())
+		allow := func(context.Context, contract.Actor) error { return nil }
+		p := policy.New(store, policy.Options{Revalidate: allow, CreateAuthority: func(context.Context, contract.Actor, string) error { return nil }})
+		db := authDB()
+		actor := namedActor(db)
+		kept, e := p.Register(context.Background(), actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(p.Commit(context.Background(), actor, kept)).To(Succeed())
+		pending, e := p.Register(context.Background(), actor, "tables")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(store.Close()).To(Succeed())
+
+		var ready atomic.Bool
+		ticks := make(chan time.Time)
+		a := setup()
+		a.authDB = db
+		a.addonReconcileTick = ticks
+		a.addonResourceExists = func(context.Context, policy.ResourceKey) (bool, error) {
+			if !ready.Load() {
+				return false, policy.ErrUnavailable
+			}
+			return true, nil
+		}
+		// A disabled or broken addon makes the check unavailable: the host
+		// still starts, the committed resource stays and the record is kept.
+		Expect(start(a, c)).To(Succeed())
+		DeferCleanup(a.Shutdown)
+		Expect(a.AddonPolicy().Authorize(context.Background(), actor, kept, policy.ActionRead)).To(Succeed())
+		ids, _ := a.AddonPolicy().Pending()
+		Expect(ids).To(Equal([]string{pending.ResourceID}))
+		Expect(a.AddonPolicy().Authorize(context.Background(), actor, pending, policy.ActionRead)).NotTo(Succeed())
+		// The addon becomes ready: the retry settles the kept record.
+		ready.Store(true)
+		ticks <- time.Time{}
+		Eventually(func() error {
+			return a.AddonPolicy().Authorize(context.Background(), actor, pending, policy.ActionRead)
+		}).Should(Succeed())
+		ids, _ = a.AddonPolicy().Pending()
+		Expect(ids).To(BeEmpty())
+	})
+
 	It("keeps named-user mode by default and selects local-owner only explicitly with a warning", func() {
 		logs := &logCapture{}
 		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))

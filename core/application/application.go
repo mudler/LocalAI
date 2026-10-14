@@ -66,9 +66,13 @@ const faceEmbeddingDim = 0
 const voiceEmbeddingDim = 0
 
 type Application struct {
-	addonPolicy          *policy.Policy
-	addonStore           *policy.Store
-	addonResourceExists  func(context.Context, policy.ResourceKey) (bool, error)
+	addonPolicy         *policy.Policy
+	addonStore          *policy.Store
+	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
+	// addonReconcileTick drives the pending-registration retry; nil is a real
+	// 30 second ticker. addonReconcile is that loop once the owner started it.
+	addonReconcileTick   <-chan time.Time
+	addonReconcile       *policy.ReconcileLoop
 	addonGateway         *gateway.Gateway
 	addonServer          *http.Server
 	addonSources         *catalog.Sources

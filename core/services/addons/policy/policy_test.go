@@ -526,7 +526,7 @@ var _ = Describe("resource registration", func() {
 		g := open(ModeNamedUser, dir)
 		Expect(allowed(g, owner, created, ActionRead)).To(BeFalse())
 		failing := func(context.Context, ResourceKey) (bool, error) { return false, errors.New("probe failed") }
-		Expect(g.policy.Reconcile(context.Background(), failing)).NotTo(Succeed())
+		Expect(g.policy.Reconcile(context.Background(), failing)).To(Succeed())
 		Expect(allowed(g, owner, created, ActionRead)).To(BeFalse())
 		Expect(g.policy.Reconcile(context.Background(), func(_ context.Context, k ResourceKey) (bool, error) {
 			return k.ResourceID == created.ResourceID, nil

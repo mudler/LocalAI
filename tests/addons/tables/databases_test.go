@@ -239,8 +239,11 @@ var _ = Describe("Tables databases under the real owner", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(policy.RuntimeCreate(r, r, contract.DefaultLimits(), alice, args(map[string]any{"tool": "databases-create", "name": "Kept"}))(ctx, key)).To(Succeed())
 		Expect(r.sup.Stop(ctx, inst)).To(Succeed())
-		// Installed but down: unavailable, the reservation is not dropped.
-		Expect(r.policy.Reconcile(ctx, r.backing())).To(MatchError(policy.ErrUnavailable))
+		// Installed but down: the record is kept pending, not dropped, and
+		// the pass does not fail.
+		rep, e := r.policy.ReconcileReport(ctx, r.backing())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(rep).To(Equal(policy.ReconcileReport{Kept: 1}))
 		Expect(r.reservations()).To(ConsistOf(key.ResourceID))
 		// Gone for good: nothing can back it, so the record is dropped.
 		r.installed = false
