@@ -2569,5 +2569,50 @@
       "proposals: a user whose add-ons feature is withdrawn sees no data and the host answers no",
       "proposals: logging out clears the card and leaves no data in the stored conversation"
     ]
+  },
+  "tables-admin": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./tests/addons/tablesadmin",
+        "-ginkgo.json-report=../../../.cache/addons/logs/tables-admin.json"
+      ]
+    ],
+    "report": ".cache/addons/logs/tables-admin.json",
+    "cases": [
+      "keys a reference by user, conversation and add-on, bounds it per user and in total and expires what is unused",
+      "is durable, held by one process, never resets a corrupt file and stops writing after a failed sync",
+      "serves concurrent users without losing a reference",
+      "keeps the newest bounded number, validates them on load and remaps them with the owner",
+      "creates private databases by the person's own action, once per operation, and lists them only for their owner",
+      "keeps the owner, editor and viewer matrix on the UI routes and shows each person only their own role",
+      "shares whole databases by immutable account ID behind a bounded picker that tells nothing else",
+      "keeps sharing disabled in local-owner mode with a typed answer and no named users",
+      "waits for a revoked user's admitted work and cancels it before acknowledging the revocation",
+      "answers every typed denial exactly as the owner does and carries every mutation to the owner",
+      "reports an unknown outcome with the original operation ID and leaves reads plainly unavailable when the owner cannot be reached",
+      "answers the sharing denial of local-owner mode the same from a frontend",
+      "deletes the data, the grants and the pending proposals only on the owner's typed confirmation and keeps the add-on installed",
+      "stops and waits for admitted work of every user before it asks the add-on to delete",
+      "makes the add-on refuse its delete tool under every action but the host's delete action",
+      "never offers the delete tool to a model, a proposal, a typed read or an agent",
+      "denies a stale tab: the generation and the revision the owner saw decide, and nothing is removed",
+      "finishes or undoes a deletion that a crash interrupted at every step",
+      "keeps the delete tool out of the model tools and their definitions",
+      "refuses an admin tool that is also a model tool, has a definition, or is not mapped",
+      "documents every route, every emitted field and every typed answer in the Swagger spec",
+      "lists every route in the instructions registry, the feature registry and the documentation, with no MCP tool for any",
+      "keeps one selection per user, conversation and add-on, across people, conversations and restarts",
+      "lets a tool call omit the database in a conversation and resolves it at the owner with typed errors",
+      "withdraws the management and the tool path while the add-on is disabled and restores them on enable",
+      "answers a revoked, deleted or tampered reference like an unknown database and never reuses it"
+    ]
   }
 }
