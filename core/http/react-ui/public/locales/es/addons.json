@@ -326,5 +326,114 @@
     },
     "downloadDenied": "Este archivo ya no se puede descargar. Tu acceso al origen cambió o el archivo caducó.",
     "downloadFailed": "La descarga no terminó. Inténtalo de nuevo."
+  },
+  "recovery": {
+    "title": "Recuperación de datos",
+    "loading": "Leyendo el estado de recuperación",
+    "done": "Hecho.",
+    "backup": "Copia de seguridad ahora",
+    "backingUp": "Copiando…",
+    "backedUp": "La copia {{id}} se hizo y se verificó.",
+    "retention": "Conserva las {{count}} copias más recientes. La copia verificada más reciente y la copia de recuperación de una actualización nunca se eliminan.",
+    "none": "Todavía no hay copia de seguridad de los datos de este complemento.",
+    "listLabel": "Copias de seguridad de este complemento",
+    "verify": "Verificar",
+    "verified": "La copia {{id}} se leyó por completo y es correcta.",
+    "restore": "Restaurar",
+    "restored": "Se restauró la copia.",
+    "delete": "Eliminar",
+    "deleted": "Se eliminó la copia {{id}}.",
+    "pinned": "Copia de recuperación",
+    "pinnedWhy": "Es la copia de recuperación de la última actualización y se conserva hasta que haya una copia verificada más reciente.",
+    "lastRestore": "Última restauración, {{when}}",
+    "purge": "Purgar…",
+    "purged": "Se purgaron los datos retenidos.",
+    "purgeLead": "Purgar elimina para siempre los datos retenidos de este complemento. No es borrar una base de datos ni desinstalar.",
+    "purgeTitle": "Purgar datos retenidos",
+    "purgeBody": "Esto elimina lo que selecciones abajo y no se puede deshacer. El complemento debe estar desinstalado o desactivado.",
+    "scope": "Qué eliminar",
+    "scopeData": "Los datos y todos los accesos compartidos de este complemento",
+    "scopeBackups": "Todas las copias de seguridad ({{count}})",
+    "scopeCopies": "Copias de datos que las restauraciones apartaron ({{count}})",
+    "scopeNone": "Selecciona qué eliminar.",
+    "restoreTitle": "Restaurar una copia",
+    "restoreBody": "Los datos vuelven al estado de {{when}}.",
+    "warnLost": "Los cambios hechos después de la copia se pierden. Los datos del complemento se reemplazan.",
+    "warnAccess": "Los accesos compartidos se comprueban de nuevo: nadie recupera un acceso que se retiró después de la copia o cuya cuenta ya no existe.",
+    "warnProposals": "Las propuestas en espera se cancelan. Las operaciones de resultado desconocido se consultan y nunca se aplican de nuevo.",
+    "warnCopy": "Los datos reemplazados se conservan como copia de recuperación hasta que los purgues.",
+    "stopFirst": "Detén primero el complemento: desactívalo y luego restaura.",
+    "mapping": "Esta copia se hizo en modo propietario local. ID de la cuenta que recibe sus datos",
+    "typeToConfirm": "Escribe {{id}} para confirmar",
+    "typeToConfirmLabel": "Escribe el ID del complemento para confirmar",
+    "phase": "Paso {{index}} de {{total}}: {{step}}",
+    "steps": {
+      "begin": "iniciando",
+      "backed-up": "copia hecha",
+      "staged": "paquete publicado",
+      "migrating": "migrando los datos",
+      "healthy": "comprobado",
+      "publishing": "publicando"
+    },
+    "state": {
+      "ready": "Listo",
+      "upgrading": "Actualizando",
+      "restoring": "Restaurando",
+      "needs-recovery": "Requiere recuperación",
+      "purging": "Purgando"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Los datos de este complemento requieren recuperación",
+        "body": "El complemento no se inicia. El paquete anterior se conserva, pero no puede leer los datos que una migración fallida empezó a cambiar.",
+        "hint": "Restaura la copia de recuperación verificada de abajo o purga los datos.",
+        "hintNone": "No hay ninguna copia verificada. Purga los datos para empezar de nuevo."
+      },
+      "upgrading": {
+        "title": "Hay una actualización en curso",
+        "body": "El complemento está detenido mientras se copian y migran sus datos."
+      },
+      "restoring": {
+        "title": "Hay una restauración en curso",
+        "body": "El complemento sigue detenido hasta que termine la restauración."
+      },
+      "purging": {
+        "title": "Hay una purga en curso",
+        "body": "Se están eliminando los datos retenidos."
+      }
+    },
+    "verification": {
+      "verified": "Verificada",
+      "failed": "Verificación fallida",
+      "unverified": "Aún sin verificar"
+    },
+    "reason": {
+      "manual": "Hecha por ti",
+      "upgrade": "Antes de una actualización",
+      "restore": "Antes de una restauración"
+    },
+    "errors": {
+      "needs_recovery": "Primero hay que recuperar los datos: restaura una copia verificada o púrgalos.",
+      "addon_running": "Detén primero el complemento.",
+      "busy": "Hay otra operación de recuperación en curso para este complemento.",
+      "backup_not_found": "Esa copia ya no existe.",
+      "not_installed": "El complemento no está instalado.",
+      "backup_corrupt": "La copia no pasó la verificación y no se usó.",
+      "incompatible_format": "El formato de los datos no encaja con el paquete instalado.",
+      "identity_changed": "El paquete instalado viene de otra fuente de confianza distinta de la de los datos.",
+      "mapping_required": "Indica la cuenta que recibe los datos de esta copia.",
+      "mapping_invalid": "Esa cuenta no es válida.",
+      "downgrade_unsupported": "Los datos de usuarios con nombre no se pueden restaurar en modo propietario local.",
+      "sole_recovery_copy": "Es la única copia de recuperación verificada y se conserva.",
+      "confirmation_mismatch": "El ID escrito no coincide.",
+      "operation_conflict": "Este ID de operación se usó para otra solicitud. No se hizo nada.",
+      "invalid_request": "La solicitud no se puede llevar a cabo tal como está.",
+      "insufficient_storage": "No hay espacio libre suficiente para una copia. No se cambió nada.",
+      "unknownOutcome": "Se desconoce el resultado. Vuelve a leer el estado: la misma acción no se envía dos veces.",
+      "auth": "Inicia sesión de nuevo.",
+      "denied": "Solo los administradores pueden hacerlo, desde su propia sesión del navegador.",
+      "network": "No se pudo contactar con el propietario.",
+      "unavailable": "El propietario no está disponible."
+    }
   }
 }

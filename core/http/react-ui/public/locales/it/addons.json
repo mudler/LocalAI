@@ -326,5 +326,114 @@
     },
     "downloadDenied": "Questo file non può più essere scaricato. Il tuo accesso all'origine è cambiato o il file è scaduto.",
     "downloadFailed": "Il download non è terminato. Riprova."
+  },
+  "recovery": {
+    "title": "Ripristino dei dati",
+    "loading": "Lettura dello stato di ripristino",
+    "done": "Fatto.",
+    "backup": "Esegui backup ora",
+    "backingUp": "Backup in corso…",
+    "backedUp": "Il backup {{id}} è stato creato e verificato.",
+    "retention": "Conserva gli ultimi {{count}} backup. Il backup verificato più recente e la copia di ripristino di un aggiornamento non vengono mai rimossi.",
+    "none": "Non c'è ancora alcun backup dei dati di questo componente.",
+    "listLabel": "Backup di questo componente",
+    "verify": "Verifica",
+    "verified": "Il backup {{id}} è stato letto per intero ed è corretto.",
+    "restore": "Ripristina",
+    "restored": "Il backup è stato ripristinato.",
+    "delete": "Elimina",
+    "deleted": "Il backup {{id}} è stato eliminato.",
+    "pinned": "Copia di ripristino",
+    "pinnedWhy": "È la copia di ripristino dell'ultimo aggiornamento e resta finché non esiste un backup verificato più recente.",
+    "lastRestore": "Ultimo ripristino, {{when}}",
+    "purge": "Elimina definitivamente…",
+    "purged": "I dati conservati sono stati eliminati.",
+    "purgeLead": "L'eliminazione definitiva rimuove per sempre i dati conservati di questo componente. Non è l'eliminazione di un database né una disinstallazione.",
+    "purgeTitle": "Elimina i dati conservati",
+    "purgeBody": "Rimuove ciò che selezioni qui sotto e non si può annullare. Il componente deve essere disinstallato o disattivato.",
+    "scope": "Cosa rimuovere",
+    "scopeData": "I dati e tutte le condivisioni di questo componente",
+    "scopeBackups": "Tutti i backup ({{count}})",
+    "scopeCopies": "Copie dei dati messe da parte dai ripristini ({{count}})",
+    "scopeNone": "Seleziona cosa rimuovere.",
+    "restoreTitle": "Ripristina un backup",
+    "restoreBody": "I dati tornano allo stato del {{when}}.",
+    "warnLost": "Le modifiche fatte dopo il backup vanno perse. I dati del componente vengono sostituiti.",
+    "warnAccess": "Le condivisioni vengono ricontrollate: nessuno riottiene un accesso revocato dopo il backup o il cui account non esiste più.",
+    "warnProposals": "Le proposte in attesa vengono annullate. Le operazioni con esito sconosciuto vengono verificate tramite ricevuta e non applicate mai più.",
+    "warnCopy": "I dati sostituiti restano come copia di ripristino finché non li elimini.",
+    "stopFirst": "Ferma prima il componente: disattivalo, poi ripristina.",
+    "mapping": "Questo backup è stato fatto in modalità proprietario locale. ID dell'account che riceve i dati",
+    "typeToConfirm": "Digita {{id}} per confermare",
+    "typeToConfirmLabel": "Digita l'ID del componente per confermare",
+    "phase": "Passo {{index}} di {{total}}: {{step}}",
+    "steps": {
+      "begin": "avvio",
+      "backed-up": "backup fatto",
+      "staged": "pacchetto pubblicato",
+      "migrating": "migrazione dei dati",
+      "healthy": "verificato",
+      "publishing": "pubblicazione"
+    },
+    "state": {
+      "ready": "Pronto",
+      "upgrading": "Aggiornamento",
+      "restoring": "Ripristino",
+      "needs-recovery": "Richiede ripristino",
+      "purging": "Eliminazione"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "I dati di questo componente richiedono un ripristino",
+        "body": "Il componente non viene avviato. Il pacchetto precedente è conservato, ma non può leggere i dati che una migrazione fallita ha iniziato a modificare.",
+        "hint": "Ripristina qui sotto la copia di ripristino verificata, oppure elimina i dati.",
+        "hintNone": "Non c'è alcun backup verificato. Elimina i dati per ricominciare."
+      },
+      "upgrading": {
+        "title": "Aggiornamento in corso",
+        "body": "Il componente è fermo mentre i suoi dati vengono salvati e migrati."
+      },
+      "restoring": {
+        "title": "Ripristino in corso",
+        "body": "Il componente resta fermo fino al termine del ripristino."
+      },
+      "purging": {
+        "title": "Eliminazione in corso",
+        "body": "I dati conservati vengono rimossi."
+      }
+    },
+    "verification": {
+      "verified": "Verificato",
+      "failed": "Verifica fallita",
+      "unverified": "Non ancora verificato"
+    },
+    "reason": {
+      "manual": "Creato da te",
+      "upgrade": "Prima di un aggiornamento",
+      "restore": "Prima di un ripristino"
+    },
+    "errors": {
+      "needs_recovery": "Prima vanno ripristinati i dati: ripristina un backup verificato oppure eliminali.",
+      "addon_running": "Ferma prima il componente.",
+      "busy": "Per questo componente è già in corso un'altra operazione di ripristino.",
+      "backup_not_found": "Questo backup non esiste più.",
+      "not_installed": "Il componente non è installato.",
+      "backup_corrupt": "Il backup non ha superato la verifica e non è stato usato.",
+      "incompatible_format": "Il formato dei dati non è adatto al pacchetto installato.",
+      "identity_changed": "Il pacchetto installato proviene da una fonte attendibile diversa da quella dei dati.",
+      "mapping_required": "Indica l'account che riceve i dati di questo backup.",
+      "mapping_invalid": "Quell'account non è valido.",
+      "downgrade_unsupported": "I dati di utenti con nome non si possono ripristinare in modalità proprietario locale.",
+      "sole_recovery_copy": "È l'unica copia di ripristino verificata e viene conservata.",
+      "confirmation_mismatch": "L'ID digitato non corrisponde.",
+      "operation_conflict": "Questo ID operazione è stato usato per un'altra richiesta. Non è stato fatto nulla.",
+      "invalid_request": "La richiesta non può essere eseguita così com'è.",
+      "insufficient_storage": "Non c'è abbastanza spazio libero per un backup. Non è stato cambiato nulla.",
+      "unknownOutcome": "L'esito non è noto. Rileggi lo stato: la stessa azione non viene inviata due volte.",
+      "auth": "Accedi di nuovo.",
+      "denied": "Solo gli amministratori possono farlo, dalla propria sessione del browser.",
+      "network": "Il proprietario non è raggiungibile.",
+      "unavailable": "Il proprietario non è disponibile."
+    }
   }
 }

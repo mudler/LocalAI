@@ -326,5 +326,114 @@
     },
     "downloadDenied": "File ini tidak dapat diunduh lagi. Akses Anda ke sumbernya berubah atau file telah kedaluwarsa.",
     "downloadFailed": "Pengunduhan tidak selesai. Coba lagi."
+  },
+  "recovery": {
+    "title": "Pemulihan data",
+    "loading": "Membaca status pemulihan",
+    "done": "Selesai.",
+    "backup": "Cadangkan sekarang",
+    "backingUp": "Mencadangkan…",
+    "backedUp": "Cadangan {{id}} dibuat dan diverifikasi.",
+    "retention": "Menyimpan {{count}} cadangan terbaru. Cadangan terverifikasi terbaru dan salinan pemulihan dari peningkatan tidak pernah dihapus.",
+    "none": "Belum ada cadangan untuk data add-on ini.",
+    "listLabel": "Cadangan add-on ini",
+    "verify": "Verifikasi",
+    "verified": "Cadangan {{id}} dibaca seluruhnya dan lolos.",
+    "restore": "Pulihkan",
+    "restored": "Cadangan telah dipulihkan.",
+    "delete": "Hapus",
+    "deleted": "Cadangan {{id}} dihapus.",
+    "pinned": "Salinan pemulihan",
+    "pinnedWhy": "Ini salinan pemulihan dari peningkatan terakhir dan disimpan sampai ada cadangan terverifikasi yang lebih baru.",
+    "lastRestore": "Pemulihan terakhir, {{when}}",
+    "purge": "Bersihkan…",
+    "purged": "Data yang disimpan telah dibersihkan.",
+    "purgeLead": "Pembersihan menghapus data tersimpan add-on ini selamanya. Ini bukan penghapusan database dan bukan pencopotan.",
+    "purgeTitle": "Bersihkan data tersimpan",
+    "purgeBody": "Ini menghapus apa yang Anda pilih di bawah dan tidak bisa dibatalkan. Add-on harus dicopot atau dinonaktifkan.",
+    "scope": "Yang dihapus",
+    "scopeData": "Data dan semua berbagi add-on ini",
+    "scopeBackups": "Semua cadangan ({{count}})",
+    "scopeCopies": "Salinan data yang disisihkan oleh pemulihan ({{count}})",
+    "scopeNone": "Pilih yang akan dihapus.",
+    "restoreTitle": "Pulihkan cadangan",
+    "restoreBody": "Data kembali ke keadaan {{when}}.",
+    "warnLost": "Perubahan setelah cadangan hilang. Data add-on diganti.",
+    "warnAccess": "Berbagi diperiksa lagi: tidak ada yang mendapatkan kembali akses yang dicabut sejak cadangan atau yang akunnya sudah tidak ada.",
+    "warnProposals": "Usulan yang menunggu dibatalkan. Operasi dengan hasil tidak diketahui dicari lewat tanda terima dan tidak pernah diterapkan lagi.",
+    "warnCopy": "Data yang diganti disimpan sebagai salinan pemulihan sampai Anda membersihkannya.",
+    "stopFirst": "Hentikan add-on dulu: nonaktifkan, lalu pulihkan.",
+    "mapping": "Cadangan ini dibuat dalam mode pemilik lokal. ID akun yang menerima datanya",
+    "typeToConfirm": "Ketik {{id}} untuk mengonfirmasi",
+    "typeToConfirmLabel": "Ketik ID add-on untuk mengonfirmasi",
+    "phase": "Langkah {{index}} dari {{total}}: {{step}}",
+    "steps": {
+      "begin": "memulai",
+      "backed-up": "dicadangkan",
+      "staged": "paket dipublikasikan",
+      "migrating": "memigrasikan data",
+      "healthy": "diperiksa",
+      "publishing": "mempublikasikan"
+    },
+    "state": {
+      "ready": "Siap",
+      "upgrading": "Meningkatkan",
+      "restoring": "Memulihkan",
+      "needs-recovery": "Perlu pemulihan",
+      "purging": "Membersihkan"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Data add-on ini perlu dipulihkan",
+        "body": "Add-on tidak dijalankan. Paket sebelumnya disimpan, tetapi tidak bisa membaca data yang mulai diubah oleh migrasi yang gagal.",
+        "hint": "Pulihkan salinan pemulihan terverifikasi di bawah, atau bersihkan datanya.",
+        "hintNone": "Tidak ada cadangan terverifikasi. Bersihkan data untuk memulai ulang."
+      },
+      "upgrading": {
+        "title": "Peningkatan sedang berjalan",
+        "body": "Add-on dihentikan selagi datanya dicadangkan dan dimigrasikan."
+      },
+      "restoring": {
+        "title": "Pemulihan sedang berjalan",
+        "body": "Add-on tetap berhenti sampai pemulihan selesai."
+      },
+      "purging": {
+        "title": "Pembersihan sedang berjalan",
+        "body": "Data tersimpan sedang dihapus."
+      }
+    },
+    "verification": {
+      "verified": "Terverifikasi",
+      "failed": "Verifikasi gagal",
+      "unverified": "Belum diverifikasi"
+    },
+    "reason": {
+      "manual": "Dibuat oleh Anda",
+      "upgrade": "Sebelum peningkatan",
+      "restore": "Sebelum pemulihan"
+    },
+    "errors": {
+      "needs_recovery": "Data harus dipulihkan dulu: pulihkan cadangan terverifikasi atau bersihkan.",
+      "addon_running": "Hentikan add-on dulu.",
+      "busy": "Operasi pemulihan lain sedang berjalan untuk add-on ini.",
+      "backup_not_found": "Cadangan itu sudah tidak ada.",
+      "not_installed": "Add-on tidak terpasang.",
+      "backup_corrupt": "Cadangan gagal verifikasi dan tidak digunakan.",
+      "incompatible_format": "Format data tidak cocok dengan paket terpasang.",
+      "identity_changed": "Paket terpasang berasal dari sumber tepercaya yang berbeda dari data.",
+      "mapping_required": "Sebutkan akun yang menerima data cadangan ini.",
+      "mapping_invalid": "Akun itu tidak valid.",
+      "downgrade_unsupported": "Data pengguna bernama tidak bisa dipulihkan dalam mode pemilik lokal.",
+      "sole_recovery_copy": "Ini satu-satunya salinan pemulihan terverifikasi dan disimpan.",
+      "confirmation_mismatch": "ID yang diketik tidak cocok.",
+      "operation_conflict": "ID operasi ini dipakai untuk permintaan lain. Tidak ada yang dilakukan.",
+      "invalid_request": "Permintaan tidak dapat dilaksanakan seperti ini.",
+      "insufficient_storage": "Ruang kosong tidak cukup untuk cadangan. Tidak ada yang diubah.",
+      "unknownOutcome": "Hasilnya tidak diketahui. Baca status lagi: tindakan yang sama tidak dikirim dua kali.",
+      "auth": "Masuk lagi.",
+      "denied": "Hanya administrator yang bisa melakukannya, dari sesi peramban mereka sendiri.",
+      "network": "Pemilik tidak dapat dijangkau.",
+      "unavailable": "Pemilik tidak tersedia."
+    }
   }
 }

@@ -322,5 +322,114 @@
     },
     "downloadDenied": "此文件无法再下载。你对其来源的访问已变更,或文件已过期。",
     "downloadFailed": "下载未完成。请重试。"
+  },
+  "recovery": {
+    "title": "数据恢复",
+    "loading": "正在读取恢复状态",
+    "done": "完成。",
+    "backup": "立即备份",
+    "backingUp": "正在备份…",
+    "backedUp": "备份 {{id}} 已创建并通过验证。",
+    "retention": "保留最近 {{count}} 份备份。最新的已验证备份和升级的恢复副本不会被删除。",
+    "none": "此加载项的数据还没有备份。",
+    "listLabel": "此加载项的备份",
+    "verify": "验证",
+    "verified": "备份 {{id}} 已完整读取并通过验证。",
+    "restore": "恢复",
+    "restored": "备份已恢复。",
+    "delete": "删除",
+    "deleted": "备份 {{id}} 已删除。",
+    "pinned": "恢复副本",
+    "pinnedWhy": "这是最近一次升级的恢复副本，在出现更新的已验证备份之前会一直保留。",
+    "lastRestore": "上次恢复，{{when}}",
+    "purge": "清除…",
+    "purged": "保留的数据已清除。",
+    "purgeLead": "清除会永久删除此加载项保留的数据。它不是删除数据库，也不是卸载。",
+    "purgeTitle": "清除保留的数据",
+    "purgeBody": "这会删除你在下方选择的内容，且无法撤销。加载项必须已卸载或已停用。",
+    "scope": "要删除的内容",
+    "scopeData": "此加载项的数据和所有共享",
+    "scopeBackups": "所有备份（{{count}}）",
+    "scopeCopies": "恢复操作留存的数据副本（{{count}}）",
+    "scopeNone": "请选择要删除的内容。",
+    "restoreTitle": "恢复备份",
+    "restoreBody": "数据将回到 {{when}} 的状态。",
+    "warnLost": "备份之后所做的更改会丢失。加载项的数据将被替换。",
+    "warnAccess": "共享会重新检查：自备份以来被收回的访问权限，或账户已不存在的访问权限，都不会恢复。",
+    "warnProposals": "等待中的提议会被取消。结果未知的操作会通过回执查询，且绝不会再次应用。",
+    "warnCopy": "被替换的数据会作为恢复副本保留，直到你将其清除。",
+    "stopFirst": "请先停止加载项：先停用，再恢复。",
+    "mapping": "此备份是在本地所有者模式下创建的。接收其数据的账户 ID",
+    "typeToConfirm": "输入 {{id}} 以确认",
+    "typeToConfirmLabel": "输入加载项 ID 以确认",
+    "phase": "第 {{index}} 步，共 {{total}} 步：{{step}}",
+    "steps": {
+      "begin": "正在开始",
+      "backed-up": "已备份",
+      "staged": "软件包已发布",
+      "migrating": "正在迁移数据",
+      "healthy": "已检查",
+      "publishing": "正在发布"
+    },
+    "state": {
+      "ready": "就绪",
+      "upgrading": "正在升级",
+      "restoring": "正在恢复",
+      "needs-recovery": "需要恢复",
+      "purging": "正在清除"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "此加载项的数据需要恢复",
+        "body": "加载项不会启动。上一个软件包仍然保留，但无法读取失败的迁移已开始修改的数据。",
+        "hint": "请恢复下方已验证的恢复副本，或清除数据。",
+        "hintNone": "没有已验证的备份。请清除数据以重新开始。"
+      },
+      "upgrading": {
+        "title": "升级正在进行",
+        "body": "在备份和迁移数据期间，加载项处于停止状态。"
+      },
+      "restoring": {
+        "title": "恢复正在进行",
+        "body": "恢复完成之前，加载项保持停止。"
+      },
+      "purging": {
+        "title": "清除正在进行",
+        "body": "正在删除保留的数据。"
+      }
+    },
+    "verification": {
+      "verified": "已验证",
+      "failed": "验证失败",
+      "unverified": "尚未验证"
+    },
+    "reason": {
+      "manual": "由你创建",
+      "upgrade": "升级之前",
+      "restore": "恢复之前"
+    },
+    "errors": {
+      "needs_recovery": "需要先恢复数据：请恢复已验证的备份或将其清除。",
+      "addon_running": "请先停止加载项。",
+      "busy": "此加载项正在进行另一项恢复操作。",
+      "backup_not_found": "该备份已不存在。",
+      "not_installed": "加载项未安装。",
+      "backup_corrupt": "备份未通过验证，未被使用。",
+      "incompatible_format": "数据格式与已安装的软件包不匹配。",
+      "identity_changed": "已安装的软件包来自与数据不同的可信来源。",
+      "mapping_required": "请指定接收此备份数据的账户。",
+      "mapping_invalid": "该账户无效。",
+      "downgrade_unsupported": "具名用户的数据不能在本地所有者模式下恢复。",
+      "sole_recovery_copy": "这是唯一已验证的恢复副本，会被保留。",
+      "confirmation_mismatch": "输入的 ID 不匹配。",
+      "operation_conflict": "此操作 ID 已用于另一个请求。未执行任何操作。",
+      "invalid_request": "无法按原样执行该请求。",
+      "insufficient_storage": "可用存储空间不足，无法备份。未做任何更改。",
+      "unknownOutcome": "结果未知。请重新读取状态：相同的操作不会发送两次。",
+      "auth": "请重新登录。",
+      "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
+      "network": "无法连接到所有者。",
+      "unavailable": "所有者不可用。"
+    }
   }
 }

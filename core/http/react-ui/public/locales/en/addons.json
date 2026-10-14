@@ -326,5 +326,114 @@
     },
     "downloadDenied": "This file can no longer be downloaded. Your access to its source changed or the file expired.",
     "downloadFailed": "The download did not finish. Try again."
+  },
+  "recovery": {
+    "title": "Data recovery",
+    "loading": "Reading the recovery state",
+    "done": "Done.",
+    "backup": "Back up now",
+    "backingUp": "Backing up…",
+    "backedUp": "Backup {{id}} was made and verified.",
+    "retention": "Keeps the newest {{count}} backups. The newest verified backup and the recovery copy of an upgrade are never removed.",
+    "none": "There is no backup of this add-on's data yet.",
+    "listLabel": "Backups of this add-on",
+    "verify": "Verify",
+    "verified": "Backup {{id}} was read completely and passed.",
+    "restore": "Restore",
+    "restored": "The backup was restored.",
+    "delete": "Delete",
+    "deleted": "Backup {{id}} was deleted.",
+    "pinned": "Recovery copy",
+    "pinnedWhy": "This is the recovery copy of the last upgrade and is kept until a newer verified backup exists.",
+    "lastRestore": "Last restore, {{when}}",
+    "purge": "Purge…",
+    "purged": "The retained data was purged.",
+    "purgeLead": "Purging removes retained data of this add-on for good. It is not the deletion of a database and not an uninstall.",
+    "purgeTitle": "Purge retained data",
+    "purgeBody": "This removes what you select below and cannot be undone. The add-on must be uninstalled or disabled.",
+    "scope": "What to remove",
+    "scopeData": "The data and every share of this add-on",
+    "scopeBackups": "All backups ({{count}})",
+    "scopeCopies": "Data copies that restores set aside ({{count}})",
+    "scopeNone": "Select what to remove.",
+    "restoreTitle": "Restore a backup",
+    "restoreBody": "The data goes back to {{when}}.",
+    "warnLost": "Changes made after the backup are lost. The add-on's data is replaced.",
+    "warnAccess": "Shares are checked again: nobody gets back access that was taken away since the backup, or whose account is gone.",
+    "warnProposals": "Proposals that were waiting are cancelled. Operations with an unknown outcome are looked up and never applied again.",
+    "warnCopy": "The data that is replaced is kept as a recovery copy until you purge it.",
+    "stopFirst": "Stop the add-on first: disable it, then restore.",
+    "mapping": "This backup was made in local-owner mode. Account ID that takes its data",
+    "typeToConfirm": "Type {{id}} to confirm",
+    "typeToConfirmLabel": "Type the add-on ID to confirm",
+    "phase": "Step {{index}} of {{total}}: {{step}}",
+    "steps": {
+      "begin": "starting",
+      "backed-up": "backed up",
+      "staged": "package published",
+      "migrating": "migrating the data",
+      "healthy": "checked",
+      "publishing": "publishing"
+    },
+    "state": {
+      "ready": "Ready",
+      "upgrading": "Upgrading",
+      "restoring": "Restoring",
+      "needs-recovery": "Needs recovery",
+      "purging": "Purging"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "This add-on's data needs recovery",
+        "body": "The add-on is not started. The previous package is kept, but it cannot read the data a failed migration began to change.",
+        "hint": "Restore the verified recovery copy below, or purge the data.",
+        "hintNone": "No verified backup is available. Purge the data to start again."
+      },
+      "upgrading": {
+        "title": "An upgrade is in progress",
+        "body": "The add-on is stopped while its data is backed up and migrated."
+      },
+      "restoring": {
+        "title": "A restore is in progress",
+        "body": "The add-on stays stopped until the restore is finished."
+      },
+      "purging": {
+        "title": "A purge is in progress",
+        "body": "The retained data is being removed."
+      }
+    },
+    "verification": {
+      "verified": "Verified",
+      "failed": "Failed verification",
+      "unverified": "Not verified yet"
+    },
+    "reason": {
+      "manual": "Made by you",
+      "upgrade": "Before an upgrade",
+      "restore": "Before a restore"
+    },
+    "errors": {
+      "needs_recovery": "The data needs recovery first: restore a verified backup or purge it.",
+      "addon_running": "Stop the add-on first.",
+      "busy": "Another recovery operation is running for this add-on.",
+      "backup_not_found": "That backup does not exist any more.",
+      "not_installed": "The add-on is not installed.",
+      "backup_corrupt": "The backup failed verification and was not used.",
+      "incompatible_format": "The data format does not fit the installed package.",
+      "identity_changed": "The installed package comes from another trusted source than the data.",
+      "mapping_required": "Name the account that takes the data of this backup.",
+      "mapping_invalid": "That account is not valid.",
+      "downgrade_unsupported": "Data of named users cannot be restored in local-owner mode.",
+      "sole_recovery_copy": "This is the only verified recovery copy and is kept.",
+      "confirmation_mismatch": "The typed ID does not match.",
+      "operation_conflict": "This operation ID was used for another request. Nothing was done.",
+      "invalid_request": "The request cannot be carried out as given.",
+      "insufficient_storage": "There is not enough free storage for a backup. Nothing was changed.",
+      "unknownOutcome": "The outcome is not known. Read the state again: the same action is not sent twice.",
+      "auth": "Sign in again.",
+      "denied": "Only administrators can do this, from their own browser session.",
+      "network": "The owner could not be reached.",
+      "unavailable": "The owner is not available."
+    }
   }
 }

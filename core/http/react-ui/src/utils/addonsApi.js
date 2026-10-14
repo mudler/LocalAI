@@ -3,6 +3,7 @@
 // operation identity per user action. It takes `fetch` and `base` so the node
 // unit tests drive it without a browser.
 import { classifyResponse, newOperationId } from '../components/catalog/catalogState.js'
+import { classifyRecovery } from '../components/addons/recoveryState.js'
 
 export class AddonsError extends Error {
   constructor(info) {
@@ -37,7 +38,7 @@ export function isFinalPhase(phase) {
 export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
   const doFetch = (...args) => (fetchImpl || globalThis.fetch)(...args)
 
-  async function call(path, { method = 'GET', body, signal, headers: extra } = {}) {
+  async function call(path, { method = 'GET', body, signal, headers: extra, classify = classifyResponse } = {}) {
     let response
     try {
       response = await doFetch(base(path), {
@@ -53,7 +54,7 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
     }
     let data = null
     try { data = await response.json() } catch { data = null }
-    if (!response.ok) throw new AddonsError(classifyResponse(response.status, data))
+    if (!response.ok) throw new AddonsError(classify(response.status, data))
     return data
   }
 
@@ -105,6 +106,26 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/stop`, { method: 'POST', body: { operationId, generation }, signal })
         return normalizeOperation(out?.payload)
       },
+    },
+    // Data recovery of one add-on. Every mutation is the administrator's own
+    // action: the operation ID is also the confirmation header, which only a
+    // same-origin fetch of the host's own page can set.
+    recovery: {
+      status(id, signal) {
+        return call(`/api/addons/${encodeURIComponent(id)}/recovery`, { signal, classify: classifyRecovery })
+      },
+      mutate(id, route, body, signal) {
+        return call(`/api/addons/${encodeURIComponent(id)}/${route}`, {
+          method: 'POST', body, signal, classify: classifyRecovery,
+          headers: { 'X-LocalAI-Confirm': body.operationId },
+        })
+      },
+      backup(id, { operationId }, signal) { return api.recovery.mutate(id, 'recovery/backup', { operationId }, signal) },
+      verify(id, { operationId, backupId }, signal) { return api.recovery.mutate(id, 'recovery/verify', { operationId, backupId }, signal) },
+      restore(id, body, signal) { return api.recovery.mutate(id, 'recovery/restore', body, signal) },
+      deleteBackup(id, { operationId, backupId }, signal) { return api.recovery.mutate(id, 'recovery/delete-backup', { operationId, backupId }, signal) },
+      prune(id, { operationId }, signal) { return api.recovery.mutate(id, 'recovery/prune', { operationId }, signal) },
+      purge(id, body, signal) { return api.recovery.mutate(id, 'purge', body, signal) },
     },
     // Reads the original operation by its own identifier. It never submits.
     async operationStatus(operationId, addonId, signal) {

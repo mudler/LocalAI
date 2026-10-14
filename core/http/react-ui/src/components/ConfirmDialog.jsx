@@ -12,6 +12,7 @@ export default function ConfirmDialog({
   cancelLabel,
   danger = false,
   pending = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }) {
@@ -108,7 +109,7 @@ export default function ConfirmDialog({
           <button
             ref={confirmRef}
             className={`btn btn-sm ${danger ? 'btn-danger' : 'btn-primary'}`}
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             onClick={onConfirm}
           >
             {pending ? (pendingLabel ?? confirmText) : confirmText}

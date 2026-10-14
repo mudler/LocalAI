@@ -326,5 +326,114 @@
     },
     "downloadDenied": "Diese Datei kann nicht mehr heruntergeladen werden. Ihr Zugriff auf die Quelle hat sich geändert oder die Datei ist abgelaufen.",
     "downloadFailed": "Der Download wurde nicht abgeschlossen. Versuchen Sie es erneut."
+  },
+  "recovery": {
+    "title": "Datenwiederherstellung",
+    "loading": "Wiederherstellungsstatus wird gelesen",
+    "done": "Erledigt.",
+    "backup": "Jetzt sichern",
+    "backingUp": "Sicherung läuft…",
+    "backedUp": "Sicherung {{id}} wurde erstellt und geprüft.",
+    "retention": "Behält die neuesten {{count}} Sicherungen. Die neueste geprüfte Sicherung und die Wiederherstellungskopie eines Upgrades werden nie entfernt.",
+    "none": "Für die Daten dieses Add-ons gibt es noch keine Sicherung.",
+    "listLabel": "Sicherungen dieses Add-ons",
+    "verify": "Prüfen",
+    "verified": "Sicherung {{id}} wurde vollständig gelesen und besteht die Prüfung.",
+    "restore": "Wiederherstellen",
+    "restored": "Die Sicherung wurde wiederhergestellt.",
+    "delete": "Löschen",
+    "deleted": "Sicherung {{id}} wurde gelöscht.",
+    "pinned": "Wiederherstellungskopie",
+    "pinnedWhy": "Dies ist die Wiederherstellungskopie des letzten Upgrades. Sie bleibt, bis es eine neuere geprüfte Sicherung gibt.",
+    "lastRestore": "Letzte Wiederherstellung, {{when}}",
+    "purge": "Bereinigen…",
+    "purged": "Die aufbewahrten Daten wurden bereinigt.",
+    "purgeLead": "Das Bereinigen entfernt aufbewahrte Daten dieses Add-ons endgültig. Es ist weder das Löschen einer Datenbank noch eine Deinstallation.",
+    "purgeTitle": "Aufbewahrte Daten bereinigen",
+    "purgeBody": "Dies entfernt, was Sie unten auswählen, und kann nicht rückgängig gemacht werden. Das Add-on muss deinstalliert oder deaktiviert sein.",
+    "scope": "Was entfernt werden soll",
+    "scopeData": "Die Daten und alle Freigaben dieses Add-ons",
+    "scopeBackups": "Alle Sicherungen ({{count}})",
+    "scopeCopies": "Datenkopien, die Wiederherstellungen zur Seite gelegt haben ({{count}})",
+    "scopeNone": "Wählen Sie, was entfernt werden soll.",
+    "restoreTitle": "Sicherung wiederherstellen",
+    "restoreBody": "Die Daten gehen auf den Stand von {{when}} zurück.",
+    "warnLost": "Änderungen nach der Sicherung gehen verloren. Die Daten des Add-ons werden ersetzt.",
+    "warnAccess": "Freigaben werden neu geprüft: Niemand erhält Zugriff zurück, der seit der Sicherung entzogen wurde oder dessen Konto nicht mehr existiert.",
+    "warnProposals": "Wartende Vorschläge werden abgebrochen. Vorgänge mit unbekanntem Ergebnis werden nachgeschlagen und nie erneut angewendet.",
+    "warnCopy": "Die ersetzten Daten bleiben als Wiederherstellungskopie, bis Sie sie bereinigen.",
+    "stopFirst": "Halten Sie das Add-on zuerst an: deaktivieren, dann wiederherstellen.",
+    "mapping": "Diese Sicherung wurde im Modus „lokaler Eigentümer“ erstellt. Konto-ID, die die Daten übernimmt",
+    "typeToConfirm": "Geben Sie {{id}} zur Bestätigung ein",
+    "typeToConfirmLabel": "Add-on-ID zur Bestätigung eingeben",
+    "phase": "Schritt {{index}} von {{total}}: {{step}}",
+    "steps": {
+      "begin": "Start",
+      "backed-up": "gesichert",
+      "staged": "Paket veröffentlicht",
+      "migrating": "Daten werden migriert",
+      "healthy": "geprüft",
+      "publishing": "Veröffentlichung"
+    },
+    "state": {
+      "ready": "Bereit",
+      "upgrading": "Upgrade läuft",
+      "restoring": "Wiederherstellung läuft",
+      "needs-recovery": "Wiederherstellung nötig",
+      "purging": "Bereinigung läuft"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Die Daten dieses Add-ons müssen wiederhergestellt werden",
+        "body": "Das Add-on wird nicht gestartet. Das vorherige Paket bleibt erhalten, kann aber die Daten nicht lesen, die eine fehlgeschlagene Migration zu ändern begann.",
+        "hint": "Stellen Sie die geprüfte Wiederherstellungskopie unten wieder her oder bereinigen Sie die Daten.",
+        "hintNone": "Keine geprüfte Sicherung vorhanden. Bereinigen Sie die Daten, um neu zu beginnen."
+      },
+      "upgrading": {
+        "title": "Ein Upgrade läuft",
+        "body": "Das Add-on ist angehalten, während seine Daten gesichert und migriert werden."
+      },
+      "restoring": {
+        "title": "Eine Wiederherstellung läuft",
+        "body": "Das Add-on bleibt angehalten, bis die Wiederherstellung beendet ist."
+      },
+      "purging": {
+        "title": "Eine Bereinigung läuft",
+        "body": "Die aufbewahrten Daten werden entfernt."
+      }
+    },
+    "verification": {
+      "verified": "Geprüft",
+      "failed": "Prüfung fehlgeschlagen",
+      "unverified": "Noch nicht geprüft"
+    },
+    "reason": {
+      "manual": "Von Ihnen erstellt",
+      "upgrade": "Vor einem Upgrade",
+      "restore": "Vor einer Wiederherstellung"
+    },
+    "errors": {
+      "needs_recovery": "Die Daten müssen zuerst wiederhergestellt werden: Sicherung wiederherstellen oder bereinigen.",
+      "addon_running": "Halten Sie das Add-on zuerst an.",
+      "busy": "Für dieses Add-on läuft bereits ein anderer Wiederherstellungsvorgang.",
+      "backup_not_found": "Diese Sicherung existiert nicht mehr.",
+      "not_installed": "Das Add-on ist nicht installiert.",
+      "backup_corrupt": "Die Sicherung hat die Prüfung nicht bestanden und wurde nicht verwendet.",
+      "incompatible_format": "Das Datenformat passt nicht zum installierten Paket.",
+      "identity_changed": "Das installierte Paket stammt aus einer anderen vertrauenswürdigen Quelle als die Daten.",
+      "mapping_required": "Nennen Sie das Konto, das die Daten dieser Sicherung übernimmt.",
+      "mapping_invalid": "Dieses Konto ist nicht gültig.",
+      "downgrade_unsupported": "Daten benannter Benutzer können nicht im Modus „lokaler Eigentümer“ wiederhergestellt werden.",
+      "sole_recovery_copy": "Dies ist die einzige geprüfte Wiederherstellungskopie und bleibt erhalten.",
+      "confirmation_mismatch": "Die eingegebene ID stimmt nicht überein.",
+      "operation_conflict": "Diese Vorgangs-ID wurde für eine andere Anfrage verwendet. Es wurde nichts getan.",
+      "invalid_request": "Die Anfrage kann so nicht ausgeführt werden.",
+      "insufficient_storage": "Für eine Sicherung ist nicht genug freier Speicher vorhanden. Es wurde nichts geändert.",
+      "unknownOutcome": "Das Ergebnis ist nicht bekannt. Lesen Sie den Status erneut: Dieselbe Aktion wird nicht zweimal gesendet.",
+      "auth": "Melden Sie sich erneut an.",
+      "denied": "Nur Administratoren können dies, aus ihrer eigenen Browsersitzung.",
+      "network": "Der Eigentümer war nicht erreichbar.",
+      "unavailable": "Der Eigentümer ist nicht verfügbar."
+    }
   }
 }

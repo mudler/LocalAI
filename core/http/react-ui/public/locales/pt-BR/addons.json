@@ -326,5 +326,114 @@
     },
     "downloadDenied": "Este arquivo não pode mais ser baixado. Seu acesso à origem mudou ou o arquivo expirou.",
     "downloadFailed": "O download não foi concluído. Tente novamente."
+  },
+  "recovery": {
+    "title": "Recuperação de dados",
+    "loading": "Lendo o estado de recuperação",
+    "done": "Pronto.",
+    "backup": "Fazer backup agora",
+    "backingUp": "Fazendo backup…",
+    "backedUp": "O backup {{id}} foi feito e verificado.",
+    "retention": "Mantém os {{count}} backups mais recentes. O backup verificado mais recente e a cópia de recuperação de uma atualização nunca são removidos.",
+    "none": "Ainda não há backup dos dados deste complemento.",
+    "listLabel": "Backups deste complemento",
+    "verify": "Verificar",
+    "verified": "O backup {{id}} foi lido por completo e passou.",
+    "restore": "Restaurar",
+    "restored": "O backup foi restaurado.",
+    "delete": "Excluir",
+    "deleted": "O backup {{id}} foi excluído.",
+    "pinned": "Cópia de recuperação",
+    "pinnedWhy": "É a cópia de recuperação da última atualização e fica até existir um backup verificado mais recente.",
+    "lastRestore": "Última restauração, {{when}}",
+    "purge": "Limpar…",
+    "purged": "Os dados retidos foram limpos.",
+    "purgeLead": "Limpar remove para sempre os dados retidos deste complemento. Não é excluir um banco de dados nem desinstalar.",
+    "purgeTitle": "Limpar dados retidos",
+    "purgeBody": "Isto remove o que você selecionar abaixo e não pode ser desfeito. O complemento deve estar desinstalado ou desativado.",
+    "scope": "O que remover",
+    "scopeData": "Os dados e todos os compartilhamentos deste complemento",
+    "scopeBackups": "Todos os backups ({{count}})",
+    "scopeCopies": "Cópias de dados que as restaurações separaram ({{count}})",
+    "scopeNone": "Selecione o que remover.",
+    "restoreTitle": "Restaurar um backup",
+    "restoreBody": "Os dados voltam ao estado de {{when}}.",
+    "warnLost": "As alterações feitas depois do backup são perdidas. Os dados do complemento são substituídos.",
+    "warnAccess": "Os compartilhamentos são verificados de novo: ninguém recupera um acesso retirado depois do backup ou cuja conta não existe mais.",
+    "warnProposals": "As propostas em espera são canceladas. Operações de resultado desconhecido são consultadas e nunca aplicadas de novo.",
+    "warnCopy": "Os dados substituídos ficam como cópia de recuperação até você limpá-los.",
+    "stopFirst": "Pare o complemento primeiro: desative e depois restaure.",
+    "mapping": "Este backup foi feito no modo proprietário local. ID da conta que recebe os dados",
+    "typeToConfirm": "Digite {{id}} para confirmar",
+    "typeToConfirmLabel": "Digite o ID do complemento para confirmar",
+    "phase": "Etapa {{index}} de {{total}}: {{step}}",
+    "steps": {
+      "begin": "iniciando",
+      "backed-up": "backup feito",
+      "staged": "pacote publicado",
+      "migrating": "migrando os dados",
+      "healthy": "verificado",
+      "publishing": "publicando"
+    },
+    "state": {
+      "ready": "Pronto",
+      "upgrading": "Atualizando",
+      "restoring": "Restaurando",
+      "needs-recovery": "Precisa de recuperação",
+      "purging": "Limpando"
+    },
+    "banner": {
+      "needs-recovery": {
+        "title": "Os dados deste complemento precisam de recuperação",
+        "body": "O complemento não é iniciado. O pacote anterior foi mantido, mas não consegue ler os dados que uma migração com falha começou a alterar.",
+        "hint": "Restaure a cópia de recuperação verificada abaixo ou limpe os dados.",
+        "hintNone": "Não há backup verificado. Limpe os dados para recomeçar."
+      },
+      "upgrading": {
+        "title": "Uma atualização está em andamento",
+        "body": "O complemento fica parado enquanto seus dados são copiados e migrados."
+      },
+      "restoring": {
+        "title": "Uma restauração está em andamento",
+        "body": "O complemento continua parado até a restauração terminar."
+      },
+      "purging": {
+        "title": "Uma limpeza está em andamento",
+        "body": "Os dados retidos estão sendo removidos."
+      }
+    },
+    "verification": {
+      "verified": "Verificado",
+      "failed": "Falha na verificação",
+      "unverified": "Ainda não verificado"
+    },
+    "reason": {
+      "manual": "Feito por você",
+      "upgrade": "Antes de uma atualização",
+      "restore": "Antes de uma restauração"
+    },
+    "errors": {
+      "needs_recovery": "Os dados precisam de recuperação primeiro: restaure um backup verificado ou limpe-os.",
+      "addon_running": "Pare o complemento primeiro.",
+      "busy": "Outra operação de recuperação está em andamento para este complemento.",
+      "backup_not_found": "Esse backup não existe mais.",
+      "not_installed": "O complemento não está instalado.",
+      "backup_corrupt": "O backup falhou na verificação e não foi usado.",
+      "incompatible_format": "O formato dos dados não combina com o pacote instalado.",
+      "identity_changed": "O pacote instalado vem de outra fonte confiável que não a dos dados.",
+      "mapping_required": "Informe a conta que recebe os dados deste backup.",
+      "mapping_invalid": "Essa conta não é válida.",
+      "downgrade_unsupported": "Dados de usuários nomeados não podem ser restaurados no modo proprietário local.",
+      "sole_recovery_copy": "Esta é a única cópia de recuperação verificada e é mantida.",
+      "confirmation_mismatch": "O ID digitado não confere.",
+      "operation_conflict": "Este ID de operação foi usado para outra solicitação. Nada foi feito.",
+      "invalid_request": "A solicitação não pode ser executada como está.",
+      "insufficient_storage": "Não há espaço livre suficiente para um backup. Nada foi alterado.",
+      "unknownOutcome": "O resultado não é conhecido. Leia o estado de novo: a mesma ação não é enviada duas vezes.",
+      "auth": "Entre novamente.",
+      "denied": "Somente administradores podem fazer isto, na própria sessão do navegador.",
+      "network": "Não foi possível alcançar o proprietário.",
+      "unavailable": "O proprietário não está disponível."
+    }
   }
 }

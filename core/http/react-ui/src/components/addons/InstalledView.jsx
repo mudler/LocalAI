@@ -12,6 +12,7 @@ import { StateChip, AppIcon, Fact, UnknownNotice } from './AddonBits'
 import { formatBytes, rangeText, shortDigest, updateStatus } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
+import RecoveryPanel from './RecoveryPanel'
 
 // Everything the owner knows of what is installed: verified package facts,
 // the desired state (enabled) and the observed one (health) apart, retained
@@ -87,6 +88,7 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
       {selected && (
         <ManageSheet
           addon={selected}
+          api={api}
           t={t}
           actions={actions}
           onLifecycle={lifecycle}
@@ -142,6 +144,7 @@ function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
         <div className="ad-facts">
           <span className="ad-fact" data-tone={addon.enabled ? 'ok' : undefined}>{addon.enabled ? t('installed.enabled') : t('installed.disabled')}</span>
           <StateChip app={addon} />
+          {addon.recovery && <Fact icon="alert-circle" tone={addon.recovery === 'needs-recovery' ? 'error' : 'warn'}>{t(`recovery.state.${addon.recovery}`)}</Fact>}
           <Fact icon={addon.verification === 'sha256+sigstore' ? 'shield' : 'info'} tone={addon.verification === 'sha256+sigstore' ? 'ok' : undefined}>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</Fact>
           <Fact icon="cpu">{addon.platform.os}/{addon.platform.arch}</Fact>
           {update.kind === 'available' && <Fact icon="arrow-up" tone="warn">{t('installed.updateAvailable', { version: update.version })}</Fact>}
@@ -171,7 +174,7 @@ function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
   )
 }
 
-function ManageSheet({ addon, t, actions, onLifecycle, onUninstall, onClose }) {
+function ManageSheet({ addon, api, t, actions, onLifecycle, onUninstall, onClose }) {
   const working = busy(actions, addon, ['enable', 'disable', 'upgrade', 'uninstall'])
   const update = updateStatus(addon)
   const compat = addon.compatibility || {}
@@ -241,6 +244,11 @@ function ManageSheet({ addon, t, actions, onLifecycle, onUninstall, onClose }) {
           <dt>{t('manage.data')}</dt><dd>{formatBytes(addon.storage?.bytes)}{addon.storage?.truncated ? ` ${t('manage.atLeast')}` : ''}</dd>
           <dt>{t('manage.generations')}</dt><dd>{addon.generations}</dd>
         </dl>
+      </section>
+
+      <section className="ad-section" aria-labelledby="manage-recovery" data-testid="manage-recovery">
+        <h3 id="manage-recovery" className="ad-section__title">{t('recovery.title')}</h3>
+        <RecoveryPanel api={api} addon={addon} />
       </section>
 
       <section className="ad-section" aria-labelledby="manage-updates">
