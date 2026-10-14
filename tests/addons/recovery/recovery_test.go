@@ -175,6 +175,37 @@ var _ = Describe("Add-on data recovery over the real owner", func() {
 		Expect(st.body["lastRestore"]).NotTo(BeNil())
 	})
 
+	It("restores only a backup of the add-on in the route and touches nothing otherwise", func() {
+		h := ready(false)
+		id := h.database("bob", "db-1", "Sales")
+		got := h.admin("/api/addons/tables/recovery/backup", "b-1", map[string]any{})
+		Expect(got.code).To(Equal(200), got.raw)
+		backupID := got.body["id"].(string)
+		rc := h.rename("bob", id, "rename-1", "Renamed", h.revision("bob", id))
+		Expect(rc.code).To(Equal(200), rc.raw)
+		h.stopTables()
+		// The typed ID and the route name another add-on than the backup's.
+		for _, path := range []string{"verify", "delete-backup"} {
+			r := h.admin("/api/addons/notes/recovery/"+path, "x-"+path, map[string]any{"backupId": backupID})
+			Expect(r.code).To(Equal(404), path+": "+r.raw)
+		}
+		bad := h.admin("/api/addons/notes/recovery/restore", "r-x", map[string]any{"backupId": backupID, "confirm": "notes"})
+		Expect(bad.code).To(Equal(400), bad.raw)
+		Expect(bad.errType()).To(Equal("invalid_request"))
+		bad = h.admin("/api/addons/notes/recovery/restore", "r-y", map[string]any{"backupId": backupID, "confirm": "tables"})
+		Expect(bad.code).To(Equal(400), bad.raw)
+		Expect(filepath.Join(h.owner.Root, "backups", "tables", backupID)).To(BeADirectory())
+		entries, _ := os.ReadDir(filepath.Join(h.owner.Root, "recovery", "tables"))
+		for _, en := range entries {
+			Expect(en.Name()).NotTo(HavePrefix("previous-"))
+		}
+		h.startTables()
+		// Nothing was swapped in: the rename made after the backup stands.
+		name, e := h.name("bob", id)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(name).To(Equal("Renamed"))
+	})
+
 	It("gives a forwarding frontend the same typed answers as the owner", func() {
 		h := ready(false)
 		h.database("bob", "db-1", "Sales")

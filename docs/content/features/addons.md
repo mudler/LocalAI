@@ -1521,7 +1521,9 @@ candidate left is kept as a recovery copy. When the migration changes the data f
 fails, the add-on stays unavailable in the state `needs-recovery`: the previous package
 is retained and so is the verified backup, but the previous package cannot read data the
 new one began to change, so nothing starts it. The administrator restores the backup or
-purges the data. A restart finds the operation at its recorded phase and applies one
+purges the data. While the state lasts, the backup that was made for it is always kept:
+retention, a prune and a delete do not remove it, and a manual backup is refused, because
+a copy of half migrated data must not look like the newest good one. A restart finds the operation at its recorded phase and applies one
 rule: a generation that was not published is undone, and a published one is finished.
 
 Add-ons without data keep the plain upgrade and start the candidate as before.
@@ -1529,8 +1531,9 @@ Add-ons without data keep the plain upgrade and start the candidate as before.
 ### Restore
 
 `POST /api/addons/{id}/recovery/restore` restores one backup. The add-on must not be
-running, and the request carries the add-on ID typed as `confirm`. The backup is
-verified before anything changes. Its files are staged beside the data and swapped in
+running, and the request carries the add-on ID typed as `confirm`. The backup must
+belong to the add-on named in the route: a backup of another add-on is refused with
+`invalid_request` before anything is touched. The backup is verified before anything changes. Its files are staged beside the data and swapped in
 atomically; the data they replace stays as a recovery copy, named `previous-<id>`, until
 an administrator purges it. A crash at any point is settled by the owner on restart:
 before the swap the restore is undone, from the swap on it is finished.
@@ -1541,9 +1544,17 @@ restored. Restoring never gives back access:
 
 - Every owner and every grant is checked again against the current accounts. An account
   that is gone, paused or pending is not restored.
-- The owner keeps a bounded, durable log of lowered access (a removal or a lowering of a
-  role). A grant that was removed after the backup is not restored, and one that was
-  lowered is restored at the lower role.
+- The owner keeps a durable log of lowered access (a removal or a lowering of a role),
+  compacted per person and resource: a later, stricter lowering replaces the ones it
+  covers, so frequent changes of other people never push a removal out. A grant that was
+  removed after the backup is not restored, and one that was lowered is restored at the
+  lower role. The cutoff is the moment the access state was read for the backup, taken
+  under the same lock, and the add-on's admission hold also stops changes of its grants.
+- The log has a hard size limit. When it must drop entries, it records the time up to
+  which it may be incomplete. A restore from a backup older than that time restores the
+  data and no access at all: no owner has to be trusted to be still valid, so the
+  resources come back with their owner only and the answer says so
+  (`historyTruncated`). The owner shares them again.
 - Proposals that were pending are cancelled. Operations that were executing, or whose
   outcome was unknown, become `outcome_unknown` and are looked up by receipt of the
   restored add-on; they are never applied again.

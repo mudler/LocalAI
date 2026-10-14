@@ -111,10 +111,13 @@ type snapshotResource struct {
 	Grants map[string]Role `json:"grants,omitempty"`
 }
 
-func (s *Store) exportAddon(addonID string, now time.Time) addonSnapshot {
+// exportAddon reads the add-on's access state. The time of the snapshot is
+// read under the same lock as the state: every lowering that is not in it is
+// committed after that time, and a restore applies the lowerings after it.
+func (s *Store) exportAddon(addonID string, now func() time.Time) addonSnapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := addonSnapshot{Version: 1, AddonID: addonID, Mode: s.mode, Created: now, Resources: map[string]snapshotResource{}}
+	out := addonSnapshot{Version: 1, AddonID: addonID, Mode: s.mode, Created: now(), Resources: map[string]snapshotResource{}}
 	for id, r := range s.doc.Resources {
 		if r.AddonID != addonID || r.State != stateActive {
 			continue
@@ -160,8 +163,20 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 		}
 		return user
 	}
+	// The cutoff is the time of the snapshot itself, never later than the
+	// time the caller gives: the manifest of a backup is written after the
+	// state was read, and a lowering committed in between is not in it.
+	since := o.Since
+	if !snap.Created.IsZero() && (since.IsZero() || snap.Created.Before(since)) {
+		since = snap.Created
+	}
 	err := s.mutate(func(d *document) error {
 		rep = recovery.RestoreReport{}
+		// Lowerings older than the floor may have been dropped from the log.
+		// Nothing in the backup can then be shown to be still allowed: the
+		// data comes back and the access does not.
+		truncated := !d.RevokedFloor.IsZero() && since.Before(d.RevokedFloor)
+		rep.HistoryTruncated = truncated
 		for id, r := range d.Resources {
 			if r.AddonID == snap.AddonID {
 				delete(d.Resources, id)
@@ -199,6 +214,10 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 				for _, u := range users {
 					role := sr.Grants[u]
 					target := mapped(u)
+					if truncated {
+						rep.GrantsDropped++
+						continue
+					}
 					if (role != RoleViewer && role != RoleEditor) || !validUserID(target) || target == owner || !account(target) {
 						rep.GrantsDropped++
 						continue
@@ -207,7 +226,7 @@ func (s *Store) restoreAddon(ctx context.Context, snap addonSnapshot, o recovery
 					// a removal: the strictest one stands.
 					drop := false
 					for _, v := range d.Revoked {
-						if v.AddonID != snap.AddonID || v.ResourceID != id || v.UserID != target || !v.At.After(o.Since) {
+						if v.AddonID != snap.AddonID || v.ResourceID != id || v.UserID != target || v.At.Before(since) {
 							continue
 						}
 						if v.Ceiling == "" {
@@ -376,7 +395,7 @@ func (r *RecoveryPort) Hold(ctx context.Context, addonID string) (func(), error)
 
 // Export returns the access state and the proposals of the add-on.
 func (r *RecoveryPort) Export(_ context.Context, addonID string) (recovery.PolicyExport, error) {
-	pol, err := json.Marshal(r.Policy.store.exportAddon(addonID, r.now()))
+	pol, err := json.Marshal(r.Policy.store.exportAddon(addonID, r.now))
 	if err != nil {
 		return recovery.PolicyExport{}, err
 	}

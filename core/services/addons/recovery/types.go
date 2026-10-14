@@ -13,6 +13,7 @@ package recovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -33,13 +34,16 @@ var (
 	ErrMappingInvalid       = errors.New("ownership mapping is invalid")
 	ErrMappingRequired      = errors.New("ownership mapping is required")
 	ErrDowngradeUnsupported = errors.New("populated named-user data cannot return to local-owner mode")
-	ErrSoleRecoveryCopy     = errors.New("refusing to remove the only verified recovery copy")
-	ErrNeedsRecovery        = errors.New("addon data needs recovery")
-	ErrOperationConflict    = errors.New("operation ID was used for another request")
-	ErrConfirmation         = errors.New("typed confirmation does not match")
-	ErrInvalid              = errors.New("invalid recovery request")
-	ErrForbidden            = errors.New("addon recovery denied")
-	ErrUnavailable          = errors.New("addon recovery unavailable")
+	// ErrBackupAddonMismatch says a backup belongs to another add-on than the
+	// one named in the request. It is an invalid request, never a restore.
+	ErrBackupAddonMismatch = fmt.Errorf("%w: the backup belongs to another add-on", ErrInvalid)
+	ErrSoleRecoveryCopy    = errors.New("refusing to remove the only verified recovery copy")
+	ErrNeedsRecovery       = errors.New("addon data needs recovery")
+	ErrOperationConflict   = errors.New("operation ID was used for another request")
+	ErrConfirmation        = errors.New("typed confirmation does not match")
+	ErrInvalid             = errors.New("invalid recovery request")
+	ErrForbidden           = errors.New("addon recovery denied")
+	ErrUnavailable         = errors.New("addon recovery unavailable")
 )
 
 // Info is what recovery needs to know about one add-on. The host fills it
@@ -128,6 +132,9 @@ type RestoreReport struct {
 	// by receipt and never applied again.
 	ProposalsCancelled int `json:"proposalsCancelled"`
 	ProposalsUnknown   int `json:"proposalsUnknown"`
+	// HistoryTruncated says the record of lowered access may have lost
+	// entries older than the backup, so no grant of the backup was restored.
+	HistoryTruncated bool `json:"historyTruncated,omitempty"`
 }
 
 // PolicyPort is the owner-local access state.

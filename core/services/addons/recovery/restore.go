@@ -91,19 +91,35 @@ func (r *Recovery) Restore(ctx context.Context, actor Actor, backupID string, ma
 // every grant is checked again against the accounts and the lowerings of
 // access that happened after the backup, and proposals are never replayed.
 func (r *Recovery) RestoreReceipt(ctx context.Context, actor Actor, backupID string, mapping OwnershipMapping) (RestoreReceipt, error) {
-	return r.RestoreOp(ctx, actor, "", backupID, mapping)
-}
-
-// RestoreOp is RestoreReceipt under an operation ID. A repeat of the same ID
-// and backup returns the receipt of the restore it made and does not restore
-// again: a second restore would lose the writes made since the first.
-func (r *Recovery) RestoreOp(ctx context.Context, actor Actor, opID, backupID string, mapping OwnershipMapping) (rc RestoreReceipt, err error) {
-	if err = r.admin(ctx, actor); err != nil {
+	if err := r.admin(ctx, actor); err != nil {
 		return RestoreReceipt{}, err
 	}
 	addonID, err := r.find(backupID)
 	if err != nil {
 		return RestoreReceipt{}, err
+	}
+	return r.RestoreOp(ctx, actor, "", addonID, backupID, mapping)
+}
+
+// RestoreOp is RestoreReceipt for the add-on named by addonID, under an
+// operation ID. The backup must belong to that add-on: a backup of another
+// one is refused with ErrBackupAddonMismatch before anything is touched. A
+// repeat of the same ID and backup returns the receipt of the restore it made
+// and does not restore again: a second restore would lose the writes made
+// since the first.
+func (r *Recovery) RestoreOp(ctx context.Context, actor Actor, opID, addonID, backupID string, mapping OwnershipMapping) (rc RestoreReceipt, err error) {
+	if err = r.admin(ctx, actor); err != nil {
+		return RestoreReceipt{}, err
+	}
+	if err = validID(addonID); err != nil {
+		return RestoreReceipt{}, err
+	}
+	owner, err := r.find(backupID)
+	if err != nil {
+		return RestoreReceipt{}, err
+	}
+	if owner != addonID {
+		return RestoreReceipt{}, ErrBackupAddonMismatch
 	}
 	unlock, err := r.lock(addonID)
 	if err != nil {
@@ -474,6 +490,9 @@ func restoreWarnings(rc RestoreReceipt) []string {
 	}
 	if n := rc.Policy.ProposalsUnknown; n > 0 {
 		w = append(w, fmt.Sprintf("%d %s no known outcome; %s looked up by receipt and never applied again.", n, plural(n, "operation had", "operations had"), plural(n, "it is", "they are")))
+	}
+	if rc.Policy.HistoryTruncated {
+		w = append(w, "The record of removed access may be incomplete for this backup, so no share was restored. The data is back; share it again where it is needed.")
 	}
 	if rc.PreviousCopy != "" {
 		w = append(w, "The data that was replaced is kept as a recovery copy until you purge it.")

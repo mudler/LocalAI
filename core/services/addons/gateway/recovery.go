@@ -130,7 +130,7 @@ func (g *Gateway) recoveryAction(ctx context.Context, actor contract.Actor, requ
 			err = recovery.ErrConfirmation
 			break
 		}
-		data, err = rec.RestoreOp(ctx, actor, request.OperationID, args.BackupID, recovery.OwnershipMapping(args.Mapping))
+		data, err = rec.RestoreOp(ctx, actor, request.OperationID, id, args.BackupID, recovery.OwnershipMapping(args.Mapping))
 	case ActionRecoveryDeleteBackup:
 		var args struct {
 			BackupID string `json:"backupId"`

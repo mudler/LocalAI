@@ -87,8 +87,8 @@ type Recovery struct {
 	cfg   Config
 	locks *lockSet
 	// Test-only seams; nil in production.
-	free   func(path string) (uint64, error)
-	fail   func(phase string) error
+	free func(path string) (uint64, error)
+	fail func(phase string) error
 }
 
 type lockSet struct {
@@ -296,6 +296,11 @@ func (r *Recovery) BackupOp(ctx context.Context, addonID, opID string) (rc Backu
 	}
 	if r.cfg.Policy == nil {
 		return BackupReceipt{}, ErrUnavailable
+	}
+	// Data that needs recovery is not a state to keep: a copy of half
+	// migrated files would look like the newest good backup.
+	if st, serr := r.loadState(addonID); serr != nil || st.State == StateNeedsRecovery {
+		return BackupReceipt{}, ErrNeedsRecovery
 	}
 	// Admission is blocked and pending proposals are invalid before the
 	// process stops, so nothing new starts against a draining add-on.
@@ -668,8 +673,19 @@ func (r *Recovery) cleanTemps(addonID string) {
 // protectedBackups returns the IDs retention must keep: the newest verified
 // backup, and the recovery copy of the last upgrade until a newer verified
 // backup exists.
-func (r *Recovery) protectedBackups(list []BackupInfo, pinned string) map[string]bool {
+func (r *Recovery) protectedBackups(list []BackupInfo, st State) map[string]bool {
+	pinned := st.Pinned
 	keep := map[string]bool{}
+	if st.State == StateNeedsRecovery {
+		// The data cannot be trusted. The copies that were set aside for
+		// its recovery stay until a restore or a purge resolves the state,
+		// whatever newer backups exist.
+		for _, id := range []string{st.RecoveryBackup, st.Pinned} {
+			if id != "" {
+				keep[id] = true
+			}
+		}
+	}
 	for _, b := range list {
 		if b.Verification == "verified" {
 			keep[b.ID] = true
@@ -707,7 +723,7 @@ func (r *Recovery) prune(addonID string) error {
 		return err
 	}
 	st, _ := r.loadState(addonID)
-	keep := r.protectedBackups(list, st.Pinned)
+	keep := r.protectedBackups(list, st)
 	now := r.cfg.Now()
 	var firstErr error
 	for i, b := range list {
@@ -791,7 +807,7 @@ func (r *Recovery) DeleteBackup(ctx context.Context, actor Actor, addonID, backu
 		return ErrBackupNotFound
 	}
 	st, _ := r.loadState(addonID)
-	if r.protectedBackups(list, st.Pinned)[backupID] {
+	if r.protectedBackups(list, st)[backupID] {
 		return ErrSoleRecoveryCopy
 	}
 	if err = removeAll(filepath.Join(r.backupsDir(addonID), backupID)); err != nil {

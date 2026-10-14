@@ -118,9 +118,50 @@ type revocation struct {
 	At         time.Time `json:"at"`
 }
 
-// MaxRevocations bounds the lowerings the store remembers. The oldest are
-// forgotten first, which is why a restore also checks the account directory.
+// MaxRevocations is a safety bound on the lowerings the store keeps. The log
+// is compacted as it grows: a lowering that a later and stricter or equal one
+// of the same person on the same resource covers is dropped, so a person has
+// at most three entries and the bound is reached only by many distinct
+// people and resources. When it is reached, the oldest entries go and the
+// floor of the log moves up to the time of the newest one lost: a restore
+// from a backup older than the floor cannot know what was lowered, so it
+// restores no access at all.
 const MaxRevocations = 4096
+
+// revocationCap is MaxRevocations; a test lowers it.
+var revocationCap = MaxRevocations
+
+func (r revocation) rank() int {
+	switch r.Ceiling {
+	case RoleViewer:
+		return 1
+	case RoleEditor:
+		return 2
+	}
+	return 0
+}
+
+// addRevocation records a lowering. It keeps the log exact for every restore
+// time: a dropped entry is always covered by a later entry that is at least as
+// strict, so any restore that would have applied the first applies the second.
+func (d *document) addRevocation(v revocation) {
+	kept := d.Revoked[:0:0]
+	for _, o := range d.Revoked {
+		if o.AddonID == v.AddonID && o.ResourceID == v.ResourceID && o.UserID == v.UserID && !o.At.After(v.At) && v.rank() <= o.rank() {
+			continue
+		}
+		kept = append(kept, o)
+	}
+	d.Revoked = append(kept, v)
+	if over := len(d.Revoked) - revocationCap; over > 0 {
+		for _, o := range d.Revoked[:over] {
+			if o.At.After(d.RevokedFloor) {
+				d.RevokedFloor = o.At
+			}
+		}
+		d.Revoked = append([]revocation(nil), d.Revoked[over:]...)
+	}
+}
 
 type document struct {
 	Version   int                   `json:"version"`
@@ -128,6 +169,10 @@ type document struct {
 	Resources map[string]*record    `json:"resources"`
 	Deleted   map[string]*tombstone `json:"deleted,omitempty"`
 	Revoked   []revocation          `json:"revoked,omitempty"`
+	// RevokedFloor is the time up to which lowerings may have been dropped
+	// from Revoked for lack of room. A restore from a backup made before it
+	// cannot tell what was lowered since.
+	RevokedFloor time.Time `json:"revokedFloor,omitempty"`
 }
 
 func (d *document) clone() *document {
@@ -143,6 +188,7 @@ func (d *document) clone() *document {
 		}
 	}
 	c.Revoked = append([]revocation(nil), d.Revoked...)
+	c.RevokedFloor = d.RevokedFloor
 	return c
 }
 
@@ -215,6 +261,15 @@ func load(dir string) (*document, error) {
 	for _, v := range d.Revoked {
 		if v.AddonID == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
 			return nil, errors.New("addon policy store is corrupt")
+		}
+	}
+	if len(d.Revoked) >= MaxRevocations && d.RevokedFloor.IsZero() {
+		// A store written before the floor existed was cut at this size:
+		// anything older than its oldest entry may be gone.
+		for _, v := range d.Revoked {
+			if d.RevokedFloor.IsZero() || v.At.Before(d.RevokedFloor) {
+				d.RevokedFloor = v.At
+			}
 		}
 	}
 	for id, t := range d.Deleted {

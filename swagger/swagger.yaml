@@ -1972,6 +1972,11 @@ definitions:
         type: integer
       grantsRestored:
         type: integer
+      historyTruncated:
+        description: |-
+          HistoryTruncated says the record of lowered access may have lost
+          entries older than the backup, so no grant of the backup was restored.
+        type: boolean
       proposalsCancelled:
         description: |-
           ProposalsCancelled and ProposalsUnknown are the proposals of the add-on
@@ -5358,7 +5363,9 @@ paths:
         A backup made in local-owner mode needs mapping {"local-owner": "<account
         id>"}; a backup of named-user data is refused in local-owner mode. Repeating
         the operationId returns the same receipt and does not restore again. No MCP
-        tool maps to this route.'
+        tool maps to this route. The backup must belong to the add-on in the path;
+        a backup of another add-on is refused with type invalid_request and nothing
+        is touched.'
       parameters:
       - description: Add-on ID
         in: path

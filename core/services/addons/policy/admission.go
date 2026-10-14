@@ -65,6 +65,8 @@ type Policy struct {
 	// held counts the operations that hold an add-on's data still: a backup,
 	// an upgrade, a restore or a purge. See HoldAddon.
 	held map[string]int
+	// afterAuthorize is a test seam of change.
+	afterAuthorize func()
 }
 
 // New builds a policy on an open store.
@@ -277,8 +279,18 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 	if err := p.Authorize(ctx, actor, resource, ActionShare); err != nil {
 		return err
 	}
+	if p.afterAuthorize != nil {
+		p.afterAuthorize()
+	}
 	g := p.gate(resource.ResourceID)
 	g.mu.Lock()
+	// The hold is read under the gate, as Admit does: a backup, a restore or
+	// a purge that began after the check above has read or will read the
+	// grants of the add-on, and a change must not land in between.
+	if p.isHeld(resource.AddonID) {
+		g.mu.Unlock()
+		return errHeld
+	}
 	if err := p.check(actor, resource, ActionShare); err != nil {
 		g.mu.Unlock()
 		return err
@@ -320,10 +332,7 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 			if remove {
 				ceiling = ""
 			}
-			d.Revoked = append(d.Revoked, revocation{AddonID: rec.AddonID, ResourceID: resource.ResourceID, UserID: userID, Ceiling: ceiling, At: time.Now().UTC()})
-			if over := len(d.Revoked) - MaxRevocations; over > 0 {
-				d.Revoked = append([]revocation(nil), d.Revoked[over:]...)
-			}
+			d.addRevocation(revocation{AddonID: rec.AddonID, ResourceID: resource.ResourceID, UserID: userID, Ceiling: ceiling, At: time.Now().UTC()})
 			rec.Epoch++
 			if rec.Drain == nil {
 				rec.Drain = map[string]drainMark{}

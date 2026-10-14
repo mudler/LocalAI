@@ -2306,7 +2306,7 @@ const docTemplate = `{
         },
         "/api/addons/{id}/recovery/restore": {
             "post": {
-                "description": "Administrators only, from their own browser session, with the add-on ID typed as confirm. The add-on must not be running. The backup is verified before anything changes, its files are staged and swapped in atomically, and the data they replace stays as a recovery copy until it is purged. Access is not restored as it was: every grant is checked again against the current accounts and the lowerings of access recorded since the backup, so nobody gets back access that was taken away; pending proposals are cancelled and operations with an unknown outcome are looked up by receipt and never applied again. The answer carries warnings: the time the data goes back to, the number of changes made after it that are lost, and the shares that were not restored. A backup made in local-owner mode needs mapping {\"local-owner\": \"\u003caccount id\u003e\"}; a backup of named-user data is refused in local-owner mode. Repeating the operationId returns the same receipt and does not restore again. No MCP tool maps to this route.",
+                "description": "Administrators only, from their own browser session, with the add-on ID typed as confirm. The add-on must not be running. The backup is verified before anything changes, its files are staged and swapped in atomically, and the data they replace stays as a recovery copy until it is purged. Access is not restored as it was: every grant is checked again against the current accounts and the lowerings of access recorded since the backup, so nobody gets back access that was taken away; pending proposals are cancelled and operations with an unknown outcome are looked up by receipt and never applied again. The answer carries warnings: the time the data goes back to, the number of changes made after it that are lost, and the shares that were not restored. A backup made in local-owner mode needs mapping {\"local-owner\": \"\u003caccount id\u003e\"}; a backup of named-user data is refused in local-owner mode. Repeating the operationId returns the same receipt and does not restore again. No MCP tool maps to this route. The backup must belong to the add-on in the path; a backup of another add-on is refused with type invalid_request and nothing is touched.",
                 "consumes": [
                     "application/json"
                 ],
@@ -9572,6 +9572,10 @@ const docTemplate = `{
                 },
                 "grantsRestored": {
                     "type": "integer"
+                },
+                "historyTruncated": {
+                    "description": "HistoryTruncated says the record of lowered access may have lost\nentries older than the backup, so no grant of the backup was restored.",
+                    "type": "boolean"
                 },
                 "proposalsCancelled": {
                     "description": "ProposalsCancelled and ProposalsUnknown are the proposals of the add-on\nthat no longer can be confirmed, and the ones whose outcome is looked up\nby receipt and never applied again.",
