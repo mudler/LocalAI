@@ -134,6 +134,24 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/proposals/:id/resolve":   true,
 			"POST /api/addons/apps/:id/start":          true,
 			"POST /api/addons/apps/:id/stop":           true,
+			// The UI-only resource management: creation, rename and deletion.
+			"POST /api/addons/resources":                    true,
+			"POST /api/addons/resources/:resourceId/rename": true,
+			"POST /api/addons/resources/:resourceId/delete": true,
+		}))
+		// The grant changes and the conversation selection are PUT and DELETE;
+		// nothing else uses those methods.
+		changes := map[string]bool{}
+		for _, r := range e.Routes() {
+			if strings.HasPrefix(r.Path, "/api/addons") && (r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+				changes[r.Method+" "+r.Path] = true
+			}
+		}
+		Expect(changes).To(Equal(map[string]bool{
+			"PUT /api/addons/resources/:resourceId/grants/:userId":                true,
+			"DELETE /api/addons/resources/:resourceId/grants/:userId":             true,
+			"PUT /api/addons/conversations/:conversationId/selection/:addonId":    true,
+			"DELETE /api/addons/conversations/:conversationId/selection/:addonId": true,
 		}))
 		// Reading a proposal, the caller's own pending ones, the owner's list of
 		// unresolved ones and the two private artifact reads are the only
@@ -144,7 +162,9 @@ var _ = Describe("registered addon routes with real authentication", func() {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals": true, "/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals": true, "/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true,
+			"/api/addons/resources": true, "/api/addons/resources/:resourceId/grants": true, "/api/addons/resources/:resourceId/users": true,
+			"/api/addons/resources/:resourceId/operations/:operationId": true, "/api/addons/conversations/:conversationId/selection/:addonId": true}))
 	})
 	It("reserves every first path segment the host registers under /api/addons", func() {
 		// An add-on ID that equals a registered literal segment would have its
@@ -192,7 +212,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		}
 		count := 0
 		for _, r := range e.Routes() {
-			if strings.HasPrefix(r.Path, "/api/addons") && (r.Method == http.MethodGet || r.Method == http.MethodPost) {
+			if strings.HasPrefix(r.Path, "/api/addons") && (r.Method == http.MethodGet || r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) {
 				count++
 				Expect(registered).To(HaveKey(r.Method+" "+r.Path), "an addon route without a feature registry entry")
 			}

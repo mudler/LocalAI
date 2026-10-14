@@ -19,7 +19,13 @@ type AddonError struct {
 	// proposal_unavailable when a proposal call could not be served and the
 	// same call can be repeated by the same proposal ID after reading it, or
 	// outcome_blocked (403) when another operation on the resource has an
-	// unresolved outcome and the caller is the resource's owner role.
+	// unresolved outcome and the caller is the resource's owner role. The
+	// resource management routes add sharing_disabled (409, local-owner mode
+	// has no named users to share with), stale (409, the generation or the
+	// revision the caller saw is out of date), invalid_request (400, for
+	// example a missing deletion confirmation or an unsupported operation),
+	// quota_reached (403) and not_selected (404, no resource is selected for
+	// the conversation).
 	Type string `json:"type" example:"outcome_unknown"`
 	// Message describes the failure and never carries owner details.
 	Message string `json:"message"`
@@ -126,6 +132,22 @@ func resultError(c echo.Context, e error) error {
 	}
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
 		return failure(c, 503, "Addon owner unavailable")
+	}
+	for _, t := range []struct {
+		err     error
+		status  int
+		kind    string
+		message string
+	}{
+		{gateway.ErrSharingDisabled, 409, "sharing_disabled", "Sharing is disabled: this installation has no named users to share with"},
+		{gateway.ErrStale, 409, "stale", "The view is out of date; reload it and repeat the action"},
+		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
+		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
+		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},
+	} {
+		if errors.Is(e, t.err) {
+			return c.JSON(t.status, AddonErrorResponse{Error: AddonError{Type: t.kind, Code: t.status, Message: t.message}})
+		}
 	}
 	return failure(c, 403, "Addon request denied")
 }

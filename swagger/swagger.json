@@ -471,6 +471,194 @@
                 }
             }
         },
+        "/api/addons/conversations/{conversationId}/selection/{addonId}": {
+            "get": {
+                "description": "Returns the resource the authenticated user selected for the conversation and add-on, with the user's current role and display name. The stored reference is keyed by the authenticated user, the conversation and the add-on, and is never a credential: the owner authorizes it again on every use. A reference that was revoked, deleted or never set is one answer: 404 not_selected. Another user's selection of the same conversation ID is never visible. Read-only. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read the resource selected for a conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The selection",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Selection"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed conversation or add-on ID",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type not_selected",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores which resource the authenticated user chose for the conversation and add-on, so that chat tool calls that name no resource use it. The caller must hold at least the viewer role on the resource now; the stored reference is never a bearer and is authorized again at the owner on every use. It is not process-global, not shared between users or conversations, and not part of the chat history. The store is bounded per user and expires unused entries. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Select the resource a conversation works on",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The resource",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.SelectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The selection",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.Selection"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed IDs or body",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the resource is unknown or not readable by the caller",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the authenticated user's selection for the conversation and add-on. Clearing a selection that does not exist succeeds. No MCP tool maps to this route.",
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Clear the resource selected for a conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Cleared"
+                    },
+                    "400": {
+                        "description": "Malformed conversation or add-on ID",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/dispatch": {
             "post": {
                 "description": "Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, sourceId, offset, limit up to 100), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied.",
@@ -974,6 +1162,458 @@
                 }
             }
         },
+        "/api/addons/resources": {
+            "get": {
+                "description": "Returns the resources of one add-on that the caller owns or that were shared with the caller, each with the caller's own role, the display name the add-on reported (empty when it could not answer in time), the owner's display name for a shared resource and, for the owner role only, how many people it is shared with and the revision to send back with a rename or a delete. Resources of other people that are not shared with the caller are never listed, whatever the caller's installation role: installation administration is not data access. The answer also carries the installed generation, whether sharing is possible (false in local-owner mode) and the management operations the add-on supports. At most 100 resources are listed (truncated says more exist). Read-only. API keys may call it. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "List the add-on resources the caller may use",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "addonId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resources the caller may use",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ResourceList"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or malformed add-on ID",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons, the owner or the add-on are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a resource through the add-on's create tool as the person's own explicit action, for example a new database. It needs no confirmation card: the request is the intent, and the same admission, quota, receipt and crash reconciliation rules as every mutation apply. The caller becomes the owner and the resource is private. Repeating the same operationId returns the same resource and never creates a second one; after outcome_unknown repeat the same call. The arguments are validated against the add-on's own tool definition. Accepted only from the person's own browser session: a same-origin fetch whose X-LocalAI-Confirm header equals the operationId, with no API key and no tool, agent or MCP marker. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Create an add-on resource (UI only)",
+                "parameters": [
+                    {
+                        "description": "Create request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.CreateResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The created resource",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ResourceInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request or arguments the add-on's tool does not accept",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature or creation authority denied, or type quota_reached",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale: the generation is not the installed one",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId) after which the same call is repeated",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/delete": {
+            "post": {
+                "description": "Permanently deletes the resource, its data and every grant, as the owner's own explicit action. It is never a chat operation and never an uninstall. The request must carry the generation and revision the owner listed and confirm, which must equal the resource's display name exactly. The owner marks the resource as deleting (inaccessible to everyone, no new admission), stops and waits for admitted work, checks the revision, cancels pending proposals, asks the add-on to delete and only then removes the record and the grants. A crash leaves a deleting record that the owner finishes at startup; an unconfirmed one returns to use. A 503 with type outcome_unknown means the deletion is confirmed and being finished: repeat the same call, the resource is inaccessible meanwhile. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route and the add-on's delete tool is not offered to any model.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Delete a resource and its data (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Delete request with the typed confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.DeleteResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.DeleteResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request, wrong confirmation or unsupported operation",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource, or type outcome_blocked",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/grants": {
+            "get": {
+                "description": "Returns the grants of the whole resource: the immutable account ID, the display name and the role of each grantee. Only the owner role of the resource may read it; installation administrators, editors and viewers get the same denial as for an unknown resource. Local-owner mode has no sharing and answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "List who a resource is shared with (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants of the resource",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.GrantList"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/grants/{userId}": {
+            "put": {
+                "description": "Gives the user the viewer or editor role on the whole resource; there are no per-table grants and the owner role cannot be granted. The user is named by the immutable account ID the user picker returned, and must be an active named account that may use add-ons. Lowering a role stops the user's admitted work and cancels the user's pending proposals before it is acknowledged. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). Safe to repeat; after outcome_unknown repeat the same call. No MCP tool maps to this route: sharing is never a tool.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Share a whole resource with a named user (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID of the grantee",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.SetGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.GrantList"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed body or role",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role, unknown resource or a user that cannot be granted",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the user's grant. It returns only after the user's admitted work stopped and their pending proposals were cancelled; a drain that did not finish in the bound is a 503 and the revocation is already effective for new work. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). Safe to repeat. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Stop sharing a resource with a user (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Account ID of the grantee",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional operation ID, returned with outcome_unknown",
+                        "name": "operationId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grants after the change",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.GrantList"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/operations/{operationId}": {
+            "get": {
+                "description": "Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried) or delete. The state is pending, committed, rejected or unknown; it never applies anything. Only the owner role may look up, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Look up the receipt of a rename or a deletion (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Operation ID of the rename",
+                        "name": "operationId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "rename",
+                            "delete"
+                        ],
+                        "type": "string",
+                        "description": "Operation kind",
+                        "name": "kind",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Receipt state",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.OperationStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Unsupported kind",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons, the owner or the add-on are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/resources/{resourceId}/proposals": {
             "get": {
                 "description": "Returns the proposals on the resource whose outcome is unresolved (executing, outcome-unknown) or abandoned-unknown, whoever proposed them, so the resource owner can learn the operation ID and digest that resolve needs. Each entry has the proposal ID, state, the proposing user, the action, the exact effect count and the bounded effect sample the proposer saw, the expiry, the digest and the age in seconds. It never returns the proposed arguments or any credential. Read-only. Only the owner role of the resource may call it; installation administrators, editors and viewers are denied. It is accepted only from a host confirmation surface with the rules of resolve: the owner's own browser session, a same-origin fetch, the X-LocalAI-Confirm header equal to the resource ID, and no tool, agent or MCP marker. API keys are refused and no MCP tool maps to this route.",
@@ -1024,6 +1664,149 @@
                     },
                     "403": {
                         "description": "Not a human confirmation surface, not the owner role of the resource, feature denied or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/rename": {
+            "post": {
+                "description": "Renames the resource through the add-on as the owner's own explicit action, with no confirmation card. It still runs under the resource's admission, waits behind an unresolved outcome (403 outcome_blocked for the owner role), is checked against the generation and the revision the owner listed (409 stale, nothing changed) and leaves the add-on's receipt for the operation. Repeating the same operationId never renames twice; after outcome_unknown repeat the same call or look it up with the operation status route. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Rename a resource (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rename request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.RenameResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The renamed resource",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ResourceInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request or a name the add-on refuses",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource, or type outcome_blocked",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/resources/{resourceId}/users": {
+            "get": {
+                "description": "Finds active named accounts that may use add-ons by a prefix of the display name or of the address, 2 to 64 characters, at most 20 results. Each result is an immutable account ID and a display name and nothing else. Only the owner role of the resource may search; the owner and the caller are left out. Local-owner mode answers 409 sharing_disabled. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Search the people a resource can be shared with (owner, UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name or address prefix",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "At most this many results, up to 20",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching people",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.UserList"
+                        }
+                    },
+                    "400": {
+                        "description": "Query too short or too long",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, not the owner role or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sharing_disabled",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -5670,7 +6453,7 @@
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role.",
+                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role. The\nresource management routes add sharing_disabled (409, local-owner mode\nhas no named users to share with), stale (409, the generation or the\nrevision the caller saw is out of date), invalid_request (400, for\nexample a missing deletion confirmation or an unsupported operation),\nquota_reached (403) and not_selected (404, no resource is selected for\nthe conversation).",
                     "type": "string",
                     "example": "outcome_unknown"
                 }
@@ -6878,6 +7661,117 @@
                 }
             }
         },
+        "gateway.CreateResourceRequest": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "description": "AddonID names the add-on whose resource is created.",
+                    "type": "string",
+                    "example": "tables"
+                },
+                "arguments": {
+                    "description": "Arguments are the create arguments the add-on's create tool takes, for\nexample the name. They are validated against its tool definition.",
+                    "type": "object"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation the caller listed.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "operationId": {
+                    "description": "OperationID names the creation. Repeating it never creates a second\nresource and, after an outcome_unknown answer, it is what to repeat.",
+                    "type": "string",
+                    "example": "create-budget-1"
+                }
+            }
+        },
+        "gateway.DeleteResourceRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "description": "Confirm must equal the display name of the resource exactly: the person\ntypes it to confirm. Deletion removes the data and every grant, cannot\nbe undone and is never a chat operation.",
+                    "type": "string",
+                    "example": "Budget"
+                },
+                "generation": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "operationId": {
+                    "type": "string",
+                    "example": "delete-1"
+                },
+                "revision": {
+                    "$ref": "#/definitions/contract.Revision"
+                }
+            }
+        },
+        "gateway.DeleteResult": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "description": "Deleted is true once the add-on confirmed that the data is gone and\nthe grants were removed.",
+                    "type": "boolean"
+                },
+                "resourceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "gateway.Grant": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "Bob"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor"
+                    ],
+                    "example": "viewer"
+                },
+                "userId": {
+                    "description": "UserID is the immutable account identifier of the grantee.",
+                    "type": "string",
+                    "example": "4f1c"
+                }
+            }
+        },
+        "gateway.GrantList": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.Grant"
+                    }
+                },
+                "resourceId": {
+                    "type": "string"
+                }
+            }
+        },
+        "gateway.OperationStatus": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is pending, committed, rejected or unknown.",
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "committed",
+                        "rejected",
+                        "unknown"
+                    ]
+                }
+            }
+        },
         "gateway.PendingList": {
             "type": "object",
             "properties": {
@@ -7045,6 +7939,205 @@
                 },
                 "request": {
                     "$ref": "#/definitions/contract.Request"
+                }
+            }
+        },
+        "gateway.RenameResourceRequest": {
+            "type": "object",
+            "properties": {
+                "generation": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Budget 2027"
+                },
+                "operationId": {
+                    "type": "string",
+                    "example": "rename-1"
+                },
+                "revision": {
+                    "description": "Revision is the revision the caller listed. A moved revision is a\nstale denial and nothing is changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
+                }
+            }
+        },
+        "gateway.ResourceInfo": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string",
+                    "example": "tables"
+                },
+                "id": {
+                    "description": "ID is the opaque resource identifier.",
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "name": {
+                    "description": "Name is the display name the add-on reported. It is empty when the\nadd-on could not answer in time.",
+                    "type": "string",
+                    "example": "Budget"
+                },
+                "owner": {
+                    "description": "Owner is the display name of the owner, shown to people the resource\nis shared with. It is empty in local-owner mode.",
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "revision": {
+                    "description": "Revision is the schema and data revision the listing saw. It is\npresent for the owner role and goes back with a rename or a delete.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
+                },
+                "role": {
+                    "description": "Role is the caller's own role: viewer, editor or owner.",
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "owner"
+                    ],
+                    "example": "owner"
+                },
+                "sharedWith": {
+                    "description": "SharedWith is the number of people the resource is shared with. It is\npresent for the owner role only.",
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "gateway.ResourceList": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string",
+                    "example": "tables"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation the listing saw. Rename, delete\nand create carry it; a stale tab is denied.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "noun": {
+                    "description": "Noun is the singular word the add-on uses for its resources.",
+                    "type": "string",
+                    "example": "database"
+                },
+                "operations": {
+                    "description": "Operations lists the management operations the add-on supports.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "create",
+                            "rename",
+                            "delete"
+                        ]
+                    }
+                },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.ResourceInfo"
+                    }
+                },
+                "sharing": {
+                    "description": "Sharing is false in local-owner mode, where nothing can be shared.",
+                    "type": "boolean"
+                },
+                "truncated": {
+                    "description": "Truncated says more resources exist than the bound lists.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "gateway.Selection": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string",
+                    "example": "tables"
+                },
+                "conversationId": {
+                    "type": "string",
+                    "example": "chat-1"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Budget"
+                },
+                "resourceId": {
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "owner"
+                    ]
+                }
+            }
+        },
+        "gateway.SelectionRequest": {
+            "type": "object",
+            "properties": {
+                "resourceId": {
+                    "description": "ResourceID is the resource to use in the conversation. The caller must\nhold at least the viewer role on it now.",
+                    "type": "string",
+                    "example": "r0123456789abcdef0123456789abcde"
+                }
+            }
+        },
+        "gateway.SetGrantRequest": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "description": "OperationID is optional. It is returned with outcome_unknown, and the\nchange is safe to repeat.",
+                    "type": "string",
+                    "example": "grant-1"
+                },
+                "role": {
+                    "description": "Role is viewer or editor. The owner role cannot be granted.",
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor"
+                    ],
+                    "example": "viewer"
+                }
+            }
+        },
+        "gateway.UserList": {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.UserRef"
+                    }
+                }
+            }
+        },
+        "gateway.UserRef": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string",
+                    "example": "Bob"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "4f1c"
                 }
             }
         },

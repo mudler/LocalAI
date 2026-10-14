@@ -52,7 +52,7 @@ var Consumers = []Consumer{
 	{
 		ID:       "direct-api",
 		Surface:  "POST /api/addons/dispatch, /api/addons/proposals and the other /api/addons routes, called by the UI, scripts and agents",
-		Evidence: []string{"core/http/endpoints/addons/gateway.go", "core/http/endpoints/addons/proposals.go", "core/http/routes/addons.go"},
+		Evidence: []string{"core/http/endpoints/addons/gateway.go", "core/http/endpoints/addons/proposals.go", "core/http/endpoints/addons/resources.go", "core/http/routes/addons.go"},
 		Decision: Route,
 		Actor:    "the named user or API key of the request, revalidated against stored accounts on every call",
 	},

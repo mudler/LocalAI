@@ -27,7 +27,13 @@ definitions:
           proposal_unavailable when a proposal call could not be served and the
           same call can be repeated by the same proposal ID after reading it, or
           outcome_blocked (403) when another operation on the resource has an
-          unresolved outcome and the caller is the resource's owner role.
+          unresolved outcome and the caller is the resource's owner role. The
+          resource management routes add sharing_disabled (409, local-owner mode
+          has no named users to share with), stale (409, the generation or the
+          revision the caller saw is out of date), invalid_request (400, for
+          example a missing deletion confirmation or an unsupported operation),
+          quota_reached (403) and not_selected (404, no resource is selected for
+          the conversation).
         example: outcome_unknown
         type: string
     type: object
@@ -941,6 +947,94 @@ definitions:
         - $ref: '#/definitions/gateway.ProposalState'
         description: State is executing, outcome-unknown or abandoned-unknown.
     type: object
+  gateway.CreateResourceRequest:
+    properties:
+      addonId:
+        description: AddonID names the add-on whose resource is created.
+        example: tables
+        type: string
+      arguments:
+        description: |-
+          Arguments are the create arguments the add-on's create tool takes, for
+          example the name. They are validated against its tool definition.
+        type: object
+      generation:
+        description: Generation is the installed generation the caller listed.
+        example: 3
+        type: integer
+      operationId:
+        description: |-
+          OperationID names the creation. Repeating it never creates a second
+          resource and, after an outcome_unknown answer, it is what to repeat.
+        example: create-budget-1
+        type: string
+    type: object
+  gateway.DeleteResourceRequest:
+    properties:
+      confirm:
+        description: |-
+          Confirm must equal the display name of the resource exactly: the person
+          types it to confirm. Deletion removes the data and every grant, cannot
+          be undone and is never a chat operation.
+        example: Budget
+        type: string
+      generation:
+        example: 3
+        type: integer
+      operationId:
+        example: delete-1
+        type: string
+      revision:
+        $ref: '#/definitions/contract.Revision'
+    type: object
+  gateway.DeleteResult:
+    properties:
+      deleted:
+        description: |-
+          Deleted is true once the add-on confirmed that the data is gone and
+          the grants were removed.
+        type: boolean
+      resourceId:
+        type: string
+    type: object
+  gateway.Grant:
+    properties:
+      displayName:
+        example: Bob
+        type: string
+      role:
+        enum:
+        - viewer
+        - editor
+        example: viewer
+        type: string
+      userId:
+        description: UserID is the immutable account identifier of the grantee.
+        example: 4f1c
+        type: string
+    type: object
+  gateway.GrantList:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/gateway.Grant'
+        type: array
+      resourceId:
+        type: string
+    type: object
+  gateway.OperationStatus:
+    properties:
+      operationId:
+        type: string
+      state:
+        description: State is pending, committed, rejected or unknown.
+        enum:
+        - pending
+        - committed
+        - rejected
+        - unknown
+        type: string
+    type: object
   gateway.PendingList:
     properties:
       proposals:
@@ -1074,6 +1168,163 @@ definitions:
         type: string
       request:
         $ref: '#/definitions/contract.Request'
+    type: object
+  gateway.RenameResourceRequest:
+    properties:
+      generation:
+        example: 3
+        type: integer
+      name:
+        example: Budget 2027
+        type: string
+      operationId:
+        example: rename-1
+        type: string
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: |-
+          Revision is the revision the caller listed. A moved revision is a
+          stale denial and nothing is changed.
+    type: object
+  gateway.ResourceInfo:
+    properties:
+      addonId:
+        example: tables
+        type: string
+      id:
+        description: ID is the opaque resource identifier.
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      name:
+        description: |-
+          Name is the display name the add-on reported. It is empty when the
+          add-on could not answer in time.
+        example: Budget
+        type: string
+      owner:
+        description: |-
+          Owner is the display name of the owner, shown to people the resource
+          is shared with. It is empty in local-owner mode.
+        example: Alice
+        type: string
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: |-
+          Revision is the schema and data revision the listing saw. It is
+          present for the owner role and goes back with a rename or a delete.
+      role:
+        description: 'Role is the caller''s own role: viewer, editor or owner.'
+        enum:
+        - viewer
+        - editor
+        - owner
+        example: owner
+        type: string
+      sharedWith:
+        description: |-
+          SharedWith is the number of people the resource is shared with. It is
+          present for the owner role only.
+        example: 2
+        type: integer
+    type: object
+  gateway.ResourceList:
+    properties:
+      addonId:
+        example: tables
+        type: string
+      generation:
+        description: |-
+          Generation is the installed generation the listing saw. Rename, delete
+          and create carry it; a stale tab is denied.
+        example: 3
+        type: integer
+      noun:
+        description: Noun is the singular word the add-on uses for its resources.
+        example: database
+        type: string
+      operations:
+        description: Operations lists the management operations the add-on supports.
+        items:
+          enum:
+          - create
+          - rename
+          - delete
+          type: string
+        type: array
+      resources:
+        items:
+          $ref: '#/definitions/gateway.ResourceInfo'
+        type: array
+      sharing:
+        description: Sharing is false in local-owner mode, where nothing can be shared.
+        type: boolean
+      truncated:
+        description: Truncated says more resources exist than the bound lists.
+        type: boolean
+    type: object
+  gateway.Selection:
+    properties:
+      addonId:
+        example: tables
+        type: string
+      conversationId:
+        example: chat-1
+        type: string
+      name:
+        example: Budget
+        type: string
+      resourceId:
+        example: r0123456789abcdef0123456789abcde
+        type: string
+      role:
+        enum:
+        - viewer
+        - editor
+        - owner
+        type: string
+    type: object
+  gateway.SelectionRequest:
+    properties:
+      resourceId:
+        description: |-
+          ResourceID is the resource to use in the conversation. The caller must
+          hold at least the viewer role on it now.
+        example: r0123456789abcdef0123456789abcde
+        type: string
+    type: object
+  gateway.SetGrantRequest:
+    properties:
+      operationId:
+        description: |-
+          OperationID is optional. It is returned with outcome_unknown, and the
+          change is safe to repeat.
+        example: grant-1
+        type: string
+      role:
+        description: Role is viewer or editor. The owner role cannot be granted.
+        enum:
+        - viewer
+        - editor
+        example: viewer
+        type: string
+    type: object
+  gateway.UserList:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/gateway.UserRef'
+        type: array
+    type: object
+  gateway.UserRef:
+    properties:
+      displayName:
+        example: Bob
+        type: string
+      id:
+        example: 4f1c
+        type: string
     type: object
   localai.APIInstructionResponse:
     properties:
@@ -4812,6 +5063,147 @@ paths:
       summary: Download a private addon file result
       tags:
       - Addons
+  /api/addons/conversations/{conversationId}/selection/{addonId}:
+    delete:
+      description: Removes the authenticated user's selection for the conversation
+        and add-on. Clearing a selection that does not exist succeeds. No MCP tool
+        maps to this route.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Add-on ID
+        in: path
+        name: addonId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Cleared
+        "400":
+          description: Malformed conversation or add-on ID
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Clear the resource selected for a conversation
+      tags:
+      - Addons
+    get:
+      description: 'Returns the resource the authenticated user selected for the conversation
+        and add-on, with the user''s current role and display name. The stored reference
+        is keyed by the authenticated user, the conversation and the add-on, and is
+        never a credential: the owner authorizes it again on every use. A reference
+        that was revoked, deleted or never set is one answer: 404 not_selected. Another
+        user''s selection of the same conversation ID is never visible. Read-only.
+        No MCP tool maps to this route.'
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Add-on ID
+        in: path
+        name: addonId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The selection
+          schema:
+            $ref: '#/definitions/gateway.Selection'
+        "400":
+          description: Malformed conversation or add-on ID
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: Type not_selected
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read the resource selected for a conversation
+      tags:
+      - Addons
+    put:
+      consumes:
+      - application/json
+      description: Stores which resource the authenticated user chose for the conversation
+        and add-on, so that chat tool calls that name no resource use it. The caller
+        must hold at least the viewer role on the resource now; the stored reference
+        is never a bearer and is authorized again at the owner on every use. It is
+        not process-global, not shared between users or conversations, and not part
+        of the chat history. The store is bounded per user and expires unused entries.
+        No MCP tool maps to this route.
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationId
+        required: true
+        type: string
+      - description: Add-on ID
+        in: path
+        name: addonId
+        required: true
+        type: string
+      - description: The resource
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.SelectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The selection
+          schema:
+            $ref: '#/definitions/gateway.Selection'
+        "400":
+          description: Malformed IDs or body
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, or the resource is unknown or not readable
+            by the caller
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Select the resource a conversation works on
+      tags:
+      - Addons
   /api/addons/dispatch:
     post:
       consumes:
@@ -5236,6 +5628,370 @@ paths:
         UI assets
       tags:
       - Addons
+  /api/addons/resources:
+    get:
+      description: 'Returns the resources of one add-on that the caller owns or that
+        were shared with the caller, each with the caller''s own role, the display
+        name the add-on reported (empty when it could not answer in time), the owner''s
+        display name for a shared resource and, for the owner role only, how many
+        people it is shared with and the revision to send back with a rename or a
+        delete. Resources of other people that are not shared with the caller are
+        never listed, whatever the caller''s installation role: installation administration
+        is not data access. The answer also carries the installed generation, whether
+        sharing is possible (false in local-owner mode) and the management operations
+        the add-on supports. At most 100 resources are listed (truncated says more
+        exist). Read-only. API keys may call it. No MCP tool maps to this route.'
+      parameters:
+      - description: Add-on ID
+        in: query
+        name: addonId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resources the caller may use
+          schema:
+            $ref: '#/definitions/gateway.ResourceList'
+        "400":
+          description: Missing or malformed add-on ID
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons, the owner or the add-on are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the add-on resources the caller may use
+      tags:
+      - Addons
+    post:
+      consumes:
+      - application/json
+      description: 'Creates a resource through the add-on''s create tool as the person''s
+        own explicit action, for example a new database. It needs no confirmation
+        card: the request is the intent, and the same admission, quota, receipt and
+        crash reconciliation rules as every mutation apply. The caller becomes the
+        owner and the resource is private. Repeating the same operationId returns
+        the same resource and never creates a second one; after outcome_unknown repeat
+        the same call. The arguments are validated against the add-on''s own tool
+        definition. Accepted only from the person''s own browser session: a same-origin
+        fetch whose X-LocalAI-Confirm header equals the operationId, with no API key
+        and no tool, agent or MCP marker. No MCP tool maps to this route.'
+      parameters:
+      - description: Create request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.CreateResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The created resource
+          schema:
+            $ref: '#/definitions/gateway.ResourceInfo'
+        "400":
+          description: Malformed request or arguments the add-on's tool does not accept
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature or creation authority denied,
+            or type quota_reached
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: 'Type stale: the generation is not the installed one'
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId) after
+            which the same call is repeated
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Create an add-on resource (UI only)
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/delete:
+    post:
+      consumes:
+      - application/json
+      description: 'Permanently deletes the resource, its data and every grant, as
+        the owner''s own explicit action. It is never a chat operation and never an
+        uninstall. The request must carry the generation and revision the owner listed
+        and confirm, which must equal the resource''s display name exactly. The owner
+        marks the resource as deleting (inaccessible to everyone, no new admission),
+        stops and waits for admitted work, checks the revision, cancels pending proposals,
+        asks the add-on to delete and only then removes the record and the grants.
+        A crash leaves a deleting record that the owner finishes at startup; an unconfirmed
+        one returns to use. A 503 with type outcome_unknown means the deletion is
+        confirmed and being finished: repeat the same call, the resource is inaccessible
+        meanwhile. Accepted only from the owner''s own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this
+        route and the add-on''s delete tool is not offered to any model.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Delete request with the typed confirmation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.DeleteResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deleted
+          schema:
+            $ref: '#/definitions/gateway.DeleteResult'
+        "400":
+          description: Malformed request, wrong confirmation or unsupported operation
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource, or type outcome_blocked
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type stale
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Delete a resource and its data (owner, UI only)
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/grants:
+    get:
+      description: 'Returns the grants of the whole resource: the immutable account
+        ID, the display name and the role of each grantee. Only the owner role of
+        the resource may read it; installation administrators, editors and viewers
+        get the same denial as for an unknown resource. Local-owner mode has no sharing
+        and answers 409 sharing_disabled. Accepted only from the owner''s own browser
+        session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No
+        MCP tool maps to this route.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants of the resource
+          schema:
+            $ref: '#/definitions/gateway.GrantList'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List who a resource is shared with (owner, UI only)
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/grants/{userId}:
+    delete:
+      description: Removes the user's grant. It returns only after the user's admitted
+        work stopped and their pending proposals were cancelled; a drain that did
+        not finish in the bound is a 503 and the revocation is already effective for
+        new work. Local-owner mode answers 409 sharing_disabled. Accepted only from
+        the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal
+        to the resource ID). Safe to repeat. No MCP tool maps to this route.
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Account ID of the grantee
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Optional operation ID, returned with outcome_unknown
+        in: query
+        name: operationId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants after the change
+          schema:
+            $ref: '#/definitions/gateway.GrantList'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Stop sharing a resource with a user (owner, UI only)
+      tags:
+      - Addons
+    put:
+      consumes:
+      - application/json
+      description: 'Gives the user the viewer or editor role on the whole resource;
+        there are no per-table grants and the owner role cannot be granted. The user
+        is named by the immutable account ID the user picker returned, and must be
+        an active named account that may use add-ons. Lowering a role stops the user''s
+        admitted work and cancels the user''s pending proposals before it is acknowledged.
+        Local-owner mode answers 409 sharing_disabled. Accepted only from the owner''s
+        own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource
+        ID). Safe to repeat; after outcome_unknown repeat the same call. No MCP tool
+        maps to this route: sharing is never a tool.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Account ID of the grantee
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.SetGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Grants after the change
+          schema:
+            $ref: '#/definitions/gateway.GrantList'
+        "400":
+          description: Malformed body or role
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role, unknown
+            resource or a user that cannot be granted
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Share a whole resource with a named user (owner, UI only)
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/operations/{operationId}:
+    get:
+      description: Read-only receipt lookup after an outcome_unknown answer. kind
+        is rename (operationId is the one the rename carried) or delete. The state
+        is pending, committed, rejected or unknown; it never applies anything. Only
+        the owner role may look up, from the owner's own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished
+        the resource is gone and the lookup is denied like any unknown resource. No
+        MCP tool maps to this route.
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Operation ID of the rename
+        in: path
+        name: operationId
+        required: true
+        type: string
+      - description: Operation kind
+        enum:
+        - rename
+        - delete
+        in: query
+        name: kind
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Receipt state
+          schema:
+            $ref: '#/definitions/gateway.OperationStatus'
+        "400":
+          description: Unsupported kind
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons, the owner or the add-on are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Look up the receipt of a rename or a deletion (owner, UI only)
+      tags:
+      - Addons
   /api/addons/resources/{resourceId}/proposals:
     get:
       description: 'Returns the proposals on the resource whose outcome is unresolved
@@ -5288,6 +6044,117 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: List the unresolved addon proposals of a resource as its owner
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/rename:
+    post:
+      consumes:
+      - application/json
+      description: Renames the resource through the add-on as the owner's own explicit
+        action, with no confirmation card. It still runs under the resource's admission,
+        waits behind an unresolved outcome (403 outcome_blocked for the owner role),
+        is checked against the generation and the revision the owner listed (409 stale,
+        nothing changed) and leaves the add-on's receipt for the operation. Repeating
+        the same operationId never renames twice; after outcome_unknown repeat the
+        same call or look it up with the operation status route. Accepted only from
+        the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal
+        to the resource ID). No MCP tool maps to this route.
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Rename request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.RenameResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The renamed resource
+          schema:
+            $ref: '#/definitions/gateway.ResourceInfo'
+        "400":
+          description: Malformed request or a name the add-on refuses
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource, or type outcome_blocked
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type stale
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Rename a resource (owner, UI only)
+      tags:
+      - Addons
+  /api/addons/resources/{resourceId}/users:
+    get:
+      description: Finds active named accounts that may use add-ons by a prefix of
+        the display name or of the address, 2 to 64 characters, at most 20 results.
+        Each result is an immutable account ID and a display name and nothing else.
+        Only the owner role of the resource may search; the owner and the caller are
+        left out. Local-owner mode answers 409 sharing_disabled. Accepted only from
+        the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal
+        to the resource ID). No MCP tool maps to this route.
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Name or address prefix
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: At most this many results, up to 20
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Matching people
+          schema:
+            $ref: '#/definitions/gateway.UserList'
+        "400":
+          description: Query too short or too long
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, not the owner role or
+            unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type sharing_disabled
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Search the people a resource can be shared with (owner, UI only)
       tags:
       - Addons
   /api/agent/jobs:
