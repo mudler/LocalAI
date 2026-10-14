@@ -6,8 +6,10 @@ title: Tables
 
 Tables is a first-party addon for LocalAI. This page describes the database
 lifecycle, the typed schema operations, and structured row queries and
-confirmed row changes that exist today, and how a chat model uses them as
-tools. CSV results and the Tables user interface are not available yet.
+confirmed row changes that exist today, how a chat model uses them as tools,
+and the host side of managing databases from the UI: creating, renaming,
+sharing and deleting a database, and choosing the database of a conversation.
+CSV results and the Tables pages themselves are not available yet.
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -210,7 +212,10 @@ with `GET /api/addons/apps` and the `addons-installed` management read, which
 need a named administrator. A conversational lifecycle tool needs a per-call
 principal and a host approval card first; it is not part of this release.
 REST-to-MCP parity for `/api/addons` is intentionally partial for that reason,
-and `TestToolHTTPRouteMappingComplete` stays unchanged.
+and `TestToolHTTPRouteMappingComplete` stays unchanged. The UI-only resource
+routes (create, rename, share, delete, selection) are likewise not tools:
+sharing and deletion are never tools, and the consumer matrix test scans the
+catalog for any `/api/addons` route.
 
 ## How creation survives a crash
 
@@ -238,6 +243,40 @@ who asked stops waiting, or the next start. Stopping to wait drops the
 reservation only when `resource-exists` says there is no database. A pending
 chat proposal keeps its reservation, so a restart does not remove a database
 you can still confirm.
+
+## Managing databases from the UI
+
+Creating, renaming, sharing and deleting a database are the person's own
+actions in the Tables pages, through the routes described in
+[UI-only resource management](../addons/#ui-only-resource-management). They
+are not tools: a model never sees them and sharing and deletion are never
+proposals.
+
+- `databases-create` and `databases-rename` are the same tools that chat uses,
+  run by the person's explicit request with no approval card.
+- `databases-delete` is an admin tool. The manifest lists it in
+  `capabilities.adminTools` and not in `tools`, so it has no model definition and
+  the declared-tool rule refuses it on every other path. The addon runs it only
+  under the host action `delete` and only for the revision the owner confirmed.
+  It removes the file and its journal files and records the operation in the
+  ledger; repeating the operation, also after a crash between the removal and the
+  receipt, gives the same receipt.
+- The manifest `capabilities.resources` maps `create`, `rename`, `inspect` and
+  `delete` to these tools, with the noun `database`.
+
+A database is shared whole, as `viewer` or `editor`, with named users picked by
+account. An owner and an editor see the same rows; only the owner changes the
+schema, shares, renames and deletes. Deleting asks the owner to type the name,
+removes the data and every grant, and never uninstalls the addon.
+
+### The database of a chat
+
+The owner keeps which database each conversation works on, per person. A tool
+call that names no `resourceId` uses it, so a person can say "add a row" after
+choosing a database once. The model never sets it, and the owner authorizes it
+for the person on every call: a database whose grant was withdrawn or that was
+deleted is refused like an unknown one. With none selected the tool answers a
+`select_resource` result and runs nothing.
 
 ## Schema operations
 
@@ -431,3 +470,8 @@ aggregates and confirmed row changes with the real executable.
 The suite `sh scripts/addons/verify.sh tables-tools` covers the model tools,
 the consumer inventory, the pending proposal list and the approval card in a
 real browser against the real owner.
+The suite `sh scripts/addons/verify.sh tables-admin` covers the UI-only
+management of databases with the real owner, real accounts and the real
+executable: private defaults, the owner, editor and viewer matrix, sharing and
+the user picker, deletion and its crash reconciliation, the database of a
+conversation, and the answers of a forwarding frontend.

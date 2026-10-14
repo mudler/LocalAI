@@ -26,8 +26,8 @@ package versions. Registry channels are separate from package identity.
 
 Namespace IDs match `[a-z][a-z0-9-]{0,63}`. IDs are never paths. An add-on ID
 must not be one of the first path segments the host serves under `/api/addons/`:
-`apps`, `proposals`, `artifacts`, `resources`, `dispatch`, `relay`, `catalog`,
-`icon`, `assets`, `installed` and `sources`. Such a manifest is refused at
+`apps`, `proposals`, `artifacts`, `resources`, `conversations`, `dispatch`, `relay`,
+`catalog`, `icon`, `assets`, `installed` and `sources`. Such a manifest is refused at
 parse, at install and when a catalog library is refreshed, because the asset URL
 `/api/addons/<id>/assets/...` would be answered by the host route of the same
 name. A test derives the registered segments from the real routes and fails when
@@ -541,6 +541,14 @@ body, audience, nonce, and expiry. The carrier never forwards browser authorizat
 cookies, or actor headers. It has no proxy discovery, redirects, affinity, fan-out,
 owner election, or failover. An absent owner returns unavailable.
 
+Two more optional capability fields describe the UI-only resource management (see
+[UI-only resource management](#ui-only-resource-management)).
+
+| Field | Meaning and bounds |
+|---|---|
+| `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
+| `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. |
+
 ### Public API
 
 - `POST /api/addons/dispatch` accepts a contract request. Supported lifecycle actions
@@ -565,6 +573,11 @@ owner election, or failover. An absent owner returns unavailable.
 - `GET /api/addons/apps`, `GET /api/addons/apps/{id}/icon?generation=N`,
   `POST /api/addons/apps/{id}/start` and `.../stop` list and control the addons as
   apps. See [Apps](#apps).
+- `GET`/`POST /api/addons/resources`, `.../resources/{resourceId}/grants`,
+  `.../grants/{userId}`, `.../users`, `.../rename`, `.../delete`, `.../operations/{operationId}`
+  and `/api/addons/conversations/{conversationId}/selection/{addonId}` list, create,
+  share, rename and delete a person's resources and keep the resource a conversation
+  works on. They are UI-only. See [UI-only resource management](#ui-only-resource-management).
 
 Every failure response has the body `{"error":{"type","message"}}`. A denial or
 unavailability has `type` `addon_error` and a `code`. An `outcome_unknown` response is
@@ -978,6 +991,131 @@ Other frontends reach the proposal state only through the owner's gateway, signe
 actor-bound like every other forwarded call.
 
 Run `sh scripts/addons/verify.sh proposals` for the proposal suites.
+
+## UI-only resource management
+
+A person manages their own resources, for example Tables databases, from the host's own
+pages. The routes below are the whole surface. They are **never tools**: no model tool, no
+MCP tool, no proposal and no typed dispatch reaches any of them, and sharing and deletion
+have no tool definition anywhere. The routes live in the `addons` feature group with the
+usual browser protections (CSRF, same-origin cookie requests), and they are registered in
+the route-feature registry.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /api/addons/resources?addonId=` | any caller with the feature (keys too) | The resources of the add-on the caller owns or that were shared with the caller, with the caller's own role, the display name, the owner's display name for a shared one and, for the owner role only, how many people it is shared with and the revision. At most 100. |
+| `POST /api/addons/resources` | the person's own session | Create a resource through the add-on's create tool. Caller becomes the owner; the resource is private. |
+| `GET /api/addons/resources/{resourceId}/grants` | owner role, own session | Who it is shared with: immutable account ID, display name, role. |
+| `PUT /api/addons/resources/{resourceId}/grants/{userId}` | owner role, own session | Give a named user `viewer` or `editor` on the whole resource. |
+| `DELETE /api/addons/resources/{resourceId}/grants/{userId}` | owner role, own session | Remove the grant. |
+| `GET /api/addons/resources/{resourceId}/users?q=&limit=` | owner role, own session | The user picker. |
+| `POST /api/addons/resources/{resourceId}/rename` | owner role, own session | Rename through the add-on. |
+| `POST /api/addons/resources/{resourceId}/delete` | owner role, own session | Delete the resource and its data. |
+| `GET /api/addons/resources/{resourceId}/operations/{operationId}?kind=` | owner role, own session | Read-only receipt lookup of a rename or a deletion. |
+| `GET`/`PUT`/`DELETE /api/addons/conversations/{conversationId}/selection/{addonId}` | any caller with the feature | The resource a conversation works on. |
+
+"Own session" means the same rules as a confirmation: a browser session cookie, a
+same-origin fetch, `X-LocalAI-Confirm` equal to the resource ID (the operation ID for a
+creation) and no tool, agent or MCP marker. An API key, a bearer token and a legacy key are
+refused, whatever their role. In local-owner mode the rules are the same without a session.
+The grants, the picker and the receipt lookup are owner-role reads of other people's data and
+use the same surface.
+
+Every call goes to the owner through the carrier, so a frontend that holds no addon state
+gives the owner's own answer. The state is the owner's alone and is single-runner by design:
+the policy store with its `deleting` records, the proposals and the selection store
+(`selections/` below the addon root) are never read or written by a frontend, and a
+frontend that cannot reach the owner reports a mutation as `outcome_unknown` with the
+original operation ID. The owner checks the caller's role itself, with the same denial
+for an unknown resource and for one that is not the caller's. Installation administration is
+not data access: an administrator lists and changes what they own and nothing else.
+
+### Creating, renaming and deleting
+
+These are the person's own explicit actions, so they need no approval card, but they follow
+every other rule of a mutation.
+
+- **Create.** The owner reserves a pending resource, runs the add-on's create tool through
+  the same preview, apply and receipt steps as a chat creation, and activates it. The
+  resource ID is derived from the person and the `operationId`, so repeating the call
+  returns the same resource and a repeat with other arguments is refused. The arguments are
+  validated against the tool definition of the manifest exactly as a model's call is, and a
+  crash is settled at the next start like any pending reservation. The per-person limits
+  apply (`quota_reached`).
+- **Rename.** The call runs under the resource's admission, behind an unresolved outcome
+  (`outcome_blocked` for the owner role), against the generation and the revision the owner
+  listed (`stale`, nothing changed). The add-on's receipt for the operation is the record:
+  repeating an `operationId` replays it, and two people that chose the same ID never share one.
+- **Delete.** The order is durable at every step:
+  1. the resource becomes `deleting`: inaccessible to everyone, no new admission and no grant
+     change, and admitted work is cancelled and waited for (bounded);
+  2. with no work left, the owner checks the revision it listed and the confirmation: the
+     request must carry `confirm`, equal to the display name exactly. A failure returns the
+     resource to use;
+  3. the deletion is marked confirmed, pending proposals of every user on the resource are
+     cancelled, and the add-on is asked to delete under one operation identifier;
+  4. only after the add-on confirmed, the record and every grant are removed.
+
+  A crash leaves a `deleting` record. At the next start an unconfirmed one is returned to
+  use, and a confirmed one is finished; a reconcile loop retries one that cannot be finished
+  while the add-on is down. The resource stays inaccessible meanwhile. Deleting never
+  uninstalls the add-on and never touches other resources. An outcome that cannot be
+  established is `outcome_unknown` with the original `operationId`: repeat the same call, or
+  look the receipt up; nothing is submitted under a new operation.
+
+The delete tool is declared in `capabilities.adminTools`. The owner is its only caller, from
+the delete endpoint and its own crash recovery, under the host action `delete`, which no
+model tool, proposal or typed request can carry. The add-on refuses the tool under any other
+action.
+
+### Sharing
+
+Grants are whole-resource and `viewer` or `editor`; the owner role cannot be granted.
+Named-user mode only: local-owner mode answers `409` with type `sharing_disabled`, and
+anonymous and legacy principals are never grantees. The grantee is named by the immutable
+account ID that the picker returned, and must be an active named account that holds the
+`addons` feature. The picker finds such accounts by a prefix of the display name or of the
+address (2 to 64 characters, at most 20 results) and returns only an ID and a display name,
+never an address; the caller and the owner are left out, and the wildcard characters of a
+query mean themselves. Lowering or removing a grant cancels the user's pending proposals and
+stops their admitted work before the call is acknowledged; a drain that does not finish in
+the bound is `503` and the change is already effective for new work.
+
+### The resource of a conversation
+
+The selection is a convenience for chat, not an authority. The owner stores an opaque
+resource ID keyed by the authenticated user, the conversation ID and the add-on, in its own
+bounded store: at most 256 entries per user (the least recently used is replaced), 8192 in
+total, expiring after 90 days without use. It is not process-global, not shared between
+people or conversations, not part of the chat history and not sent to the model.
+
+- `PUT` requires at least the viewer role on the resource now.
+- A tool call of a chat request that names no `resourceId` uses the conversation's selection.
+  The conversation ID comes from the authenticated request (the `X-LocalAI-Conversation-Id`
+  header the chat sends), never from the model's arguments, and the owner authorizes the
+  reference for the caller on every call. A reference that was revoked, whose resource was
+  deleted, that was edited in the store or that belongs to another person gets the denial of
+  an unknown resource; the reference stays and works again if the grant does.
+- With no selection the tool call returns a result of kind `error` and code
+  `select_resource`: no operation runs and the model is told to ask the person to choose.
+- An explicit `resourceId` in the arguments is the person's own word and is used as before.
+
+### Errors
+
+| Status | `error.type` | Meaning |
+|---|---|---|
+| 400 | `invalid_request` | A missing or wrong confirmation, an operation the add-on does not support, arguments or a name it refuses, a malformed identifier. |
+| 403 | `addon_error` | Not the person's own session, feature or role denied, unknown resource: one answer for all of them. |
+| 403 | `quota_reached` | The per-person resource limits. |
+| 403 | `outcome_blocked` | Another operation on the resource has an unresolved outcome (`blockedBy` is shown to the owner role only). |
+| 404 | `not_selected` | No resource is selected, or the reference is no longer usable. |
+| 409 | `stale` | The generation or the revision the caller saw is out of date; nothing changed. |
+| 409 | `sharing_disabled` | Local-owner mode has no named users to share with. |
+| 503 | `outcome_unknown` | A mutation may have run. `operationId` is the original; repeat the same call. |
+| 503 | `addon_error` | The owner or the add-on cannot answer. |
+
+A selection call has no operation: a lost answer is plain unavailability and the call is
+safe to repeat.
 
 ## Private file results
 
