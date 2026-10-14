@@ -107,7 +107,14 @@ type Checker struct {
 	cat    Catalog
 	reader Reader
 
+	// base ends the work of every check in flight; wg waits for it, so
+	// nothing runs or writes after Close returns.
+	base   context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
 	mu       sync.Mutex
+	closed   bool
 	entries  map[string]*entry
 	flights  map[string]*flight
 	lastAddr map[string]time.Time // last explicit refresh per add-on
@@ -131,7 +138,18 @@ func New(cfg Config, c Catalog, r Reader) *Checker {
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
-	return &Checker{cfg: cfg, cat: c, reader: r, entries: map[string]*entry{}, flights: map[string]*flight{}, lastAddr: map[string]time.Time{}, lastLib: map[string]time.Time{}}
+	base, cancel := context.WithCancel(context.Background())
+	return &Checker{cfg: cfg, cat: c, reader: r, base: base, cancel: cancel, entries: map[string]*entry{}, flights: map[string]*flight{}, lastAddr: map[string]time.Time{}, lastLib: map[string]time.Time{}}
+}
+
+// Close ends every check in flight and waits for it. A check asked for after
+// Close fails with ErrUnavailable. It is safe to call more than once.
+func (c *Checker) Close() {
+	c.mu.Lock()
+	c.closed = true
+	c.mu.Unlock()
+	c.cancel()
+	c.wg.Wait()
 }
 
 // Check returns the update status of an installed add-on. Without refresh it
@@ -143,6 +161,12 @@ func New(cfg Config, c Catalog, r Reader) *Checker {
 func (c *Checker) Check(ctx context.Context, addonID string, refresh bool) (Status, error) {
 	if e := ctx.Err(); e != nil {
 		return Status{}, e
+	}
+	c.mu.Lock()
+	closed := c.closed
+	c.mu.Unlock()
+	if closed {
+		return Status{}, ErrUnavailable
 	}
 	in, ok, e := c.reader.Installation(ctx, addonID)
 	if e != nil {
@@ -219,19 +243,26 @@ func (c *Checker) cached(in Installation, now time.Time) (Status, bool) {
 
 // run evaluates once per add-on at a time: concurrent callers share the
 // answer of the check in flight. The work does not depend on one caller's
-// context, so a canceled caller cannot spoil the answer of the others.
+// context, so a canceled caller cannot spoil the answer of the others; only
+// Close or the timeout ends it.
 func (c *Checker) run(ctx context.Context, in Installation, refresh bool) (Status, error) {
 	key := in.AddonID
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return Status{}, ErrUnavailable
+	}
 	if f, ok := c.flights[key]; ok {
 		c.mu.Unlock()
 		return c.wait(ctx, f)
 	}
 	f := &flight{done: make(chan struct{})}
 	c.flights[key] = f
+	c.wg.Add(1)
 	c.mu.Unlock()
 	go func() {
-		work, cancel := context.WithTimeout(context.WithoutCancel(ctx), c.cfg.Timeout)
+		defer c.wg.Done()
+		work, cancel := context.WithTimeout(c.base, c.cfg.Timeout)
 		defer cancel()
 		f.st, f.err = c.evaluateAndStore(work, in, refresh)
 		c.mu.Lock()

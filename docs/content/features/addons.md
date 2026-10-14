@@ -1660,7 +1660,9 @@ The status also carries `installedVersion`, `installedDigest`, `candidateVersion
 
 ### Cache, refresh and credentials
 
-The check keeps a bounded cache for each add-on (default 256 entries, 15 minutes). A
+The check and its cache live on the owner only, like the journal they read: a forwarding
+frontend asks the owner and never keeps an answer of its own. The cache is bounded for each
+add-on (default 256 entries, 15 minutes) and ends with the owner. A
 status read answers from it or evaluates the library data the owner already holds; it never
 uses the network. `POST /api/addons/{id}/update/check` fetches the library again through
 the credential reference the library is configured with, at most once per interval for an

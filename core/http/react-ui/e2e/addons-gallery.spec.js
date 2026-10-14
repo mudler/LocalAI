@@ -374,7 +374,9 @@ test.describe('Add-ons: installed', () => {
     await expect(sheet.getByRole('img', { name: 'State: Failed' })).toBeVisible()
     await expect(sheet.getByText('after 3 restart attempts')).toBeVisible()
     await expect(sheet.getByText('Signed and digest checked')).toBeVisible()
-    await expect(sheet.getByText('sha256:0123456789ab')).toBeVisible()
+    // The trust section and the update section both name the installed digest.
+    await expect(sheet.getByText('sha256:0123456789ab').first()).toBeVisible()
+    await expect(sheet.getByTestId('manage-updates').getByText('sha256:0123456789ab')).toBeVisible()
     await expect(sheet.locator('dt', { hasText: 'Host API' }).locator('xpath=following-sibling::dd[1]')).toHaveText('1-2')
     await expect(sheet.getByText('12 KiB')).toBeVisible()
     await expect(sheet.getByTestId('update-state')).toHaveAttribute('data-state', 'unknown')

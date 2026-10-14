@@ -138,6 +138,11 @@ func (m *Manager) Close() error {
 		return nil
 	}
 	m.closed = true
+	if m.updates != nil {
+		// In-flight update checks end and are waited for before the owner
+		// lets go of its storage.
+		m.updates.Close()
+	}
 	if m.runtime != nil {
 		if e := m.runtime.Close(context.Background()); e != nil {
 			return e

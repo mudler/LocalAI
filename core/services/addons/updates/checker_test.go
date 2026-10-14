@@ -53,7 +53,11 @@ func (l *library) State(string) (catalog.RefreshState, bool) {
 	defer l.mu.Unlock()
 	return l.state, l.hasState
 }
-func (l *library) Releases(_ context.Context, _, id string) ([]catalog.Release, error) {
+func (l *library) Releases(ctx context.Context, _, id string) ([]catalog.Release, error) {
+	// The owner's catalog gives up on a finished context before it reads.
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.failed != nil {
@@ -424,6 +428,28 @@ var _ = Describe("Update detection", func() {
 				st, _ := r.checker.Status(context.Background(), "notes")
 				return st.State
 			}).Should(Equal(updates.UpToDate))
+		})
+		It("ends the checks in flight when it is closed and refuses new ones", func() {
+			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))
+			r.lib.delay = make(chan struct{}) // never released: only Close can end the check
+			r.lib.started = make(chan struct{}, 8)
+			done := make(chan error, 1)
+			go func() { _, e := r.checker.Check(context.Background(), "notes", true); done <- e }()
+			<-r.lib.started
+			closed := make(chan struct{})
+			go func() { r.checker.Close(); close(closed) }()
+			Eventually(closed).Should(BeClosed(), "Close returns once the check in flight has ended")
+			// The caller got an answer, not a hang: the work was canceled
+			// and its failure is a status, never an up to date.
+			var e error
+			Eventually(done).Should(Receive(&e))
+			if e == nil {
+				st, _ := r.checker.Status(context.Background(), "notes")
+				Expect(st.State).NotTo(Equal(updates.UpToDate))
+			}
+			_, e = r.checker.Check(context.Background(), "notes", false)
+			Expect(e).To(MatchError(updates.ErrUnavailable))
+			r.checker.Close()
 		})
 		It("bounds the cache and forgets the answer of a replaced package", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))

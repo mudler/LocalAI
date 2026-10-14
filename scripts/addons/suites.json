@@ -3247,7 +3247,8 @@
       "updates: a page that is behind cannot upgrade over a newer installed package",
       "updates: a candidate this host cannot run shows its reason and has no upgrade",
       "updates: an unreachable library is a failed check, never up to date, and says when it was last read",
-      "updates: on a narrow screen the check is reachable and runs from the keyboard"
+      "updates: on a narrow screen the check is reachable and runs from the keyboard",
+      "go: ends the checks in flight when it is closed and refuses new ones"
     ]
   }
 }
