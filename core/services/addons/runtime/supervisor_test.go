@@ -544,3 +544,75 @@ var _ = Describe("Close all slots", func() {
 		}
 	})
 })
+
+var _ = Describe("Addon data directory", func() {
+	withID := func(id string) packages.PackageReceipt {
+		p := fixture("normal", service)
+		p.Manifest.ID = id
+		b, e := json.Marshal(p)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.Chmod(filepath.Join(p.Directory, "receipt.json"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(p.Directory, "receipt.json"), b, 0400)).To(Succeed())
+		return p
+	}
+	supervisorWith := func(dataRoot string) *Supervisor {
+		l := contract.DefaultLimits()
+		l.ReadTimeout = 300 * time.Millisecond
+		l.ShutdownTimeout = 100 * time.Millisecond
+		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), DataRoot: dataRoot, Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
+		return s
+	}
+	// seen reads what the fixture received in its startup object.
+	seen := func(p packages.PackageReceipt) string {
+		var b []byte
+		Eventually(func() error {
+			var e error
+			b, e = os.ReadFile(filepath.Join(p.Directory, "fixture.datadir"))
+			return e
+		}, 2*time.Second).Should(Succeed())
+		return string(b)
+	}
+
+	It("creates one private data directory per addon and passes its path in the startup object", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		s := supervisorWith(root)
+		first, second := withID("sample"), withID("second")
+		_, e := s.Start(context.Background(), first, 1)
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.Start(context.Background(), second, 1)
+		Expect(e).NotTo(HaveOccurred())
+		for _, p := range []packages.PackageReceipt{first, second} {
+			want := filepath.Join(root, p.Manifest.ID)
+			Expect(seen(p)).To(Equal(want))
+			fi, e := os.Lstat(want)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(fi.IsDir()).To(BeTrue())
+			Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+			// The addon could write there, and the package directory stays
+			// free of data.
+			Expect(filepath.Join(want, "fixture.probe")).To(BeARegularFile())
+			Expect(filepath.Join(p.Directory, "fixture.probe")).NotTo(BeAnExistingFile())
+		}
+	})
+
+	It("gives no data directory without a data root and refuses an unsafe root or addon ID", func() {
+		s := supervisor()
+		p := withID("sample")
+		_, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(seen(p)).To(BeEmpty())
+
+		relative := supervisorWith("relative/data")
+		_, e = relative.Start(context.Background(), withID("sample"), 1)
+		Expect(e).To(HaveOccurred())
+
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		strict := supervisorWith(root)
+		_, e = strict.Start(context.Background(), withID("a/b"), 1)
+		Expect(e).To(HaveOccurred())
+		entries, _ := os.ReadDir(root)
+		Expect(entries).To(BeEmpty())
+	})
+})

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +44,13 @@ func main() {
 		go func() { _, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent)); os.Exit(0) }()
 	}
 	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
+	// The data directory the owner passed is recorded as received, so a test
+	// can assert what the startup object carried. Writing a probe file there
+	// shows the add-on can use it.
+	_ = os.WriteFile("fixture.datadir", []byte(startup.DataDir), 0600)
+	if startup.DataDir != "" {
+		_ = os.WriteFile(filepath.Join(startup.DataDir, "fixture.probe"), []byte("ok"), 0600)
+	}
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}

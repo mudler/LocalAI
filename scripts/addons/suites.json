@@ -280,7 +280,9 @@
       "refuses a missing established ledger and fences failed cleanup publication",
       "withdraws and initiates every live slot before a cleanup timeout",
       "reports stopped, running, failed, starting and running again across a crash and a restart",
-      "keeps reporting failed once the restart budget is exhausted"
+      "keeps reporting failed once the restart budget is exhausted",
+      "creates one private data directory per addon and passes its path in the startup object",
+      "gives no data directory without a data root and refuses an unsafe root or addon ID"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
