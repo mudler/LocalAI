@@ -315,24 +315,37 @@ class TestSglangHelpers(unittest.TestCase):
         self.assertEqual(servicer._parse_effort_budgets("low=abc;medium;=5;high=0;xhigh=100"), {"xhigh": 100})
         self.assertEqual(servicer._parse_effort_budgets(None), {})
         self.assertEqual(servicer._parse_effort_budgets(""), {})
+        self.assertEqual(servicer._parse_effort_budgets(";;low=512;"), {"low": 512})
+
+    def test_effort_budgets_empty_value_warns(self):
+        """`high=` is skipped like any other invalid entry, and says so."""
+        import contextlib
+        import io
+
+        servicer = self._servicer()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(servicer._parse_effort_budgets("high=;max=16384"), {"max": 16384})
+        self.assertIn("'high='", err.getvalue())
 
     def test_effort_level_selects_its_budget(self):
         """The request's reasoning_effort (Metadata, forwarded by the Go side)
         picks its own budget, so low/medium/high stop being identical."""
         servicer = self._servicer()
         servicer.thinking_budget = 256
-        servicer.effort_budgets = {"low": 512, "medium": 2048, "high": 8192}
-        for level, budget in (("low", 512), ("medium", 2048), ("HIGH", 8192)):
+        servicer.effort_budgets = {"low": 512, "medium": 2048, "high": 8192, "xhigh": 16384, "max": 32768}
+        for level, budget in (("low", 512), ("medium", 2048), ("HIGH", 8192), ("xhigh", 16384), ("max", 32768)):
             params = servicer._build_sampling_params(self._sampling_request({"reasoning_effort": level}))
             self.assertEqual(params["custom_params"], {"thinking_budget": budget}, level)
 
     def test_listed_effort_turns_thinking_on_despite_default_off(self):
-        """`xhigh`/`max` get no enable_thinking from the Go side; if the level is
-        in effort_budgets it must still think instead of falling to default off."""
+        """A request that carries only reasoning_effort (no enable_thinking) for a
+        level listed in effort_budgets must think instead of falling to default off."""
         servicer = self._servicer()
         servicer.reasoning_default = "off"
-        servicer.effort_budgets = {"xhigh": 16384}
+        servicer.effort_budgets = {"xhigh": 16384, "max": 16384}
         self.assertTrue(servicer._thinking_default(_request(metadata={"reasoning_effort": "xhigh"})))
+        self.assertTrue(servicer._thinking_default(_request(metadata={"reasoning_effort": "max"})))
         self.assertFalse(servicer._thinking_default(_request(metadata={"reasoning_effort": "ultra"})))
         self.assertFalse(servicer._thinking_default(
             _request(metadata={"reasoning_effort": "xhigh", "enable_thinking": "false"})))

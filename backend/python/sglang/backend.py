@@ -186,6 +186,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not sep or not level:
                 print(f"effort_budgets entry {entry!r} is not level=tokens, ignoring it", file=sys.stderr)
                 continue
+            if not raw.strip():
+                print(f"effort_budgets entry {entry!r} has no token count, ignoring it", file=sys.stderr)
+                continue
             tokens = cls._parse_thinking_budget(raw)
             if tokens is not None:
                 budgets[level] = tokens
@@ -349,8 +352,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # read it: every effort level got the same fixed `thinking_budget`, so
         # low/medium/high produced identical reasoning. With this map a request
         # gets the budget of its effort level; levels absent from the map, and
-        # requests without an effort, keep `thinking_budget`. Same semantics as
-        # vLLM's proposed `--reasoning-effort-budgets` (vllm-project/vllm#55432).
+        # requests without an effort, keep `thinking_budget`.
         self.effort_budgets: dict = self._parse_effort_budgets(opts.get("effort_budgets"))
 
         # Model-level default for whether the chat template opens a reasoning
@@ -517,7 +519,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def _thinking_default(self, request) -> Optional[bool]:
         """Whether this request should render with reasoning on, off, or unset.
 
-        Per-request ``Metadata["enable_thinking"]`` wins; the model-level
+        Per-request ``Metadata["enable_thinking"]`` wins; next, an effort level
+        listed in ``effort_budgets`` turns reasoning on; the model-level
         ``reasoning_default`` option fills in when the request is silent.
         Returns None when neither says anything, leaving template behaviour
         untouched.
@@ -526,10 +529,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if wanted in ("true", "false"):
             return wanted == "true"
         # An effort level listed in `effort_budgets` is an explicit request to
-        # think. The Go side only sets enable_thinking for the levels it knows
-        # (minimal/low/medium/high); for others such as `xhigh` or `max` it sets
-        # nothing, so `reasoning_default: off` would win and asking for MORE
-        # reasoning would yield NONE.
+        # think. Normally the Go side already sends enable_thinking for known
+        # levels; this covers levels it does not set it for (custom names in
+        # the map, or callers that only send reasoning_effort), where
+        # `reasoning_default: off` would otherwise win. An explicit
+        # enable_thinking=false above still takes precedence.
         if self.effort_budgets and self._effort(request) in self.effort_budgets:
             return True
         if self.reasoning_default == "off":
