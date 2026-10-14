@@ -257,3 +257,33 @@ It exits nonzero when a suite fails, reports a skipped case, or is missing from
 the set. A suite that is added to `suites.json` must be named in the script.
 The report of the parent review is this inventory plus the case list of
 `foundation-acceptance` in `scripts/addons/suites.json`.
+
+## Packaging suite
+
+`sh scripts/addons/verify.sh packaging` checks the first-party OCI package, its release
+channels and its workflow. It runs `scripts/addons/package_test.sh`, which prints one
+JSON line for each case. It needs no registry, no Docker and no network.
+
+- Go specs of `pkg/addons/packaging`. They build real layouts and then rewrite one part
+  of them to prove each rule: missing entrypoint, missing declared UI, missing runtime
+  library, manifest or platform mismatch, unexpected layers or media types, digest
+  mismatch, invalid permissions, traversal paths, a bundled React runtime and a partial
+  platform set. They cover the event and channel table (empty, Unicode and long refs,
+  `latest`, `development`, semver-like names and two refs that normalize alike). They
+  publish to an in-process registry and check immutable tags, digest-identical retries,
+  stale promotions and a failed promotion that leaves aliases unchanged. The workflow
+  policy has one mutated copy of the workflow for each rule.
+- `tests/addons/packaging`. It builds the Tables executable, runs `package.sh`, publishes
+  to a loopback distribution, signs the platform image with the fixture authority under
+  the identity of the rendered catalog entry, installs it with the real installer and
+  starts the executable under the real supervisor. A signature of another workflow
+  identity, an owner policy that names the backend workflow and a wrong pinned digest
+  are each refused.
+- Shell cases for `package.sh`, `channel.sh` and `addonpkg policy`, and static checks
+  that the packaging scripts never push, tag, sign or log in and never name a backend
+  registry.
+
+The suite never signs, pushes or creates a tag against a real registry. The workflow
+itself (registry login, keyless signing, the verification command) is covered by the
+policy assertions and by review, not by a live run: running it needs the protected
+environment of the repository.
