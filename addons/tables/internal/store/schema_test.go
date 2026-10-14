@@ -378,6 +378,56 @@ var _ = Describe("Tables typed schema operations", func() {
 		Expect(e).To(HaveOccurred())
 	})
 
+	It("never hands out a row ID again after a column drop rebuilds the table", func() {
+		r := newSchemaRig(store.Options{})
+		r.must(tc("T"))
+		r.must(ca("T", "keep", "text"))
+		r.must(ca("T", "gone", "text"))
+		u := ca("T", "tag", "text")
+		u.Unique = true
+		r.must(u)
+		id := r.tableID("T")
+		keep, tag := r.columnID("T", "keep"), r.columnID("T", "tag")
+		for i := 1; i <= 3; i++ {
+			_, e := r.raw().Exec("INSERT INTO "+id+"("+keep+","+tag+") VALUES(?,?)", fmt.Sprint("k", i), fmt.Sprint("t", i))
+			Expect(e).NotTo(HaveOccurred())
+		}
+		_, e := r.raw().Exec("DELETE FROM " + id + " WHERE row_id=3")
+		Expect(e).NotTo(HaveOccurred())
+		r.must(store.SchemaChange{Kind: store.KindColumnDrop, Table: "T", Column: "gone"})
+		// The surviving rows keep their IDs, the unique index still holds.
+		var ids string
+		Expect(r.raw().QueryRow("SELECT group_concat(row_id) FROM (SELECT row_id FROM " + id + " ORDER BY row_id)").Scan(&ids)).To(Succeed())
+		Expect(ids).To(Equal("1,2"))
+		_, e = r.raw().Exec("INSERT INTO " + id + "(" + tag + ") VALUES('t1')")
+		Expect(e).To(HaveOccurred())
+		res, e := r.raw().Exec("INSERT INTO " + id + "(" + keep + "," + tag + ") VALUES('k4','t4')")
+		Expect(e).NotTo(HaveOccurred())
+		last, e := res.LastInsertId()
+		Expect(e).NotTo(HaveOccurred())
+		Expect(last).To(BeEquivalentTo(4))
+	})
+
+	It("keeps the row ID counter when a column drop rebuilds a table emptied by deletes", func() {
+		r := newSchemaRig(store.Options{})
+		r.must(tc("T"))
+		r.must(ca("T", "keep", "text"))
+		r.must(ca("T", "gone", "text"))
+		id, keep := r.tableID("T"), r.columnID("T", "keep")
+		for i := 0; i < 3; i++ {
+			_, e := r.raw().Exec("INSERT INTO " + id + "(" + keep + ") VALUES('v')")
+			Expect(e).NotTo(HaveOccurred())
+		}
+		_, e := r.raw().Exec("DELETE FROM " + id)
+		Expect(e).NotTo(HaveOccurred())
+		r.must(store.SchemaChange{Kind: store.KindColumnDrop, Table: "T", Column: "gone"})
+		res, e := r.raw().Exec("INSERT INTO " + id + "(" + keep + ") VALUES('w')")
+		Expect(e).NotTo(HaveOccurred())
+		last, e := res.LastInsertId()
+		Expect(e).NotTo(HaveOccurred())
+		Expect(last).To(BeEquivalentTo(4))
+	})
+
 	It("leaves the original table, data and revision intact when a rebuild fails midway", func() {
 		r := newSchemaRig(store.Options{})
 		r.must(tc("T"))

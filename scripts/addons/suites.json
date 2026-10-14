@@ -1960,7 +1960,9 @@
           "replays one operation ID to one receipt and refuses another request under the same ID",
           "applies one change once when the same operation arrives concurrently",
           "keeps a rejected change out of the receipts so its ID is not burnt",
-          "encodes the receipt payload so the host can read what changed"
+          "encodes the receipt payload so the host can read what changed",
+          "never hands out a row ID again after a column drop rebuilds the table",
+          "keeps the row ID counter when a column drop rebuilds a table emptied by deletes"
         ]
       },
       {
@@ -2030,7 +2032,9 @@
       "settles reservations at bootstrap by asking the real addon and keeps those of pending proposals",
       "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
       "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
-      "declares the schema tools and refuses any schema tool the manifest does not name"
+      "declares the schema tools and refuses any schema tool the manifest does not name",
+      "never hands out a row ID again after a column drop rebuilds the table",
+      "keeps the row ID counter when a column drop rebuilds a table emptied by deletes"
     ]
   },
   "tables-schema": {
@@ -2094,7 +2098,9 @@
           "replays one operation ID to one receipt and refuses another request under the same ID",
           "applies one change once when the same operation arrives concurrently",
           "keeps a rejected change out of the receipts so its ID is not burnt",
-          "encodes the receipt payload so the host can read what changed"
+          "encodes the receipt payload so the host can read what changed",
+          "never hands out a row ID again after a column drop rebuilds the table",
+          "keeps the row ID counter when a column drop rebuilds a table emptied by deletes"
         ]
       },
       {
@@ -2164,7 +2170,9 @@
       "settles reservations at bootstrap by asking the real addon and keeps those of pending proposals",
       "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
       "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
-      "declares the schema tools and refuses any schema tool the manifest does not name"
+      "declares the schema tools and refuses any schema tool the manifest does not name",
+      "never hands out a row ID again after a column drop rebuilds the table",
+      "keeps the row ID counter when a column drop rebuilds a table emptied by deletes"
     ]
   }
 }

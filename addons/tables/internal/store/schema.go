@@ -704,11 +704,31 @@ func (s *Store) rebuild(ctx context.Context, tx *sql.Tx, id string, keep []catal
 	if err = s.fail(FailRebuildCopy); err != nil {
 		return err
 	}
+	// The AUTOINCREMENT counter lives in sqlite_sequence, keyed by table
+	// name, and dies with the old table. Read it now so a row ID that was
+	// handed out before is never handed out again.
+	var seq sql.NullInt64
+	if err = tx.QueryRowContext(ctx, "SELECT seq FROM sqlite_sequence WHERE name=?", id).Scan(&seq); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
 	if _, err = tx.ExecContext(ctx, "DROP TABLE "+id); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, "ALTER TABLE "+tmp+" RENAME TO "+id); err != nil {
 		return err
+	}
+	if seq.Valid {
+		// The rename carried the copy's own counter (the highest copied
+		// row ID); keep whichever of the two is larger.
+		res, err := tx.ExecContext(ctx, "UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?", seq.Int64, id)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			if _, err = tx.ExecContext(ctx, "INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)", id, seq.Int64); err != nil {
+				return err
+			}
+		}
 	}
 	for _, c := range keep {
 		if c.Unique {
