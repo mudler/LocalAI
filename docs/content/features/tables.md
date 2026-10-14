@@ -29,7 +29,7 @@ owners and grants and checks them before every call.
 | Modes | directory `0700`, files `0600` |
 | Journal | WAL, foreign keys on |
 | Name | 1 to 80 characters, no control characters, no leading or trailing space |
-| Size | at most 1 GiB per file |
+| Size | at most 1 GiB per file, enforced on every connection; a write past the cap fails with a capacity error |
 | Locks | busy timeout 3 s, 10 s limit for one operation |
 
 A resource ID must match `^[a-z][a-z0-9-]{0,63}$`. Any other value is refused

@@ -669,9 +669,16 @@ current account check and an addon that is installed, enabled and not changing o
 owner; an absent addon is denied and a manager that cannot answer is `503`. `Register`
 records the resource pending and inaccessible before the addon creates anything; `Commit`
 activates it, and `Reconcile` resolves registrations left by a crash. The owner runs
-`Reconcile` at startup before it serves. Until the code that creates resources supplies
-a backing-resource existence check, the default drops pending registrations and keeps
-committed ones. A database with no record is never reachable.
+`Reconcile` at startup before it serves. It asks the add-on whether the backing exists:
+`yes` activates the record, `no` drops it. Reconcile is fail-soft per record. When the
+answer cannot be established (the add-on is disabled, failed to start or does not
+answer), that record stays pending and hidden, is never dropped or committed, keeps its
+pending quota, and the pass goes on with the other records. Startup never aborts for this,
+and the owner logs a warning with the settled and kept counts. A background loop re-runs
+Reconcile every 30 seconds while any record is pending, so a record is settled once its
+add-on is enabled and ready. The loop stops when the owner closes and waits for a running
+pass. Pending reservations of a disabled add-on therefore stay pending until the add-on is
+enabled again. A database with no record is never reachable.
 
 Registrations are bounded. Per owner user at most 8 pending and 256 total resources, and
 at most 4096 in the store (`Options.MaxPendingPerUser`, `MaxResourcesPerUser`,

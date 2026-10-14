@@ -582,6 +582,10 @@
       "invalidates pending proposals on revoke and downgrade and fails closed when it cannot",
       "requires explicit creation authority and keeps pending registrations inaccessible",
       "reconciles a registration interrupted by a crash from the durable store",
+      "keeps a record whose existence cannot be established and settles the rest",
+      "never drops a committed resource and counts pending quota unchanged",
+      "retries kept records from the loop on a tick and on a kick, and stops on Close",
+      "closes a loop that never started without waiting",
       "maps opaque ids to the trusted addon and owner and keeps an absent policy denying",
       "does not acknowledge a retried downgrade while the lowered user's write still runs",
       "retries a failed proposal invalidation after the lowered grant is already durable",
@@ -691,6 +695,10 @@
     "cases": [
       "requires explicit creation authority and keeps pending registrations inaccessible",
       "reconciles a registration interrupted by a crash from the durable store",
+      "keeps a record whose existence cannot be established and settles the rest",
+      "never drops a committed resource and counts pending quota unchanged",
+      "retries kept records from the loop on a tick and on a kick, and stops on Close",
+      "closes a loop that never started without waiting",
       "stops admitted work of a revoked user and acknowledges only after it ended",
       "lets a racing revocation win against read and write admissions",
       "serializes writes per resource while reads run concurrently",
@@ -852,6 +860,10 @@
         "cases": [
           "requires explicit creation authority and keeps pending registrations inaccessible",
           "reconciles a registration interrupted by a crash from the durable store",
+          "keeps a record whose existence cannot be established and settles the rest",
+          "never drops a committed resource and counts pending quota unchanged",
+          "retries kept records from the loop on a tick and on a kick, and stops on Close",
+          "closes a loop that never started without waiting",
           "stops admitted work of a revoked user and acknowledges only after it ended",
           "lets a racing revocation win against read and write admissions",
           "serializes writes per resource while reads run concurrently",
@@ -1927,7 +1939,9 @@
           "renames only the named database and replays a renamed operation without effect",
           "reports an unknown database and creates nothing for it",
           "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
-          "encodes its receipts so the host can read them"
+          "encodes its receipts so the host can read them",
+          "enforces the size cap on every connection and fails with a typed capacity error",
+          "builds a database under a data directory containing percent, question and hash characters"
         ]
       },
       {
@@ -1959,6 +1973,8 @@
       "reports an unknown database and creates nothing for it",
       "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
       "encodes its receipts so the host can read them",
+      "enforces the size cap on every connection and fails with a typed capacity error",
+      "builds a database under a data directory containing percent, question and hash characters",
       "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
       "creates a database under the host-assigned ID and lists it only for people who may read it",
       "drops the reservation when the addon refuses the name, and leaves no database",
