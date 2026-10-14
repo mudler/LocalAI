@@ -72,7 +72,7 @@ test.describe('Chat composer', () => {
     await expect(list).toBeVisible()
     await expect(list.locator('.dk-cmd-label')).toHaveText(['Chat', 'View'])
     const names = await list.locator('.dk-cmd-name').allTextContents()
-    expect(names).toEqual(['/model', '/new', '/chats', '/assistant', '/canvas', '/find', '/settings', '/export', '/clear'])
+    expect(names).toEqual(['/model', '/new', '/chats', '/assistant', '/reasoning', '/effort', '/canvas', '/find', '/settings', '/export', '/clear'])
 
     await input(page).fill('/set')
     await expect(list.locator('.dk-cmd-name')).toHaveText(['/settings'])
@@ -149,7 +149,7 @@ test.describe('Chat composer', () => {
     await openChat(page, [chatOf('c1', 'Empty', 'qwen3-8b', [])])
     await input(page).fill('/')
     const names = await page.getByRole('listbox', { name: 'Actions' }).locator('.dk-cmd-name').allTextContents()
-    expect(names).toEqual(['/model', '/new', '/chats', '/assistant', '/canvas', '/settings'])
+    expect(names).toEqual(['/model', '/new', '/chats', '/assistant', '/reasoning', '/effort', '/canvas', '/settings'])
   })
 
   test('"/" from outside a text field starts a command', async ({ page }) => {
