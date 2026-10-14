@@ -64,7 +64,10 @@ func (c *Config) Seed(ctx context.Context, app *application.Application) error {
 	for _, u := range []struct {
 		name, role string
 		feature    bool
-	}{{"admin", auth.RoleAdmin, true}, {"member", auth.RoleUser, true}, {"friend", auth.RoleUser, true}, {"outsider", auth.RoleUser, false}} {
+	}{{"admin", auth.RoleAdmin, true}, {"member", auth.RoleUser, true}, {"friend", auth.RoleUser, true}, {"outsider", auth.RoleUser, false},
+		// Two more ordinary accounts for suites that need a viewer and an
+		// editor next to the owner of a resource.
+		{"viewer", auth.RoleUser, true}, {"editor", auth.RoleUser, true}} {
 		user := auth.User{ID: "fnd-" + u.name, Email: u.name + "@foundation.test", Name: u.name, Provider: auth.ProviderLocal, Role: u.role, Status: auth.StatusActive}
 		if err := db.Create(&user).Error; err != nil {
 			return err

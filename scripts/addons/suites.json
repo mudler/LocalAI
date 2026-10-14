@@ -3251,5 +3251,49 @@
       "updates: on a narrow screen the check is reachable and runs from the keyboard",
       "go: ends the checks in flight when it is closed and refuses new ones"
     ]
+  },
+  "tables-acceptance": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/tables_acceptance.sh"
+      ]
+    ],
+    "cases": [
+      "go: reports an update only on a check, shows a member no digest, refuses a key and applies one pinned candidate with the data and grants kept",
+      "go: refuses a change prepared on an old schema or data revision from two tabs of two people and applies nothing",
+      "go: replays an operation ID as one receipt from every node, conflicts on a different request and never applies twice or under a new ID",
+      "go: settles a revocation that races a confirmation: one outcome, applied at most once, and no work after the revocation",
+      "go: separates owner, editor, viewer, administrator and stranger across the browser routes, the REST routes and the chat tool consumer",
+      "go: serves the browser module to every account with the feature and to nobody else, from the owner and each frontend",
+      "go: fails every blocked consumer explicitly and never serves add-on tools to it",
+      "go: is the administrator's own action on every node and never a key's, a member's or a tool's",
+      "go: refuses a corrupt backup and a restore that is not allowed, and leaves the data as it was",
+      "go: restores a verified backup: the data goes back, the add-on starts again and access follows the current accounts",
+      "go: denies the open tabs of a disabled add-on everywhere and serves them again, with the same data, when it is enabled",
+      "go: keeps data and grants when the add-on is removed and installed again, and refuses what the old generation prepared",
+      "go: denies the next call of a paused key on every node and accepts it again when resumed",
+      "go: denies the browser, the key and the chat everywhere when the add-ons feature is withdrawn",
+      "go: lowers an editor to a viewer for the next call everywhere and drops the proposals the editor still held",
+      "go: refuses the session and the key of a disabled account on every node",
+      "go: ignores actor, forwarding and authority headers and fields on every node",
+      "go: denies authority, role and approval fields in the arguments of every consumer and creates nothing",
+      "go: applies a proposal only on the confirmation of the proposer's own tab, with its digest, exactly once",
+      "go: keeps every acknowledged change and applies no change twice when the Tables process is killed in the middle of a batch",
+      "go: keeps every acknowledged change and applies no change twice when the owner is killed in the middle of a batch and restarted",
+      "go: blocks every other write while a confirmation is unresolved, keeps reading, and accepts writes again only after the owner role resolves it",
+      "go: fails every response type closed with the same typed answer from both frontends, runs nothing there and serves everything again after the restart",
+      "go: exports a CSV through a frontend and serves the same bytes from every node to its requester only",
+      "go: stops the downloads of a person whose access to the database was revoked, on every node, and keeps the owner's",
+      "go: denies downloads while the add-on is disabled and serves a complete file again when it is enabled",
+      "tables-acceptance: a member opens the databases and a grid through each non-owner frontend and the module comes from the owner by digest",
+      "tables-acceptance: an approval card from chat on one frontend applies once and the row shows on the other frontend",
+      "tables-acceptance: deep links keep the proxy path prefix on a non-owner frontend and survive a reload",
+      "tables-acceptance: the grid works by keyboard, at 400 pixels and in both themes on a non-owner frontend",
+      "tables-acceptance: the page says it is unavailable while the owner is gone and recovers on reload when it is back",
+      "tables-acceptance: after logout nothing of the database is left in the page or the stored chat",
+      "manifest: the evidence manifest names the platform, the commands, the package digests and every case"
+    ]
   }
 }

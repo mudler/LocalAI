@@ -52,11 +52,16 @@ type Library struct {
 }
 
 // NewLibrary starts a catalog server. exe is the fixture executable that goes
-// into every package.
+// into every package built by Add. An empty path starts a library that only
+// serves finished archives (AddArchive).
 func NewLibrary(exePath string) (*Library, error) {
-	exe, err := os.ReadFile(exePath)
-	if err != nil {
-		return nil, err
+	var exe []byte
+	if exePath != "" {
+		b, err := os.ReadFile(exePath)
+		if err != nil {
+			return nil, err
+		}
+		exe = b
 	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -162,4 +167,21 @@ func (l *Library) Add(p Package, effectsDir string) error {
 		Artifact: "http://" + l.listener.Addr().String() + "/" + name,
 	})
 	return nil
+}
+
+// AddArchive lists a finished package archive (a plain tar with manifest.json
+// at its root) as one release. The catalog digest is the digest of the archive
+// bytes, which the installer verifies before it unpacks anything.
+func (l *Library) AddArchive(id, version string, archive []byte) (string, error) {
+	name := fmt.Sprintf("%s-%s.tar", id, version)
+	digest := fmt.Sprintf("sha256:%x", sha256.Sum256(archive))
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.archives[name] = archive
+	l.releases = append(l.releases, catalog.Release{
+		AddonID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
+		Digest:   digest,
+		Artifact: "http://" + l.listener.Addr().String() + "/" + name,
+	})
+	return digest, nil
 }

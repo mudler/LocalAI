@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "suite": "tables-acceptance",
+  "written": "2026-10-14T23:36:33Z",
+  "platform": {
+    "os": "linux",
+    "arch": "amd64",
+    "native": true
+  },
+  "commands": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-tags",
+      "auth",
+      "./tests/addons/tablesacceptance"
+    ]
+  ],
+  "artifact": {
+    "addon": "tables",
+    "versions": {}
+  },
+  "cases": [
+    {
+      "name": "reports an update only on a check, shows a member no digest, refuses a key and applies one pinned candidate with the data and grants kept",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "refuses a change prepared on an old schema or data revision from two tabs of two people and applies nothing",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "replays an operation ID as one receipt from every node, conflicts on a different request and never applies twice or under a new ID",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "settles a revocation that races a confirmation: one outcome, applied at most once, and no work after the revocation",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "separates owner, editor, viewer, administrator and stranger across the browser routes, the REST routes and the chat tool consumer",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "serves the browser module to every account with the feature and to nobody else, from the owner and each frontend",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "fails every blocked consumer explicitly and never serves add-on tools to it",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "is the administrator's own action on every node and never a key's, a member's or a tool's",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "refuses a corrupt backup and a restore that is not allowed, and leaves the data as it was",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "restores a verified backup: the data goes back, the add-on starts again and access follows the current accounts",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "denies the open tabs of a disabled add-on everywhere and serves them again, with the same data, when it is enabled",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "keeps data and grants when the add-on is removed and installed again, and refuses what the old generation prepared",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "denies the next call of a paused key on every node and accepts it again when resumed",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "denies the browser, the key and the chat everywhere when the add-ons feature is withdrawn",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "lowers an editor to a viewer for the next call everywhere and drops the proposals the editor still held",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "refuses the session and the key of a disabled account on every node",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "ignores actor, forwarding and authority headers and fields on every node",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "denies authority, role and approval fields in the arguments of every consumer and creates nothing",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "applies a proposal only on the confirmation of the proposer's own tab, with its digest, exactly once",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "keeps every acknowledged change and applies no change twice when the Tables process is killed in the middle of a batch",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "keeps every acknowledged change and applies no change twice when the owner is killed in the middle of a batch and restarted",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "blocks every other write while a confirmation is unresolved, keeps reading, and accepts writes again only after the owner role resolves it",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "fails every response type closed with the same typed answer from both frontends, runs nothing there and serves everything again after the restart",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "exports a CSV through a frontend and serves the same bytes from every node to its requester only",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "stops the downloads of a person whose access to the database was revoked, on every node, and keeps the owner's",
+      "state": "passed",
+      "millis": 0
+    },
+    {
+      "name": "denies downloads while the add-on is disabled and serves a complete file again when it is enabled",
+      "state": "passed",
+      "millis": 0
+    }
+  ],
+  "publication": "none: the packages are built and installed locally and nothing is pushed, tagged or signed"
+}
