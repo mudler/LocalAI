@@ -69,13 +69,16 @@ report_cases "$go_report" 'go: '
 # its suite passed with at least one spec and no failed or pending one. The only
 # skips allowed are the specs that say they need macOS: they cannot run here.
 # core/gallery gets its fixture directory, so its model install specs run.
+# A package may name one spec to run alone (see below).
 regression() {
     pkg=$1
     label=$2
-    out="$cache/logs/foundation-regression-$(printf %s "$pkg" | tr '/.' '--').json"
-    rm -f "$out"
-    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.json-report="$out" >"$out.log" 2>&1 || { tail -40 "$out.log" >&2; exit 1; }
-    python3 -I - "$out" "$label" <<'PY'
+    isolate=${3:-}
+    base="$cache/logs/foundation-regression-$(printf %s "$pkg" | tr '/.' '--')"
+    rm -f "$base.json" "$base.main.json" "$base.isolated.json" "$base.plan.json"
+    if [ -z "$isolate" ]; then
+        FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.json-report="$base.json" >"$base.log" 2>&1 || { tail -40 "$base.log" >&2; exit 1; }
+        python3 -I - "$base.json" "" "$label" <<'PY'
 import json, sys
 specs = platform = failed = 0
 for report in json.load(open(sys.argv[1])):
@@ -91,12 +94,67 @@ for report in json.load(open(sys.argv[1])):
         else:
             failed += 1
 ok = specs > 0 and failed == 0
-print(json.dumps({'case': sys.argv[2], 'status': 'passed' if ok else 'failed', 'specs': specs, 'platformSkipped': platform}))
+print(json.dumps({'case': sys.argv[3], 'status': 'passed' if ok else 'failed', 'specs': specs, 'platformSkipped': platform}))
+PY
+        return
+    fi
+    # One spec of the package replaces the process-wide logger. Specs that log
+    # from their own goroutines at the same time make it fail at random, so it
+    # runs alone, once, and the rest of the package runs without it. A dry run
+    # fixes the inventory: the two runs must account for every spec exactly
+    # once, the isolated run for exactly one.
+    FIXTURES="$root/tests/fixtures" go test -count=1 -tags auth "$pkg" -ginkgo.dry-run -ginkgo.json-report="$base.plan.json" >"$base.plan.log" 2>&1 || { tail -40 "$base.plan.log" >&2; exit 1; }
+    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.skip="$isolate" -ginkgo.json-report="$base.main.json" >"$base.main.log" 2>&1 || { tail -40 "$base.main.log" >&2; exit 1; }
+    FIXTURES="$root/tests/fixtures" go test -count=1 -p 2 -tags auth -timeout 15m "$pkg" -ginkgo.focus="$isolate" -ginkgo.json-report="$base.isolated.json" >"$base.isolated.log" 2>&1 || { tail -40 "$base.isolated.log" >&2; exit 1; }
+    python3 -I - "$base" "$isolate" "$label" <<'PY'
+import json, sys
+base, isolate, label = sys.argv[1:4]
+def its(path):
+    return [s for r in json.load(open(path)) for s in r['SpecReports'] if s['LeafNodeType'] == 'It']
+plan = its(base + '.plan.json')
+main = its(base + '.main.json')
+alone = its(base + '.isolated.json')
+isolated = [s for s in plan if isolate in s['LeafNodeText']]
+problems = []
+if len(isolated) != 1:
+    problems.append('the isolated spec must match exactly one spec, matched %d' % len(isolated))
+if len(main) != len(plan) or len(alone) != len(plan):
+    problems.append('a run reported %d and %d specs for a plan of %d' % (len(main), len(alone), len(plan)))
+platform = ran = 0
+for spec in main:
+    if isolate in spec['LeafNodeText']:
+        if spec['State'] != 'skipped':
+            problems.append('the isolated spec ran in the main run')
+        continue
+    if spec['State'] == 'passed':
+        ran += 1
+        continue
+    message = (spec.get('Failure') or {}).get('Message', '').lower()
+    if spec['State'] == 'skipped' and 'darwin' in message:
+        platform += 1
+        ran += 1
+    else:
+        problems.append('%s: %s' % (spec['State'], spec['LeafNodeText']))
+once = 0
+for spec in alone:
+    if isolate in spec['LeafNodeText']:
+        if spec['State'] == 'passed':
+            once += 1
+        else:
+            problems.append('isolated spec %s' % spec['State'])
+    elif spec['State'] != 'skipped':
+        problems.append('a spec outside the isolation ran in the isolated run')
+if once != 1 or ran != len(plan) - 1:
+    problems.append('accounted %d of %d specs, isolated run %d times' % (ran + once, len(plan), once))
+ok = not problems
+for p in problems:
+    print(p, file=sys.stderr)
+print(json.dumps({'case': label, 'status': 'passed' if ok else 'failed', 'specs': ran + once, 'platformSkipped': platform, 'isolated': once}))
 PY
 }
 regression ./core/gallery 'regression: model and backend gallery specs (core/gallery)'
 regression ./core/services/galleryop 'regression: gallery operation specs (core/services/galleryop)'
-regression ./pkg/model 'regression: process adapter specs (pkg/model)'
+regression ./pkg/model 'regression: process adapter specs (pkg/model)' 'includes the exit code and final stderr line for an unexpected exit'
 
 # 3. The browser against the real cluster.
 ready="$work/ready.json"

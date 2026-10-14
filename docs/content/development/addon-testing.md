@@ -209,13 +209,25 @@ resource, because the fixture has no add-on that creates one.
 | disable, remove, reinstall | Data and grants outlive the removal, and a stale generation and its assets are denied after an upgrade |
 | sessions and keys | Ending a session or revoking a key on one frontend refuses it on every node |
 | browser | A member sees the Apps list only and the server refuses every management request; Open works through a non-owner frontend; a proxy path prefix works for deep links; a session ended on one frontend loses the assets on the others |
-| service layer | An upgrade that cannot start keeps the last good generation running and the data; one broken add-on does not stop the owner |
+| service layer | An upgrade that cannot start keeps the last good generation running and the data; a request canceled during the start puts the last good generation back, keeps the operation open and the same operation ID finishes it; one broken add-on does not stop the owner |
 | regression | The existing model and backend gallery specs (`core/gallery`), the gallery operation specs (`core/services/galleryop`) and the process adapter specs (`pkg/model`) pass |
 
 The regression packages are the narrowest ones that run offline in under two
 minutes each and that cover the code the add-on lifecycle sits beside. The
 `core/gallery` model install specs run with `FIXTURES=tests/fixtures`. The only
 skips the gate accepts are the specs that state they need macOS.
+
+One `pkg/model` spec, "includes the exit code and final stderr line for an
+unexpected exit", replaces the process-wide logger to capture a warning. It is
+a test of the upstream package and the gate does not change it. Run together
+with the other specs of the package, goroutines of those specs can log while
+the logger is swapped and fail it at random. The gate therefore runs the
+package three times: a dry run that fixes the inventory, a run that skips that
+one spec, and a run that focuses on it alone. The case passes only when the
+dry run lists exactly one such spec, the second run passes every other spec
+(or skips it for macOS) and the third run passes that spec once. A spec that is
+not accounted for in exactly one of the runs fails the case. A real failure of
+the spec still fails the gate, with no retry.
 
 ### Reading the result
 
