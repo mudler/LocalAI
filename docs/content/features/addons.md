@@ -812,6 +812,33 @@ Every transition is written atomically and fsynced by the owner before it is rep
 store lives beside the policy store and follows the same rules: one process holds it, a
 corrupt file is refused and never reset, and a restart recovers it.
 
+### Creating a resource
+
+A request with `action: "create"` and no `resourceId` proposes the creation of a new
+resource, such as a Tables database. Nothing exists yet, so the owner works in this order:
+
+1. It checks the creation authority of the caller and that the named tool is declared.
+2. It reserves a pending resource for the proposer. A reservation is invisible to everyone,
+   the proposer included, counts against the pending limit of the user and is bound to the
+   proposer. The proposal records its ID as `resourceId`.
+3. It asks the addon for a preview with the reserved ID. The preview only validates the
+   request and creates nothing. What the human sees (`count` 1 and the requested `name`) is
+   built by the owner and not taken from the addon.
+
+Confirming runs the creation under the creation authority of the proposer, which is checked
+again, and not under a role on a resource. The addon operation ID is `create-` and the
+reserved ID, so a repeat is one operation. A committed receipt makes the proposer the
+private owner of the resource. Cancelling, expiry and a rejected receipt drop the
+reservation; the resource was never visible.
+
+An uncertain apply keeps the reservation pending and the proposal `outcome-unknown`. A
+receipt lookup settles both. The proposer can also stop waiting (`resolve`): the
+reservation is dropped only when the addon's `resource-exists` tool confirms that the
+database does not exist, and it stays pending when the addon says it exists or cannot
+answer. At start the owner settles reservations of unknown or executing proposals by asking
+the addon, and keeps those of proposals that are still pending. A reconciliation never drops
+the reservation of a creation that is running in this process.
+
 ### Confirm
 
 `POST /api/addons/proposals/{id}/confirm` with `{"digest": "..."}` submits exactly the

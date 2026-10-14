@@ -4832,15 +4832,19 @@ paths:
     post:
       consumes:
       - application/json
-      description: Previews the mutation on the addon owner and stores it as a pending
-        proposal with its exact effect count, a bounded sample, the revisions it saw
-        and an expiry. Nothing is applied. The operationId becomes the proposal ID;
-        repeating the same request returns the same proposal. Sharing and database
-        deletion are never proposals. A named session or API key with the addons feature
-        may propose; the proposal can only be applied by Confirm, which requires the
-        proposer's own browser session. No MCP tool confirms a proposal.
+      description: 'A request with action create and no resourceId proposes the creation
+        of a resource: the owner reserves a pending resource for the caller that nobody
+        can reach, shows the requested name, and creates it only on confirmation by
+        the proposer''s browser session. Previews the mutation on the addon owner
+        and stores it as a pending proposal with its exact effect count, a bounded
+        sample, the revisions it saw and an expiry. Nothing is applied. The operationId
+        becomes the proposal ID; repeating the same request returns the same proposal.
+        Sharing and database deletion are never proposals. A named session or API
+        key with the addons feature may propose; the proposal can only be applied
+        by Confirm, which requires the proposer''s own browser session. No MCP tool
+        confirms a proposal.'
       parameters:
-      - description: Typed write or schema request
+      - description: Typed write, schema or create request
         in: body
         name: request
         required: true
@@ -4877,7 +4881,8 @@ paths:
             and repeat the same call with the same ID'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
-      summary: Propose an addon data or schema mutation for confirmation
+      summary: Propose an addon data or schema mutation, or a resource creation, for
+        confirmation
       tags:
       - Addons
   /api/addons/proposals/{id}:

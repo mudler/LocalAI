@@ -78,12 +78,12 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 }
 
 // Propose stores a data or schema mutation as a pending proposal.
-// @Summary Propose an addon data or schema mutation for confirmation
-// @Description Previews the mutation on the addon owner and stores it as a pending proposal with its exact effect count, a bounded sample, the revisions it saw and an expiry. Nothing is applied. The operationId becomes the proposal ID; repeating the same request returns the same proposal. Sharing and database deletion are never proposals. A named session or API key with the addons feature may propose; the proposal can only be applied by Confirm, which requires the proposer's own browser session. No MCP tool confirms a proposal.
+// @Summary Propose an addon data or schema mutation, or a resource creation, for confirmation
+// @Description A request with action create and no resourceId proposes the creation of a resource: the owner reserves a pending resource for the caller that nobody can reach, shows the requested name, and creates it only on confirmation by the proposer's browser session. Previews the mutation on the addon owner and stores it as a pending proposal with its exact effect count, a bounded sample, the revisions it saw and an expiry. Nothing is applied. The operationId becomes the proposal ID; repeating the same request returns the same proposal. Sharing and database deletion are never proposals. A named session or API key with the addons feature may propose; the proposal can only be applied by Confirm, which requires the proposer's own browser session. No MCP tool confirms a proposal.
 // @Tags Addons
 // @Accept json
 // @Produce json
-// @Param request body contract.Request true "Typed write or schema request"
+// @Param request body contract.Request true "Typed write, schema or create request"
 // @Success 200 {object} gateway.Proposal "Stored proposal"
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"

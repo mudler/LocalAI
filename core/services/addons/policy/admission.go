@@ -55,6 +55,12 @@ type Policy struct {
 	opts  Options
 	mu    sync.Mutex
 	gates map[string]*gate
+	// inflight names reservations a creation of this process is working on.
+	// Reconcile leaves them alone: the creator settles them itself.
+	inflight map[string]struct{}
+	// holds says whether a stored proposal still holds a reservation, so a
+	// pending proposal keeps the resource it will create. The broker sets it.
+	holds func(resourceID string) bool
 }
 
 // New builds a policy on an open store.
@@ -71,7 +77,7 @@ func New(store *Store, opts Options) *Policy {
 	if opts.MaxResources <= 0 {
 		opts.MaxResources = DefaultMaxResources
 	}
-	return &Policy{store: store, opts: opts, gates: map[string]*gate{}}
+	return &Policy{store: store, opts: opts, gates: map[string]*gate{}, inflight: map[string]struct{}{}}
 }
 
 type admitted struct {
@@ -373,26 +379,38 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 // so a crash leaves a record that Reconcile can resolve and never an
 // unrecorded database.
 func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID string) (ResourceKey, error) {
+	key, release, err := p.reserve(ctx, actor, addonID)
+	release()
+	return key, err
+}
+
+// reserve is Register that also marks the reservation as in flight before it
+// is stored. The caller releases the mark once it settled the reservation or
+// handed it to a stored proposal. Until then Reconcile leaves it alone, so a
+// reconciliation never drops the record of a creation that is still running.
+func (p *Policy) reserve(ctx context.Context, actor contract.Actor, addonID string) (ResourceKey, func(), error) {
+	noop := func() {}
 	if addonID == "" || len(addonID) > 256 || p.opts.CreateAuthority == nil {
-		return ResourceKey{}, ErrForbidden
+		return ResourceKey{}, noop, ErrForbidden
 	}
 	if err := p.current(ctx, actor); err != nil {
-		return ResourceKey{}, err
+		return ResourceKey{}, noop, err
 	}
 	if err := p.opts.CreateAuthority(ctx, actor, addonID); err != nil {
 		if ctx.Err() != nil {
-			return ResourceKey{}, ctx.Err()
+			return ResourceKey{}, noop, ctx.Err()
 		}
-		return ResourceKey{}, p.classify(err)
+		return ResourceKey{}, noop, p.classify(err)
 	}
 	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {
-		return ResourceKey{}, ErrUnavailable
+		return ResourceKey{}, noop, ErrUnavailable
 	}
 	// The envelope contract requires a lowercase letter first, so a bare hex
 	// value would be refused by the runtime whenever it starts with a digit.
 	// The first character is fixed; the other 124 bits stay random.
 	id := "r" + hex.EncodeToString(raw)[1:]
+	release := p.track(id)
 	owner := p.store.Mode().ownerOf(actor)
 	err := p.store.mutate(func(d *document) error {
 		var pending, owned int
@@ -410,7 +428,29 @@ func (p *Policy) Register(ctx context.Context, actor contract.Actor, addonID str
 		d.Resources[id] = &record{AddonID: addonID, Owner: owner, State: statePend, Grants: map[string]Role{}}
 		return nil
 	})
-	return ResourceKey{AddonID: addonID, ResourceID: id}, err
+	if err != nil {
+		release()
+		return ResourceKey{}, noop, err
+	}
+	return ResourceKey{AddonID: addonID, ResourceID: id}, release, nil
+}
+
+// track marks a reservation as being worked on and returns the release.
+func (p *Policy) track(id string) func() {
+	p.mu.Lock()
+	p.inflight[id] = struct{}{}
+	p.mu.Unlock()
+	return func() { p.mu.Lock(); delete(p.inflight, id); p.mu.Unlock() }
+}
+
+// busy reports a reservation that something is still working on: a creation
+// of this process, or a stored proposal that has not run yet.
+func (p *Policy) busy(id string) bool {
+	p.mu.Lock()
+	_, flying := p.inflight[id]
+	holds := p.holds
+	p.mu.Unlock()
+	return flying || (holds != nil && holds(id))
 }
 
 func (p *Policy) pendingOwner(ctx context.Context, actor contract.Actor, key ResourceKey) error {
@@ -457,7 +497,7 @@ func (p *Policy) Abandon(ctx context.Context, actor contract.Actor, key Resource
 func (p *Policy) Reconcile(ctx context.Context, exists func(context.Context, ResourceKey) (bool, error)) error {
 	for _, id := range p.store.pending() {
 		r, ok := p.store.get(id)
-		if !ok {
+		if !ok || p.busy(id) {
 			continue
 		}
 		found, err := exists(ctx, ResourceKey{AddonID: r.AddonID, ResourceID: id})
@@ -466,7 +506,7 @@ func (p *Policy) Reconcile(ctx context.Context, exists func(context.Context, Res
 		}
 		err = p.store.mutate(func(d *document) error {
 			rec := d.Resources[id]
-			if rec == nil || rec.State != statePend {
+			if rec == nil || rec.State != statePend || p.busy(id) {
 				return nil
 			}
 			if found {

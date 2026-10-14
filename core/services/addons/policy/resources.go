@@ -39,10 +39,12 @@ func (p *Policy) Create(ctx context.Context, actor contract.Actor, addonID strin
 	if create == nil {
 		return ResourceKey{}, ErrForbidden
 	}
-	key, err := p.Register(ctx, actor, addonID)
+	key, release, err := p.reserve(ctx, actor, addonID)
 	if err != nil {
 		return ResourceKey{}, err
 	}
+	// The reservation is in flight until it is settled or left to Reconcile.
+	defer release()
 	if err = create(ctx, key); err != nil {
 		if errors.Is(err, ErrNotCreated) {
 			// Settle the reservation even when the request context is gone.
@@ -242,3 +244,63 @@ func RuntimeCreate(rt gateway.CurrentRuntime, tools gateway.ToolSource, limits c
 // Pending lists the IDs of reservations that were neither committed nor
 // abandoned. It is for status and tests; it grants nothing.
 func (p *Policy) Pending() ([]string, error) { return p.store.pending(), nil }
+
+// activateReservation makes a pending reservation usable. It is for the
+// owner's own settlement of a stored create proposal, so it checks that the
+// record still belongs to the proposer and asks nothing of the actor again.
+func (p *Policy) activateReservation(key ResourceKey, userID string) error {
+	return p.store.mutate(func(d *document) error {
+		r := d.Resources[key.ResourceID]
+		if r == nil || r.State != statePend || r.AddonID != key.AddonID || r.Owner != p.store.Mode().ownerOf(contract.Actor{UserID: userID}) {
+			return nil
+		}
+		r.State = stateActive
+		return nil
+	})
+}
+
+// dropReservation removes a pending reservation that nothing created.
+func (p *Policy) dropReservation(key ResourceKey) error {
+	return p.store.mutate(func(d *document) error {
+		if r := d.Resources[key.ResourceID]; r != nil && r.State == statePend && r.AddonID == key.AddonID {
+			delete(d.Resources, key.ResourceID)
+		}
+		return nil
+	})
+}
+
+// reservationPending reports whether the reservation is still pending.
+func (p *Policy) reservationPending(key ResourceKey) bool {
+	r, ok := p.store.get(key.ResourceID)
+	return ok && r.State == statePend && r.AddonID == key.AddonID
+}
+
+// admitCreate serializes the use of one reservation and runs only while the
+// actor still holds creation authority and still owns the pending record. It
+// is the admission of a create proposal, which acts on no existing resource,
+// so no role on a resource can stand in for the creation authority.
+func (p *Policy) admitCreate(ctx context.Context, actor contract.Actor, key ResourceKey, run func(context.Context) error) error {
+	if run == nil || p.opts.CreateAuthority == nil {
+		return ErrForbidden
+	}
+	g := p.gate(key.ResourceID)
+	select {
+	case g.writer <- struct{}{}:
+		defer func() { <-g.writer }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if err := p.current(ctx, actor); err != nil {
+		return err
+	}
+	if err := p.opts.CreateAuthority(ctx, actor, key.AddonID); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return p.classify(err)
+	}
+	if err := p.pendingOwner(ctx, actor, key); err != nil {
+		return err
+	}
+	return run(ctx)
+}

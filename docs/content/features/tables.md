@@ -61,7 +61,12 @@ grant for.
 
 Changes made from chat are proposals: the model asks, LocalAI previews the
 change, and a person confirms it in the host confirmation card. A rename uses
-the standard proposal path. Sharing and deleting a database are not tools.
+the standard proposal path. Creating a database from chat is a proposal too
+(`databases-create` with a `name`, no resource ID). LocalAI reserves a pending
+resource for the person who asked, shows the requested name in the card, and
+creates the database only when that person confirms it. Cancelling or letting
+the proposal expire removes the reservation. Sharing and deleting a database
+are not tools.
 
 ## How creation survives a crash
 
@@ -84,7 +89,11 @@ pending resource at the next start by calling `resource-exists`:
 
 A database file without a record cannot be reached by anyone. A creation whose
 outcome is uncertain keeps its reservation, and that reservation counts against
-the per-user limit of pending resources until the next start.
+the per-user limit of pending resources until its receipt is found, the person
+who asked stops waiting, or the next start. Stopping to wait drops the
+reservation only when `resource-exists` says there is no database. A pending
+chat proposal keeps its reservation, so a restart does not remove a database
+you can still confirm.
 
 ## Limits
 

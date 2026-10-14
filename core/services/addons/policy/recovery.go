@@ -56,7 +56,7 @@ func (b *Broker) Reconcile(ctx context.Context, operationID string) (contract.Re
 		b.markUnknown(r, live, "addon generation changed")
 		return contract.Receipt{}, ErrUnavailable
 	}
-	receipt, err := instance.Client.Receipt(ctx, operationID)
+	receipt, err := instance.Client.Receipt(ctx, r.wireOperation())
 	if err != nil {
 		b.markUnknown(r, live, "receipt lookup failed")
 		if ctx.Err() != nil {
@@ -143,6 +143,9 @@ func (b *Broker) Recover(ctx context.Context) error {
 			b.markUnknown(r, false, "recovered after restart")
 		}
 	}
+	// A creation whose outcome was stored but whose reservation was not
+	// settled before the crash is settled from its stored state.
+	b.settleCreates()
 	return nil
 }
 
@@ -273,6 +276,9 @@ func (b *Broker) Resolve(ctx context.Context, actor contract.Actor, id, digest, 
 	if !ok || id == "" {
 		return Proposal{}, ErrForbidden
 	}
+	if r.Action == createAction {
+		return b.resolveCreate(ctx, p, actor, r, digest, reason)
+	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
 	var out Proposal
 	err = p.Admit(ctx, actor, key, ActionResolve, func(rctx context.Context) error {
@@ -364,5 +370,74 @@ func (b *Broker) Unresolved(ctx context.Context, actor contract.Actor, resourceI
 	}
 	// Oldest first, so the owner sees what has waited longest.
 	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	return out, nil
+}
+
+// resolveCreate is Resolve for a create proposal. The resource is only a
+// reservation of the proposer, so the proposer is the one who may stop
+// waiting; there is no resource owner role yet. The reservation is dropped
+// only when the addon confirms that its backing does not exist. When the addon
+// says it exists, or cannot answer, the reservation stays pending: a late
+// receipt or the startup reconciliation settles it, and it is never made
+// reachable or dropped on a guess.
+func (b *Broker) resolveCreate(ctx context.Context, p *Policy, actor contract.Actor, r proposalRecord, digest, reason string) (Proposal, error) {
+	if r.Actor.UserID != actor.UserID || r.Actor.Mode != actor.Mode {
+		return Proposal{}, ErrForbidden
+	}
+	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
+	var out Proposal
+	// The slot serializes the resolution with a confirmation of the same
+	// reservation. Creation authority is not needed to stop waiting.
+	g := p.gate(r.ResourceID)
+	select {
+	case g.writer <- struct{}{}:
+		defer func() { <-g.writer }()
+	case <-ctx.Done():
+		return Proposal{}, ctx.Err()
+	}
+	cur, ok := b.store.get(r.ID)
+	if !ok {
+		return Proposal{}, ErrForbidden
+	}
+	if digestOf(&cur) != cur.Digest || digest == "" || digest != cur.Digest {
+		return Proposal{}, ErrProposalChanged
+	}
+	switch cur.State {
+	case gateway.ProposalApplied, gateway.ProposalRejected, gateway.ProposalAbandoned:
+	case gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown:
+		_, _ = b.Reconcile(ctx, r.ID)
+		cur, _ = b.store.get(r.ID)
+		if !cur.unresolved() {
+			break
+		}
+		b.mu.Lock()
+		_, live := b.live[r.ID]
+		b.mu.Unlock()
+		if live {
+			return Proposal{}, ErrProposalClosed
+		}
+		var found bool
+		var askErr error = ErrUnavailable
+		if b.opts.BackingExists != nil {
+			found, askErr = b.opts.BackingExists(ctx, key)
+		}
+		at := b.opts.Now()
+		moved, e := b.store.transition(r.ID, []ProposalState{gateway.ProposalExecuting, gateway.ProposalOutcomeUnknown}, func(x *proposalRecord) {
+			x.State = gateway.ProposalAbandoned
+			x.Reason = "abandoned by the proposer"
+			x.Resolution = &gateway.ProposalResolution{ActorID: actor.UserID, At: at, Reason: reason}
+		})
+		if e != nil {
+			return Proposal{}, e
+		}
+		cur = moved
+		if askErr == nil && !found {
+			_ = p.dropReservation(key)
+		}
+	default:
+		return Proposal{}, ErrProposalClosed
+	}
+	b.settleCreates()
+	out = b.view(cur)
 	return out, nil
 }

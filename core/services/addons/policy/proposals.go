@@ -30,6 +30,12 @@ type ProposalState = gateway.ProposalState
 
 const (
 	proposalFileName = "proposals.json"
+	// createAction is the action of a proposal that creates a resource. The
+	// resource does not exist yet: its ID names a reservation the host made
+	// for the proposer, and the actor needs creation authority, not a role.
+	createAction = "create"
+	// maxCreateName bounds the name a create proposal shows to the human.
+	maxCreateName = 256
 	// MaxProposalsPerUser bounds the live proposals one user holds: pending
 	// ones that have not expired and unresolved ones.
 	MaxProposalsPerUser = 32
@@ -178,7 +184,7 @@ func loadProposals(dir string) (*proposalDocument, error) {
 		var args map[string]json.RawMessage
 		if r == nil || r.ID != id || id == "" || r.Actor.UserID == "" || r.Actor.CredentialID == "" || r.AddonID == "" || r.ResourceID == "" ||
 			r.Generation == 0 || !validState(r.State) || r.Digest == "" || json.Unmarshal(r.Arguments, &args) != nil || args == nil ||
-			ParseAction(r.Action) == ActionUnknown || (r.State == gateway.ProposalApplied && (r.Receipt == nil || r.Receipt.State != contract.ReceiptCommitted)) ||
+			(ParseAction(r.Action) == ActionUnknown && r.Action != createAction) || (r.State == gateway.ProposalApplied && (r.Receipt == nil || r.Receipt.State != contract.ReceiptCommitted)) ||
 			(r.State == gateway.ProposalAbandoned && (r.Resolution == nil || r.Resolution.ActorID == "" || r.Resolution.Reason == "")) {
 			return nil, corrupt
 		}
@@ -350,6 +356,11 @@ type BrokerOptions struct {
 	// LookupInterval is how often Run asks for the receipts of unresolved
 	// proposals that are due. The zero value is five seconds.
 	LookupInterval time.Duration
+	// BackingExists asks the addon whether the backing of a reserved resource
+	// exists. Resolving an unknown create uses it: the reservation is dropped
+	// only when it answers "does not exist". Without it a reservation is
+	// never dropped by resolution.
+	BackingExists func(context.Context, ResourceKey) (bool, error)
 }
 
 // Broker is the owner-held proposal state machine. A data or schema mutation
@@ -382,6 +393,9 @@ type brokerHooks struct {
 	afterExecuting func(id string)
 	// afterApply runs once the runtime answered, before the answer is stored.
 	afterApply func(id string)
+	// afterSettle runs once the outcome of a create is stored, before its
+	// reservation is committed or abandoned.
+	afterSettle func(id string)
 }
 
 var _ ProposalInvalidator = (*Broker)(nil)
@@ -435,6 +449,45 @@ func (b *Broker) Attach(p *Policy) {
 	b.mu.Lock()
 	b.policy = p
 	b.mu.Unlock()
+	// A pending create proposal holds its reservation: a reconciliation must
+	// not drop the resource a human can still confirm.
+	p.mu.Lock()
+	p.holds = b.holdsReservation
+	p.mu.Unlock()
+}
+
+// holdsReservation reports a reservation that a pending, unexpired create
+// proposal will use.
+func (b *Broker) holdsReservation(resourceID string) bool {
+	s := b.store
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := b.opts.Now()
+	for _, r := range s.doc.Proposals {
+		if r.Action == createAction && r.ResourceID == resourceID && r.State == gateway.ProposalPending && now.Before(r.ExpiresAt) {
+			return true
+		}
+	}
+	return false
+}
+
+// wireOperation is the operation identifier the addon sees. A create is named
+// by its reservation, so repeating it for one reservation is one operation
+// whoever asks, and a receipt lookup needs no proposal.
+func (r *proposalRecord) wireOperation() string {
+	if r.Action == createAction {
+		return "create-" + r.ResourceID
+	}
+	return r.ID
+}
+
+// wireAction is the typed action the addon sees. Creating a database is a
+// schema operation for the addon.
+func (r *proposalRecord) wireAction() string {
+	if r.Action == createAction {
+		return string(ActionSchema)
+	}
+	return r.Action
 }
 
 // Close stops the background run, cancels the lookups in flight and waits for
@@ -633,6 +686,9 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	if err != nil {
 		return Proposal{}, err
 	}
+	if request.Action == createAction {
+		return b.proposeCreate(ctx, p, actor, request)
+	}
 	action := ParseAction(request.Action)
 	if action != ActionWrite && action != ActionSchema {
 		return Proposal{}, ErrForbidden
@@ -714,6 +770,99 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 	return out, err
 }
 
+// proposeCreate stores a request to create a resource. The resource does not
+// exist, so the host reserves a pending one for the proposer first: it is
+// invisible to everyone, counts against the pending quota and is bound to the
+// proposer. The proposal records that reservation as its resource. What the
+// human is shown is built here from the requested name; the addon only
+// validates the request, by a preview that creates nothing. A proposal that
+// cannot be stored drops its reservation again.
+func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Actor, request contract.Request) (Proposal, error) {
+	if request.ResourceID != "" {
+		return Proposal{}, ErrForbidden
+	}
+	args, err := b.canonicalArguments(request.Arguments)
+	if err != nil {
+		return Proposal{}, err
+	}
+	request.Arguments = args
+	if err = b.authorizeTool(ctx, request.AddonID, request.Generation, args); err != nil {
+		return Proposal{}, err
+	}
+	now := b.opts.Now()
+	probe := contract.Envelope{Request: request, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: now.Add(b.opts.Limits.PreviewTimeout)}}
+	if probe.Validate(now, b.opts.Limits) != nil {
+		return Proposal{}, ErrForbidden
+	}
+	var asked struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(args, &asked) != nil || asked.Name == "" || len(asked.Name) > maxCreateName {
+		return Proposal{}, ErrForbidden
+	}
+	if err = p.current(ctx, actor); err != nil {
+		return Proposal{}, err
+	}
+	// Expired and cancelled proposals give their reservations back first, so
+	// they do not hold the user's pending quota.
+	b.settleCreates()
+	if existing, ok := b.store.get(request.OperationID); ok {
+		// Repeating the request returns the stored proposal.
+		if existing.Action == createAction && existing.Actor.UserID == actor.UserID && existing.Actor.Mode == actor.Mode &&
+			existing.AddonID == request.AddonID && existing.Generation == request.Generation && bytes.Equal(existing.Arguments, args) {
+			return b.view(existing), nil
+		}
+		return Proposal{}, ErrForbidden
+	}
+	instance, err := b.runtime(ctx, request.AddonID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if instance.Generation != request.Generation {
+		return Proposal{}, ErrProposalStale
+	}
+	key, release, err := p.reserve(ctx, actor, request.AddonID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	// The reservation is in flight until a stored proposal holds it.
+	defer release()
+	rec := &proposalRecord{ID: request.OperationID, Actor: actor, AddonID: key.AddonID, ResourceID: key.ResourceID, Generation: request.Generation,
+		Action: createAction, Arguments: args, State: gateway.ProposalPending}
+	env := contract.Envelope{
+		Request:   contract.Request{AddonID: key.AddonID, ResourceID: key.ResourceID, OperationID: rec.wireOperation(), Generation: request.Generation, Action: rec.wireAction(), Arguments: args},
+		Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)},
+	}
+	preview, err := instance.Client.Preview(ctx, env)
+	if err != nil {
+		// A preview creates nothing, so the reservation is dropped.
+		_ = p.dropReservation(key)
+		if ctx.Err() != nil {
+			return Proposal{}, ctx.Err()
+		}
+		return Proposal{}, ErrUnavailable
+	}
+	sample, _ := json.Marshal(map[string]string{"action": "create", "addon": key.AddonID, "name": asked.Name})
+	created := b.opts.Now()
+	expires := created.Add(b.opts.Limits.ProposalExpiry)
+	if preview.ExpiresAt.Before(expires) {
+		expires = preview.ExpiresAt
+	}
+	if !expires.After(created) {
+		_ = p.dropReservation(key)
+		return Proposal{}, ErrUnavailable
+	}
+	rec.Revision = preview.Revision
+	rec.Effects = gateway.ProposalEffects{Count: 1, Sample: sample}
+	rec.CreatedAt, rec.ExpiresAt = created, expires
+	rec.Digest = digestOf(rec)
+	if err = b.insert(rec, b.store.invalidationCount(key.ResourceID, actor.UserID), actor.UserID, created); err != nil {
+		_ = p.dropReservation(key)
+		return Proposal{}, err
+	}
+	return b.view(*rec), nil
+}
+
 func sameRequest(r proposalRecord, actor contract.Actor, key ResourceKey, request contract.Request, action Action) bool {
 	return r.Actor.UserID == actor.UserID && r.Actor.Mode == actor.Mode && r.AddonID == key.AddonID && r.ResourceID == key.ResourceID &&
 		r.Generation == request.Generation && r.Action == string(action) && bytes.Equal(r.Arguments, request.Arguments)
@@ -771,17 +920,48 @@ var errNothingToSweep = errors.New("nothing to sweep")
 func (b *Broker) Sweep() error {
 	s := b.store
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	err := s.mutateLocked(func(d *proposalDocument) error {
 		if !b.sweep(d, b.opts.Now()) {
 			return errNothingToSweep
 		}
 		return nil
 	})
+	s.mu.Unlock()
+	// Expired creations give their reservations back.
+	b.settleCreates()
 	if errors.Is(err, errNothingToSweep) {
 		return nil
 	}
 	return err
+}
+
+// settleCreates moves the reservation of every create proposal to what its
+// stored state says. It asks nothing of the addon: an applied creation is
+// committed, a cancelled, expired or rejected one never created anything and
+// is dropped. An unresolved one stays pending until a receipt, the owner's
+// resolution or the startup reconciliation settles it. It is idempotent, so
+// every path that stores a state calls it and a crash between the two writes
+// is repaired by the next call.
+func (b *Broker) settleCreates() {
+	p, err := b.attached()
+	if err != nil {
+		return
+	}
+	for _, r := range b.store.all() {
+		if r.Action != createAction {
+			continue
+		}
+		key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
+		if !p.reservationPending(key) {
+			continue
+		}
+		switch r.State {
+		case gateway.ProposalApplied:
+			_ = p.activateReservation(key, r.Actor.UserID)
+		case gateway.ProposalCancelled, gateway.ProposalExpired, gateway.ProposalRejected:
+			_ = p.dropReservation(key)
+		}
+	}
 }
 
 // insert stores a new pending proposal unless a revocation of the proposer's
@@ -889,6 +1069,7 @@ func (b *Broker) expire(r proposalRecord) (proposalRecord, bool) {
 		r.State = gateway.ProposalExpired
 		return r, true
 	}
+	b.settleCreates()
 	return n, true
 }
 
@@ -931,10 +1112,14 @@ func (b *Broker) cancel(ctx context.Context, actor contract.Actor, id string) (p
 	if r.State == gateway.ProposalCancelled {
 		return r, nil
 	}
-	return b.store.transition(id, []ProposalState{gateway.ProposalPending}, func(x *proposalRecord) {
+	out, err := b.store.transition(id, []ProposalState{gateway.ProposalPending}, func(x *proposalRecord) {
 		x.State = gateway.ProposalCancelled
 		x.Reason = "cancelled"
 	})
+	if err == nil {
+		b.settleCreates()
+	}
+	return out, err
 }
 
 // Confirm applies the stored proposal once. It is the only way a stored
@@ -970,6 +1155,8 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	switch r.State {
 	case gateway.ProposalApplied, gateway.ProposalRejected:
 		// Single use: a repeat gets the stored answer and executes nothing.
+		// A creation whose reservation was not settled yet is settled now.
+		b.settleCreates()
 		if r.Receipt != nil {
 			return *r.Receipt, nil
 		}
@@ -993,10 +1180,17 @@ func (b *Broker) ConfirmBound(ctx context.Context, actor contract.Actor, proposa
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
 	var receipt contract.Receipt
 	var outcome error
-	err = p.Admit(ctx, actor, key, ParseAction(r.Action), func(rctx context.Context) error {
+	run := func(rctx context.Context) error {
 		receipt, outcome = b.execute(rctx, actor, r.ID)
 		return outcome
-	})
+	}
+	if r.Action == createAction {
+		// No resource exists to hold a role on: the actor needs creation
+		// authority now and must own the pending reservation.
+		err = p.admitCreate(ctx, actor, key, run)
+	} else {
+		err = p.Admit(ctx, actor, key, ParseAction(r.Action), run)
+	}
 	if err != nil {
 		return contract.Receipt{}, err
 	}
@@ -1023,6 +1217,11 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	}
 	if digestOf(&r) != r.Digest {
 		return contract.Receipt{}, ErrProposalChanged
+	}
+	if r.Action == createAction {
+		// The reservation stays in flight until the outcome is stored, so a
+		// reconciliation cannot drop it while the addon is creating.
+		defer b.policy.track(r.ResourceID)()
 	}
 	if _, expired := b.expire(r); expired {
 		return contract.Receipt{}, ErrProposalExpired
@@ -1067,7 +1266,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		return contract.Receipt{}, ErrForbidden
 	}
 	env := contract.Envelope{
-		Request:   contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.ID, Generation: r.Generation, Action: r.Action, Arguments: r.Arguments},
+		Request:   contract.Request{AddonID: r.AddonID, ResourceID: r.ResourceID, OperationID: r.wireOperation(), Generation: r.Generation, Action: r.wireAction(), Arguments: r.Arguments},
 		Authority: contract.Authority{Actor: actor, Scope: "apply", ExpiresAt: b.opts.Now().Add(b.opts.Limits.ApplyTimeout)},
 	}
 	receipt, err := instance.Client.Apply(ctx, env, r.Revision)
@@ -1102,6 +1301,10 @@ func (b *Broker) settle(id string, state ProposalState, receipt *contract.Receip
 			x.Receipt = &c
 		}
 	})
+	if b.hooks.afterSettle != nil {
+		b.hooks.afterSettle(id)
+	}
+	b.settleCreates()
 }
 
 // gatewayBroker adapts Broker to gateway.ProposalBroker.

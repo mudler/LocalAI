@@ -107,6 +107,13 @@ func (a *Application) startAddonGateway() error {
 	if a.addonManager != nil {
 		brokerOpts.Runtime = a.addonManager
 	}
+	// The same existence check settles the registrations a crash left and the
+	// reservations of create proposals the proposer stops waiting for.
+	exists := a.addonResourceExists
+	if exists == nil {
+		exists = a.addonBackingExists(contract.DefaultLimits())
+	}
+	brokerOpts.BackingExists = exists
 	broker, e := policy.OpenBroker(filepath.Join(cfg.Root, "proposals"), brokerOpts)
 	if e != nil {
 		_ = store.Close()
@@ -129,10 +136,6 @@ func (a *Application) startAddonGateway() error {
 	// Registrations left pending by a crash are settled before anything is
 	// served. Without a backing-resource check they are dropped and committed
 	// resources are kept; the check is supplied by the code that creates them.
-	exists := a.addonResourceExists
-	if exists == nil {
-		exists = a.addonBackingExists(contract.DefaultLimits())
-	}
 	if e = p.Reconcile(a.applicationConfig.Context, exists); e != nil {
 		closeState()
 		return errors.Join(e, addons.ErrRecoveryRequired)

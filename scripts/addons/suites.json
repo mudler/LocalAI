@@ -643,7 +643,20 @@
       "rechecks the stored tool at confirmation and never applies a withdrawn tool",
       "denies a proposal whose arguments repeat a key and stores nothing",
       "reports an unavailable declaration source as unavailable, never as a denial",
-      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers"
+      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
+      "reserves a create proposal as a pending resource that nobody can reach",
+      "commits the reservation on confirmation and makes the proposer the private owner",
+      "abandons the reservation when a create proposal is cancelled or expires",
+      "abandons the reservation when the addon rejects the creation",
+      "keeps a lost create reply pending and unknown and settles it by receipt",
+      "abandons an unknown create only when the addon confirms the backing is absent",
+      "settles reservations at restart by asking the addon and keeps those of live proposals",
+      "bounds concurrent create proposals by the pending quota",
+      "lets only the proposer confirm, cancel or read a create proposal",
+      "denies a create proposal when creation authority is revoked before confirmation",
+      "denies a create proposal for an undeclared tool or an existing resource without reserving",
+      "does not let reconcile drop the reservation of a creation in flight",
+      "commits the reservation at recovery when the crash came after the receipt was stored"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -815,7 +828,20 @@
       "denies a proposal whose arguments repeat a key and stores nothing",
       "reports an unavailable declaration source as unavailable, never as a denial",
       "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
-      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+      "reserves a create proposal as a pending resource that nobody can reach",
+      "commits the reservation on confirmation and makes the proposer the private owner",
+      "abandons the reservation when a create proposal is cancelled or expires",
+      "abandons the reservation when the addon rejects the creation",
+      "keeps a lost create reply pending and unknown and settles it by receipt",
+      "abandons an unknown create only when the addon confirms the backing is absent",
+      "settles reservations at restart by asking the addon and keeps those of live proposals",
+      "bounds concurrent create proposals by the pending quota",
+      "lets only the proposer confirm, cancel or read a create proposal",
+      "denies a create proposal when creation authority is revoked before confirmation",
+      "denies a create proposal for an undeclared tool or an existing resource without reserving",
+      "does not let reconcile drop the reservation of a creation in flight",
+      "commits the reservation at recovery when the crash came after the receipt was stored"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -903,7 +929,20 @@
           "rechecks the stored tool at confirmation and never applies a withdrawn tool",
           "denies a proposal whose arguments repeat a key and stores nothing",
           "reports an unavailable declaration source as unavailable, never as a denial",
-          "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers"
+          "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
+          "reserves a create proposal as a pending resource that nobody can reach",
+          "commits the reservation on confirmation and makes the proposer the private owner",
+          "abandons the reservation when a create proposal is cancelled or expires",
+          "abandons the reservation when the addon rejects the creation",
+          "keeps a lost create reply pending and unknown and settles it by receipt",
+          "abandons an unknown create only when the addon confirms the backing is absent",
+          "settles reservations at restart by asking the addon and keeps those of live proposals",
+          "bounds concurrent create proposals by the pending quota",
+          "lets only the proposer confirm, cancel or read a create proposal",
+          "denies a create proposal when creation authority is revoked before confirmation",
+          "denies a create proposal for an undeclared tool or an existing resource without reserving",
+          "does not let reconcile drop the reservation of a creation in flight",
+          "commits the reservation at recovery when the crash came after the receipt was stored"
         ]
       },
       {
