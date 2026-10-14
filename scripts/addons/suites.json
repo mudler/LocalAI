@@ -2008,7 +2008,15 @@
           "renames only the named database and replays a renamed operation without effect",
           "reports an unknown database and creates nothing for it",
           "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
-          "encodes its receipts so the host can read them"
+          "encodes its receipts so the host can read them",
+          "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+          "prefixes text cells and labels that a spreadsheet would run, never numbers",
+          "honours columns, the row identifier column, filter, sort and the row limit of the query",
+          "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+          "streams a large table row by row with bounded memory",
+          "fails cleanly past the row or byte bound and keeps the bound finite by default",
+          "stops on cancellation, on its deadline and on a failing destination, and reports each",
+          "does not change the database it reads"
         ]
       },
       {
@@ -2116,7 +2124,15 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads"
     ]
   },
   "tables-schema": {
@@ -2204,7 +2220,15 @@
           "renames only the named database and replays a renamed operation without effect",
           "reports an unknown database and creates nothing for it",
           "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
-          "encodes its receipts so the host can read them"
+          "encodes its receipts so the host can read them",
+          "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+          "prefixes text cells and labels that a spreadsheet would run, never numbers",
+          "honours columns, the row identifier column, filter, sort and the row limit of the query",
+          "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+          "streams a large table row by row with bounded memory",
+          "fails cleanly past the row or byte bound and keeps the bound finite by default",
+          "stops on cancellation, on its deadline and on a failing destination, and reports each",
+          "does not change the database it reads"
         ]
       },
       {
@@ -2312,7 +2336,15 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads"
     ]
   },
   "tables-rows": {
@@ -2400,7 +2432,15 @@
           "renames only the named database and replays a renamed operation without effect",
           "reports an unknown database and creates nothing for it",
           "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
-          "encodes its receipts so the host can read them"
+          "encodes its receipts so the host can read them",
+          "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+          "prefixes text cells and labels that a spreadsheet would run, never numbers",
+          "honours columns, the row identifier column, filter, sort and the row limit of the query",
+          "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+          "streams a large table row by row with bounded memory",
+          "fails cleanly past the row or byte bound and keeps the bound finite by default",
+          "stops on cancellation, on its deadline and on a failing destination, and reports each",
+          "does not change the database it reads"
         ]
       },
       {
@@ -2508,7 +2548,15 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota"
+      "lists at most the bound of pending proposals and refuses more than the user's quota",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads"
     ]
   },
   "tables-tools": {
@@ -2625,7 +2673,15 @@
       "answers a revoked, deleted or tampered reference like an unknown database and never reuses it",
       "applies schema and row changes under the roles of the host, once per operation, with a receipt and no proposal",
       "refuses crafted writes by a viewer, an editor's schema change, a revoked editor and an installation administrator",
-      "carries a UI change to the owner from a forwarding frontend and answers as the owner does"
+      "carries a UI change to the owner from a forwarding frontend and answers as the owner does",
+      "exports a table with exact bytes and attachment headers over real HTTP and shows no one else the file",
+      "keeps a shared database's file private, applies the person's own filter and sort, and denies after the grant is withdrawn",
+      "serves the same bytes and headers through a forwarding frontend, and fails the same way for a stranger",
+      "answers a result past the export limit as data with no file",
+      "binds an output handle to its operation, person and database",
+      "fails a truncated, grown or vanished stream and never serves it",
+      "fails the transfer when the store cannot write, and when the source is revoked before completion",
+      "expires the file only, enforces the quota per person and leaves the database as it was"
     ]
   },
   "tables-ui": {
@@ -2695,6 +2751,54 @@
       "tables-ui: the pages work by keyboard, at 400 pixels and in the light and dark themes",
       "tables-ui: logging out clears what was read and the next person on the same tab sees none of it",
       "tables-ui: in local-owner mode sharing is disabled and the owner still manages databases"
+    ]
+  },
+  "tables-csv": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/tables_csv.sh"
+      ]
+    ],
+    "cases": [
+      "unit: artifacts: only a host identifier names a file, and the only link is the host route",
+      "unit: artifacts: the card offers a download only for a complete file that has not expired",
+      "unit: artifacts: sizes are written with a binary unit",
+      "unit: artifacts: a tool result keeps well formed identifiers of its own kind only, at most four",
+      "unit: export: the view becomes the arguments of the tool and nothing a page or a cursor",
+      "unit: export: the answer is a file, or the reason there is none",
+      "go: writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "go: prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "go: honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "go: reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "go: streams a large table row by row with bounded memory",
+      "go: fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "go: stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "go: does not change the database it reads",
+      "go: answers with one operation-bound CSV output whose bytes the handle streams exactly once",
+      "go: refuses a handle from another user, another operation, another database or after expiry, and removes expired files",
+      "go: keeps a handle for a retry until the stream completed",
+      "go: reports a result past the limit as data without an output, and leaves no file",
+      "go: removes the staged file when the export fails and bounds what stays staged",
+      "go: is a read that needs the read action and refuses unknown fields and mutation arguments",
+      "go: serves the bytes on the protocol output route to the matching envelope only",
+      "go: exports a table with exact bytes and attachment headers over real HTTP and shows no one else the file",
+      "go: keeps a shared database's file private, applies the person's own filter and sort, and denies after the grant is withdrawn",
+      "go: serves the same bytes and headers through a forwarding frontend, and fails the same way for a stranger",
+      "go: answers a result past the export limit as data with no file",
+      "go: binds an output handle to its operation, person and database",
+      "go: fails a truncated, grown or vanished stream and never serves it",
+      "go: fails the transfer when the store cannot write, and when the source is revoked before completion",
+      "go: expires the file only, enforces the quota per person and leaves the database as it was",
+      "go: serves identical bytes and headers from every replica and denies every other way in",
+      "tables-artifacts: the person exports the view they see and downloads exact bytes with attachment headers",
+      "tables-artifacts: another person is denied exactly like an unknown file, shared or not",
+      "tables-artifacts: a viewer exports what they may read and withdrawing the share ends the download",
+      "tables-artifacts: a result past the export limit gives a message and no file",
+      "tables-artifacts: the chat draws the host card for an export and stores only its identifier",
+      "tables-artifacts: a person at the file quota is told so and no file is made",
+      "tables-artifacts: in local-owner mode the owner exports and downloads with no account"
     ]
   }
 }

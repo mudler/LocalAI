@@ -18,7 +18,7 @@ suites='prerequisites contracts catalog packages lifecycle runtime gateway polic
 # Tables suites are not foundation suites: scripts/addons/tables_gate.sh runs
 # them. They are named here only so the inventory check does not report them
 # as missing from the foundation gate.
-tables_suites='tables-databases tables-schema tables-rows tables-tools tables-admin tables-ui'
+tables_suites='tables-databases tables-schema tables-rows tables-tools tables-admin tables-ui tables-csv'
 results="$cache/logs/foundation-gate-$$.jsonl"
 : >"$results"
 for suite in $suites; do
