@@ -62,6 +62,11 @@ type Manager struct {
 	runtimeRecoveryRequired bool
 	runtime                 *addonruntime.Supervisor
 	instances               map[string]addonruntime.Instance
+	// startFailed holds the last start error of each enabled add-on whose
+	// process is not running. It is an observation, never durable intent: a
+	// restart tries again, and one add-on that cannot start never stops the
+	// owner or fails the commands of another add-on.
+	startFailed map[string]error
 	// scanner reads the size of data directories outside mu.
 	scanner storageScanner
 }
@@ -185,7 +190,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if old.Status.Phase != "completed" {
 			return old.Status, ErrRecoveryRequired
 		}
-		return old.Status, m.syncRuntime(ctx)
+		return old.Status, m.syncFor(ctx, cmd.AddonID)
 	}
 	for _, op := range m.journal.Operations {
 		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
@@ -258,6 +263,14 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		next.Generation++
 		next.Generations = append(next.Generations, Generation{Number: next.Generation, Receipt: receipt})
 		next.Installed = true
+		// A new generation of a running add-on must prove it can start before
+		// it replaces the last good one in the journal. When it cannot, the
+		// last good generation runs again and the operation fails.
+		if cmd.Action == "upgrade" {
+			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
+				return fail()
+			}
+		}
 	case "enable":
 		next.DesiredEnabled = true
 	case "disable":
@@ -284,7 +297,7 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 		return result, e
 	}
-	return result, m.syncRuntime(ctx)
+	return result, m.syncFor(ctx, cmd.AddonID)
 }
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
@@ -339,7 +352,7 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			return ErrConfiguration
 		}
 	}
-	return m.syncRuntime(ctx)
+	return m.syncRuntime(ctx, "")
 }
 func syncPackage(root string) error {
 	var dirs []string
@@ -462,9 +475,61 @@ func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor)
 	}
 	m.runtime = s
 	m.instances = map[string]addonruntime.Instance{}
-	return m.syncRuntime(ctx)
+	m.startFailed = map[string]error{}
+	return m.syncRuntime(ctx, "")
 }
-func (m *Manager) syncRuntime(ctx context.Context) error {
+
+// syncFor synchronizes the runtime and reports the start failure of the one
+// add-on a command is about. The other add-ons keep their own state.
+func (m *Manager) syncFor(ctx context.Context, id string) error {
+	if e := m.syncRuntime(ctx, id); e != nil {
+		return e
+	}
+	return m.startFailed[id]
+}
+
+// startCandidate stops the running generation of an enabled add-on and starts
+// the one that an upgrade published. If the candidate does not become ready,
+// the previous generation is started again, so a failed upgrade never leaves
+// the add-on stopped on a generation that never ran. Without a running
+// instance there is nothing to replace and nothing to prove here.
+func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, receipt packages.PackageReceipt, number uint64) error {
+	if m.runtime == nil || !prev.Installed || !prev.DesiredEnabled {
+		return nil
+	}
+	instance, running := m.instances[id]
+	if !running || instance.Generation != prev.Generation {
+		return nil
+	}
+	if e := m.runtime.Stop(ctx, instance); e != nil {
+		return e
+	}
+	delete(m.instances, id)
+	started, e := m.runtime.Start(ctx, receipt, number)
+	if e == nil {
+		m.instances[id] = started
+		delete(m.startFailed, id)
+		return nil
+	}
+	for _, g := range prev.Generations {
+		if g.Number != prev.Generation {
+			continue
+		}
+		// If this does not work either (a cancelled context, say), the next
+		// synchronization starts the journaled generation again.
+		if back, be := m.runtime.Start(ctx, g.Receipt, g.Number); be == nil {
+			m.instances[id] = back
+		}
+	}
+	return e
+}
+
+// syncRuntime makes the running processes match the journal. A start failure
+// is recorded per add-on and does not fail the call: only the add-on named by
+// target is tried again when it already failed, so an unrelated command never
+// waits for a broken add-on. A cancelled context and a failure to stop a
+// process are returned.
+func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 	if m.runtimeRecoveryRequired {
 		return ErrRecoveryRequired
 	}
@@ -482,17 +547,26 @@ func (m *Manager) syncRuntime(ctx context.Context) error {
 	}
 	for id, state := range m.journal.Addons {
 		if !state.Installed || !state.DesiredEnabled {
+			delete(m.startFailed, id)
 			continue
 		}
 		if _, ok := m.instances[id]; ok {
+			continue
+		}
+		if _, failed := m.startFailed[id]; failed && id != target {
 			continue
 		}
 		for _, generation := range state.Generations {
 			if generation.Number == state.Generation {
 				instance, e := m.runtime.Start(ctx, generation.Receipt, generation.Number)
 				if e != nil {
-					return e
+					if ctx.Err() != nil {
+						return e
+					}
+					m.startFailed[id] = e
+					break
 				}
+				delete(m.startFailed, id)
 				m.instances[id] = instance
 				break
 			}

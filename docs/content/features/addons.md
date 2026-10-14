@@ -418,6 +418,21 @@ disable, upgrade, uninstall, and application shutdown synchronize process state;
 disable and uninstall retain data. Forwarders do not attach a supervisor or execute
 packages. No automatic owner failover is provided.
 
+An upgrade of a running add-on proves the new generation before the journal
+moves: the owner stops the running process, starts the new generation and waits
+for it to become ready. When it does not become ready, the previous generation
+is started again, the journal keeps it as the installed generation and the
+operation fails (a new operation ID retries). The published package of the failed
+release stays on disk; retained data is untouched. Killing the owner during that
+start has the same result after a restart, because the journal never named the
+new generation.
+
+An enabled add-on whose process cannot start does not stop the owner. Startup
+records the failure for that add-on only: it stays enabled in the journal and
+stopped in the observed state, the other add-ons start, and commands on other
+add-ons are not delayed or failed by it. The command that enables or upgrades the
+broken add-on reports the failure, and a restart tries it again.
+
 The owner executes the receipt's package-relative executable directly with the
 single argument `--localai-addon-v1`. There is no shell. The environment allowlist
 is `LANG=C` and `TZ=UTC`; host credentials and proxy variables are not inherited.
