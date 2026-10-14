@@ -2,6 +2,7 @@
 package packaging
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -334,12 +335,23 @@ func atoi(s string) (int, bool) {
 	return n, true
 }
 
-// isAncestor asks git whether old is an ancestor of new.
-func isAncestor(ctx context.Context, gitDir, old, new_ string) (bool, error) {
-	if !shaRE.MatchString(old) || !shaRE.MatchString(new_) {
+// errCommitUnreachable reports that git does not have one of the commits.
+// It is not the same as "not an ancestor": the history that would answer the
+// question is missing from the checkout.
+var errCommitUnreachable = errors.New("commit is not reachable in this checkout")
+
+// isAncestor asks git whether candidate (the commit of this run) is an
+// ancestor of named (the commit an alias names). It returns
+// errCommitUnreachable when named is unknown to the repository, as happens
+// after a force-push. A missing candidate and any other git failure are plain
+// errors.
+func isAncestor(ctx context.Context, gitDir, candidate, named string) (bool, error) {
+	if !shaRE.MatchString(candidate) || !shaRE.MatchString(named) {
 		return false, errors.New("commits must be 40 hex characters")
 	}
-	cmd := exec.CommandContext(ctx, "git", "--git-dir", gitDir, "merge-base", "--is-ancestor", old, new_)
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "git", "--git-dir", gitDir, "merge-base", "--is-ancestor", candidate, named)
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	var ee *exec.ExitError
 	switch {
@@ -347,14 +359,44 @@ func isAncestor(ctx context.Context, gitDir, old, new_ string) (bool, error) {
 		return true, nil
 	case errors.As(err, &ee) && ee.ExitCode() == 1:
 		return false, nil
+	case errors.As(err, &ee) && ee.ExitCode() == 128 && strings.Contains(stderr.String(), "Not a valid commit name"):
+		// Which side is missing? This run's commit must be in the checkout.
+		if !commitExists(ctx, gitDir, candidate) {
+			return false, fmt.Errorf("git merge-base: commit %s of this run is missing: %w", candidate, err)
+		}
+		return false, fmt.Errorf("%w: %s", errCommitUnreachable, named)
 	}
-	return false, fmt.Errorf("git merge-base: %w", err)
+	return false, fmt.Errorf("git merge-base: %w: %s", err, strings.TrimSpace(stderr.String()))
+}
+
+func commitExists(ctx context.Context, gitDir, sha string) bool {
+	return exec.CommandContext(ctx, "git", "--git-dir", gitDir, "cat-file", "-e", sha+"^{commit}").Run() == nil
+}
+
+// promotionSource says which event asks for the promotion.
+type promotionSource struct {
+	Ref   string // full git ref of the event, for example refs/heads/feature/x
+	Event string // GitHub event name
+}
+
+// pushToOwnBranch reports whether the event is a push to the ref that owns
+// this branch channel. The channel name is derived from the ref, so the name
+// itself is the record of which ref the channel follows.
+func (s promotionSource) pushToOwnBranch(alias string) bool {
+	return s.Event == "push" && strings.HasPrefix(s.Ref, "refs/heads/") && branchTag(s.Ref) == alias
 }
 
 // promoteAlias moves one moving tag to a digest that was already published,
 // verified and signed. It never moves an alias backwards: a slower, older run
 // finds a newer alias and leaves it alone.
 func promoteAlias(ctx context.Context, repo name.Repository, alias string, digest v1.Hash, version, revision, gitDir string) (string, error) {
+	return promoteAliasFrom(ctx, repo, alias, digest, version, revision, gitDir, promotionSource{})
+}
+
+// promoteAliasFrom is promoteAlias with the event that asks for the move. A
+// branch channel whose current commit is gone from the checkout (the branch
+// was force-pushed) accepts only a push to its own ref as the new truth.
+func promoteAliasFrom(ctx context.Context, repo name.Repository, alias string, digest v1.Hash, version, revision, gitDir string, src promotionSource) (string, error) {
 	switch {
 	case alias == aliasLatest:
 		if !versionRE.MatchString(version) || strings.Contains(version, "-") {
@@ -395,10 +437,18 @@ func promoteAlias(ctx context.Context, repo name.Repository, alias string, diges
 				return "", fail("E_IMMUTABLE", "channel %s already names commit %s with another digest %s", alias, revision, cur.digest)
 			}
 			// The new commit is older than the one the alias names: a slower
-			// run. Anything else (a descendant, or a force-pushed branch)
-			// is the new truth of the branch.
+			// run. A descendant, or a diverged commit, is the new truth of
+			// the branch. When the named commit is gone from the checkout
+			// the branch was rewritten: only a push to the channel's own
+			// branch may take it over. Everything else fails closed.
 			older, err := isAncestor(ctx, gitDir, revision, cur.revision)
-			if err != nil {
+			switch {
+			case errors.Is(err, errCommitUnreachable):
+				if alias == aliasDevelopment || !src.pushToOwnBranch(alias) {
+					return "", fail("E_UNREACHABLE", "channel %s names commit %s, which is not in this checkout; only a push to the channel's own branch may replace it", alias, cur.revision)
+				}
+				older = false
+			case err != nil:
 				return "", err
 			}
 			if older {
@@ -424,6 +474,8 @@ func cmdPromote(args []string) error {
 	version := fs.String("version", "", "release version of the digest")
 	revision := fs.String("revision", "", "source commit of the digest")
 	gitDir := fs.String("git-dir", ".git", "git directory with the history of both commits")
+	ref := fs.String("ref", "", "git ref of the event that asks for the promotion")
+	event := fs.String("event", "", "GitHub event name that asks for the promotion")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -443,7 +495,7 @@ func cmdPromote(args []string) error {
 	if _, err := os.Stat(*gitDir); err != nil && *alias != aliasLatest {
 		return fmt.Errorf("git directory: %w", err)
 	}
-	out, err := promoteAlias(ctx, repo, *alias, h, *version, *revision, *gitDir)
+	out, err := promoteAliasFrom(ctx, repo, *alias, h, *version, *revision, *gitDir, promotionSource{Ref: *ref, Event: *event})
 	if err != nil {
 		return err
 	}

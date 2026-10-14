@@ -112,8 +112,10 @@ expect_fail 'channel.sh: a tag that is not a version fails' 'release tag' channe
 case_ok 'workflow policy accepts the checked-in workflow'
 sed 's/^  release:$/  pull_request_target:\n    types: [opened]\n  release:/' .github/workflows/addons-package.yml >"$work/mutant.yml"
 expect_fail 'workflow policy rejects pull_request_target' 'P_PR_TARGET' "$tool" policy --workflow "$work/mutant.yml"
-sed 's/^    needs: \[plan, package\]$/    needs: [plan]/' .github/workflows/addons-package.yml >"$work/mutant.yml"
+sed 's/^    needs: \[plan, validate, package\]$/    needs: [plan, package]/' .github/workflows/addons-package.yml >"$work/mutant.yml"
 expect_fail 'workflow policy rejects a publish job that does not wait for every leg' 'P_NEEDS' "$tool" policy --workflow "$work/mutant.yml"
+sed 's/^    name: validate package rules$/    name: validate package rules\n    continue-on-error: true/' .github/workflows/addons-package.yml >"$work/mutant.yml"
+expect_fail 'workflow policy rejects a validate job that cannot stop the release' 'P_VALIDATE_GATE' "$tool" policy --workflow "$work/mutant.yml"
 
 # Nothing in the packaging scripts pushes, tags, signs or logs in.
 if grep -n -E 'docker push|docker login|git tag|git push|oras (push|copy)|cosign (sign|attest)|crane push|gh release' scripts/addons/package.sh scripts/addons/channel.sh scripts/addons/package_test.sh | grep -v '^[^:]*:[0-9]*:#' | grep -v 'grep -n -E' | grep -v 'static checks'; then

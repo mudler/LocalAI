@@ -1973,20 +1973,36 @@ The workflow `.github/workflows/addons-package.yml` has these jobs.
 
 | Job | What it does | Credentials |
 |---|---|---|
-| `validate` | Runs the packaging checks. | none |
+| `validate` | Runs the packaging checks on every event, including pushes and releases. A red `validate` stops `package`, `publish` and `promote`. | none |
 | `plan` | Runs `channel.sh` and checks the platform matrix and the registry input. | none |
-| `package` | One native runner for each enabled platform: builds the executable and UI, runs `package.sh` and the native runtime check, uploads the layout. | none |
-| `publish` | Needs every leg. Joins the legs, pushes platform digests and the index by digest, tags the immutable version, signs by digest (keyless, OCI 1.1 referrers, new bundle format) and verifies with the exact identity of this workflow. | registry login and `id-token: write`, in a protected environment |
-| `promote` | Needs `publish`. Moves aliases, serialized by channel. | registry login, in a protected environment |
+| `package` | Needs `plan` and `validate`. One native runner for each enabled platform: builds the executable and UI, runs `package.sh` and the native runtime check, uploads the layout. | none |
+| `publish` | Needs `plan`, `validate` and every leg. Joins the legs, pushes platform digests and the index by digest, tags the immutable version, signs by digest (keyless, OCI 1.1 referrers, new bundle format) and verifies with the exact identity of this workflow. | registry login and `id-token: write`, in a protected environment |
+| `promote` | Needs `publish`, and through it `validate`. Moves aliases, serialized by channel. | registry login, in a protected environment |
 
 A pull request, including one from a fork, never reaches `publish` or `promote`, and
-`pull_request_target` is not used. A missing or failed leg leaves every alias unchanged:
-no index is created from a partial set of legs, and aliases move only after signing.
+`pull_request_target` is not used. A missing or failed leg, or a failed `validate`,
+leaves every alias unchanged: nothing is published from a partial set of legs, `latest`
+moves only after complete validation, and aliases move only after signing. The workflow
+policy (`addonpkg policy`) requires this chain in the job graph. It rejects a `publish`
+that does not need `validate`, and a `validate` job with `continue-on-error` or an
+`always()`, `failure()` or `cancelled()` condition.
 
 Promotion is serialized by a concurrency group for each channel and is checked against
 the registry: `development` and branch channels do not move to a commit that is an
 ancestor of the one they name, and `latest` does not move to a lower version or to a
-pre-release. A slow older run therefore ends as a no-op. The registry has no atomic
+pre-release. A slow older run therefore ends as a no-op.
+
+A force-pushed branch is the new truth of that branch. When the commit a branch
+channel names is no longer in the checkout (git answers "not a valid commit name"), the
+promotion succeeds only if the run is a `push` to the exact ref that owns the channel
+(`--ref` and `--event` of `addonpkg promote`; the channel name is derived from the ref).
+For any other event or ref the alias stays where it is and the command fails with
+`E_UNREACHABLE`. `development` follows the strict rule: an unreachable commit is always
+refused with `E_UNREACHABLE`, and it needs a manual decision. Any other git failure
+fails the promotion. A slow run of a pre-rewrite commit that finds the rewritten tip in
+its checkout cannot be told apart from a new diverged commit, so a promotion of the
+old commit after a force-push can briefly move the channel back until the next push.
+The registry has no atomic
 compare-and-swap for tags, so the group, not the check, is what closes the window
 between two runs.
 

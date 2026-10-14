@@ -124,16 +124,70 @@ func checkWorkflow(data []byte) []string {
 		return out
 	}
 	pub, pro := job("publish"), job("promote")
-	for _, n := range []string{"plan", "package"} {
+	// reaches reports whether job from depends on job to, directly or
+	// through other jobs. The release chain is validate -> package ->
+	// publish -> promote, and each link must be structural.
+	var reaches func(from, to string, seen map[string]bool) bool
+	reaches = func(from, to string, seen map[string]bool) bool {
+		if seen[from] {
+			return false
+		}
+		seen[from] = true
+		for n := range needs(from) {
+			if n == to || reaches(n, to, seen) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, n := range []string{"plan", "validate", "package"} {
 		if !needs("publish")[n] {
-			add("P_NEEDS", "publish must need %s: every platform leg must pass before anything is published", n)
+			add("P_NEEDS", "publish must need %s: every check and platform leg must pass before anything is published", n)
 		}
 	}
-	if !needs("package")["plan"] {
-		add("P_NEEDS", "package must need plan")
+	for _, n := range []string{"plan", "validate"} {
+		if !needs("package")[n] {
+			add("P_NEEDS", "package must need %s", n)
+		}
 	}
 	if !needs("promote")["publish"] {
 		add("P_NEEDS", "promote must need publish: aliases move only after signing")
+	}
+	if !reaches("promote", "validate", map[string]bool{}) {
+		add("P_NEEDS", "promote must depend on validate through publish: latest moves only after complete validation")
+	}
+	// A job that can finish "successfully" or be bypassed after validate
+	// failed would defeat the gate.
+	if v := job("validate"); v != nil {
+		if c, ok := v["continue-on-error"]; ok && fmt.Sprint(c) != "false" {
+			add("P_VALIDATE_GATE", "validate must not set continue-on-error: a red validation would not stop the release")
+		}
+		if c, ok := v["if"]; ok {
+			cond := fmt.Sprint(c)
+			for _, bad := range []string{"always()", "cancelled()", "failure()"} {
+				if strings.Contains(cond, bad) {
+					add("P_VALIDATE_GATE", "validate must not use %s in its condition", bad)
+				}
+			}
+		}
+		vsteps, _ := v["steps"].([]any)
+		for _, st := range vsteps {
+			m, _ := st.(map[string]any)
+			if c, ok := m["continue-on-error"]; ok && fmt.Sprint(c) != "false" {
+				add("P_VALIDATE_GATE", "validate must not set continue-on-error on a step")
+			}
+		}
+	}
+	for _, n := range []string{"package", "publish", "promote"} {
+		cond := fmt.Sprint(job(n)["if"])
+		for _, bad := range []string{"always()", "cancelled()", "failure()"} {
+			if strings.Contains(cond, bad) {
+				add("P_VALIDATE_GATE", "%s must not use %s: it would run after a failed validate", n, bad)
+			}
+		}
+		if c, ok := job(n)["continue-on-error"]; ok && fmt.Sprint(c) != "false" {
+			add("P_VALIDATE_GATE", "%s must not set continue-on-error", n)
+		}
 	}
 	for _, n := range []string{"publish", "promote"} {
 		j := job(n)

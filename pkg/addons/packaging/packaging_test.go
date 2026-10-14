@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"gopkg.in/yaml.v3"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -674,6 +677,80 @@ var _ = Describe("alias promotion", func() {
 		expectCode(err, "E_IMMUTABLE")
 		Expect(head("development")).To(Equal(d))
 	})
+	Context("when the commit the alias names is not in the checkout", func() {
+		const gone = "1111111111111111111111111111111111111111"
+		var gitDir, current string
+		BeforeEach(func() {
+			var shas []string
+			gitDir, shas = gitHistory(1)
+			current = shas[0]
+		})
+		It("treats a force-pushed branch as the new truth for a push to the same ref", func() {
+			ref := "refs/heads/feature/x"
+			tag := branchTag(ref)
+			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
+			_, err := promoteAlias(ctx, repo, tag, oldD, "", gone, gitDir)
+			Expect(err).NotTo(HaveOccurred())
+			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
+			res, err := promoteAliasFrom(ctx, repo, tag, newD, "", current, gitDir, promotionSource{Ref: ref, Event: "push"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(Equal("promoted"))
+			Expect(head(tag)).To(Equal(newD))
+		})
+		It("blocks the alias for anything but a push to the channel's own ref", func() {
+			ref := "refs/heads/feature/x"
+			tag := branchTag(ref)
+			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
+			_, err := promoteAlias(ctx, repo, tag, oldD, "", gone, gitDir)
+			Expect(err).NotTo(HaveOccurred())
+			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
+			for _, src := range []promotionSource{
+				{},
+				{Ref: ref, Event: "release"},
+				{Ref: "refs/heads/other", Event: "push"},
+				{Ref: "refs/tags/v1.0.0", Event: "push"},
+				{Ref: ref, Event: ""},
+			} {
+				_, err := promoteAliasFrom(ctx, repo, tag, newD, "", current, gitDir, src)
+				expectCode(err, "E_UNREACHABLE")
+				Expect(head(tag)).To(Equal(oldD))
+			}
+		})
+		It("refuses development when its commit is unreachable, even for a push", func() {
+			oldD := publish("0.0.0-dev."+gone[:12], gone, "old", "sha-"+gone[:12])
+			_, err := promoteAlias(ctx, repo, "development", oldD, "", gone, gitDir)
+			Expect(err).NotTo(HaveOccurred())
+			newD := publish("0.0.0-dev."+current[:12], current, "new", "sha-"+current[:12])
+			_, err = promoteAliasFrom(ctx, repo, "development", newD, "", current, gitDir, promotionSource{Ref: "refs/heads/master", Event: "push"})
+			expectCode(err, "E_UNREACHABLE")
+			Expect(head("development")).To(Equal(oldD))
+		})
+		It("fails on any git error that is not a plain not-ancestor answer", func() {
+			bin := GinkgoT().TempDir()
+			for name, body := range map[string]string{
+				"exit2":   "echo boom >&2; exit 2",
+				"exit128": "echo 'fatal: not a git repository' >&2; exit 128",
+			} {
+				dir := filepath.Join(bin, name)
+				Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(dir, "git"), []byte("#!/bin/sh\n"+body+"\n"), 0o755)).To(Succeed())
+				GinkgoT().Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+				_, err := isAncestor(ctx, gitDir, current, gone)
+				Expect(err).To(HaveOccurred(), name)
+				Expect(errors.Is(err, errCommitUnreachable)).To(BeFalse(), name)
+			}
+		})
+		It("tells an unreachable commit from a plain not-ancestor", func() {
+			_, err := isAncestor(ctx, gitDir, current, gone)
+			Expect(errors.Is(err, errCommitUnreachable)).To(BeTrue())
+			_, err = isAncestor(ctx, gitDir, gone, current)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, errCommitUnreachable)).To(BeFalse(), "a missing commit of this run is not a rewritten branch")
+			ok, err := isAncestor(ctx, gitDir, current, current)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		})
+	})
 	It("moves latest only to a newer stable version", func() {
 		v1d := publish("1.0.0", rev, "one", "1.0.0")
 		v2d := publish("1.1.0", rev, "two", "1.1.0")
@@ -831,13 +908,42 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("      - name: Run the packaging checks\n        run: sh scripts/addons/package_test.sh", "      - name: Run the packaging checks\n        run: go run ./scripts/addons/cmd/addonpkg publish --layout x"), "P_UNTRUSTED_SECRETS")
 	})
 	It("rejects publish that does not wait for every platform leg", func() {
-		expect(mutate("    needs: [plan, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
+		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, validate]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
 	})
 	It("rejects publish that can run after a failed leg", func() {
-		expect(mutate("    needs: [plan, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, package]\n    if: always() && needs.plan.outputs.publish == 'true'"), "P_TRUSTED_GATE")
+		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, package]\n    if: always() && needs.plan.outputs.publish == 'true'"), "P_TRUSTED_GATE")
+	})
+	It("rejects publish that does not need validate", func() {
+		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, package]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
+	})
+	It("rejects a package leg that does not need validate", func() {
+		expect(mutate("    needs: [plan, validate]\n    if: needs.plan.outputs.has_platforms == 'true'", "    needs: [plan]\n    if: needs.plan.outputs.has_platforms == 'true'"), "P_NEEDS")
+	})
+	It("rejects a validate job that cannot stop the release", func() {
+		anchor := "    name: validate package rules\n"
+		expect(mutate(anchor, anchor+"    continue-on-error: true\n"), "P_VALIDATE_GATE")
+		expect(mutate(anchor, anchor+"    continue-on-error: ${{ github.event_name != 'push' }}\n"), "P_VALIDATE_GATE")
+		expect(mutate(anchor, anchor+"    if: always()\n"), "P_VALIDATE_GATE")
+		expect(mutate(anchor, anchor+"    if: failure() || success()\n"), "P_VALIDATE_GATE")
+		expect(mutate("        run: sh scripts/addons/package_test.sh", "        continue-on-error: true\n        run: sh scripts/addons/package_test.sh"), "P_VALIDATE_GATE")
+	})
+	It("rejects a package or promote job that runs after a failed validate", func() {
+		expect(mutate("    if: needs.plan.outputs.has_platforms == 'true'", "    if: always() && needs.plan.outputs.has_platforms == 'true'"), "P_VALIDATE_GATE")
+		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''"), "P_VALIDATE_GATE")
+	})
+	It("keeps validate unprivileged on every event", func() {
+		var doc struct {
+			Jobs map[string]map[string]any `yaml:"jobs"`
+		}
+		Expect(yaml.Unmarshal([]byte(base), &doc)).To(Succeed())
+		v := doc.Jobs["validate"]
+		Expect(v).NotTo(HaveKey("if"))
+		Expect(v).NotTo(HaveKey("environment"))
+		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("secrets."))
+		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("id-token"))
 	})
 	It("rejects promotion that does not wait for signing", func() {
-		expect(mutate("    needs: [plan, publish]", "    needs: [plan]"), "P_NEEDS")
+		expect(mutate("    needs: [plan, validate, publish]", "    needs: [plan, validate]"), "P_NEEDS")
 	})
 	It("rejects alias promotion before signing", func() {
 		expect(mutate("        id: sign\n", "        id: verify\n"), "P_ORDER")
@@ -850,7 +956,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects backend registries and backend workflows", func() {
 		expect(mutate("ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}", "ADDON_OCI_REPOSITORY: quay.io/go-skynet/ci-cache"), "P_BACKEND")
-		expect(mutate("    needs: [plan, publish]", "    needs: [plan, publish]\n    uses: ./.github/workflows/backend_merge.yml"), "P_BACKEND")
+		expect(mutate("    needs: [plan, validate, publish]", "    needs: [plan, validate, publish]\n    uses: ./.github/workflows/backend_merge.yml"), "P_BACKEND")
 		expect(mutate("          username: ${{ secrets.ADDON_OCI_USERNAME }}", "          username: ${{ secrets.quayUsername }}"), "P_BACKEND")
 	})
 	It("rejects a signer identity that is a pattern or the backend workflow", func() {

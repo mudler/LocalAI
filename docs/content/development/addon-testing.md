@@ -271,8 +271,12 @@ JSON line for each case. It needs no registry, no Docker and no network.
   platform set. They cover the event and channel table (empty, Unicode and long refs,
   `latest`, `development`, semver-like names and two refs that normalize alike). They
   publish to an in-process registry and check immutable tags, digest-identical retries,
-  stale promotions and a failed promotion that leaves aliases unchanged. The workflow
-  policy has one mutated copy of the workflow for each rule.
+  stale promotions and a failed promotion that leaves aliases unchanged. They rewrite a
+  branch so that the commit an alias names is gone from the checkout, and check that
+  only a push to the channel's own ref takes it over, that `development` refuses, and
+  that other git errors fail. The workflow policy has one mutated copy of the workflow
+  for each rule, including the `validate` chain (`publish` must need `validate`,
+  `validate` must not use `continue-on-error`, `always()` or `failure()`).
 - `tests/addons/packaging`. It builds the Tables executable, runs `package.sh`, publishes
   to a loopback distribution, signs the platform image with the fixture authority under
   the identity of the rendered catalog entry, installs it with the real installer and
