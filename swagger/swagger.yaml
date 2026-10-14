@@ -835,6 +835,51 @@ definitions:
       total_bytes:
         type: integer
     type: object
+  gateway.ApplyResourceRequest:
+    properties:
+      arguments:
+        description: |-
+          Arguments are the tool's own arguments without the resource, which the
+          path names, and without the tool, which Tool names.
+        type: object
+      generation:
+        description: Generation is the installed generation the caller listed.
+        example: 3
+        type: integer
+      operationId:
+        description: |-
+          OperationID names the change. Repeating it with the same request
+          returns the same receipt and never applies twice; after an
+          outcome_unknown answer it is what to repeat.
+        example: apply-1
+        type: string
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: |-
+          Revision is the revision the caller read. A moved revision is a stale
+          denial and nothing is changed.
+      tool:
+        description: Tool is a write or schema tool the add-on declares.
+        example: rows-insert
+        type: string
+    type: object
+  gateway.ApplyResult:
+    properties:
+      operationId:
+        type: string
+      resourceId:
+        type: string
+      result:
+        description: |-
+          Result is what the add-on's receipt reported, for example the count
+          and the identifiers of the changed rows.
+        type: object
+      revision:
+        allOf:
+        - $ref: '#/definitions/contract.Revision'
+        description: Revision is the revision after the change.
+    type: object
   gateway.Artifact:
     properties:
       addonId:
@@ -5725,6 +5770,72 @@ paths:
       summary: Create an add-on resource (UI only)
       tags:
       - Addons
+  /api/addons/resources/{resourceId}/apply:
+    post:
+      consumes:
+      - application/json
+      description: 'Applies one change through a write or schema tool the add-on declares,
+        for example inserting rows or adding a column, as the person''s own explicit
+        action in the person''s own browser tab. It needs no confirmation card: the
+        request is the intent. It is not a proposal and nothing is stored for later.
+        The same rules as every change apply: the role of the action (the owner and
+        editors write rows, only the owner changes the schema, viewers and installation
+        administrators without a grant get the answer of an unknown resource), the
+        declared tool definition, the resource''s admission, the generation and the
+        revision the caller read (409 stale, nothing changed), the add-on''s receipt,
+        which makes repeating the same operationId with the same request one change,
+        and a wait behind an unresolved outcome. The tool''s arguments must not name
+        the resource, the tool, an actor or any field the tool definition does not
+        declare. Reads, creations, the add-on''s rename and delete, administrator
+        tools and tools nobody declared are refused with 400. Accepted only from the
+        person''s own browser session: a same-origin fetch whose X-LocalAI-Confirm
+        header equals the resource ID, with no API key and no tool, agent or MCP marker.
+        After outcome_unknown, look the receipt up with kind=apply and the original
+        operationId; never submit a new operation. No MCP tool maps to this route.'
+      parameters:
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      - description: Change request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.ApplyResourceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The committed change and its receipt
+          schema:
+            $ref: '#/definitions/gateway.ApplyResult'
+        "400":
+          description: Malformed request, a tool that is not a change, or arguments
+            the tool does not accept
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface, feature denied, role too low or unknown
+            resource, or type outcome_blocked
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: 'Type stale: the generation or the revision moved'
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or type outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Change a resource's data or schema by the person's own action (UI only)
+      tags:
+      - Addons
   /api/addons/resources/{resourceId}/delete:
     post:
       consumes:
@@ -5940,9 +6051,11 @@ paths:
   /api/addons/resources/{resourceId}/operations/{operationId}:
     get:
       description: Read-only receipt lookup after an outcome_unknown answer. kind
-        is rename (operationId is the one the rename carried) or delete. The state
-        is pending, committed, rejected or unknown; it never applies anything. Only
-        the owner role may look up, from the owner's own browser session (same-origin
+        is rename (operationId is the one the rename carried), delete or apply (the
+        operationId of a change; any role that may write looks up its own). The state
+        is pending, committed, rejected or unknown; it never applies anything. The
+        owner role may look up a rename or a deletion and the roles that may write
+        look up their own changes, from the owner's own browser session (same-origin
         fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished
         the resource is gone and the lookup is denied like any unknown resource. No
         MCP tool maps to this route.
@@ -5961,6 +6074,7 @@ paths:
         enum:
         - rename
         - delete
+        - apply
         in: query
         name: kind
         required: true

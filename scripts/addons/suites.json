@@ -2619,7 +2619,10 @@
       "keeps one selection per user, conversation and add-on, across people, conversations and restarts",
       "lets a tool call omit the database in a conversation and resolves it at the owner with typed errors",
       "withdraws the management and the tool path while the add-on is disabled and restores them on enable",
-      "answers a revoked, deleted or tampered reference like an unknown database and never reuses it"
+      "answers a revoked, deleted or tampered reference like an unknown database and never reuses it",
+      "applies schema and row changes under the roles of the host, once per operation, with a receipt and no proposal",
+      "refuses crafted writes by a viewer, an editor's schema change, a revoked editor and an installation administrator",
+      "carries a UI change to the owner from a forwarding frontend and answers as the owner does"
     ]
   }
 }

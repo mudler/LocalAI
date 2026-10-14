@@ -690,6 +690,160 @@ func (s *Service) typedChange(ctx context.Context, actor contract.Actor, key pol
 	return &gateway.OutcomeUnknown{OperationID: original}
 }
 
+// authorized resolves the resource and checks that the actor holds the role
+// the action needs, with the same denial for a resource that does not exist.
+func (s *Service) authorized(ctx context.Context, actor contract.Actor, resourceID string, action policy.Action) (policy.ResourceKey, error) {
+	if s.o.Policy == nil {
+		return policy.ResourceKey{}, gateway.ErrUnavailable
+	}
+	key, _ := s.o.Policy.Key(resourceID)
+	key.ResourceID = resourceID
+	if err := s.o.Policy.Authorize(ctx, actor, key, action); err != nil {
+		return policy.ResourceKey{}, classify(err)
+	}
+	return key, nil
+}
+
+// Apply changes the data or the schema of a resource through a write or
+// schema tool the add-on declares, as the person's own UI action. It needs no
+// proposal: the request in the person's own tab is the intent. It runs under
+// the same rules as every change: the role of the action (editors write, only
+// the owner changes the schema), the declared definition of the tool, the
+// resource's admission, the revision the person read, and the add-on's
+// receipt, which makes a repeat of the same operation one change.
+func (s *Service) Apply(ctx context.Context, actor contract.Actor, resourceID string, r gateway.ApplyResourceRequest) (gateway.ApplyResult, error) {
+	if !validOperation(r.OperationID) || r.Generation == 0 || r.Revision.Schema == 0 || !identifier.MatchString(r.Tool) {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	// The lowest role of any change is the editor's. The role of this tool
+	// is checked again below, once its kind is known.
+	key, err := s.authorized(ctx, actor, resourceID, policy.ActionWrite)
+	if err != nil {
+		return gateway.ApplyResult{}, err
+	}
+	inst, caps, err := s.session(ctx, key.AddonID, r.Generation)
+	if err != nil {
+		return gateway.ApplyResult{}, err
+	}
+	kind := ""
+	for _, d := range caps.ToolDefinitions {
+		if d.Name == r.Tool {
+			kind = d.Kind
+		}
+	}
+	action := policy.ActionWrite
+	switch kind {
+	case contract.ToolKindWrite:
+	case contract.ToolKindSchema:
+		action = policy.ActionSchema
+	default:
+		// Reads, creations, admin tools and tools nobody declared are not
+		// changes a person applies here.
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	if rs := caps.Resources; rs != nil && (r.Tool == rs.Rename || r.Tool == rs.Create || r.Tool == rs.Delete) {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	def, ok := definition(caps, r.Tool, kind)
+	if !ok {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	if _, err = s.authorized(ctx, actor, resourceID, action); err != nil {
+		return gateway.ApplyResult{}, err
+	}
+	// The arguments are the tool's own and name the resource through the
+	// path only: a body that names another one is not a valid request.
+	var given map[string]json.RawMessage
+	if len(r.Arguments) == 0 || json.Unmarshal(r.Arguments, &given) != nil || given == nil {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	if _, named := given[contract.ResourceArgument]; named {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	if _, named := given[gateway.ToolKey]; named {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	asked := make(map[string]json.RawMessage, len(given)+1)
+	for k, v := range given {
+		asked[k] = v
+	}
+	asked[contract.ResourceArgument], _ = json.Marshal(key.ResourceID)
+	raw, _ := json.Marshal(asked)
+	res, body, err := toolargs.BindDefinition(def, raw)
+	if err != nil || res != key.ResourceID {
+		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+	}
+	wire := uiOperation(actor, "apply", r.OperationID)
+	var out gateway.ApplyResult
+	err = s.o.Policy.Admit(ctx, actor, key, action, func(rctx context.Context) error {
+		if s.o.Broker != nil {
+			if e := s.o.Broker.BlockedError(actor, key); e != nil {
+				return e
+			}
+		}
+		var e error
+		out, e = s.typedApply(rctx, actor, key, inst, string(action), wire, body, r.Revision, r.OperationID)
+		return e
+	})
+	if err != nil {
+		return gateway.ApplyResult{}, classify(err)
+	}
+	out.ResourceID, out.OperationID = key.ResourceID, r.OperationID
+	return out, nil
+}
+
+// typedApply is typedChange that also returns what the receipt reported.
+func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key policy.ResourceKey, inst addonruntime.Instance, action, wire string, body json.RawMessage, seen contract.Revision, original string) (gateway.ApplyResult, error) {
+	cur, err := s.o.Runtime.Runtime(ctx, key.AddonID)
+	if err != nil || cur.Client == nil {
+		return gateway.ApplyResult{}, unavailable(err)
+	}
+	if cur.Generation != inst.Generation {
+		return gateway.ApplyResult{}, gateway.ErrStale
+	}
+	env := func(scope string, d time.Duration) contract.Envelope {
+		return contract.Envelope{
+			Request:   contract.Request{AddonID: key.AddonID, ResourceID: key.ResourceID, OperationID: wire, Generation: cur.Generation, Action: action, Arguments: body},
+			Authority: contract.Authority{Actor: actor, Scope: scope, ExpiresAt: s.o.Now().Add(d)},
+		}
+	}
+	preview, err := cur.Client.Preview(ctx, env("preview", s.o.Limits.PreviewTimeout))
+	if err != nil {
+		if ctx.Err() != nil {
+			return gateway.ApplyResult{}, ctx.Err()
+		}
+		return gateway.ApplyResult{}, s.previewFailure(ctx, actor, key, cur, err)
+	}
+	if preview.Revision != seen {
+		// A repeat of a change that already committed previews as its own
+		// receipt's revision. It goes on to apply, where the add-on replays
+		// the receipt for the same request and refuses another one.
+		prior, e := cur.Client.Receipt(ctx, wire)
+		if e != nil || prior.State != contract.ReceiptCommitted || prior.Revision != preview.Revision {
+			return gateway.ApplyResult{}, gateway.ErrStale
+		}
+	}
+	receipt, err := cur.Client.Apply(ctx, env("apply", s.o.Limits.ApplyTimeout), preview.Revision)
+	if err != nil {
+		return gateway.ApplyResult{}, &gateway.OutcomeUnknown{OperationID: original}
+	}
+	switch receipt.State {
+	case contract.ReceiptCommitted:
+		return gateway.ApplyResult{Revision: receipt.Revision, Result: receipt.Result.Payload}, nil
+	case contract.ReceiptRejected:
+		// A rejection names why in the add-on's own words: a moved revision
+		// is the stale view, anything else is a request it cannot carry out.
+		var why struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(receipt.Result.Payload, &why) == nil && why.Error != "" && why.Error != "stale" {
+			return gateway.ApplyResult{}, gateway.ErrInvalidRequest
+		}
+		return gateway.ApplyResult{}, gateway.ErrStale
+	}
+	return gateway.ApplyResult{}, &gateway.OutcomeUnknown{OperationID: original}
+}
+
 // previewFailure tells a refusal of the request from an outage: the runtime
 // client reports any non-success the same way, so an add-on that still
 // answers a read made the refusal.
@@ -970,7 +1124,7 @@ func (s *Service) Resume(ctx context.Context) {
 // Operation looks the receipt of a UI mutation up. It is read-only toward the
 // add-on and available to the owner role only. kind is rename or delete.
 func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID string) (gateway.OperationStatus, error) {
-	if kind != "rename" && kind != "delete" || !validOperation(operationID) {
+	if kind != "rename" && kind != "delete" && kind != "apply" || !validOperation(operationID) {
 		return gateway.OperationStatus{}, gateway.ErrInvalidRequest
 	}
 	if kind == "delete" && s.o.Policy != nil {
@@ -988,11 +1142,20 @@ func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceI
 			return gateway.OperationStatus{OperationID: operationID, State: string(contract.ReceiptPending)}, nil
 		}
 	}
-	key, err := s.owned(ctx, actor, resourceID)
+	var key policy.ResourceKey
+	var err error
+	if kind == "apply" {
+		// Editors apply changes, so they look their own receipts up. The
+		// wire operation is derived from the actor: nobody reads another
+		// person's receipt.
+		key, err = s.authorized(ctx, actor, resourceID, policy.ActionWrite)
+	} else {
+		key, err = s.owned(ctx, actor, resourceID)
+	}
 	if err != nil {
 		return gateway.OperationStatus{}, err
 	}
-	wire := uiOperation(actor, "rename", operationID)
+	wire := uiOperation(actor, kind, operationID)
 	if kind == "delete" {
 		wire = deleteOperation(key.ResourceID)
 	}

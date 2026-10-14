@@ -143,6 +143,36 @@ type DeleteResult struct {
 	Deleted bool `json:"deleted"`
 }
 
+// ApplyResourceRequest is the body of a UI change of a resource's data or
+// schema, made as the person's own explicit action.
+type ApplyResourceRequest struct {
+	// OperationID names the change. Repeating it with the same request
+	// returns the same receipt and never applies twice; after an
+	// outcome_unknown answer it is what to repeat.
+	OperationID string `json:"operationId" example:"apply-1"`
+	// Generation is the installed generation the caller listed.
+	Generation uint64 `json:"generation" example:"3"`
+	// Revision is the revision the caller read. A moved revision is a stale
+	// denial and nothing is changed.
+	Revision contract.Revision `json:"revision"`
+	// Tool is a write or schema tool the add-on declares.
+	Tool string `json:"tool" example:"rows-insert"`
+	// Arguments are the tool's own arguments without the resource, which the
+	// path names, and without the tool, which Tool names.
+	Arguments json.RawMessage `json:"arguments" swaggertype:"object"`
+}
+
+// ApplyResult is the answer of a committed UI change.
+type ApplyResult struct {
+	ResourceID  string `json:"resourceId"`
+	OperationID string `json:"operationId"`
+	// Revision is the revision after the change.
+	Revision contract.Revision `json:"revision"`
+	// Result is what the add-on's receipt reported, for example the count
+	// and the identifiers of the changed rows.
+	Result json.RawMessage `json:"result,omitempty" swaggertype:"object"`
+}
+
 // SetGrantRequest is the body of a grant change.
 type SetGrantRequest struct {
 	// Role is viewer or editor. The owner role cannot be granted.
@@ -189,6 +219,7 @@ type ResourceManager interface {
 	SearchUsers(ctx context.Context, actor contract.Actor, resourceID, query string, limit int) (UserList, error)
 	Rename(ctx context.Context, actor contract.Actor, resourceID string, r RenameResourceRequest) (ResourceInfo, error)
 	Delete(ctx context.Context, actor contract.Actor, resourceID string, r DeleteResourceRequest) (DeleteResult, error)
+	Apply(ctx context.Context, actor contract.Actor, resourceID string, r ApplyResourceRequest) (ApplyResult, error)
 	Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID string) (OperationStatus, error)
 	Selection(ctx context.Context, actor contract.Actor, conversationID, addonID string) (Selection, error)
 	Select(ctx context.Context, actor contract.Actor, conversationID, addonID, resourceID string) (Selection, error)
@@ -209,6 +240,7 @@ const (
 	resourceUsers      = "users"
 	resourceRename     = "rename"
 	resourceDelete     = "delete"
+	resourceApply      = "apply"
 	resourceStatus     = "status"
 	resourceSelGet     = "selection-get"
 	resourceSelPut     = "selection-put"
@@ -232,6 +264,7 @@ type ResourceCall struct {
 	Generation     uint64            `json:"generation,omitempty"`
 	Revision       contract.Revision `json:"revision"`
 	Arguments      json.RawMessage   `json:"arguments,omitempty"`
+	Tool           string            `json:"tool,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -317,6 +350,8 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 		out, err = g.Resources.Rename(ctx, a, call.ResourceID, RenameResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Name: call.Name})
 	case resourceDelete:
 		out, err = g.Resources.Delete(ctx, a, call.ResourceID, DeleteResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Confirm: call.Confirm})
+	case resourceApply:
+		out, err = g.Resources.Apply(ctx, a, call.ResourceID, ApplyResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Tool: call.Tool, Arguments: call.Arguments})
 	case resourceStatus:
 		out, err = g.Resources.Operation(ctx, a, call.ResourceID, call.Kind, call.UserID)
 	case resourceSelGet:
@@ -397,6 +432,13 @@ func (g *Gateway) RenameResource(ctx context.Context, a contract.Actor, resource
 // action. It is crash-reconciled by the owner.
 func (g *Gateway) DeleteResource(ctx context.Context, a contract.Actor, resourceID string, r DeleteResourceRequest) (DeleteResult, error) {
 	return decodeResource[DeleteResult](g.resourceCall(ctx, a, r.OperationID, ResourceCall{Op: resourceDelete, ResourceID: resourceID, Generation: r.Generation, Revision: r.Revision, Confirm: r.Confirm}))
+}
+
+// ApplyResource applies one data or schema change of a resource as the
+// person's explicit UI action. It is not a proposal: the request is the
+// intent, and the same admission, revision check and receipt rules apply.
+func (g *Gateway) ApplyResource(ctx context.Context, a contract.Actor, resourceID string, r ApplyResourceRequest) (ApplyResult, error) {
+	return decodeResource[ApplyResult](g.resourceCall(ctx, a, r.OperationID, ResourceCall{Op: resourceApply, ResourceID: resourceID, Generation: r.Generation, Revision: r.Revision, Tool: r.Tool, Arguments: r.Arguments}))
 }
 
 // ResourceOperation looks the receipt of a UI mutation up. It is read-only.

@@ -50,6 +50,8 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	group.GET("/resources/:resourceId/users", endpoints.SearchResourceUsers(gw, db, mode))
 	group.POST("/resources/:resourceId/rename", endpoints.RenameResource(gw, db, mode))
 	group.POST("/resources/:resourceId/delete", endpoints.DeleteResource(gw, db, mode))
+	// One data or schema change by the person's own action, with no card.
+	group.POST("/resources/:resourceId/apply", endpoints.ApplyResource(gw, db, mode))
 	group.GET("/resources/:resourceId/operations/:operationId", endpoints.GetResourceOperation(gw, db, mode))
 	// The resource a conversation works on. The stored reference is never a
 	// credential: the owner authorizes it again on every use.

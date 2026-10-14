@@ -287,14 +287,54 @@ func DeleteResource(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Handle
 	}
 }
 
+// ApplyResource applies a data or schema change of a resource.
+// @Summary Change a resource's data or schema by the person's own action (UI only)
+// @Description Applies one change through a write or schema tool the add-on declares, for example inserting rows or adding a column, as the person's own explicit action in the person's own browser tab. It needs no confirmation card: the request is the intent. It is not a proposal and nothing is stored for later. The same rules as every change apply: the role of the action (the owner and editors write rows, only the owner changes the schema, viewers and installation administrators without a grant get the answer of an unknown resource), the declared tool definition, the resource's admission, the generation and the revision the caller read (409 stale, nothing changed), the add-on's receipt, which makes repeating the same operationId with the same request one change, and a wait behind an unresolved outcome. The tool's arguments must not name the resource, the tool, an actor or any field the tool definition does not declare. Reads, creations, the add-on's rename and delete, administrator tools and tools nobody declared are refused with 400. Accepted only from the person's own browser session: a same-origin fetch whose X-LocalAI-Confirm header equals the resource ID, with no API key and no tool, agent or MCP marker. After outcome_unknown, look the receipt up with kind=apply and the original operationId; never submit a new operation. No MCP tool maps to this route.
+// @Tags Addons
+// @Accept json
+// @Produce json
+// @Param resourceId path string true "Resource ID"
+// @Param request body gateway.ApplyResourceRequest true "Change request"
+// @Success 200 {object} gateway.ApplyResult "The committed change and its receipt"
+// @Failure 400 {object} AddonErrorResponse "Malformed request, a tool that is not a change, or arguments the tool does not accept"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Not a human surface, feature denied, role too low or unknown resource, or type outcome_blocked"
+// @Failure 409 {object} AddonErrorResponse "Type stale: the generation or the revision moved"
+// @Failure 503 {object} AddonErrorResponse "Unavailable, or type outcome_unknown (with operationId)"
+// @Router /api/addons/resources/{resourceId}/apply [post]
+func ApplyResource(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		if !humanSurface(c, s, a, c.Param("resourceId")) {
+			return failure(c, 403, "Changing a resource requires your own browser session")
+		}
+		var r gateway.ApplyResourceRequest
+		if decode(c, &r) != nil || r.OperationID == "" || r.Tool == "" || len(r.Arguments) == 0 {
+			return failure(c, 400, "Invalid change")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		out, e := g.ApplyResource(c.Request().Context(), a, c.Param("resourceId"), r)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, out)
+	}
+}
+
 // GetResourceOperation looks a UI mutation's receipt up.
 // @Summary Look up the receipt of a rename or a deletion (owner, UI only)
-// @Description Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried) or delete. The state is pending, committed, rejected or unknown; it never applies anything. Only the owner role may look up, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.
+// @Description Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete or apply (the operationId of a change; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.
 // @Tags Addons
 // @Produce json
 // @Param resourceId path string true "Resource ID"
 // @Param operationId path string true "Operation ID of the rename"
-// @Param kind query string true "Operation kind" Enums(rename,delete)
+// @Param kind query string true "Operation kind" Enums(rename,delete,apply)
 // @Success 200 {object} gateway.OperationStatus "Receipt state"
 // @Failure 400 {object} AddonErrorResponse "Unsupported kind"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"

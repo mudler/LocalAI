@@ -32,6 +32,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 			"/api/addons/resources/{resourceId}/users":                       {"get"},
 			"/api/addons/resources/{resourceId}/rename":                      {"post"},
 			"/api/addons/resources/{resourceId}/delete":                      {"post"},
+			"/api/addons/resources/{resourceId}/apply":                       {"post"},
 			"/api/addons/resources/{resourceId}/operations/{operationId}":    {"get"},
 			"/api/addons/conversations/{conversationId}/selection/{addonId}": {"get", "put", "delete"},
 		} {
@@ -44,7 +45,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 			}
 		}
 		for _, check := range []struct{ path, method string }{
-			{"/api/addons/resources/{resourceId}/rename", "post"}, {"/api/addons/resources/{resourceId}/delete", "post"},
+			{"/api/addons/resources/{resourceId}/rename", "post"}, {"/api/addons/resources/{resourceId}/delete", "post"}, {"/api/addons/resources/{resourceId}/apply", "post"},
 		} {
 			text := string(doc.Paths[check.path][check.method])
 			for _, want := range []string{`"409"`, `"503"`, "stale", "outcome_unknown", "X-LocalAI-Confirm"} {
@@ -77,6 +78,8 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 			"gateway.RenameResourceRequest": gateway.RenameResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Name: "N"},
 			"gateway.DeleteResourceRequest": gateway.DeleteResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Confirm: "N"},
 			"gateway.SetGrantRequest":       gateway.SetGrantRequest{Role: "viewer", OperationID: "o"},
+			"gateway.ApplyResourceRequest":  gateway.ApplyResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Tool: "rows-insert", Arguments: json.RawMessage(`{}`)},
+			"gateway.ApplyResult":           gateway.ApplyResult{ResourceID: "r", OperationID: "o", Revision: rev, Result: json.RawMessage(`{}`)},
 			"gateway.SelectionRequest":      gateway.SelectionRequest{ResourceID: "r"},
 		} {
 			def, ok := doc.Definitions[name]
@@ -100,7 +103,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 		h := ready(false)
 		got := h.send("GET", "/api/instructions/addons", "", h.bearer("alice"))
 		Expect(got.code).To(Equal(http.StatusOK), got.raw)
-		for _, want := range []string{"/api/addons/resources", "grants", "users?q=", "rename", "delete", "selection", "select_resource", "never tools"} {
+		for _, want := range []string{"/api/addons/resources", "grants", "users?q=", "rename", "delete", "apply", "selection", "select_resource", "never tools"} {
 			Expect(got.raw).To(ContainSubstring(want), want)
 		}
 		registered := map[string]bool{}
@@ -118,6 +121,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 			"GET /api/addons/resources/:resourceId/grants", "PUT /api/addons/resources/:resourceId/grants/:userId",
 			"DELETE /api/addons/resources/:resourceId/grants/:userId", "GET /api/addons/resources/:resourceId/users",
 			"POST /api/addons/resources/:resourceId/rename", "POST /api/addons/resources/:resourceId/delete",
+			"POST /api/addons/resources/:resourceId/apply",
 			"GET /api/addons/resources/:resourceId/operations/:operationId",
 			"GET /api/addons/conversations/:conversationId/selection/:addonId",
 			"PUT /api/addons/conversations/:conversationId/selection/:addonId",

@@ -138,6 +138,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/resources":                    true,
 			"POST /api/addons/resources/:resourceId/rename": true,
 			"POST /api/addons/resources/:resourceId/delete": true,
+			"POST /api/addons/resources/:resourceId/apply":  true,
 		}))
 		// The grant changes and the conversation selection are PUT and DELETE;
 		// nothing else uses those methods.

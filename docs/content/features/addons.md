@@ -1011,7 +1011,8 @@ the route-feature registry.
 | `GET /api/addons/resources/{resourceId}/users?q=&limit=` | owner role, own session | The user picker. |
 | `POST /api/addons/resources/{resourceId}/rename` | owner role, own session | Rename through the add-on. |
 | `POST /api/addons/resources/{resourceId}/delete` | owner role, own session | Delete the resource and its data. |
-| `GET /api/addons/resources/{resourceId}/operations/{operationId}?kind=` | owner role, own session | Read-only receipt lookup of a rename or a deletion. |
+| `POST /api/addons/resources/{resourceId}/apply` | role of the tool, own session | One data or schema change through a declared write or schema tool, with no card. |
+| `GET /api/addons/resources/{resourceId}/operations/{operationId}?kind=` | owner role (rename, delete) or a role that may write (apply), own session | Read-only receipt lookup of a rename, a deletion or a change. |
 | `GET`/`PUT`/`DELETE /api/addons/conversations/{conversationId}/selection/{addonId}` | any caller with the feature | The resource a conversation works on. |
 
 "Own session" means the same rules as a confirmation: a browser session cookie, a
@@ -1075,6 +1076,34 @@ The delete tool is declared in `capabilities.adminTools`. The owner is its only 
 the delete endpoint and its own crash recovery, under the host action `delete`, which no
 model tool, proposal or typed request can carry. The add-on refuses the tool under any other
 action.
+
+### Changing data and schema from the UI
+
+`POST /api/addons/resources/{resourceId}/apply` is how a person's own page changes rows or
+the schema, for example the Tables page. The body is `{operationId, generation, revision,
+tool, arguments}`. It is not a proposal: nothing is stored for later and no card is shown,
+because the request in the person's own tab is the intent. It keeps every rule of a
+mutation:
+
+- **Tool.** `tool` must be declared in `capabilities.tools` with a definition of kind `write`
+  or `schema`. Reads, creations, the add-on's mapped rename, create and delete tools, admin
+  tools and undeclared names are `400`. The arguments are the tool's own, without the
+  resource (the path names it) and without `tool`; they are validated against the
+  definition exactly as a model's call is, so an identity, role or approval field or an
+  unknown field never reaches the add-on.
+- **Role.** A `write` tool needs at least the editor role; a `schema` tool needs the owner
+  role. A viewer, an editor changing the schema, a person with no grant and an installation
+  administrator get the answer of an unknown resource.
+- **Admission and revision.** The change is admitted per resource, waits behind an unresolved
+  outcome, and is checked against the generation and the revision the caller read (`409
+  stale`, nothing changed). The add-on's receipt is the record: repeating an `operationId`
+  with the same request returns the same result and never applies twice; the same ID with
+  another request is refused.
+- **Result.** The answer carries the new `revision` and the receipt's `result` (for Tables,
+  the `count` and the changed row `ids`). An outcome that cannot be established is `503
+  outcome_unknown` with the original `operationId`; look it up with `kind=apply` and never
+  submit a new operation.
+
 
 ### Sharing
 

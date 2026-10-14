@@ -1277,6 +1277,77 @@
                 }
             }
         },
+        "/api/addons/resources/{resourceId}/apply": {
+            "post": {
+                "description": "Applies one change through a write or schema tool the add-on declares, for example inserting rows or adding a column, as the person's own explicit action in the person's own browser tab. It needs no confirmation card: the request is the intent. It is not a proposal and nothing is stored for later. The same rules as every change apply: the role of the action (the owner and editors write rows, only the owner changes the schema, viewers and installation administrators without a grant get the answer of an unknown resource), the declared tool definition, the resource's admission, the generation and the revision the caller read (409 stale, nothing changed), the add-on's receipt, which makes repeating the same operationId with the same request one change, and a wait behind an unresolved outcome. The tool's arguments must not name the resource, the tool, an actor or any field the tool definition does not declare. Reads, creations, the add-on's rename and delete, administrator tools and tools nobody declared are refused with 400. Accepted only from the person's own browser session: a same-origin fetch whose X-LocalAI-Confirm header equals the resource ID, with no API key and no tool, agent or MCP marker. After outcome_unknown, look the receipt up with kind=apply and the original operationId; never submit a new operation. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Change a resource's data or schema by the person's own action (UI only)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resource ID",
+                        "name": "resourceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Change request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ApplyResourceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The committed change and its receipt",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ApplyResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request, a tool that is not a change, or arguments the tool does not accept",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not a human surface, feature denied, role too low or unknown resource, or type outcome_blocked",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale: the generation or the revision moved",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or type outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/resources/{resourceId}/delete": {
             "post": {
                 "description": "Permanently deletes the resource, its data and every grant, as the owner's own explicit action. It is never a chat operation and never an uninstall. The request must carry the generation and revision the owner listed and confirm, which must equal the resource's display name exactly. The owner marks the resource as deleting (inaccessible to everyone, no new admission), stops and waits for admitted work, checks the revision, cancels pending proposals, asks the add-on to delete and only then removes the record and the grants. A crash leaves a deleting record that the owner finishes at startup; an unconfirmed one returns to use. A 503 with type outcome_unknown means the deletion is confirmed and being finished: repeat the same call, the resource is inaccessible meanwhile. Accepted only from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). No MCP tool maps to this route and the add-on's delete tool is not offered to any model.",
@@ -1545,7 +1616,7 @@
         },
         "/api/addons/resources/{resourceId}/operations/{operationId}": {
             "get": {
-                "description": "Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried) or delete. The state is pending, committed, rejected or unknown; it never applies anything. Only the owner role may look up, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.",
+                "description": "Read-only receipt lookup after an outcome_unknown answer. kind is rename (operationId is the one the rename carried), delete or apply (the operationId of a change; any role that may write looks up its own). The state is pending, committed, rejected or unknown; it never applies anything. The owner role may look up a rename or a deletion and the roles that may write look up their own changes, from the owner's own browser session (same-origin fetch, X-LocalAI-Confirm equal to the resource ID). After a deletion finished the resource is gone and the lookup is denied like any unknown resource. No MCP tool maps to this route.",
                 "produces": [
                     "application/json"
                 ],
@@ -1571,7 +1642,8 @@
                     {
                         "enum": [
                             "rename",
-                            "delete"
+                            "delete",
+                            "apply"
                         ],
                         "type": "string",
                         "description": "Operation kind",
@@ -7517,6 +7589,61 @@
                 },
                 "total_bytes": {
                     "type": "integer"
+                }
+            }
+        },
+        "gateway.ApplyResourceRequest": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "Arguments are the tool's own arguments without the resource, which the\npath names, and without the tool, which Tool names.",
+                    "type": "object"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation the caller listed.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "operationId": {
+                    "description": "OperationID names the change. Repeating it with the same request\nreturns the same receipt and never applies twice; after an\noutcome_unknown answer it is what to repeat.",
+                    "type": "string",
+                    "example": "apply-1"
+                },
+                "revision": {
+                    "description": "Revision is the revision the caller read. A moved revision is a stale\ndenial and nothing is changed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
+                },
+                "tool": {
+                    "description": "Tool is a write or schema tool the add-on declares.",
+                    "type": "string",
+                    "example": "rows-insert"
+                }
+            }
+        },
+        "gateway.ApplyResult": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "type": "string"
+                },
+                "resourceId": {
+                    "type": "string"
+                },
+                "result": {
+                    "description": "Result is what the add-on's receipt reported, for example the count\nand the identifiers of the changed rows.",
+                    "type": "object"
+                },
+                "revision": {
+                    "description": "Revision is the revision after the change.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.Revision"
+                        }
+                    ]
                 }
             }
         },
