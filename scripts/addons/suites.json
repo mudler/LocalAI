@@ -1524,7 +1524,9 @@
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
       "answers from the current installed manifest only and follows a generation change",
-      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+      "creates one private data directory per addon and passes its path in the startup object",
+      "gives no data directory without a data root and refuses an unsafe root or addon ID"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1594,7 +1596,9 @@
           "refuses a missing established ledger and fences failed cleanup publication",
           "authenticates every request and separates trusted authority from model arguments",
           "bounds output streams cancellation deadlines and stop admission",
-          "withdraws and initiates every live slot before a cleanup timeout"
+          "withdraws and initiates every live slot before a cleanup timeout",
+          "creates one private data directory per addon and passes its path in the startup object",
+          "gives no data directory without a data root and refuses an unsafe root or addon ID"
         ]
       },
       {
