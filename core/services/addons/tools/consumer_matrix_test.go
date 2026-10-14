@@ -21,6 +21,21 @@ import (
 // consumer and needs a decision in tools.Consumers.
 var markers = regexp.MustCompile(`ExecuteTool\(|ExecuteMCPToolCall|DiscoverMCPTools|NewToolExecutor\(|NamedSessionsFromMCPConfig|SessionsFromMCPConfig|\.CallTool\(|cogito\.WithMCPs|AssistantExecutor|LocalAIAssistantHolder|\.Executor\(\)|mcp\.NewClient\(|gomcp\.NewClient\(|\.ListTools\(`)
 
+// withMCPsCall and toolFilterUse find the hand-over of live MCP sessions to the
+// agent library and the gate that keeps the add-on namespace out of it.
+var (
+	withMCPsCall  = regexp.MustCompile(`cogito\.WithMCPs\(`)
+	toolFilterUse = regexp.MustCompile(`cogito\.WithMCPToolFilter\([^)]*(SessionToolFilter\(\)|mcpToolFilter\(\)|IsToolName)`)
+)
+
+// sessionsWithoutFilter reports a source text that hands MCP sessions to the
+// agent library without installing the namespace filter next to them. The
+// library discovers and executes tools straight from the sessions, so the
+// filter is the only guard on that path.
+func sessionsWithoutFilter(text string) bool {
+	return withMCPsCall.MatchString(text) && !toolFilterUse.MatchString(text)
+}
+
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..")
@@ -89,6 +104,21 @@ var _ = Describe("Tool consumer matrix", func() {
 		for f, id := range classified {
 			Expect(found).To(ContainElement(f), "%s (%s) holds no tool marker any more", f, id)
 		}
+	})
+
+	It("flags source that hands sessions to the agent library without the namespace filter", func() {
+		Expect(sessionsWithoutFilter("opts = append(opts, cogito.WithMCPs(sessions...))")).To(BeTrue())
+		Expect(sessionsWithoutFilter("cogito.WithMCPs(s...), cogito.WithMCPToolFilter(func(*mcp.ClientSession, string) bool { return true })")).To(BeTrue())
+		Expect(sessionsWithoutFilter("cogito.WithMCPs(s...), cogito.WithMCPToolFilter(mcpTools.SessionToolFilter())")).To(BeFalse())
+		Expect(sessionsWithoutFilter("cogito.WithMCPs(s...), cogito.WithMCPToolFilter(filter.mcpToolFilter())")).To(BeFalse())
+		Expect(sessionsWithoutFilter("no sessions here")).To(BeFalse())
+	})
+
+	It("installs the namespace filter wherever sessions reach the agent library", func() {
+		unfiltered := sourceFiles(root, func(path, text string) bool {
+			return !strings.HasPrefix(path, "core/services/addons/tools/") && sessionsWithoutFilter(text)
+		})
+		Expect(unfiltered).To(BeEmpty(), "cogito.WithMCPs without cogito.WithMCPToolFilter lets add-on tools run unbrokered")
 	})
 
 	It("names a reason and an enforcement for every rejection and an actor for every route, with real files", func() {

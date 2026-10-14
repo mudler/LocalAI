@@ -57,6 +57,7 @@ run_go() {
     go_cases "$report"
 }
 run_go adapter ./core/services/addons/tools
+run_go cli ./core/cli -ginkgo.focus='mcpJobSessionOption'
 run_go pending ./core/http/endpoints/addons -ginkgo.focus='lists the caller.s own pending proposals'
 run_go owner ./tests/addons/tables -ginkgo.focus='Tables tools under the real owner'
 
