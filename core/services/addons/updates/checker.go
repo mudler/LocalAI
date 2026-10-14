@@ -246,7 +246,11 @@ func (c *Checker) cached(in Installation, now time.Time) (Status, bool) {
 // context, so a canceled caller cannot spoil the answer of the others; only
 // Close or the timeout ends it.
 func (c *Checker) run(ctx context.Context, in Installation, refresh bool) (Status, error) {
+	// A refresh never joins a plain evaluation: it must reach the library.
 	key := in.AddonID
+	if refresh {
+		key += "\x00refresh"
+	}
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()

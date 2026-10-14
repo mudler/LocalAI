@@ -413,6 +413,30 @@ var _ = Describe("Update detection", func() {
 				Expect(st.State).To(Equal(updates.UpToDate))
 			}
 		})
+		It("never lets an explicit refresh join a plain evaluation that is already in flight", func() {
+			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))
+			// Hold the library so a plain evaluation stays in flight.
+			r.lib.mu.Lock()
+			plain := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(plain)
+				_, _ = r.checker.Check(context.Background(), "notes", false)
+			}()
+			time.Sleep(50 * time.Millisecond)
+			refreshed := make(chan updates.Status, 1)
+			go func() {
+				defer GinkgoRecover()
+				st, e := r.checker.Check(context.Background(), "notes", true)
+				Expect(e).NotTo(HaveOccurred())
+				refreshed <- st
+			}()
+			time.Sleep(50 * time.Millisecond)
+			r.lib.mu.Unlock()
+			Eventually(refreshed, 5*time.Second).Should(Receive())
+			<-plain
+			Expect(r.lib.refreshes.Load()).To(Equal(int32(1)), "the explicit refresh reached the library")
+		})
 		It("keeps the work of a canceled caller from spoiling the answer of the others", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))
 			r.lib.delay = make(chan struct{})
