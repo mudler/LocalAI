@@ -20,12 +20,19 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 			return echo.ErrBadRequest
 		}
 
-		cfg, exists := cl.GetModelConfig(modelName)
+		cfg, exists, err := mcpModelConfig(cl, modelName)
 		if !exists {
 			return c.JSON(http.StatusNotFound, map[string]any{
 				"model":   modelName,
 				"servers": []any{},
 				"error":   fmt.Sprintf("model %q not found", modelName),
+			})
+		}
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"model":   modelName,
+				"servers": []any{},
+				"error":   err.Error(),
 			})
 		}
 
@@ -48,7 +55,7 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 		// In distributed mode, route discovery through NATS to an agent worker
 		// that can actually connect to the MCP servers.
 		if agentControl != nil {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.Name, remote, stdio)
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio)
 			if err != nil {
 				return c.JSON(http.StatusOK, map[string]any{
 					"model":   modelName,
@@ -61,7 +68,7 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 			})
 		}
 
-		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
+		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get MCP sessions: %w", err)
 		}
@@ -105,7 +112,7 @@ func MCPServersEndpointFromMiddleware(agentControl mcpTools.AgentControl) echo.H
 
 		// In distributed mode, route discovery through NATS to an agent worker.
 		if agentControl != nil {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.Name, remote, stdio)
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.MCPSessionKey(), remote, stdio)
 			if err != nil {
 				return c.JSON(http.StatusOK, map[string]any{
 					"model":   cfg.Name,
@@ -118,7 +125,7 @@ func MCPServersEndpointFromMiddleware(agentControl mcpTools.AgentControl) echo.H
 			})
 		}
 
-		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.Name, remote, stdio, nil)
+		namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(cfg.MCPSessionKey(), remote, stdio, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get MCP sessions: %w", err)
 		}
@@ -133,6 +140,22 @@ func MCPServersEndpointFromMiddleware(agentControl mcpTools.AgentControl) echo.H
 			"servers": servers,
 		})
 	}
+}
+
+// mcpModelConfig returns the config whose MCP servers a chat request for name
+// would use. A profile alias carries its servers in its profile block, so the
+// raw alias stub has none of its own; resolving it the way the request
+// middleware does keeps these endpoints in line with what chat actually offers.
+func mcpModelConfig(cl *config.ModelConfigLoader, name string) (*config.ModelConfig, bool, error) {
+	cfg, exists := cl.GetModelConfig(name)
+	if !exists {
+		return nil, false, nil
+	}
+	resolved, _, err := cl.ResolveAlias(&cfg)
+	if err != nil {
+		return nil, true, err
+	}
+	return resolved, true, nil
 }
 
 func unavailableMCPServers(

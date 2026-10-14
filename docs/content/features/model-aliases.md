@@ -79,6 +79,9 @@ A `profile` block on a model that is not an alias is rejected.
 
 MCP sessions of a profile with its own servers are kept apart from the target's,
 so profiles with different tool sets do not interfere with each other.
+`GET /v1/mcp/servers/<alias>` (and the `prompts` and `resources` endpoints) report
+the servers a chat request for the alias would use, so a profile's tool set can
+be checked without calling the model.
 
 ## Managing aliases
 
