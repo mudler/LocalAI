@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -26,12 +27,21 @@ func main() {
 	if d.Decode(&startup) != nil {
 		os.Exit(3)
 	}
-	go func() { _, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent)); os.Exit(0) }()
 	var config struct {
 		Mode string `json:"mode"`
+		// Effects names a file that makes the add-on's data durable: one line
+		// per committed operation, and "<Effects>.applies" with one line per
+		// apply request that reached the process, duplicates included. Empty
+		// keeps the receipts in memory only.
+		Effects string `json:"effects"`
 	}
 	b, _ := os.ReadFile("fixture.json")
 	_ = json.Unmarshal(b, &config)
+	// The "orphan" mode ignores the closing of the startup channel, as a
+	// misbehaving add-on would: only the owner's ledger can then stop it.
+	if config.Mode != "orphan" {
+		go func() { _, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent)); os.Exit(0) }()
+	}
 	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
 	if config.Mode == "exit-start" {
 		os.Exit(4)
@@ -108,7 +118,16 @@ func main() {
 				return
 			}
 			payload, _ := json.Marshal(map[string]any{"actor": v.Authority.Actor.UserID, "arguments": v.Request.Arguments})
-			_ = json.NewEncoder(w).Encode(contract.Result{Payload: payload})
+			result := contract.Result{Payload: payload}
+			// The tool "export" answers with a file result, and the owner
+			// turns it into a private artifact.
+			var tool struct {
+				Tool string `json:"tool"`
+			}
+			if json.Unmarshal(v.Request.Arguments, &tool) == nil && tool.Tool == "export" {
+				result.Outputs = []contract.OutputDescription{{Handle: "report", Name: "report.txt", MediaType: "text/plain", Size: int64(len("fixture\n"))}}
+			}
+			_ = json.NewEncoder(w).Encode(result)
 		case "/apply":
 			var v addonruntime.ApplyRequest
 			if !read(&v) || !valid(v.Envelope, "apply") {
@@ -117,10 +136,21 @@ func main() {
 			mu.Lock()
 			defer mu.Unlock()
 			id := v.Envelope.Request.OperationID
-			receipt, ok := receipts[id]
-			if !ok {
+			noteLine(config.Effects+".applies", id)
+			receipt, ok := lookup(config.Effects, receipts, id)
+			fresh := !ok
+			if fresh {
 				receipt = contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: v.Revision.Schema, Data: v.Revision.Data + 1}}
 				receipts[id] = receipt
+				noteLine(config.Effects, id)
+			}
+			// "lose-reply": the change is committed and the connection is
+			// dropped before the reply, as a crash or a network cut would.
+			if fresh && config.Mode == "lose-reply" {
+				if conn, _, e := w.(http.Hijacker).Hijack(); e == nil {
+					_ = conn.Close()
+					return
+				}
 			}
 			_ = json.NewEncoder(w).Encode(receipt)
 		case "/receipt":
@@ -130,7 +160,7 @@ func main() {
 			}
 			mu.Lock()
 			defer mu.Unlock()
-			receipt, ok := receipts[v.OperationID]
+			receipt, ok := lookup(config.Effects, receipts, v.OperationID)
 			if !ok {
 				receipt = contract.Receipt{OperationID: v.OperationID, State: contract.ReceiptUnknown}
 			}
@@ -165,4 +195,39 @@ func main() {
 	}
 	server := &http.Server{Handler: handler, ReadHeaderTimeout: time.Second, ReadTimeout: 2 * time.Second, IdleTimeout: time.Second, MaxHeaderBytes: 16 << 10}
 	_ = server.Serve(listener)
+}
+
+// noteLine appends one line to a durable log. An empty path keeps nothing.
+func noteLine(path, line string) {
+	if path == "" || path == ".applies" {
+		return
+	}
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if e != nil {
+		return
+	}
+	_, _ = f.WriteString(line + "\n")
+	_ = f.Sync()
+	_ = f.Close()
+}
+
+// lookup finds the receipt of an operation, in memory and then in the durable
+// log, so that a restarted process still knows what it committed.
+func lookup(path string, memory map[string]contract.Receipt, id string) (contract.Receipt, bool) {
+	if r, ok := memory[id]; ok {
+		return r, true
+	}
+	if path == "" {
+		return contract.Receipt{}, false
+	}
+	b, e := os.ReadFile(path)
+	if e != nil {
+		return contract.Receipt{}, false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if line == id {
+			return contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 1}}, true
+		}
+	}
+	return contract.Receipt{}, false
 }

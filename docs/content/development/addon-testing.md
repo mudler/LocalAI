@@ -151,3 +151,75 @@ The disconnect fixture consumes the POST envelope before waiting for cancellatio
 Leaving that body unread prevents the HTTP/1 server from observing disconnect while
 its handler waits, which can strand test-server cleanup. Production owner handlers decode
 the bounded envelope before starting a relay.
+
+## Foundation acceptance gate
+
+The foundation gate is the end-to-end check of everything below the first
+add-on: the owner, the carrier, the lifecycle, the policy, the proposals, the
+file results, the Apps surface and the UI asset route. It is one integration
+fixture, not a set of fakes at the seams.
+
+```sh
+sh scripts/addons/verify.sh foundation-acceptance   # the end-to-end suite
+sh scripts/addons/foundation_gate.sh                 # every foundation suite
+```
+
+Run `sh scripts/addons/prepare.sh --integration` first. The gate builds the
+server, the protocol fixture and the cluster command itself, so it never tests a
+stale binary.
+
+### The fixture
+
+`tests/addons/foundation/cluster` starts three server processes of
+`tests/e2e-ui`: the owner and two frontends (`front-a`, `front-b`). Each has its
+own listener, data directory and carrier identity. They share one account
+database, and they speak the real pinned mTLS carrier. The frontends open no
+add-on storage and start no process. The add-on process is the protocol fixture
+(`tests/addons/fixture/cmd`), packaged three ways from a catalog served on
+loopback after the host was built:
+
+| Package | Declares |
+| --- | --- |
+| `found-ui` | a service, the tools `echo` and `export`, and a UI module |
+| `found-tool` | a service and the same tools, no UI |
+| `found-svc` | a service only: no tool and no UI |
+
+The fixture add-on reads `fixture.json` from its package. A mode changes how it
+fails: `exit-start`, `never-ready`, `lose-reply` (commit, then drop the reply)
+and `orphan` (ignore the closing of the startup channel). Its commits and every
+apply request are written to a durable log, so a spec counts side effects across
+restarts. Specs use real API keys and real browser sessions; the only route that
+is not product code is the owner's loopback control route that registers a
+resource, because the fixture has no add-on that creates one.
+
+### What the gate proves
+
+| Case group | Proves |
+| --- | --- |
+| install, activate, alternate | An install and an enable through a frontend reach the owner, start one process per add-on under the owner only, and reads alternate through the owner and both frontends |
+| host unchanged | The host binary and the shipped UI build have the same digest after the whole lifecycle |
+| actor propagation | The add-on sees the actor of the credential; forged actor and authority headers change nothing, and a forged administrator cannot reach lifecycle |
+| JSON, progress, files, assets | JSON and file relays and lifecycle progress work through a non-owner frontend, a private file downloads through another frontend, and UI assets are served by digest, immutable and only for declared files |
+| denials | A missing feature, a stranger, a stale generation and an undeclared tool give the same typed denial on every node |
+| exactly once | A confirmed change reaches the add-on once, even confirmed again through another frontend; a lost reply is `outcome_unknown` with the original operation ID and is settled by receipt lookup with no second apply |
+| owner down | Every frontend answers 503 with the same body, starts nothing and creates no storage; a restart brings back the last good package and the retained data |
+| no duplicate owner | A second owner on the same storage does not keep running, and each add-on keeps one process |
+| orphans | A process that outlived its owner is stopped before the next one starts |
+| disable, remove, reinstall | Data and grants outlive the removal, and a stale generation and its assets are denied after an upgrade |
+| sessions and keys | Ending a session or revoking a key on one frontend refuses it on every node |
+| browser | A member sees the Apps list only and the server refuses every management request; Open works through a non-owner frontend; a proxy path prefix works for deep links; a session ended on one frontend loses the assets on the others |
+| regression | The existing model and backend gallery specs (`core/gallery`), the gallery operation specs (`core/services/galleryop`) and the process adapter specs (`pkg/model`) pass |
+
+The regression packages are the narrowest ones that run offline in under two
+minutes each and that cover the code the add-on lifecycle sits beside. The
+`core/gallery` model install specs run with `FIXTURES=tests/fixtures`. The only
+skips the gate accepts are the specs that state they need macOS.
+
+### Reading the result
+
+`foundation_gate.sh` runs every suite in the gate set, in order, and prints the
+inventory: the passed count and the skipped count of each suite, and the total.
+It exits nonzero when a suite fails, reports a skipped case, or is missing from
+the set. A suite that is added to `suites.json` must be named in the script.
+The report of the parent review is this inventory plus the case list of
+`foundation-acceptance` in `scripts/addons/suites.json`.

@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	httpapi "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/tests/addons/foundation/cluster"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
@@ -43,6 +44,10 @@ func main() {
 	addonExecutable := flag.String("addon-executable", "", "protocol fixture executable placed in every fixture package")
 	fixtureOut := flag.String("fixture-out", "", "file the seeded credentials are written to as JSON")
 	fixtureEnable := flag.String("fixture-enable", "", "comma separated id@version packages to install and enable at startup")
+	// foundation runs this server as one instance of the foundation
+	// acceptance cluster (see tests/addons/foundation/cluster).
+	foundationPath := flag.String("foundation", "", "cluster.json of the add-ons foundation fixture; enables authentication and the add-on carrier")
+	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -61,13 +66,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create temp dirs
-	tmpDir, err := os.MkdirTemp("", "ui-e2e-*")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating temp dir: %v\n", err)
-		os.Exit(1)
+	// Create temp dirs. A foundation instance keeps its state in the cluster
+	// directory, which survives a restart of the process.
+	var found *cluster.Config
+	var tmpDir string
+	if *foundationPath != "" {
+		found, err = cluster.Load(*foundationPath)
+		if err != nil || found.Nodes[*foundationRole].Dir == "" {
+			fmt.Fprintf(os.Stderr, "error loading the foundation cluster for %q: %v\n", *foundationRole, err)
+			os.Exit(1)
+		}
+		tmpDir = found.StateDir(*foundationRole)
+		if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "error creating the foundation state dir: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		tmpDir, err = os.MkdirTemp("", "ui-e2e-*")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating temp dir: %v\n", err)
+			os.Exit(1)
+		}
+		defer os.RemoveAll(tmpDir)
 	}
-	defer os.RemoveAll(tmpDir)
 
 	modelsPath := filepath.Join(tmpDir, "models")
 	backendsPath := filepath.Join(tmpDir, "backends")
@@ -154,6 +175,14 @@ func main() {
 		defer fixture.close()
 		appOptions = append(appOptions, fixture.options(dataDir)...)
 	}
+	if found != nil {
+		opts, err := found.AppOptions(*foundationRole)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the foundation cluster: %v\n", err)
+			os.Exit(1)
+		}
+		appOptions = append(appOptions, opts...)
+	}
 	app, err := application.New(appOptions...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating application: %v\n", err)
@@ -170,6 +199,19 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error seeding the add-ons fixture: %v\n", err)
 			os.Exit(1)
 		}
+	}
+
+	if found != nil && *foundationRole == cluster.Owner {
+		if err := found.Seed(ctx, app); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the foundation cluster: %v\n", err)
+			os.Exit(1)
+		}
+		control, err := found.ControlServer(app)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error starting the foundation control server: %v\n", err)
+			os.Exit(1)
+		}
+		defer control.Close()
 	}
 
 	// Register mock backend

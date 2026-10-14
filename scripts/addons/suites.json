@@ -1789,5 +1789,49 @@
       "slots: a caller without the add-ons feature sees no contribution and the server denies the tool call",
       "slots: disabling the add-on through the real owner removes every contribution and enabling brings them back"
     ]
+  },
+  "foundation-acceptance": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/foundation.sh"
+      ]
+    ],
+    "cases": [
+      "go: fails closed on every frontend while the owner is down, executes nothing locally and recovers the last good package and data on restart",
+      "go: refuses a second owner on the same storage and keeps one process per add-on",
+      "go: stops an add-on process orphaned by an owner crash before it starts the next one",
+      "go: keeps the files of the package of an installed add-on read only",
+      "go: gives an ordinary account the apps list and no management on any node",
+      "go: returns the same typed denial from the owner and from each frontend",
+      "go: refuses a session on every node once it was ended through one frontend",
+      "go: refuses an API key on every node once it was revoked through one frontend",
+      "go: installs the UI, tool and service-only packages from the catalog through a frontend without starting them and leaves the host binary and UI build unchanged",
+      "go: activates each package through the other frontend and runs one process per add-on under the owner only",
+      "go: lists the same apps from the owner and both frontends and shows only what each declared",
+      "go: serves reads of the UI, tool and service-only packages alternately through the owner and both frontends",
+      "go: denies an account without the feature, a stranger to the resource and an anonymous caller the same way on every node",
+      "go: takes the actor from the authenticated credential only and ignores forged actor and authority headers",
+      "go: denies a tool the add-on did not declare and a generation that is not current on every node",
+      "go: relays JSON and a private file result and downloads the file through a different frontend than the one that produced it",
+      "go: relays lifecycle status and progress of an operation to the administrator who made it and to nobody else",
+      "go: serves the immutable UI assets by package digest through a non-owner frontend and refuses everything else",
+      "go: applies one confirmed change exactly once through a different frontend than the one that proposed it",
+      "go: reports a lost reply as outcome unknown with the original operation ID and settles it by receipt lookup without a second apply",
+      "go: upgrades to a new generation, denies the previous generation and its assets, and keeps the retained data",
+      "go: disables, removes and reinstalls an add-on while its data and grants remain",
+      "go: never changes the host binary or the shipped UI build over the whole lifecycle",
+      "regression: model and backend gallery specs (core/gallery)",
+      "regression: gallery operation specs (core/services/galleryop)",
+      "regression: process adapter specs (pkg/model)",
+      "foundation: a member opens the add-on through each non-owner frontend and its module comes from the owner by digest",
+      "foundation: the owner and both frontends list the same add-on to the same account",
+      "foundation: a member sees the Apps list only and the server refuses every management request",
+      "foundation: an account without the add-ons feature gets no apps and no code on any node",
+      "foundation: an administrator manages through a frontend and the change is the owner's",
+      "foundation: deep links of the add-on page work behind a proxy path prefix on a non-owner frontend",
+      "foundation: a session ended through one frontend is refused for add-on assets by the other servers"
+    ]
   }
 }
