@@ -1105,7 +1105,7 @@ options:
 
 Entries are separated by `;` and use the same parsing rules as `thinking_budget` (invalid entries are skipped with a warning).
 A request whose effort is not listed falls back to `thinking_budget`; without either, no budget is sent.
-A level listed here also turns reasoning on for that request, even when `reasoning_default:off` is set.
+A level listed here also turns reasoning on for that request, even when `reasoning_default:off` is set; an explicit `enable_thinking: "false"` in the request metadata (also sent when the model sets `reasoning.disable: true`) still wins.
 The budget is an upper bound, not a target: the model may stop thinking earlier.
 
 `reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
