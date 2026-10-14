@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
+	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
@@ -841,6 +842,24 @@ func (a *Application) startAddons() error {
 		return err
 	}
 	if c.InstanceID == c.OwnerID {
+		// Data recovery sits beside the manager: an upgrade of an add-on that
+		// has data goes through it, and its journals are settled before any
+		// process starts. It gets the owner's policy once that exists.
+		account := func(context.Context, string) error { return gateway.ErrForbidden }
+		if a.AddonOwnershipMode() != auth.AddonModeLocalOwner && a.authDB != nil {
+			users := auth.NewAddonUsers(a.authDB)
+			account = users.Active
+		}
+		rec, rerr := recovery.New(recovery.Config{
+			Root: c.Root, Host: m.RecoveryHost(), Admin: c.AdminCheck, Account: account,
+			SelectionsDir: filepath.Join(c.Root, "selections"),
+			Retention:     recovery.Retention{Keep: c.BackupKeep, MaxAge: c.BackupMaxAge},
+		})
+		if rerr != nil {
+			_ = m.Close()
+			return rerr
+		}
+		m.SetRecovery(rec)
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
 			_ = m.Close()
 			return err

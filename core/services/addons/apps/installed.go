@@ -47,6 +47,11 @@ type Installed struct {
 	// Update is present only when the owner has an authoritative update check
 	// for this addon. This release has none, so the field is absent.
 	Update *Update `json:"update,omitempty"`
+	// Recovery is the recovery state of the add-on's data when it is not
+	// ready: upgrading, restoring, needs-recovery or purging. An add-on in
+	// needs-recovery is not started until an administrator restores a backup
+	// or purges its data. It is absent when the data is ready.
+	Recovery string `json:"recovery,omitempty" example:"needs-recovery"`
 }
 
 // Platform is the operating system and architecture the package was built for.

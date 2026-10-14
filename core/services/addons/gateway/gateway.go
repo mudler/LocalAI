@@ -93,6 +93,8 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 	switch request.Action {
 	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
 		return g.management(ctx, actor, request)
+	case ActionRecoveryStatus, ActionRecoveryBackup, ActionRecoveryVerify, ActionRecoveryRestore, ActionRecoveryDeleteBackup, ActionRecoveryPrune, ActionRecoveryPurge:
+		return g.recoveryAction(ctx, actor, request)
 	case "install", "upgrade", "enable", "disable", "uninstall":
 		var args struct {
 			SourceID string `json:"sourceId"`

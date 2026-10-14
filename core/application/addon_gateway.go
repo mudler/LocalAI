@@ -144,6 +144,17 @@ func (a *Application) startAddonGateway() error {
 		Proposals:       broker,
 	})
 	broker.Attach(p)
+	// Recovery gets the owner's access state. A restore or a purge that a
+	// crash stopped is finished now, before anything is served; an add-on
+	// that needs recovery stays unavailable until an administrator acts.
+	if a.addonManager != nil {
+		if rec := a.addonManager.DataRecovery(); rec != nil {
+			rec.SetPolicy(&policy.RecoveryPort{Policy: p, Broker: broker})
+			if e = rec.Reconcile(a.applicationConfig.Context); e != nil {
+				xlog.Warn("addons: a data recovery journal could not be finished yet", "error", e)
+			}
+		}
+	}
 	var files *artifacts.Artifacts
 	var selections *resources.SelectionStore
 	closeState := func() {

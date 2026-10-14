@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -78,6 +79,12 @@ type Manager struct {
 	restoreTimeout time.Duration
 	// scanner reads the size of data directories outside mu.
 	scanner storageScanner
+	// recovery backs up, migrates and restores add-on data. Nil means plain
+	// upgrades only.
+	recovery *recovery.Recovery
+	// quiesced holds the add-ons that recovery keeps stopped, whatever the
+	// journal says. It is an observation, never durable intent.
+	quiesced map[string]bool
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -160,6 +167,9 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 		if op.Command.AddonID == id && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
 			s.StartEligible = false
 		}
+	}
+	if m.quiesced[id] || m.dataBlocked(id) {
+		s.StartEligible = false
 	}
 	if m.runtime != nil {
 		registrations, e := m.runtime.Registry.Snapshot(ctx)
@@ -273,6 +283,17 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if e != nil {
 				return fail()
 			}
+			if m.recovery != nil && m.recovery.HasData(cmd.AddonID) {
+				// Retained data is only handed to the same trusted identity
+				// and never to an older data format: this holds for an
+				// upgrade and for a reinstall alike.
+				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.CheckCompatible(last, staged.Receipt()) != nil {
+					return fail()
+				}
+				if cmd.Action == "upgrade" {
+					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
+				}
+			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
 				return fail()
@@ -311,6 +332,10 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 		}
 	case "enable":
+		// Data that needs recovery is not served: it is restored or purged first.
+		if m.dataBlocked(cmd.AddonID) {
+			return fail()
+		}
 		next.DesiredEnabled = true
 	case "disable":
 		next.DesiredEnabled = false
@@ -391,6 +416,7 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			return ErrConfiguration
 		}
 	}
+	m.reconcileData(ctx)
 	return m.syncRuntime(ctx, "")
 }
 func syncPackage(root string) error {
@@ -515,6 +541,7 @@ func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor)
 	m.runtime = s
 	m.instances = map[string]addonruntime.Instance{}
 	m.startFailed = map[string]error{}
+	m.reconcileData(ctx)
 	return m.syncRuntime(ctx, "")
 }
 
@@ -594,6 +621,9 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 		return nil
 	}
 	for id, instance := range m.instances {
+		if m.quiesced[id] {
+			continue
+		}
 		state := m.journal.Addons[id]
 		if !state.Installed || !state.DesiredEnabled || state.Generation != instance.Generation {
 			if e := m.runtime.Stop(ctx, instance); e != nil {
@@ -611,6 +641,9 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 			continue
 		}
 		if _, failed := m.startFailed[id]; failed && id != target {
+			continue
+		}
+		if m.quiesced[id] || m.dataBlocked(id) {
 			continue
 		}
 		for _, generation := range state.Generations {

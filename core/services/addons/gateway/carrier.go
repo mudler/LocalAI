@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -290,7 +291,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 }
 
 // denials are authorization, policy and request-level rejections.
-var denials = []error{ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+var denials = []error{ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
 
 // unavailable are operational failures. They say the owner could not serve the
 // request, not that it ran nothing: the owner can return them after it recorded
@@ -446,7 +447,7 @@ func mutationOutcome(r contract.Request, e error) error {
 
 // readManagement are the management reads of the typed dispatch. They change
 // nothing, so a lost answer is plainly unavailable.
-var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true}
+var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true, ActionRecoveryStatus: true}
 
 // resourceRead are the resource management calls that have no operation with
 // an outcome to report: the reads and the two idempotent selection calls.

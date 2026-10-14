@@ -176,6 +176,11 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 		list[i].Generations = generations[id]
 		list[i].Restarts = restarts[id]
 		list[i].Storage = m.scanner.size(ctx, dirs[id])
+		if m.recovery != nil {
+			if st := m.recovery.StateOf(id); st != "ready" {
+				list[i].Recovery = st
+			}
+		}
 	}
 	return list, ctx.Err()
 }

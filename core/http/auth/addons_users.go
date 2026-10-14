@@ -141,3 +141,26 @@ func (u *AddonUsers) Search(ctx context.Context, query string, limit int) ([]gat
 	}
 	return out, nil
 }
+
+// Active reports whether the account exists and is active. It is the check a
+// restore applies to every owner and grant it brings back.
+func (u *AddonUsers) Active(ctx context.Context, id string) error {
+	if err := u.check(); err != nil {
+		return err
+	}
+	if id == "" || id == AddonLocalOwnerID || id == "legacy-api-key" {
+		return gateway.ErrForbidden
+	}
+	var row User
+	err := u.db.WithContext(ctx).Where("id = ?", id).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return gateway.ErrForbidden
+	}
+	if err != nil {
+		return ErrAddonUnavailable
+	}
+	if row.Status != StatusActive {
+		return gateway.ErrForbidden
+	}
+	return nil
+}

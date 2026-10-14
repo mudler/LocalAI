@@ -32,6 +32,12 @@ type AddonConfig struct {
 	OwnershipMode string
 	Host          contract.HostCompatibility
 	AdminCheck    func(context.Context, contract.Actor) error `json:"-" yaml:"-"`
+	// BackupKeep is how many backups of one add-on the owner keeps; zero is
+	// three. BackupMaxAge removes older ones; zero keeps them by count only.
+	// The newest verified backup and the recovery copy of an upgrade are
+	// never removed by either.
+	BackupKeep   int
+	BackupMaxAge time.Duration
 }
 
 func WithAddons(c AddonConfig) AppOption {

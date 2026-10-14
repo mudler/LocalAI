@@ -323,6 +323,9 @@ func (p *Policy) admitCreate(ctx context.Context, actor contract.Actor, key Reso
 	if err := p.current(ctx, actor); err != nil {
 		return err
 	}
+	if p.isHeld(key.AddonID) {
+		return errHeld
+	}
 	if err := p.opts.CreateAuthority(ctx, actor, key.AddonID); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()

@@ -674,7 +674,15 @@
       "does not let reconcile drop the reservation of a creation in flight",
       "commits the reservation at recovery when the crash came after the receipt was stored",
       "never reads an add-on that cannot answer as a backing that is gone",
-      "accepts the explicit answer of the declared existence tool, true or false"
+      "accepts the explicit answer of the declared existence tool, true or false",
+      "holds the resources of one add-on and leaves another add-on alone",
+      "cancels admitted work and reports a drain that did not finish",
+      "restores grants through the account directory and the lowerings since the backup, never beyond them",
+      "keeps a bounded durable log of lowered access",
+      "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
+      "forgets the records of one add-on and no other",
+      "maps an owner on a restore to a local-owner store only when nothing named is in it",
+      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -866,7 +874,15 @@
       "commits the reservation at recovery when the crash came after the receipt was stored",
       "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
       "never reads an add-on that cannot answer as a backing that is gone",
-      "accepts the explicit answer of the declared existence tool, true or false"
+      "accepts the explicit answer of the declared existence tool, true or false",
+      "holds the resources of one add-on and leaves another add-on alone",
+      "cancels admitted work and reports a drain that did not finish",
+      "restores grants through the account directory and the lowerings since the backup, never beyond them",
+      "keeps a bounded durable log of lowered access",
+      "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
+      "forgets the records of one add-on and no other",
+      "maps an owner on a restore to a local-owner store only when nothing named is in it",
+      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -973,7 +989,15 @@
           "does not let reconcile drop the reservation of a creation in flight",
           "commits the reservation at recovery when the crash came after the receipt was stored",
           "never reads an add-on that cannot answer as a backing that is gone",
-          "accepts the explicit answer of the declared existence tool, true or false"
+          "accepts the explicit answer of the declared existence tool, true or false",
+          "holds the resources of one add-on and leaves another add-on alone",
+          "cancels admitted work and reports a drain that did not finish",
+          "restores grants through the account directory and the lowerings since the backup, never beyond them",
+          "keeps a bounded durable log of lowered access",
+          "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
+          "forgets the records of one add-on and no other",
+          "maps an owner on a restore to a local-owner store only when nothing named is in it",
+          "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
         ]
       },
       {

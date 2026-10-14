@@ -131,6 +131,9 @@ func (p *Policy) CreateWithID(ctx context.Context, actor contract.Actor, addonID
 	if err := p.current(ctx, actor); err != nil {
 		return ResourceKey{}, err
 	}
+	if p.isHeld(addonID) {
+		return ResourceKey{}, errHeld
+	}
 	if err := p.opts.CreateAuthority(ctx, actor, addonID); err != nil {
 		if ctx.Err() != nil {
 			return ResourceKey{}, ctx.Err()

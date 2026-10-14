@@ -62,6 +62,9 @@ type Policy struct {
 	// holds says whether a stored proposal still holds a reservation, so a
 	// pending proposal keeps the resource it will create. The broker sets it.
 	holds func(resourceID string) bool
+	// held counts the operations that hold an add-on's data still: a backup,
+	// an upgrade, a restore or a purge. See HoldAddon.
+	held map[string]int
 }
 
 // New builds a policy on an open store.
@@ -164,6 +167,9 @@ func (p *Policy) Authorize(ctx context.Context, actor contract.Actor, resource R
 	if err := p.current(ctx, actor); err != nil {
 		return err
 	}
+	if p.isHeld(resource.AddonID) {
+		return errHeld
+	}
 	return p.check(actor, resource, action)
 }
 
@@ -182,6 +188,13 @@ func (p *Policy) Admit(ctx context.Context, actor contract.Actor, resource Resou
 	runCtx, cancel := context.WithCancel(ctx)
 	adm := &admitted{user: actor.UserID, mutation: action.Mutation(), cancel: cancel, done: make(chan struct{})}
 	g.mu.Lock()
+	// The hold is read under the gate that HoldAddon cancels work under, so
+	// an admission is either listed there or refused here.
+	if p.isHeld(resource.AddonID) {
+		g.mu.Unlock()
+		cancel()
+		return errHeld
+	}
 	if err := p.check(actor, resource, action); err != nil {
 		g.mu.Unlock()
 		cancel()
@@ -303,6 +316,14 @@ func (p *Policy) change(ctx context.Context, actor contract.Actor, resource Reso
 			rec.Grants[userID] = role
 		}
 		if lowering {
+			ceiling := role
+			if remove {
+				ceiling = ""
+			}
+			d.Revoked = append(d.Revoked, revocation{AddonID: rec.AddonID, ResourceID: resource.ResourceID, UserID: userID, Ceiling: ceiling, At: time.Now().UTC()})
+			if over := len(d.Revoked) - MaxRevocations; over > 0 {
+				d.Revoked = append([]revocation(nil), d.Revoked[over:]...)
+			}
 			rec.Epoch++
 			if rec.Drain == nil {
 				rec.Drain = map[string]drainMark{}
@@ -396,6 +417,9 @@ func (p *Policy) reserve(ctx context.Context, actor contract.Actor, addonID stri
 	}
 	if err := p.current(ctx, actor); err != nil {
 		return ResourceKey{}, noop, err
+	}
+	if p.isHeld(addonID) {
+		return ResourceKey{}, noop, errHeld
 	}
 	if err := p.opts.CreateAuthority(ctx, actor, addonID); err != nil {
 		if ctx.Err() != nil {

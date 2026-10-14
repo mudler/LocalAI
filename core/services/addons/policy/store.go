@@ -106,11 +106,28 @@ type tombstone struct {
 // MaxTombstones bounds the finished deletions the store remembers.
 const MaxTombstones = 1024
 
+// revocation is a lowering of one person's authority on a resource: the
+// highest role the person may hold after it, empty for a removal. A restore
+// from a backup older than the lowering applies it again, so restoring never
+// gives back access that was taken away.
+type revocation struct {
+	AddonID    string    `json:"addonId"`
+	ResourceID string    `json:"resourceId"`
+	UserID     string    `json:"userId"`
+	Ceiling    Role      `json:"ceiling,omitempty"`
+	At         time.Time `json:"at"`
+}
+
+// MaxRevocations bounds the lowerings the store remembers. The oldest are
+// forgotten first, which is why a restore also checks the account directory.
+const MaxRevocations = 4096
+
 type document struct {
 	Version   int                   `json:"version"`
 	Mode      Mode                  `json:"mode"`
 	Resources map[string]*record    `json:"resources"`
 	Deleted   map[string]*tombstone `json:"deleted,omitempty"`
+	Revoked   []revocation          `json:"revoked,omitempty"`
 }
 
 func (d *document) clone() *document {
@@ -125,6 +142,7 @@ func (d *document) clone() *document {
 			c.Deleted[id] = &n
 		}
 	}
+	c.Revoked = append([]revocation(nil), d.Revoked...)
 	return c
 }
 
@@ -190,6 +208,14 @@ func load(dir string) (*document, error) {
 	}
 	if len(d.Deleted) > MaxTombstones {
 		return nil, errors.New("addon policy store is corrupt")
+	}
+	if len(d.Revoked) > MaxRevocations {
+		return nil, errors.New("addon policy store is corrupt")
+	}
+	for _, v := range d.Revoked {
+		if v.AddonID == "" || v.ResourceID == "" || v.UserID == "" || (v.Ceiling != "" && v.Ceiling != RoleViewer && v.Ceiling != RoleEditor) {
+			return nil, errors.New("addon policy store is corrupt")
+		}
 	}
 	for id, t := range d.Deleted {
 		if id == "" || t == nil || t.AddonID == "" || t.Owner == "" || t.Op == "" {

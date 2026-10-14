@@ -45,6 +45,19 @@ type stagedState struct {
 	used    bool
 }
 
+// Receipt returns what the staged package has verified so far: its digest,
+// the trusted source and channel it was resolved from, its verification level
+// and its manifest. The directory is empty until the package is committed. A
+// staged package that was not made by an installer has the zero receipt.
+func (s StagedPackage) Receipt() PackageReceipt {
+	if s.state == nil {
+		return PackageReceipt{}
+	}
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	return s.state.receipt
+}
+
 func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt, error) {
 	if s.state == nil {
 		return PackageReceipt{}, ErrPackage
