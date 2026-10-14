@@ -3212,6 +3212,7 @@
       "go: refreshes the library only on an explicit refresh and applies nothing",
       "go: limits explicit refreshes to one per interval and says so",
       "go: shares one check among concurrent callers",
+      "go: never lets an explicit refresh join a plain evaluation that is already in flight",
       "go: keeps the work of a canceled caller from spoiling the answer of the others",
       "go: bounds the cache and forgets the answer of a replaced package",
       "go: redacts the library, channel and digests for a caller who is not an administrator",
