@@ -964,3 +964,12 @@
   .cx-dock .home-menu__list { max-height: min(60vh, 420px); }
 }
 .cx-thread[hidden] { display: none; }
+
+/* Reasoning effort menu: a short list of buttons in the shared menu frame. */
+.cx-effort-menu { min-width: 180px; }
+.cx-effort-item { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.cx-effort-item:hover,
+.cx-effort-item:focus-visible { background: var(--dk-hover); color: var(--dk-text); outline: none; }
+@media (max-width: 640px) {
+  .cx-chipset .home-chip__text { max-width: 22ch; }
+}
