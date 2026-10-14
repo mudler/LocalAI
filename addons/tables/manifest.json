@@ -525,6 +525,64 @@
       "rename": "databases-rename",
       "inspect": "databases-inspect",
       "delete": "databases-delete"
+    },
+    "ui": {
+      "entry": "ui/tables.js",
+      "css": [
+        "ui/tables.css"
+      ],
+      "sdk": {
+        "min": 1,
+        "max": 1
+      },
+      "pages": [
+        "databases"
+      ],
+      "navigation": [
+        "databases"
+      ],
+      "mainPage": "databases",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Tables",
+        "it": "Tabelle",
+        "de": "Tabellen",
+        "es": "Tablas",
+        "id": "Tabel",
+        "ko": "테이블",
+        "pt-BR": "Tabelas",
+        "zh-CN": "数据表"
+      },
+      "description": {
+        "en": "Databases of tables you own or share: typed rows, filters, schema and sharing.",
+        "it": "Database di tabelle tuoi o condivisi: righe tipizzate, filtri, schema e condivisione.",
+        "de": "Datenbanken mit Tabellen, die Ihnen gehören oder geteilt wurden: typisierte Zeilen, Filter, Schema und Freigabe.",
+        "es": "Bases de datos de tablas propias o compartidas: filas tipadas, filtros, esquema y uso compartido.",
+        "id": "Basis data tabel milik Anda atau yang dibagikan: baris bertipe, filter, skema, dan berbagi.",
+        "ko": "내가 소유하거나 공유받은 테이블 데이터베이스: 형식이 있는 행, 필터, 스키마, 공유.",
+        "pt-BR": "Bancos de dados de tabelas próprios ou compartilhados: linhas tipadas, filtros, esquema e compartilhamento.",
+        "zh-CN": "你拥有或被共享的数据表数据库：带类型的行、筛选、结构和共享。"
+      },
+      "chatActions": [
+        {
+          "id": "select-database",
+          "label": {
+            "en": "Select database",
+            "it": "Seleziona database",
+            "de": "Datenbank auswählen",
+            "es": "Seleccionar base de datos",
+            "id": "Pilih basis data",
+            "ko": "데이터베이스 선택",
+            "pt-BR": "Selecionar banco de dados",
+            "zh-CN": "选择数据库"
+          },
+          "icon": "database",
+          "placement": "composer",
+          "target": {
+            "component": "SelectDatabase"
+          }
+        }
+      ]
     }
   }
 }

@@ -279,6 +279,10 @@ func (h *host) library() *cluster.Library {
 		Capabilities map[string]any `json:"capabilities"`
 	}
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
+	// These specs run the tools, not the page: the package carries no UI
+	// files, so the declaration of them is left out. The UI suite installs
+	// the whole package.
+	delete(m.Capabilities, "ui")
 	exe, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
 	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())

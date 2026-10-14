@@ -9,7 +9,8 @@ lifecycle, the typed schema operations, and structured row queries and
 confirmed row changes that exist today, how a chat model uses them as tools,
 and the host side of managing databases from the UI: creating, renaming,
 sharing and deleting a database, and choosing the database of a conversation.
-CSV results and the Tables pages themselves are not available yet.
+CSV results are not available yet. The Tables pages (the native UI) are described
+in [The Tables pages](#the-tables-pages).
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -282,6 +283,85 @@ choosing a database once. The model never sets it, and the owner authorizes it
 for the person on every call: a database whose grant was withdrawn or that was
 deleted is refused like an unknown one. With none selected the tool answers a
 `select_resource` result and runs nothing.
+
+## The Tables pages
+
+Tables ships its own UI as a standalone ES module in the package. It is loaded by
+the host after the host was built, so installing or updating Tables changes the
+pages without a rebuild of LocalAI. The Add-ons tab shows a **Tables** page.
+
+| Where | What |
+|---|---|
+| `Databases` list | Your databases and the ones shared with you, each with your role, who shared it and, for the owner, how many people have access. Create, rename and delete (owner). |
+| A database | The tables as tabs, the typed grid of the selected table, a structured filter, sort by column, cursor paging and the row actions of your role. |
+| Schema (owner) | Create, rename and drop tables and columns. A drop says what is lost and asks for the name to be typed. |
+| Share (owner) | The whole database is shared as `viewer` or `editor` with named accounts found by a picker. Local-owner mode says that sharing is not available and makes no sharing call. |
+| `Select database` | A chat action in the composer menu: the databases you may use with your role, the one selected for this conversation, and a way to clear it. |
+
+What each role sees:
+
+| Role | Rows | Schema | Share, rename, delete |
+|---|---|---|---|
+| Owner | read, add, edit, delete | yes | yes |
+| Editor | read, add, edit, delete | read only | no |
+| Viewer | read | read only | no |
+
+Hiding a control is never the control. The server checks the role of every call
+again, and a crafted write of a viewer, a schema change of an editor or a share
+of anybody who is not the owner is refused with the answer of an unknown
+database.
+
+### Editing rows
+
+- **Typed editors.** Text, whole number, number, yes or no, and date and time
+  (entered and shown in UTC). A value of the wrong type is refused in the form
+  and nothing is sent. Integers beyond 2^53 are kept exact. An optional column
+  has an *Empty* switch that sends `null`.
+- **Filters.** A list of conditions over the table's own columns, joined by
+  all or any, with the operators the column type supports. They become the
+  `filter` of `rows-query`; there is no free text and no expression. The row
+  ID is filterable as `_id`.
+- **Paging.** The add-on's cursor goes forward and the page keeps the cursors it
+  used to go back. A cursor that the add-on no longer accepts (the data
+  changed) starts again at the first page and says so.
+- **Batches.** *Add rows* takes up to 100 rows. A selection is changed or
+  deleted in steps of at most 1000 row IDs, each step saved on its own with its
+  own operation ID. If a later step fails, the page says how many rows were
+  changed before it.
+- **Revisions.** Every change sends the revision the page read. If another
+  person changed the database, the save is refused as stale, the form keeps what
+  you typed and offers *Reload and apply again*, which reads the revision and
+  sends the same change once more under a new operation. An unknown outcome
+  keeps the operation ID, so repeating is the same change and never applies
+  twice.
+
+Row and schema changes made in these pages are the person's own action. They
+need no confirmation card and are not proposals, and they still go through the
+host's `POST /api/addons/resources/{resourceId}/apply`: the role of the action,
+the declared tool definition, the admission of the resource, the revision and
+the receipt (see [Changing data and schema from the UI](../addons/#changing-data-and-schema-from-the-ui)).
+
+### The database of a chat
+
+Choosing a database in the `Select database` action stores it for you, the
+conversation and the add-on. A chat tool call that names no database uses it,
+and the chat sends the conversation ID in the `X-LocalAI-Conversation-Id` header
+only when the conversation has add-on tools enabled. Two people in the same
+conversation ID, or one person in two conversations, never share a selection. A
+database that is no longer shared with you is refused like an unknown one.
+
+### Package and build
+
+The UI source is `addons/tables/ui`. `node addons/tables/ui/build.mjs` writes
+`dist/ui/tables.js`, `dist/ui/tables.css` and `dist/ui/icon.png`, which the
+manifest names under `capabilities.ui` (`entry`, `css`, `icon`, `pages`,
+`navigation`, `mainPage`, `chatActions`). The package declares no
+dependencies, so it has no lockfile: the build uses the bundler that the host UI
+already has installed (`core/http/react-ui/node_modules`) and needs nothing to
+download. `node addons/tables/ui/test/run.mjs` runs its unit tests. The module imports
+nothing: React, the components, the typed calls and the navigation arrive through
+the host SDK, and every class of the style sheet starts with `tbl-`. The UI is
+translated to the languages of the host; a missing key reads the English text.
 
 ## Schema operations
 
