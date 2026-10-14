@@ -1664,7 +1664,8 @@ The check keeps a bounded cache for each add-on (default 256 entries, 15 minutes
 status read answers from it or evaluates the library data the owner already holds; it never
 uses the network. `POST /api/addons/{id}/update/check` fetches the library again through
 the credential reference the library is configured with, at most once per interval for an
-add-on and for a library (default 15 seconds), and then returns the new status. A secret,
+add-on and for a library (default 15 seconds; `UpdateCacheTTL` and `UpdateRefreshInterval` of the
+add-on configuration change the two defaults), and then returns the new status. A secret,
 an address or the text of a failure never appears in a status. Checks never apply an
 update.
 

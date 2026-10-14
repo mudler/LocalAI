@@ -107,8 +107,7 @@
     "missing": "{{id}} tidak terpasang.",
     "uninstall": "Copot",
     "uninstallBody": "Add-on berhenti dan paketnya tidak lagi dipakai. Data, identitas, dan izinnya dipertahankan, jadi memasangnya lagi akan memakainya kembali. Tidak ada yang dihapus.",
-    "uninstallTitle": "Copot {{name}}?",
-    "updateAvailable": "Pembaruan {{version}}"
+    "uninstallTitle": "Copot {{name}}?"
   },
   "libraries": {
     "add": "Tambah pustaka",
@@ -181,12 +180,7 @@
     "restarts": "Percobaan mulai ulang",
     "storage": "Penyimpanan",
     "tools": "Alat",
-    "trust": "Kepercayaan",
-    "updateAvailable": "Versi {{version}} tersedia.",
-    "updateCurrent": "Add-on ini sudah terbaru.",
-    "updateUnknown": "Status pembaruan tidak diketahui. Rilis ini tidak punya pemeriksaan pembaruan yang otoritatif, jadi tidak menebak dari label versi.",
-    "updates": "Pembaruan",
-    "upgrade": "Perbarui"
+    "trust": "Kepercayaan"
   },
   "page": {
     "back": "Kembali ke add-on",
@@ -434,6 +428,80 @@
       "denied": "Hanya administrator yang bisa melakukannya, dari sesi peramban mereka sendiri.",
       "network": "Pemilik tidak dapat dijangkau.",
       "unavailable": "Pemilik tidak tersedia."
+    }
+  },
+  "updates": {
+    "title": "Pembaruan",
+    "checkNow": "Periksa pembaruan",
+    "checking": "Memeriksa...",
+    "checkedAt": "Diperiksa {{when}}",
+    "neverChecked": "Belum diperiksa",
+    "lastSuccess": "Pustaka terakhir dibaca {{when}}",
+    "stale": "Jawaban ini mungkin sudah usang. Periksa lagi.",
+    "throttled": "Pemeriksaan baru saja dijalankan. Ini hasilnya.",
+    "badge": {
+      "available": "Pembaruan {{version}}",
+      "incompatible": "Pembaruan {{version}} tidak kompatibel",
+      "failed": "Pemeriksaan pembaruan gagal",
+      "integrity": "Kesalahan integritas"
+    },
+    "state": {
+      "unknown": "Status pembaruan tidak diketahui. Periksa pembaruan untuk menanyakan pustaka.",
+      "up-to-date": "Add-on ini sudah terbaru.",
+      "update-available": "Versi {{version}} tersedia.",
+      "incompatible": "Versi {{version}} tidak dapat berjalan di host ini. Versi ini tidak ditawarkan.",
+      "check-failed": "Pemeriksaan gagal, jadi tidak diketahui apakah ada pembaruan.",
+      "integrity-error": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah dan tidak ada pembaruan yang ditawarkan."
+    },
+    "reason": {
+      "platform": "Platform tidak ditawarkan",
+      "host-version": "Versi host tidak cocok",
+      "api-version": "API add-on tidak cocok",
+      "protocol-version": "Versi protokol tidak cocok",
+      "sdk-version": "Versi SDK antarmuka tidak cocok",
+      "data-format": "Format data tidak cocok",
+      "digest-changed": "Digest versi ini berubah"
+    },
+    "class": {
+      "source-unavailable": "Pustaka tidak dapat dijangkau.",
+      "refresh-failed": "Pustaka tidak dapat dibaca.",
+      "credential-unavailable": "Kredensial pustaka tidak tersedia.",
+      "not-listed": "Pustaka tidak lagi mencantumkan add-on ini.",
+      "ambiguous-release": "Pustaka mencantumkan rilis ini lebih dari sekali.",
+      "canceled": "Pemeriksaan dibatalkan.",
+      "internal": "Pemeriksaan gagal."
+    },
+    "installed": "Terpasang",
+    "candidate": "Tersedia",
+    "reasons": "Mengapa tidak cocok",
+    "upgrade": "Perbarui",
+    "confirm": {
+      "title": "Perbarui {{name}} ke versi {{version}}?",
+      "body": "Add-on berhenti saat datanya dicadangkan dan dimigrasi, lalu versi baru dimulai. Jika versi baru tidak dimulai, versi saat ini tetap berjalan.",
+      "data": "Datanya dicadangkan sebelum ada yang berubah.",
+      "action": "Perbarui",
+      "library": "Pustaka",
+      "channel": "Kanal",
+      "from": "Dari",
+      "to": "Ke"
+    },
+    "progress": "Memperbarui {{name}}. Datanya dicadangkan lebih dulu.",
+    "done": "Diperbarui ke versi {{version}}.",
+    "browseUpdate": "Pembaruan {{version}} tersedia. Kelola di Terpasang.",
+    "errors": {
+      "stale_installed": "Versi terpasang berubah sejak diperiksa. Periksa pembaruan lagi.",
+      "candidate_changed": "Pustaka tidak lagi menawarkan versi yang diperiksa. Periksa pembaruan lagi.",
+      "upgrade_conflict": "Peningkatan ini sudah tercatat di operasi lain. Peningkatan tidak diterapkan dua kali.",
+      "incompatible": "Versi baru tidak kompatibel dengan host ini. Tidak ada yang diubah.",
+      "integrity_error": "Pustaka mencantumkan versi terpasang dengan isi berbeda. Tidak ada yang diubah.",
+      "upgrade_failed": "Peningkatan tidak selesai dan versi terpasang dipertahankan. Anda dapat mencoba lagi.",
+      "operation_conflict": "Operasi tidak sesuai dengan keadaan saat ini. Tidak ada yang diterapkan.",
+      "check_failed": "Pustaka tidak dapat dibaca, jadi peningkatan tidak dimulai. Tidak ada yang diubah.",
+      "unknownOutcome": "Hasil peningkatan tidak diketahui. Baca statusnya lagi; jangan mulai yang lain.",
+      "auth": "Masuk lagi untuk melanjutkan.",
+      "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
+      "network": "Jaringan tidak dapat dijangkau.",
+      "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
     }
   }
 }

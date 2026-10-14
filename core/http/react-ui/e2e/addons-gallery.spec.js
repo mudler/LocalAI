@@ -377,15 +377,16 @@ test.describe('Add-ons: installed', () => {
     await expect(sheet.getByText('sha256:0123456789ab')).toBeVisible()
     await expect(sheet.locator('dt', { hasText: 'Host API' }).locator('xpath=following-sibling::dd[1]')).toHaveText('1-2')
     await expect(sheet.getByText('12 KiB')).toBeVisible()
-    await expect(sheet.getByText('does not guess from version labels')).toBeVisible()
+    await expect(sheet.getByTestId('update-state')).toHaveAttribute('data-state', 'unknown')
     await expect(sheet.getByText('not collected in this release')).toBeVisible()
     await shoot(page, 'manage')
   })
 
   test('installed: an update is shown only from the owner update field and upgrade sends that version', async ({ page }) => {
     await signIn(page, ADMIN)
+    const candidate = 'sha256:' + 'b'.repeat(64)
     const state = await mockAddons(page, { installed: [
-      installedAddon({ update: { available: true, version: '1.3.0', checkedAt: '2026-10-01T00:00:00Z' } }),
+      installedAddon({ update: { available: true, state: 'update-available', version: '1.3.0', digest: candidate, checkedAt: '2026-10-01T00:00:00Z' } }),
       installedAddon({ id: 'plain', title: 'Plain', version: '9.9.9' }),
     ] })
     await page.goto('/app/addons?tab=installed')
@@ -393,10 +394,21 @@ test.describe('Add-ons: installed', () => {
     await expect(page.locator('[data-addon="plain"]').getByText(/Update/)).toHaveCount(0)
     await page.locator('[data-addon="notes"]').getByRole('button', { name: 'Details' }).click()
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
-    await expect.poll(() => state.log.dispatch.filter(d => d.action === 'upgrade').length).toBe(1)
-    const upgrade = state.log.dispatch.find(d => d.action === 'upgrade')
-    expect(upgrade.arguments).toEqual({ sourceId: 'main', version: '1.3.0' })
-    expect(upgrade.operationId).toMatch(UUID)
+    // The confirmation names the version and digest the owner resolved and
+    // nothing is sent until it is confirmed.
+    const dialog = page.getByTestId('upgrade-confirm')
+    await expect(dialog).toContainText('1.3.0')
+    await expect(dialog).toContainText('sha256:bbbbbbbbbbbb')
+    expect(state.log.upgrade).toHaveLength(0)
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await expect.poll(() => state.log.upgrade.length).toBe(1)
+    const sent = state.log.upgrade[0]
+    expect(sent.id).toBe('notes')
+    expect(sent.expectedDigest).toBe('sha256:0123456789abcdef0123456789abcdef')
+    expect(sent.candidateDigest).toBe(candidate)
+    expect(sent.operationId).toMatch(UUID)
+    expect(sent.confirm).toBe(sent.operationId)
+    expect(state.log.dispatch.filter(d => d.action === 'upgrade')).toHaveLength(0)
     // An add-on without the field says the status is unknown and has no Upgrade.
     await page.goto('/app/addons?tab=installed&manage=plain')
     const sheet = page.getByTestId('addon-manage')

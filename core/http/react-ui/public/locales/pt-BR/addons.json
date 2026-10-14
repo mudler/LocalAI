@@ -107,8 +107,7 @@
     "missing": "{{id}} não está instalado.",
     "uninstall": "Desinstalar",
     "uninstallBody": "O complemento para e seu pacote deixa de ser usado. Seus dados, identidade e permissões são mantidos, então instalá-lo de novo os recupera. Nada é excluído.",
-    "uninstallTitle": "Desinstalar {{name}}?",
-    "updateAvailable": "Atualização {{version}}"
+    "uninstallTitle": "Desinstalar {{name}}?"
   },
   "libraries": {
     "add": "Adicionar uma biblioteca",
@@ -181,12 +180,7 @@
     "restarts": "Tentativas de reinício",
     "storage": "Armazenamento",
     "tools": "Ferramentas",
-    "trust": "Confiança",
-    "updateAvailable": "A versão {{version}} está disponível.",
-    "updateCurrent": "Este complemento está atualizado.",
-    "updateUnknown": "O estado de atualização é desconhecido. Esta versão não tem uma verificação de atualização autoritativa, então não deduz isso dos rótulos de versão.",
-    "updates": "Atualizações",
-    "upgrade": "Atualizar"
+    "trust": "Confiança"
   },
   "page": {
     "back": "Voltar aos complementos",
@@ -434,6 +428,80 @@
       "denied": "Somente administradores podem fazer isto, na própria sessão do navegador.",
       "network": "Não foi possível alcançar o proprietário.",
       "unavailable": "O proprietário não está disponível."
+    }
+  },
+  "updates": {
+    "title": "Atualizações",
+    "checkNow": "Verificar atualizações",
+    "checking": "Verificando...",
+    "checkedAt": "Verificado {{when}}",
+    "neverChecked": "Ainda não verificado",
+    "lastSuccess": "Biblioteca lida pela última vez {{when}}",
+    "stale": "Esta resposta pode estar desatualizada. Verifique novamente.",
+    "throttled": "Uma verificação foi feita há pouco. Este é o resultado dela.",
+    "badge": {
+      "available": "Atualização {{version}}",
+      "incompatible": "Atualização {{version}} não compatível",
+      "failed": "Falha na verificação",
+      "integrity": "Erro de integridade"
+    },
+    "state": {
+      "unknown": "O estado das atualizações é desconhecido. Verifique atualizações para consultar a biblioteca.",
+      "up-to-date": "Este complemento está atualizado.",
+      "update-available": "A versão {{version}} está disponível.",
+      "incompatible": "A versão {{version}} não pode rodar neste host. Ela não é oferecida.",
+      "check-failed": "A verificação falhou, então não se sabe se existe uma atualização.",
+      "integrity-error": "A biblioteca lista a versão instalada com outro conteúdo. Nada foi alterado e nenhuma atualização é oferecida."
+    },
+    "reason": {
+      "platform": "A plataforma não é oferecida",
+      "host-version": "A versão do host não se encaixa",
+      "api-version": "A API do complemento não se encaixa",
+      "protocol-version": "A versão do protocolo não se encaixa",
+      "sdk-version": "A versão do SDK da interface não se encaixa",
+      "data-format": "O formato dos dados não se encaixa",
+      "digest-changed": "O digest desta versão mudou"
+    },
+    "class": {
+      "source-unavailable": "A biblioteca não pode ser acessada.",
+      "refresh-failed": "Não foi possível ler a biblioteca.",
+      "credential-unavailable": "A credencial da biblioteca não está disponível.",
+      "not-listed": "A biblioteca não lista mais este complemento.",
+      "ambiguous-release": "A biblioteca lista esta versão mais de uma vez.",
+      "canceled": "A verificação foi cancelada.",
+      "internal": "A verificação falhou."
+    },
+    "installed": "Instalada",
+    "candidate": "Disponível",
+    "reasons": "Por que não se encaixa",
+    "upgrade": "Atualizar",
+    "confirm": {
+      "title": "Atualizar {{name}} para a versão {{version}}?",
+      "body": "O complemento para enquanto seus dados são copiados e migrados, e depois a nova versão inicia. Se a nova versão não iniciar, a atual continua em execução.",
+      "data": "Seus dados são copiados antes de qualquer mudança.",
+      "action": "Atualizar",
+      "library": "Biblioteca",
+      "channel": "Canal",
+      "from": "De",
+      "to": "Para"
+    },
+    "progress": "Atualizando {{name}}. Seus dados são copiados primeiro.",
+    "done": "Atualizado para a versão {{version}}.",
+    "browseUpdate": "A atualização {{version}} está disponível. Gerencie em Instalados.",
+    "errors": {
+      "stale_installed": "A versão instalada mudou desde a verificação. Verifique as atualizações novamente.",
+      "candidate_changed": "A biblioteca não oferece mais a versão verificada. Verifique as atualizações novamente.",
+      "upgrade_conflict": "Esta atualização já está registrada em outra operação. Ela não foi aplicada duas vezes.",
+      "incompatible": "A nova versão não é compatível com este host. Nada foi alterado.",
+      "integrity_error": "A biblioteca lista a versão instalada com outro conteúdo. Nada foi alterado.",
+      "upgrade_failed": "A atualização não foi concluída e a versão instalada foi mantida. Você pode tentar de novo.",
+      "operation_conflict": "A operação não se encaixa no estado atual. Nada foi aplicado.",
+      "check_failed": "Não foi possível ler a biblioteca, então a atualização não foi iniciada. Nada foi alterado.",
+      "unknownOutcome": "O resultado da atualização é desconhecido. Leia o estado dela de novo; não inicie outra.",
+      "auth": "Entre novamente para continuar.",
+      "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
+      "network": "A rede não está acessível.",
+      "unavailable": "O proprietário do complemento não está disponível. Tente novamente."
     }
   }
 }

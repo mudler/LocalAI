@@ -38,6 +38,12 @@ type AddonConfig struct {
 	// never removed by either.
 	BackupKeep   int
 	BackupMaxAge time.Duration
+	// UpdateCacheTTL is how long an answer of the update check, and the
+	// library data under it, counts as fresh; zero is 15 minutes.
+	// UpdateRefreshInterval is the least time between two explicit refreshes
+	// of one add-on and of one library; zero is 15 seconds.
+	UpdateCacheTTL        time.Duration
+	UpdateRefreshInterval time.Duration
 }
 
 func WithAddons(c AddonConfig) AppOption {

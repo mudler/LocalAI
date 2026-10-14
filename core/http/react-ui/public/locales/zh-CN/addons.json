@@ -104,8 +104,7 @@
     "missing": "{{id}} 未安装。",
     "uninstall": "卸载",
     "uninstallBody": "附加组件将停止,其软件包不再使用。其数据、身份和授权会保留,再次安装时会沿用。不会删除任何内容。",
-    "uninstallTitle": "卸载 {{name}}?",
-    "updateAvailable": "更新 {{version}}"
+    "uninstallTitle": "卸载 {{name}}?"
   },
   "libraries": {
     "add": "添加库",
@@ -177,12 +176,7 @@
     "restarts": "重启尝试次数",
     "storage": "存储",
     "tools": "工具",
-    "trust": "信任",
-    "updateAvailable": "版本 {{version}} 可用。",
-    "updateCurrent": "此附加组件已是最新。",
-    "updateUnknown": "更新状态未知。此版本没有权威的更新检查,因此不会根据版本标签猜测。",
-    "updates": "更新",
-    "upgrade": "升级"
+    "trust": "信任"
   },
   "page": {
     "back": "返回附加组件",
@@ -430,6 +424,80 @@
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "network": "无法连接到所有者。",
       "unavailable": "所有者不可用。"
+    }
+  },
+  "updates": {
+    "title": "更新",
+    "checkNow": "检查更新",
+    "checking": "正在检查...",
+    "checkedAt": "{{when}}检查",
+    "neverChecked": "尚未检查",
+    "lastSuccess": "上次读取库的时间：{{when}}",
+    "stale": "此结果可能已过期，请再次检查。",
+    "throttled": "刚刚进行过一次检查，这是它的结果。",
+    "badge": {
+      "available": "更新 {{version}}",
+      "incompatible": "更新 {{version}} 不兼容",
+      "failed": "更新检查失败",
+      "integrity": "完整性错误"
+    },
+    "state": {
+      "unknown": "更新状态未知。请检查更新以查询库。",
+      "up-to-date": "此附加组件已是最新。",
+      "update-available": "版本 {{version}} 可用。",
+      "incompatible": "版本 {{version}} 无法在此主机上运行，因此不提供。",
+      "check-failed": "更新检查失败，因此不知道是否有更新。",
+      "integrity-error": "库列出的已安装版本内容不同。未做任何更改，也不提供更新。"
+    },
+    "reason": {
+      "platform": "不提供此平台",
+      "host-version": "主机版本不匹配",
+      "api-version": "附加组件 API 不匹配",
+      "protocol-version": "协议版本不匹配",
+      "sdk-version": "界面 SDK 版本不匹配",
+      "data-format": "数据格式不匹配",
+      "digest-changed": "此版本的摘要已更改"
+    },
+    "class": {
+      "source-unavailable": "无法连接到库。",
+      "refresh-failed": "无法读取库。",
+      "credential-unavailable": "库的凭据不可用。",
+      "not-listed": "库不再列出此附加组件。",
+      "ambiguous-release": "库多次列出此版本。",
+      "canceled": "检查已取消。",
+      "internal": "检查失败。"
+    },
+    "installed": "已安装",
+    "candidate": "可用",
+    "reasons": "不匹配的原因",
+    "upgrade": "升级",
+    "confirm": {
+      "title": "将 {{name}} 升级到 {{version}}？",
+      "body": "在备份和迁移数据期间附加组件会停止，随后新版本启动。如果新版本无法启动，当前版本会继续运行。",
+      "data": "更改之前会先备份其数据。",
+      "action": "升级",
+      "library": "库",
+      "channel": "频道",
+      "from": "从",
+      "to": "到"
+    },
+    "progress": "正在升级 {{name}}。先备份其数据。",
+    "done": "已升级到版本 {{version}}。",
+    "browseUpdate": "更新 {{version}} 可用。请在“已安装”中管理。",
+    "errors": {
+      "stale_installed": "检查之后已安装的版本发生了变化。请再次检查更新。",
+      "candidate_changed": "库不再提供您检查过的版本。请再次检查更新。",
+      "upgrade_conflict": "此升级已记录在另一个操作下，没有重复应用。",
+      "incompatible": "新版本与此主机不兼容。未做任何更改。",
+      "integrity_error": "库列出的已安装版本内容不同。未做任何更改。",
+      "upgrade_failed": "升级未完成，已保留已安装的版本。您可以重试。",
+      "operation_conflict": "该操作与当前状态不符。未应用任何内容。",
+      "check_failed": "无法读取库，因此未开始升级。未做任何更改。",
+      "unknownOutcome": "升级结果未知。请再次读取其状态，不要再开始另一个升级。",
+      "auth": "请重新登录以继续。",
+      "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
+      "network": "无法连接到网络。",
+      "unavailable": "附加组件所有者不可用。请重试。"
     }
   }
 }

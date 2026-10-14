@@ -8,7 +8,7 @@ import CatalogEmpty from '../catalog/CatalogEmpty'
 import { pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { apiUrl } from '../../utils/basePath'
-import { StateChip, AppIcon, UnknownNotice } from './AddonBits'
+import { StateChip, AppIcon, UnknownNotice, UpdateChip } from './AddonBits'
 import { appActions, localizedText, toolSummary } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
@@ -147,7 +147,10 @@ function AppCard({ app, t, language, actions, onStartStop }) {
             <span>{t('apps.version', { version: app.version })}</span>
           </p>
         </div>
-        <StateChip app={app} />
+        <div className="ad-card__chips">
+          <StateChip app={app} />
+          {app.update === 'update-pending' && <UpdateChip />}
+        </div>
       </div>
       {description && <p className="ad-card__text">{description}</p>}
       {!app.mainPage && tools.count > 0 && (

@@ -51,7 +51,10 @@ export async function mockAddons(page, options = {}) {
     installed: options.installed || [installedAddon()],
     sources: options.sources || [{ id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: new Date().toISOString(), count: 2, failed: false } }],
     releases: options.releases || [release('notes'), release('tables', { policy: { requireSignature: true, issuer: 'https://issuer.example', identity: 'release@catalog.example' } })],
-    log: { appsList: 0, start: [], stop: [], dispatch: [] },
+    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [] },
+    // Overrides for the update routes: each takes the parsed body.
+    check: options.check || null,
+    upgrade: options.upgrade || null,
     // Overrides: each takes the parsed body and may return a route fulfilment.
     appsList: options.appsList || null,
     start: options.start || null,
@@ -86,6 +89,33 @@ export async function mockAddons(page, options = {}) {
       return route.fulfill(ok({ OperationID: body.operationId, AddonID: id, Phase: 'completed', Generation: body.generation }))
     })
   }
+  // The update routes. A check answers with the add-on's own `update` object,
+  // as the owner's status; an upgrade moves the add-on to its candidate.
+  await page.route(/\/api\/addons\/[^/]+\/update\/check$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-3)
+    const body = JSON.parse(route.request().postData() || '{}')
+    state.log.check.push({ id, ...body, confirm: route.request().headers()['x-localai-confirm'] })
+    if (state.check) {
+      const custom = state.check({ id, ...body }, state.log.check.length)
+      if (custom) return route.fulfill(custom)
+    }
+    const a = state.installed.find(x => x.id === id)
+    const u = a && a.update ? a.update : { state: 'up-to-date', available: false }
+    if (a) a.update = { ...u, checkedAt: new Date().toISOString() }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ addonId: id, state: u.state, throttled: false }) })
+  })
+  await page.route(/\/api\/addons\/[^/]+\/upgrade$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-2)
+    const body = JSON.parse(route.request().postData() || '{}')
+    state.log.upgrade.push({ id, ...body, confirm: route.request().headers()['x-localai-confirm'] })
+    if (state.upgrade) {
+      const custom = state.upgrade({ id, ...body }, state.log.upgrade.length)
+      if (custom) return route.fulfill(custom)
+    }
+    const a = state.installed.find(x => x.id === id)
+    if (a && a.update) { a.generation += 1; a.version = a.update.version; a.digest = a.update.digest; delete a.update }
+    return route.fulfill(ok({ OperationID: body.operationId, AddonID: id, Phase: 'completed', Generation: a?.generation }))
+  })
   await page.route(/\/api\/addons\/dispatch$/, route => {
     const body = JSON.parse(route.request().postData() || '{}')
     state.log.dispatch.push(body)

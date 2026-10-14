@@ -29,7 +29,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,6 +56,21 @@ type addonsFixture struct {
 	owner    config.AddonConfig
 	// localOwner runs the owner without authentication, in local-owner mode.
 	localOwner bool
+	// mu guards what a spec moves through the control routes: the step of
+	// the moving channels and whether the library answers at all.
+	mu      sync.Mutex
+	step    int
+	offline bool
+	moving  []movingRelease
+}
+
+// movingRelease is a release of a package directory that carries
+// .fixture-generation: of the releases of one add-on and channel, only the
+// one with the highest generation not above the current step is listed. A spec
+// moves the channel by raising the step, as a publisher moves a tag.
+type movingRelease struct {
+	catalog.Release
+	generation int
 }
 
 // Credentials is what the spec reads from --fixture-out.
@@ -61,6 +78,10 @@ type fixtureCredentials struct {
 	Users map[string]fixtureUser `json:"users"`
 	// Packages lists every installable release as "id@version".
 	Packages []string `json:"packages"`
+	// Control is the base URL of the fixture library's control routes: POST
+	// /step moves every moving channel on by one generation, POST /offline and
+	// /online make the library answer or not. Empty without moving channels.
+	Control string `json:"control,omitempty"`
 }
 
 type fixtureUser struct {
@@ -71,7 +92,7 @@ type fixtureUser struct {
 }
 
 func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addonsFixture, error) {
-	f := &addonsFixture{dataDir: dataDir, archives: map[string][]byte{}, localOwner: localOwner}
+	f := &addonsFixture{dataDir: dataDir, archives: map[string][]byte{}, localOwner: localOwner, step: 1}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -122,7 +143,9 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		_ = filepath.WalkDir(pkg, func(p string, d fs.DirEntry, err error) error {
 			if err == nil && !d.IsDir() {
 				rel, _ := filepath.Rel(pkg, p)
-				if rel != "manifest.json" {
+				// The .fixture-* files describe the release to the library and
+				// are not part of the package.
+				if rel != "manifest.json" && !strings.HasPrefix(rel, ".fixture-") {
 					files = append(files, rel)
 				}
 			}
@@ -144,12 +167,29 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		id, _ := manifest["id"].(string)
 		version, _ := manifest["version"].(string)
 		f.archives[entry.Name()+".tar"] = buf.Bytes()
-		f.releases = append(f.releases, catalog.Release{
+		release := catalog.Release{
 			AddonID: id, Name: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH,
 			Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(buf.Bytes())), Artifact: "/" + entry.Name() + ".tar",
-		})
+		}
+		if channel, err := os.ReadFile(filepath.Join(pkg, ".fixture-channel")); err == nil {
+			release.Channel = strings.TrimSpace(string(channel))
+		}
+		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-requires")); err == nil {
+			if err := json.Unmarshal(raw, &release.Requires); err != nil {
+				return nil, fmt.Errorf("%s: .fixture-requires: %w", entry.Name(), err)
+			}
+		}
+		if raw, err := os.ReadFile(filepath.Join(pkg, ".fixture-generation")); err == nil {
+			n, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+			if err != nil || n < 1 {
+				return nil, fmt.Errorf("%s: .fixture-generation must be a positive number", entry.Name())
+			}
+			f.moving = append(f.moving, movingRelease{Release: release, generation: n})
+			continue
+		}
+		f.releases = append(f.releases, release)
 	}
-	if len(f.releases) == 0 {
+	if len(f.releases) == 0 && len(f.moving) == 0 {
 		return nil, fmt.Errorf("no package under %s", dir)
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -161,11 +201,38 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 	for i := range f.releases {
 		f.releases[i].Artifact = base + f.releases[i].Artifact
 	}
+	for i := range f.moving {
+		f.moving[i].Artifact = base + f.moving[i].Artifact
+	}
 	f.library = base + "/library.json"
 	mux := http.NewServeMux()
 	mux.HandleFunc("/library.json", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(f.releases)
+		f.mu.Lock()
+		offline, listed := f.offline, f.listed()
+		f.mu.Unlock()
+		if offline {
+			http.Error(w, "library offline", http.StatusServiceUnavailable)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(listed)
 	})
+	// The control routes of a spec: move the channels on and take the library
+	// away. They exist only in this test server.
+	mux.HandleFunc("/_fixture/step", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		f.step++
+		n := f.step
+		f.mu.Unlock()
+		_ = json.NewEncoder(w).Encode(map[string]int{"step": n})
+	})
+	for path, offline := range map[string]bool{"/_fixture/offline": true, "/_fixture/online": false} {
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			f.mu.Lock()
+			f.offline = offline
+			f.mu.Unlock()
+			_ = json.NewEncoder(w).Encode(map[string]bool{"offline": offline})
+		})
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		data, ok := f.archives[strings.TrimPrefix(r.URL.Path, "/")]
 		if !ok {
@@ -185,11 +252,39 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://" + address, StorageID: "disk",
 		Root: filepath.Join(dataDir, "addons"), ListenAddress: address, Transport: transport,
 		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		// A spec checks again within seconds: the interval of the refresh
+		// limit is short here and the limit itself stays on.
+		UpdateRefreshInterval: time.Second,
 	}
 	if localOwner {
 		f.owner.OwnershipMode = auth.AddonModeLocalOwner
 	}
 	return f, nil
+}
+
+// listed is the library document at the current step: the releases that never
+// move and, of each moving add-on and channel, the one the step has reached.
+func (f *addonsFixture) listed() []catalog.Release {
+	out := append([]catalog.Release(nil), f.releases...)
+	best := map[string]movingRelease{}
+	for _, m := range f.moving {
+		if m.generation > f.step {
+			continue
+		}
+		key := m.AddonID + "/" + m.Channel + "/" + m.Version
+		if cur, ok := best[key]; !ok || m.generation > cur.generation {
+			best[key] = m
+		}
+	}
+	keys := make([]string, 0, len(best))
+	for k := range best {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		out = append(out, best[k].Release)
+	}
+	return out
 }
 
 // fixtureTransport builds the owner's mTLS carrier identity: one pinned
@@ -312,8 +407,11 @@ func (f *addonsFixture) seed(ctx context.Context, app *application.Application, 
 	if _, err := sources.Refresh(ctx, "fixture"); err != nil {
 		return err
 	}
-	for _, r := range f.releases {
+	for _, r := range f.listed() {
 		creds.Packages = append(creds.Packages, r.AddonID+"@"+r.Version)
+	}
+	if len(f.moving) > 0 {
+		creds.Control = "http://" + f.listener.Addr().String() + "/_fixture"
 	}
 	for i, spec := range enable {
 		id, version, _ := strings.Cut(spec, "@")

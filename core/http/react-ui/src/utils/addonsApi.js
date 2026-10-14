@@ -4,6 +4,7 @@
 // unit tests drive it without a browser.
 import { classifyResponse, newOperationId } from '../components/catalog/catalogState.js'
 import { classifyRecovery } from '../components/addons/recoveryState.js'
+import { classifyUpdate } from '../components/addons/updateState.js'
 
 export class AddonsError extends Error {
   constructor(info) {
@@ -126,6 +127,28 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
       deleteBackup(id, { operationId, backupId }, signal) { return api.recovery.mutate(id, 'recovery/delete-backup', { operationId, backupId }, signal) },
       prune(id, { operationId }, signal) { return api.recovery.mutate(id, 'recovery/prune', { operationId }, signal) },
       purge(id, body, signal) { return api.recovery.mutate(id, 'purge', body, signal) },
+    },
+    // Update detection and the explicit upgrade. The status is the owner's
+    // answer and the page never derives it. Check and upgrade are the
+    // administrator's own action: the operation ID is also the confirmation
+    // header, which only a same-origin fetch of the host's own page can set.
+    updates: {
+      status(id, signal) {
+        return call(`/api/addons/${encodeURIComponent(id)}/update`, { signal, classify: classifyUpdate })
+      },
+      check(id, { operationId }, signal) {
+        return call(`/api/addons/${encodeURIComponent(id)}/update/check`, {
+          method: 'POST', body: { operationId }, signal, classify: classifyUpdate,
+          headers: { 'X-LocalAI-Confirm': operationId },
+        })
+      },
+      async upgrade(id, body, signal) {
+        const out = await call(`/api/addons/${encodeURIComponent(id)}/upgrade`, {
+          method: 'POST', body, signal, classify: classifyUpdate,
+          headers: { 'X-LocalAI-Confirm': body.operationId },
+        })
+        return normalizeOperation(out?.payload)
+      },
     },
     // Reads the original operation by its own identifier. It never submits.
     async operationStatus(operationId, addonId, signal) {

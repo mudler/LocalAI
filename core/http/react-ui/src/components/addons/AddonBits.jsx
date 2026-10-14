@@ -16,6 +16,19 @@ export function StateChip({ app }) {
   )
 }
 
+// The mark of an update the owner's check found. It is a separate chip from the
+// process state: an add-on can be running and have an update pending.
+export function UpdateChip() {
+  const { t } = useTranslation('addons')
+  const text = t('state.update-pending')
+  return (
+    <span className="ad-chip" data-tone="warn" data-state="update-pending" data-testid="update-chip" role="img" aria-label={t('state.label', { state: text })}>
+      <span className="ad-chip__dot" aria-hidden="true" />
+      <span aria-hidden="true">{text}</span>
+    </span>
+  )
+}
+
 // The icon of an add-on from the host's own icon route, or a placeholder.
 // Never a remote address: the server sends only a same-origin path.
 export function AppIcon({ src, size = 40 }) {

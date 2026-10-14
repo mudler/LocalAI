@@ -6201,7 +6201,13 @@ paths:
         name, url, enabled, policy, authReference; removed true deletes it and never
         touches installed addons) and catalog-source-refresh (argument sourceId).
         A library names a credential only by a reference the owner configured, never
-        a secret. Unknown argument fields are denied.'
+        a secret. Unknown argument fields are denied. The update actions are update-status
+        and update-check (no arguments; the check fetches the library again and applies
+        nothing) and update-upgrade (arguments expectedDigest and candidateDigest,
+        the pinned upgrade); each answers with a payload {error: {type, message, status}}
+        or {data}, the same from every frontend. The browser pages use the dedicated
+        routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept
+        only an administrator''s own browser session.'
       parameters:
       - description: Typed addon request
         in: body

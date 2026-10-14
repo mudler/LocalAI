@@ -48,6 +48,9 @@ type InstalledSummary struct {
 	Version    string `json:"version"`
 	Generation uint64 `json:"generation"`
 	Enabled    bool   `json:"enabled"`
+	// Update is the owner's update check of the installed add-on, when it can
+	// answer for it. A library entry shows it next to the installed version.
+	Update *apps.Update `json:"update,omitempty"`
 }
 
 // CatalogDetails is one resolved library entry and, when the addon is installed,
@@ -71,11 +74,16 @@ func (m *Manager) CatalogDetails(ctx context.Context, actor contract.Actor, sour
 	}
 	out := CatalogDetails{Release: release}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if st, ok := m.journal.Addons[id]; ok && st.Installed {
 		out.Installed = &InstalledSummary{Generation: st.Generation, Enabled: st.DesiredEnabled}
 		if receipt, ok := currentReceipt(st); ok {
 			out.Installed.Version = receipt.Manifest.Version
+		}
+	}
+	m.mu.Unlock()
+	if out.Installed != nil && m.updates != nil {
+		if st, e := m.updates.Check(ctx, id, false); e == nil {
+			out.Installed.Update = updateView(st)
 		}
 	}
 	return out, nil

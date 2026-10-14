@@ -1,4 +1,5 @@
 // Pure helpers for the add-on pages. No React and no network.
+import { updateView } from './updateState.js'
 
 // Tabs. Apps is for everyone; the other three are management and the server
 // checks administration again on every call they make.
@@ -74,12 +75,19 @@ export function shortDigest(digest) {
 }
 
 // The state of an update, from the owner's authoritative check only. The page
-// never compares versions: with no `update` object the status is unknown.
+// never compares versions: with no `update` object, or one it cannot read, the
+// status is unknown, and a failed check is never current.
 export function updateStatus(installed) {
-  const u = installed && installed.update
-  if (!u || typeof u !== 'object') return { kind: 'unknown' }
-  if (u.available === true) return { kind: 'available', version: u.version || '', checkedAt: u.checkedAt || '' }
-  return { kind: 'current', checkedAt: u.checkedAt || '' }
+  const view = updateView(installed && installed.update)
+  const checkedAt = view.checkedAt || ''
+  switch (view.state) {
+    case 'update-available': return { kind: 'available', version: view.version || '', checkedAt }
+    case 'up-to-date': return { kind: 'current', checkedAt }
+    case 'incompatible': return { kind: 'incompatible', version: view.version || '', checkedAt, reasons: view.reasons }
+    case 'check-failed': return { kind: 'failed', checkedAt, error: view.error }
+    case 'integrity-error': return { kind: 'integrity', checkedAt }
+    default: return { kind: 'unknown' }
+  }
 }
 
 export function formatBytes(bytes) {

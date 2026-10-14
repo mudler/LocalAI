@@ -107,8 +107,7 @@
     "missing": "{{id}} ist nicht installiert.",
     "uninstall": "Deinstallieren",
     "uninstallBody": "Das Add-on wird gestoppt und sein Paket nicht mehr verwendet. Seine Daten, Identität und Berechtigungen bleiben erhalten, eine erneute Installation übernimmt sie. Es wird nichts gelöscht.",
-    "uninstallTitle": "{{name}} deinstallieren?",
-    "updateAvailable": "Update {{version}}"
+    "uninstallTitle": "{{name}} deinstallieren?"
   },
   "libraries": {
     "add": "Bibliothek hinzufügen",
@@ -181,12 +180,7 @@
     "restarts": "Neustartversuche",
     "storage": "Speicher",
     "tools": "Werkzeuge",
-    "trust": "Vertrauen",
-    "updateAvailable": "Version {{version}} ist verfügbar.",
-    "updateCurrent": "Dieses Add-on ist aktuell.",
-    "updateUnknown": "Der Update-Status ist unbekannt. Diese Version hat keine verbindliche Update-Prüfung und rät daher nicht anhand von Versionsbezeichnungen.",
-    "updates": "Updates",
-    "upgrade": "Aktualisieren"
+    "trust": "Vertrauen"
   },
   "page": {
     "back": "Zurück zu den Add-ons",
@@ -434,6 +428,80 @@
       "denied": "Nur Administratoren können dies, aus ihrer eigenen Browsersitzung.",
       "network": "Der Eigentümer war nicht erreichbar.",
       "unavailable": "Der Eigentümer ist nicht verfügbar."
+    }
+  },
+  "updates": {
+    "title": "Updates",
+    "checkNow": "Nach Updates suchen",
+    "checking": "Prüfe ...",
+    "checkedAt": "Geprüft {{when}}",
+    "neverChecked": "Noch nicht geprüft",
+    "lastSuccess": "Bibliothek zuletzt gelesen {{when}}",
+    "stale": "Diese Angabe ist möglicherweise veraltet. Bitte erneut prüfen.",
+    "throttled": "Eine Prüfung lief gerade erst. Das ist ihr Ergebnis.",
+    "badge": {
+      "available": "Update {{version}}",
+      "incompatible": "Update {{version}} nicht kompatibel",
+      "failed": "Update-Prüfung fehlgeschlagen",
+      "integrity": "Integritätsfehler"
+    },
+    "state": {
+      "unknown": "Der Update-Status ist nicht bekannt. Prüfen Sie auf Updates, um die Bibliothek zu fragen.",
+      "up-to-date": "Dieses Add-on ist aktuell.",
+      "update-available": "Version {{version}} ist verfügbar.",
+      "incompatible": "Version {{version}} läuft auf diesem Host nicht. Sie wird nicht angeboten.",
+      "check-failed": "Die Update-Prüfung ist fehlgeschlagen, daher ist nicht bekannt, ob ein Update existiert.",
+      "integrity-error": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Nichts wurde geändert und es wird kein Update angeboten."
+    },
+    "reason": {
+      "platform": "Die Plattform wird nicht angeboten",
+      "host-version": "Die Host-Version passt nicht",
+      "api-version": "Die Add-on-API passt nicht",
+      "protocol-version": "Die Protokollversion passt nicht",
+      "sdk-version": "Die SDK-Version der Oberfläche passt nicht",
+      "data-format": "Das Datenformat passt nicht",
+      "digest-changed": "Der Digest dieser Version hat sich geändert"
+    },
+    "class": {
+      "source-unavailable": "Die Bibliothek ist nicht erreichbar.",
+      "refresh-failed": "Die Bibliothek konnte nicht gelesen werden.",
+      "credential-unavailable": "Die Zugangsdaten der Bibliothek sind nicht verfügbar.",
+      "not-listed": "Die Bibliothek führt dieses Add-on nicht mehr.",
+      "ambiguous-release": "Die Bibliothek führt diese Version mehrfach.",
+      "canceled": "Die Prüfung wurde abgebrochen.",
+      "internal": "Die Prüfung ist fehlgeschlagen."
+    },
+    "installed": "Installiert",
+    "candidate": "Verfügbar",
+    "reasons": "Warum es nicht passt",
+    "upgrade": "Aktualisieren",
+    "confirm": {
+      "title": "{{name}} auf {{version}} aktualisieren?",
+      "body": "Das Add-on wird angehalten, während seine Daten gesichert und migriert werden, dann startet die neue Version. Startet die neue Version nicht, läuft die aktuelle weiter.",
+      "data": "Seine Daten werden gesichert, bevor sich etwas ändert.",
+      "action": "Aktualisieren",
+      "library": "Bibliothek",
+      "channel": "Kanal",
+      "from": "Von",
+      "to": "Auf"
+    },
+    "progress": "{{name}} wird aktualisiert. Zuerst werden die Daten gesichert.",
+    "done": "Auf Version {{version}} aktualisiert.",
+    "browseUpdate": "Update {{version}} ist verfügbar. Verwaltung unter Installiert.",
+    "errors": {
+      "stale_installed": "Die installierte Version hat sich seit der Prüfung geändert. Bitte erneut nach Updates suchen.",
+      "candidate_changed": "Die Bibliothek bietet die geprüfte Version nicht mehr an. Bitte erneut nach Updates suchen.",
+      "upgrade_conflict": "Diese Aktualisierung ist bereits unter einer anderen Operation erfasst. Sie wurde nicht doppelt ausgeführt.",
+      "incompatible": "Die neue Version ist mit diesem Host nicht kompatibel. Nichts wurde geändert.",
+      "integrity_error": "Die Bibliothek führt die installierte Version mit anderem Inhalt. Nichts wurde geändert.",
+      "upgrade_failed": "Die Aktualisierung wurde nicht abgeschlossen, die installierte Version bleibt erhalten. Sie können es erneut versuchen.",
+      "operation_conflict": "Die Operation passt nicht zum aktuellen Zustand. Nichts wurde angewendet.",
+      "check_failed": "Die Bibliothek konnte nicht gelesen werden, daher wurde die Aktualisierung nicht gestartet. Nichts wurde geändert.",
+      "unknownOutcome": "Das Ergebnis der Aktualisierung ist nicht bekannt. Lesen Sie ihren Status erneut; starten Sie keine weitere.",
+      "auth": "Bitte erneut anmelden.",
+      "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
+      "network": "Das Netzwerk ist nicht erreichbar.",
+      "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
     }
   }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
@@ -9,9 +9,12 @@ import SideSheet from '../SideSheet'
 import CatalogEmpty from '../catalog/CatalogEmpty'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, Fact, UnknownNotice } from './AddonBits'
-import { formatBytes, rangeText, shortDigest, updateStatus } from './addonState'
+import { formatBytes, rangeText, shortDigest } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
+import { updateView, upgradeBody, formatWhen, UPDATE_TYPES } from './updateState'
+import { newOperationId } from '../catalog/catalogState'
+import { AddonsError } from '../../utils/addonsApi'
 import RecoveryPanel from './RecoveryPanel'
 
 // Everything the owner knows of what is installed: verified package facts,
@@ -19,10 +22,19 @@ import RecoveryPanel from './RecoveryPanel'
 // generations, data size and, when the owner can say so, an update. A headless
 // add-on is managed here exactly like one with pages.
 export default function InstalledView({ api, adapter, manage, onManage, onChanged }) {
-  const { t } = useTranslation('addons')
+  const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', addons: [], error: null })
   const [reload, setReload] = useState(0)
   const [confirm, setConfirm] = useState(null)
+  const [confirmUpgrade, setConfirmUpgrade] = useState(null)
+  // What the last check and the last upgrade of each add-on said, by add-on.
+  const [checks, setChecks] = useState({})
+  const [upgraded, setUpgraded] = useState({})
+  const aborter = useRef(null)
+  useEffect(() => {
+    aborter.current = new AbortController()
+    return () => aborter.current.abort()
+  }, [])
 
   useEffect(() => {
     const ctl = new AbortController()
@@ -32,7 +44,17 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
     return () => ctl.abort()
   }, [api, reload])
 
-  const actions = useAddonActions(api, { onSettled: () => { setReload(n => n + 1); if (onChanged) onChanged() } })
+  const actions = useAddonActions(api, {
+    onSettled: (key, result) => {
+      setReload(n => n + 1)
+      if (onChanged) onChanged()
+      // The key names the generation the click saw, which the list moves past
+      // on success, so the outcome of an upgrade is kept by add-on.
+      const [verb, id] = String(key).split(':')
+      if (verb === 'upgrade' && result && result.outcome === 'completed') setUpgraded(u => ({ ...u, [id]: true }))
+      if (verb === 'upgrade' && result && result.outcome !== 'completed') setUpgraded(u => { const n = { ...u }; delete n[id]; return n })
+    },
+  })
 
   const lifecycle = useCallback((addon, action) => {
     actions.run(`${action}:${addon.id}:${addon.generation}`, {
@@ -42,8 +64,6 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
         action,
         addonId: addon.id,
         generation: action === 'enable' || action === 'disable' ? addon.generation : 0,
-        sourceId: action === 'upgrade' ? addon.sourceId : undefined,
-        version: action === 'upgrade' ? addon.update?.version : undefined,
       }, signal),
       // A completed status is not proof for this click: the owner answers a
       // replayed operation with its old status and applies nothing.
@@ -52,11 +72,42 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
         if (action === 'uninstall') return !now
         if (!now) return false
         if (action === 'enable') return now.enabled === true
-        if (action === 'disable') return now.enabled === false
-        return now.generation > addon.generation
+        return now.enabled === false
       },
     })
   }, [actions, adapter, api])
+
+  // The explicit upgrade: the digest of the installed package this page
+  // showed and the digest of the candidate the owner's check resolved. The
+  // owner checks both again and refuses before it changes anything.
+  const upgrade = useCallback((addon) => {
+    actions.run(`upgrade:${addon.id}:${addon.generation}`, {
+      addonId: addon.id,
+      submit: (operationId, signal) => {
+        const body = upgradeBody(addon, operationId)
+        if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
+        return api.updates.upgrade(addon.id, body, signal)
+      },
+      verify: async (signal) => {
+        const now = (await api.installed(signal)).find(a => a.id === addon.id)
+        return Boolean(now) && now.generation > addon.generation
+      },
+    })
+  }, [actions, api])
+
+  // Asks the owner to read the library again. It never applies anything.
+  const check = useCallback(async (addon) => {
+    const signal = aborter.current.signal
+    setChecks(c => ({ ...c, [addon.id]: { phase: 'working' } }))
+    try {
+      const status = await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
+      setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled) } }))
+      setReload(n => n + 1)
+    } catch (error) {
+      if (error && error.name === 'AbortError') return
+      setChecks(c => ({ ...c, [addon.id]: { phase: 'error', error } }))
+    }
+  }, [api])
 
   const selected = useMemo(() => state.addons.find(a => a.id === manage) || null, [state.addons, manage])
 
@@ -81,7 +132,7 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
       <ul className="cat-list" aria-label={t('installed.listLabel')}>
         {state.addons.map(addon => (
           <li key={addon.id} className="cat-item">
-            <InstalledRow addon={addon} t={t} actions={actions} onLifecycle={lifecycle} onManage={onManage} />
+            <InstalledRow addon={addon} t={t} actions={actions} onLifecycle={lifecycle} onManage={onManage} upgraded={Boolean(upgraded[addon.id])} />
           </li>
         ))}
       </ul>
@@ -90,7 +141,12 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
           addon={selected}
           api={api}
           t={t}
+          language={i18n.language}
           actions={actions}
+          check={checks[selected.id]}
+          upgraded={Boolean(upgraded[selected.id])}
+          onCheck={() => check(selected)}
+          onUpgrade={() => setConfirmUpgrade(selected)}
           onLifecycle={lifecycle}
           onUninstall={() => setConfirm(selected)}
           onClose={() => onManage('')}
@@ -107,6 +163,14 @@ export default function InstalledView({ api, adapter, manage, onManage, onChange
         confirmLabel={t('installed.uninstall')}
         onConfirm={() => { const a = confirm; setConfirm(null); lifecycle(a, 'uninstall') }}
         onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(confirmUpgrade)}
+        title={confirmUpgrade ? t('updates.confirm.title', { name: confirmUpgrade.title, version: updateView(confirmUpgrade.update).version }) : ''}
+        message={confirmUpgrade ? <UpgradeSummary addon={confirmUpgrade} t={t} /> : null}
+        confirmLabel={t('updates.confirm.action')}
+        onConfirm={() => { const a = confirmUpgrade; setConfirmUpgrade(null); upgrade(a) }}
+        onCancel={() => setConfirmUpgrade(null)}
       />
     </>
   )
@@ -125,10 +189,28 @@ function latest(actions, addon, verbs) {
   return null
 }
 
-function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
+// The words for the outcome of an action. A typed refusal of the update
+// routes has its own words; everything else is the shared description.
+function outcomeText(result, t) {
+  const type = result && result.error && result.error.type
+  if (type && UPDATE_TYPES.has(type)) return t(`updates.errors.${type}`)
+  return describeOutcome(result.outcome, t)
+}
+
+function UpdateFact({ view, t }) {
+  switch (view.state) {
+    case 'update-available': return <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: view.version })}</Fact>
+    case 'incompatible': return <Fact icon="alert-circle" tone="warn">{t('updates.badge.incompatible', { version: view.version })}</Fact>
+    case 'check-failed': return <Fact icon="alert-circle" tone="error">{t('updates.badge.failed')}</Fact>
+    case 'integrity-error': return <Fact icon="alert-circle" tone="error">{t('updates.badge.integrity')}</Fact>
+    default: return null
+  }
+}
+
+function InstalledRow({ addon, t, actions, onLifecycle, onManage, upgraded }) {
   const working = busy(actions, addon, ['enable', 'disable', 'upgrade', 'uninstall'])
   const result = latest(actions, addon, ['enable', 'disable', 'upgrade', 'uninstall'])
-  const update = updateStatus(addon)
+  const update = updateView(addon.update)
   return (
     <article className="ad-entry" aria-labelledby={`inst-${addon.id}`} data-addon={addon.id}>
       <AppIcon src={addon.icon ? apiUrl(addon.icon) : ''} />
@@ -147,13 +229,14 @@ function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
           {addon.recovery && <Fact icon="alert-circle" tone={addon.recovery === 'needs-recovery' ? 'error' : 'warn'}>{t(`recovery.state.${addon.recovery}`)}</Fact>}
           <Fact icon={addon.verification === 'sha256+sigstore' ? 'shield' : 'info'} tone={addon.verification === 'sha256+sigstore' ? 'ok' : undefined}>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</Fact>
           <Fact icon="cpu">{addon.platform.os}/{addon.platform.arch}</Fact>
-          {update.kind === 'available' && <Fact icon="arrow-up" tone="warn">{t('installed.updateAvailable', { version: update.version })}</Fact>}
+          <UpdateFact view={update} t={t} />
         </div>
         {working && <p className="ad-entry__note" role="status">{t('apps.working')}</p>}
+        {upgraded && !working && <p className="ad-entry__note" data-tone="ok" role="status" data-testid="upgrade-done">{t('updates.done', { version: addon.version })}</p>}
         {actions.unknown[addon.id]
           ? <UnknownNotice addonId={addon.id} actions={actions} />
           : result && result.outcome !== 'completed' && (
-            <p className="ad-entry__note" data-tone="error" role="alert">{describeOutcome(result.outcome, t)}</p>
+            <p className="ad-entry__note" data-tone="error" role="alert" data-testid="upgrade-error">{outcomeText(result, t)}</p>
           )}
       </div>
       <div className="ad-entry__acts">
@@ -174,9 +257,8 @@ function InstalledRow({ addon, t, actions, onLifecycle, onManage }) {
   )
 }
 
-function ManageSheet({ addon, api, t, actions, onLifecycle, onUninstall, onClose }) {
+function ManageSheet({ addon, api, t, language, actions, check, upgraded, onCheck, onUpgrade, onLifecycle, onUninstall, onClose }) {
   const working = busy(actions, addon, ['enable', 'disable', 'upgrade', 'uninstall'])
-  const update = updateStatus(addon)
   const compat = addon.compatibility || {}
   return (
     <SideSheet
@@ -251,18 +333,9 @@ function ManageSheet({ addon, api, t, actions, onLifecycle, onUninstall, onClose
         <RecoveryPanel api={api} addon={addon} />
       </section>
 
-      <section className="ad-section" aria-labelledby="manage-updates">
-        <h3 id="manage-updates" className="ad-section__title">{t('manage.updates')}</h3>
-        {update.kind === 'available' && (
-          <>
-            <p>{t('manage.updateAvailable', { version: update.version })}</p>
-            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working} onClick={() => onLifecycle(addon, 'upgrade')}>
-              <Icon name="arrow-up" /> {t('manage.upgrade')}
-            </button>
-          </>
-        )}
-        {update.kind === 'current' && <p>{t('manage.updateCurrent')}</p>}
-        {update.kind === 'unknown' && <p className="ad-quiet">{t('manage.updateUnknown')}</p>}
+      <section className="ad-section" aria-labelledby="manage-updates" data-testid="manage-updates">
+        <h3 id="manage-updates" className="ad-section__title">{t('updates.title')}</h3>
+        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
       </section>
 
       <section className="ad-section" aria-labelledby="manage-logs">
@@ -270,5 +343,81 @@ function ManageSheet({ addon, api, t, actions, onLifecycle, onUninstall, onClose
         <p className="ad-quiet">{t('manage.logsNone')}</p>
       </section>
     </SideSheet>
+  )
+}
+
+// The owner's update check of one add-on: what it says, how old it is, and the
+// two actions. Check only reads; Upgrade opens a confirmation first.
+function UpdatePanel({ addon, t, language, actions, check, upgraded, working, onCheck, onUpgrade }) {
+  const view = updateView(addon.update)
+  const checking = check && check.phase === 'working'
+  const upgrading = actions.state[`upgrade:${addon.id}:${addon.generation}`]?.phase === 'working'
+  const result = latest(actions, addon, ['upgrade'])
+  const checkedAt = formatWhen(view.checkedAt, language)
+  const lastSuccess = formatWhen(view.lastSuccess, language)
+  return (
+    <>
+      <p data-testid="update-state" data-state={view.state} className={view.state === 'check-failed' || view.state === 'integrity-error' ? 'ad-entry__note' : undefined} data-tone={view.tone === 'error' ? 'error' : undefined}>
+        {t(`updates.state.${view.state}`, { version: view.version })}
+      </p>
+      <dl className="dk-kv ad-kv">
+        <dt>{t('updates.installed')}</dt>
+        <dd>{addon.version} <span className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</span></dd>
+        {view.version && (view.state === 'update-available' || view.state === 'incompatible' || view.state === 'integrity-error') && (
+          <>
+            <dt>{t('updates.candidate')}</dt>
+            <dd data-testid="update-candidate">{view.version} {view.digest && <span className="dk-mono ad-wrap" title={view.digest}>{shortDigest(view.digest)}</span>}</dd>
+          </>
+        )}
+        <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}{addon.channel ? ` · ${addon.channel}` : addon.selection ? ` · ${addon.selection}` : ''}</dd>
+      </dl>
+      {view.reasons.length > 0 && (
+        <div data-testid="update-reasons">
+          <p className="ad-quiet">{t('updates.reasons')}</p>
+          <ul className="ad-reasons">{view.reasons.map(r => <li key={r}>{t(`updates.reason.${r}`)}</li>)}</ul>
+        </div>
+      )}
+      {view.state === 'check-failed' && view.error && <p className="ad-entry__note" data-tone="error" role="status" data-testid="update-error">{t(`updates.class.${view.error}`)}</p>}
+      <p className="ad-quiet" data-testid="update-times">
+        {checkedAt ? t('updates.checkedAt', { when: checkedAt }) : t('updates.neverChecked')}
+        {lastSuccess ? ` · ${t('updates.lastSuccess', { when: lastSuccess })}` : ''}
+      </p>
+      {view.stale && <p className="ad-quiet" data-testid="update-stale">{t('updates.stale')}</p>}
+      {check && check.phase === 'done' && check.throttled && <p className="ad-quiet" role="status">{t('updates.throttled')}</p>}
+      {check && check.phase === 'error' && <p className="ad-entry__note" data-tone="error" role="alert">{describeError(check.error, t)}</p>}
+      {upgrading && <p className="ad-entry__note" role="status" data-testid="upgrade-progress">{t('updates.progress', { name: addon.title })}</p>}
+      {upgraded && !working && <p className="ad-entry__note" data-tone="ok" role="status">{t('updates.done', { version: addon.version })}</p>}
+      {actions.unknown[addon.id]
+        ? <UnknownNotice addonId={addon.id} actions={actions} />
+        : result && result.outcome !== 'completed' && <p className="ad-entry__note" data-tone="error" role="alert">{outcomeText(result, t)}</p>}
+      <div className="ad-section__acts">
+        <button type="button" className="dk-btn dk-btn--sm" disabled={checking || working} onClick={onCheck} data-testid="update-check">
+          <Icon name={checking ? 'spinner' : 'refresh'} spin={checking} /> {checking ? t('updates.checking') : t('updates.checkNow')}
+        </button>
+        {view.canUpgrade && (
+          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working} onClick={onUpgrade} data-testid="update-upgrade">
+            <Icon name="arrow-up" /> {t('updates.upgrade')}
+          </button>
+        )}
+      </div>
+    </>
+  )
+}
+
+// What the confirmation shows before an upgrade: which library and channel,
+// which version and digest goes to which, and that the data is backed up.
+function UpgradeSummary({ addon, t }) {
+  const view = updateView(addon.update)
+  return (
+    <div data-testid="upgrade-confirm">
+      <dl className="dk-kv ad-kv">
+        <dt>{t('updates.confirm.library')}</dt><dd>{addon.sourceId || '—'}</dd>
+        <dt>{t('updates.confirm.channel')}</dt><dd>{addon.channel || addon.selection || '—'}</dd>
+        <dt>{t('updates.confirm.from')}</dt><dd>{addon.version} <span className="dk-mono">{shortDigest(addon.digest)}</span></dd>
+        <dt>{t('updates.confirm.to')}</dt><dd>{view.version} <span className="dk-mono">{shortDigest(view.digest)}</span></dd>
+      </dl>
+      <p>{t('updates.confirm.body')}</p>
+      <p>{t('updates.confirm.data')}</p>
+    </div>
   )
 }

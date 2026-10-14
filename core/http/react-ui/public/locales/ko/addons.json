@@ -104,8 +104,7 @@
     "missing": "{{id}}은(는) 설치되어 있지 않습니다.",
     "uninstall": "제거",
     "uninstallBody": "애드온이 중지되고 패키지는 더 이상 사용되지 않습니다. 데이터, 신원, 권한은 보존되므로 다시 설치하면 이어서 사용합니다. 아무것도 삭제되지 않습니다.",
-    "uninstallTitle": "{{name}}을(를) 제거할까요?",
-    "updateAvailable": "업데이트 {{version}}"
+    "uninstallTitle": "{{name}}을(를) 제거할까요?"
   },
   "libraries": {
     "add": "라이브러리 추가",
@@ -177,12 +176,7 @@
     "restarts": "재시작 시도",
     "storage": "저장소",
     "tools": "도구",
-    "trust": "신뢰",
-    "updateAvailable": "{{version}} 버전을 사용할 수 있습니다.",
-    "updateCurrent": "이 애드온은 최신 상태입니다.",
-    "updateUnknown": "업데이트 상태를 알 수 없습니다. 이 릴리스에는 신뢰할 수 있는 업데이트 확인이 없으므로 버전 표기로 추측하지 않습니다.",
-    "updates": "업데이트",
-    "upgrade": "업그레이드"
+    "trust": "신뢰"
   },
   "page": {
     "back": "애드온으로 돌아가기",
@@ -430,6 +424,80 @@
       "denied": "관리자만 자신의 브라우저 세션에서 할 수 있습니다.",
       "network": "소유자에 연결할 수 없습니다.",
       "unavailable": "소유자를 사용할 수 없습니다."
+    }
+  },
+  "updates": {
+    "title": "업데이트",
+    "checkNow": "업데이트 확인",
+    "checking": "확인하는 중...",
+    "checkedAt": "{{when}}에 확인함",
+    "neverChecked": "아직 확인하지 않음",
+    "lastSuccess": "라이브러리를 마지막으로 읽은 시각 {{when}}",
+    "stale": "이 결과는 오래되었을 수 있습니다. 다시 확인하세요.",
+    "throttled": "방금 확인이 실행되었습니다. 그 결과입니다.",
+    "badge": {
+      "available": "업데이트 {{version}}",
+      "incompatible": "업데이트 {{version}} 호환되지 않음",
+      "failed": "업데이트 확인 실패",
+      "integrity": "무결성 오류"
+    },
+    "state": {
+      "unknown": "업데이트 상태를 알 수 없습니다. 업데이트를 확인하여 라이브러리에 문의하세요.",
+      "up-to-date": "이 애드온은 최신 상태입니다.",
+      "update-available": "{{version}} 버전을 사용할 수 있습니다.",
+      "incompatible": "{{version}} 버전은 이 호스트에서 실행할 수 없어 제공되지 않습니다.",
+      "check-failed": "업데이트 확인에 실패하여 업데이트가 있는지 알 수 없습니다.",
+      "integrity-error": "라이브러리가 설치된 버전을 다른 내용으로 나열합니다. 아무것도 변경되지 않았고 업데이트도 제공되지 않습니다."
+    },
+    "reason": {
+      "platform": "플랫폼이 제공되지 않음",
+      "host-version": "호스트 버전이 맞지 않음",
+      "api-version": "애드온 API가 맞지 않음",
+      "protocol-version": "프로토콜 버전이 맞지 않음",
+      "sdk-version": "인터페이스 SDK 버전이 맞지 않음",
+      "data-format": "데이터 형식이 맞지 않음",
+      "digest-changed": "이 버전의 다이제스트가 바뀜"
+    },
+    "class": {
+      "source-unavailable": "라이브러리에 연결할 수 없습니다.",
+      "refresh-failed": "라이브러리를 읽을 수 없습니다.",
+      "credential-unavailable": "라이브러리 자격 증명을 사용할 수 없습니다.",
+      "not-listed": "라이브러리가 더 이상 이 애드온을 나열하지 않습니다.",
+      "ambiguous-release": "라이브러리가 이 릴리스를 여러 번 나열합니다.",
+      "canceled": "확인이 취소되었습니다.",
+      "internal": "확인에 실패했습니다."
+    },
+    "installed": "설치됨",
+    "candidate": "사용 가능",
+    "reasons": "맞지 않는 이유",
+    "upgrade": "업그레이드",
+    "confirm": {
+      "title": "{{name}}을(를) {{version}} 버전으로 업그레이드할까요?",
+      "body": "데이터를 백업하고 마이그레이션하는 동안 애드온이 중지된 후 새 버전이 시작됩니다. 새 버전이 시작되지 않으면 현재 버전이 계속 실행됩니다.",
+      "data": "변경하기 전에 데이터를 먼저 백업합니다.",
+      "action": "업그레이드",
+      "library": "라이브러리",
+      "channel": "채널",
+      "from": "이전",
+      "to": "이후"
+    },
+    "progress": "{{name}}을(를) 업그레이드하는 중입니다. 데이터를 먼저 백업합니다.",
+    "done": "{{version}} 버전으로 업그레이드했습니다.",
+    "browseUpdate": "업데이트 {{version}}을(를) 사용할 수 있습니다. 설치됨에서 관리하세요.",
+    "errors": {
+      "stale_installed": "확인한 뒤 설치된 버전이 바뀌었습니다. 업데이트를 다시 확인하세요.",
+      "candidate_changed": "라이브러리가 더 이상 확인한 버전을 제공하지 않습니다. 업데이트를 다시 확인하세요.",
+      "upgrade_conflict": "이 업그레이드는 이미 다른 작업으로 기록되어 있습니다. 두 번 적용되지 않았습니다.",
+      "incompatible": "새 버전은 이 호스트와 호환되지 않습니다. 아무것도 변경되지 않았습니다.",
+      "integrity_error": "라이브러리가 설치된 버전을 다른 내용으로 나열합니다. 아무것도 변경되지 않았습니다.",
+      "upgrade_failed": "업그레이드가 완료되지 않았고 설치된 버전은 유지됩니다. 다시 시도할 수 있습니다.",
+      "operation_conflict": "작업이 현재 상태와 맞지 않습니다. 아무것도 적용되지 않았습니다.",
+      "check_failed": "라이브러리를 읽을 수 없어 업그레이드를 시작하지 않았습니다. 아무것도 변경되지 않았습니다.",
+      "unknownOutcome": "업그레이드 결과를 알 수 없습니다. 상태를 다시 읽고 다른 업그레이드를 시작하지 마세요.",
+      "auth": "계속하려면 다시 로그인하세요.",
+      "denied": "관리자만 자신의 브라우저 세션에서 할 수 있습니다.",
+      "network": "네트워크에 연결할 수 없습니다.",
+      "unavailable": "애드온 소유자를 사용할 수 없습니다. 다시 시도하세요."
     }
   }
 }

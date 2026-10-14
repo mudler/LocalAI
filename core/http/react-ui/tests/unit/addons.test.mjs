@@ -120,7 +120,10 @@ test('titles follow the language, then the default text, then the id', () => {
 test('update status comes only from an authoritative check', () => {
   assert.deepEqual(updateStatus({ version: '1.0.0' }), { kind: 'unknown' })
   assert.equal(updateStatus({ update: { available: true, version: '2.0.0' } }).kind, 'available')
-  assert.equal(updateStatus({ update: { available: false } }).kind, 'current')
+  // The owner's own word: a state says current, a bare `available: false` does not.
+  assert.equal(updateStatus({ update: { available: false } }).kind, 'unknown')
+  assert.equal(updateStatus({ update: { available: false, state: 'up-to-date' } }).kind, 'current')
+  assert.equal(updateStatus({ update: { available: false, state: 'check-failed' } }).kind, 'failed')
   assert.equal(shortDigest('sha256:0123456789abcdef0123'), 'sha256:0123456789ab')
   assert.equal(formatBytes(0), '0 B')
   assert.equal(formatBytes(1536), '1.5 KiB')

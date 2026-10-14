@@ -62,6 +62,10 @@
   background: var(--dk-card);
 }
 .ad-card__head { display: flex; align-items: flex-start; gap: var(--dk-space-3); min-width: 0; }
+.ad-card__chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-1); }
+.ad-reasons { margin: var(--dk-space-1) 0 0; padding: 0; list-style: none; }
+.ad-reasons li { font-size: var(--dk-text-sm, 0.875rem); }
+.ad-section__acts { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }
 .ad-card__lead { flex: 1; min-width: 0; }
 .ad-card__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-bold); overflow-wrap: anywhere; }
 .ad-card__meta { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-12); color: var(--dk-muted); }

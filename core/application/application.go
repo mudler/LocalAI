@@ -863,7 +863,7 @@ func (a *Application) startAddons() error {
 		m.SetRecovery(rec)
 		// The update check reads the libraries and the journal the owner
 		// holds; it applies nothing, and its cache is bounded.
-		m.EnableUpdates(updates.Config{})
+		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
 			_ = m.Close()
 			return err

@@ -107,8 +107,7 @@
     "missing": "{{id}} is not installed.",
     "uninstall": "Uninstall",
     "uninstallBody": "The add-on stops and its package is removed from use. Its data, identity and grants are kept, so installing it again picks them up. Nothing is deleted.",
-    "uninstallTitle": "Uninstall {{name}}?",
-    "updateAvailable": "Update {{version}}"
+    "uninstallTitle": "Uninstall {{name}}?"
   },
   "libraries": {
     "add": "Add a library",
@@ -181,12 +180,7 @@
     "restarts": "Restart attempts",
     "storage": "Storage",
     "tools": "Tools",
-    "trust": "Trust",
-    "updateAvailable": "Version {{version}} is available.",
-    "updateCurrent": "This add-on is up to date.",
-    "updateUnknown": "The update status is not known. This release has no authoritative update check, so it does not guess from version labels.",
-    "updates": "Updates",
-    "upgrade": "Upgrade"
+    "trust": "Trust"
   },
   "page": {
     "back": "Back to add-ons",
@@ -434,6 +428,80 @@
       "denied": "Only administrators can do this, from their own browser session.",
       "network": "The owner could not be reached.",
       "unavailable": "The owner is not available."
+    }
+  },
+  "updates": {
+    "title": "Updates",
+    "checkNow": "Check for updates",
+    "checking": "Checking...",
+    "checkedAt": "Checked {{when}}",
+    "neverChecked": "Not checked yet",
+    "lastSuccess": "Library last read {{when}}",
+    "stale": "This answer may be out of date. Check again.",
+    "throttled": "A check ran moments ago. This is its result.",
+    "badge": {
+      "available": "Update {{version}}",
+      "incompatible": "Update {{version}} not compatible",
+      "failed": "Update check failed",
+      "integrity": "Integrity error"
+    },
+    "state": {
+      "unknown": "The update status is not known. Check for updates to ask the library.",
+      "up-to-date": "This add-on is up to date.",
+      "update-available": "Version {{version}} is available.",
+      "incompatible": "Version {{version}} cannot run on this host. It is not offered.",
+      "check-failed": "The update check failed, so it is not known whether an update exists.",
+      "integrity-error": "The library lists the installed version with different contents. Nothing was changed and no update is offered."
+    },
+    "reason": {
+      "platform": "The platform is not offered",
+      "host-version": "The host version does not fit",
+      "api-version": "The add-on API does not fit",
+      "protocol-version": "The protocol version does not fit",
+      "sdk-version": "The interface SDK version does not fit",
+      "data-format": "The data format does not fit",
+      "digest-changed": "The digest of this version changed"
+    },
+    "class": {
+      "source-unavailable": "The library cannot be reached.",
+      "refresh-failed": "The library could not be read.",
+      "credential-unavailable": "The credential of the library is not available.",
+      "not-listed": "The library no longer lists this add-on.",
+      "ambiguous-release": "The library lists this release more than once.",
+      "canceled": "The check was canceled.",
+      "internal": "The check failed."
+    },
+    "installed": "Installed",
+    "candidate": "Available",
+    "reasons": "Why it does not fit",
+    "upgrade": "Upgrade",
+    "confirm": {
+      "title": "Upgrade {{name}} to {{version}}?",
+      "body": "The add-on stops while its data is backed up and migrated, then the new version starts. If the new version does not start, the current version keeps running.",
+      "data": "Its data is backed up before anything changes.",
+      "action": "Upgrade",
+      "library": "Library",
+      "channel": "Channel",
+      "from": "From",
+      "to": "To"
+    },
+    "progress": "Upgrading {{name}}. Its data is backed up first.",
+    "done": "Upgraded to version {{version}}.",
+    "browseUpdate": "Update {{version}} is available. Manage it in Installed.",
+    "errors": {
+      "stale_installed": "The installed version changed since it was checked. Check for updates again.",
+      "candidate_changed": "The library no longer offers the version you checked. Check for updates again.",
+      "upgrade_conflict": "This upgrade is already recorded under another operation. It was not applied twice.",
+      "incompatible": "The new version is not compatible with this host. Nothing was changed.",
+      "integrity_error": "The library lists the installed version with different contents. Nothing was changed.",
+      "upgrade_failed": "The upgrade did not complete and the installed version is kept. You can try again.",
+      "operation_conflict": "The operation does not fit the current state. Nothing was applied.",
+      "check_failed": "The library could not be read, so the upgrade was not started. Nothing was changed.",
+      "unknownOutcome": "The result of the upgrade is not known. Read its status again; do not start another.",
+      "auth": "Sign in again to continue.",
+      "denied": "Only an administrator can do this from their own browser session.",
+      "network": "The network is not reachable.",
+      "unavailable": "The add-on owner is not available. Try again."
     }
   }
 }

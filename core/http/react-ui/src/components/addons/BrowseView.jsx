@@ -9,6 +9,7 @@ import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, Fact, UnknownNotice } from './AddonBits'
 import { shortDigest } from './addonState'
+import { updateView } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
@@ -81,6 +82,7 @@ export default function BrowseView({ api, adapter }) {
             </Fact>
             {entry.channel && <Fact icon="tag">{entry.channel}</Fact>}
             {have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
+            {have && updateView(have.update).state === 'update-available' && <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: updateView(have.update).version })}</Fact>}
           </div>
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && st && !working && st.outcome !== 'completed' && (
@@ -159,6 +161,9 @@ function EntryDetails({ adapter, entry, onClose }) {
         <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap">{e.digest}</dd>
         {e.installed && (<><dt>{t('browse.installedState')}</dt><dd>{t('browse.installedDetail', { version: e.installed.version, generation: e.installed.generation })}</dd></>)}
       </dl>
+      {e.installed && updateView(e.installed.update).state === 'update-available' && (
+        <p className="ad-entry__note" role="status" data-testid="details-update">{t('updates.browseUpdate', { version: updateView(e.installed.update).version })}</p>
+      )}
       {e.description && <p className="ad-entry__text">{e.description}</p>}
     </SideSheet>
   )

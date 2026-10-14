@@ -107,8 +107,7 @@
     "missing": "{{id}} non è installato.",
     "uninstall": "Disinstalla",
     "uninstallBody": "Il componente si ferma e il suo pacchetto non viene più usato. I suoi dati, la sua identità e i suoi permessi vengono conservati, quindi reinstallarlo li ritrova. Nulla viene eliminato.",
-    "uninstallTitle": "Disinstallare {{name}}?",
-    "updateAvailable": "Aggiornamento {{version}}"
+    "uninstallTitle": "Disinstallare {{name}}?"
   },
   "libraries": {
     "add": "Aggiungi una libreria",
@@ -181,12 +180,7 @@
     "restarts": "Tentativi di riavvio",
     "storage": "Archiviazione",
     "tools": "Strumenti",
-    "trust": "Fiducia",
-    "updateAvailable": "La versione {{version}} è disponibile.",
-    "updateCurrent": "Questo componente è aggiornato.",
-    "updateUnknown": "Lo stato degli aggiornamenti non è noto. Questa versione non ha un controllo autorevole degli aggiornamenti, quindi non lo deduce dalle etichette di versione.",
-    "updates": "Aggiornamenti",
-    "upgrade": "Aggiorna"
+    "trust": "Fiducia"
   },
   "page": {
     "back": "Torna ai componenti aggiuntivi",
@@ -434,6 +428,80 @@
       "denied": "Solo gli amministratori possono farlo, dalla propria sessione del browser.",
       "network": "Il proprietario non è raggiungibile.",
       "unavailable": "Il proprietario non è disponibile."
+    }
+  },
+  "updates": {
+    "title": "Aggiornamenti",
+    "checkNow": "Cerca aggiornamenti",
+    "checking": "Controllo in corso...",
+    "checkedAt": "Controllato {{when}}",
+    "neverChecked": "Non ancora controllato",
+    "lastSuccess": "Libreria letta l'ultima volta {{when}}",
+    "stale": "Questa risposta potrebbe non essere aggiornata. Controlla di nuovo.",
+    "throttled": "Un controllo è stato eseguito poco fa. Questo è il suo risultato.",
+    "badge": {
+      "available": "Aggiornamento {{version}}",
+      "incompatible": "Aggiornamento {{version}} non compatibile",
+      "failed": "Controllo non riuscito",
+      "integrity": "Errore di integrità"
+    },
+    "state": {
+      "unknown": "Lo stato degli aggiornamenti non è noto. Cerca aggiornamenti per interrogare la libreria.",
+      "up-to-date": "Questo componente è aggiornato.",
+      "update-available": "La versione {{version}} è disponibile.",
+      "incompatible": "La versione {{version}} non può girare su questo host. Non viene offerta.",
+      "check-failed": "Il controllo non è riuscito, quindi non si sa se esista un aggiornamento.",
+      "integrity-error": "La libreria elenca la versione installata con un contenuto diverso. Nulla è stato modificato e non viene offerto alcun aggiornamento."
+    },
+    "reason": {
+      "platform": "La piattaforma non è offerta",
+      "host-version": "La versione dell'host non è adatta",
+      "api-version": "L'API del componente non è adatta",
+      "protocol-version": "La versione del protocollo non è adatta",
+      "sdk-version": "La versione dell'SDK dell'interfaccia non è adatta",
+      "data-format": "Il formato dei dati non è adatto",
+      "digest-changed": "Il digest di questa versione è cambiato"
+    },
+    "class": {
+      "source-unavailable": "La libreria non è raggiungibile.",
+      "refresh-failed": "Non è stato possibile leggere la libreria.",
+      "credential-unavailable": "Le credenziali della libreria non sono disponibili.",
+      "not-listed": "La libreria non elenca più questo componente.",
+      "ambiguous-release": "La libreria elenca questa versione più volte.",
+      "canceled": "Il controllo è stato annullato.",
+      "internal": "Il controllo non è riuscito."
+    },
+    "installed": "Installata",
+    "candidate": "Disponibile",
+    "reasons": "Perché non è adatta",
+    "upgrade": "Aggiorna",
+    "confirm": {
+      "title": "Aggiornare {{name}} alla versione {{version}}?",
+      "body": "Il componente si ferma mentre i suoi dati vengono salvati e migrati, poi parte la nuova versione. Se la nuova versione non parte, continua a girare quella attuale.",
+      "data": "I suoi dati vengono salvati prima di qualsiasi modifica.",
+      "action": "Aggiorna",
+      "library": "Libreria",
+      "channel": "Canale",
+      "from": "Da",
+      "to": "A"
+    },
+    "progress": "Aggiornamento di {{name}} in corso. Prima si salvano i suoi dati.",
+    "done": "Aggiornato alla versione {{version}}.",
+    "browseUpdate": "L'aggiornamento {{version}} è disponibile. Gestiscilo in Installati.",
+    "errors": {
+      "stale_installed": "La versione installata è cambiata dopo il controllo. Cerca di nuovo gli aggiornamenti.",
+      "candidate_changed": "La libreria non offre più la versione controllata. Cerca di nuovo gli aggiornamenti.",
+      "upgrade_conflict": "Questo aggiornamento è già registrato con un'altra operazione. Non è stato applicato due volte.",
+      "incompatible": "La nuova versione non è compatibile con questo host. Nulla è stato modificato.",
+      "integrity_error": "La libreria elenca la versione installata con un contenuto diverso. Nulla è stato modificato.",
+      "upgrade_failed": "L'aggiornamento non è stato completato e la versione installata resta. Puoi riprovare.",
+      "operation_conflict": "L'operazione non è adatta allo stato attuale. Nulla è stato applicato.",
+      "check_failed": "Non è stato possibile leggere la libreria, quindi l'aggiornamento non è partito. Nulla è stato modificato.",
+      "unknownOutcome": "Il risultato dell'aggiornamento non è noto. Leggi di nuovo il suo stato; non avviarne un altro.",
+      "auth": "Accedi di nuovo per continuare.",
+      "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
+      "network": "La rete non è raggiungibile.",
+      "unavailable": "Il proprietario del componente non è disponibile. Riprova."
     }
   }
 }
