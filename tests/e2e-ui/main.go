@@ -43,6 +43,7 @@ func main() {
 	addonsFixtureDir := flag.String("addons-fixture", "", "directory of add-on UI fixture packages; enables auth and a real add-on owner")
 	addonExecutable := flag.String("addon-executable", "", "protocol fixture executable placed in every fixture package")
 	fixtureOut := flag.String("fixture-out", "", "file the seeded credentials are written to as JSON")
+	localOwner := flag.Bool("addons-local-owner", false, "run the add-ons fixture without authentication, in local-owner mode (no named users, no sharing)")
 	fixtureEnable := flag.String("fixture-enable", "", "comma separated id@version packages to install and enable at startup")
 	// foundation runs this server as one instance of the foundation
 	// acceptance cluster (see tests/addons/foundation/cluster).
@@ -167,7 +168,7 @@ func main() {
 	}
 	var fixture *addonsFixture
 	if *addonsFixtureDir != "" {
-		fixture, err = newAddonsFixture(*addonsFixtureDir, *addonExecutable, dataDir)
+		fixture, err = newAddonsFixture(*addonsFixtureDir, *addonExecutable, dataDir, *localOwner)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error preparing the add-ons fixture: %v\n", err)
 			os.Exit(1)

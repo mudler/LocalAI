@@ -555,6 +555,13 @@ aggregates and confirmed row changes with the real executable.
 The suite `sh scripts/addons/verify.sh tables-tools` covers the model tools,
 the consumer inventory, the pending proposal list and the approval card in a
 real browser against the real owner.
+The suite `sh scripts/addons/verify.sh tables-ui` covers the pages: the node
+tests of the field codecs, the filter builder, the batch bounds and the build,
+the UI-intent change route against the real owner, and a browser spec with
+real sessions for the roles, private defaults, sharing and a concurrent revoke,
+destructive deletion, a stale tab after an upgrade or a disable, the database of
+a chat for two conversations and two people, keyboard, 400 pixels, both themes,
+clearing on sign-out and local-owner mode.
 The suite `sh scripts/addons/verify.sh tables-admin` covers the UI-only
 management of databases with the real owner, real accounts and the real
 executable: private defaults, the owner, editor and viewer matrix, sharing and

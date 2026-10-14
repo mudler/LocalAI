@@ -101,10 +101,11 @@ func addonToolCall(prompt string) (name, arguments string, ok bool) {
 }
 
 // promptHasAddonResult reports whether the host already answered the scripted
-// call: the broker's result documents carry a kind, and an error is prefixed.
+// call: the broker's result documents carry a kind (a proposal, a result or an
+// error such as select_resource), and a refusal is prefixed.
 func promptHasAddonResult(prompt string) bool {
-	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) ||
-		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, "Error: ")
+	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) ||
+		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ")
 }
 
 // promptHasToolResults checks if the prompt contains evidence of prior tool

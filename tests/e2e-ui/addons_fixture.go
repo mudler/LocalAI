@@ -52,6 +52,8 @@ type addonsFixture struct {
 	releases []catalog.Release
 	archives map[string][]byte
 	owner    config.AddonConfig
+	// localOwner runs the owner without authentication, in local-owner mode.
+	localOwner bool
 }
 
 // Credentials is what the spec reads from --fixture-out.
@@ -68,8 +70,8 @@ type fixtureUser struct {
 	Session string `json:"session"`
 }
 
-func newAddonsFixture(dir, executable, dataDir string) (*addonsFixture, error) {
-	f := &addonsFixture{dataDir: dataDir, archives: map[string][]byte{}}
+func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addonsFixture, error) {
+	f := &addonsFixture{dataDir: dataDir, archives: map[string][]byte{}, localOwner: localOwner}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -184,6 +186,9 @@ func newAddonsFixture(dir, executable, dataDir string) (*addonsFixture, error) {
 		Root: filepath.Join(dataDir, "addons"), ListenAddress: address, Transport: transport,
 		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
 	}
+	if localOwner {
+		f.owner.OwnershipMode = auth.AddonModeLocalOwner
+	}
 	return f, nil
 }
 
@@ -241,6 +246,10 @@ func fixtureTransport() (*gateway.CarrierConfig, string, error) {
 }
 
 func (f *addonsFixture) options(dataDir string) []config.AppOption {
+	if f.localOwner {
+		// One local owner and no accounts: sharing has nobody to share with.
+		return []config.AppOption{config.WithAddons(f.owner)}
+	}
 	return []config.AppOption{
 		config.WithAuthEnabled(true),
 		config.WithAuthDatabaseURL(filepath.Join(dataDir, "auth.db")),
@@ -253,15 +262,24 @@ func (f *addonsFixture) options(dataDir string) []config.AppOption {
 // packages named in `enable` ("id@version").
 func (f *addonsFixture) seed(ctx context.Context, app *application.Application, out string, enable []string) error {
 	db := app.AuthDB()
-	if db == nil {
+	if db == nil && !f.localOwner {
 		return fmt.Errorf("authentication is not enabled")
 	}
 	creds := fixtureCredentials{Users: map[string]fixtureUser{}}
 	var admin contract.Actor
-	for _, u := range []struct {
+	if f.localOwner {
+		admin = contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
+	}
+	accounts := []struct {
 		name, role string
 		feature    bool
-	}{{"admin", auth.RoleAdmin, true}, {"member", auth.RoleUser, true}, {"outsider", auth.RoleUser, false}} {
+	}{{"admin", auth.RoleAdmin, true}, {"member", auth.RoleUser, true}, {"outsider", auth.RoleUser, false},
+		// Two more people with the feature, for the roles of a shared database.
+		{"editor", auth.RoleUser, true}, {"viewer", auth.RoleUser, true}}
+	if f.localOwner {
+		accounts = nil
+	}
+	for _, u := range accounts {
 		user := auth.User{ID: "fixture-" + u.name, Email: u.name + "@fixture.test", Name: u.name, Provider: auth.ProviderLocal, Role: u.role, Status: auth.StatusActive}
 		if err := db.Create(&user).Error; err != nil {
 			return err
