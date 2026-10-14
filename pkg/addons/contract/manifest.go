@@ -72,7 +72,11 @@ type Manifest struct {
 type Capabilities struct {
 	Service bool     `json:"service,omitempty"`
 	Tools   []string `json:"tools,omitempty"`
-	UI      *UI      `json:"ui,omitempty"`
+	// ToolDefinitions describe the tools a model may call: the schema of the
+	// arguments and the host authority of each. A declared tool without a
+	// definition is not offered to models.
+	ToolDefinitions []ToolDefinition `json:"toolDefinitions,omitempty"`
+	UI              *UI              `json:"ui,omitempty"`
 }
 type UI struct {
 	Entry      string       `json:"entry"`
@@ -177,6 +181,18 @@ func ParseManifest(data []byte) (Manifest, error) {
 	if err := strictJSON(data, &m, DefaultLimits().ManifestBytes); err != nil {
 		return m, err
 	}
+	// A raw tool schema is kept as the bytes a JSON encoder writes for it:
+	// compact, with HTML-significant characters escaped. The supervisor sends
+	// the manifest's capabilities to the addon and compares what the addon
+	// echoes with deep equality, so a schema held with the indentation of the
+	// file would never match its own echo.
+	for i := range m.Capabilities.ToolDefinitions {
+		c, err := json.Marshal(m.Capabilities.ToolDefinitions[i].InputSchema)
+		if err != nil {
+			return m, fmt.Errorf("invalid tool schema")
+		}
+		m.Capabilities.ToolDefinitions[i].InputSchema = c
+	}
 	// Parsing validates intrinsic constraints without imposing this machine's platform.
 	h := HostCompatibility{Host: m.Host.Min, API: m.API.Min, Protocol: m.Protocol.Min, DataFormat: m.DataFormat.Min, OS: m.OS, Arch: m.Arch}
 	if m.Capabilities.UI != nil {
@@ -205,6 +221,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	c := m.Capabilities
 	if (!c.Service && len(c.Tools) == 0 && c.UI == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
+	}
+	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+		return e
 	}
 	if u := c.UI; u != nil {
 		if !relativePath(u.Entry) || !u.SDK.accepts(h.SDK) || !uniqueIDs(u.Pages) || !uniqueIDs(u.Navigation) {

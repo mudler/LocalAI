@@ -87,6 +87,10 @@ type App struct {
 	// full number. The manifest carries no tool descriptions.
 	Tools     []string `json:"tools"`
 	ToolCount int      `json:"toolCount"`
+	// ToolDefinitions are the model-facing definitions the manifest declares:
+	// the argument schema and the kind of each tool. The host serves them to
+	// chat from the verified manifest; the add-on process is never asked.
+	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -185,6 +189,10 @@ func build(s Snapshot, admin bool) App {
 	}
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
+	for _, d := range m.Capabilities.ToolDefinitions {
+		d.InputSchema = slices.Clone(d.InputSchema)
+		a.ToolDefinitions = append(a.ToolDefinitions, d)
+	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {
