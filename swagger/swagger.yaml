@@ -30,7 +30,9 @@ definitions:
           unresolved outcome and the caller is the resource's owner role. The
           resource management routes add sharing_disabled (409, local-owner mode
           has no named users to share with), stale (409, the generation or the
-          revision the caller saw is out of date), invalid_request (400, for
+          revision the caller saw is out of date), operation_conflict (409, the
+          operation ID was used for another request and nothing was applied),
+          invalid_request (400, for
           example a missing deletion confirmation or an unsupported operation),
           quota_reached (403) and not_selected (404, no resource is selected for
           the conversation).
@@ -868,6 +870,14 @@ definitions:
     properties:
       operationId:
         type: string
+      requestHash:
+        description: |-
+          RequestHash binds the operation ID to the request: the SHA-256 of the
+          resource, the tool and the canonical arguments. A lookup of the
+          operation reports it, so a client can tell its own request from
+          another one that used the same ID.
+        example: 3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed
+        type: string
       resourceId:
         type: string
       result:
@@ -1071,6 +1081,9 @@ definitions:
     properties:
       operationId:
         type: string
+      requestHash:
+        example: 3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed
+        type: string
       state:
         description: State is pending, committed, rejected or unknown.
         enum:
@@ -1078,6 +1091,15 @@ definitions:
         - committed
         - rejected
         - unknown
+        type: string
+      tool:
+        description: |-
+          Tool and RequestHash name the request the operation ID was first
+          used for, as the host recorded it when it dispatched the change (kind
+          apply only). They are absent when the host no longer holds the
+          request, for example after a restart. Compare RequestHash with the
+          hash of your own request before you believe a committed state.
+        example: rows-insert
         type: string
     type: object
   gateway.PendingList:
@@ -6079,6 +6101,12 @@ paths:
         name: kind
         required: true
         type: string
+      - description: 'Apply only: the requestHash of the request the caller means
+          (64 lowercase hex). A lookup whose hash is not the one the operation ID
+          was used for is a 409 operation_conflict, never the other request''s receipt'
+        in: query
+        name: requestHash
+        type: string
       produces:
       - application/json
       responses:
@@ -6087,7 +6115,7 @@ paths:
           schema:
             $ref: '#/definitions/gateway.OperationStatus'
         "400":
-          description: Unsupported kind
+          description: Unsupported kind or malformed requestHash
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "401":
@@ -6097,6 +6125,11 @@ paths:
         "403":
           description: Not a human surface, feature denied, not the owner role or
             unknown resource
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: 'Type operation_conflict: the operation ID belongs to another
+            request'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":

@@ -26,6 +26,10 @@ var (
 	// ErrStale means the view the person acted on is out of date: the addon
 	// generation or the resource revision changed since it was listed.
 	ErrStale = fmt.Errorf("addon resource view is stale: %w", ErrForbidden)
+	// ErrOperationConflict means the operation ID was already used for a
+	// different request. Nothing was applied: the answer is final and the
+	// person repeats the change under a new operation ID.
+	ErrOperationConflict = fmt.Errorf("addon operation id was used for another request: %w", ErrForbidden)
 	// ErrInvalidRequest means a well-formed call that names nothing the
 	// owner can act on: a missing confirmation, an unsupported operation, a
 	// bad name or role.
@@ -171,6 +175,11 @@ type ApplyResult struct {
 	// Result is what the add-on's receipt reported, for example the count
 	// and the identifiers of the changed rows.
 	Result json.RawMessage `json:"result,omitempty" swaggertype:"object"`
+	// RequestHash binds the operation ID to the request: the SHA-256 of the
+	// resource, the tool and the canonical arguments. A lookup of the
+	// operation reports it, so a client can tell its own request from
+	// another one that used the same ID.
+	RequestHash string `json:"requestHash,omitempty" example:"3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed"`
 }
 
 // SetGrantRequest is the body of a grant change.
@@ -187,6 +196,13 @@ type OperationStatus struct {
 	OperationID string `json:"operationId"`
 	// State is pending, committed, rejected or unknown.
 	State string `json:"state" enums:"pending,committed,rejected,unknown"`
+	// Tool and RequestHash name the request the operation ID was first
+	// used for, as the host recorded it when it dispatched the change (kind
+	// apply only). They are absent when the host no longer holds the
+	// request, for example after a restart. Compare RequestHash with the
+	// hash of your own request before you believe a committed state.
+	Tool        string `json:"tool,omitempty" example:"rows-insert"`
+	RequestHash string `json:"requestHash,omitempty" example:"3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed"`
 }
 
 // SelectionRequest is the body of a conversation selection.
@@ -220,7 +236,7 @@ type ResourceManager interface {
 	Rename(ctx context.Context, actor contract.Actor, resourceID string, r RenameResourceRequest) (ResourceInfo, error)
 	Delete(ctx context.Context, actor contract.Actor, resourceID string, r DeleteResourceRequest) (DeleteResult, error)
 	Apply(ctx context.Context, actor contract.Actor, resourceID string, r ApplyResourceRequest) (ApplyResult, error)
-	Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID string) (OperationStatus, error)
+	Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID, requestHash string) (OperationStatus, error)
 	Selection(ctx context.Context, actor contract.Actor, conversationID, addonID string) (Selection, error)
 	Select(ctx context.Context, actor contract.Actor, conversationID, addonID, resourceID string) (Selection, error)
 	ClearSelection(ctx context.Context, actor contract.Actor, conversationID, addonID string) error
@@ -265,6 +281,7 @@ type ResourceCall struct {
 	Revision       contract.Revision `json:"revision"`
 	Arguments      json.RawMessage   `json:"arguments,omitempty"`
 	Tool           string            `json:"tool,omitempty"`
+	RequestHash    string            `json:"requestHash,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -353,7 +370,7 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 	case resourceApply:
 		out, err = g.Resources.Apply(ctx, a, call.ResourceID, ApplyResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Tool: call.Tool, Arguments: call.Arguments})
 	case resourceStatus:
-		out, err = g.Resources.Operation(ctx, a, call.ResourceID, call.Kind, call.UserID)
+		out, err = g.Resources.Operation(ctx, a, call.ResourceID, call.Kind, call.UserID, call.RequestHash)
 	case resourceSelGet:
 		out, err = g.Resources.Selection(ctx, a, call.ConversationID, call.AddonID)
 	case resourceSelPut:
@@ -442,8 +459,8 @@ func (g *Gateway) ApplyResource(ctx context.Context, a contract.Actor, resourceI
 }
 
 // ResourceOperation looks the receipt of a UI mutation up. It is read-only.
-func (g *Gateway) ResourceOperation(ctx context.Context, a contract.Actor, resourceID, kind, operationID string) (OperationStatus, error) {
-	return decodeResource[OperationStatus](g.resourceCall(ctx, a, "", ResourceCall{Op: resourceStatus, ResourceID: resourceID, Kind: kind, UserID: operationID}))
+func (g *Gateway) ResourceOperation(ctx context.Context, a contract.Actor, resourceID, kind, operationID, requestHash string) (OperationStatus, error) {
+	return decodeResource[OperationStatus](g.resourceCall(ctx, a, "", ResourceCall{Op: resourceStatus, ResourceID: resourceID, Kind: kind, UserID: operationID, RequestHash: requestHash}))
 }
 
 // ConversationSelection reads the selection of a conversation.
@@ -486,6 +503,7 @@ const (
 	wireInvalid         = "invalid_request"
 	wireQuota           = "quota_reached"
 	wireNotSelected     = "not_selected"
+	wireOpConflict      = "operation_conflict"
 )
 
 // resourceFailure writes the owner's typed failure of a resource call, so a
@@ -505,6 +523,8 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		status, body.Type = http.StatusConflict, wireSharingDisabled
 	case errors.Is(e, ErrStale):
 		status, body.Type = http.StatusConflict, wireStale
+	case errors.Is(e, ErrOperationConflict):
+		status, body.Type = http.StatusConflict, wireOpConflict
 	case errors.Is(e, ErrInvalidRequest):
 		status, body.Type = http.StatusBadRequest, wireInvalid
 	case errors.Is(e, ErrQuotaReached):
@@ -551,6 +571,8 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 			return ErrSharingDisabled
 		case wireStale:
 			return ErrStale
+		case wireOpConflict:
+			return ErrOperationConflict
 		case wireInvalid:
 			return ErrInvalidRequest
 		case wireQuota:

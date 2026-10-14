@@ -104,6 +104,77 @@ type Options struct {
 // Service implements gateway.ResourceManager.
 type Service struct {
 	o Options
+	// binds remembers the request each UI apply operation was dispatched
+	// for, newest last and bounded. The add-on's own ledger stays the
+	// authority across restarts: it refuses the reuse with a 409.
+	bindMu sync.Mutex
+	binds  map[string]binding
+	order  []string
+}
+
+// binding is the request an operation ID was first dispatched for.
+type binding struct{ tool, hash string }
+
+// maxBindings bounds the remembered requests.
+const maxBindings = 4096
+
+// requestHash is the fingerprint of one UI change: the resource, the tool
+// and the canonical arguments (decoded, keys sorted, numbers kept as
+// written). The expected revision is not part of it: a repeat of a change
+// reads a newer revision and is still the same change.
+func requestHash(resourceID, tool string, args json.RawMessage) string {
+	var v any
+	d := json.NewDecoder(strings.NewReader(string(args)))
+	d.UseNumber()
+	if d.Decode(&v) != nil {
+		v = string(args)
+	}
+	canon, _ := json.Marshal(v)
+	sum := sha256.Sum256([]byte(resourceID + "\x00" + tool + "\x00" + string(canon)))
+	return hex.EncodeToString(sum[:])
+}
+
+// bound reports the request recorded for a wire operation.
+func (s *Service) bound(wire string) (binding, bool) {
+	s.bindMu.Lock()
+	defer s.bindMu.Unlock()
+	b, ok := s.binds[wire]
+	return b, ok
+}
+
+// unbind forgets a binding the add-on did not keep.
+func (s *Service) unbind(wire string, b binding) {
+	s.bindMu.Lock()
+	defer s.bindMu.Unlock()
+	if have, ok := s.binds[wire]; ok && have == b {
+		delete(s.binds, wire)
+		for i, id := range s.order {
+			if id == wire {
+				s.order = append(s.order[:i], s.order[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+// bind records the request of a wire operation. It reports false when the
+// operation is already bound to another request.
+func (s *Service) bind(wire string, b binding) bool {
+	s.bindMu.Lock()
+	defer s.bindMu.Unlock()
+	if have, ok := s.binds[wire]; ok {
+		return have.hash == b.hash
+	}
+	if s.binds == nil {
+		s.binds = map[string]binding{}
+	}
+	if len(s.order) >= maxBindings {
+		delete(s.binds, s.order[0])
+		s.order = s.order[1:]
+	}
+	s.binds[wire] = b
+	s.order = append(s.order, wire)
+	return true
 }
 
 var _ gateway.ResourceManager = (*Service)(nil)
@@ -123,6 +194,7 @@ func New(o Options) *Service {
 }
 
 var (
+	sha256Hex  = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	identifier = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 	// resumeActor is the identity of the owner's own settlement of a
 	// deletion after a crash. It carries no authority over any resource: the
@@ -163,7 +235,7 @@ func classify(err error) error {
 		// denial, whichever layer made it, so that an unknown resource and a
 		// resource that is not the actor's cannot be told apart.
 		var blocked *gateway.OutcomeBlocked
-		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected} {
+		for _, typed := range []error{gateway.ErrSharingDisabled, gateway.ErrStale, gateway.ErrOperationConflict, gateway.ErrInvalidRequest, gateway.ErrQuotaReached, gateway.ErrNotSelected} {
 			if errors.Is(err, typed) {
 				return err
 			}
@@ -690,6 +762,9 @@ func (s *Service) typedChange(ctx context.Context, actor contract.Actor, key pol
 	}
 	receipt, err := cur.Client.Apply(ctx, env("apply", s.o.Limits.ApplyTimeout), preview.Revision)
 	if err != nil {
+		if errors.Is(err, addonruntime.ErrConflict) {
+			return gateway.ErrOperationConflict
+		}
 		return &gateway.OutcomeUnknown{OperationID: original}
 	}
 	switch receipt.State {
@@ -785,6 +860,12 @@ func (s *Service) Apply(ctx context.Context, actor contract.Actor, resourceID st
 		return gateway.ApplyResult{}, gateway.ErrInvalidRequest
 	}
 	wire := uiOperation(actor, "apply", r.OperationID)
+	want := binding{tool: r.Tool, hash: requestHash(key.ResourceID, r.Tool, raw)}
+	if have, ok := s.bound(wire); ok && have.hash != want.hash {
+		// The ID belongs to another request: refuse it before any call to
+		// the add-on, so it is never an unknown outcome.
+		return gateway.ApplyResult{}, gateway.ErrOperationConflict
+	}
 	var out gateway.ApplyResult
 	err = s.o.Policy.Admit(ctx, actor, key, action, func(rctx context.Context) error {
 		if s.o.Broker != nil {
@@ -793,18 +874,18 @@ func (s *Service) Apply(ctx context.Context, actor contract.Actor, resourceID st
 			}
 		}
 		var e error
-		out, e = s.typedApply(rctx, actor, key, inst, string(action), wire, body, r.Revision, r.OperationID)
+		out, e = s.typedApply(rctx, actor, key, inst, string(action), wire, body, r.Revision, r.OperationID, want)
 		return e
 	})
 	if err != nil {
 		return gateway.ApplyResult{}, classify(err)
 	}
-	out.ResourceID, out.OperationID = key.ResourceID, r.OperationID
+	out.ResourceID, out.OperationID, out.RequestHash = key.ResourceID, r.OperationID, want.hash
 	return out, nil
 }
 
 // typedApply is typedChange that also returns what the receipt reported.
-func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key policy.ResourceKey, inst addonruntime.Instance, action, wire string, body json.RawMessage, seen contract.Revision, original string) (gateway.ApplyResult, error) {
+func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key policy.ResourceKey, inst addonruntime.Instance, action, wire string, body json.RawMessage, seen contract.Revision, original string, want binding) (gateway.ApplyResult, error) {
 	cur, err := s.o.Runtime.Runtime(ctx, key.AddonID)
 	if err != nil || cur.Client == nil {
 		return gateway.ApplyResult{}, unavailable(err)
@@ -834,14 +915,24 @@ func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key poli
 			return gateway.ApplyResult{}, gateway.ErrStale
 		}
 	}
+	if !s.bind(wire, want) {
+		return gateway.ApplyResult{}, gateway.ErrOperationConflict
+	}
 	receipt, err := cur.Client.Apply(ctx, env("apply", s.o.Limits.ApplyTimeout), preview.Revision)
 	if err != nil {
+		if errors.Is(err, addonruntime.ErrConflict) {
+			// The add-on's ledger holds the ID for another request and
+			// changed nothing.
+			return gateway.ApplyResult{}, gateway.ErrOperationConflict
+		}
 		return gateway.ApplyResult{}, &gateway.OutcomeUnknown{OperationID: original}
 	}
 	switch receipt.State {
 	case contract.ReceiptCommitted:
 		return gateway.ApplyResult{Revision: receipt.Revision, Result: receipt.Result.Payload}, nil
 	case contract.ReceiptRejected:
+		// Nothing was recorded for the ID, so it is free again.
+		s.unbind(wire, want)
 		// A rejection names why in the add-on's own words: a moved revision
 		// is the stale view, anything else is a request it cannot carry out.
 		var why struct {
@@ -1134,8 +1225,11 @@ func (s *Service) Resume(ctx context.Context) {
 
 // Operation looks the receipt of a UI mutation up. It is read-only toward the
 // add-on and available to the owner role only. kind is rename or delete.
-func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID string) (gateway.OperationStatus, error) {
+func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID, hash string) (gateway.OperationStatus, error) {
 	if kind != "rename" && kind != "delete" && kind != "apply" || !validOperation(operationID) {
+		return gateway.OperationStatus{}, gateway.ErrInvalidRequest
+	}
+	if hash != "" && (kind != "apply" || !sha256Hex.MatchString(hash)) {
 		return gateway.OperationStatus{}, gateway.ErrInvalidRequest
 	}
 	if kind == "delete" && s.o.Policy != nil {
@@ -1174,11 +1268,28 @@ func (s *Service) Operation(ctx context.Context, actor contract.Actor, resourceI
 	if err != nil {
 		return gateway.OperationStatus{}, err
 	}
+	have, known := s.bound(wire)
+	if kind == "apply" && hash != "" && (!known || have.hash != hash) {
+		if known {
+			// The ID was used for another request: its receipt is not an
+			// answer about this one.
+			return gateway.OperationStatus{}, gateway.ErrOperationConflict
+		}
+		// The host does not hold the request this ID was used for, so it
+		// cannot vouch that the receipt is the caller's. Repeating the
+		// change is safe: the add-on replays the same request and refuses
+		// another one.
+		return gateway.OperationStatus{OperationID: operationID, State: string(contract.ReceiptUnknown)}, nil
+	}
 	rcpt, err := inst.Client.Receipt(ctx, wire)
 	if err != nil {
 		return gateway.OperationStatus{}, unavailable(err)
 	}
-	return gateway.OperationStatus{OperationID: operationID, State: string(rcpt.State)}, nil
+	st := gateway.OperationStatus{OperationID: operationID, State: string(rcpt.State)}
+	if kind == "apply" && known {
+		st.Tool, st.RequestHash = have.tool, have.hash
+	}
+	return st, nil
 }
 
 // conversation is the validated key of a selection.

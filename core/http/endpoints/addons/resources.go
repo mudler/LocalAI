@@ -335,15 +335,17 @@ func ApplyResource(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.Handler
 // @Param resourceId path string true "Resource ID"
 // @Param operationId path string true "Operation ID of the rename"
 // @Param kind query string true "Operation kind" Enums(rename,delete,apply)
+// @Param requestHash query string false "Apply only: the requestHash of the request the caller means (64 lowercase hex). A lookup whose hash is not the one the operation ID was used for is a 409 operation_conflict, never the other request's receipt"
 // @Success 200 {object} gateway.OperationStatus "Receipt state"
-// @Failure 400 {object} AddonErrorResponse "Unsupported kind"
+// @Failure 400 {object} AddonErrorResponse "Unsupported kind or malformed requestHash"
+// @Failure 409 {object} AddonErrorResponse "Type operation_conflict: the operation ID belongs to another request"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Not a human surface, feature denied, not the owner role or unknown resource"
 // @Failure 503 {object} AddonErrorResponse "Addons, the owner or the add-on are unavailable"
 // @Router /api/addons/resources/{resourceId}/operations/{operationId} [get]
 func GetResourceOperation(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	return resourceCall(g, db, opts, byParam("resourceId"), func(c echo.Context, g *gateway.Gateway, a contract.Actor) (any, error) {
-		return g.ResourceOperation(c.Request().Context(), a, c.Param("resourceId"), c.QueryParam("kind"), c.Param("operationId"))
+		return g.ResourceOperation(c.Request().Context(), a, c.Param("resourceId"), c.QueryParam("kind"), c.Param("operationId"), c.QueryParam("requestHash"))
 	})
 }
 

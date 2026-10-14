@@ -4,12 +4,15 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"time"
 )
 
@@ -75,6 +78,28 @@ var _ = Describe("Authenticated runtime client", func() {
 		_, e = i.Client.Read(context.Background(), envelope("read"))
 		Expect(e).To(HaveOccurred())
 		stream.Close()
+	})
+})
+
+var _ = Describe("Refusals of the add-on", func() {
+	It("tells a 409 conflict of the add-on from an outage", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/apply" {
+				http.Error(w, "conflict", http.StatusConflict)
+				return
+			}
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		}))
+		defer srv.Close()
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		_, e = c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+		Expect(errors.Is(e, ErrConflict)).To(BeTrue())
+		Expect(errors.Is(e, ErrRuntime)).To(BeTrue())
+		_, e = c.Read(context.Background(), envelope("read"))
+		Expect(e).To(MatchError(ErrRuntime))
+		Expect(errors.Is(e, ErrConflict)).To(BeFalse())
 	})
 })
 

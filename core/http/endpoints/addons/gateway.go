@@ -22,7 +22,9 @@ type AddonError struct {
 	// unresolved outcome and the caller is the resource's owner role. The
 	// resource management routes add sharing_disabled (409, local-owner mode
 	// has no named users to share with), stale (409, the generation or the
-	// revision the caller saw is out of date), invalid_request (400, for
+	// revision the caller saw is out of date), operation_conflict (409, the
+	// operation ID was used for another request and nothing was applied),
+	// invalid_request (400, for
 	// example a missing deletion confirmation or an unsupported operation),
 	// quota_reached (403) and not_selected (404, no resource is selected for
 	// the conversation).
@@ -141,6 +143,7 @@ func resultError(c echo.Context, e error) error {
 	}{
 		{gateway.ErrSharingDisabled, 409, "sharing_disabled", "Sharing is disabled: this installation has no named users to share with"},
 		{gateway.ErrStale, 409, "stale", "The view is out of date; reload it and repeat the action"},
+		{gateway.ErrOperationConflict, 409, "operation_conflict", "The operation ID was used for another request; nothing was applied. Repeat the change under a new operation ID"},
 		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
 		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
 		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},

@@ -72,14 +72,14 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 			"gateway.UserRef":               gateway.UserRef{ID: "u", DisplayName: "D"},
 			"gateway.UserList":              gateway.UserList{Users: []gateway.UserRef{}},
 			"gateway.DeleteResult":          gateway.DeleteResult{ResourceID: "r", Deleted: true},
-			"gateway.OperationStatus":       gateway.OperationStatus{OperationID: "o", State: "committed"},
+			"gateway.OperationStatus":       gateway.OperationStatus{OperationID: "o", State: "committed", Tool: "rows-insert", RequestHash: "h"},
 			"gateway.Selection":             gateway.Selection{AddonID: "tables", ConversationID: "c", ResourceID: "r", Role: "owner", Name: "N"},
 			"gateway.CreateResourceRequest": gateway.CreateResourceRequest{AddonID: "tables", OperationID: "o", Generation: 1, Arguments: json.RawMessage(`{}`)},
 			"gateway.RenameResourceRequest": gateway.RenameResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Name: "N"},
 			"gateway.DeleteResourceRequest": gateway.DeleteResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Confirm: "N"},
 			"gateway.SetGrantRequest":       gateway.SetGrantRequest{Role: "viewer", OperationID: "o"},
 			"gateway.ApplyResourceRequest":  gateway.ApplyResourceRequest{OperationID: "o", Generation: 1, Revision: rev, Tool: "rows-insert", Arguments: json.RawMessage(`{}`)},
-			"gateway.ApplyResult":           gateway.ApplyResult{ResourceID: "r", OperationID: "o", Revision: rev, Result: json.RawMessage(`{}`)},
+			"gateway.ApplyResult":           gateway.ApplyResult{ResourceID: "r", OperationID: "o", Revision: rev, Result: json.RawMessage(`{}`), RequestHash: "h"},
 			"gateway.SelectionRequest":      gateway.SelectionRequest{ResourceID: "r"},
 		} {
 			def, ok := doc.Definitions[name]
@@ -94,7 +94,7 @@ var _ = Describe("the advertised surface of the resource management routes", fun
 		}
 		// The error object documents the new types.
 		text, _ := json.Marshal(doc.Definitions["addons.AddonError"].Properties["type"])
-		for _, typ := range []string{"sharing_disabled", "stale", "invalid_request", "quota_reached", "not_selected"} {
+		for _, typ := range []string{"sharing_disabled", "stale", "invalid_request", "quota_reached", "not_selected", "operation_conflict"} {
 			Expect(string(text)).To(ContainSubstring(typ))
 		}
 	})

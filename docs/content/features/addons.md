@@ -1098,11 +1098,21 @@ mutation:
   outcome, and is checked against the generation and the revision the caller read (`409
   stale`, nothing changed). The add-on's receipt is the record: repeating an `operationId`
   with the same request returns the same result and never applies twice; the same ID with
-  another request is refused.
+  another request is refused as `409 operation_conflict` before the add-on is called, with
+  nothing applied (never `outcome_unknown`). The host binds each operation ID to a request
+  hash (`requestHash`: SHA-256 of the resource, the tool and the canonical arguments, per
+  user), returns it with the result, and keeps it for a bounded number of recent
+  operations. An add-on that refuses the reuse with `409` on `/apply` gets the same
+  answer.
 - **Result.** The answer carries the new `revision` and the receipt's `result` (for Tables,
   the `count` and the changed row `ids`). An outcome that cannot be established is `503
   outcome_unknown` with the original `operationId`; look it up with `kind=apply` and never
-  submit a new operation.
+  submit a new operation. The lookup answers `state` plus the `tool` and `requestHash` the
+  ID was used for. Pass `requestHash=<hash of your request>` to ask about your own request:
+  a hash that differs from the recorded one is `409 operation_conflict`, and a hash the
+  host does not hold (for example after a restart) is `state: unknown`, which is safe to
+  answer by repeating the same request. A client that compares `requestHash` before it
+  believes `committed` never mistakes another change for its own.
 
 An SDK-based page does not call the route itself. `sdk.resources.apply` (see
 [the SDK](#the-resource-calls-of-the-sdk)) sends it for the add-on and generation the SDK is

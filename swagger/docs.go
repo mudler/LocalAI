@@ -1653,6 +1653,12 @@ const docTemplate = `{
                         "name": "kind",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Apply only: the requestHash of the request the caller means (64 lowercase hex). A lookup whose hash is not the one the operation ID was used for is a 409 operation_conflict, never the other request's receipt",
+                        "name": "requestHash",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1663,7 +1669,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Unsupported kind",
+                        "description": "Unsupported kind or malformed requestHash",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -1676,6 +1682,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Not a human surface, feature denied, not the owner role or unknown resource",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type operation_conflict: the operation ID belongs to another request",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -6528,7 +6540,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role. The\nresource management routes add sharing_disabled (409, local-owner mode\nhas no named users to share with), stale (409, the generation or the\nrevision the caller saw is out of date), invalid_request (400, for\nexample a missing deletion confirmation or an unsupported operation),\nquota_reached (403) and not_selected (404, no resource is selected for\nthe conversation).",
+                    "description": "Type is addon_error, outcome_unknown when a mutation may have run,\nproposal_unavailable when a proposal call could not be served and the\nsame call can be repeated by the same proposal ID after reading it, or\noutcome_blocked (403) when another operation on the resource has an\nunresolved outcome and the caller is the resource's owner role. The\nresource management routes add sharing_disabled (409, local-owner mode\nhas no named users to share with), stale (409, the generation or the\nrevision the caller saw is out of date), operation_conflict (409, the\noperation ID was used for another request and nothing was applied),\ninvalid_request (400, for\nexample a missing deletion confirmation or an unsupported operation),\nquota_reached (403) and not_selected (404, no resource is selected for\nthe conversation).",
                     "type": "string",
                     "example": "outcome_unknown"
                 }
@@ -7633,6 +7645,11 @@ const docTemplate = `{
                 "operationId": {
                     "type": "string"
                 },
+                "requestHash": {
+                    "description": "RequestHash binds the operation ID to the request: the SHA-256 of the\nresource, the tool and the canonical arguments. A lookup of the\noperation reports it, so a client can tell its own request from\nanother one that used the same ID.",
+                    "type": "string",
+                    "example": "3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed"
+                },
                 "resourceId": {
                     "type": "string"
                 },
@@ -7890,6 +7907,10 @@ const docTemplate = `{
                 "operationId": {
                     "type": "string"
                 },
+                "requestHash": {
+                    "type": "string",
+                    "example": "3f786850e387550fdab836ed7e6dc881de23001b3f786850e387550fdab836ed"
+                },
                 "state": {
                     "description": "State is pending, committed, rejected or unknown.",
                     "type": "string",
@@ -7899,6 +7920,11 @@ const docTemplate = `{
                         "rejected",
                         "unknown"
                     ]
+                },
+                "tool": {
+                    "description": "Tool and RequestHash name the request the operation ID was first\nused for, as the host recorded it when it dispatched the change (kind\napply only). They are absent when the host no longer holds the\nrequest, for example after a restart. Compare RequestHash with the\nhash of your own request before you believe a committed state.",
+                    "type": "string",
+                    "example": "rows-insert"
                 }
             }
         },

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -24,6 +25,12 @@ import (
 )
 
 var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
+
+// ErrConflict is the add-on's own refusal (HTTP 409) of a request that
+// conflicts with a record it holds, such as an operation ID already used
+// for another request. Nothing was changed. It is an ErrRuntime for every
+// caller that does not tell refusals apart.
+var ErrConflict = fmt.Errorf("addon refused the request as a conflict: %w", ErrRuntime)
 
 type Config struct {
 	StateRoot string // private owner-local durable process ledger, required

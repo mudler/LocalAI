@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -89,14 +90,33 @@ var _ = Describe("UI changes of a database by the person's own action", func() {
 		Expect(page["rows"]).To(HaveLen(2))
 		// The same operation with another request changes nothing.
 		other := h.apply("dave", res, "ap-r1", "rows-insert", rev, `{"table":"Entries","rows":[{"Item":"cup","Qty":9}]}`)
-		Expect(other.code).NotTo(Equal(200), other.raw)
+		Expect(other.code).To(Equal(http.StatusConflict), other.raw)
+		Expect(other.errType()).To(Equal("operation_conflict"))
 		page, _ = h.read("carol", res, `{"tool":"rows-query","table":"Entries"}`)
 		Expect(page["rows"]).To(HaveLen(2))
+		// The receipt names the request it belongs to, so a client can tell
+		// the change it asked for from another one under the same ID.
+		hash, _ := ins.body["requestHash"].(string)
+		Expect(hash).To(MatchRegexp(`^[0-9a-f]{64}$`))
+		Expect(again.body["requestHash"]).To(Equal(hash))
+		own := h.send("GET", "/api/addons/resources/"+res+"/operations/ap-r1?kind=apply&requestHash="+hash, "", h.tab("dave", res))
+		Expect(own.code).To(Equal(200), own.raw)
+		Expect(own.body["state"]).To(Equal("committed"))
+		Expect(own.body["tool"]).To(Equal("rows-insert"))
+		Expect(own.body["requestHash"]).To(Equal(hash))
+		foreign := h.send("GET", "/api/addons/resources/"+res+"/operations/ap-r1?kind=apply&requestHash="+strings.Repeat("ab", 32), "", h.tab("dave", res))
+		Expect(foreign.code).To(Equal(http.StatusConflict), foreign.raw)
+		Expect(foreign.errType()).To(Equal("operation_conflict"))
+		Expect(foreign.raw).NotTo(ContainSubstring("committed"))
+		bad := h.send("GET", "/api/addons/resources/"+res+"/operations/ap-r1?kind=apply&requestHash=nope", "", h.tab("dave", res))
+		Expect(bad.code).To(Equal(http.StatusBadRequest), bad.raw)
 
 		// The receipt is there for its own person, and nobody else's.
 		status := h.send("GET", "/api/addons/resources/"+res+"/operations/ap-r1?kind=apply", "", h.tab("dave", res))
 		Expect(status.code).To(Equal(200), status.raw)
 		Expect(status.body["state"]).To(Equal("committed"))
+		Expect(status.body["tool"]).To(Equal("rows-insert"))
+		Expect(status.body["requestHash"]).To(Equal(hash))
 		for _, user := range []string{"bob", "carol"} {
 			s := h.send("GET", "/api/addons/resources/"+res+"/operations/ap-r1?kind=apply", "", h.tab(user, res))
 			if user == "carol" {

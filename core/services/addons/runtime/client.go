@@ -93,6 +93,9 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
+		if resp.StatusCode == http.StatusConflict {
+			return nil, ErrConflict
+		}
 		return nil, ErrRuntime
 	}
 	return resp, nil
