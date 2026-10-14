@@ -36,6 +36,45 @@ var _ = Describe("Manifest", func() {
 		m.Capabilities = Capabilities{Tools: []string{"query"}}
 		Expect(ValidateManifest(m, h)).To(Succeed())
 	})
+	It("requires the existence tool of an addon whose resources are created or deleted", func() {
+		raw, e := os.ReadFile("../../../addons/tables/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		load := func() Manifest {
+			m, e := ParseManifest(raw)
+			Expect(e).NotTo(HaveOccurred())
+			return m
+		}
+		without := func(m *Manifest) {
+			var keep []string
+			for _, t := range m.Capabilities.Tools {
+				if t != "resource-exists" {
+					keep = append(keep, t)
+				}
+			}
+			m.Capabilities.Tools = keep
+		}
+		Expect(ValidateManifest(load(), compatible())).To(Succeed())
+
+		// Delete and create both need it: without an explicit answer the
+		// host could not tell a missing backing from an add-on that cannot
+		// answer, and would drop the record of data that is still there.
+		m := load()
+		without(&m)
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed())
+		m = load()
+		without(&m)
+		m.Capabilities.Resources.Delete, m.Capabilities.AdminTools = "", nil
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "create only")
+		m = load()
+		without(&m)
+		m.Capabilities.Resources.Create = ""
+		Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), "delete only")
+		// A mapping that creates and deletes nothing needs no existence tool.
+		m = load()
+		without(&m)
+		m.Capabilities.Resources.Create, m.Capabilities.Resources.Delete, m.Capabilities.AdminTools = "", "", nil
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+	})
 	It("rejects invalid namespace IDs and executable paths", func() {
 		for _, id := range []string{"", "../sample", "a/b", "A", "a.b", strings.Repeat("a", 65)} {
 			m, _ := ParseManifest(fixture())

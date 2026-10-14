@@ -128,6 +128,11 @@ func (a *Application) startAddonGateway() error {
 		exists = a.addonBackingExists(contract.DefaultLimits())
 	}
 	brokerOpts.BackingExists = exists
+	// A deletion trusts only an explicit answer of the add-on.
+	confirmed := a.addonResourceExists
+	if confirmed == nil {
+		confirmed = a.addonBackingConfirmed(contract.DefaultLimits())
+	}
 	broker, e := policy.OpenBroker(filepath.Join(cfg.Root, "proposals"), brokerOpts)
 	if e != nil {
 		_ = store.Close()
@@ -173,7 +178,7 @@ func (a *Application) startAddonGateway() error {
 		closeState()
 		return errors.Join(e, addons.ErrRecoveryRequired)
 	}
-	resourceOpts := resources.Options{Policy: p, Broker: broker, Users: auth.NewAddonUsers(a.authDB), Selections: selections, BackingExists: exists, Limits: contract.DefaultLimits()}
+	resourceOpts := resources.Options{Policy: p, Broker: broker, Users: auth.NewAddonUsers(a.authDB), Selections: selections, BackingConfirmed: confirmed, Limits: contract.DefaultLimits()}
 	if a.addonManager != nil {
 		resourceOpts.Runtime, resourceOpts.Capabilities, resourceOpts.Tools = a.addonManager, a.addonManager, a.addonManager
 	}
@@ -250,6 +255,25 @@ func (a *Application) addonBackingExists(limits contract.Limits) func(context.Co
 		return func(context.Context, policy.ResourceKey) (bool, error) { return false, nil }
 	}
 	return policy.BackingExists(policy.BackingOptions{
+		Runtime: m,
+		Tools:   m,
+		Installed: func(ctx context.Context, id string) (bool, error) {
+			s, err := m.Status(ctx, id)
+			return s.Installed, err
+		},
+		Limits: limits,
+	})
+}
+
+// addonBackingConfirmed is the existence check of a deletion. Unlike
+// addonBackingExists it never reads a missing manager, an add-on that is not
+// installed or one that does not declare the existence tool as "gone".
+func (a *Application) addonBackingConfirmed(limits contract.Limits) func(context.Context, policy.ResourceKey) (bool, error) {
+	m := a.addonManager
+	if m == nil {
+		return func(context.Context, policy.ResourceKey) (bool, error) { return false, policy.ErrBackingUnanswered }
+	}
+	return policy.BackingConfirmed(policy.BackingOptions{
 		Runtime: m,
 		Tools:   m,
 		Installed: func(ctx context.Context, id string) (bool, error) {

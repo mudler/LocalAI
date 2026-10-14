@@ -110,6 +110,10 @@ type ResourceTools struct {
 // MaxAdminTools bounds capabilities.adminTools.
 const MaxAdminTools = 4
 
+// ResourceExistsTool is the read tool an add-on declares to say whether the
+// backing of one of its resources exists.
+const ResourceExistsTool = "resource-exists"
+
 // validateResourceTools checks AdminTools and Resources against the declared
 // tools and their definitions.
 func validateResourceTools(c Capabilities) error {
@@ -151,6 +155,12 @@ func validateResourceTools(c Capabilities) error {
 		if !declared[want.name] || kinds[want.name] != want.kind {
 			return fmt.Errorf("resources %s must name a declared tool of kind %s", want.label, want.kind)
 		}
+	}
+	if (r.Create != "" || r.Delete != "") && !declared[ResourceExistsTool] {
+		// The host settles an interrupted creation or deletion only on an
+		// explicit answer of this tool. Without it a missing answer would be
+		// read as a missing backing and its record dropped over live data.
+		return fmt.Errorf("resources that are created or deleted must declare the %s tool", ResourceExistsTool)
 	}
 	if r.Delete == "" {
 		if len(c.AdminTools) > 0 {

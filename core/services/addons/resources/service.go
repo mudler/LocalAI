@@ -89,11 +89,15 @@ type Options struct {
 	// Selections holds the conversation selections. Without it the selection
 	// calls are unavailable.
 	Selections *SelectionStore
-	// BackingExists asks the add-on whether the backing of a resource
-	// exists. A resumed deletion that finds it gone is finished.
-	BackingExists func(context.Context, policy.ResourceKey) (bool, error)
-	Limits        contract.Limits
-	Now           func() time.Time
+	// BackingConfirmed asks the add-on whether the backing of a resource
+	// exists. A deletion that finds it gone is finished without the delete
+	// tool, so a (false, nil) must be the explicit answer of the add-on's
+	// declared existence tool. An add-on that cannot give one answers
+	// policy.ErrBackingUnanswered (policy.BackingConfirmed does), and the
+	// deletion stays confirmed and is retried.
+	BackingConfirmed func(context.Context, policy.ResourceKey) (bool, error)
+	Limits           contract.Limits
+	Now              func() time.Time
 	// NameTimeout bounds the display-name read of one resource.
 	NameTimeout time.Duration
 }
@@ -885,8 +889,8 @@ func (s *Service) settleDeletion(ctx context.Context, actor contract.Actor, key 
 	if err != nil {
 		return unknown()
 	}
-	if s.o.BackingExists != nil {
-		found, e := s.o.BackingExists(ctx, key)
+	if s.o.BackingConfirmed != nil {
+		found, e := s.o.BackingConfirmed(ctx, key)
 		if e != nil {
 			return unknown()
 		}

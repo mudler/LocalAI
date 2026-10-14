@@ -236,6 +236,11 @@ pending resource at the next start by calling `resource-exists`:
 - The addon is installed but cannot answer: LocalAI stops its startup with a
   recovery-required error. It never guesses.
 
+Deleting a database follows the same rule from the other side. LocalAI removes
+the record of a deleting database without calling `databases-delete` only when
+`resource-exists` answers that the database is gone. If the addon cannot
+answer, the deletion stays pending and is retried.
+
 A database file without a record cannot be reached by anyone. A creation whose
 outcome is uncertain keeps its reservation, and that reservation counts against
 the per-user limit of pending resources until its receipt is found, the person

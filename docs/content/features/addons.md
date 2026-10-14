@@ -547,7 +547,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | Field | Meaning and bounds |
 |---|---|
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
-| `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. |
+| `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. |
 
 ### Public API
 
@@ -1062,6 +1062,14 @@ every other rule of a mutation.
   uninstalls the add-on and never touches other resources. An outcome that cannot be
   established is `outcome_unknown` with the original `operationId`: repeat the same call, or
   look the receipt up; nothing is submitted under a new operation.
+
+  Before it calls the delete tool, the owner asks the add-on's `resource-exists` tool whether
+  the backing is still there. Only that explicit answer of the declared tool can say "gone",
+  and then the record is removed without the delete tool. An add-on that is not installed,
+  does not declare the tool or cannot answer never counts as "gone": the deletion stays
+  `deleting`, is reported as `outcome_unknown` and is retried by the reconcile loop, so the
+  data is never left behind a removed record. This applies to the request, to a repeat of it
+  and to the recovery at start.
 
 The delete tool is declared in `capabilities.adminTools`. The owner is its only caller, from
 the delete endpoint and its own crash recovery, under the host action `delete`, which no

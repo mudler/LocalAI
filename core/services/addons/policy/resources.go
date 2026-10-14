@@ -22,7 +22,7 @@ var ErrNotCreated = errors.New("addon did not create the resource")
 
 // ReconcileTool is the declared read tool through which the owner asks an addon
 // whether the backing of a resource exists. The payload is {"exists": bool}.
-const ReconcileTool = "resource-exists"
+const ReconcileTool = contract.ResourceExistsTool
 
 // Create reserves a resource for the actor, runs create to make its backing,
 // and activates it. The order is the whole contract:
@@ -102,12 +102,42 @@ type BackingOptions struct {
 	Now       func() time.Time
 }
 
+// ErrBackingUnanswered means the add-on did not give an explicit existence
+// answer: it is not installed, it does not declare the existence tool, or it
+// could not be asked. Only BackingConfirmed returns it. Deleting a resource
+// never treats it as "the backing is gone".
+var ErrBackingUnanswered = fmt.Errorf("addon did not answer the existence check: %w", gateway.ErrUnavailable)
+
 // BackingExists returns the existence check Reconcile needs for resources
 // whose backing lives in an addon. It fails closed: an addon that is installed
 // but cannot answer is an error, never "does not exist", so a pending
 // resource whose database exists is not dropped because the addon was down.
+//
+// An addon that is not installed, or that does not declare the existence
+// tool, backs nothing it can confirm. For a creation reservation that is
+// (false, nil) and the reservation is dropped. A deletion must not read it as
+// an answer: it uses BackingConfirmed.
 func BackingExists(o BackingOptions) func(context.Context, ResourceKey) (bool, error) {
+	return backing(o, false)
+}
+
+// BackingConfirmed is BackingExists for a deletion. The only (false, nil) it
+// returns is the explicit answer of the declared existence tool. A missing
+// manager, an addon that is not installed and an addon that does not declare
+// the tool are ErrBackingUnanswered, so the data of an addon that cannot
+// confirm anything is never left behind a removed record.
+func BackingConfirmed(o BackingOptions) func(context.Context, ResourceKey) (bool, error) {
+	return backing(o, true)
+}
+
+func backing(o BackingOptions, strict bool) func(context.Context, ResourceKey) (bool, error) {
 	return func(ctx context.Context, key ResourceKey) (bool, error) {
+		silent := func() (bool, error) {
+			if strict {
+				return false, ErrBackingUnanswered
+			}
+			return false, nil
+		}
 		limits := o.Limits
 		if limits == (contract.Limits{}) {
 			limits = contract.DefaultLimits()
@@ -126,7 +156,7 @@ func BackingExists(o BackingOptions) func(context.Context, ResourceKey) (bool, e
 				return false, ErrUnavailable
 			}
 			if !installed {
-				return false, nil
+				return silent()
 			}
 			return false, ErrUnavailable
 		}
@@ -143,7 +173,7 @@ func BackingExists(o BackingOptions) func(context.Context, ResourceKey) (bool, e
 		}
 		if !known {
 			// The addon cannot back resources it cannot confirm.
-			return false, nil
+			return silent()
 		}
 		found, err := askExists(ctx, instance, key, limits, now)
 		if err != nil {

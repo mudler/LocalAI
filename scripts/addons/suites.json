@@ -124,7 +124,8 @@
       "rejects unknown and reserved launch modes",
       "rejects remote data absolute and traversing icon paths",
       "requires the main page to be one of the declared pages",
-      "bounds localized titles and descriptions and rejects markup"
+      "bounds localized titles and descriptions and rejects markup",
+      "requires the existence tool of an addon whose resources are created or deleted"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },
@@ -670,7 +671,9 @@
       "denies a create proposal when creation authority is revoked before confirmation",
       "denies a create proposal for an undeclared tool or an existing resource without reserving",
       "does not let reconcile drop the reservation of a creation in flight",
-      "commits the reservation at recovery when the crash came after the receipt was stored"
+      "commits the reservation at recovery when the crash came after the receipt was stored",
+      "never reads an add-on that cannot answer as a backing that is gone",
+      "accepts the explicit answer of the declared existence tool, true or false"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -860,7 +863,9 @@
       "denies a create proposal for an undeclared tool or an existing resource without reserving",
       "does not let reconcile drop the reservation of a creation in flight",
       "commits the reservation at recovery when the crash came after the receipt was stored",
-      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+      "never reads an add-on that cannot answer as a backing that is gone",
+      "accepts the explicit answer of the declared existence tool, true or false"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -965,7 +970,9 @@
           "denies a create proposal when creation authority is revoked before confirmation",
           "denies a create proposal for an undeclared tool or an existing resource without reserving",
           "does not let reconcile drop the reservation of a creation in flight",
-          "commits the reservation at recovery when the crash came after the receipt was stored"
+          "commits the reservation at recovery when the crash came after the receipt was stored",
+          "never reads an add-on that cannot answer as a backing that is gone",
+          "accepts the explicit answer of the declared existence tool, true or false"
         ]
       },
       {
