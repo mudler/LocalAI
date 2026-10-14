@@ -51,7 +51,6 @@ const (
 	MaxQueryRunes = 64
 	// MaxGrants bounds the grants of one resource that are listed.
 	MaxGrants    = 256
-	listParallel = 4
 	maxNameInput = 256
 )
 
@@ -278,6 +277,18 @@ func (s *Service) inspect(ctx context.Context, actor contract.Actor, key policy.
 	return out, err
 }
 
+// listWidth is how many name reads one listing runs at once: half of the
+// add-on's concurrency budget, and at least one. The runtime refuses a call over
+// the budget, so a listing that took all of it would make every other read of
+// the person's page fail while it ran.
+func (s *Service) listWidth() int {
+	n := int(s.o.Limits.Concurrency / 2)
+	if n < 1 {
+		return 1
+	}
+	return n
+}
+
 func operations(c contract.Capabilities) []string {
 	ops := []string{}
 	if r := c.Resources; r != nil {
@@ -321,7 +332,7 @@ func (s *Service) List(ctx context.Context, actor contract.Actor, addonID string
 	names, cancel := context.WithTimeout(ctx, 3*s.o.NameTimeout)
 	defer cancel()
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, listParallel)
+	sem := make(chan struct{}, s.listWidth())
 	for i, v := range views {
 		infos[i] = gateway.ResourceInfo{ID: v.Key.ResourceID, AddonID: addonID, Role: string(v.Role)}
 		if v.Role == policy.RoleOwner {

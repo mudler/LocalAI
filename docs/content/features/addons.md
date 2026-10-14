@@ -1003,7 +1003,7 @@ the route-feature registry.
 
 | Route | Who | What |
 |---|---|---|
-| `GET /api/addons/resources?addonId=` | any caller with the feature (keys too) | The resources of the add-on the caller owns or that were shared with the caller, with the caller's own role, the display name, the owner's display name for a shared one and, for the owner role only, how many people it is shared with and the revision. At most 100. |
+| `GET /api/addons/resources?addonId=` | any caller with the feature (keys too) | The resources of the add-on the caller owns or that were shared with the caller, with the caller's own role, the display name, the owner's display name for a shared one and, for the owner role only, how many people it is shared with and the revision. At most 100. The names are read at most half of the add-on's concurrency budget at a time, so a page that reads while it lists is not refused. |
 | `POST /api/addons/resources` | the person's own session | Create a resource through the add-on's create tool. Caller becomes the owner; the resource is private. |
 | `GET /api/addons/resources/{resourceId}/grants` | owner role, own session | Who it is shared with: immutable account ID, display name, role. |
 | `PUT /api/addons/resources/{resourceId}/grants/{userId}` | owner role, own session | Give a named user `viewer` or `editor` on the whole resource. |
