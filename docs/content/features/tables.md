@@ -6,8 +6,8 @@ title: Tables
 
 Tables is a first-party addon for LocalAI. This page describes the database
 lifecycle, the typed schema operations, and structured row queries and
-confirmed row changes that exist today. CSV results and the Tables user
-interface are not available yet.
+confirmed row changes that exist today, and how a chat model uses them as
+tools. CSV results and the Tables user interface are not available yet.
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -79,6 +79,138 @@ resource for the person who asked, shows the requested name in the card, and
 creates the database only when that person confirms it. Cancelling or letting
 the proposal expire removes the reservation. Sharing and deleting a database
 are not tools.
+
+## Model tools and approval cards
+
+A chat can offer the tools of Tables to its model. The person turns it on per
+chat with the `/addons` command of the composer, which appears only when an
+enabled addon offers tools. The chat then sends `metadata.addon_tools` with
+each request, and the server decides what this person may call: the opt-in
+grants nothing by itself.
+
+```
+POST /v1/chat/completions
+{"model": "...", "messages": [...], "metadata": {"addon_tools": "true"}}
+```
+
+### Names and schemas
+
+A tool is named `addon__<addonId>__<tool>`, for example
+`addon__tables__rows-insert`. The name is valid for OpenAI function names and
+fits in 64 characters. The namespace is reserved: an MCP server of a model
+cannot publish a tool under it, and an MCP session never runs one.
+
+The schema of each tool is in `capabilities.toolDefinitions` of the verified
+manifest (`addons/tables/manifest.json`). The host serves it from the
+manifest, not from the addon process, and rejects a manifest whose definitions
+declare a keyword outside the closed set, an identity or approval property
+(`actor`, `userId`, `role`, `approved`, `confirm`, `digest`, `proposalId`,
+`operationId`, `tool` and similar), more than 32 properties, or more than 8 KiB
+for one schema. A declared tool without a definition is not offered to a
+model: `resource-exists` is one.
+
+Every tool that works on a database takes `resourceId`. The host takes it out
+of the arguments and binds it to the request. A model cannot name a database
+it has no grant for: the same denial answers every tool.
+
+### What a call does
+
+| Tool kind | Host action | Result |
+|---|---|---|
+| Read (`databases-inspect`, `rows-query`, `rows-aggregate`) | `read` | `{"kind":"result","result":...}`. A result over 128 KiB is refused, never cut. A file result is `{"kind":"artifact"}` with private artifact references and no bytes. |
+| Row change (`rows-insert`, `rows-update`, `rows-delete`) | `write` proposal | `{"kind":"proposal","proposal":{id,digest,count,...}}` |
+| Schema change (`tables-*`, `columns-*`, `databases-rename`) | `schema` proposal | the same proposal reference |
+| Creation (`databases-create`) | `create` proposal | the same, with the reserved resource ID |
+
+A tool call never applies a change. It stores a proposal that only the
+proposer's own browser session can confirm. The tool adapter has no confirm,
+cancel or resolve operation, and no tool of any consumer maps to those routes.
+The model is told that nothing changed and that a person must confirm.
+
+These names do not exist and are refused with a typed error: `confirm`,
+`approve`, `apply_proposal`, `yes`, any sharing, grant, database deletion or
+retained-data purge name, and any name that is not defined by the manifest of
+an enabled addon. Arguments that carry identity, role, approval or operation
+fields are refused before they reach the owner, so a model cannot forge the
+actor, the role or an approval, and a repeated or oversized argument object is
+refused as well.
+
+### The approval card
+
+When a tool answers with a proposal, the chat draws the host's card inline.
+The card loads the stored proposal from the host by its ID. It shows the
+add-on, the database (the requested name for a creation), the operation, the
+exact count of effects, a bounded sample, the expiry and the state. The words
+of the model are never the preview. Confirm and Cancel are the host's buttons:
+Confirm sends the digest that was displayed with the `X-LocalAI-Confirm`
+header from the person's own session.
+
+The card is disabled for an expired, blocked, applied, cancelled, rejected or
+unknown-outcome proposal and says why. It forgets what it loaded when the
+person logs out, another person signs in, the addons feature is withdrawn or
+the host stops answering for the proposal. The stored conversation keeps the
+proposal ID only: no rows, no digest, no sample.
+
+`GET /api/addons/proposals?state=pending` lists the caller's own pending
+proposals, newest first, at most 32. It is where a change proposed by an agent
+or a scheduled job waits: those callers can read and propose within their
+permissions and can never confirm, because a key has no browser session.
+
+### Consumers
+
+The consumer inventory is executable. The tests scan the sources for code
+that discovers or executes tools and fail for a file that has no decision
+here, so a new consumer cannot ship without one. A routed consumer takes an
+immutable actor from the authenticated request and goes through the broker.
+A rejecting consumer never serves add-on tools: the namespace is refused or
+filtered there.
+
+| Consumer | Decision | What it is and why |
+|---|---|---|
+| `chat-completions` | route | `POST /v1/chat/completions` with `metadata.addon_tools`. The actor is the named user or key of the request. |
+| `direct-api` | route | The `/api/addons` routes called by the UI, scripts and agents. The actor is the named user or key of the request, revalidated on every call. |
+| `addon-tool-executor` | route | The executor that serves the namespace inside a chat request. It holds one actor value and has no setter. |
+| `localai-assistant` | reject | The in-process admin MCP server. It has no per-call principal and its catalog holds no addon tool. |
+| `model-mcp-sessions` | reject | MCP sessions built from model configuration and shared by every user of the model. The namespace is dropped from discovery and refused at execution. |
+| `anthropic-messages` | reject | `POST /v1/messages`. A request with `addon_tools` gets `addon_tools_unsupported` (400). |
+| `open-responses` | reject | `POST /v1/responses`. A request with `addon_tools` gets `addon_tools_unsupported` (400). |
+| `realtime` | reject | The realtime WebSocket and WebRTC sessions. Long-lived sessions cannot be revalidated between utterances. |
+| `legacy-mcp-chat` | reject | `POST /v1/mcp/chat/completions` passes no broker, so `addon_tools` gets the same typed answer. |
+| `mcp-discovery-endpoints` | reject | Listing of servers, prompts and resources. They execute no tool. |
+| `agent-jobs` | reject | Agent jobs and scheduled tasks. They run unattended and detached from a request principal. Use the API with a key to read and propose. |
+| `agent-runs` | reject | Agent runs of the agent pool and their scheduler. Their tool filter drops the namespace. |
+| `distributed-agent-worker` | reject | Workers that execute MCP tools for a frontend. They refuse the namespace. |
+
+A shared model MCP session is a rejection on purpose. One session answers
+every user of a model and keeps no current-user state, so it could not carry
+an actor. A deployment that needs add-on tools for an agent uses the
+`/api/addons` routes with that agent's own key.
+
+### Several frontends
+
+The tool adapter keeps no runtime state, so it is stateless in the sense of
+the distributed-state rule. Each frontend builds the tool list from the apps
+list its owner answers for the caller, and sends every call, proposal and
+pending list through the same carrier as the other addon routes. A frontend
+that is not the owner never holds a package, a proposal or a policy record.
+The apps list carries the tool definitions of each enabled addon, at most 32
+KiB per addon, so the model-facing schema is the one in the verified manifest
+of the installed generation. If the owner cannot answer, discovery fails and
+the chat request answers 503 rather than offering stale tools.
+
+### Admin lifecycle tools
+
+The LocalAI Assistant catalog has no add-on lifecycle tool (install, enable,
+disable, upgrade, uninstall, library changes). This is deliberate. The
+Assistant is one process-wide server with no per-call principal, and its
+mutating tools rely on the model asking the person for confirmation in prose.
+Add-on lifecycle changes are administration with persistent effects on data
+and processes, so they are not exposed that way. Listing and status are read
+with `GET /api/addons/apps` and the `addons-installed` management read, which
+need a named administrator. A conversational lifecycle tool needs a per-call
+principal and a host approval card first; it is not part of this release.
+REST-to-MCP parity for `/api/addons` is intentionally partial for that reason,
+and `TestToolHTTPRouteMappingComplete` stays unchanged.
 
 ## How creation survives a crash
 
@@ -296,3 +428,6 @@ executable under the real supervisor. The suite
 revisions and receipts.
 The suite `sh scripts/addons/verify.sh tables-rows` covers queries, filters,
 aggregates and confirmed row changes with the real executable.
+The suite `sh scripts/addons/verify.sh tables-tools` covers the model tools,
+the consumer inventory, the pending proposal list and the approval card in a
+real browser against the real owner.

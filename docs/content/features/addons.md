@@ -773,6 +773,13 @@ output, on the owner's own frontend and on every forwarding frontend:
 
 ### Lifecycle
 
+Tools reach a model through the same proposals: a chat that sets
+`metadata.addon_tools` can call the tools of enabled addons, and a change a
+tool proposes waits as a pending proposal. `GET /api/addons/proposals?state=pending`
+lists the caller's own pending proposals (newest first, at most 32). See
+[Tables](../tables/#model-tools-and-approval-cards) for the tool names, the
+approval card and the inventory of tool consumers.
+
 `POST /api/addons/proposals` takes a typed `write` or `schema` request. The owner
 resolves the resource, requires write authority (`schema` needs the owner role), asks the
 addon for a preview and stores a proposal with:
