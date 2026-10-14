@@ -44,6 +44,23 @@ Both views store the view, search, filter, and selection in the URL. Installing
 from Explore does not move you away from the catalog; the entry updates in place
 when the operation finishes.
 
+### MiniCPM-V 4.7 1B
+
+[MiniCPM-V 4.7 1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)
+supports text chat and image understanding through the llama.cpp backend.
+The gallery includes official Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds.
+Each build includes the F16 vision projector and uses an 8,192-token default context.
+
+Install the family with automatic variant selection:
+
+```bash
+local-ai models install minicpm-v-4_7-1b-q4
+```
+
+Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
+`--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
+or `--variant minicpm-v-4_7-1b-q8`.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
