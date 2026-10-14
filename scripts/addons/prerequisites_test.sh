@@ -62,6 +62,11 @@ cat > "$fixture/scripts/addons/suites.json" <<'JSON'
 JSON
 printf '#!/bin/sh\nexit 42\n' > "$fixture/scripts/addons/prerequisites_test.sh"
 reject failed-child '42' sh "$verify" prerequisites
+# A failing child must leave its failing case and the end of its output in the
+# runner output, so a flake in a long gate run can be named afterwards.
+printf '#!/bin/sh\necho one; echo '\''{"case":"required","status":"failed"}'\''; echo tail-marker-line >&2; exit 7\n' > "$fixture/scripts/addons/prerequisites_test.sh"
+reject failed-case-named 'failed case: required' sh "$verify" prerequisites
+reject failed-tail-kept '| tail-marker-line' sh "$verify" prerequisites
 printf '#!/bin/sh\nexit 0\n' > "$fixture/scripts/addons/prerequisites_test.sh"
 reject zero-tests 'required' sh "$verify" prerequisites
 printf '#!/bin/sh\necho '\''{"case":"required","status":"skipped"}'\''\n' > "$fixture/scripts/addons/prerequisites_test.sh"
@@ -96,6 +101,20 @@ TOOL
 reject ginkgo-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" prerequisites
 reject ginkgo-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" prerequisites
 reject ginkgo-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='{}' sh "$verify" prerequisites
+# A failed Ginkgo run names its failed spec and the first line of its failure.
+cat > "$fixture/bin/go" <<'TOOL'
+#!/bin/sh
+mkdir -p .cache
+printf '%s' "$FIXTURE_REPORT" > .cache/report.json
+exit 1
+TOOL
+reject ginkgo-failed-spec-named 'failed spec: sqlite transaction' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":false,"SpecReports":[{"State":"failed","LeafNodeType":"It","LeafNodeText":"sqlite transaction","Failure":{"Message":"Expected 1 to equal 2\nmore"}}]}]' sh "$verify" prerequisites
+reject ginkgo-failure-message 'Expected 1 to equal 2' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":false,"SpecReports":[{"State":"failed","LeafNodeType":"It","LeafNodeText":"sqlite transaction","Failure":{"Message":"Expected 1 to equal 2\nmore"}}]}]' sh "$verify" prerequisites
+cat > "$fixture/bin/go" <<'TOOL'
+#!/bin/sh
+mkdir -p .cache
+printf '%s' "$FIXTURE_REPORT" > .cache/report.json
+TOOL
 # Registered contracts must reach the same report gate, never bypass it.
 python3 - "$fixture/scripts/addons/suites.json" <<'JSON'
 import json, sys

@@ -28,8 +28,38 @@ def run(command, cwd=root):
         f.write(json.dumps(dict(command=command, status=result.returncode, output=result.stdout))+'\n')
     print(result.stdout, end='', flush=True)
     if result.returncode:
-        sys.exit('child status %d; log: %s' % (result.returncode, log))
+        sys.exit(failure_summary(command, result.stdout, result.returncode))
     return result.stdout
+def failure_summary(command, output, status):
+    """Names what failed, so a flake in a long gate run can be diagnosed later.
+
+    It reads only: failed case lines of the child, failed specs of the Ginkgo
+    reports the command names, and the last lines of the output. It never
+    turns a failure into a pass."""
+    names, lines = [], []
+    for line in output.splitlines():
+        try: item = json.loads(line)
+        except ValueError: continue
+        if isinstance(item, dict) and 'case' in item and item.get('status') not in (None, 'passed'):
+            names.append(str(item['case']))
+            lines.append('failed case: %s (%s)' % (item['case'], item['status']))
+    for arg in command:
+        if not arg.startswith('-ginkgo.json-report='): continue
+        path = pathlib.Path(arg.split('=', 1)[1])
+        path = path if path.is_absolute() else root / path
+        try: reports = json.loads(path.read_text())
+        except (OSError, ValueError): continue
+        for report in reports if isinstance(reports, list) else []:
+            for spec in report.get('SpecReports', []):
+                if spec.get('State') in ('passed', 'skipped', 'pending'): continue
+                message = ((spec.get('Failure') or {}).get('Message') or '').strip().splitlines()
+                names.append(str(spec.get('LeafNodeText')))
+                lines.append('failed spec: %s (%s)%s' % (spec.get('LeafNodeText'), spec.get('State'),
+                             ': ' + message[0][:200] if message else ''))
+    tail = [l.strip() for l in output.splitlines() if l.strip()][-5:]
+    if tail: lines.append('last output: ' + ' | '.join(l[:200] for l in tail))
+    lines.append('child status %d; failed: %s; log: %s' % (status, ', '.join(names[:10]) or 'unknown', log))
+    return '\n'.join(lines)
 def ginkgo_report(path, expected):
     try:
         reports = json.loads(path.read_text())

@@ -196,4 +196,12 @@ rm -f "$report"
 status=0
 (cd "$ui" && ADDONS_FOUNDATION="$ready" ADDONS_UI_REPORT="$report" ./node_modules/.bin/playwright test --config playwright.foundation.config.js >"$cache/logs/foundation-playwright.log" 2>&1) || status=1
 python3 -I "$root/scripts/addons/ui_cases.py" playwright "$report" || status=1
+if [ "$status" -ne 0 ]; then
+    # Keep the evidence in the runner output: the end of the browser log and
+    # of the cluster log name the failing step and what the servers saw.
+    echo '--- playwright log (tail) ---' >&2
+    tail -60 "$cache/logs/foundation-playwright.log" >&2 || true
+    echo '--- cluster log (tail) ---' >&2
+    tail -30 "$cache/logs/foundation-cluster.log" >&2 || true
+fi
 exit "$status"
