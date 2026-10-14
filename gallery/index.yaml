@@ -1,5 +1,5 @@
 ---
-- name: "embeddinggemma-2"
+- name: "embeddinggemma-2-ud-q6-k-xl"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/embeddinggemma-2-GGUF
