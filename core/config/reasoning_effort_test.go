@@ -35,6 +35,16 @@ var _ = Describe("ModelConfig.ApplyReasoningEffort", func() {
 		Expect(*c.ReasoningConfig.DisableReasoning).To(BeFalse())
 	})
 
+	It("enables thinking for the levels above high", func() {
+		for _, level := range []string{"xhigh", "max"} {
+			c := &config.ModelConfig{}
+			c.ApplyReasoningEffort(level)
+			Expect(c.ReasoningEffort).To(Equal(level))
+			Expect(c.ReasoningConfig.DisableReasoning).ToNot(BeNil())
+			Expect(*c.ReasoningConfig.DisableReasoning).To(BeFalse())
+		}
+	})
+
 	It("does not let a level override an operator's config-level disable", func() {
 		disabled := true
 		c := &config.ModelConfig{}

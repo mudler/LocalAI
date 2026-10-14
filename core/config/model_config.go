@@ -1274,7 +1274,7 @@ func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
 	case "none":
 		disable := true
 		c.ReasoningConfig.DisableReasoning = &disable
-	case "minimal", "low", "medium", "high":
+	case "minimal", "low", "medium", "high", "xhigh", "max":
 		if c.ReasoningConfig.DisableReasoning == nil || !*c.ReasoningConfig.DisableReasoning {
 			enable := false
 			c.ReasoningConfig.DisableReasoning = &enable
