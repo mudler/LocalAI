@@ -152,6 +152,26 @@ Leaving that body unread prevents the HTTP/1 server from observing disconnect wh
 its handler waits, which can strand test-server cleanup. Production owner handlers decode
 the bounded envelope before starting a relay.
 
+## Data recovery suite
+
+```sh
+sh scripts/addons/verify.sh recovery
+```
+
+The `recovery` suite checks backup, upgrade with a migration, restore and purge
+of add-on data. `scripts/addons/recovery.sh` runs, in this order: the node unit
+tests of the panel rules, the typed client and the locale keys; the Go specs of
+`core/services/addons/recovery` (every journal phase of an upgrade and of a
+restore, with failures injected through test-only seams, cancellation, a
+corrupt backup, too little storage, retention, grant resurrection and purge),
+the specs of the policy hold and restore filter, the specs of the Tables format
+migration, and `tests/addons/recovery`, which runs the real owner, real
+accounts and the real Tables executable over HTTP; and a Playwright spec against
+a UI test server. Set `RECOVERY_SHOTS` to a directory to keep the screenshots of
+the Playwright run. The suite is part of the foundation gate. Run
+`sh scripts/addons/prepare.sh --integration` first: the runner refuses a
+server older than the recovery code or a UI build older than the panel.
+
 ## Foundation acceptance gate
 
 The foundation gate is the end-to-end check of everything below the first

@@ -89,7 +89,6 @@ type Recovery struct {
 	// Test-only seams; nil in production.
 	free   func(path string) (uint64, error)
 	fail   func(phase string) error
-	reaped func()
 }
 
 type lockSet struct {

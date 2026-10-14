@@ -454,20 +454,26 @@ func (r *Recovery) finishRestore(ctx context.Context, addonID, backupDir string,
 func restoreWarnings(rc RestoreReceipt) []string {
 	var w []string
 	w = append(w, fmt.Sprintf("The data is back to %s. Changes made after that time are not in it.", rc.BackupCreated.Format(time.RFC3339)))
+	plural := func(n int, one, many string) string {
+		if n == 1 {
+			return one
+		}
+		return many
+	}
 	if rc.LostWrites > 0 {
-		w = append(w, fmt.Sprintf("%d changes applied after the backup are lost.", rc.LostWrites))
+		w = append(w, fmt.Sprintf("%d %s after the backup %s lost.", rc.LostWrites, plural(rc.LostWrites, "change applied", "changes applied"), plural(rc.LostWrites, "is", "are")))
 	}
-	if rc.Policy.GrantsDropped > 0 {
-		w = append(w, fmt.Sprintf("%d shares were not restored because the person lost access or the account is gone.", rc.Policy.GrantsDropped))
+	if n := rc.Policy.GrantsDropped; n > 0 {
+		w = append(w, fmt.Sprintf("%d %s not restored because the person lost access or the account is gone.", n, plural(n, "share was", "shares were")))
 	}
-	if len(rc.Policy.ResourcesSkipped) > 0 {
-		w = append(w, fmt.Sprintf("%d databases were not restored for access because their owner is not a current account.", len(rc.Policy.ResourcesSkipped)))
+	if n := len(rc.Policy.ResourcesSkipped); n > 0 {
+		w = append(w, fmt.Sprintf("%d %s not restored for access because the owner is not a current account.", n, plural(n, "database was", "databases were")))
 	}
-	if rc.Policy.ProposalsCancelled > 0 {
-		w = append(w, fmt.Sprintf("%d proposals that were waiting for confirmation were cancelled.", rc.Policy.ProposalsCancelled))
+	if n := rc.Policy.ProposalsCancelled; n > 0 {
+		w = append(w, fmt.Sprintf("%d %s waiting for confirmation %s cancelled.", n, plural(n, "proposal that was", "proposals that were"), plural(n, "was", "were")))
 	}
-	if rc.Policy.ProposalsUnknown > 0 {
-		w = append(w, fmt.Sprintf("%d operations had no known outcome; they are looked up by receipt and never applied again.", rc.Policy.ProposalsUnknown))
+	if n := rc.Policy.ProposalsUnknown; n > 0 {
+		w = append(w, fmt.Sprintf("%d %s no known outcome; %s looked up by receipt and never applied again.", n, plural(n, "operation had", "operations had"), plural(n, "it is", "they are")))
 	}
 	if rc.PreviousCopy != "" {
 		w = append(w, "The data that was replaced is kept as a recovery copy until you purge it.")
