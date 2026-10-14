@@ -23,6 +23,20 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## AtomicChat MiniCPM-V 4.7 Uncensored
+
+Install the 35B-A3B chat and vision model with:
+
+```bash
+local-ai models install atomic-minicpm-v-4.7-35b-a3b-uncensored-q4
+```
+
+The entry offers AD-Q4_K-IQ4_XS and AD-Q6_K GGUF variants for `llama-cpp`.
+Each build includes all weight shards and the F16 vision projector. LocalAI
+uses the embedded chat template with a default context of 32,768 tokens.
+To select the larger build explicitly, add
+`--variant atomic-minicpm-v-4.7-35b-a3b-uncensored-q6` to the command.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
