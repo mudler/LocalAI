@@ -428,7 +428,8 @@
       "denies arguments that are not exactly one object",
       "separates a denial from an unavailable declaration source",
       "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
-      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -549,7 +550,8 @@
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
-          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
         ]
       }
     ]
@@ -857,7 +859,8 @@
       "denies a create proposal when creation authority is revoked before confirmation",
       "denies a create proposal for an undeclared tool or an existing resource without reserving",
       "does not let reconcile drop the reservation of a creation in flight",
-      "commits the reservation at recovery when the crash came after the receipt was stored"
+      "commits the reservation at recovery when the crash came after the receipt was stored",
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -1027,7 +1030,8 @@
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
-          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
         ]
       }
     ]
@@ -1214,7 +1218,8 @@
       "denies arguments that are not exactly one object",
       "separates a denial from an unavailable declaration source",
       "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
-      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+      "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1375,7 +1380,8 @@
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
-          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
         ]
       }
     ]
@@ -1544,7 +1550,8 @@
       "answers from the current installed manifest only and follows a generation change",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
       "creates one private data directory per addon and passes its path in the startup object",
-      "gives no data directory without a data root and refuses an unsafe root or addon ID"
+      "gives no data directory without a data root and refuses an unsafe root or addon ID",
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1681,7 +1688,8 @@
           "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
-          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on"
+          "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
         ]
       }
     ]
@@ -2013,7 +2021,11 @@
           "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
           "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
           "declares the schema tools and refuses any schema tool the manifest does not name",
-          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+          "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+          "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+          "lists at most the bound of pending proposals and refuses more than the user's quota"
         ]
       }
     ],
@@ -2090,7 +2102,11 @@
       "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
       "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
       "declares the schema tools and refuses any schema tool the manifest does not name",
-      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+      "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+      "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
     ]
   },
   "tables-schema": {
@@ -2201,7 +2217,11 @@
           "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
           "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
           "declares the schema tools and refuses any schema tool the manifest does not name",
-          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+          "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+          "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+          "lists at most the bound of pending proposals and refuses more than the user's quota"
         ]
       }
     ],
@@ -2278,7 +2298,11 @@
       "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
       "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
       "declares the schema tools and refuses any schema tool the manifest does not name",
-      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+      "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+      "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
     ]
   },
   "tables-rows": {
@@ -2389,7 +2413,11 @@
           "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
           "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
           "declares the schema tools and refuses any schema tool the manifest does not name",
-          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+          "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+          "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+          "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+          "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+          "lists at most the bound of pending proposals and refuses more than the user's quota"
         ]
       }
     ],
@@ -2466,7 +2494,77 @@
       "changes the schema as the owner, shows data loss in the preview and refuses an editor at the host and the addon",
       "rejects a stale schema revision, replays an operation and keeps receipts across a restart",
       "declares the schema tools and refuses any schema tool the manifest does not name",
-      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved"
+      "applies row changes only on the proposer's confirmation and rejects a proposal whose database moved",
+      "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+      "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
+    ]
+  },
+  "tables-tools": {
+    "kind": "shell",
+    "commands": [
+      [
+        "sh",
+        "scripts/addons/tables_tools.sh"
+      ]
+    ],
+    "cases": [
+      "unit: tools: the namespace is the brokered add-on tool names only",
+      "unit: tools: a proposal result of an add-on tool gives its identifier and nothing else",
+      "unit: tools: other kinds, other tools and malformed identifiers give no card",
+      "unit: tools: the stored history keeps the reference of a proposal and no row data",
+      "unit: tools: the card facts come from the stored proposal and never from model text",
+      "unit: tools: stale, expired, blocked and settled proposals cannot be decided",
+      "unit: tools: a confirmation names the displayed proposal and its digest and nothing a model supplied",
+      "unit: tools: the add-on tools switch is offered only when an add-on offers tools",
+      "go: accepts the Tables definitions and classifies every model-facing tool",
+      "go: keeps the schema bytes of a parsed manifest equal to what the runtime echoes back",
+      "go: rejects a definition that declares an identity, role, approval or operation property",
+      "go: rejects an undeclared tool, a repeated tool, an unknown kind and a missing or unbounded schema",
+      "go: binds one actor to an executor and serves tools through the broker only",
+      "go: refuses to bind an executor when the owner denies the actor",
+      "go: routes the add-on namespace to the broker and never to another executor",
+      "go: never offers or runs a tool of an MCP session under the add-on namespace",
+      "go: reads the opt-in once and answers a surface that has no broker with a typed rejection",
+      "go: takes the actor from the trusted request context only",
+      "go: classifies every source file that discovers or executes tools",
+      "go: names a reason and an enforcement for every rejection and an actor for every route, with real files",
+      "go: keeps the table of the Tables documentation in step with the matrix",
+      "go: lets only the brokered consumers import the adapter",
+      "go: has no add-on tool and no add-on route in the admin assistant catalog",
+      "go: discovers namespaced tools with schemas from the manifest for enabled running addons only",
+      "go: offers nothing for a disabled, stopped or failed addon and nothing when the owner cannot answer",
+      "go: has no tool for sharing, deleting a database, purging retained data or approving",
+      "go: drops a definition whose namespaced name is not a valid function name or does not fit",
+      "go: reads through the gateway with the immutable actor, the listed generation and the resource taken out of the arguments",
+      "go: refuses an oversized result instead of truncating it",
+      "go: returns file results as private artifact references with no bytes",
+      "go: passes a denial, an outage and an unknown outcome through unchanged",
+      "go: turns a row change into a proposal reference and never applies",
+      "go: proposes schema changes under the schema action and creation with no resource",
+      "go: gives every call its own operation ID so one call can never replay another",
+      "go: reports a proposal outage with the typed error and no reference",
+      "go: rejects forged identity, role, approval and operation fields before anything reaches the owner",
+      "go: rejects approval aliases, undefined tools and names outside the namespace",
+      "go: rejects arguments that are not exactly one bounded object with known, typed properties",
+      "go: has no way to confirm, cancel or resolve a proposal",
+      "go: uses the actor of each call and nothing a previous call left behind",
+      "go: refuses an actor without a user or credential before any call",
+      "go: serves the real gateway type as its backend",
+      "go: lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+      "go: offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
+      "go: stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
+      "go: keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
+      "go: lists at most the bound of pending proposals and refuses more than the user's quota",
+      "proposals: a tool call in chat stores a pending proposal and the card shows the host record, not the model text",
+      "proposals: confirming in the card applies the change exactly once and a repeat returns the stored receipt",
+      "proposals: row changes show the exact count and a bounded sample, and nothing changes until the person confirms",
+      "proposals: cancel withdraws the proposal and nothing is applied",
+      "proposals: an expired proposal is disabled in the card and the host refuses a late confirmation",
+      "proposals: forged fields and approval names in a tool call create no proposal",
+      "proposals: a user whose add-ons feature is withdrawn sees no data and the host answers no",
+      "proposals: logging out clears the card and leaves no data in the stored conversation"
     ]
   }
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -11,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -73,6 +75,36 @@ func checkModelIdentity(in interface{ GetModelIdentity() string }) error {
 		return nil
 	}
 	return grpcerrors.ModelMismatch("mock-backend", opts.Model, in.GetModelIdentity())
+}
+
+// addonToolCall reads a scripted add-on tool call from the prompt. A spec puts
+// ADDON_TOOL_CALL:<tool name>:<base64url JSON arguments> in the user message;
+// the model then answers its first turn with that call, as a model that chose
+// the tool would. The arguments are exactly what the spec encoded, so a spec
+// can send valid, forged or malformed ones. The second turn, after the host
+// put the tool result into the prompt, is plain text.
+var addonToolMarker = regexp.MustCompile(`ADDON_TOOL_CALL:([A-Za-z0-9_-]+):([A-Za-z0-9_=-]+)`)
+
+func addonToolCall(prompt string) (name, arguments string, ok bool) {
+	m := addonToolMarker.FindStringSubmatch(prompt)
+	if m == nil {
+		return "", "", false
+	}
+	raw, err := base64.URLEncoding.DecodeString(m[2])
+	if err != nil {
+		raw, err = base64.RawURLEncoding.DecodeString(m[2])
+	}
+	if err != nil {
+		return "", "", false
+	}
+	return m[1], string(raw), true
+}
+
+// promptHasAddonResult reports whether the host already answered the scripted
+// call: the broker's result documents carry a kind, and an error is prefixed.
+func promptHasAddonResult(prompt string) bool {
+	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) ||
+		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, "Error: ")
 }
 
 // promptHasToolResults checks if the prompt contains evidence of prior tool
@@ -251,7 +283,13 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}
 	var response string
 	toolName := mockToolNameFromRequest(in)
-	if toolName != "" && !promptHasToolResults(in.Prompt) {
+	if name, arguments, ok := addonToolCall(in.Prompt); ok && toolName != "" {
+		if promptHasAddonResult(in.Prompt) {
+			response = "The change is waiting for your confirmation."
+		} else {
+			response = fmt.Sprintf(`{"name": %q, "arguments": %s}`, name, arguments)
+		}
+	} else if toolName != "" && !promptHasToolResults(in.Prompt) {
 		// First call with tools: return a tool call so the MCP loop executes it.
 		response = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
 	} else if toolName != "" {
@@ -403,8 +441,18 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	}
 
 	var toStream string
+	wholeChunk := false
 	toolName := mockToolNameFromRequest(in)
+	addonName, addonArgs, addonCall := addonToolCall(in.Prompt)
 	switch {
+	case addonCall && toolName != "" && promptHasAddonResult(in.Prompt):
+		toStream = "The change is waiting for your confirmation."
+	case addonCall && toolName != "":
+		// One chunk: the chat handler emits a tool call as soon as the name
+		// is complete, so a call streamed byte by byte would reach it with
+		// empty arguments, which no real backend does.
+		toStream = fmt.Sprintf(`{"name": %q, "arguments": %s}`, addonName, addonArgs)
+		wholeChunk = true
 	case toolName != "" && !promptHasToolResults(in.Prompt):
 		toStream = fmt.Sprintf(`{"name": "%s", "arguments": {"location": "San Francisco"}}`, toolName)
 	case toolName != "":
@@ -417,6 +465,9 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		toStream = "Sure — here it is: alice@example.com is the address."
 	default:
 		toStream = "This is a mocked streaming response."
+	}
+	if wholeChunk {
+		return stream.Send(&pb.Reply{Message: []byte(toStream), Tokens: int32(len(toStream))})
 	}
 	for i, r := range toStream {
 		if err := stream.Send(&pb.Reply{

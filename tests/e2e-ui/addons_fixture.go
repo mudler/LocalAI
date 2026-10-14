@@ -106,7 +106,14 @@ func newAddonsFixture(dir, executable, dataDir string) (*addonsFixture, error) {
 		if err := add("manifest.json", patched); err != nil {
 			return nil, err
 		}
-		if err := add("bin/fixture", exe); err != nil {
+		// The executable goes where the manifest says it is. The protocol
+		// fixture packages all say bin/fixture; a package that names another
+		// path (the Tables package) gets the supplied executable there.
+		exePath := "bin/fixture"
+		if declared, _ := manifest["executable"].(string); declared != "" && !strings.HasPrefix(declared, "/") && !strings.Contains(declared, "..") {
+			exePath = declared
+		}
+		if err := add(exePath, exe); err != nil {
 			return nil, err
 		}
 		var files []string
