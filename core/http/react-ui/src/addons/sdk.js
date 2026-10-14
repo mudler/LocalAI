@@ -8,6 +8,8 @@
 // the page closed) every service refuses, and the host server denies a stale
 // generation anyway, so a copy of old code that stays in memory can do nothing.
 
+import { resourceOperationId, resourceRequest } from './resourceCalls.js'
+
 export const SDK_VERSION = 1
 
 // Semantic icon names an add-on may draw. The host Icon wrapper falls back to a
@@ -84,9 +86,12 @@ export function resolveSubpath(input, pages) {
   return { page: segments[0], rest: segments.slice(1).join('/'), path: segments.join('/'), search }
 }
 
+// An operation identifier is a namespace name to the owner: it starts with a
+// letter and holds lower-case letters, digits and hyphens. A bare UUID that
+// starts with a digit is refused, so the prefix is part of the identifier.
 function newOperationId() {
   const c = globalThis.crypto
-  if (c && typeof c.randomUUID === 'function') return c.randomUUID()
+  if (c && typeof c.randomUUID === 'function') return `op-${c.randomUUID()}`
   return 'op-' + Math.random().toString(16).slice(2) + Date.now().toString(16)
 }
 
@@ -191,6 +196,41 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     return host.api[kind](body, merged)
   }
 
+  // The resource management of this add-on: its own resources, sharing,
+  // the conversation selection and the changes a person makes in its pages.
+  // Each call is bound to this add-on and generation and is shaped by the
+  // host (resourceCalls.js); the host server decides every one.
+  const resourceCall = async (op, params, options) => {
+    alive()
+    const body = { ...params, op, addonId, generation }
+    // A malformed call is refused here, before the host sees it.
+    resourceRequest(body)
+    return host.api.resource(body, anySignal(signal, options?.signal))
+  }
+  const operation = (options) => (typeof options?.operationId === 'string' && options.operationId ? options.operationId : resourceOperationId())
+  const text = (v) => (typeof v === 'string' ? v : '')
+  const resources = Object.freeze({
+    list: (options) => resourceCall('list', {}, options),
+    create: (spec, options) => resourceCall('create', { arguments: spec?.arguments, operationId: operation(options) }, options),
+    rename: (resourceId, spec, options) => resourceCall('rename', { resourceId, name: text(spec?.name), revision: spec?.revision, operationId: operation(options) }, options),
+    remove: (resourceId, spec, options) => resourceCall('delete', { resourceId, confirm: text(spec?.confirm), revision: spec?.revision, operationId: operation(options) }, options),
+    // One data or schema change by the person's own action. The host
+    // checks the role, the declared tool, the revision and the receipt.
+    apply: (resourceId, spec, options) => resourceCall('apply', { resourceId, tool: text(spec?.tool), arguments: spec?.arguments, revision: spec?.revision, operationId: operation(options) }, options),
+    operation: (resourceId, kind, operationId, options) => resourceCall('status', { resourceId, kind, operationId }, options),
+    grants: (resourceId, options) => resourceCall('grants', { resourceId }, options),
+    setGrant: (resourceId, userId, role, options) => resourceCall('grant-set', { resourceId, userId, role, operationId: operation(options) }, options),
+    revokeGrant: (resourceId, userId, options) => resourceCall('grant-revoke', { resourceId, userId, operationId: operation(options) }, options),
+    searchUsers: (resourceId, query, options) => resourceCall('users', { resourceId, query, limit: options?.limit }, options),
+    // The resource a conversation works on. Chat tool calls that name no
+    // resource use it; the owner authorizes it again on every use.
+    selection: Object.freeze({
+      get: (conversationId, options) => resourceCall('selection-get', { conversationId }, options),
+      set: (conversationId, resourceId, options) => resourceCall('selection-put', { conversationId, resourceId }, options),
+      clear: (conversationId, options) => resourceCall('selection-clear', { conversationId }, options),
+    }),
+  })
+
   const notify = (kind) => (message) => {
     if (disposed || signal.aborted) return
     bindings.notify?.(kind, String(message).slice(0, 500))
@@ -263,6 +303,7 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       // A write is only ever stored as a proposal; the host confirms it.
       propose: (request, options) => callApi('propose', request || {}, options),
     }),
+    resources,
     // Asks the host to show the stored proposal of this add-on in the host's
     // approval frame. The frame, Confirm and Cancel stay the host's: the
     // add-on only names the proposal and may supply the card of its details.

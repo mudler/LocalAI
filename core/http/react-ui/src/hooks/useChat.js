@@ -4,6 +4,7 @@ import { apiUrl } from '../utils/basePath'
 import { effectiveSystemPrompt } from '../utils/systemPrompt'
 import { useDebouncedEffect } from './useDebounce'
 import { storedResult } from '../addons/proposalResult'
+import { chatHeaders } from '../addons/resourceCalls'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
 const openThinkTagRegex = /<thinking>|<think>|<\|channel>thought/
@@ -453,7 +454,7 @@ export function useChat(initialModel = '') {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
         const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         }, requestBody.model, setModelLoading, controller.signal)
@@ -599,7 +600,7 @@ export function useChat(initialModel = '') {
         try {
           const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...chatHeaders(activeChat) },
             body: JSON.stringify(loopBody),
             signal: controller.signal,
           }, loopBody.model, setModelLoading, controller.signal)

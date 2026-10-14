@@ -1104,6 +1104,9 @@ mutation:
   outcome_unknown` with the original `operationId`; look it up with `kind=apply` and never
   submit a new operation.
 
+An SDK-based page does not call the route itself. `sdk.resources.apply` (see
+[the SDK](#the-resource-calls-of-the-sdk)) sends it for the add-on and generation the SDK is
+bound to.
 
 ### Sharing
 
@@ -1499,7 +1502,8 @@ The module exports `createAddon(sdk)` and nothing it needs comes from anywhere e
 | `theme` | `tokens` (CSS custom property references with stable names), `mode()` and `subscribe`. |
 | `locale` | `language()`, `subscribe`, `define(language, bundle)` and `t(key, fallback, vars)`. Bundles belong to this add-on only. |
 | `navigation` | `navigate(path)`, `href(path)`, `current()`. Only the add-on's own declared pages resolve; anything else throws. |
-| `api` | `read(request)` and `propose(request)`, both bound to this add-on and its installed generation by the SDK. A read is always the typed `read`; a write is only ever a stored proposal that the host confirms. There is no raw request. |
+| `api` | `read(request)` and `propose(request)`, both bound to this add-on and its installed generation by the SDK. A read is always the typed `read`, with the `resourceId` of the resource the person named; a write is only ever a stored proposal that the host confirms. There is no raw request. Operation identifiers are `op-` and a UUID, which is a namespace name the owner accepts. |
+| `resources` | The person's own resources of this add-on: `list`, `create`, `rename`, `remove`, `apply`, `operation`, `grants`, `setGrant`, `revokeGrant`, `searchUsers` and `selection.get/set/clear`. See [the resource calls of the SDK](#the-resource-calls-of-the-sdk). |
 | `notify` | `info`, `success`, `warning`, `error`. |
 | `markDirty(flag)`, `isDirty()` | Unsaved edits. The shell asks before it leaves or replaces the page. |
 | `layers` | `openDialog(spec)` and `openPanel(spec)`: the host draws the dialog or side panel and owns its focus, Escape and unmount. |
@@ -1514,6 +1518,39 @@ ignored; an error inside `open` never reaches the host.
 Compile an add-on with classic JSX transformed to `React.createElement` over
 `sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture
 packages under `tests/addons/fixture/ui` are written in that form.
+
+### The resource calls of the SDK
+
+`sdk.resources` is the page of an add-on talking to the
+[UI-only resource management](#ui-only-resource-management) of the host. It is a
+fixed list of typed calls: the add-on never supplies an address or a header, so it
+cannot reach another route or another add-on. The host shapes each call, adds the
+own-session confirmation header that the route needs and sends the add-on's
+installed generation, so a stale tab is refused by the server.
+
+| Call | Route |
+|---|---|
+| `list()` | `GET /api/addons/resources?addonId=` |
+| `create({arguments})` | `POST /api/addons/resources` |
+| `rename(id, {name, revision})` | `POST .../{id}/rename` |
+| `remove(id, {confirm, revision})` | `POST .../{id}/delete` |
+| `apply(id, {tool, arguments, revision})` | `POST .../{id}/apply` |
+| `operation(id, kind, operationId)` | `GET .../{id}/operations/{operationId}?kind=` |
+| `grants(id)`, `setGrant(id, userId, role)`, `revokeGrant(id, userId)`, `searchUsers(id, query)` | the grant and picker routes |
+| `selection.get/set/clear(conversationId, ...)` | `/api/addons/conversations/{conversationId}/selection/{addonId}` |
+
+A call that changes something takes an operation ID. The SDK makes a new one for each
+call; pass `{operationId}` in the options to repeat the same operation after an
+`unknown_outcome` answer. A malformed identifier, role or revision is refused in the
+SDK before any request. After the signal aborts every call throws and nothing is sent.
+Errors are `AddonsError` with a `kind` (`stale`, `denied`, `invalid`,
+`unknown_outcome`, `sharing_disabled`, `not_selected`, `unavailable`, `network`), the
+HTTP `status`, the server's `type` and, for an unknown outcome, the original
+`operationId`.
+
+A chat request that has add-on tools enabled carries the conversation in the
+`X-LocalAI-Conversation-Id` header (when it has the shape the server accepts), which is
+how a tool call that names no resource finds the person's selection.
 
 ### How the host loads it
 

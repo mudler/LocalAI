@@ -112,6 +112,14 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
       manager.revalidate(apps)
       return apps
     } catch (error) {
+      // Signed out elsewhere (another tab, an expired session): nothing the
+      // person read may stay drawn or cached, so every add-on is withdrawn.
+      if (error && error.kind === 'auth') {
+        manager.disposeAll()
+        setLayers([])
+        setList({ status: 'error', apps: [], error })
+        return null
+      }
       setList(prev => ({ status: prev.status === 'ready' ? 'ready' : 'error', apps: prev.apps, error }))
       return null
     }

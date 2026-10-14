@@ -2,6 +2,7 @@ import * as React from 'react'
 import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
+import { resourceRequest, dispatchArgs } from './resourceCalls'
 import { Button, Spinner, EmptyState, Badge, Stack, Text } from './hostComponents'
 
 // The real host services behind the SDK (see sdk.js for what an add-on gets).
@@ -27,16 +28,16 @@ function subscribeLanguage(fn) {
 // is bound to; the server denies a stale one whatever the page holds.
 const gatewayApi = {
   dispatch(body, signal) {
-    return addonsApi.dispatch({
-      operationId: body.operationId,
-      action: body.action,
-      addonId: body.addonId,
-      generation: body.generation,
-      args: body.arguments,
-    }, signal)
+    return addonsApi.dispatch(dispatchArgs(body), signal)
   },
   async propose(body, signal) {
     return addonsApi.call('/api/addons/proposals', { method: 'POST', body, signal })
+  },
+  // A resource management call. The route, the method and the own-session
+  // confirmation header come from resourceRequest, never from the add-on.
+  async resource(call, signal) {
+    const r = resourceRequest(call)
+    return addonsApi.call(r.path, { method: r.method, body: r.body, headers: r.headers, signal })
   },
 }
 

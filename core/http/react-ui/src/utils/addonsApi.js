@@ -12,6 +12,7 @@ export class AddonsError extends Error {
     this.status = info.status || 0
     this.operationId = info.operationId || ''
     this.blockedBy = info.blockedBy || ''
+    this.type = info.type || ''
   }
 }
 
@@ -58,11 +59,11 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
 
   // A typed dispatch. The operation identifier is the caller's: one per user
   // action, kept across retries.
-  async function dispatch({ operationId, action, addonId = '', generation = 0, args = {} }, signal) {
+  async function dispatch({ operationId, action, addonId = '', generation = 0, args = {}, resourceId = '' }, signal) {
     const out = await call('/api/addons/dispatch', {
       method: 'POST',
       signal,
-      body: { operationId, addonId, generation, action, arguments: args },
+      body: { operationId, addonId, generation, action, arguments: args, ...(resourceId ? { resourceId } : {}) },
     })
     return out && out.payload !== undefined ? out.payload : null
   }

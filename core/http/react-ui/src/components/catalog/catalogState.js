@@ -93,8 +93,12 @@ export function classifyResponse(status, body) {
   const type = err && typeof err === 'object' ? err.type : ''
   const message = err && typeof err === 'object' && typeof err.message === 'string' ? err.message : ''
   if (status === 401) return { kind: 'auth', status, message }
-  if (status === 403) return { kind: 'denied', status, message, blockedBy: err?.blockedBy || '' }
-  if (status === 400) return { kind: 'invalid', status, message }
+  if (status === 403) return { kind: 'denied', status, message, type, blockedBy: err?.blockedBy || '' }
+  if (status === 400) return { kind: 'invalid', status, message, type }
+  // The typed answers of the resource management routes.
+  if (status === 409 && type === 'stale') return { kind: 'stale', status, message, type }
+  if (status === 409 && type === 'sharing_disabled') return { kind: 'sharing_disabled', status, message, type }
+  if (status === 404 && type === 'not_selected') return { kind: 'not_selected', status, message, type }
   if (status === 503 && type === 'outcome_unknown') {
     return { kind: 'unknown_outcome', status, message, operationId: typeof err.operationId === 'string' ? err.operationId : '' }
   }
