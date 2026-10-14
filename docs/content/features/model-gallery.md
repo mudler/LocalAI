@@ -194,6 +194,26 @@ To select a specific quantization, use `--variant` with `lfm2.5-24b-a2b`
 131,072-token context, and LiquidAI's recommended sampling settings.
 The weights use the [Liquid AI LFM Open License](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B/blob/main/LICENSE).
 
+## AtomicChat LFM2.5-24B-A2B Uncensored
+
+[AtomicChat's LFM2.5-24B-A2B derivative](https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF)
+reduces refusal behavior in LiquidAI's 24B mixture-of-experts model. The gallery
+provides AD-Q4_K_M, AD-Q6_K, and AD-Q8_0 GGUF builds through `llama-cpp`.
+The edits are included in each build; no separate LoRA adapter is needed.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install atomic-lfm2.5-24b-a2b-uncensored
+```
+
+Use `--variant atomic-lfm2.5-24b-a2b-uncensored` to select AD-Q4_K_M,
+or append `-q6` or `-q8` to select a higher-precision build. These entries
+use the embedded chat template, a 32,768-token context, temperature 0.1,
+top-k 50, and repetition penalty 1.05. The model supports contexts up to
+131,072 tokens. The weights use the
+[Liquid AI LFM Open License](https://huggingface.co/AtomicChat/LFM2.5-24B-A2B-Uncensored-GGUF/blob/main/LICENSE).
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
