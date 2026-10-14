@@ -9,8 +9,10 @@ lifecycle, the typed schema operations, and structured row queries and
 confirmed row changes that exist today, how a chat model uses them as tools,
 and the host side of managing databases from the UI: creating, renaming,
 sharing and deleting a database, and choosing the database of a conversation.
-CSV results are not available yet. The Tables pages (the native UI) are described
-in [The Tables pages](#the-tables-pages).
+A table, with the filter and sort of a view, exports as a private CSV file
+(see [CSV export](#csv-export)). Import and public file links are not
+available. The Tables pages (the native UI) are described in
+[The Tables pages](#the-tables-pages).
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -61,6 +63,7 @@ The manifest declares these tools. LocalAI rejects any other tool name.
 | `columns-drop` | change (schema) | Drop a column and its values. Arguments `table`, `column`. |
 | `rows-query` | read | Select rows of a table with a filter, sort and page. See [Row queries](#row-queries). |
 | `rows-aggregate` | read | Count, sum, avg, min and max with an optional group-by column. |
+| `rows-export` | read | Export the rows of a table, with an optional filter and sort, as a private CSV file. See [CSV export](#csv-export). |
 | `rows-insert` | change (write) | Insert up to 100 rows. Arguments `table`, `rows`. |
 | `rows-update` | change (write) | Set columns on rows named by `ids` or a `filter`. Arguments `table`, `set`. |
 | `rows-delete` | change (write) | Delete rows named by `ids` or a `filter`. |
@@ -120,7 +123,7 @@ it has no grant for: the same denial answers every tool.
 
 | Tool kind | Host action | Result |
 |---|---|---|
-| Read (`databases-inspect`, `rows-query`, `rows-aggregate`) | `read` | `{"kind":"result","result":...}`. A result over 128 KiB is refused, never cut. A file result is `{"kind":"artifact"}` with private artifact references and no bytes. |
+| Read (`databases-inspect`, `rows-query`, `rows-aggregate`, `rows-export`) | `read` | `{"kind":"result","result":...}`. A result over 128 KiB is refused, never cut. A file result is `{"kind":"artifact"}` with private artifact references and no bytes. |
 | Row change (`rows-insert`, `rows-update`, `rows-delete`) | `write` proposal | `{"kind":"proposal","proposal":{id,digest,count,...}}` |
 | Schema change (`tables-*`, `columns-*`, `databases-rename`) | `schema` proposal | the same proposal reference |
 | Creation (`databases-create`) | `create` proposal | the same, with the reserved resource ID |
@@ -537,6 +540,130 @@ Row changes use the receipt rules above: the same operation ID with the same
 request replays one receipt, another request under the same ID is a conflict,
 and a rejected operation does not use up its ID.
 
+## CSV export
+
+`rows-export` writes the rows a table, a filter and a sort select to a CSV
+file. It is a read: it runs under the host `read` action, so an Owner, an
+Editor and a Viewer may export what they can read, and it needs no approval
+card. A chat tool call and the **Export CSV** button of a table page run the
+same tool.
+
+```json
+{"tool": "rows-export", "table": "Orders", "columns": ["_id", "Item", "Qty"],
+ "filter": {"column": "Qty", "op": "gte", "value": 2},
+ "sort": [{"column": "Qty", "desc": true}], "maxRows": 5000}
+```
+
+`columns`, `filter` and `sort` follow the rules of [Row queries](#row-queries).
+`columns` may name `_id` to write the row ID as a column; empty exports every
+column in schema order. `maxRows` is optional. There is no `limit` and no
+`cursor`: an export is the whole result, not a page.
+
+### What the file holds
+
+- One snapshot. The export reads the database in one read transaction, so every
+  row comes from the same revision. A change that commits while the export
+  runs is not in the file, and the export never blocks it. The file is written
+  row by row through a small buffer; its memory use does not grow with the
+  number of rows.
+- RFC 4180 records with a header row of the column labels and CRLF line ends.
+  A field is quoted when it holds a comma, a quote, a CR or LF, or starts or
+  ends with a space or tab. A quote inside a field is doubled.
+- UTF-8, with no byte order mark. Text is written as it is stored. A
+  spreadsheet that guesses the encoding from the file may need to be told to
+  read it as UTF-8.
+- NULL is an empty field with no quotes. An empty text value is `""`. A reader
+  that does not tell the two apart reads both as an empty value.
+- Booleans are `true` or `false`. Integers are decimal and exact to 64 bits.
+  Reals are the shortest decimal that reads back as the same number; very large
+  or very small values use an exponent. Date-times are RFC 3339 in UTC.
+
+### Spreadsheet formulas
+
+A spreadsheet runs a cell that starts with `=`, `+`, `-`, `@`, a tab or a
+carriage return as a formula. The export therefore writes a single quote
+before every **text** cell, and every column label, that starts with one of
+those characters, as the OWASP guidance recommends: `=1+1` is written as
+`'=1+1`. A spreadsheet shows the quote as the text marker, not as part of the
+value.
+
+Limits of this policy:
+
+- Cells of integer, real, boolean and date-time columns are never prefixed. A
+  negative number stays a number (`-4`).
+- The file now holds `'=1+1`, not the stored `=1+1`. A program that reads the
+  CSV back must remove that quote itself; the export does not mark which cells
+  it changed. A text value that really starts with `'` and a formula are
+  therefore not told apart after the round trip.
+- A text value such as `-5 apples` also gets the prefix.
+- The policy protects the file against being run as a formula in a spreadsheet.
+  It is not a defence for a program that treats CSV as trusted input.
+
+### Limits
+
+| Limit | Value |
+|---|---|
+| Rows in one export | 1,000,000 |
+| Size of one file | 64 MiB, and never more than the host's file size bound |
+| Time for one export, snapshot to last byte | 25 seconds |
+| Exports staged at once in the addon | 16, at most 4 for one person |
+
+A result past a bound makes the tool answer `{"exported": false, "error":
+"too-large"}` and creates no file; add a filter to export less. A `maxRows`
+above the row bound is refused the same way, not clipped. A staged export that
+the owner did not fetch within ten minutes expires; the addon removes expired
+files when it handles the next export or fetch, and removes every staged file
+when it starts.
+
+### How the file reaches the person
+
+There is no separate asynchronous export job in the addon. The CSV is written
+inside the read call, within the 25 second bound, because the owner needs the
+exact size before it moves a byte. A result that does not fit those bounds
+fails with `too-large` instead of running longer. The transfer from the addon
+to the owner's private store is the background job: the read returns at once
+with the artifact in state `transferring`, and the page and the chat ask the
+host for its state until it is final. Cancelling the transfer, a revoked share
+and a stopped addon end it and remove the partial bytes.
+
+The addon writes the CSV into its private directory and answers with one
+output description: a name (`<table>.csv`), the media type `text/csv`, the exact
+size and an opaque handle bound to the operation, the person and the database.
+LocalAI streams the bytes from the addon, checks the size and replaces the
+handle by its own artifact identifier. The page, the chat and the model get
+that identifier, the name, the size and the expiry. They never get the addon's
+handle, a path or a URL. The transfer runs in the background; the artifact
+shows `transferring`, then `complete`, `failed` or `cancelled`, and an export
+that did not complete never becomes downloadable.
+
+- `GET /api/addons/artifacts/{id}` is the transfer state, name, size and
+  expiry. `GET /api/addons/artifacts/{id}/download` is the file, as an
+  attachment with `X-Content-Type-Options: nosniff` and
+  `Cache-Control: private, no-store`. Both need the person's own session or
+  API key.
+- The file is private to the person who exported it. Sharing the database does
+  not share a file. A person who is not the principal, an unknown identifier
+  and an expired file all get the same 403.
+- Access to the database is checked again when the transfer completes and at
+  every download, and a revocation stops a download in progress. After a
+  viewer's share is withdrawn the viewer's earlier files stop downloading.
+  A file already downloaded cannot be recalled.
+- A file expires one hour after it was made, and the person's quota is
+  100 files. Expiry removes the file only. The database and any backup are
+  not touched.
+- A disabled addon does not serve downloads; enabling it again serves the
+  files that have not expired.
+- In single-owner mode there is one local owner and no separation between
+  people, as for every other operation.
+
+### In the pages and in chat
+
+A table page has an **Export CSV** button for every role. It exports the table
+with the filter and sort of the view, optionally with the row ID, and then
+shows the host's file card: name, size, expiry and the download button. In
+chat, an export tool call is answered with the same card. The chat stores only
+the artifact identifier; after expiry the card says the file expired.
+
 ## Limits
 
 - One name per database, no uniqueness rule across databases.
@@ -559,6 +686,9 @@ aggregates and confirmed row changes with the real executable.
 The suite `sh scripts/addons/verify.sh tables-tools` covers the model tools,
 the consumer inventory, the pending proposal list and the approval card in a
 real browser against the real owner.
+The suite `sh scripts/addons/verify.sh tables-csv` covers the CSV export: the
+snapshot and encoding rules, the output handles, the private artifacts of the
+real owner and the download from the owner and two frontends.
 The suite `sh scripts/addons/verify.sh tables-ui` covers the pages: the node
 tests of the field codecs, the filter builder, the batch bounds and the build,
 the UI-intent change route against the real owner, and a browser spec with

@@ -22,6 +22,9 @@ export function createApi(ctx) {
     operation: (id, kind, operationId, options) => again(() => sdk.resources.operation(id, kind, operationId, options)),
     inspect: (id, options) => read(id, { tool: 'databases-inspect' }, options),
     rows: (id, query, options) => read(id, { tool: 'rows-query', ...query }, options),
+    // The CSV export of the view: the host turns the add-on's file into a
+    // private artifact and answers with its identifier.
+    exportCsv: (id, args, options) => sdk.files.read({ resourceId: id, arguments: args }, options),
     change: (id, tool, args, revision, options) => sdk.resources.apply(id, { tool, arguments: args, revision }, options),
     selection: {
       get: (conversationId, options) => again(() => sdk.resources.selection.get(conversationId, options)),

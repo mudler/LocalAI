@@ -6,10 +6,11 @@ import { buildQuery, newPager, pagerNext, pagerPrev, pagerCursor, flipSort, PAGE
 import { setAll, toggle, allSelected } from './lib/batch.js'
 import { display } from './lib/codecs.js'
 import { describeError } from './lib/errors.js'
+import { exportArguments } from './lib/export.js'
 
 const CACHE_LIMIT = 40
 
-export function createTableView(ctx, ui, api, hooks, rows, filters) {
+export function createTableView(ctx, ui, api, hooks, rows, filters, exporter) {
   const { sdk, h, R, Fragment, t } = ctx
   const { Banner, Problem, Loading, Button, EmptyState } = ui
   const { Filters } = filters
@@ -102,6 +103,15 @@ export function createTableView(ctx, ui, api, hooks, rows, filters) {
     const removeRows = () => open(t('row.delete.title'), ({ close }) => <rows.DeleteRowsDialog db={db} table={table.name} ids={ids} onDone={changed} onLost={onLost} close={close} />)
 
     const hasFilter = applied.conditions.length > 0
+    // The export is the view the person sees: its filter and its sort. Every
+    // role that can read the table may export it.
+    const exportFile = () => {
+      const built = exportArguments({ table: table.name, conditions: applied.conditions, mode: applied.mode, sort }, columns)
+      if (Object.keys(built.errors).length > 0) { setFilterErrors(built.errors); setFilterOpen(true); return }
+      open(t('export.title', { table: table.name }), ({ close }) => (
+        <exporter.ExportDialog db={db} table={table} args={built.arguments} filtered={hasFilter} close={close} onLost={onLost} />
+      ))
+    }
     let body
     if (columns.length === 0) {
       body = <EmptyState icon="table" title={t('grid.noColumns.title')} text={db.role === 'owner' ? t('grid.noColumns.owner') : t('grid.noColumns.other')} />
@@ -179,6 +189,7 @@ export function createTableView(ctx, ui, api, hooks, rows, filters) {
               {hasFilter ? t('filter.active', { count: applied.conditions.length }) : t('filter.title')}
             </Button>
             <Button size="sm" icon="refresh" onClick={() => { setBump(n => n + 1) }}>{t('grid.refresh')}</Button>
+            <Button size="sm" icon="download" disabled={columns.length === 0} onClick={exportFile}>{t('export.action')}</Button>
           </div>
           {canWrite ? (
             <div className="tbl-toolbar__group">

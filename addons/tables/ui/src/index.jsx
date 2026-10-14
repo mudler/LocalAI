@@ -12,6 +12,7 @@ import { createDatabases } from './Databases.jsx'
 import { createDatabase } from './Database.jsx'
 import { createFilters } from './Filters.jsx'
 import { createRows } from './Rows.jsx'
+import { createExport } from './Export.jsx'
 import { createTableView } from './TableView.jsx'
 import { createSchema } from './Schema.jsx'
 import { createSharing } from './Sharing.jsx'
@@ -28,7 +29,8 @@ export function createAddon(sdk, options = {}) {
   const filters = createFilters(ctx, ui)
   const rows = createRows(ctx, ui, fields)
   const databases = createDatabases(ctx, ui, api, hooks)
-  const tableView = createTableView(ctx, ui, api, hooks, rows, filters)
+  const exporter = createExport(ctx, ui, api, hooks)
+  const tableView = createTableView(ctx, ui, api, hooks, rows, filters, exporter)
   const schema = createSchema(ctx, ui, fields, hooks)
   const sharing = createSharing(ctx, ui, api, hooks)
   const database = createDatabase(ctx, ui, api, hooks, { databases, tableView, schema, sharing })
