@@ -13,7 +13,7 @@ const INT64_MAX = 2n ** 63n - 1n
 const INTEGER = /^[+-]?\d{1,19}$/
 const REAL = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
 // A datetime-local value, with or without seconds, or a full RFC 3339 stamp.
-const LOCAL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/
+const LOCAL = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?$/
 const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/
 export const MAX_TEXT_BYTES = 1024 * 64
 
@@ -77,7 +77,7 @@ export function parseField(column, state) {
         const [y, mo, d, h, mi] = m.slice(1, 6).map(Number)
         const s = m[6] === undefined ? 0 : Number(m[6])
         if (!validDate(y, mo, d, h, mi, s)) return { ok: false, code: 'datetime' }
-        return { ok: true, value: `${pad(y, 4)}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:${pad(s)}Z` }
+        return { ok: true, value: `${pad(y, 4)}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:${pad(s)}${m[7] || ''}Z` }
       }
       m = RFC3339.exec(text)
       if (m) {
@@ -102,10 +102,13 @@ export function editorState(column, value) {
       const m = RFC3339.exec(String(value))
       if (!m) return { text: String(value), isNull: false }
       // Stored datetimes are UTC; the editor shows the same instant in UTC.
-      const t = Date.parse(String(value))
+      // The fraction of a second is kept as stored (trailing zeros trimmed):
+      // a whole offset never changes it.
+      const t = Date.parse(String(value).replace(/\.\d+/, ''))
       if (Number.isNaN(t)) return { text: String(value), isNull: false }
       const d = new Date(t)
-      return { text: `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`, isNull: false }
+      const frac = (m[7] || '').replace(/0+$/, '')
+      return { text: `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}${frac === '.' ? '' : frac}`, isNull: false }
     }
     default:
       return { text: String(value), isNull: false }
@@ -143,8 +146,54 @@ export function isNumeric(type) {
 
 // sameValue compares two stored values the way the editor does, so an
 // unchanged field is not sent as a change.
-export function sameValue(a, b) {
+export function sameValue(a, b, type) {
   if (a === null || a === undefined) return b === null || b === undefined
   if (b === null || b === undefined) return false
+  if (type === 'datetime') {
+    const x = instant(a)
+    const y = instant(b)
+    if (x !== null && y !== null) return x === y
+  }
   return String(a) === String(b)
+}
+
+// instant is the nanoseconds since the epoch of an RFC 3339 stamp, as a
+// BigInt, or null when the text is not one. Two spellings of one instant
+// (another offset, trailing zeros) have the same value.
+export function instant(value) {
+  const text = String(value)
+  const m = RFC3339.exec(text)
+  if (!m) return null
+  const whole = Date.parse(text.replace(/\.\d+/, ''))
+  if (Number.isNaN(whole)) return null
+  return BigInt(whole / 1000) * 1000000000n + BigInt((m[7] || '').slice(1).padEnd(9, '0'))
+}
+
+// planUpdate decides what an edited row sends. A field whose editor text is
+// the text the stored value produced is left alone and never re-sent, so
+// a value the editor cannot show exactly is not rewritten by editing another
+// field. The other fields are parsed, and sent when they hold another value
+// (datetimes are compared as instants).
+//   columns   [{ name, type, required }]
+//   original  { [name]: stored value }
+//   state     { [name]: { text, isNull } }
+// Returns { set, errors }.
+export function planUpdate(columns, original, state) {
+  const set = {}
+  const errors = {}
+  for (const c of columns) {
+    const initial = editorState(c, original[c.name])
+    const now = state[c.name]
+    if (now && now.text === initial.text && Boolean(now.isNull) === initial.isNull) continue
+    const r = parseField(c, now)
+    if (!r.ok) { errors[c.name] = r.code; continue }
+    if (!sameValue(original[c.name], r.value, c.type)) set[c.name] = r.value
+  }
+  return { set, errors }
+}
+
+// browserDatetime is the value to give a datetime-local control: it holds at
+// most three digits of a second. The editor state keeps the full text.
+export function browserDatetime(text) {
+  return String(text).replace(/(\.\d{3})\d+$/, '$1')
 }

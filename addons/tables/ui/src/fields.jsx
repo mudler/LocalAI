@@ -1,6 +1,8 @@
 // Typed field editors: one input per column type, with the "empty" switch of
 // an optional column. The state of an editor is { text, isNull }; the codecs
 // turn it into the wire value.
+import { browserDatetime } from './lib/codecs.js'
+
 export function createFields(ctx, ui) {
   const { h, t } = ctx
   const { Field } = ui
@@ -27,7 +29,7 @@ export function createFields(ctx, ui) {
       case 'datetime':
         control = (
           <span className="tbl-inline">
-            <input id={id} className="tbl-input" type="datetime-local" step="1" value={state.text} disabled={disabled} autoFocus={autoFocus} onChange={(e) => set({ text: e.target.value })} />
+            <input id={id} className="tbl-input" type="datetime-local" step="1" value={browserDatetime(state.text)} disabled={disabled} autoFocus={autoFocus} onChange={(e) => set({ text: e.target.value })} />
             <span className="tbl-unit">{t('field.utc')}</span>
           </span>
         )

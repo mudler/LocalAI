@@ -438,6 +438,42 @@ test.describe('Tables UI', () => {
     await second.context.close()
   })
 
+  test('tables-ui: editing another column leaves a datetime with a fraction of a second byte-identical', async ({ browser }) => {
+    const owner = await browserAs(browser, 'member')
+    const p = owner.page
+    await p.goto(ROUTE)
+    await expect(p.getByTestId('tbl-list-page')).toBeVisible({ timeout: 25_000 })
+    const db = await seedTyped(p, member, 'Fractions', 0)
+    const seeded = await tab.apply(p, db.id, 'rows-insert', { table: 'Typed', rows: [
+      { Name: 'nanos', Due: '2026-10-14T09:30:00.123456789Z' },
+      { Name: 'half', Due: '2026-10-14T09:30:00.5Z' },
+      { Name: 'offset', Due: '2026-10-14T11:30:00.25+02:00' },
+    ] }, db.revision, db.generation)
+    expect(seeded.status, JSON.stringify(seeded.json)).toBe(200)
+    const ids = seeded.json.result.ids
+    const dueOf = async () => {
+      const r = await read(member, db.id, db.generation, { tool: 'rows-query', table: 'Typed' })
+      return r.json.payload.rows.map(x => x.values[4])
+    }
+    const before = await dueOf()
+    expect(before).toHaveLength(3)
+    expect(before[0]).toContain('.123456789')
+    await openDb(p, db.id, 'Typed')
+    await expect(rowsOf(p)).toHaveCount(3, { timeout: 25_000 })
+    for (const [i, id] of ids.entries()) {
+      await p.getByRole('button', { name: `Edit row ${id}`, exact: true }).click()
+      const edit = p.getByTestId('tbl-edit-dialog')
+      await edit.getByLabel('Name').fill(`renamed-${i}`)
+      await edit.getByRole('button', { name: 'Save' }).click()
+      await expect(edit).toHaveCount(0, { timeout: 25_000 })
+    }
+    // The other column changed and the datetime column was never sent.
+    const named = (await read(member, db.id, db.generation, { tool: 'rows-query', table: 'Typed' })).json.payload.rows.map(x => x.values[0])
+    expect(named).toEqual(['renamed-0', 'renamed-1', 'renamed-2'])
+    expect(await dueOf()).toEqual(before)
+    await owner.context.close()
+  })
+
   test('tables-ui: a revoke while a person is editing denies the next save and the page says it is unavailable', async ({ browser }) => {
     const ed = await browserAs(browser, 'editor')
     const own = await browserAs(browser, 'member')

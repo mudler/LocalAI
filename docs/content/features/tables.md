@@ -335,6 +335,10 @@ database.
   keeps the operation ID, so repeating is the same change and never applies
   twice.
 
+A row editor sends only the fields you changed. A datetime keeps its stored
+fraction of a second (up to nine digits) when you edit another field, and two
+spellings of one instant, such as another UTC offset, are no change.
+
 Row and schema changes made in these pages are the person's own action. They
 need no confirmation card and are not proposals, and they still go through the
 host's `POST /api/addons/resources/{resourceId}/apply`: the role of the action,

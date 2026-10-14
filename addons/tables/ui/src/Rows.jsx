@@ -2,7 +2,7 @@
 // delete a selection. Every submit is one bounded step per call and sends the
 // revision the person last read. A definite refusal never keeps an operation
 // identifier; an unknown outcome keeps it, so repeating is the same change.
-import { parseField, editorState, emptyState, sameValue } from './lib/codecs.js'
+import { parseField, editorState, emptyState, planUpdate } from './lib/codecs.js'
 import { planInsert, insertSteps, idSteps, MAX_INSERT_ROWS, MAX_ROW_IDS } from './lib/batch.js'
 import { describeError } from './lib/errors.js'
 
@@ -126,7 +126,6 @@ export function createRows(ctx, ui, fields) {
   // ---- edit one row ------------------------------------------------------
 
   function EditRowDialog({ db, table, columns, row, names, onDone, onLost, close }) {
-    const byName = Object.fromEntries(columns.map(c => [c.name, c]))
     const original = {}
     names.forEach((n, i) => { original[n] = row.values[i] })
     const [state, setState] = R.useState(() => Object.fromEntries(columns.map(c => [c.name, editorState(c, original[c.name])])))
@@ -137,13 +136,7 @@ export function createRows(ctx, ui, fields) {
     const submit = (e) => {
       e.preventDefault()
       if (s.busy) return
-      const set = {}
-      const errs = {}
-      for (const c of columns) {
-        const r = parseField(byName[c.name], state[c.name])
-        if (!r.ok) { errs[c.name] = r.code; continue }
-        if (!sameValue(original[c.name], r.value)) set[c.name] = r.value
-      }
+      const { set, errors: errs } = planUpdate(columns, original, state)
       setErrors(errs)
       if (Object.keys(errs).length > 0) return
       if (Object.keys(set).length === 0) { setNochange(true); return }

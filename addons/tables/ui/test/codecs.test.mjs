@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseField, editorState, emptyState, display, sameValue } from '../src/lib/codecs.js'
+import { parseField, editorState, emptyState, display, sameValue, planUpdate, instant, browserDatetime } from '../src/lib/codecs.js'
 
 const col = (type, over = {}) => ({ name: 'C', type, required: false, ...over })
 
@@ -80,4 +80,38 @@ test('codecs: grid text and the unchanged-field test', () => {
   assert.equal(sameValue(null, undefined), true)
   assert.equal(sameValue(null, ''), false)
   assert.equal(sameValue('a', 'b'), false)
+})
+
+test('codecs: a datetime with a fraction of a second is not rewritten by editing another field', () => {
+  const columns = [col('text', { name: 'Name' }), col('datetime', { name: 'Due' })]
+  const stored = '2026-01-01T00:00:00.5Z'
+  assert.deepEqual(editorState(columns[1], stored), { text: '2026-01-01T00:00:00.5', isNull: false })
+  assert.deepEqual(editorState(columns[1], '2026-01-01T00:00:00.123456789Z'), { text: '2026-01-01T00:00:00.123456789', isNull: false })
+  assert.deepEqual(editorState(columns[1], '2026-01-01T00:00:00.000000000Z'), { text: '2026-01-01T00:00:00', isNull: false })
+  const original = { Name: 'a', Due: stored }
+  const state = { Name: { text: 'b', isNull: false }, Due: editorState(columns[1], stored) }
+  assert.deepEqual(planUpdate(columns, original, state), { set: { Name: 'b' }, errors: {} })
+  // Nothing edited is nothing to send.
+  assert.deepEqual(planUpdate(columns, original, { Name: editorState(columns[0], 'a'), Due: editorState(columns[1], stored) }), { set: {}, errors: {} })
+  // The edited datetime is sent, with its fraction.
+  const edited = { ...state, Due: { text: '2027-02-03T04:05:06.25', isNull: false } }
+  assert.deepEqual(planUpdate(columns, original, edited).set, { Name: 'b', Due: '2027-02-03T04:05:06.25Z' })
+  // The browser control holds three digits at most; the state keeps all.
+  assert.equal(browserDatetime('2026-01-01T00:00:00.123456789'), '2026-01-01T00:00:00.123')
+  assert.equal(browserDatetime('2026-01-01T00:00:00'), '2026-01-01T00:00:00')
+})
+
+test('codecs: datetimes are compared as instants and offsets are normalised', () => {
+  assert.equal(sameValue('2026-01-01T00:00:00.5Z', '2026-01-01T01:00:00.500+01:00', 'datetime'), true)
+  assert.equal(sameValue('2026-01-01T00:00:00Z', '2026-01-01T00:00:00.000000001Z', 'datetime'), false)
+  assert.equal(sameValue('2026-01-01T00:00:00.5Z', '2026-01-01T00:00:00Z', 'datetime'), false)
+  assert.equal(instant('2026-01-01T02:00:00.25+02:00'), instant('2026-01-01T00:00:00.250000000Z'))
+  assert.equal(instant('nope'), null)
+  const columns = [col('datetime', { name: 'Due' })]
+  // The same instant typed with an offset is no change; another instant is.
+  const original = { Due: '2026-01-01T00:00:00.5Z' }
+  assert.deepEqual(planUpdate(columns, original, { Due: { text: '2026-01-01T01:00:00.5+01:00', isNull: false } }).set, {})
+  assert.deepEqual(planUpdate(columns, original, { Due: { text: '2026-01-01T01:00:01+01:00', isNull: false } }).set, { Due: '2026-01-01T01:00:01+01:00' })
+  // Clearing an optional datetime is a change to null.
+  assert.deepEqual(planUpdate(columns, original, { Due: { text: '', isNull: true } }).set, { Due: null })
 })
