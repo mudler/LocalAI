@@ -68,6 +68,9 @@ fixture_dir="$cache/tmp/tables-tools-fixture"
 rm -rf "$fixture_dir"
 mkdir -p "$fixture_dir/tables"
 cp "$root/addons/tables/manifest.json" "$fixture_dir/tables/manifest.json"
+# The manifest declares the pages of the package, so the package carries them.
+node "$root/addons/tables/ui/build.mjs" >"$cache/logs/tables-tools-ui-build.log" 2>&1 || { cat "$cache/logs/tables-tools-ui-build.log" >&2; exit 1; }
+cp -R "$root/addons/tables/ui/dist/ui" "$fixture_dir/tables/ui"
 port=$(python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
 creds="$cache/logs/tables-tools-credentials.json"
 rm -f "$creds"

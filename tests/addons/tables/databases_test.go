@@ -27,7 +27,15 @@ var _ = Describe("Tables databases under the real owner", func() {
 		Expect(regs).To(HaveLen(1))
 		Expect(regs[0].AddonID).To(Equal("tables"))
 		Expect(regs[0].Capabilities.Tools).To(ConsistOf("resource-exists", "databases-create", "databases-rename", "databases-inspect", "tables-create", "tables-rename", "tables-drop", "columns-add", "columns-rename", "columns-drop", "rows-query", "rows-aggregate", "rows-insert", "rows-update", "rows-delete"))
-		Expect(regs[0].Capabilities.UI).To(BeNil())
+		// The package declares the native pages: the entry, the style sheet, the
+		// one page and the chat action that selects a database.
+		ui := regs[0].Capabilities.UI
+		Expect(ui).NotTo(BeNil())
+		Expect(ui.Entry).To(Equal("ui/tables.js"))
+		Expect(ui.CSS).To(Equal([]string{"ui/tables.css"}))
+		Expect(ui.Pages).To(Equal([]string{"databases"}))
+		Expect(ui.ChatActions).To(HaveLen(1))
+		Expect(ui.ChatActions[0].ID).To(Equal("select-database"))
 		// The data directory the owner created is private and holds the addon's data.
 		fi, e := os.Stat(filepath.Join(r.dataRoot, "tables"))
 		Expect(e).NotTo(HaveOccurred())
