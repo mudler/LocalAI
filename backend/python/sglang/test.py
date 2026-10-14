@@ -294,6 +294,67 @@ class TestSglangHelpers(unittest.TestCase):
         params = servicer._build_sampling_params(request)
         self.assertNotIn("custom_params", params)
 
+    def _sampling_request(self, metadata=None):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            Temperature=0.7, N=0, PresencePenalty=0, FrequencyPenalty=0,
+            RepetitionPenalty=0, TopP=0, TopK=0, MinP=0, Seed=0,
+            StopPrompts=[], StopTokenIds=[], IgnoreEOS=False, Tokens=0,
+            MinTokens=0, SkipSpecialTokens=False, Grammar="",
+            Metadata=metadata or {},
+        )
+
+    def test_effort_budgets_parse(self):
+        """`low=512;medium=2048;high=8192` -> per-level dict; bad entries are skipped."""
+        servicer = self._servicer()
+        self.assertEqual(
+            servicer._parse_effort_budgets("low=512; Medium=2048.0;high=8192"),
+            {"low": 512, "medium": 2048, "high": 8192},
+        )
+        self.assertEqual(servicer._parse_effort_budgets("low=abc;medium;=5;high=0;xhigh=100"), {"xhigh": 100})
+        self.assertEqual(servicer._parse_effort_budgets(None), {})
+        self.assertEqual(servicer._parse_effort_budgets(""), {})
+
+    def test_effort_level_selects_its_budget(self):
+        """The request's reasoning_effort (Metadata, forwarded by the Go side)
+        picks its own budget, so low/medium/high stop being identical."""
+        servicer = self._servicer()
+        servicer.thinking_budget = 256
+        servicer.effort_budgets = {"low": 512, "medium": 2048, "high": 8192}
+        for level, budget in (("low", 512), ("medium", 2048), ("HIGH", 8192)):
+            params = servicer._build_sampling_params(self._sampling_request({"reasoning_effort": level}))
+            self.assertEqual(params["custom_params"], {"thinking_budget": budget}, level)
+
+    def test_listed_effort_turns_thinking_on_despite_default_off(self):
+        """`xhigh`/`max` get no enable_thinking from the Go side; if the level is
+        in effort_budgets it must still think instead of falling to default off."""
+        servicer = self._servicer()
+        servicer.reasoning_default = "off"
+        servicer.effort_budgets = {"xhigh": 16384}
+        self.assertTrue(servicer._thinking_default(_request(metadata={"reasoning_effort": "xhigh"})))
+        self.assertFalse(servicer._thinking_default(_request(metadata={"reasoning_effort": "ultra"})))
+        self.assertFalse(servicer._thinking_default(
+            _request(metadata={"reasoning_effort": "xhigh", "enable_thinking": "false"})))
+
+    def test_effort_without_entry_falls_back_to_thinking_budget(self):
+        servicer = self._servicer()
+        servicer.thinking_budget = 256
+        servicer.effort_budgets = {"high": 8192}
+        for metadata in ({}, {"reasoning_effort": "low"}, {"reasoning_effort": ""}):
+            params = servicer._build_sampling_params(self._sampling_request(metadata))
+            self.assertEqual(params["custom_params"], {"thinking_budget": 256}, metadata)
+
+    def test_effort_budgets_alone_without_default(self):
+        """Only levels in the map get a budget; others stay unconfigured (no key)."""
+        servicer = self._servicer()
+        servicer.effort_budgets = {"low": 512}
+        self.assertEqual(
+            servicer._build_sampling_params(self._sampling_request({"reasoning_effort": "low"}))["custom_params"],
+            {"thinking_budget": 512},
+        )
+        self.assertNotIn("custom_params", servicer._build_sampling_params(self._sampling_request({"reasoning_effort": "high"})))
+
     def test_thinking_budget_accepts_integral_spellings(self):
         """YAML options arrive as strings; "512" and "512.0" both mean 512."""
         servicer = self._servicer()

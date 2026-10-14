@@ -122,6 +122,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     # tests that construct it directly) doesn't AttributeError in
     # _build_sampling_params.
     thinking_budget: Optional[int] = None
+    effort_budgets: Optional[dict] = None         # {effort level: tokens}, from `effort_budgets`
     reasoning_default: Optional[str] = None
 
     def _parse_options(self, options_list) -> Dict[str, str]:
@@ -164,6 +165,44 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             )
             return None
         return int(number)
+
+    @classmethod
+    def _parse_effort_budgets(cls, value) -> dict:
+        """Parse `effort_budgets` ("low=512;medium=2048;high=8192") into {level: tokens}.
+
+        `;` separates entries because the YAML `options:` list already uses `:`
+        between option name and value. Invalid entries are skipped with a warning
+        (same policy as `thinking_budget`: never fail LoadModel over an option).
+        """
+        budgets: dict = {}
+        if value is None or str(value).strip() == "":
+            return budgets
+        for entry in str(value).split(";"):
+            entry = entry.strip()
+            if not entry:
+                continue
+            level, sep, raw = entry.partition("=")
+            level = level.strip().lower()
+            if not sep or not level:
+                print(f"effort_budgets entry {entry!r} is not level=tokens, ignoring it", file=sys.stderr)
+                continue
+            tokens = cls._parse_thinking_budget(raw)
+            if tokens is not None:
+                budgets[level] = tokens
+        return budgets
+
+    @staticmethod
+    def _effort(request) -> str:
+        """The request's reasoning_effort as forwarded by the Go side, lower-cased."""
+        metadata = getattr(request, "Metadata", None) or {}
+        return (metadata.get("reasoning_effort") or "").strip().lower()
+
+    def _thinking_budget_for(self, request) -> Optional[int]:
+        """Budget for this request: its effort level's entry, else the model default."""
+        effort = self._effort(request)
+        if effort and self.effort_budgets and effort in self.effort_budgets:
+            return self.effort_budgets[effort]
+        return self.thinking_budget
 
     @staticmethod
     def _strict_thinking_warning(thinking_budget: Optional[int], engine_kwargs: dict) -> Optional[str]:
@@ -304,6 +343,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             opts.get("thinking_budget")
         )
 
+        # Per-effort budgets, e.g. `effort_budgets:low=512;medium=2048;high=8192`.
+        # The Go side already forwards the request's `reasoning_effort` as
+        # Metadata["reasoning_effort"], but until now nothing in this backend
+        # read it: every effort level got the same fixed `thinking_budget`, so
+        # low/medium/high produced identical reasoning. With this map a request
+        # gets the budget of its effort level; levels absent from the map, and
+        # requests without an effort, keep `thinking_budget`. Same semantics as
+        # vLLM's proposed `--reasoning-effort-budgets` (vllm-project/vllm#55432).
+        self.effort_budgets: dict = self._parse_effort_budgets(opts.get("effort_budgets"))
+
         # Model-level default for whether the chat template opens a reasoning
         # block, as "off" or "on". Rides the same `options:` mechanism as
         # thinking_budget above.
@@ -338,7 +387,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print(f"engine_args error: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=str(err))
 
-        warning = self._strict_thinking_warning(self.thinking_budget, engine_kwargs)
+        warning = self._strict_thinking_warning(
+            self.thinking_budget or max((self.effort_budgets or {}).values(), default=None), engine_kwargs
+        )
         if warning:
             print(warning, file=sys.stderr)
 
@@ -457,8 +508,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except json.JSONDecodeError:
                 sampling_params["ebnf"] = grammar
 
-        if self.thinking_budget is not None:
-            sampling_params["custom_params"] = {"thinking_budget": self.thinking_budget}
+        budget = self._thinking_budget_for(request)
+        if budget is not None:
+            sampling_params["custom_params"] = {"thinking_budget": budget}
 
         return sampling_params
 
@@ -473,6 +525,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         wanted = request.Metadata.get("enable_thinking", "").lower()
         if wanted in ("true", "false"):
             return wanted == "true"
+        # An effort level listed in `effort_budgets` is an explicit request to
+        # think. The Go side only sets enable_thinking for the levels it knows
+        # (minimal/low/medium/high); for others such as `xhigh` or `max` it sets
+        # nothing, so `reasoning_default: off` would win and asking for MORE
+        # reasoning would yield NONE.
+        if self.effort_budgets and self._effort(request) in self.effort_budgets:
+            return True
         if self.reasoning_default == "off":
             return False
         if self.reasoning_default == "on":

@@ -1016,6 +1016,19 @@ LocalAI warns if you configure a budget without that engine option.
 Keep the budget well below the `max_tokens` of your requests: if `max_tokens` is reached first,
 the budget never triggers and the whole reply can be spent on reasoning, leaving the answer empty.
 
+`effort_budgets` maps the request's `reasoning_effort` to its own budget, so the levels differ in how long the model may think:
+
+```yaml
+options:
+  - thinking_budget:256                                        # fallback: no effort, or a level not listed below
+  - effort_budgets:low=256;medium=1024;high=4096;xhigh=16384;max=16384
+```
+
+Entries are separated by `;` and use the same parsing rules as `thinking_budget` (invalid entries are skipped with a warning).
+A request whose effort is not listed falls back to `thinking_budget`; without either, no budget is sent.
+A level listed here also turns reasoning on for that request, even when `reasoning_default:off` is set.
+The budget is an upper bound, not a target: the model may stop thinking earlier.
+
 `reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
 Request metadata `enable_thinking` set to `"true"` or `"false"` overrides this default.
 An explicit prompt bypasses tokenizer template rendering.
