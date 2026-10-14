@@ -139,6 +139,14 @@ definitions:
         type: object
       toolCount:
         type: integer
+      toolDefinitions:
+        description: |-
+          ToolDefinitions are the model-facing definitions the manifest declares:
+          the argument schema and the kind of each tool. The host serves them to
+          chat from the verified manifest; the add-on process is never asked.
+        items:
+          $ref: '#/definitions/contract.ToolDefinition'
+        type: array
       tools:
         description: |-
           Tools are the tool names of the manifest, at most 32. ToolCount is the
@@ -422,6 +430,24 @@ definitions:
         type: integer
       schema:
         type: integer
+    type: object
+  contract.ToolDefinition:
+    properties:
+      description:
+        description: Description is plain text for the model.
+        type: string
+      inputSchema:
+        description: |-
+          InputSchema is the JSON schema of the arguments object. It is an
+          object schema with explicit properties, additionalProperties false at
+          the top level and the keywords the host allows only.
+        type: object
+      kind:
+        description: Kind is read, write, schema or create.
+        type: string
+      name:
+        description: Name is one of capabilities.tools.
+        type: string
     type: object
   contract.VersionRange:
     properties:
@@ -914,6 +940,16 @@ definitions:
         allOf:
         - $ref: '#/definitions/gateway.ProposalState'
         description: State is executing, outcome-unknown or abandoned-unknown.
+    type: object
+  gateway.PendingList:
+    properties:
+      proposals:
+        description: |-
+          Proposals are the caller's own proposals that still wait for a human
+          decision, newest first. A proposal of another user is never listed.
+        items:
+          $ref: '#/definitions/gateway.Proposal'
+        type: array
     type: object
   gateway.Proposal:
     properties:
@@ -4829,6 +4865,48 @@ paths:
       tags:
       - Addons
   /api/addons/proposals:
+    get:
+      description: 'Returns the caller''s proposals that still wait for a human decision,
+        newest first, at most 32, each with its state, exact effect count, bounded
+        sample, digest and expiry. This is where a change proposed by a chat tool,
+        an agent or a scheduled job waits: only the proposer''s own browser session
+        can confirm it. A proposal of another user is never listed, and an expired
+        one is left out. Read-only: it applies nothing. API keys may call it so an
+        unattended agent can see what is waiting; they still cannot confirm.'
+      parameters:
+      - description: Only pending is supported
+        enum:
+        - pending
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The caller's pending proposals
+          schema:
+            $ref: '#/definitions/gateway.PendingList'
+        "400":
+          description: Missing or unsupported state filter
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: List the caller's own pending addon proposals
+      tags:
+      - Addons
     post:
       consumes:
       - application/json

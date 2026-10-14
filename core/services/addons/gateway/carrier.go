@@ -213,6 +213,16 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			call := *wire.Proposal
 			// The owner classifies by the call, not by the action the peer wrote.
 			wire.Request.Action = call.wireAction(wire.Request)
+			if call.Op == proposalPending {
+				list, e := g.pendingLocal(r.Context(), actor, wire.Request, call)
+				if e != nil {
+					proposalFailure(w, call, wire.Request.OperationID, e)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(list)
+				return
+			}
 			if call.Op == proposalList {
 				list, e := g.listLocal(r.Context(), actor, wire.Request, call)
 				if e != nil {

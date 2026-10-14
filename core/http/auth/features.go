@@ -18,6 +18,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/addons/dispatch", FeatureAddons},
 	{"POST", "/api/addons/relay", FeatureAddons},
 	{"POST", "/api/addons/proposals", FeatureAddons},
+	{"GET", "/api/addons/proposals", FeatureAddons},
 	{"GET", "/api/addons/proposals/:id", FeatureAddons},
 	{"POST", "/api/addons/proposals/:id/confirm", FeatureAddons},
 	{"POST", "/api/addons/proposals/:id/cancel", FeatureAddons},

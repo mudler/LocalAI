@@ -16,6 +16,9 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application) {
 	// Proposals. Confirm is the only route that applies a stored mutation, and
 	// it accepts only the proposer's browser session; no MCP tool maps to it.
 	group.POST("/proposals", endpoints.Propose(a.AddonGateway(), a.AuthDB(), mode))
+	// The caller's own pending proposals: where a tool-made proposal waits for
+	// the proposer's browser session. Read-only.
+	group.GET("/proposals", endpoints.ListPendingProposals(a.AddonGateway(), a.AuthDB(), mode))
 	group.GET("/proposals/:id", endpoints.GetProposal(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/proposals/:id/confirm", endpoints.ConfirmProposal(a.AddonGateway(), a.AuthDB(), mode))
 	group.POST("/proposals/:id/cancel", endpoints.CancelProposal(a.AddonGateway(), a.AuthDB(), mode))

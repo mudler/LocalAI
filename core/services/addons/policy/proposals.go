@@ -1090,6 +1090,40 @@ func (b *Broker) Get(ctx context.Context, actor contract.Actor, id string) (Prop
 	return b.view(r), nil
 }
 
+// Pending lists the actor's own proposals that still wait for a decision,
+// newest first and bounded by gateway.MaxPendingListed. A proposal that ran
+// out of time is recorded as expired and left out. It reads only: it needs a
+// current identity and applies nothing.
+func (b *Broker) Pending(ctx context.Context, actor contract.Actor) ([]Proposal, error) {
+	p, err := b.attached()
+	if err != nil {
+		return nil, err
+	}
+	if err = p.current(ctx, actor); err != nil {
+		return nil, err
+	}
+	var mine []proposalRecord
+	for _, r := range b.store.all() {
+		if r.Actor.UserID != actor.UserID || r.Actor.Mode != actor.Mode || r.State != gateway.ProposalPending {
+			continue
+		}
+		cur, expired := b.expire(r)
+		if expired {
+			continue
+		}
+		mine = append(mine, cur)
+	}
+	sort.SliceStable(mine, func(i, j int) bool { return mine[i].CreatedAt.After(mine[j].CreatedAt) })
+	if len(mine) > gateway.MaxPendingListed {
+		mine = mine[:gateway.MaxPendingListed]
+	}
+	out := make([]Proposal, 0, len(mine))
+	for _, r := range mine {
+		out = append(out, b.view(r))
+	}
+	return out, nil
+}
+
 // Cancel withdraws a pending proposal. It needs only a current identity: a
 // user whose write authority was lowered can still withdraw.
 func (b *Broker) Cancel(ctx context.Context, actor contract.Actor, id string) error {
@@ -1371,6 +1405,10 @@ func (g gatewayBroker) Resolve(ctx context.Context, a contract.Actor, id, digest
 
 func (g gatewayBroker) Reconcile(ctx context.Context, a contract.Actor, id string) (Proposal, error) {
 	return g.b.reconcileFor(ctx, a, id)
+}
+
+func (g gatewayBroker) Pending(ctx context.Context, a contract.Actor) ([]Proposal, error) {
+	return g.b.Pending(ctx, a)
 }
 
 func (g gatewayBroker) Unresolved(ctx context.Context, a contract.Actor, resourceID string) ([]gateway.BlockingProposal, error) {

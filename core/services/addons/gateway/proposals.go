@@ -3,6 +3,8 @@ package gateway
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -131,6 +133,16 @@ type ProposalList struct {
 	Proposals []BlockingProposal `json:"proposals"`
 }
 
+// PendingList is the answer to the caller's own list of pending proposals.
+type PendingList struct {
+	// Proposals are the caller's own proposals that still wait for a human
+	// decision, newest first. A proposal of another user is never listed.
+	Proposals []Proposal `json:"proposals"`
+}
+
+// MaxPendingListed bounds a pending list.
+const MaxPendingListed = 32
+
 // OutcomeBlocked is the denial of a write on a resource that has an
 // unresolved outcome. It names the blocking operation, and the owner builds
 // it only for a caller that holds the owner role of the resource: others get
@@ -175,6 +187,9 @@ type ProposalBroker interface {
 	// Unresolved lists the proposals on a resource whose outcome is unresolved,
 	// whoever proposed them. Only the resource's owner role may call it.
 	Unresolved(ctx context.Context, actor contract.Actor, resourceID string) ([]BlockingProposal, error)
+	// Pending lists the actor's own proposals that wait for a decision, at
+	// most MaxPendingListed, newest first. Read-only.
+	Pending(ctx context.Context, actor contract.Actor) ([]Proposal, error)
 }
 
 // Proposal call operations on the carrier. They travel in ProposalCall, never
@@ -189,6 +204,9 @@ const (
 	// proposalList lists the unresolved proposals of a resource for its owner
 	// role. It is read-only. The call's ID is the resource identifier.
 	proposalList = "list"
+	// proposalPending lists the caller's own pending proposals. It is
+	// read-only. The call's ID is the request's operation ID.
+	proposalPending = "pending"
 )
 
 // ProposalCall is the body a frontend forwards to the owner.
@@ -354,6 +372,49 @@ func (g *Gateway) listLocal(ctx context.Context, a contract.Actor, request contr
 	return ProposalList{Proposals: list}, nil
 }
 
+// PendingProposals lists the caller's own pending proposals from the owner.
+// It is the place a person finds what an unattended agent or a chat tool
+// proposed: the proposals wait here until the proposer's own browser session
+// confirms or cancels them. It never applies anything.
+func (g *Gateway) PendingProposals(ctx context.Context, a contract.Actor) (PendingList, error) {
+	if e := g.revalidate(ctx, a); e != nil {
+		return PendingList{}, e
+	}
+	var raw [16]byte
+	if _, e := rand.Read(raw[:]); e != nil {
+		return PendingList{}, ErrUnavailable
+	}
+	id := "p" + hex.EncodeToString(raw[:])
+	request := contract.Request{OperationID: id}
+	call := ProposalCall{Op: proposalPending, ID: id}
+	request.Action = call.wireAction(request)
+	if g.Forward != nil {
+		return g.Forward.pendingList(ctx, a, request, call)
+	}
+	return g.pendingLocal(ctx, a, request, call)
+}
+
+// pendingLocal serves the pending call on the owner itself.
+func (g *Gateway) pendingLocal(ctx context.Context, a contract.Actor, request contract.Request, call ProposalCall) (PendingList, error) {
+	if g.Proposals == nil {
+		return PendingList{}, ErrUnavailable
+	}
+	if call.Op != proposalPending || call.ID == "" || request.OperationID != call.ID || request.ResourceID != "" {
+		return PendingList{}, ErrForbidden
+	}
+	list, e := g.Proposals.Pending(ctx, a)
+	if e != nil {
+		return PendingList{}, e
+	}
+	if list == nil {
+		list = []Proposal{}
+	}
+	if len(list) > MaxPendingListed {
+		list = list[:MaxPendingListed]
+	}
+	return PendingList{Proposals: list}, nil
+}
+
 // uncertainProposal is the answer when the reply of the owner was lost or not
 // understood. Only a confirmation can have reached the addon, so only it is an
 // unknown outcome; the other calls are repeated by the same ID after a read.
@@ -449,6 +510,20 @@ func (c *Carrier) Proposal(ctx context.Context, a contract.Actor, r contract.Req
 		return Proposal{}, uncertainProposal(call, r.OperationID)
 	}
 	return p, nil
+}
+
+// pendingList forwards the pending call to the owner.
+func (c *Carrier) pendingList(ctx context.Context, a contract.Actor, r contract.Request, call ProposalCall) (PendingList, error) {
+	resp, e := c.send(ctx, a, wireRequest{Request: r, Proposal: &call})
+	if e != nil {
+		return PendingList{}, e
+	}
+	defer resp.Body.Close()
+	var l PendingList
+	if e = decode(io.LimitReader(resp.Body, 2<<20), &l); e != nil {
+		return PendingList{}, ErrUnavailable
+	}
+	return l, nil
 }
 
 // proposalList forwards the list call to the owner.

@@ -190,6 +190,7 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 	group.POST("/dispatch", Dispatch(g, s.db, mode))
 	group.POST("/relay", Relay(g, s.db, mode))
 	group.POST("/proposals", Propose(g, s.db, mode))
+	group.GET("/proposals", ListPendingProposals(g, s.db, mode))
 	group.GET("/proposals/:id", GetProposal(g, s.db, mode))
 	group.POST("/proposals/:id/confirm", ConfirmProposal(g, s.db, mode))
 	group.POST("/proposals/:id/cancel", CancelProposal(g, s.db, mode))
@@ -264,6 +265,11 @@ func (b *stubBroker) Reconcile(context.Context, contract.Actor, string) (gateway
 func (b *stubBroker) Resolve(context.Context, contract.Actor, string, string, string) (gateway.Proposal, error) {
 	return b.fail()
 }
+func (b *stubBroker) Pending(context.Context, contract.Actor) ([]gateway.Proposal, error) {
+	b.calls++
+	return nil, b.err
+}
+
 func (b *stubBroker) Unresolved(context.Context, contract.Actor, string) ([]gateway.BlockingProposal, error) {
 	b.calls++
 	return nil, b.err
@@ -632,6 +638,40 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 		Expect(send(own, "POST", "/api/addons/proposals", s.proposeBody("next-1"), bearerOf(s.tokens["bob"])).code).To(Equal(200))
 	})
 
+	It("lists the caller's own pending proposals the same from the owner and every forwarding frontend", func() {
+		s := newOwnerStack(auth.AddonModeNamedUser, true)
+		own := s.frontend(s.gateway)
+		a, b := s.forwardingFrontends(s.gateway)
+		Expect(s.policy.SetGrant(context.Background(), s.owner, s.key, "bob", policy.RoleEditor)).To(Succeed())
+		Expect(send(own, "POST", "/api/addons/proposals", s.proposeBody("mine-1"), bearerOf(s.tokens["alice"])).code).To(Equal(200))
+		Expect(send(own, "POST", "/api/addons/proposals", s.proposeBody("mine-2"), bearerOf(s.tokens["alice"])).code).To(Equal(200))
+		Expect(send(own, "POST", "/api/addons/proposals", s.proposeBody("bobs-1"), bearerOf(s.tokens["bob"])).code).To(Equal(200))
+		Expect(send(own, "POST", "/api/addons/proposals/mine-2/cancel", "", bearerOf(s.tokens["alice"])).code).To(Equal(200))
+		for name, e := range map[string]http.Handler{"owner": own, "front-a": a, "front-b": b} {
+			got := send(e, "GET", "/api/addons/proposals?state=pending", "", bearerOf(s.tokens["alice"]))
+			Expect(got.code).To(Equal(200), name+" %v", got.body)
+			list, _ := got.body["proposals"].([]any)
+			Expect(list).To(HaveLen(1), name)
+			entry, _ := list[0].(map[string]any)
+			Expect(entry["id"]).To(Equal("mine-1"), name)
+			Expect(entry["state"]).To(Equal("pending"), name)
+			Expect(entry["digest"]).NotTo(BeEmpty(), name)
+			Expect(entry["effects"].(map[string]any)["count"]).To(BeEquivalentTo(2), name)
+			// The credential that proposed is never part of the view.
+			Expect(entry).NotTo(HaveKey("actor"), name)
+			// Another user sees only their own.
+			other := send(e, "GET", "/api/addons/proposals?state=pending", "", bearerOf(s.tokens["bob"]))
+			ids, _ := other.body["proposals"].([]any)
+			Expect(ids).To(HaveLen(1), name)
+			Expect(ids[0].(map[string]any)["id"]).To(Equal("bobs-1"), name)
+			// A browser session and a key both list; nobody else does; the
+			// filter is required.
+			Expect(send(e, "GET", "/api/addons/proposals", "", bearerOf(s.tokens["alice"])).code).To(Equal(400), name)
+			Expect(send(e, "GET", "/api/addons/proposals?state=all", "", bearerOf(s.tokens["alice"])).code).To(Equal(400), name)
+			Expect(send(e, "GET", "/api/addons/proposals?state=pending", "", nil).code).To(BeElementOf(401, 403), name)
+		}
+	})
+
 	It("tells an editor of a blocked write only that it is denied", func() {
 		s := newOwnerStack(auth.AddonModeNamedUser, true)
 		own := s.frontend(s.gateway)
@@ -773,6 +813,12 @@ var _ = Describe("proposal routes", Label("proposals"), func() {
 			Expect(doc.Paths).To(HaveKey(path))
 			Expect(doc.Paths[path]).To(HaveKey(method), path)
 		}
+		// The caller's own pending proposals have a documented read.
+		Expect(doc.Paths["/api/addons/proposals"]).To(HaveKey("get"))
+		pending, _ := json.Marshal(doc.Paths["/api/addons/proposals"]["get"])
+		Expect(string(pending)).To(ContainSubstring("gateway.PendingList"))
+		Expect(string(pending)).To(ContainSubstring("pending"))
+		Expect(doc.Definitions["gateway.PendingList"].Properties).To(HaveKey("proposals"))
 		var b []byte
 		confirm, _ := json.Marshal(doc.Paths["/api/addons/proposals/{id}/confirm"])
 		Expect(string(confirm)).To(ContainSubstring("X-LocalAI-Confirm"))

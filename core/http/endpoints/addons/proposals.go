@@ -112,6 +112,39 @@ func Propose(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	}
 }
 
+// ListPendingProposals lists the caller's own pending proposals.
+// @Summary List the caller's own pending addon proposals
+// @Description Returns the caller's proposals that still wait for a human decision, newest first, at most 32, each with its state, exact effect count, bounded sample, digest and expiry. This is where a change proposed by a chat tool, an agent or a scheduled job waits: only the proposer's own browser session can confirm it. A proposal of another user is never listed, and an expired one is left out. Read-only: it applies nothing. API keys may call it so an unattended agent can see what is waiting; they still cannot confirm.
+// @Tags Addons
+// @Produce json
+// @Param state query string true "Only pending is supported" Enums(pending)
+// @Success 200 {object} gateway.PendingList "The caller's pending proposals"
+// @Failure 400 {object} AddonErrorResponse "Missing or unsupported state filter"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Feature denied"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Router /api/addons/proposals [get]
+func ListPendingProposals(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		if c.QueryParam("state") != "pending" {
+			return failure(c, 400, "Only state=pending is supported")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		list, e := g.PendingProposals(c.Request().Context(), a)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, list)
+	}
+}
+
 // GetProposal returns the caller's proposal.
 // @Summary Read a stored addon proposal
 // @Description Returns the caller's own proposal with its state, effects, receipt and, for a pending proposal that is blocked, the operation to resolve first. Expiry is recorded when a pending proposal is read after its expiry.

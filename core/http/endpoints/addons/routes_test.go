@@ -135,15 +135,16 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/apps/:id/start":          true,
 			"POST /api/addons/apps/:id/stop":           true,
 		}))
-		// Reading a proposal, the owner's list of unresolved ones and the two
-		// private artifact reads are the only registered GETs.
+		// Reading a proposal, the caller's own pending ones, the owner's list of
+		// unresolved ones and the two private artifact reads are the only
+		// registered GETs.
 		reads := map[string]bool{}
 		for _, r := range e.Routes() {
 			if strings.HasPrefix(r.Path, "/api/addons") && r.Method == http.MethodGet {
 				reads[r.Path] = true
 			}
 		}
-		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true}))
+		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals": true, "/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true}))
 	})
 	It("reserves every first path segment the host registers under /api/addons", func() {
 		// An add-on ID that equals a registered literal segment would have its

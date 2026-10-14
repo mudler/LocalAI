@@ -530,6 +530,60 @@
             }
         },
         "/api/addons/proposals": {
+            "get": {
+                "description": "Returns the caller's proposals that still wait for a human decision, newest first, at most 32, each with its state, exact effect count, bounded sample, digest and expiry. This is where a change proposed by a chat tool, an agent or a scheduled job waits: only the proposer's own browser session can confirm it. A proposal of another user is never listed, and an expired one is left out. Read-only: it applies nothing. API keys may call it so an unattended agent can see what is waiting; they still cannot confirm.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "List the caller's own pending addon proposals",
+                "parameters": [
+                    {
+                        "enum": [
+                            "pending"
+                        ],
+                        "type": "string",
+                        "description": "Only pending is supported",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The caller's pending proposals",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.PendingList"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or unsupported state filter",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "A request with action create and no resourceId proposes the creation of a resource: the owner reserves a pending resource for the caller that nobody can reach, shows the requested name, and creates it only on confirmation by the proposer's browser session. Previews the mutation on the addon owner and stores it as a pending proposal with its exact effect count, a bounded sample, the revisions it saw and an expiry. Nothing is applied. The operationId becomes the proposal ID; repeating the same request returns the same proposal. Sharing and database deletion are never proposals. A named session or API key with the addons feature may propose; the proposal can only be applied by Confirm, which requires the proposer's own browser session. No MCP tool confirms a proposal.",
                 "consumes": [
@@ -5750,6 +5804,13 @@
                 "toolCount": {
                     "type": "integer"
                 },
+                "toolDefinitions": {
+                    "description": "ToolDefinitions are the model-facing definitions the manifest declares:\nthe argument schema and the kind of each tool. The host serves them to\nchat from the verified manifest; the add-on process is never asked.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ToolDefinition"
+                    }
+                },
                 "tools": {
                     "description": "Tools are the tool names of the manifest, at most 32. ToolCount is the\nfull number. The manifest carries no tool descriptions.",
                     "type": "array",
@@ -6118,6 +6179,27 @@
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.ToolDefinition": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "Description is plain text for the model.",
+                    "type": "string"
+                },
+                "inputSchema": {
+                    "description": "InputSchema is the JSON schema of the arguments object. It is an\nobject schema with explicit properties, additionalProperties false at\nthe top level and the keywords the host allows only.",
+                    "type": "object"
+                },
+                "kind": {
+                    "description": "Kind is read, write, schema or create.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is one of capabilities.tools.",
+                    "type": "string"
                 }
             }
         },
@@ -6793,6 +6875,18 @@
                             "$ref": "#/definitions/gateway.ProposalState"
                         }
                     ]
+                }
+            }
+        },
+        "gateway.PendingList": {
+            "type": "object",
+            "properties": {
+                "proposals": {
+                    "description": "Proposals are the caller's own proposals that still wait for a human\ndecision, newest first. A proposal of another user is never listed.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.Proposal"
+                    }
                 }
             }
         },
