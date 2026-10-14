@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -26,7 +27,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	_ "github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -38,6 +39,8 @@ var (
 	ErrNotFound         = errors.New("database not found")
 	ErrConflict         = errors.New("operation id already used for a different request")
 	ErrUnsafePath       = errors.New("unsafe storage path")
+	// ErrCapacity means a write would grow a database file past its cap.
+	ErrCapacity = errors.New("database is at its size limit")
 )
 
 const (
@@ -63,6 +66,9 @@ type Options struct {
 	// BusyTimeout and OpTimeout default when zero.
 	BusyTimeout time.Duration
 	OpTimeout   time.Duration
+	// MaxPages caps one database file in 4096-byte pages. It defaults to
+	// MaxPages (1 GiB) and is lowered only by tests.
+	MaxPages int
 }
 type DatabaseInfo struct {
 	ResourceID string            `json:"resourceId"`
@@ -112,6 +118,9 @@ func Open(dir string, o Options) (*Store, error) {
 	if o.OpTimeout <= 0 {
 		o.OpTimeout = DefaultOpTimeout
 	}
+	if o.MaxPages <= 0 {
+		o.MaxPages = MaxPages
+	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -139,7 +148,7 @@ func Open(dir string, o Options) (*Store, error) {
 	if err = privateFile(ledger); err != nil {
 		return nil, err
 	}
-	s.ledger, err = openSQLite(ledger, o.BusyTimeout, "FULL")
+	s.ledger, err = openSQLite(ledger, o.BusyTimeout, "FULL", "WAL", o.MaxPages)
 	if err != nil {
 		return nil, err
 	}
@@ -190,16 +199,54 @@ func privateFile(path string) error {
 	return nil
 }
 
-func dsn(path string, busy time.Duration, sync string) string {
+func dsn(path string, busy time.Duration, sync, journal string) string {
 	esc := strings.NewReplacer("%", "%25", "?", "%3f", "#", "%23").Replace(path)
-	return fmt.Sprintf("file:%s?mode=rw&_busy_timeout=%d&_foreign_keys=on&_journal_mode=WAL&_synchronous=%s&_txlock=immediate", esc, busy.Milliseconds(), sync)
+	return fmt.Sprintf("file:%s?mode=rw&_busy_timeout=%d&_foreign_keys=on&_journal_mode=%s&_synchronous=%s&_txlock=immediate", esc, busy.Milliseconds(), journal, sync)
 }
 
-func openSQLite(path string, busy time.Duration, sync string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dsn(path, busy, sync))
+// capConnector opens every connection with PRAGMA max_page_count applied.
+// The pragma is per connection, so setting it once on one connection would
+// leave every later connection unbounded.
+type capConnector struct {
+	dsn      string
+	drv      *sqlite3.SQLiteDriver
+	maxPages int
+}
+
+func (c capConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.drv.Open(c.dsn)
 	if err != nil {
 		return nil, err
 	}
+	ex, ok := conn.(driver.ExecerContext)
+	if !ok {
+		_ = conn.Close()
+		return nil, errors.New("sqlite driver cannot set the size cap")
+	}
+	// PRAGMA max_page_count returns a row; Exec on this driver discards it.
+	if _, err = ex.ExecContext(ctx, fmt.Sprintf("PRAGMA max_page_count=%d", c.maxPages), nil); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (c capConnector) Driver() driver.Driver { return c.drv }
+
+// capacityError types the SQLite "database is full" failure.
+func capacityError(err error) error {
+	var se sqlite3.Error
+	if errors.As(err, &se) && se.Code == sqlite3.ErrFull {
+		return fmt.Errorf("%w: %v", ErrCapacity, err)
+	}
+	return err
+}
+
+func openSQLite(path string, busy time.Duration, sync, journal string, maxPages int) (*sql.DB, error) {
+	if maxPages <= 0 {
+		maxPages = MaxPages
+	}
+	db := sql.OpenDB(capConnector{dsn: dsn(path, busy, sync, journal), drv: &sqlite3.SQLiteDriver{}, maxPages: maxPages})
 	// One connection: statements of one operation share a transaction scope
 	// and the pool can never exceed the per-file lock budget.
 	db.SetMaxOpenConns(1)
@@ -256,7 +303,7 @@ func (s *Store) openDatabase(id string) (*sql.DB, error) {
 	if !fi.Mode().IsRegular() {
 		return nil, ErrUnsafePath
 	}
-	return openSQLite(s.path(id), s.opts.BusyTimeout, "FULL")
+	return openSQLite(s.path(id), s.opts.BusyTimeout, "FULL", "WAL", s.opts.MaxPages)
 }
 
 type opRow struct {
@@ -384,11 +431,10 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 	defer os.Remove(tmp + "-wal")
 	defer os.Remove(tmp + "-shm")
 	defer os.Remove(tmp + "-journal")
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rw&_busy_timeout=%d&_foreign_keys=on&_journal_mode=DELETE&_synchronous=FULL&_txlock=immediate", tmp, s.opts.BusyTimeout.Milliseconds()))
+	db, err := openSQLite(tmp, s.opts.BusyTimeout, "FULL", "DELETE", s.opts.MaxPages)
 	if err != nil {
 		return err
 	}
-	db.SetMaxOpenConns(1)
 	tx, err := db.BeginTx(ctx, nil)
 	if err == nil {
 		_, err = tx.ExecContext(ctx, databaseSchema)
@@ -407,14 +453,11 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 			_ = tx.Rollback()
 		}
 	}
-	if err == nil {
-		_, err = db.ExecContext(ctx, fmt.Sprintf("PRAGMA max_page_count=%d", MaxPages))
-	}
 	if cerr := db.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return err
+		return capacityError(err)
 	}
 	if f, e := os.Open(tmp); e == nil {
 		_ = f.Sync()
@@ -549,13 +592,13 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 	}
 	if _, err = tx.ExecContext(ctx, "INSERT OR IGNORE INTO tables_operations(operation_id,kind,schema_revision,data_revision,applied_at) VALUES(?,?,?,?,?)",
 		operationID, "rename", m.Revision.Schema, m.Revision.Data, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
-		return contract.Receipt{}, err
+		return contract.Receipt{}, capacityError(err)
 	}
 	if _, err = tx.ExecContext(ctx, "UPDATE tables_meta SET value=? WHERE key='name'", name); err != nil {
-		return contract.Receipt{}, err
+		return contract.Receipt{}, capacityError(err)
 	}
 	if err = tx.Commit(); err != nil {
-		return contract.Receipt{}, err
+		return contract.Receipt{}, capacityError(err)
 	}
 	rollback = false
 	if err = s.finish(ctx, operationID, m.Revision); err != nil {
