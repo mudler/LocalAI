@@ -55,6 +55,7 @@ var (
 	ErrBadRequest = errors.New("invalid request")
 	ErrNotFound   = errors.New("not found")
 	ErrConflict   = errors.New("conflict")
+	ErrForbidden  = errors.New("forbidden")
 )
 
 // ReadStartup decodes the startup object from the inherited descriptor and
@@ -115,6 +116,8 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				http.Error(w, "invalid request", http.StatusBadRequest)
 			case errors.Is(err, ErrNotFound):
 				http.Error(w, "not found", http.StatusNotFound)
+			case errors.Is(err, ErrForbidden):
+				http.Error(w, "forbidden", http.StatusForbidden)
 			case errors.Is(err, ErrConflict):
 				http.Error(w, "conflict", http.StatusConflict)
 			default:

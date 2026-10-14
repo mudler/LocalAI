@@ -77,7 +77,9 @@ type DatabaseInfo struct {
 }
 type Schema struct {
 	DatabaseInfo
-	Tables []string `json:"tables"`
+	// Tables lists table names; Detail has their columns.
+	Tables []string      `json:"tables"`
+	Detail []TableSchema `json:"detail"`
 }
 
 // Store holds the databases under one private directory.
@@ -87,6 +89,8 @@ type Store struct {
 	opts   Options
 	mu     sync.Mutex
 	ledger *sql.DB
+	// failpoint is a test hook; see SetFailpoint.
+	failpoint func(string) error
 }
 
 const ledgerSchema = `CREATE TABLE IF NOT EXISTS operations(
@@ -107,7 +111,7 @@ CREATE TABLE tables_operations(
  schema_revision INTEGER NOT NULL,
  data_revision INTEGER NOT NULL,
  applied_at TEXT NOT NULL
-) WITHOUT ROWID;`
+) WITHOUT ROWID;` + catalogSchema
 
 // Open prepares dir (mode 0700) and its ledger. The directory must not be a
 // symbolic link. Half-built databases from an earlier crash are removed.
@@ -385,7 +389,7 @@ func readMeta(ctx context.Context, q interface {
 
 // inspect reads and verifies a database's metadata. A file whose recorded ID is
 // not its name was copied or swapped in and is refused.
-func (s *Store) inspect(ctx context.Context, id string) (meta, []string, error) {
+func (s *Store) inspect(ctx context.Context, id string) (meta, []catalogTable, error) {
 	db, err := s.openDatabase(id)
 	if err != nil {
 		return meta{}, nil, err
@@ -398,20 +402,8 @@ func (s *Store) inspect(ctx context.Context, id string) (meta, []string, error) 
 	if m.ResourceID != id || m.Revision.Schema == 0 {
 		return m, nil, ErrUnsafePath
 	}
-	rows, err := db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' AND name NOT LIKE 'tables\_%' ESCAPE '\' ORDER BY name`)
-	if err != nil {
-		return m, nil, err
-	}
-	defer rows.Close()
-	tables := []string{}
-	for rows.Next() {
-		var n string
-		if err = rows.Scan(&n); err != nil {
-			return m, nil, err
-		}
-		tables = append(tables, n)
-	}
-	return m, tables, rows.Err()
+	cat, err := readCatalog(ctx, db)
+	return m, cat, err
 }
 
 // build creates the database in a private temporary file and links it into
@@ -620,11 +612,15 @@ func (s *Store) Inspect(ctx context.Context, resourceID string) (Schema, error) 
 	defer cancel()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	m, tables, err := s.inspect(ctx, resourceID)
+	m, cat, err := s.inspect(ctx, resourceID)
 	if err != nil {
 		return Schema{}, err
 	}
-	return Schema{DatabaseInfo: DatabaseInfo{ResourceID: resourceID, Name: m.Name, Revision: m.Revision}, Tables: tables}, nil
+	detail := make([]TableSchema, 0, len(cat))
+	for _, t := range cat {
+		detail = append(detail, t.TableSchema)
+	}
+	return Schema{DatabaseInfo: DatabaseInfo{ResourceID: resourceID, Name: m.Name, Revision: m.Revision}, Tables: tableNames(cat), Detail: detail}, nil
 }
 
 // Exists reports whether a complete database with this ID is present. A

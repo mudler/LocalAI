@@ -5,8 +5,9 @@ title: Tables
 ## Status
 
 Tables is a first-party addon for LocalAI. This page describes the database
-lifecycle that exists today: creating, renaming and inspecting databases. Rows,
-columns, CSV results and the Tables user interface are not available yet.
+lifecycle and the typed schema operations that exist today: creating, renaming
+and inspecting databases, and creating, renaming and dropping tables and
+columns. Rows, CSV results and the Tables user interface are not available yet.
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -48,7 +49,13 @@ The manifest declares these tools. LocalAI rejects any other tool name.
 |---|---|---|
 | `databases-create` | change (schema) | Create the database for a reserved resource ID. |
 | `databases-rename` | change (schema) | Change the stored name. Owner role only. |
-| `databases-inspect` | read | Name, revision and table names of one database. |
+| `databases-inspect` | read | Name, revision, table names and the tables with their columns. |
+| `tables-create` | change (schema) | Create a table. Argument `table`. |
+| `tables-rename` | change (schema) | Rename a table. Arguments `table`, `newName`. |
+| `tables-drop` | change (schema) | Drop a table and all its rows. Argument `table`. |
+| `columns-add` | change (schema) | Add a column. Arguments `table`, `column`, `type`, optional `required`, `unique`, `default`. |
+| `columns-rename` | change (schema) | Rename a column. Arguments `table`, `column`, `newName`. |
+| `columns-drop` | change (schema) | Drop a column and its values. Arguments `table`, `column`. |
 | `resource-exists` | read | `{"exists": bool}`; used by LocalAI to settle interrupted creations. |
 
 Tool names use hyphens because LocalAI manifests accept only
@@ -95,6 +102,70 @@ reservation only when `resource-exists` says there is no database. A pending
 chat proposal keeps its reservation, so a restart does not remove a database
 you can still confirm.
 
+## Schema operations
+
+Only the owner of a database changes its schema. LocalAI refuses the schema
+action for every other role before it calls the addon, and the addon refuses
+a schema tool that does not arrive as a schema action with an actor and the
+preview or apply scope, so a caller of the runtime transport cannot use a row
+action to change a schema.
+
+Tables and columns have a label and a stable internal identifier. The label is
+what people see. It is 1 to 64 characters, with no control, format or
+bidirectional characters, no leading or trailing space, and it is unique in its
+scope ignoring case. The internal identifier (`t_...`, `c_...`) is random and
+never changes. Labels are never part of an SQL statement, so a rename touches
+only the catalog and no label can inject SQL.
+
+| Logical type | Stored as | Default value |
+|---|---|---|
+| `text` | TEXT | a string up to 1024 bytes, no control characters |
+| `integer` | INTEGER | a 64-bit integer |
+| `real` | REAL | a finite number that SQLite reads back exactly |
+| `boolean` | INTEGER, 0 or 1 | `true` or `false` |
+| `datetime` | TEXT, UTC | an RFC 3339 time, stored in UTC |
+
+A default is validated for its type and written through a strict literal
+encoder, never copied from the request. There is no type change, trigger,
+function, expression, computed column, view or raw SQL.
+
+- A required column needs a default when the table has rows. On an empty table
+  it needs none.
+- A unique column is a unique index. A default that would repeat in more than
+  one row of a unique column is refused. Several NULL values are allowed.
+- Dropping a column rebuilds the table inside the same transaction: create the
+  new table, copy the rows, drop the old one. A failure leaves the original.
+- Limits: 50 tables per database, 64 columns per table.
+
+## Revisions, receipts and previews
+
+Each database has a revision pair, `schema` and `data`. Every schema change
+raises `schema` by one. The preview returns the revision it was made against,
+and apply must send that revision back. If the database moved, apply is
+rejected with `{"error":"stale","revision":{...}}` and nothing changes. Both
+numbers must match, because the data a drop destroys depends on the rows.
+
+The change, the new revision and the operation receipt commit in one SQLite
+transaction. After a crash the receipt is either in the database or the change
+did not happen. The same operation ID with the same request returns the same
+receipt and never applies twice. The same ID with another request is a
+conflict. An operation that was refused leaves no receipt, so its ID can be
+used again. If a reply is lost, LocalAI asks for the receipt, which the addon
+finds in the database even when its own ledger was not updated.
+
+A preview runs the change in a transaction that it rolls back, so it accepts
+only what apply would accept. Its summary has this shape:
+
+```json
+{"count": 1,
+ "sample": [{"action": "drop column", "table": "Orders", "column": "Total", "rowsLost": 42}],
+ "dataLoss": {"rows": 42, "columns": 1, "tables": 0}}
+```
+
+`rowsLost` of a column counts the rows that hold a value in it. For a table it
+counts all rows and `columnsLost` its columns. LocalAI shows `count` and
+`sample` in the confirmation card.
+
 ## Limits
 
 - One name per database, no uniqueness rule across databases.
@@ -109,4 +180,6 @@ The addon is not published in a catalog yet. Build the executable, put it in a
 package with `manifest.json` from `addons/tables`, and install the package from
 a local source as described in [Addon contracts](../addons/). The suite
 `sh scripts/addons/verify.sh tables-databases` runs the store and the real
-executable under the real supervisor.
+executable under the real supervisor. The suite
+`sh scripts/addons/verify.sh tables-schema` covers the schema operations,
+revisions and receipts.
