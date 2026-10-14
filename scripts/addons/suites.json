@@ -1493,6 +1493,7 @@
       "refuses a missing established ledger and fences failed cleanup publication",
       "authenticates every request and separates trusted authority from model arguments",
       "bounds output streams cancellation deadlines and stop admission",
+      "tells a 409 conflict of the add-on from an outage",
       "withdraws and initiates every live slot before a cleanup timeout",
       "rejects anonymous and forged forwarding authority through real authentication",
       "lets callers through only when the deployment selected local-owner mode",
@@ -1629,6 +1630,7 @@
           "refuses a missing established ledger and fences failed cleanup publication",
           "authenticates every request and separates trusted authority from model arguments",
           "bounds output streams cancellation deadlines and stop admission",
+          "tells a 409 conflict of the add-on from an outage",
           "withdraws and initiates every live slot before a cleanup timeout",
           "creates one private data directory per addon and passes its path in the startup object",
           "gives no data directory without a data root and refuses an unsafe root or addon ID"
