@@ -24,15 +24,12 @@ var _ = Describe("auth database location at first start", func() {
 		Expect(err).NotTo(HaveOccurred())
 		data := filepath.Join(root, "not", "yet", "created")
 		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(func() {
-			cancel()
-			// Background services may still write while they shut down.
-			Eventually(func() error { return os.RemoveAll(data) }).Should(Succeed())
-		})
-		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(data),
+		var app *Application
+		app, err = New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(data),
 			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(filepath.Join(data, "database.db")),
 			config.WithAuthAPIKeyHMACSecret("secret"))
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { cancel(); _ = app.Shutdown() })
 		Expect(app.AuthDB()).NotTo(BeNil())
 		info, err := os.Stat(data)
 		Expect(err).NotTo(HaveOccurred())
@@ -48,14 +45,12 @@ var _ = Describe("auth database location at first start", func() {
 		state, err := system.GetSystemState(system.WithBackendPath(backends), system.WithModelPath(models))
 		Expect(err).NotTo(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(func() {
-			cancel()
-			Eventually(func() error { return os.RemoveAll(root) }).Should(Succeed())
-		})
+		var app *Application
 		db := filepath.Join(root, "elsewhere", "auth", "users.db?_busy_timeout=2000")
-		app, err := New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(root, "data")),
+		app, err = New(config.WithContext(ctx), config.WithSystemState(state), config.WithDataPath(filepath.Join(root, "data")),
 			config.WithAuthEnabled(true), config.WithAuthDatabaseURL(db), config.WithAuthAPIKeyHMACSecret("secret"))
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { cancel(); _ = app.Shutdown() })
 		Expect(app.AuthDB()).NotTo(BeNil())
 		_, err = os.Stat(filepath.Join(root, "elsewhere", "auth", "users.db"))
 		Expect(err).NotTo(HaveOccurred())
