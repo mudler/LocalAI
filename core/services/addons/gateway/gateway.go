@@ -31,7 +31,11 @@ type Gateway struct {
 	Proposals ProposalBroker
 	// Artifacts is the owner's private artifact store. Without it the gateway
 	// denies every file result and every file download.
-	Artifacts  ArtifactProvider
+	Artifacts ArtifactProvider
+	// Resources is the owner's UI-only resource management: listing,
+	// creation, grants, rename, deletion and conversation selections.
+	// Frontends leave it nil and forward through Forward.
+	Resources  ResourceManager
 	streamsMu  sync.Mutex
 	streams    int
 	Revalidate func(context.Context, contract.Actor) error

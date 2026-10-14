@@ -287,8 +287,11 @@ func invalidationKey(resource, user string) string { return resource + "\x00" + 
 func (s *proposalStore) invalidationCount(resource, user string) uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.invalidations[invalidationKey(resource, user)]
+	return s.invalidations[invalidationKey(resource, user)] + s.invalidations[invalidationKey(resource, allUsers)]
 }
+
+// allUsers is the user part of the invalidation key of a whole resource.
+const allUsers = "*"
 
 // transition moves a proposal from one of the allowed states, atomically with
 // the durable write. It reports the stored record after the change.
@@ -972,7 +975,7 @@ func (b *Broker) insert(rec *proposalRecord, inv uint64, user string, now time.T
 	s := b.store
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.invalidations[invalidationKey(rec.ResourceID, user)] != inv {
+	if s.invalidations[invalidationKey(rec.ResourceID, user)]+s.invalidations[invalidationKey(rec.ResourceID, allUsers)] != inv {
 		return ErrForbidden
 	}
 	// Record expiry and retention first so they hold even when the insertion

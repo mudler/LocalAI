@@ -11,6 +11,7 @@ import (
 	"sort"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const (
@@ -18,6 +19,11 @@ const (
 	lockName    = "policy.lock"
 	stateActive = "active"
 	statePend   = "pending"
+	// stateDeleting is a resource its owner asked to delete. It is
+	// inaccessible to everyone, takes no new admission and is removed only
+	// after the addon confirmed that its backing is gone. A crash leaves the
+	// record, and the owner resumes or aborts it at startup.
+	stateDeleting = "deleting"
 )
 
 // record is the host's binding of an opaque resource ID to the trusted addon
@@ -32,6 +38,11 @@ type record struct {
 	// work that predates a lowering from work admitted after the grant became
 	// durable again.
 	Epoch uint64 `json:"epoch,omitempty"`
+	// Delete is present exactly while the resource is deleting.
+	Delete *deleteMark `json:"delete,omitempty"`
+	// CreateRef binds a resource made by the UI creation path to the request
+	// that made it, so a repeated operation ID with another request is refused.
+	CreateRef string `json:"createRef,omitempty"`
 	// Drain names users whose grant was lowered or removed and whose admitted
 	// work and pending proposals are not yet known to be stopped. The mark is
 	// durable with the change itself and cleared only after the drain
@@ -39,6 +50,18 @@ type record struct {
 	// early. It holds the epoch of the lowering, not a flag, so a retry stops
 	// and waits for the older work only.
 	Drain map[string]drainMark `json:"drain,omitempty"`
+}
+
+// deleteMark is the durable state of a deletion in progress.
+type deleteMark struct {
+	// Op is the operation identifier of the person's delete request.
+	Op string `json:"op"`
+	// By is the owner who asked for the deletion.
+	By string `json:"by"`
+	// Confirmed is set once the preconditions held with no admitted work
+	// left. Only a confirmed deletion is resumed after a crash; an
+	// unconfirmed one is returned to the active state.
+	Confirmed bool `json:"confirmed,omitempty"`
 }
 
 // drainMark is the cutoff of an owed drain: admitted work of the user with an
@@ -56,6 +79,10 @@ func (r *record) copy() *record {
 	for u, role := range r.Grants {
 		n.Grants[u] = role
 	}
+	if r.Delete != nil {
+		d := *r.Delete
+		n.Delete = &d
+	}
 	n.Drain = nil
 	if len(r.Drain) > 0 {
 		n.Drain = make(map[string]drainMark, len(r.Drain))
@@ -66,16 +93,37 @@ func (r *record) copy() *record {
 	return &n
 }
 
+// tombstone is what stays of a resource whose deletion finished: enough for
+// its owner to learn that a deletion that was reported as unknown did happen.
+// It names no data and grants nothing. The newest MaxTombstones are kept.
+type tombstone struct {
+	AddonID string    `json:"addonId"`
+	Owner   string    `json:"owner"`
+	Op      string    `json:"op"`
+	At      time.Time `json:"at"`
+}
+
+// MaxTombstones bounds the finished deletions the store remembers.
+const MaxTombstones = 1024
+
 type document struct {
-	Version   int                `json:"version"`
-	Mode      Mode               `json:"mode"`
-	Resources map[string]*record `json:"resources"`
+	Version   int                   `json:"version"`
+	Mode      Mode                  `json:"mode"`
+	Resources map[string]*record    `json:"resources"`
+	Deleted   map[string]*tombstone `json:"deleted,omitempty"`
 }
 
 func (d *document) clone() *document {
 	c := &document{Version: d.Version, Mode: d.Mode, Resources: make(map[string]*record, len(d.Resources))}
 	for id, r := range d.Resources {
 		c.Resources[id] = r.copy()
+	}
+	if len(d.Deleted) > 0 {
+		c.Deleted = make(map[string]*tombstone, len(d.Deleted))
+		for id, t := range d.Deleted {
+			n := *t
+			c.Deleted[id] = &n
+		}
 	}
 	return c
 }
@@ -140,8 +188,16 @@ func load(dir string) (*document, error) {
 	if d.Resources == nil {
 		d.Resources = map[string]*record{}
 	}
+	if len(d.Deleted) > MaxTombstones {
+		return nil, errors.New("addon policy store is corrupt")
+	}
+	for id, t := range d.Deleted {
+		if id == "" || t == nil || t.AddonID == "" || t.Owner == "" || t.Op == "" {
+			return nil, errors.New("addon policy store is corrupt")
+		}
+	}
 	for _, r := range d.Resources {
-		if r == nil || r.AddonID == "" || r.Owner == "" || (r.State != stateActive && r.State != statePend) {
+		if r == nil || r.AddonID == "" || r.Owner == "" || (r.State != stateActive && r.State != statePend && r.State != stateDeleting) || (r.State == stateDeleting) != (r.Delete != nil) {
 			return nil, errors.New("addon policy store is corrupt")
 		}
 		for u, role := range r.Grants {
@@ -248,6 +304,17 @@ func (s *Store) mutate(fn func(*document) error) error {
 	return nil
 }
 
+func (s *Store) hasDeleting() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range s.doc.Resources {
+		if r.State == stateDeleting {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Store) pending() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -325,6 +392,13 @@ func MigrateMode(dir string, to Mode, backupDir, namedOwner string) error {
 			r.Owner = LocalOwnerID
 		} else {
 			r.Owner = namedOwner
+		}
+	}
+	for _, t := range next.Deleted {
+		if to == ModeLocalOwner {
+			t.Owner = LocalOwnerID
+		} else {
+			t.Owner = namedOwner
 		}
 	}
 	_, err = save(dir, next)

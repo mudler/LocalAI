@@ -116,6 +116,10 @@ type wireRequest struct {
 	Artifact *artifactCall `json:"artifact,omitempty"`
 	// Apps marks a read of the apps list.
 	Apps *appsCall `json:"apps,omitempty"`
+	// Resource marks a UI-only resource management call: listing, creation,
+	// grants, rename, deletion and conversation selections. Such a call is
+	// never a typed dispatch.
+	Resource *ResourceCall `json:"resource,omitempty"`
 }
 
 func decode(r io.Reader, dst any) error {
@@ -173,6 +177,21 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.Resource != nil {
+			call := *wire.Resource
+			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			raw, e := g.resourceLocal(r.Context(), actor, wire.Request, call)
+			if e != nil {
+				resourceFailure(w, call, wire.Request.OperationID, e)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(raw)
 			return
 		}
 		if wire.Apps != nil {
@@ -388,12 +407,20 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				// A denial of a proposal call may name the blocking operation.
 				return nil, proposalDenied(resp.Body, wire.Request.OperationID)
 			}
+			if wire.Resource != nil {
+				// The owner types its denials, so a quota or a block that the
+				// owner decided is the same answer from every frontend.
+				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
+			}
 			return nil, ErrForbidden
 		}
 		if wire.Proposal != nil {
 			// The owner types its failure of a proposal call, so the answer
 			// is the owner's state and not a guess of this frontend.
 			return nil, proposalReplyError(resp.Body, *wire.Proposal, wire.Request.OperationID)
+		}
+		if wire.Resource != nil {
+			return nil, resourceReplyErrorFor(resp.Body, resp.StatusCode, wire.Request)
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
 		// the owner may have recorded or applied it before it failed.
@@ -421,10 +448,14 @@ func mutationOutcome(r contract.Request, e error) error {
 // nothing, so a lost answer is plainly unavailable.
 var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true}
 
+// resourceRead are the resource management calls that have no operation with
+// an outcome to report: the reads and the two idempotent selection calls.
+var resourceRead = map[string]bool{"resource-list": true, "resource-grants": true, "resource-users": true, "resource-status": true, "resource-selection-get": true, "resource-selection-resolve": true, "resource-selection-put": true, "resource-selection-clear": true}
+
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action]
+	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action]
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

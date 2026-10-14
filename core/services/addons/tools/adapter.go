@@ -32,6 +32,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -44,7 +45,7 @@ const (
 	// MaxNameLength is the longest function name providers accept.
 	MaxNameLength = 64
 	// MaxArgumentBytes bounds the arguments of one call.
-	MaxArgumentBytes = 256 << 10
+	MaxArgumentBytes = toolargs.MaxArgumentBytes
 	// MaxResultBytes bounds a read result handed to a model. A larger result
 	// is refused: a truncated JSON document would read as a complete one.
 	MaxResultBytes = 128 << 10
@@ -63,10 +64,10 @@ var (
 	ErrUnknownTool = errors.New("addon tool not available")
 	// ErrForbiddenArgument means the arguments carry a field that stands for
 	// identity, authority or approval.
-	ErrForbiddenArgument = errors.New("addon tool arguments carry a reserved field")
+	ErrForbiddenArgument = toolargs.ErrForbiddenArgument
 	// ErrInvalidArguments means the arguments are not what the tool schema
 	// declares.
-	ErrInvalidArguments = errors.New("addon tool arguments are invalid")
+	ErrInvalidArguments = toolargs.ErrInvalid
 	// ErrResultTooLarge means a read result is too large for a model.
 	ErrResultTooLarge = errors.New("addon tool result is too large; narrow the request")
 )
@@ -83,6 +84,16 @@ type Backend interface {
 }
 
 var _ Backend = (*gateway.Gateway)(nil)
+
+// Selector resolves the resource a conversation selected. The owner
+// authorizes the stored reference for the actor on every call, so the answer
+// is never a credential. A Backend that does not implement it has no
+// conversation selection: a call that omits the resource is invalid.
+type Selector interface {
+	ResolveSelection(ctx context.Context, actor contract.Actor, conversationID, addonID string) (string, error)
+}
+
+var _ Selector = (*gateway.Gateway)(nil)
 
 // ToolDefinition is one tool as a model sees it.
 type ToolDefinition struct {
@@ -105,7 +116,18 @@ const (
 	ResultProposal ResultKind = "proposal"
 	// ResultArtifact is a reference to a private file the add-on produced.
 	ResultArtifact ResultKind = "artifact"
+	// ResultError is a typed answer that asks the person to act: no resource
+	// is selected for the conversation. It is a result, not a transport
+	// failure, so the model can tell the person what to do.
+	ResultError ResultKind = "error"
 )
+
+// CodeSelectResource is the Code of a ResultError for a tool call that named
+// no resource in a conversation that has none selected.
+const CodeSelectResource = "select_resource"
+
+// SelectNote is what the model is told when no resource is selected.
+const SelectNote = "No resource is selected for this conversation. Ask the person to choose one with the Select action of the add-on in the chat, or to give its ID. Do not guess an ID."
 
 // ProposalRef is what a model and a chat learn of a stored proposal. The
 // approval card reads the authoritative record from the host by ID; model
@@ -139,6 +161,8 @@ type ToolResult struct {
 	Result    json.RawMessage `json:"result,omitempty"`
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
+	// Code says what the person is asked to do, for a ResultError.
+	Code string `json:"code,omitempty"`
 	// Note is host text for the model: a proposal is not applied.
 	Note string `json:"note,omitempty"`
 }
@@ -166,7 +190,6 @@ func randomOperationID() (string, error) {
 }
 
 var toolName = regexp.MustCompile(`^addon__([a-z][a-z0-9-]{0,63})__([a-z][a-z0-9-]{0,63})$`)
-var resourceID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
 // ToolName is the function name of an add-on tool.
 func ToolName(addonID, tool string) string { return Prefix + addonID + "__" + tool }
@@ -248,6 +271,17 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 // Execute runs one tool call as actor. The actor is the authenticated
 // principal of the consumer's request or job; arguments cannot change it.
 func (t *ToolAdapter) Execute(ctx context.Context, actor contract.Actor, name string, arguments json.RawMessage) (ToolResult, error) {
+	return t.ExecuteIn(ctx, actor, "", name, arguments)
+}
+
+// ExecuteIn runs one tool call of a conversation. The conversation ID comes
+// from the consumer's authenticated request, never from the arguments: it is
+// used only when the call names no resource, to resolve the conversation's
+// selection at the owner. An empty ID means the consumer has no conversation.
+func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
+	if conversationID != "" && !ValidConversationID(conversationID) {
+		return ToolResult{}, ErrInvalidArguments
+	}
 	addonID, tool, ok := ParseToolName(name)
 	if !ok {
 		return ToolResult{}, ErrUnknownTool
@@ -275,9 +309,27 @@ func (t *ToolAdapter) Execute(ctx context.Context, actor contract.Actor, name st
 	if !found {
 		return ToolResult{}, ErrUnknownTool
 	}
-	resource, body, err := bindArguments(def, arguments)
+	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
 		return ToolResult{}, err
+	}
+	if resource == "" && conversationID != "" && requiresResource(def) {
+		sel, ok := t.backend.(Selector)
+		if !ok {
+			return ToolResult{}, ErrInvalidArguments
+		}
+		id, err := sel.ResolveSelection(ctx, actor, conversationID, app.ID)
+		switch {
+		case errors.Is(err, gateway.ErrNotSelected):
+			return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectResource, Note: SelectNote}, nil
+		case err != nil:
+			// A revoked, deleted or foreign reference is the denial of an
+			// unknown resource, and an outage stays an outage.
+			return ToolResult{}, err
+		case !toolargs.ValidResourceID(id):
+			return ToolResult{}, gateway.ErrForbidden
+		}
+		resource = id
 	}
 	op, err := t.newID()
 	if err != nil {
@@ -305,6 +357,25 @@ func (t *ToolAdapter) Execute(ctx context.Context, actor contract.Actor, name st
 	return ToolResult{Kind: ResultProposal, Tool: name, Proposal: &ref, Note: ProposalNote}, nil
 }
 
+// requiresResource reports a tool whose schema requires the resource.
+func requiresResource(def ToolDefinition) bool {
+	props, _ := def.Parameters["properties"].(map[string]any)
+	if _, ok := props[contract.ResourceArgument]; !ok {
+		return false
+	}
+	req, _ := def.Parameters["required"].([]any)
+	for _, r := range req {
+		if s, _ := r.(string); s == contract.ResourceArgument {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidConversationID reports whether id has the shape of a conversation
+// identifier: the namespace of one user's selections.
+func ValidConversationID(id string) bool { return toolargs.ValidConversationID(id) }
+
 func readResult(name string, out contract.Result) (ToolResult, error) {
 	if len(out.Outputs) > 0 {
 		refs := make([]ArtifactRef, 0, len(out.Outputs))
@@ -326,133 +397,6 @@ func (r ToolResult) JSON() string {
 		return `{"kind":"error"}`
 	}
 	return string(b)
-}
-
-// bindArguments validates the model's arguments against the manifest schema
-// and returns the resource ID and the argument object the owner receives. The
-// resource is taken out of the object; the tool name is put in by the host.
-func bindArguments(def ToolDefinition, raw json.RawMessage) (string, json.RawMessage, error) {
-	if len(raw) == 0 || len(raw) > MaxArgumentBytes {
-		return "", nil, ErrInvalidArguments
-	}
-	if gateway.CheckToolArguments(raw) != nil {
-		return "", nil, ErrInvalidArguments
-	}
-	var in map[string]json.RawMessage
-	if json.Unmarshal(raw, &in) != nil {
-		return "", nil, ErrInvalidArguments
-	}
-	// Identity, role, approval and operation fields are refused first and by
-	// name, whatever the schema declares.
-	for k := range in {
-		if contract.ForbiddenToolProperty(k) {
-			return "", nil, ErrForbiddenArgument
-		}
-	}
-	props, _ := def.Parameters["properties"].(map[string]any)
-	for k, v := range in {
-		spec, ok := props[k].(map[string]any)
-		if !ok {
-			return "", nil, ErrInvalidArguments
-		}
-		if !matches(spec, v) {
-			return "", nil, ErrInvalidArguments
-		}
-	}
-	if req, ok := def.Parameters["required"].([]any); ok {
-		for _, r := range req {
-			if s, _ := r.(string); s != "" {
-				if _, present := in[s]; !present {
-					return "", nil, ErrInvalidArguments
-				}
-			}
-		}
-	}
-	resource := ""
-	if v, ok := in[contract.ResourceArgument]; ok {
-		if json.Unmarshal(v, &resource) != nil || !resourceID.MatchString(resource) {
-			return "", nil, ErrInvalidArguments
-		}
-		delete(in, contract.ResourceArgument)
-	}
-	toolValue, _ := json.Marshal(def.Tool)
-	in["tool"] = toolValue
-	body, err := json.Marshal(in)
-	if err != nil {
-		return "", nil, ErrInvalidArguments
-	}
-	return resource, body, nil
-}
-
-// matches checks the top-level type, enum and size keywords of one property.
-// Nested structure is the add-on's to validate: it owns the typed operation.
-func matches(spec map[string]any, v json.RawMessage) bool {
-	typ, _ := spec["type"].(string)
-	var x any
-	d := json.NewDecoder(strings.NewReader(string(v)))
-	d.UseNumber()
-	if d.Decode(&x) != nil {
-		return false
-	}
-	switch typ {
-	case "":
-	case "string":
-		s, ok := x.(string)
-		if !ok {
-			return false
-		}
-		if n, ok := number(spec["maxLength"]); ok && int64(len([]rune(s))) > n {
-			return false
-		}
-		if en, ok := spec["enum"].([]any); ok && !slices.Contains(en, any(s)) {
-			return false
-		}
-	case "integer", "number":
-		n, ok := x.(json.Number)
-		if !ok {
-			return false
-		}
-		f, err := n.Float64()
-		if err != nil || (typ == "integer" && strings.ContainsAny(n.String(), ".eE")) {
-			return false
-		}
-		if lo, ok := number(spec["minimum"]); ok && f < float64(lo) {
-			return false
-		}
-		if hi, ok := number(spec["maximum"]); ok && f > float64(hi) {
-			return false
-		}
-	case "boolean":
-		if _, ok := x.(bool); !ok {
-			return false
-		}
-	case "array":
-		list, ok := x.([]any)
-		if !ok {
-			return false
-		}
-		if n, ok := number(spec["maxItems"]); ok && int64(len(list)) > n {
-			return false
-		}
-		if n, ok := number(spec["minItems"]); ok && int64(len(list)) < n {
-			return false
-		}
-	case "object":
-		if _, ok := x.(map[string]any); !ok {
-			return false
-		}
-	default:
-		return false
-	}
-	return true
-}
-
-func number(v any) (int64, bool) {
-	f, ok := v.(float64)
-	if !ok {
-		return 0, false
-	}
-	return int64(f), true
 }
 
 // String describes a definition for logs.

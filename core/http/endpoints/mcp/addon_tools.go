@@ -36,6 +36,12 @@ import (
 // so it does not reach the backend.
 const MetadataKeyAddonTools = "addon_tools"
 
+// ConversationHeader carries the identifier of the chat conversation a
+// request belongs to. It is read from the authenticated request, never from
+// the model's arguments, and it only names the namespace of the caller's own
+// selections: the owner keys a selection by the authenticated user as well.
+const ConversationHeader = "X-LocalAI-Conversation-Id"
+
 // ErrAddonToolsUnsupported means a surface that cannot bind a per-request
 // actor was asked for add-on tools. It is also the answer for a tool name in
 // the reserved add-on namespace on any non-broker executor.
@@ -107,7 +113,13 @@ func (p *AddonToolProvider) ExecutorFor(c echo.Context) (ToolExecutor, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewAddonToolExecutor(c.Request().Context(), p.adapter, actor)
+	// A header that is not the shape of a conversation ID names no
+	// conversation: a call without a resource is then invalid, as before.
+	conversation := c.Request().Header.Get(ConversationHeader)
+	if !tools.ValidConversationID(conversation) {
+		conversation = ""
+	}
+	return NewAddonToolExecutorFor(c.Request().Context(), p.adapter, actor, conversation)
 }
 
 // AddonToolExecutor is a ToolExecutor for add-on tools with one immutable
@@ -115,16 +127,27 @@ func (p *AddonToolProvider) ExecutorFor(c echo.Context) (ToolExecutor, error) {
 type AddonToolExecutor struct {
 	adapter *tools.ToolAdapter
 	actor   contract.Actor
-	defs    []functions.Function
+	// conversation is the chat conversation of the authenticated request. It
+	// is bound once, like the actor, and arguments cannot change it.
+	conversation string
+	defs         []functions.Function
 }
 
-// NewAddonToolExecutor discovers the tools actor may use now.
+// NewAddonToolExecutor discovers the tools actor may use now, for a consumer
+// that has no conversation.
 func NewAddonToolExecutor(ctx context.Context, adapter *tools.ToolAdapter, actor contract.Actor) (*AddonToolExecutor, error) {
+	return NewAddonToolExecutorFor(ctx, adapter, actor, "")
+}
+
+// NewAddonToolExecutorFor is NewAddonToolExecutor for a chat conversation: a
+// call that names no resource uses the conversation's selection, which the
+// owner authorizes again for the actor on every call.
+func NewAddonToolExecutorFor(ctx context.Context, adapter *tools.ToolAdapter, actor contract.Actor, conversation string) (*AddonToolExecutor, error) {
 	defs, err := adapter.Discover(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
-	e := &AddonToolExecutor{adapter: adapter, actor: actor}
+	e := &AddonToolExecutor{adapter: adapter, actor: actor, conversation: conversation}
 	for _, d := range defs {
 		e.defs = append(e.defs, functions.Function{Name: d.Name, Description: d.Description, Parameters: d.Parameters})
 	}
@@ -144,7 +167,7 @@ func (e *AddonToolExecutor) HasTools() bool { return len(e.defs) > 0 }
 // ExecuteTool runs one call as the bound actor and returns the host's result
 // document: a read result, a proposal reference or artifact references.
 func (e *AddonToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {
-	res, err := e.adapter.Execute(ctx, e.actor, toolName, json.RawMessage(arguments))
+	res, err := e.adapter.ExecuteIn(ctx, e.actor, e.conversation, toolName, json.RawMessage(arguments))
 	if err != nil {
 		return "", err
 	}

@@ -580,6 +580,9 @@ type ReconcileLoop struct {
 	began  atomic.Bool
 	// Report receives the result of every pass that had work. Optional.
 	Report func(ReconcileReport, error)
+	// Resume settles the deletions a crash or an outage left, while any
+	// record is deleting. Optional. It must be fail-soft and bounded.
+	Resume func(context.Context)
 }
 
 // DefaultReconcileInterval is the retry period of a ReconcileLoop.
@@ -625,12 +628,19 @@ func (l *ReconcileLoop) Start(ctx context.Context) {
 			case <-ticks:
 			case <-l.kick:
 			}
-			if len(l.p.store.pending()) == 0 {
+			pend := len(l.p.store.pending()) > 0
+			del := l.Resume != nil && l.p.store.hasDeleting()
+			if !pend && !del {
 				continue
 			}
-			rep, err := l.p.ReconcileReport(ctx, l.exists)
-			if l.Report != nil {
-				l.Report(rep, err)
+			if pend {
+				rep, err := l.p.ReconcileReport(ctx, l.exists)
+				if l.Report != nil {
+					l.Report(rep, err)
+				}
+			}
+			if del {
+				l.Resume(ctx)
 			}
 		}
 	}()
