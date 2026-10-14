@@ -57,3 +57,28 @@ export function rendererProps(proposal) {
     arguments: detach(proposal && proposal.arguments),
   })
 }
+
+// The facts the proposal card draws, all taken from the stored proposal the
+// host returned. Nothing here comes from model text.
+export function proposalFacts(proposal, now = Date.now()) {
+  const s = approvalState(proposal, now)
+  const args = proposal && proposal.arguments && typeof proposal.arguments === 'object' ? proposal.arguments : {}
+  const sample = proposal && proposal.effects ? proposal.effects.sample : undefined
+  return {
+    addonId: String((proposal && proposal.addonId) || ''),
+    // A create proposal names a reservation; the card shows the requested name.
+    database: String((proposal && proposal.resourceId) || ''),
+    requestedName: s.tool === 'databases-create' && typeof args.name === 'string' ? args.name : '',
+    operation: s.tool,
+    action: String((proposal && proposal.action) || ''),
+    count: s.count,
+    sample,
+    expiresAt: s.expiresAt,
+    state: s.state,
+    expired: s.expired,
+    blocked: !!(proposal && proposal.blocked === true),
+    canDecide: s.canDecide,
+    settled: ['applied', 'cancelled', 'expired', 'rejected', 'abandoned-unknown'].includes(s.state) || (s.state === 'pending' && s.expired),
+    unknownOutcome: s.state === 'outcome-unknown' || s.state === 'abandoned-unknown',
+  }
+}

@@ -159,7 +159,9 @@
     "copyFailed": "Could not copy to clipboard",
     "chatCopied": "Chat copied to clipboard",
     "forked": "Created a new chat",
-    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged."
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged.",
+    "addonToolsOn": "Add-on tools on for this chat",
+    "addonToolsOff": "Add-on tools off for this chat"
   },
   "menu": {
     "trigger": "Chats",
@@ -260,6 +262,10 @@
     "clear": {
       "label": "Clear conversation",
       "desc": "Remove every message in this chat"
+    },
+    "addon-tools": {
+      "label": "Add-on tools",
+      "desc": "Let this chat use the tools of your add-ons"
     }
   },
   "shortcuts": {

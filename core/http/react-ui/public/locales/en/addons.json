@@ -283,5 +283,21 @@
     "signatureRequired": "Signature required",
     "verification": "Verification",
     "version": "Version"
+  },
+  "proposal": {
+    "title": "Add-on change",
+    "loading": "Loading the request",
+    "withdrawn": "This request is no longer available to you.",
+    "unavailable": "This request is not available.",
+    "addon": "Add-on",
+    "database": "Database",
+    "operation": "Operation",
+    "effects": "Changes",
+    "sample": "Preview from the host",
+    "blocked": "Another change on this database is not settled yet. Settle it first.",
+    "expired": "This request has expired. Ask for it again.",
+    "rejectedState": "The data changed or the request was refused. Nothing was applied. Ask again for a new preview.",
+    "unknown": "The outcome is not known yet. It may have been applied. Check its status before you ask again.",
+    "refresh": "Check status"
   }
 }

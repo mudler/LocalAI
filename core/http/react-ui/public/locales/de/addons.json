@@ -283,5 +283,21 @@
     "signatureRequired": "Signatur erforderlich",
     "verification": "Verifizierung",
     "version": "Version"
+  },
+  "proposal": {
+    "title": "Änderung eines Add-ons",
+    "loading": "Anfrage wird geladen",
+    "withdrawn": "Diese Anfrage ist für dich nicht mehr verfügbar.",
+    "unavailable": "Diese Anfrage ist nicht verfügbar.",
+    "addon": "Add-on",
+    "database": "Datenbank",
+    "operation": "Vorgang",
+    "effects": "Änderungen",
+    "sample": "Vorschau vom Host",
+    "blocked": "Eine andere Änderung dieser Datenbank ist noch nicht abgeschlossen. Schließe sie zuerst ab.",
+    "expired": "Diese Anfrage ist abgelaufen. Frage erneut an.",
+    "rejectedState": "Die Daten haben sich geändert oder die Anfrage wurde abgelehnt. Nichts wurde angewendet. Frage eine neue Vorschau an.",
+    "unknown": "Das Ergebnis ist noch nicht bekannt. Es wurde möglicherweise angewendet. Prüfe den Status, bevor du erneut anfragst.",
+    "refresh": "Status prüfen"
   }
 }

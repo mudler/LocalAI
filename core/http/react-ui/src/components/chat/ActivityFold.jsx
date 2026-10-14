@@ -4,6 +4,9 @@ import { renderMarkdown, highlightAll } from '../../utils/markdown'
 // eslint-disable-next-line no-unused-vars
 import MCPAppFrame from '../MCPAppFrame'
 import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import ProposalCard from '../../addons/ProposalCard'
+import { proposalReference } from '../../addons/proposalResult'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is already in the history
@@ -82,6 +85,16 @@ function FoldFrame({ summary, open, live, shimmer, onToggle, icon, children, id 
   )
 }
 
+// The proposal a stored tool result of an add-on tool refers to, or null.
+function proposalOfContent(raw) {
+  try {
+    const data = JSON.parse(raw)
+    return proposalReference(data && data.name, data && data.result)
+  } catch {
+    return null
+  }
+}
+
 // One run of thinking and tool entries between two messages.
 export function ActivityGroup({ items, getClientForTool, id }) {
   const { t } = useTranslation('chat')
@@ -95,8 +108,11 @@ export function ActivityGroup({ items, getClientForTool, id }) {
   if (!items || items.length === 0) return null
 
   // A tool result that came with an app UI is shown on its own, not folded.
+  // So is a proposal of an add-on tool: its card is the place a person
+  // decides, and it loads the stored proposal from the host.
   const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
-  const regularItems = items.filter(item => !(item.role === 'tool_result' && item.appUI))
+  const proposalItems = items.filter(item => item.role === 'tool_result' && !item.appUI && proposalOfContent(item.content))
+  const regularItems = items.filter(item => !(item.role === 'tool_result' && (item.appUI || proposalOfContent(item.content))))
   const icon = regularItems.some(i => i.role === 'thinking' || i.role === 'reasoning') ? 'lightbulb' : 'wrench'
 
   return (
@@ -134,6 +150,14 @@ export function ActivityGroup({ items, getClientForTool, id }) {
           </ol>
         </FoldFrame>
       )}
+      {proposalItems.map((item, idx) => {
+        const ref = proposalOfContent(item.content)
+        return (
+          <div key={`proposal-${ref.proposalId}-${idx}`} className="cx-row">
+            <ProposalCard proposalId={ref.proposalId} />
+          </div>
+        )
+      })}
       {appUIItems.map((item, idx) => (
         <div key={`appui-${idx}`} className="cx-row">
           <div className="cx-who"><Icon name="puzzle" /><b>{item.appUI.toolName}</b></div>
@@ -193,6 +217,14 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
         )}
         {hasTools && toolCalls.map((tc, idx) => {
           if (tc.type === 'tool_result') {
+            const ref = proposalReference(tc.name, tc.result)
+            if (ref) {
+              return (
+                <li key={idx} className="cx-step">
+                  <ProposalCard proposalId={ref.proposalId} />
+                </li>
+              )
+            }
             return (
               <li key={idx} className="cx-step">
                 <h4>{t('activity.toolResult', { name: tc.name })}</h4>

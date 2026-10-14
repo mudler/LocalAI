@@ -108,4 +108,9 @@
 .ad-approval__facts dd { margin: 0; font-size: var(--dk-text-13); }
 .ad-approval__body { min-width: 0; padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-inset); overflow-x: auto; }
 .ad-approval__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-2); }
+/* The proposal card drawn inline in a chat thread. */
+.ad-pcard { padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-surface, transparent); max-width: 40rem; }
+.ad-pcard[data-state="applied"] { border-color: var(--dk-ok, var(--dk-edge)); }
+.ad-pcard__facts dd code { overflow-wrap: anywhere; }
+.ad-pcard .ad-result { max-height: 12rem; }
 .ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--dk-text-12, 12px); white-space: pre-wrap; overflow-wrap: anywhere; }

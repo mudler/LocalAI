@@ -279,5 +279,21 @@
     "signatureRequired": "需要签名",
     "verification": "验证",
     "version": "版本"
+  },
+  "proposal": {
+    "title": "附加组件的更改",
+    "loading": "正在加载请求",
+    "withdrawn": "您已无法再使用此请求。",
+    "unavailable": "此请求不可用。",
+    "addon": "附加组件",
+    "database": "数据库",
+    "operation": "操作",
+    "effects": "更改",
+    "sample": "来自主机的预览",
+    "blocked": "此数据库上的另一项更改尚未完成。请先处理它。",
+    "expired": "此请求已过期。请重新请求。",
+    "rejectedState": "数据已更改或请求被拒绝。未应用任何内容。请重新请求预览。",
+    "unknown": "结果尚不明确，可能已被应用。再次请求前请先检查状态。",
+    "refresh": "检查状态"
   }
 }

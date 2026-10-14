@@ -283,5 +283,21 @@
     "signatureRequired": "Firma richiesta",
     "verification": "Verifica",
     "version": "Versione"
+  },
+  "proposal": {
+    "title": "Modifica di un componente aggiuntivo",
+    "loading": "Caricamento della richiesta",
+    "withdrawn": "Questa richiesta non è più disponibile per te.",
+    "unavailable": "Questa richiesta non è disponibile.",
+    "addon": "Componente aggiuntivo",
+    "database": "Database",
+    "operation": "Operazione",
+    "effects": "Modifiche",
+    "sample": "Anteprima dell'host",
+    "blocked": "Un'altra modifica su questo database non è ancora conclusa. Concludila prima.",
+    "expired": "Questa richiesta è scaduta. Chiedila di nuovo.",
+    "rejectedState": "I dati sono cambiati o la richiesta è stata rifiutata. Non è stato applicato nulla. Chiedi una nuova anteprima.",
+    "unknown": "L'esito non è ancora noto. Potrebbe essere stato applicato. Controlla lo stato prima di chiedere di nuovo.",
+    "refresh": "Controlla lo stato"
   }
 }

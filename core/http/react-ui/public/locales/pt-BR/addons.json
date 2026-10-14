@@ -283,5 +283,21 @@
     "signatureRequired": "Assinatura obrigatória",
     "verification": "Verificação",
     "version": "Versão"
+  },
+  "proposal": {
+    "title": "Alteração de um complemento",
+    "loading": "Carregando a solicitação",
+    "withdrawn": "Esta solicitação não está mais disponível para você.",
+    "unavailable": "Esta solicitação não está disponível.",
+    "addon": "Complemento",
+    "database": "Banco de dados",
+    "operation": "Operação",
+    "effects": "Alterações",
+    "sample": "Prévia do host",
+    "blocked": "Outra alteração neste banco de dados ainda não foi concluída. Conclua-a primeiro.",
+    "expired": "Esta solicitação expirou. Peça novamente.",
+    "rejectedState": "Os dados mudaram ou a solicitação foi recusada. Nada foi aplicado. Peça uma nova prévia.",
+    "unknown": "O resultado ainda não é conhecido. Pode ter sido aplicado. Verifique o estado antes de pedir de novo.",
+    "refresh": "Verificar estado"
   }
 }

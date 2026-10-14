@@ -283,5 +283,21 @@
     "signatureRequired": "Tanda tangan diwajibkan",
     "verification": "Verifikasi",
     "version": "Versi"
+  },
+  "proposal": {
+    "title": "Perubahan dari add-on",
+    "loading": "Memuat permintaan",
+    "withdrawn": "Permintaan ini tidak lagi tersedia untuk Anda.",
+    "unavailable": "Permintaan ini tidak tersedia.",
+    "addon": "Add-on",
+    "database": "Basis data",
+    "operation": "Operasi",
+    "effects": "Perubahan",
+    "sample": "Pratinjau dari host",
+    "blocked": "Perubahan lain pada basis data ini belum selesai. Selesaikan terlebih dahulu.",
+    "expired": "Permintaan ini telah kedaluwarsa. Ajukan lagi.",
+    "rejectedState": "Data berubah atau permintaan ditolak. Tidak ada yang diterapkan. Minta pratinjau baru.",
+    "unknown": "Hasilnya belum diketahui. Mungkin sudah diterapkan. Periksa statusnya sebelum meminta lagi.",
+    "refresh": "Periksa status"
   }
 }

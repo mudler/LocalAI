@@ -82,3 +82,15 @@ export function useSlotContributions(slot, enabled = true) {
     [slot, apps, instances, language, allowed],
   )
 }
+
+// Whether the signed-in person has add-ons that offer tools to a model: an
+// enabled, running add-on whose manifest defines at least one. The server
+// decides what a chat may call; this only decides whether to offer the switch.
+export function useAddonToolsAvailable() {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  return allowed && apps.some(a => a.enabled && a.state === 'running' && Array.isArray(a.toolDefinitions) && a.toolDefinitions.length > 0)
+}
