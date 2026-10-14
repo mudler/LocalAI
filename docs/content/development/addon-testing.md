@@ -291,3 +291,74 @@ The suite never signs, pushes or creates a tag against a real registry. The work
 itself (registry login, keyless signing, the verification command) is covered by the
 policy assertions and by review, not by a live run: running it needs the protected
 environment of the repository.
+
+## Tables acceptance
+
+`sh scripts/addons/verify.sh tables-acceptance` is the end-to-end acceptance of the
+first-party Tables add-on. `sh scripts/addons/tables_gate.sh` runs every `tables-*`
+suite and then this one, in order, and prints the inventory like the foundation gate.
+It fails for a suite that is skipped, that leaves a process behind or that is added to
+`suites.json` and not named in the script.
+
+What it runs, and what is real:
+
+- **The cluster** is the foundation cluster of `tests/addons/foundation/cluster`: one
+  owner and two forwarding frontends, each a separate server process with its own
+  listener, one shared account database and the real pinned mTLS carrier. The accounts
+  are real: an administrator, the owner of a database, an editor, a viewer, a stranger
+  and an account without the add-ons feature, each with a stored session and an API key.
+- **The package** is the real Tables. `scripts/addons/package.sh` builds the OCI layout
+  of this platform (twice, for two versions). The suite checks every layer against its
+  digest, joins the layers into the archive a catalog on loopback serves, and installs
+  it through a frontend as an administrator does. Nothing is pushed, tagged or signed,
+  and a receipt that says `publishable` is refused.
+- **Calls** use the public HTTP routes only. There is no route into the add-on that a
+  user could not use, and no seam in the add-on: crashes are `SIGKILL`, a stopped
+  process is `SIGSTOP`, an owner outage is a killed owner process.
+- **Reads of the database** by the test are read-only SQLite opens of the add-on's own
+  file, to count the receipts it committed.
+
+The specs, by what they prove:
+
+| Area | Specs |
+|---|---|
+| Roles | Owner, editor, viewer, administrator, stranger and an account without the feature, over the browser module route, the REST routes, the typed proposal route and the chat tool consumer, each through a different node. Blocked consumers (`/v1/messages`, `/v1/responses`, `/v1/mcp/chat/completions`) fail with the typed `addon_tools_unsupported`. |
+| Credentials | A paused key, a withdrawn feature, a lowered role (and the proposals it held), a revoked grant and a disabled account are denied on the next call on every node. |
+| Authority | Forged actor and forwarding headers, authority, role and approval fields, and every way to confirm a proposal without the proposer's own tab (a key with the right headers, the owner's tab, an administrator, a missing header, a tool-call marker, a wrong digest). |
+| Consistency | Schema and data staleness from two tabs, replay of an operation ID from every node, a conflicting request under the same ID, a burst from three nodes with exactly one receipt for each acknowledged ID, and a revocation that races a confirmation. |
+| Crash | The add-on process killed in the middle of a batch and the owner killed and restarted in the middle of a batch: every acknowledged change survives, no change is applied twice, and a worker repeats only the same ID. A stopped and killed process leaves an unresolved confirmation that blocks other writes until the owner role resolves it. |
+| Lifecycle | Disable, enable, uninstall and install: stale tabs and proposals of the older generation do nothing, and data and grants remain. |
+| Files | CSV through a frontend, downloads from every node by the requester only, a revoked viewer, a disabled add-on. |
+| Outage | With the owner down, a JSON read, the JSON relay, progress, status, file status, file download, an asset, the apps list, a proposal, the pending list, a confirmation, an apply and a chat tool call all fail closed (503 with the same typed answer from both frontends), and the frontends run nothing and create no storage. |
+| Recovery | Backup, verify and restore by the administrator's tab; a corrupt backup, a running add-on, a wrong confirmation, an unknown backup. |
+| Upgrade | An explicit check, a redacted status for a member, a key refused, a stale or changed pin refused, one pinned upgrade, the data and grants kept, a backup made first, and a replay of the same operation from another node. |
+| Browser | Approval cards from chat on one frontend and the result on the other, prefix deep links, keyboard, 400 pixels, both themes, the unavailable page while the owner is down and the reload after it is back, and nothing left after logout. |
+
+### The evidence manifest
+
+Each run writes `.cache/addons/tables-acceptance-evidence.json`: the commands the run
+executed, the case inventory with the state of every case, the native platform
+(operating system and architecture), the digests of both packaged versions (the
+archive the catalog serves and the image of the OCI layout), a statement that nothing
+was published, and, for a case that failed, the path of the retained trace (the logs of
+the three servers). A Go test (`TestEvidenceManifest`) checks it against the inventory
+of `scripts/addons/suites.json`: the platform is native, the digests are well formed and
+distinct, every case passed, and a failed case has a trace that exists.
+
+### What it does not prove
+
+- **Other platforms.** The evidence is of the platform it ran on. Advertising another
+  platform needs a native run on that platform; the platform matrix keeps it disabled.
+- **Expiry of an artifact and the free space seam** are time and storage bounds that
+  need a seam the real add-on does not have. The `artifacts` and `recovery` suites
+  cover them with in-process seams.
+- **A needs-recovery upgrade** needs a data format change that fails to migrate. The
+  `recovery` suite covers it; this suite covers the successful upgrade and the restore.
+- **A confirmation that committed and lost its reply.** The race and the crash specs
+  accept it whenever it happens and check the invariants; the `foundation-acceptance`
+  suite produces it on demand with the protocol fixture.
+- **A refused request is reported as unavailable.** A request that the add-on refuses
+  as invalid (an unknown table, an unknown field) is `400` on the apply route, and `503`
+  on the read, proposal and chat routes, because the runtime client reports every
+  non-success of the add-on the same way. It fails closed and never applies anything;
+  the clients that follow the documented recovery loop cannot tell it from an outage.

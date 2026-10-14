@@ -22,6 +22,35 @@ and enables the addon. It reuses the root Go module and needs CGO for SQLite.
 go build ./addons/tables/...
 ```
 
+## Deployment, trust and limits
+
+- **One owner.** A database is a SQLite file on the disk of the one LocalAI instance
+  that owns the add-on. Other frontends forward to it; while the owner is down every
+  Tables call fails with `503` on every frontend, and nothing is applied later. See
+  [Singleton owner and its limits](../addons/#singleton-owner-and-its-limits).
+- **Trust.** The Tables executable is trusted code that runs as the owner's operating
+  system user. Tables itself never learns who a caller is: the host gives it the
+  database ID and the action, and the host decides the role and the approval.
+- **Storage and backup.** The data is under the data directory of the add-on, and
+  backups are made by the administrator through the recovery routes (see
+  [Backup, upgrade and restore](#backup-upgrade-and-restore)). A copy of the data
+  directory made while the add-on runs is not a consistent backup.
+- **Ownership mode.** Named-user mode keeps databases private to their owners and
+  shareable. Local-owner mode has one owner and no sharing. The mode is stored with the
+  data and is changed only while the host is stopped, with an explicit mapping (see
+  [Moving between the modes](../addons/#moving-between-the-modes)).
+- **CSV.** An export is a private, temporary file with the formula policy described in
+  [Spreadsheet formulas](#spreadsheet-formulas): it protects a spreadsheet, not a
+  program that trusts CSV.
+- **Updates.** The host never upgrades Tables by itself. An administrator checks for an
+  update and applies one named candidate (see
+  [Update detection and upgrade](../addons/#update-detection-and-upgrade)); the data is
+  backed up first.
+- **Optional contributions.** The package declares its UI pages and its tools. A host
+  that has no UI still runs the tools, and a UI never gains a tool the manifest does not
+  declare. The chat actions it declares are placed and drawn by the host; the page cannot
+  add a button to the chat of its own.
+
 ## What a database is
 
 Each database is one SQLite file with its own metadata. The file is named by an
@@ -693,7 +722,8 @@ the artifact identifier; after expiry the card says the file expired.
 
 ## How to try it
 
-The addon is not published in a catalog yet. Build the executable, put it in a
+The addon is not published in a catalog yet. Acceptance builds the package locally and
+installs it from a catalog on loopback; it never pushes, tags or signs. Build the executable, put it in a
 package with `manifest.json` from `addons/tables`, and install the package from
 a local source as described in [Addon contracts](../addons/). The suite
 `sh scripts/addons/verify.sh tables-databases` runs the store and the real
@@ -715,6 +745,8 @@ real sessions for the roles, private defaults, sharing and a concurrent revoke,
 destructive deletion, a stale tab after an upgrade or a disable, the database of
 a chat for two conversations and two people, keyboard, 400 pixels, both themes,
 clearing on sign-out and local-owner mode.
+The suite `sh scripts/addons/verify.sh tables-acceptance` is the end-to-end
+acceptance (see [Acceptance](../../development/addon-testing/#tables-acceptance)).
 The suite `sh scripts/addons/verify.sh tables-admin` covers the UI-only
 management of databases with the real owner, real accounts and the real
 executable: private defaults, the owner, editor and viewer matrix, sharing and

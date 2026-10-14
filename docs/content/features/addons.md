@@ -5,9 +5,64 @@ title: Addon contracts
 ## Status and trust
 
 The version-one contracts in `pkg/addons/contract` define managed-process addons.
-The owner can install and run addons. Public HTTP routes, distributed request
-forwarding, and the Tables user interface are not yet available. Tables databases are described in [Tables](../tables/). Installed executables are trusted code, not sandboxed code. Every addon
-requires an executable; a UI bundle alone is not an addon.
+The owner installs, verifies, starts and supervises them, and a deployment with
+several frontends forwards every addon request to that owner over a pinned mutual
+TLS carrier. The routes are described in [Public API](#public-api), the Apps and
+Add-ons pages in [Apps](#apps), and Tables, the first first-party addon, in
+[Tables](../tables/). The first-party package is described in
+[First-party package and release channels](#first-party-package-and-release-channels);
+it is not published to a registry by any test or by acceptance.
+
+Trust has three parts, and they are different:
+
+- **Package identity.** A package is installed only after its digest matches the
+  catalog entry and, when the library requires it, its signature matches the
+  identity policy of that library. A library, a channel and a trusted signer never
+  change by themselves, and an upgrade is refused when the trusted identity of the
+  new package differs from the installed one.
+- **Executable code.** An installed executable is trusted code, not sandboxed
+  code. It runs as the owner's operating system user, with the owner's file system
+  and network. The host gives it a loopback port, a per-start credential and its
+  own data directory; it does not confine it. Install only packages you trust.
+- **Authority.** An addon never decides who a caller is or whether a change was
+  approved. The host supplies the actor from the authenticated session or key,
+  decides every role, and applies a mutation from a chat, an agent or a script only
+  after the proposer's own browser session confirms it. Prompt text, a model and
+  an addon cannot supply that approval.
+
+Every addon requires an executable; a UI bundle alone is not an addon.
+
+## Singleton owner and its limits
+
+Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an
+addon root (its storage identifier and `Root` directory): it holds the journal of
+installed packages, the resource policy store, the proposals, the artifact store, the
+backups and the data of every addon, and it supervises the addon processes. The other
+instances are **frontends**: they authenticate the caller against the shared account
+store and forward the typed operation to the owner. The consequences are by design:
+
+- **No second owner.** A second process that opens the same root is refused while the
+  first holds it; two owners are never active. There is no election and no automatic
+  failover. Moving the owner to another machine is an operator action: stop the owner,
+  move or mount the root, configure the new owner and start it.
+- **An owner outage is an addon outage.** While the owner is down, every frontend
+  answers `503` for every response type (JSON, progress, status, file, asset and
+  proposal calls) with the same typed error, and executes nothing locally. Nothing is
+  queued or applied later. A mutation whose reply was lost is reported as
+  `outcome_unknown` with its original operation ID and is resolved by receipt lookup
+  after the owner is back, never by sending it again under a new ID.
+- **No state on frontends.** A frontend keeps no addon data, no addon process and no
+  sticky session. Any frontend can serve any request, and a request may use another
+  frontend than the previous one.
+- **One writer per database.** A Tables database is one SQLite file on the owner's
+  disk with a single writer. Throughput is bounded by that machine, and the data is
+  only as available as that disk and its backups.
+- **The addon process is local to the owner.** It listens on loopback only. The
+  carrier between a frontend and the owner is the only network path, and it is
+  authenticated in both directions by pinned certificates and signed requests.
+
+A deployment with one instance is the owner and has no frontend; everything above
+still holds.
 
 ## Manifest
 
@@ -727,11 +782,30 @@ addon proposals.
 - The store records the mode. Opening a populated store in the other mode is refused;
   use `policy.MigrateMode` while stopped. Shared data cannot return to this mode.
 
+#### Moving between the modes
+
+The mode is a property of the stored data, so it is changed with the host stopped and
+never by changing the configuration alone:
+
+1. Stop the owner. The migration needs the store lock, which a running owner holds.
+2. Make a backup of the policy store. The migration writes one itself and refuses to
+   continue when it cannot.
+3. Name the mapping of identities. From `local-owner` to named users, every resource
+   needs the account that takes it (`{"local-owner": "<account id>"}`; there is no
+   wildcard and no default, and the target must be a current account). From named
+   users to `local-owner`, a store that holds named-user data is refused, because
+   that data would lose its separation.
+4. Start the owner in the new mode. A store opened in the wrong mode is refused at
+   startup, so a configuration mistake never silently changes who owns data.
+
+A backup made in one mode restores into the other mode only with the same explicit
+mapping (see [Data recovery](#data-recovery)).
+
 Resource reads obtain the current ready runtime incarnation and check the exact generation.
 Private output copying rechecks credentials and stays inside admission until completion
 or cancellation. Immutable assets use installed package receipts, declared entry/CSS paths,
-and a contained filesystem root. Asset access currently requires an actor-bound lifecycle
-operation and administration; registry-driven user asset access is a later integration.
+and a contained filesystem root; an account that holds the addons feature may read the
+declared files of an enabled add-on it may see (see [The asset route](#the-asset-route)).
 
 Mutation MCP tools remain deliberately unavailable. The later MCP integration defines
 safe listing/status tools for proposals; prompt text cannot authorize mutation and no tool
