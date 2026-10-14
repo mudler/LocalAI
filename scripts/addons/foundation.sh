@@ -85,7 +85,12 @@ PY
 go_report="$cache/logs/foundation-go.json"
 rm -f "$go_report"
 FOUNDATION_SERVER="$work/ui-test-server" FOUNDATION_FIXTURE="$work/fixture-addon" FOUNDATION_MOCK="$root/tests/e2e/mock-backend/mock-backend" \
-    go test -count=1 -p 2 -tags auth -timeout 20m ./tests/addons/foundation -ginkgo.json-report="$go_report" >"$cache/logs/foundation-go.log" 2>&1 || { tail -60 "$cache/logs/foundation-go.log" >&2; exit 1; }
+    go test -count=1 -p 2 -tags auth -timeout 20m ./tests/addons/foundation -ginkgo.json-report="$go_report" >"$cache/logs/foundation-go.log" 2>&1 || {
+        # Name the failed specs for the runner, then show the end of the log.
+        report_cases "$go_report" 'go: ' 2>/dev/null | grep -v '"status": "passed"\|"status": "skipped"' || true
+        tail -60 "$cache/logs/foundation-go.log" >&2
+        exit 1
+    }
 report_cases "$go_report" 'go: '
 
 # 2. The existing gallery and process adapter specs. A package case passes when

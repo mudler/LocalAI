@@ -284,6 +284,20 @@ var _ = Describe("foundation fixture through the owner and two frontends", Order
 		Expect(out.Outputs[0].Name).To(Equal("report.txt"))
 
 		viaB := c.Token(cluster.FrontB, "member")
+		// The file result is transferred in the background: the read returns
+		// the artifact as transferring, and a download answers 403 until it
+		// is complete. Wait on the documented status lookup, bounded, so a
+		// loaded machine cannot turn the transfer time into a failure.
+		Eventually(func(g Gomega) string {
+			st, err := viaB.Do("GET", "/api/addons/artifacts/"+exportID, nil, nil)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(st.Status).To(Equal(200), st.String())
+			var a struct {
+				State string `json:"state"`
+			}
+			g.Expect(st.JSON(&a)).To(Succeed())
+			return a.State
+		}, 30*time.Second, 100*time.Millisecond).Should(Equal("complete"))
 		dl, err := viaB.Do("GET", "/api/addons/artifacts/"+exportID+"/download", nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(dl.Status).To(Equal(200))
