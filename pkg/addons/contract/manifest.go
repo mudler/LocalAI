@@ -76,8 +76,94 @@ type Capabilities struct {
 	// arguments and the host authority of each. A declared tool without a
 	// definition is not offered to models.
 	ToolDefinitions []ToolDefinition `json:"toolDefinitions,omitempty"`
-	UI              *UI              `json:"ui,omitempty"`
+	// AdminTools are tools that only the host's own UI-only resource
+	// management endpoints may run. They are never in Tools, never have a
+	// tool definition and never reach a model, a proposal, a typed dispatch
+	// or an agent: the declared-tool rule of those paths reads Tools only.
+	AdminTools []string `json:"adminTools,omitempty"`
+	// Resources says which tools the UI-only resource management endpoints
+	// use for this add-on's resources (create, rename, inspect, delete).
+	Resources *ResourceTools `json:"resources,omitempty"`
+	UI        *UI            `json:"ui,omitempty"`
 }
+
+// ResourceTools maps the host's UI-only resource management operations to
+// tool names of the add-on. Every field is optional; an operation without a
+// tool is not offered for the add-on.
+type ResourceTools struct {
+	// Noun is the singular word for one resource in the UI, such as database.
+	Noun string `json:"noun,omitempty"`
+	// Create is a tool of Tools whose definition has the kind create.
+	Create string `json:"create,omitempty"`
+	// Rename is a tool of Tools whose definition has the kind schema and takes
+	// a name argument.
+	Rename string `json:"rename,omitempty"`
+	// Inspect is a tool of Tools whose definition has the kind read. Its
+	// result is an object with a name string; the host shows it as the
+	// display name of the resource.
+	Inspect string `json:"inspect,omitempty"`
+	// Delete is a tool of AdminTools that removes the resource and its
+	// backing data. It is reachable only from the UI-only delete endpoint.
+	Delete string `json:"delete,omitempty"`
+}
+
+// MaxAdminTools bounds capabilities.adminTools.
+const MaxAdminTools = 4
+
+// validateResourceTools checks AdminTools and Resources against the declared
+// tools and their definitions.
+func validateResourceTools(c Capabilities) error {
+	if len(c.AdminTools) > MaxAdminTools || !uniqueIDs(c.AdminTools) {
+		return fmt.Errorf("invalid admin tools")
+	}
+	declared := map[string]bool{}
+	for _, t := range c.Tools {
+		declared[t] = true
+	}
+	for _, t := range c.AdminTools {
+		if declared[t] {
+			return fmt.Errorf("admin tool %q is also a model tool", t)
+		}
+	}
+	kinds := map[string]string{}
+	for _, d := range c.ToolDefinitions {
+		kinds[d.Name] = d.Kind
+	}
+	r := c.Resources
+	if r == nil {
+		if len(c.AdminTools) > 0 {
+			return fmt.Errorf("admin tools need a resources mapping")
+		}
+		return nil
+	}
+	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" {
+		return fmt.Errorf("empty resources mapping")
+	}
+	if r.Noun != "" && !plainText(r.Noun, 40) {
+		return fmt.Errorf("invalid resource noun")
+	}
+	for _, want := range []struct{ name, kind, label string }{
+		{r.Create, ToolKindCreate, "create"}, {r.Rename, ToolKindSchema, "rename"}, {r.Inspect, ToolKindRead, "inspect"},
+	} {
+		if want.name == "" {
+			continue
+		}
+		if !declared[want.name] || kinds[want.name] != want.kind {
+			return fmt.Errorf("resources %s must name a declared tool of kind %s", want.label, want.kind)
+		}
+	}
+	if r.Delete == "" {
+		if len(c.AdminTools) > 0 {
+			return fmt.Errorf("admin tool is not mapped")
+		}
+		return nil
+	}
+	if len(c.AdminTools) != 1 || c.AdminTools[0] != r.Delete {
+		return fmt.Errorf("resources delete must name the one admin tool")
+	}
+	return nil
+}
+
 type UI struct {
 	Entry      string       `json:"entry"`
 	CSS        []string     `json:"css,omitempty"`
@@ -144,7 +230,7 @@ var assetPath = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
 // so an add-on with one of these IDs would have its asset URLs captured by the
 // host route of the same name. A test derives the registered segments from the
 // real routes and requires each to be listed here.
-var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources"}
+var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources"}
 
 // ReservedAddonIDs returns a copy of the reserved add-on IDs.
 func ReservedAddonIDs() []string { return append([]string(nil), reservedAddonIDs...) }
@@ -223,6 +309,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return fmt.Errorf("invalid capabilities")
 	}
 	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+		return e
+	}
+	if e := validateResourceTools(c); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

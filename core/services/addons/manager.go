@@ -815,3 +815,35 @@ func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint6
 	m.toolCache[id] = toolDeclaration{generation: generation, tools: tools}
 	return tools, nil
 }
+
+// DeclaredCapabilities returns the capabilities of the manifest of the current
+// installed generation: the declared tools, their definitions, the admin tools
+// and the resource mapping. It answers like DeclaredTools: a stale or unknown
+// generation is a denial, an uncertain journal is unavailable. The UI-only
+// resource management endpoints are its only reader of the admin tools.
+func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generation uint64) (contract.Capabilities, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return contract.Capabilities{}, e
+	}
+	st, ok := m.journal.Addons[id]
+	if m.uncertain || m.runtimeRecoveryRequired {
+		return contract.Capabilities{}, ErrRecoveryRequired
+	}
+	if !ok || !st.Installed || generation == 0 || st.Generation != generation {
+		return contract.Capabilities{}, ErrForbidden
+	}
+	receipt, ok := currentReceipt(st)
+	if !ok {
+		return contract.Capabilities{}, ErrForbidden
+	}
+	c := receipt.Manifest.Capabilities
+	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...)}
+	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
+	if c.Resources != nil {
+		r := *c.Resources
+		out.Resources = &r
+	}
+	return out, nil
+}
