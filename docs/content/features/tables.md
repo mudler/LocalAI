@@ -599,7 +599,26 @@ Limits of this policy:
 - The policy protects the file against being run as a formula in a spreadsheet.
   It is not a defence for a program that treats CSV as trusted input.
 
-### Limits
+### Backup, upgrade and restore
+
+The databases are SQLite files under the data directory of the add-on, with one
+ledger. The host backs them up with `VACUUM INTO` while the add-on is stopped, so the
+copy is consistent and holds no write-ahead log (see "Data recovery" in the add-ons
+reference). Backup, restore and purge are not tools and not part of the manifest:
+the administrator's page uses the recovery routes, and no model can reach them.
+
+Tables records the format of its data. `store.FormatVersion` is the format this
+build writes; it is kept in the `format` key of each database and, for the whole store,
+in the ledger. At start the executable calls `Upgrade`, which compares them, runs
+`Migrate(ctx, fromVersion, toVersion)` when the data is older and writes the progress
+to `migration.json`. Each database migrates in one transaction, so a step that fails
+leaves that database exactly as it was, and the store version is recorded last, so a
+run that stopped resumes. Data in a newer format than the executable reads stops the
+start with exit status 9 and is left as it is: the host then keeps the add-on
+unavailable instead of running it on data it cannot read. No step exists yet because
+the first format is the only one.
+
+## Limits
 
 | Limit | Value |
 |---|---|

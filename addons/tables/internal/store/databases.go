@@ -435,7 +435,7 @@ func (s *Store) build(ctx context.Context, id, name, opID string) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err == nil {
 		_, err = tx.ExecContext(ctx, databaseSchema)
-		for k, v := range map[string]string{"name": name, "resource_id": id, "created_by": opID, "format": fmt.Sprint(FormatVersion), "schema_revision": "1", "data_revision": "0"} {
+		for k, v := range map[string]string{"name": name, "resource_id": id, "created_by": opID, "format": fmt.Sprint(formatVersion), "schema_revision": "1", "data_revision": "0"} {
 			if err != nil {
 				break
 			}

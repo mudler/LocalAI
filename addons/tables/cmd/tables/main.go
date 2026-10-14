@@ -40,6 +40,13 @@ func main() {
 		os.Exit(7)
 	}
 	defer st.Close()
+	// The owner stopped every other process on this data before it started
+	// this one, so the migration runs with exclusive ownership. Its progress is
+	// in migration.json for the host; data in a format this build cannot read
+	// stops the start and is left as it is.
+	if err := st.Upgrade(context.Background(), filepath.Join(startup.DataDir, "migration.json")); err != nil {
+		os.Exit(9)
+	}
 	if err := server.Serve(context.Background(), listener, startup, &server.Tables{Store: st, ExportDir: exports}); err != nil {
 		os.Exit(8)
 	}

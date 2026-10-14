@@ -2016,7 +2016,11 @@
           "streams a large table row by row with bounded memory",
           "fails cleanly past the row or byte bound and keeps the bound finite by default",
           "stops on cancellation, on its deadline and on a failing destination, and reports each",
-          "does not change the database it reads"
+          "does not change the database it reads",
+          "records the current format of a new store and migrates nothing",
+          "migrates every database in its own transaction, records the version last and repeats as a no-op",
+          "leaves a database whose step fails exactly as it was and resumes on the next run",
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
         ]
       },
       {
@@ -2132,7 +2136,11 @@
       "streams a large table row by row with bounded memory",
       "fails cleanly past the row or byte bound and keeps the bound finite by default",
       "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads"
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
     ]
   },
   "tables-schema": {
@@ -2228,7 +2236,11 @@
           "streams a large table row by row with bounded memory",
           "fails cleanly past the row or byte bound and keeps the bound finite by default",
           "stops on cancellation, on its deadline and on a failing destination, and reports each",
-          "does not change the database it reads"
+          "does not change the database it reads",
+          "records the current format of a new store and migrates nothing",
+          "migrates every database in its own transaction, records the version last and repeats as a no-op",
+          "leaves a database whose step fails exactly as it was and resumes on the next run",
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
         ]
       },
       {
@@ -2344,7 +2356,11 @@
       "streams a large table row by row with bounded memory",
       "fails cleanly past the row or byte bound and keeps the bound finite by default",
       "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads"
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
     ]
   },
   "tables-rows": {
@@ -2440,7 +2456,11 @@
           "streams a large table row by row with bounded memory",
           "fails cleanly past the row or byte bound and keeps the bound finite by default",
           "stops on cancellation, on its deadline and on a failing destination, and reports each",
-          "does not change the database it reads"
+          "does not change the database it reads",
+          "records the current format of a new store and migrates nothing",
+          "migrates every database in its own transaction, records the version last and repeats as a no-op",
+          "leaves a database whose step fails exactly as it was and resumes on the next run",
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
         ]
       },
       {
@@ -2556,7 +2576,11 @@
       "streams a large table row by row with bounded memory",
       "fails cleanly past the row or byte bound and keeps the bound finite by default",
       "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads"
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
     ]
   },
   "tables-tools": {
