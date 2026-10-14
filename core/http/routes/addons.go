@@ -72,6 +72,16 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	group.GET("/apps/:id/icon", endpoints.GetAppIcon(gw, db, mode))
 	group.POST("/apps/:id/start", endpoints.StartApp(gw, db, mode))
 	group.POST("/apps/:id/stop", endpoints.StopApp(gw, db, mode))
+	// Data recovery: backups, an explicit restore and the purge of retained
+	// data. Administrator-only, accepted only from the administrator's own
+	// browser session, never a tool; the owner decides.
+	group.GET("/:id/recovery", endpoints.GetRecovery(gw, db, mode))
+	group.POST("/:id/recovery/backup", endpoints.CreateBackup(gw, db, mode))
+	group.POST("/:id/recovery/verify", endpoints.VerifyBackup(gw, db, mode))
+	group.POST("/:id/recovery/restore", endpoints.RestoreBackup(gw, db, mode))
+	group.POST("/:id/recovery/delete-backup", endpoints.DeleteBackup(gw, db, mode))
+	group.POST("/:id/recovery/prune", endpoints.PruneBackups(gw, db, mode))
+	group.POST("/:id/purge", endpoints.PurgeAddon(gw, db, mode))
 	// Immutable UI code of an installed, enabled addon, by package digest. A
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.

@@ -45,6 +45,13 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/addons/apps/:id/start", FeatureAddons},
 	{"POST", "/api/addons/apps/:id/stop", FeatureAddons},
 	{"GET", "/api/addons/:id/assets/:digest/*", FeatureAddons},
+	{"GET", "/api/addons/:id/recovery", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/backup", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/verify", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/restore", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/delete-backup", FeatureAddons},
+	{"POST", "/api/addons/:id/recovery/prune", FeatureAddons},
+	{"POST", "/api/addons/:id/purge", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},

@@ -1979,6 +1979,473 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/{id}/purge": {
+            "post": {
+                "description": "Administrators only, from their own browser session, with the add-on ID typed as confirm. Removes retained data the scope names: the add-on's data and the owner's records of its resources and shares (data), its backups (backups) and the data copies that restores and failed upgrades set aside (recoveryCopies). The add-on must be uninstalled or disabled. It is not the deletion of a database and not an uninstall; those never remove retained data. The purge is journaled and finished after a crash, and it touches no other add-on. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Purge the retained data of an add-on (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation, scope and confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryPurgeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What was purged, with warnings",
+                        "schema": {
+                            "$ref": "#/definitions/recovery.PurgeReceipt"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request, empty scope or type confirmation_mismatch",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type addon_running, operation_conflict or busy",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery": {
+            "get": {
+                "description": "Administrators only. Returns the recovery state of the add-on's data (ready, upgrading, restoring, needs-recovery or purging) with its reason, the backups newest first with their size, creation time, reason (manual, upgrade or restore), the ownership mode and package version they hold and the last recorded verification result (verified, failed or unverified), the backup that is the recovery copy, the receipt and warnings of the last restore, the retention policy, the number of data copies a restore set aside and the operation IDs whose result is recorded. Read-only. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read the data recovery state and the backups of an add-on (administrators)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recovery state",
+                        "schema": {
+                            "$ref": "#/definitions/recovery.Status"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery/backup": {
+            "post": {
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). Blocks new admission for the add-on's resources, invalidates its pending proposals, drains admitted work, stops the add-on, makes a consistent copy of its data (every SQLite file with VACUUM INTO, so the write-ahead log is part of it) together with the owner's access state, verifies the copy, publishes it atomically with restricted permissions and starts the add-on again if it was meant to run. A backup that cannot be completed leaves nothing behind. Repeating the operationId returns the same backup. 503 insufficient_storage means the free space did not fit the backup and nothing was changed. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Back up the data of an add-on (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryBackupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The verified backup",
+                        "schema": {
+                            "$ref": "#/definitions/recovery.BackupReceipt"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type not_installed",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type busy",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, insufficient_storage, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery/delete-backup": {
+            "post": {
+                "description": "Administrators only, from their own browser session. The only verified copy and the recovery copy of an upgrade are never removed this way (409 sole_recovery_copy); a purge with explicit scope removes them. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Delete one backup of an add-on (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation and backup",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryDeleteBackupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The deleted backup",
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryDeleted"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type backup_not_found",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type sole_recovery_copy or busy",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery/prune": {
+            "post": {
+                "description": "Administrators only, from their own browser session. Removes the backups the configured count and age policy no longer keeps. The newest verified backup and the recovery copy of an upgrade stay, whatever their age. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Apply the backup retention policy now (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryPruneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The removed backups",
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryPruned"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type busy",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery/restore": {
+            "post": {
+                "description": "Administrators only, from their own browser session, with the add-on ID typed as confirm. The add-on must not be running. The backup is verified before anything changes, its files are staged and swapped in atomically, and the data they replace stays as a recovery copy until it is purged. Access is not restored as it was: every grant is checked again against the current accounts and the lowerings of access recorded since the backup, so nobody gets back access that was taken away; pending proposals are cancelled and operations with an unknown outcome are looked up by receipt and never applied again. The answer carries warnings: the time the data goes back to, the number of changes made after it that are lost, and the shares that were not restored. A backup made in local-owner mode needs mapping {\"local-owner\": \"\u003caccount id\u003e\"}; a backup of named-user data is refused in local-owner mode. Repeating the operationId returns the same receipt and does not restore again. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Restore a backup of an add-on (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation, backup, mapping and confirmation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryRestoreRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What was restored, with warnings",
+                        "schema": {
+                            "$ref": "#/definitions/recovery.RestoreReceipt"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request, type confirmation_mismatch or mapping_invalid",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type backup_not_found",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type addon_running, backup_corrupt, incompatible_format, identity_changed, mapping_required, downgrade_unsupported, operation_conflict or busy",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/recovery/verify": {
+            "post": {
+                "description": "Administrators only, from their own browser session. Reads every file of the backup against its manifest digests and runs the SQLite integrity check, and records the result shown in the list. A failed backup stays in place; removing it is a separate explicit action. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Verify a backup of an add-on (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation and backup",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.RecoveryVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The verified backup",
+                        "schema": {
+                            "$ref": "#/definitions/recovery.BackupReceipt"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Type backup_not_found",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type backup_corrupt",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "produces": [
@@ -6563,6 +7030,101 @@ const docTemplate = `{
                 }
             }
         },
+        "addons.RecoveryBackupRequest": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "description": "OperationID identifies the request. Repeating it returns the backup it\nmade and makes no second one.",
+                    "type": "string"
+                }
+            }
+        },
+        "addons.RecoveryDeleteBackupRequest": {
+            "type": "object",
+            "properties": {
+                "backupId": {
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.RecoveryDeleted": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.RecoveryPruneRequest": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.RecoveryPruned": {
+            "type": "object",
+            "properties": {
+                "removed": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "addons.RecoveryPurgeRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "description": "Confirm is the add-on's ID, typed.",
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                },
+                "scope": {
+                    "$ref": "#/definitions/recovery.PurgeScope"
+                }
+            }
+        },
+        "addons.RecoveryRestoreRequest": {
+            "type": "object",
+            "properties": {
+                "backupId": {
+                    "type": "string"
+                },
+                "confirm": {
+                    "description": "Confirm is the add-on's ID, typed.",
+                    "type": "string"
+                },
+                "mapping": {
+                    "description": "Mapping names the current account that takes the data of a backup made\nin another ownership mode, as {\"local-owner\": \"\u003caccount id\u003e\"}. It is\nexplicit: there is no wildcard and no default.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
+        "addons.RecoveryVerifyRequest": {
+            "type": "object",
+            "properties": {
+                "backupId": {
+                    "type": "string"
+                },
+                "operationId": {
+                    "type": "string"
+                }
+            }
+        },
         "addons.ResolveRequest": {
             "type": "object",
             "properties": {
@@ -8839,6 +9401,262 @@ const docTemplate = `{
                 },
                 "start": {
                     "type": "number"
+                }
+            }
+        },
+        "recovery.BackupInfo": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode and Version are the ownership mode and package version it holds.",
+                    "type": "string"
+                },
+                "pinned": {
+                    "description": "Pinned is set while the backup is the recovery copy of an upgrade.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "verification": {
+                    "type": "string"
+                },
+                "verified": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "recovery.BackupReceipt": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "digest": {
+                    "type": "string"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode and Version are the ownership mode and package version it holds.",
+                    "type": "string"
+                },
+                "pinned": {
+                    "description": "Pinned is set while the backup is the recovery copy of an upgrade.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "verified": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "recovery.PurgeReceipt": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "resources": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/recovery.PurgeScope"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "recovery.PurgeScope": {
+            "type": "object",
+            "properties": {
+                "backups": {
+                    "description": "Backups are the backups of the add-on.",
+                    "type": "boolean"
+                },
+                "data": {
+                    "description": "Data is the add-on's data directory and the owner's records of its\nresources, grants and conversation selections.",
+                    "type": "boolean"
+                },
+                "recoveryCopies": {
+                    "description": "RecoveryCopies are the data copies that restores and failed upgrades\nset aside.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "recovery.RestoreReceipt": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "type": "string"
+                },
+                "addonId": {
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "backupCreated": {
+                    "type": "string"
+                },
+                "backupId": {
+                    "type": "string"
+                },
+                "lostWrites": {
+                    "description": "LostWrites counts the operations applied after the backup. Their\neffects are gone from the data.",
+                    "type": "integer"
+                },
+                "policy": {
+                    "$ref": "#/definitions/recovery.RestoreReport"
+                },
+                "previousCopy": {
+                    "description": "PreviousCopy names the directory that holds the data that was replaced.\nIt stays until an administrator purges it.",
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "recovery.RestoreReport": {
+            "type": "object",
+            "properties": {
+                "grantsDropped": {
+                    "type": "integer"
+                },
+                "grantsRestored": {
+                    "type": "integer"
+                },
+                "proposalsCancelled": {
+                    "description": "ProposalsCancelled and ProposalsUnknown are the proposals of the add-on\nthat no longer can be confirmed, and the ones whose outcome is looked up\nby receipt and never applied again.",
+                    "type": "integer"
+                },
+                "proposalsUnknown": {
+                    "type": "integer"
+                },
+                "resourcesRestored": {
+                    "type": "integer"
+                },
+                "resourcesSkipped": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "revoked": {
+                    "description": "Revoked counts grants dropped or lowered because access was taken away\nafter the backup.",
+                    "type": "integer"
+                }
+            }
+        },
+        "recovery.RetentionView": {
+            "type": "object",
+            "properties": {
+                "keep": {
+                    "type": "integer"
+                },
+                "maxAgeSeconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "recovery.Status": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "backups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/recovery.BackupInfo"
+                    }
+                },
+                "lastRestore": {
+                    "$ref": "#/definitions/recovery.RestoreReceipt"
+                },
+                "mode": {
+                    "description": "Mode is the ownership mode of the owner: named-user or local-owner.",
+                    "type": "string"
+                },
+                "operations": {
+                    "description": "Operations lists the operation IDs whose result is recorded, so a\ncaller that lost an answer can see that its request ran.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "phase": {
+                    "description": "Phase is the phase of an upgrade or restore in progress.",
+                    "type": "string"
+                },
+                "previousCopies": {
+                    "description": "PreviousCopies counts the data copies a restore set aside.",
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "recoveryBackup": {
+                    "description": "RecoveryBackup names the copy to restore from.",
+                    "type": "string"
+                },
+                "retention": {
+                    "description": "Retention is the policy applied to the backups.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/recovery.RetentionView"
+                        }
+                    ]
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         },

@@ -1452,6 +1452,150 @@ Uninstalling stops the addon and removes its package from use. Its data, identit
 grants are kept, so a later install of the same addon picks them up. The page says so
 before it submits the uninstall.
 
+## Data recovery
+
+An add-on's data is the data the owner keeps for it under `<root>/data/<id>`, the owner's
+records of its resources and shares, and the proposals made against it. Recovery keeps
+that recoverable. It is administrator-only, it is never a tool, and the owner decides
+every step. Replacing a package alone never restores data: the previous package is
+kept, but it does not make the data it could not read readable again.
+
+### Backups
+
+`POST /api/addons/{id}/recovery/backup` makes one backup. The owner blocks new admission
+for the add-on's resources, makes its pending proposals invalid, drains the work that was
+admitted (bounded), stops the add-on and copies its data: every SQLite file is written
+with `VACUUM INTO`, so the write-ahead log is part of the copy and the copy holds no log
+of its own. Scratch directories named `exports` and `tmp` are not copied, and symbolic
+links are never followed. The owner's access state (resources and shares), the proposals
+of the add-on and the conversation selections are copied beside it.
+
+A backup is a directory `<root>/backups/<id>/<backupId>` of mode `0700` with files of mode
+`0600`. Its `manifest.json` records the creation time, the reason (`manual`, `upgrade` or
+`restore`), the ownership mode, the package digest, trusted source, channel,
+verification level and data format, and the size, `sha256` and, for a SQLite file, the
+schema version of every file. The backup is verified while it is still private: every
+digest is read again and every SQLite file passes `PRAGMA integrity_check`. Only then is
+it renamed into place and flushed. A backup that fails, is cancelled or does not fit
+leaves nothing behind, and the add-on is started again if it was meant to run.
+
+The free space is checked before anything is copied: it must be at least the size of
+the data plus a margin of 16 MiB or a tenth of the data. A backup that does not fit
+answers `503` with the type `insufficient_storage` and changes nothing.
+
+Retention is explicit: the owner keeps `BackupKeep` backups per add-on (default three)
+and removes older ones, and with `BackupMaxAge` also those older than that. The newest
+verified backup and the recovery copy of an upgrade are never removed by retention, and
+`POST .../recovery/delete-backup` refuses them with `sole_recovery_copy`: the only
+verified recovery copy is never removed silently. A purge with an explicit scope is the
+way to remove them. `POST .../recovery/prune` applies the policy now.
+
+### Upgrade of an add-on that has data
+
+An `upgrade` of an add-on that has a data directory runs this order, and every step is
+recorded before it runs:
+
+1. The trusted identity of the staged package is compared with the installed one: the
+   same add-on from the same source and channel with the same verification level. A
+   different one is refused before anything stops. The same rule holds for a reinstall of
+   retained data. A package that declares an older data format than the data is refused.
+2. Admission is blocked, proposals are invalidated, admitted work drains and the add-on
+   stops.
+3. A verified backup is made.
+4. The package is published and the candidate generation is started while nothing else
+   touches the data. That start is the migration under exclusive ownership: an add-on
+   migrates its own data when it starts and writes its progress to `migration.json` in
+   its data directory (`state` is `running`, `complete` or `failed`, with `from`, `to`
+   and `error`). The start is the runtime's health check; a `migration.json` that does
+   not say `complete` fails the upgrade. Tables does this with `Store.Migrate(ctx,
+   fromVersion, toVersion)`: each database changes in one transaction, the version of
+   the store is recorded last, a run that stopped is resumed, and data in a newer format
+   than the executable reads is refused and left as it is.
+5. Only when the candidate is healthy is the generation published, with the journal
+   ordering of a plain upgrade.
+
+A failure at any step before the publication is undone. When the data was not touched,
+the old generation runs again. When the candidate began to migrate and the format is the
+same, the verified backup is put back before the old generation starts, and what the
+candidate left is kept as a recovery copy. When the migration changes the data format and
+fails, the add-on stays unavailable in the state `needs-recovery`: the previous package
+is retained and so is the verified backup, but the previous package cannot read data the
+new one began to change, so nothing starts it. The administrator restores the backup or
+purges the data. A restart finds the operation at its recorded phase and applies one
+rule: a generation that was not published is undone, and a published one is finished.
+
+Add-ons without data keep the plain upgrade and start the candidate as before.
+
+### Restore
+
+`POST /api/addons/{id}/recovery/restore` restores one backup. The add-on must not be
+running, and the request carries the add-on ID typed as `confirm`. The backup is
+verified before anything changes. Its files are staged beside the data and swapped in
+atomically; the data they replace stays as a recovery copy, named `previous-<id>`, until
+an administrator purges it. A crash at any point is settled by the owner on restart:
+before the swap the restore is undone, from the swap on it is finished.
+
+The answer lists warnings: the time the data goes back to, how many changes the owner
+applied after the backup (their effects are gone), and the shares that were not
+restored. Restoring never gives back access:
+
+- Every owner and every grant is checked again against the current accounts. An account
+  that is gone, paused or pending is not restored.
+- The owner keeps a bounded, durable log of lowered access (a removal or a lowering of a
+  role). A grant that was removed after the backup is not restored, and one that was
+  lowered is restored at the lower role.
+- Proposals that were pending are cancelled. Operations that were executing, or whose
+  outcome was unknown, become `outcome_unknown` and are looked up by receipt of the
+  restored add-on; they are never applied again.
+
+A backup made in local-owner mode needs an explicit ownership mapping,
+`{"local-owner": "<account id>"}`, to be restored in named-user mode; there is no
+wildcard and no default, and the target must be a current account. Data of named users
+is refused in local-owner mode. The mode of a stopped installation can be changed with
+`policy.MigrateOwnership`: it writes a backup of the policy store first, takes the same
+mapping, and refuses to move populated named-user data to the local owner.
+
+Repeating the `operationId` of a restore returns its receipt and does not restore again.
+
+### Purge of retained data
+
+`POST /api/addons/{id}/purge` removes retained data. It is not the deletion of a
+database and not an uninstall, which never remove retained data. The add-on must be
+uninstalled or disabled and not running, the request carries an explicit scope
+(`data`, `backups`, `recoveryCopies`) and the add-on ID typed as `confirm`. The purge is
+recorded before it starts and finished by the owner after a crash. It touches no other
+add-on and removes the owner's records of the add-on's resources only when `data` is in
+the scope. Purging the data clears `needs-recovery`.
+
+### Routes and rules
+
+| Route | What it does |
+|---|---|
+| `GET /api/addons/{id}/recovery` | state, backups with their verification state, retention |
+| `POST /api/addons/{id}/recovery/backup` | make a backup |
+| `POST /api/addons/{id}/recovery/verify` | read a backup completely and record the result |
+| `POST /api/addons/{id}/recovery/restore` | restore a backup |
+| `POST /api/addons/{id}/recovery/delete-backup` | delete a backup that is not the sole recovery copy |
+| `POST /api/addons/{id}/recovery/prune` | apply the retention policy now |
+| `POST /api/addons/{id}/purge` | purge retained data |
+
+All of them need a named administrator. Every mutation is accepted only from the
+administrator's own browser session: a same-origin fetch whose `X-LocalAI-Confirm`
+header equals the `operationId`; an API key, a tool call or an MCP session is refused.
+Each is decided by the owner, so a forwarding frontend gives the same typed answer, and
+a lost reply is `outcome_unknown` with the original `operationId`. Typed refusals are
+`needs_recovery`, `addon_running`, `busy`, `backup_not_found`, `backup_corrupt`,
+`incompatible_format`, `identity_changed`, `mapping_required`, `mapping_invalid`,
+`downgrade_unsupported`, `sole_recovery_copy`, `confirmation_mismatch`,
+`operation_conflict`, `invalid_request` and `insufficient_storage`. None of these is a
+tool: no MCP tool, model tool, proposal or typed dispatch of a model maps to them, and
+the manifest of an add-on cannot declare them.
+
+The Add-ons page shows the recovery state of an installed add-on: the backups with
+their size and verification state, a banner for `needs-recovery` with the actions
+restore and purge, the phase of an upgrade in progress and the warnings of the last
+restore.
+
 ## Add-on pages
 
 An add-on with a `ui` object contributes pages to the web UI. The code of those pages is
