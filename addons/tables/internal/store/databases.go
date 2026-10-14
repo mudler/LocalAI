@@ -603,6 +603,76 @@ func (s *Store) Rename(ctx context.Context, resourceID, name, operationID string
 	return row.receipt(), nil
 }
 
+// Delete removes the database resourceID: its file and the journal files
+// beside it. It is the host's UI-only deletion, reached through the add-on's
+// admin tool and never through a model tool. The same operation ID with the
+// same arguments returns the same receipt, also after a crash between the
+// removal and the receipt, and a database that is already gone is the same
+// outcome. The other operations of the database stay in the ledger.
+func (s *Store) Delete(ctx context.Context, resourceID, operationID string) (contract.Receipt, error) {
+	if err := validID(resourceID); err != nil {
+		return contract.Receipt{}, err
+	}
+	if err := validOperation(operationID); err != nil {
+		return contract.Receipt{}, err
+	}
+	ctx, cancel := s.bounded(ctx)
+	defer cancel()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	op, found, err := s.lookup(ctx, operationID)
+	if err != nil {
+		return contract.Receipt{}, err
+	}
+	want := opRow{ID: operationID, Kind: "delete", Resource: resourceID}
+	if found {
+		if op.Kind != want.Kind || op.Resource != resourceID {
+			return contract.Receipt{}, ErrConflict
+		}
+		if op.State == "committed" {
+			return op.receipt(), nil
+		}
+	} else if err = s.begin(ctx, want); err != nil {
+		return contract.Receipt{}, err
+	}
+	// The revision the deletion removed, when the file still tells it. A
+	// retry after a crash finds no file and records the first revision.
+	rev := contract.Revision{Schema: 1}
+	if fi, e := os.Lstat(s.path(resourceID)); e == nil {
+		if !fi.Mode().IsRegular() {
+			return contract.Receipt{}, ErrUnsafePath
+		}
+		if m, _, e := s.inspect(ctx, resourceID); e == nil && m.Revision.Schema != 0 {
+			rev = m.Revision
+		}
+	} else if !os.IsNotExist(e) {
+		return contract.Receipt{}, e
+	}
+	if err = s.fail("delete-before-remove"); err != nil {
+		return contract.Receipt{}, err
+	}
+	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
+		if e := os.Remove(s.path(resourceID) + suffix); e != nil && !os.IsNotExist(e) {
+			return contract.Receipt{}, e
+		}
+	}
+	if d, e := os.Open(s.dbDir); e == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
+	if err = s.fail("delete-after-remove"); err != nil {
+		return contract.Receipt{}, err
+	}
+	if err = s.finish(ctx, operationID, rev); err != nil {
+		return contract.Receipt{}, err
+	}
+	row, _, err := s.lookup(ctx, operationID)
+	if err != nil {
+		return contract.Receipt{}, err
+	}
+	return row.receipt(), nil
+}
+
 // Inspect describes one database.
 func (s *Store) Inspect(ctx context.Context, resourceID string) (Schema, error) {
 	if err := validID(resourceID); err != nil {

@@ -20,17 +20,21 @@ const (
 	ToolDatabaseCreate  = "databases-create"
 	ToolDatabaseRename  = "databases-rename"
 	ToolDatabaseInspect = "databases-inspect"
-	ToolTableCreate     = "tables-create"
-	ToolTableRename     = "tables-rename"
-	ToolTableDrop       = "tables-drop"
-	ToolColumnAdd       = "columns-add"
-	ToolColumnRename    = "columns-rename"
-	ToolColumnDrop      = "columns-drop"
-	ToolRowsQuery       = "rows-query"
-	ToolRowsAggregate   = "rows-aggregate"
-	ToolRowsInsert      = "rows-insert"
-	ToolRowsUpdate      = "rows-update"
-	ToolRowsDelete      = "rows-delete"
+	// ToolDatabaseDelete is an admin tool. It is not in the manifest's tools:
+	// the host lists it in capabilities.adminTools and calls it only from its
+	// UI-only delete endpoint, under the "delete" action.
+	ToolDatabaseDelete = "databases-delete"
+	ToolTableCreate    = "tables-create"
+	ToolTableRename    = "tables-rename"
+	ToolTableDrop      = "tables-drop"
+	ToolColumnAdd      = "columns-add"
+	ToolColumnRename   = "columns-rename"
+	ToolColumnDrop     = "columns-drop"
+	ToolRowsQuery      = "rows-query"
+	ToolRowsAggregate  = "rows-aggregate"
+	ToolRowsInsert     = "rows-insert"
+	ToolRowsUpdate     = "rows-update"
+	ToolRowsDelete     = "rows-delete"
 )
 
 // rowKinds maps each row mutation tool to its store operation. These tools
@@ -61,6 +65,10 @@ var schemaKinds = map[string]string{
 
 // schemaAction is the host action every schema change travels under.
 const schemaAction = "schema"
+
+// deleteAction is the host action of the UI-only deletion of a database. No
+// model tool, proposal or typed request travels under it.
+const deleteAction = "delete"
 
 // Tools is the declared tool set of this addon.
 var Tools = []string{ToolResourceExists, ToolDatabaseCreate, ToolDatabaseRename, ToolDatabaseInspect,
@@ -162,6 +170,9 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 	}
 	id := env.Request.ResourceID
 	out := contract.Preview{OperationID: env.Request.OperationID, ExpiresAt: t.now().Add(time.Minute)}
+	if a.Tool == ToolDatabaseDelete {
+		return t.previewDelete(ctx, env, out)
+	}
 	if _, ok := rowKinds[a.Tool]; ok {
 		return t.previewRows(ctx, env, out)
 	}
@@ -214,6 +225,64 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 	return out, nil
 }
 
+// deleteAuthority refuses an envelope that is not the host's delete action
+// with the matching scope, so a caller that reaches the runtime transport
+// with another action cannot remove a database.
+func deleteAuthority(env contract.Envelope, scope string) error {
+	if env.Request.Action != deleteAction || env.Authority.Scope != scope || env.Authority.Actor.UserID == "" {
+		return ErrForbidden
+	}
+	return nil
+}
+
+func (t *Tables) previewDelete(ctx context.Context, env contract.Envelope, out contract.Preview) (contract.Preview, error) {
+	if err := deleteAuthority(env, "preview"); err != nil {
+		return out, err
+	}
+	s, err := t.Store.Inspect(ctx, env.Request.ResourceID)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		// Already gone: apply replays the receipt or records the outcome.
+		out.Revision = contract.Revision{Schema: 1}
+		out.Summary = payload(map[string]any{"count": 0, "sample": map[string]string{"action": "delete database", "state": "already deleted"}})
+		return out, nil
+	case err != nil:
+		return out, mapErr(err)
+	}
+	out.Revision = s.Revision
+	out.Summary = payload(map[string]any{"count": 1, "sample": map[string]any{"action": "delete database", "name": s.Name, "tables": len(s.Tables)}})
+	return out, nil
+}
+
+func (t *Tables) applyDelete(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
+	if err := deleteAuthority(env, "apply"); err != nil {
+		return contract.Receipt{}, err
+	}
+	id, op := env.Request.ResourceID, env.Request.OperationID
+	s, err := t.Store.Inspect(ctx, id)
+	switch {
+	case err == nil:
+		// A database that changed since the preview is not the one the owner
+		// confirmed: nothing is removed.
+		if r, e := t.Store.Receipt(ctx, op); e != nil || r.State != contract.ReceiptCommitted {
+			if s.Revision != rev {
+				return contract.Receipt{OperationID: op, State: contract.ReceiptRejected}, nil
+			}
+		}
+	case errors.Is(err, store.ErrNotFound):
+	default:
+		return contract.Receipt{}, mapErr(err)
+	}
+	r, err := t.Store.Delete(ctx, id, op)
+	if err != nil {
+		if mapErr(err) == err {
+			return contract.Receipt{}, err
+		}
+		return contract.Receipt{OperationID: op, State: contract.ReceiptRejected}, nil
+	}
+	return r, nil
+}
+
 func (a toolArgs) change(kind, resource string) store.SchemaChange {
 	return store.SchemaChange{ResourceID: resource, Kind: kind, Table: a.Table, Column: a.Column, NewName: a.NewName,
 		Type: a.Type, Required: a.Required, Unique: a.Unique, Default: a.Default}
@@ -247,6 +316,9 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 	id, op := env.Request.ResourceID, env.Request.OperationID
 	rejected := func() (contract.Receipt, error) {
 		return contract.Receipt{OperationID: op, State: contract.ReceiptRejected}, nil
+	}
+	if a.Tool == ToolDatabaseDelete {
+		return t.applyDelete(ctx, env, rev)
 	}
 	if _, ok := rowKinds[a.Tool]; ok {
 		return t.applyRows(ctx, env, rev)

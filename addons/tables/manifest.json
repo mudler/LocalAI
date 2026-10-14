@@ -515,6 +515,16 @@
           "additionalProperties": false
         }
       }
-    ]
+    ],
+    "adminTools": [
+      "databases-delete"
+    ],
+    "resources": {
+      "noun": "database",
+      "create": "databases-create",
+      "rename": "databases-rename",
+      "inspect": "databases-inspect",
+      "delete": "databases-delete"
+    }
   }
 }
