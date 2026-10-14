@@ -1708,6 +1708,21 @@ from the proposer's own browser session, as in [Proposals and confirmation](#pro
 An add-on asks for the frame with `sdk.approvals.present(proposalId)`. The proposal must
 belong to the same add-on.
 
+### Private files in a page and in chat
+
+A read tool may answer with file results. LocalAI replaces each output of the
+add-on by a private artifact identifier of its own before anything reaches a
+browser or a model. `sdk.files.read(request, options)` is `sdk.api.read` for
+such a tool: it resolves to `{ files, payload }`, where each file is `{ id,
+name, mediaType, size }` as the host recorded it. The add-on's handle, a path
+and a URL are never part of it. The add-on draws the file with
+`sdk.ui.ArtifactCard`, which takes only `artifactId`: the card loads name, size,
+state and expiry from `GET /api/addons/artifacts/{id}` and offers the
+authenticated download of the host route. A chat tool result of kind
+`artifact` is drawn with the same card. The identifier is the only thing the
+chat stores. An add-on cannot supply a link, a name or a path that the card
+shows.
+
 ### Verification
 
 `sh scripts/addons/verify.sh host-slots` runs the node unit tests of the slot registry,

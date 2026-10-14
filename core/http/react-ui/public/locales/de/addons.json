@@ -299,5 +299,32 @@
     "rejectedState": "Die Daten haben sich geändert oder die Anfrage wurde abgelehnt. Nichts wurde angewendet. Frage eine neue Vorschau an.",
     "unknown": "Das Ergebnis ist noch nicht bekannt. Es wurde möglicherweise angewendet. Prüfe den Status, bevor du erneut anfragst.",
     "refresh": "Status prüfen"
+  },
+  "artifact": {
+    "title": "Datei bereit",
+    "loading": "Datei wird geladen",
+    "withdrawn": "Diese Datei ist für Sie nicht mehr verfügbar.",
+    "unavailable": "Diese Datei ist nicht verfügbar.",
+    "name": "Datei",
+    "size": "Größe",
+    "expires": "Verfügbar bis",
+    "state": "Status",
+    "preparing": "Die Datei wird vorbereitet.",
+    "failed": "Die Datei konnte nicht fertiggestellt werden. Es kann nichts heruntergeladen werden. Exportieren Sie erneut.",
+    "expired": "Diese Datei ist abgelaufen und wurde entfernt. Die zugrunde liegenden Daten sind unverändert. Exportieren Sie erneut.",
+    "download": "Herunterladen",
+    "states": {
+      "loading": "Wird geladen",
+      "withdrawn": "Nicht verfügbar",
+      "unavailable": "Nicht verfügbar",
+      "transferring": "In Vorbereitung",
+      "complete": "Bereit",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "expired": "Abgelaufen",
+      "unknown": "Unbekannt"
+    },
+    "downloadDenied": "Diese Datei kann nicht mehr heruntergeladen werden. Ihr Zugriff auf die Quelle hat sich geändert oder die Datei ist abgelaufen.",
+    "downloadFailed": "Der Download wurde nicht abgeschlossen. Versuchen Sie es erneut."
   }
 }

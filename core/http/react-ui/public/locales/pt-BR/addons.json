@@ -299,5 +299,32 @@
     "rejectedState": "Os dados mudaram ou a solicitação foi recusada. Nada foi aplicado. Peça uma nova prévia.",
     "unknown": "O resultado ainda não é conhecido. Pode ter sido aplicado. Verifique o estado antes de pedir de novo.",
     "refresh": "Verificar estado"
+  },
+  "artifact": {
+    "title": "Arquivo pronto",
+    "loading": "Carregando o arquivo",
+    "withdrawn": "Este arquivo não está mais disponível para você.",
+    "unavailable": "Este arquivo não está disponível.",
+    "name": "Arquivo",
+    "size": "Tamanho",
+    "expires": "Disponível até",
+    "state": "Estado",
+    "preparing": "O arquivo está sendo preparado.",
+    "failed": "Não foi possível concluir o arquivo. Nada pode ser baixado. Exporte novamente.",
+    "expired": "Este arquivo expirou e foi removido. Os dados de origem não mudaram. Exporte novamente.",
+    "download": "Baixar",
+    "states": {
+      "loading": "Carregando",
+      "withdrawn": "Indisponível",
+      "unavailable": "Indisponível",
+      "transferring": "Preparando",
+      "complete": "Pronto",
+      "failed": "Falhou",
+      "cancelled": "Cancelado",
+      "expired": "Expirado",
+      "unknown": "Desconhecido"
+    },
+    "downloadDenied": "Este arquivo não pode mais ser baixado. Seu acesso à origem mudou ou o arquivo expirou.",
+    "downloadFailed": "O download não foi concluído. Tente novamente."
   }
 }

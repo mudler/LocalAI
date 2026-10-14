@@ -100,12 +100,29 @@ func addonToolCall(prompt string) (name, arguments string, ok bool) {
 	return m[1], string(raw), true
 }
 
+// promptHasAddonFile reports whether the host answered the scripted call with
+// private file references (an export).
+func promptHasAddonFile(prompt string) bool {
+	return strings.Contains(prompt, `"kind":"artifact"`) || strings.Contains(prompt, `"kind": "artifact"`)
+}
+
+// addonAnswer is the plain text the scripted model gives after the host
+// answered its call: a file result is ready to download, anything else is a
+// change that waits for the person.
+func addonAnswer(prompt string) string {
+	if promptHasAddonFile(prompt) {
+		return "The file is ready to download."
+	}
+	return "The change is waiting for your confirmation."
+}
+
 // promptHasAddonResult reports whether the host already answered the scripted
 // call: the broker's result documents carry a kind (a proposal, a result or an
 // error such as select_resource), and a refusal is prefixed.
 func promptHasAddonResult(prompt string) bool {
 	return strings.Contains(prompt, `"kind":"proposal"`) || strings.Contains(prompt, `"kind":"result"`) || strings.Contains(prompt, `"kind":"error"`) ||
-		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ")
+		strings.Contains(prompt, `"kind": "proposal"`) || strings.Contains(prompt, `"kind": "result"`) || strings.Contains(prompt, `"kind": "error"`) || strings.Contains(prompt, "Error: ") ||
+		promptHasAddonFile(prompt)
 }
 
 // promptHasToolResults checks if the prompt contains evidence of prior tool
@@ -286,7 +303,7 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	toolName := mockToolNameFromRequest(in)
 	if name, arguments, ok := addonToolCall(in.Prompt); ok && toolName != "" {
 		if promptHasAddonResult(in.Prompt) {
-			response = "The change is waiting for your confirmation."
+			response = addonAnswer(in.Prompt)
 		} else {
 			response = fmt.Sprintf(`{"name": %q, "arguments": %s}`, name, arguments)
 		}
@@ -447,7 +464,7 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	addonName, addonArgs, addonCall := addonToolCall(in.Prompt)
 	switch {
 	case addonCall && toolName != "" && promptHasAddonResult(in.Prompt):
-		toStream = "The change is waiting for your confirmation."
+		toStream = addonAnswer(in.Prompt)
 	case addonCall && toolName != "":
 		// One chunk: the chat handler emits a tool call as soon as the name
 		// is complete, so a call streamed byte by byte would reach it with

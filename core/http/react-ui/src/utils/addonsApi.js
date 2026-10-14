@@ -68,9 +68,30 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
     return out && out.payload !== undefined ? out.payload : null
   }
 
+  // A typed read that may answer with private files. The add-on's output
+  // handles never reach the browser: the owner replaced each by a host
+  // artifact identifier, and only that identifier with the name, media type
+  // and size the host recorded is returned here. Anything else of the answer
+  // is the add-on's own payload, as for a plain read.
+  async function dispatchFile({ operationId, action, addonId = '', generation = 0, args = {}, resourceId = '' }, signal) {
+    const out = await call('/api/addons/dispatch', {
+      method: 'POST',
+      signal,
+      body: { operationId, addonId, generation, action, arguments: args, ...(resourceId ? { resourceId } : {}) },
+    })
+    const files = []
+    for (const o of Array.isArray(out && out.outputs) ? out.outputs : []) {
+      if (o && typeof o.handle === 'string' && /^a[0-9a-f]{32}$/.test(o.handle) && files.length < 4) {
+        files.push({ id: o.handle, name: String(o.name || '').slice(0, 200), mediaType: String(o.mediaType || '').slice(0, 100), size: Number.isFinite(o.size) ? o.size : 0 })
+      }
+    }
+    return { files, payload: out && out.payload !== undefined ? out.payload : null }
+  }
+
   const api = {
     call,
     dispatch,
+    dispatchFile,
     apps: {
       async list(signal) {
         const out = await call('/api/addons/apps', { signal })

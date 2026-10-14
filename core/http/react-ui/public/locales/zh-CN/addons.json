@@ -295,5 +295,32 @@
     "rejectedState": "数据已更改或请求被拒绝。未应用任何内容。请重新请求预览。",
     "unknown": "结果尚不明确，可能已被应用。再次请求前请先检查状态。",
     "refresh": "检查状态"
+  },
+  "artifact": {
+    "title": "文件已就绪",
+    "loading": "正在加载文件",
+    "withdrawn": "此文件已对你不可用。",
+    "unavailable": "此文件不可用。",
+    "name": "文件",
+    "size": "大小",
+    "expires": "可用至",
+    "state": "状态",
+    "preparing": "正在准备文件。",
+    "failed": "文件未能完成,无法下载。请重新导出。",
+    "expired": "此文件已过期并被删除。来源数据未改变。请重新导出。",
+    "download": "下载",
+    "states": {
+      "loading": "加载中",
+      "withdrawn": "不可用",
+      "unavailable": "不可用",
+      "transferring": "准备中",
+      "complete": "已就绪",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "expired": "已过期",
+      "unknown": "未知"
+    },
+    "downloadDenied": "此文件无法再下载。你对其来源的访问已变更,或文件已过期。",
+    "downloadFailed": "下载未完成。请重试。"
   }
 }

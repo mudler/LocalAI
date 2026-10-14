@@ -299,5 +299,32 @@
     "rejectedState": "I dati sono cambiati o la richiesta è stata rifiutata. Non è stato applicato nulla. Chiedi una nuova anteprima.",
     "unknown": "L'esito non è ancora noto. Potrebbe essere stato applicato. Controlla lo stato prima di chiedere di nuovo.",
     "refresh": "Controlla lo stato"
+  },
+  "artifact": {
+    "title": "File pronto",
+    "loading": "Caricamento del file",
+    "withdrawn": "Questo file non è più disponibile per te.",
+    "unavailable": "Questo file non è disponibile.",
+    "name": "File",
+    "size": "Dimensione",
+    "expires": "Disponibile fino a",
+    "state": "Stato",
+    "preparing": "Il file è in preparazione.",
+    "failed": "Non è stato possibile completare il file. Non si può scaricare nulla. Esporta di nuovo.",
+    "expired": "Questo file è scaduto ed è stato rimosso. I dati di origine non sono cambiati. Esporta di nuovo.",
+    "download": "Scarica",
+    "states": {
+      "loading": "Caricamento",
+      "withdrawn": "Non disponibile",
+      "unavailable": "Non disponibile",
+      "transferring": "In preparazione",
+      "complete": "Pronto",
+      "failed": "Non riuscito",
+      "cancelled": "Annullato",
+      "expired": "Scaduto",
+      "unknown": "Sconosciuto"
+    },
+    "downloadDenied": "Questo file non può più essere scaricato. Il tuo accesso all'origine è cambiato o il file è scaduto.",
+    "downloadFailed": "Il download non è terminato. Riprova."
   }
 }

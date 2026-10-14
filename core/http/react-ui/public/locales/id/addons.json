@@ -299,5 +299,32 @@
     "rejectedState": "Data berubah atau permintaan ditolak. Tidak ada yang diterapkan. Minta pratinjau baru.",
     "unknown": "Hasilnya belum diketahui. Mungkin sudah diterapkan. Periksa statusnya sebelum meminta lagi.",
     "refresh": "Periksa status"
+  },
+  "artifact": {
+    "title": "File siap",
+    "loading": "Memuat file",
+    "withdrawn": "File ini tidak lagi tersedia untuk Anda.",
+    "unavailable": "File ini tidak tersedia.",
+    "name": "File",
+    "size": "Ukuran",
+    "expires": "Tersedia hingga",
+    "state": "Status",
+    "preparing": "File sedang disiapkan.",
+    "failed": "File tidak dapat diselesaikan. Tidak ada yang dapat diunduh. Ekspor lagi.",
+    "expired": "File ini telah kedaluwarsa dan dihapus. Data sumbernya tidak berubah. Ekspor lagi.",
+    "download": "Unduh",
+    "states": {
+      "loading": "Memuat",
+      "withdrawn": "Tidak tersedia",
+      "unavailable": "Tidak tersedia",
+      "transferring": "Menyiapkan",
+      "complete": "Siap",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan",
+      "expired": "Kedaluwarsa",
+      "unknown": "Tidak diketahui"
+    },
+    "downloadDenied": "File ini tidak dapat diunduh lagi. Akses Anda ke sumbernya berubah atau file telah kedaluwarsa.",
+    "downloadFailed": "Pengunduhan tidak selesai. Coba lagi."
   }
 }

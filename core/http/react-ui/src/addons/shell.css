@@ -113,4 +113,9 @@
 .ad-pcard[data-state="applied"] { border-color: var(--dk-ok, var(--dk-edge)); }
 .ad-pcard__facts dd code { overflow-wrap: anywhere; }
 .ad-pcard .ad-result { max-height: 12rem; }
+/* The download is a link drawn as the host's primary button: the global link
+   hover colour must not take the label's colour from the button. */
+.ad-artifact a.dk-btn--primary,
+.ad-artifact a.dk-btn--primary:hover,
+.ad-artifact a.dk-btn--primary:focus-visible { color: var(--dk-on-accent); text-decoration: none; }
 .ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--dk-text-12, 12px); white-space: pre-wrap; overflow-wrap: anywhere; }

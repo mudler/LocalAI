@@ -6,7 +6,9 @@ import MCPAppFrame from '../MCPAppFrame'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import ProposalCard from '../../addons/ProposalCard'
-import { proposalReference } from '../../addons/proposalResult'
+import { proposalReference, artifactReferences } from '../../addons/proposalResult'
+// eslint-disable-next-line no-unused-vars
+import ArtifactCard from '../../addons/ArtifactCard'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is already in the history
@@ -95,6 +97,16 @@ function proposalOfContent(raw) {
   }
 }
 
+// The private files a stored tool result of an add-on tool refers to.
+function artifactsOfContent(raw) {
+  try {
+    const data = JSON.parse(raw)
+    return artifactReferences(data && data.name, data && data.result)
+  } catch {
+    return []
+  }
+}
+
 // One run of thinking and tool entries between two messages.
 export function ActivityGroup({ items, getClientForTool, id }) {
   const { t } = useTranslation('chat')
@@ -112,7 +124,9 @@ export function ActivityGroup({ items, getClientForTool, id }) {
   // decides, and it loads the stored proposal from the host.
   const appUIItems = items.filter(item => item.role === 'tool_result' && item.appUI)
   const proposalItems = items.filter(item => item.role === 'tool_result' && !item.appUI && proposalOfContent(item.content))
-  const regularItems = items.filter(item => !(item.role === 'tool_result' && (item.appUI || proposalOfContent(item.content))))
+  // A file result of an add-on tool is the host's file card, not a fold line.
+  const fileItems = items.filter(item => item.role === 'tool_result' && !item.appUI && artifactsOfContent(item.content).length > 0)
+  const regularItems = items.filter(item => !(item.role === 'tool_result' && (item.appUI || proposalOfContent(item.content) || artifactsOfContent(item.content).length > 0)))
   const icon = regularItems.some(i => i.role === 'thinking' || i.role === 'reasoning') ? 'lightbulb' : 'wrench'
 
   return (
@@ -158,6 +172,11 @@ export function ActivityGroup({ items, getClientForTool, id }) {
           </div>
         )
       })}
+      {fileItems.map((item, idx) => (
+        <div key={`file-${idx}`} className="cx-row">
+          {artifactsOfContent(item.content).map((id) => <ArtifactCard key={id} artifactId={id} />)}
+        </div>
+      ))}
       {appUIItems.map((item, idx) => (
         <div key={`appui-${idx}`} className="cx-row">
           <div className="cx-who"><Icon name="puzzle" /><b>{item.appUI.toolName}</b></div>
@@ -222,6 +241,14 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
               return (
                 <li key={idx} className="cx-step">
                   <ProposalCard proposalId={ref.proposalId} />
+                </li>
+              )
+            }
+            const files = artifactReferences(tc.name, tc.result)
+            if (files.length > 0) {
+              return (
+                <li key={idx} className="cx-step">
+                  {files.map((id) => <ArtifactCard key={id} artifactId={id} />)}
                 </li>
               )
             }

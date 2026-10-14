@@ -43,9 +43,15 @@ test('tools: the stored history keeps the reference of a proposal and no row dat
   assert.deepEqual(JSON.parse(kept), { kind: 'proposal', proposal: { id: 'tabc123' } })
   assert.equal(kept.includes('ROW-SECRET'), false)
   assert.equal(kept.includes('DIGEST'), false)
-  // A read result and an artifact reference are never stored.
+  // A read result is never stored. A file result keeps only well formed host
+  // identifiers: no name, size or path the add-on or the model supplied.
   assert.equal(storedResult('addon__tables__rows-query', JSON.stringify({ kind: 'result', result: { rows: [[1]] } })), null)
-  assert.equal(storedResult('addon__tables__rows-query', JSON.stringify({ kind: 'artifact', artifacts: [{ id: 'a' }] })), null)
+  assert.equal(storedResult('addon__tables__rows-export', JSON.stringify({ kind: 'artifact', artifacts: [{ id: 'a' }] })), null)
+  const fileId = 'a' + '0123456789abcdef'.repeat(2)
+  assert.equal(
+    storedResult('addon__tables__rows-export', JSON.stringify({ kind: 'artifact', artifacts: [{ id: fileId, name: '../../x', url: 'https://evil.example/', size: 9 }, { id: '../x' }] })),
+    JSON.stringify({ kind: 'artifact', artifacts: [{ id: fileId }] }),
+  )
   assert.equal(storedResult('some_other_tool', result()), null)
 })
 

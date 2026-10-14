@@ -304,6 +304,13 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       propose: (request, options) => callApi('propose', request || {}, options),
     }),
     resources,
+    // Reads that answer with private files. The result is the host's own
+    // description of each file (identifier, name, media type, size): the
+    // add-on's handle, a path or a URL never reaches the add-on's page. The
+    // file is drawn by sdk.ui.ArtifactCard from the identifier.
+    files: Object.freeze({
+      read: (request, options) => callApi('dispatchFile', { ...request, action: 'read' }, options),
+    }),
     // Asks the host to show the stored proposal of this add-on in the host's
     // approval frame. The frame, Confirm and Cancel stay the host's: the
     // add-on only names the proposal and may supply the card of its details.

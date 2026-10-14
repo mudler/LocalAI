@@ -299,5 +299,32 @@
     "rejectedState": "The data changed or the request was refused. Nothing was applied. Ask again for a new preview.",
     "unknown": "The outcome is not known yet. It may have been applied. Check its status before you ask again.",
     "refresh": "Check status"
+  },
+  "artifact": {
+    "title": "File ready",
+    "loading": "Loading the file",
+    "withdrawn": "This file is no longer available to you.",
+    "unavailable": "This file is not available.",
+    "name": "File",
+    "size": "Size",
+    "expires": "Available until",
+    "state": "State",
+    "preparing": "The file is being prepared.",
+    "failed": "The file could not be completed. Nothing can be downloaded. Export again.",
+    "expired": "This file has expired and was removed. The data it came from is unchanged. Export again.",
+    "download": "Download",
+    "states": {
+      "loading": "Loading",
+      "withdrawn": "Unavailable",
+      "unavailable": "Unavailable",
+      "transferring": "Preparing",
+      "complete": "Ready",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "unknown": "Unknown"
+    },
+    "downloadDenied": "This file can no longer be downloaded. Your access to its source changed or the file expired.",
+    "downloadFailed": "The download did not finish. Try again."
   }
 }
