@@ -61,6 +61,21 @@ Select a specific build with `--variant minicpm-v-4_7-1b-q4`,
 `--variant minicpm-v-4_7-1b-q5`, `--variant minicpm-v-4_7-1b-q6`,
 or `--variant minicpm-v-4_7-1b-q8`.
 
+### Underdog Saluki abliterated builds
+
+`underdog-saluki-27b-1.0-abliterated` provides Kujira's mixed IQ2 adaptation
+of Underdog Saluki for text chat, reasoning, and tool use. Its MTP variant
+enables multi-token prediction with up to two draft tokens. Both builds use
+the same weights, the embedded chat template, and a 32,768-token context.
+
+To select the MTP build explicitly:
+
+```bash
+local-ai models install --variant underdog-saluki-27b-1.0-abliterated-mtp underdog-saluki-27b-1.0-abliterated
+```
+
+These entries are text-only and do not include a vision projector.
+
 ### Repairing an existing model configuration
 
 Gallery template updates do not rewrite YAML files for already installed models.
