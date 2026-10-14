@@ -27,7 +27,9 @@ const (
 	MaxColumns      = 64
 	MaxLabelRunes   = 64
 	MaxDefaultBytes = 1024
-	timeLayout      = "2006-01-02T15:04:05.999999999Z"
+	// timeLayout is fixed width so that stored datetimes sort in time order
+	// as plain text.
+	timeLayout = "2006-01-02T15:04:05.000000000Z"
 )
 
 var (
@@ -133,6 +135,14 @@ func validLabel(n string) error {
 		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) || r == utf8.RuneError {
 			return invalid("a name cannot hold control, format or invalid characters")
 		}
+	}
+	return nil
+}
+
+// notReserved refuses the label that names the row identifier in queries.
+func notReserved(n string) error {
+	if labelKey(n) == RowIDLabel {
+		return invalid("%q is reserved for the row identifier", RowIDLabel)
 	}
 	return nil
 }
@@ -250,6 +260,9 @@ func (c SchemaChange) validate() error {
 		if err := validLabel(c.Column); err != nil {
 			return err
 		}
+		if err := notReserved(c.Column); err != nil {
+			return err
+		}
 	} else if c.Column != "" {
 		return invalid("column is not used by %s", c.Kind)
 	}
@@ -261,6 +274,11 @@ func (c SchemaChange) validate() error {
 	case KindTableRename, KindColumnRename:
 		if err := validLabel(c.NewName); err != nil {
 			return err
+		}
+		if c.Kind == KindColumnRename {
+			if err := notReserved(c.NewName); err != nil {
+				return err
+			}
 		}
 	case KindColumnDrop:
 		if c.NewName != "" {

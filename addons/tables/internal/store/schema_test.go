@@ -270,7 +270,7 @@ var _ = Describe("Tables typed schema operations", func() {
 		Expect(row("c")).To(Equal(int64(9223372036854775807)))
 		Expect(row("d")).To(Equal(-0.1))
 		Expect(row("e")).To(Equal(int64(1)))
-		Expect(row("f")).To(Equal("2026-10-14T10:00:00Z"))
+		Expect(row("f")).To(Equal("2026-10-14T10:00:00.000000000Z"))
 		Expect(row("g")).To(Equal("Unicode ✓ ünï"))
 		var n int
 		Expect(r.raw().QueryRow("SELECT COUNT(*) FROM tables_meta").Scan(&n)).To(Succeed())

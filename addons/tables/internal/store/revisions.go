@@ -57,3 +57,11 @@ func bumpSchema(ctx context.Context, tx *sql.Tx, cur contract.Revision) (contrac
 	_, err := tx.ExecContext(ctx, "UPDATE tables_meta SET value=? WHERE key='schema_revision'", strconv.FormatUint(next.Schema, 10))
 	return next, err
 }
+
+// bumpData moves the data revision by one inside tx. Row writes and their
+// receipt commit with it or not at all.
+func bumpData(ctx context.Context, tx *sql.Tx, cur contract.Revision) (contract.Revision, error) {
+	next := contract.Revision{Schema: cur.Schema, Data: cur.Data + 1}
+	_, err := tx.ExecContext(ctx, "UPDATE tables_meta SET value=? WHERE key='data_revision'", strconv.FormatUint(next.Data, 10))
+	return next, err
+}

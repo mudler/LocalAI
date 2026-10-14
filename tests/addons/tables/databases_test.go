@@ -26,7 +26,7 @@ var _ = Describe("Tables databases under the real owner", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(regs).To(HaveLen(1))
 		Expect(regs[0].AddonID).To(Equal("tables"))
-		Expect(regs[0].Capabilities.Tools).To(ConsistOf("resource-exists", "databases-create", "databases-rename", "databases-inspect", "tables-create", "tables-rename", "tables-drop", "columns-add", "columns-rename", "columns-drop"))
+		Expect(regs[0].Capabilities.Tools).To(ConsistOf("resource-exists", "databases-create", "databases-rename", "databases-inspect", "tables-create", "tables-rename", "tables-drop", "columns-add", "columns-rename", "columns-drop", "rows-query", "rows-aggregate", "rows-insert", "rows-update", "rows-delete"))
 		Expect(regs[0].Capabilities.UI).To(BeNil())
 		// The data directory the owner created is private and holds the addon's data.
 		fi, e := os.Stat(filepath.Join(r.dataRoot, "tables"))

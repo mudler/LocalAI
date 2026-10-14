@@ -26,6 +26,25 @@ const (
 	ToolColumnAdd       = "columns-add"
 	ToolColumnRename    = "columns-rename"
 	ToolColumnDrop      = "columns-drop"
+	ToolRowsQuery       = "rows-query"
+	ToolRowsAggregate   = "rows-aggregate"
+	ToolRowsInsert      = "rows-insert"
+	ToolRowsUpdate      = "rows-update"
+	ToolRowsDelete      = "rows-delete"
+)
+
+// rowKinds maps each row mutation tool to its store operation. These tools
+// travel under the host's write action: editors and owners may use them, and
+// the addon refuses any envelope that carries another action.
+var rowKinds = map[string]string{
+	ToolRowsInsert: store.KindRowInsert,
+	ToolRowsUpdate: store.KindRowUpdate,
+	ToolRowsDelete: store.KindRowDelete,
+}
+
+const (
+	writeAction = "write"
+	readAction  = "read"
 )
 
 // schemaKinds maps each schema tool to its store operation. These tools are
@@ -45,7 +64,8 @@ const schemaAction = "schema"
 
 // Tools is the declared tool set of this addon.
 var Tools = []string{ToolResourceExists, ToolDatabaseCreate, ToolDatabaseRename, ToolDatabaseInspect,
-	ToolTableCreate, ToolTableRename, ToolTableDrop, ToolColumnAdd, ToolColumnRename, ToolColumnDrop}
+	ToolTableCreate, ToolTableRename, ToolTableDrop, ToolColumnAdd, ToolColumnRename, ToolColumnDrop,
+	ToolRowsQuery, ToolRowsAggregate, ToolRowsInsert, ToolRowsUpdate, ToolRowsDelete}
 
 // Tables implements contract.Runtime over the database store. It trusts the
 // host binding of actor and resource ID: by the time a request arrives the
@@ -90,6 +110,10 @@ func mapErr(err error) error {
 	switch {
 	case err == nil:
 		return nil
+	case errors.Is(err, store.ErrInvalidQuery), errors.Is(err, store.ErrInvalidRows), errors.Is(err, store.ErrRowConstraint),
+		errors.Is(err, store.ErrTooManyRows), errors.Is(err, store.ErrNoRows), errors.Is(err, store.ErrRowNotFound),
+		errors.Is(err, store.ErrStaleCursor), errors.Is(err, store.ErrArithmetic):
+		return ErrBadRequest
 	case errors.Is(err, store.ErrInvalidID), errors.Is(err, store.ErrInvalidName), errors.Is(err, store.ErrInvalidOperation),
 		errors.Is(err, store.ErrInvalidSchema), errors.Is(err, store.ErrSchemaLimit), errors.Is(err, store.ErrTableNotFound), errors.Is(err, store.ErrColumnNotFound):
 		return ErrBadRequest
@@ -111,6 +135,9 @@ func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Resu
 		return contract.Result{}, err
 	}
 	id := env.Request.ResourceID
+	if a.Tool == ToolRowsQuery || a.Tool == ToolRowsAggregate {
+		return t.readRows(ctx, env)
+	}
 	switch a.Tool {
 	case ToolResourceExists:
 		ok, err := t.Store.Exists(ctx, id)
@@ -135,6 +162,9 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 	}
 	id := env.Request.ResourceID
 	out := contract.Preview{OperationID: env.Request.OperationID, ExpiresAt: t.now().Add(time.Minute)}
+	if _, ok := rowKinds[a.Tool]; ok {
+		return t.previewRows(ctx, env, out)
+	}
 	switch a.Tool {
 	case ToolDatabaseCreate:
 		ok, err := t.Store.Exists(ctx, id)
@@ -217,6 +247,9 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 	id, op := env.Request.ResourceID, env.Request.OperationID
 	rejected := func() (contract.Receipt, error) {
 		return contract.Receipt{OperationID: op, State: contract.ReceiptRejected}, nil
+	}
+	if _, ok := rowKinds[a.Tool]; ok {
+		return t.applyRows(ctx, env, rev)
 	}
 	switch a.Tool {
 	case ToolDatabaseCreate:

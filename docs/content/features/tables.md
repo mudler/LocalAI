@@ -5,9 +5,9 @@ title: Tables
 ## Status
 
 Tables is a first-party addon for LocalAI. This page describes the database
-lifecycle and the typed schema operations that exist today: creating, renaming
-and inspecting databases, and creating, renaming and dropping tables and
-columns. Rows, CSV results and the Tables user interface are not available yet.
+lifecycle, the typed schema operations, and structured row queries and
+confirmed row changes that exist today. CSV results and the Tables user
+interface are not available yet.
 
 Tables is a separate executable under `addons/tables`. It is not linked into
 the LocalAI server, and nothing of it runs unless an administrator installs
@@ -56,6 +56,11 @@ The manifest declares these tools. LocalAI rejects any other tool name.
 | `columns-add` | change (schema) | Add a column. Arguments `table`, `column`, `type`, optional `required`, `unique`, `default`. |
 | `columns-rename` | change (schema) | Rename a column. Arguments `table`, `column`, `newName`. |
 | `columns-drop` | change (schema) | Drop a column and its values. Arguments `table`, `column`. |
+| `rows-query` | read | Select rows of a table with a filter, sort and page. See [Row queries](#row-queries). |
+| `rows-aggregate` | read | Count, sum, avg, min and max with an optional group-by column. |
+| `rows-insert` | change (write) | Insert up to 100 rows. Arguments `table`, `rows`. |
+| `rows-update` | change (write) | Set columns on rows named by `ids` or a `filter`. Arguments `table`, `set`. |
+| `rows-delete` | change (write) | Delete rows named by `ids` or a `filter`. |
 | `resource-exists` | read | `{"exists": bool}`; used by LocalAI to settle interrupted creations. |
 
 Tool names use hyphens because LocalAI manifests accept only
@@ -166,6 +171,112 @@ only what apply would accept. Its summary has this shape:
 counts all rows and `columnsLost` its columns. LocalAI shows `count` and
 `sample` in the confirmation card.
 
+## Row queries
+
+`rows-query` and `rows-aggregate` run under the read action, so viewers can use
+them. The addon builds each statement from internal identifiers and binds every
+value as a parameter. A column or table label is only looked up in the catalog;
+it never becomes SQL text. There are no joins, raw SQL, expressions, functions
+or subqueries.
+
+```json
+{"tool": "rows-query", "table": "Orders", "columns": ["Item", "Qty"],
+ "filter": {"and": [{"column": "Qty", "op": "gte", "value": 2},
+                    {"or": [{"column": "Item", "op": "starts-with", "value": "pen"},
+                            {"column": "Item", "op": "is-null"}]}]},
+ "sort": [{"column": "Qty", "desc": true}], "limit": 50}
+```
+
+- **Rows** come back as `{"id": n, "values": [...]}` in the order of the
+  `columns` of the reply. `id` is the stable row ID of the table. It never
+  changes and is never reused after a delete. Filters and sorts may name it with
+  the label `_id`; no column may use that label. Omit `columns` to select all.
+- **Filter** is a tree of `and`, `or` and conditions: at most 8 levels and 64
+  nodes. Operators are `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in` (1 to 100
+  `values`), `is-null`, `is-not-null`, and for text columns `contains`,
+  `starts-with` and `ends-with`. A boolean column supports `eq`, `ne` and the
+  null tests only. A node is exactly one of `and`, `or` or a condition; unknown
+  fields in the arguments are refused.
+- **Text matching.** `eq`, `ne` and the order operators on text are
+  case-sensitive and compare bytes. `contains`, `starts-with` and `ends-with`
+  are ASCII case-insensitive and treat `%`, `_` and `\` in the value as plain
+  characters. The value is at most 1024 bytes.
+- **NULL.** A comparison (`eq`, `ne`, `lt`, ..., `in`) never matches a NULL
+  value, so `ne` does not return rows where the column is empty. Use
+  `is-null` for those, for example `or` of `ne` and `is-null`. A comparison
+  with a `null` value is refused. In a sort, NULL comes first ascending and last
+  descending. Aggregates ignore NULL values; `count` without a column counts
+  rows.
+- **Sort** takes at most 4 columns. Rows with equal keys are ordered by row ID,
+  so a page boundary is stable.
+- **Pages.** `limit` is 1 to 500 and defaults to 50. When more rows match,
+  `hasMore` is true and `cursor` is set; send it back with the same query to get
+  the next page. A cursor is valid only for the same query and the same database
+  revision; after any change the addon answers that the cursor is no longer
+  valid and the caller starts again. There is no total count. Offsets beyond
+  100000 rows are refused, so add a filter. A page is also cut at 512 KiB of
+  JSON, and `hasMore` is set.
+- **Values in JSON.** text is a string, integer a JSON integer, real a finite
+  number, boolean `true` or `false`, datetime an RFC 3339 string. Datetimes are
+  stored in UTC with nine fractional digits and returned in UTC. Integers can be
+  sent as a number or a decimal string; integers beyond +/- 2^53 are returned
+  as strings so no precision is lost.
+- **Aggregates.** `aggregates` holds 1 to 8 of `{"fn": "count" | "sum" | "avg" |
+  "min" | "max", "column": "..."}`. `sum` and `avg` need an integer or real
+  column; `min` and `max` work on integer, real, text and datetime. `groupBy`
+  names one column; groups are ordered by the group value and limited to 500,
+  with `truncated` set when more exist. A sum that overflows 64 bits is an
+  error, not a wrapped number.
+- **Cancellation.** A query is bound to the request context and to a per
+  operation deadline; a cancelled or slow query is interrupted and returns an
+  error. Each read sees one snapshot of one revision.
+
+## Row changes
+
+`rows-insert`, `rows-update` and `rows-delete` are changes under the host
+`write` action: Editors and Owners may propose them and the proposer confirms
+them in the host card. The addon refuses a row tool that arrives under another
+action and a schema tool that arrives under the `write` action.
+
+- **Insert** takes 1 to 100 rows; each row maps column labels to values. A
+  column that is left out gets its default, or NULL. A required column without a
+  default must be given. An explicit `null` for a required column is refused
+  even when it has a default. The whole batch commits or none of it.
+- **Update and delete** name their rows by exactly one of `ids` (distinct
+  positive row IDs, all of which must exist) or `filter`. There is no way to
+  touch every row without a filter that selects them, and no truncate. One
+  operation changes at most 1000 rows; a broader filter is refused with a
+  request to narrow it. An operation that matches no row is refused.
+- **Constraints.** Type, required and unique rules are enforced by the
+  database. A violation rejects the whole operation, names the column by its
+  label and leaves the data unchanged.
+- **Preview.** The preview runs the same code in a transaction that it rolls
+  back. It reports the exact `count`, a sample of the first 10 rows (for update,
+  the values before and after of the changed columns; for delete, the full
+  rows), an `affectedHash` of the exact row ID set, and `dataLoss.rows` for a
+  delete. A change that would break a unique rule fails at preview, so the card
+  never offers it.
+- **Receipt.** The payload holds `count`, the affected `ids` and `affectedHash`.
+  The receipt commits in the same transaction as the rows and the data revision
+  step. LocalAI reports success only from the receipt.
+
+### Revisions and staleness
+
+The revision is conservative and per database. Every committed row change
+raises `data` by one in the same transaction; a schema change raises `schema`.
+Apply compares both numbers with the revision of the preview inside the
+transaction. If either moved, the change is rejected with
+`{"error":"stale", ...}`, and a new proposal and a new preview are required.
+Because the revision is unchanged, the set of rows a filter selects is the set
+that was previewed: a filter is never evaluated against rows that arrived after
+the preview. A write to any table of the database makes a pending row proposal
+stale, even when it touched unrelated rows. Two proposals made on the same
+revision cannot both apply: exactly one wins and the other is stale.
+
+Row changes use the receipt rules above: the same operation ID with the same
+request replays one receipt, another request under the same ID is a conflict,
+and a rejected operation does not use up its ID.
+
 ## Limits
 
 - One name per database, no uniqueness rule across databases.
@@ -183,3 +294,5 @@ a local source as described in [Addon contracts](../addons/). The suite
 executable under the real supervisor. The suite
 `sh scripts/addons/verify.sh tables-schema` covers the schema operations,
 revisions and receipts.
+The suite `sh scripts/addons/verify.sh tables-rows` covers queries, filters,
+aggregates and confirmed row changes with the real executable.
