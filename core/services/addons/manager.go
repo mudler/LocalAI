@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -33,6 +34,24 @@ var (
 	// ErrStaleGeneration is a denial: the caller acted on a generation that is
 	// no longer the installed one. Nothing was recorded.
 	ErrStaleGeneration = errors.New("addon generation changed")
+	// ErrStaleInstalled is a denial of an explicit upgrade: the installed
+	// package is not the one the caller checked. Nothing was recorded.
+	ErrStaleInstalled = errors.New("installed add-on changed since the update was checked")
+	// ErrCandidateChanged is a denial of an explicit upgrade: the library no
+	// longer resolves to the candidate the caller checked. Nothing was recorded.
+	ErrCandidateChanged = errors.New("update candidate changed since it was checked")
+	// ErrTransitionConflict is a denial: the same upgrade, from the same
+	// installed package to the same candidate, is recorded under another
+	// operation ID and has not failed.
+	ErrTransitionConflict = errors.New("this upgrade is already recorded under another operation ID")
+	// ErrIncompatible is a denial: the candidate cannot run on this host.
+	ErrIncompatible = errors.New("update candidate is not compatible with this host")
+	// ErrIntegrity is a denial: the library lists the installed immutable
+	// version with another digest. It is never an update.
+	ErrIntegrity = errors.New("library rewrote an immutable version")
+	// ErrCheckFailed is a denial: the owner could not tell what the library
+	// offers, so nothing was started. It is not an unknown outcome.
+	ErrCheckFailed = errors.New("update check failed")
 )
 
 // These hooks are contracts for the runtime/migration tasks. This manager does
@@ -85,6 +104,9 @@ type Manager struct {
 	// quiesced holds the add-ons that recovery keeps stopped, whatever the
 	// journal says. It is an observation, never durable intent.
 	quiesced map[string]bool
+	// updates is the owner's update check. Nil means no checks and no pinned
+	// upgrades.
+	updates *updates.Checker
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -223,6 +245,21 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			return old.Status, m.syncFor(ctx, cmd.AddonID)
 		}
 	}
+	pinned := cmd.ExpectedDigest != "" || cmd.CandidateDigest != ""
+	if pinned && (cmd.Action != "upgrade" || cmd.ExpectedDigest == "" || cmd.CandidateDigest == "") {
+		return OperationStatus{}, ErrConflict
+	}
+	if pinned && !resumed {
+		// The same transition under another operation ID is a duplicate,
+		// whether the first one is in flight or done. Only a failed attempt
+		// leaves the transition open for a new one.
+		for id, other := range m.journal.Operations {
+			c := other.Command
+			if id != cmd.OperationID && c.Action == "upgrade" && c.AddonID == cmd.AddonID && c.ExpectedDigest == cmd.ExpectedDigest && c.CandidateDigest == cmd.CandidateDigest && other.Status.Phase != "failed" {
+				return OperationStatus{}, ErrTransitionConflict
+			}
+		}
+	}
 	if !resumed {
 		for _, other := range m.journal.Operations {
 			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != "completed" && other.Status.Phase != "failed" {
@@ -231,6 +268,8 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 	}
 	next := copyStatus(m.journal.Addons[cmd.AddonID])
+	// release is the candidate an explicit upgrade resolved at execution.
+	var release *catalog.Release
 	switch cmd.Action {
 	case "install":
 		if next.Installed && !resumed {
@@ -245,6 +284,13 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// nothing behind and cannot block the addon.
 		if (cmd.Action == "enable" || cmd.Action == "disable") && cmd.Generation != 0 && cmd.Generation != next.Generation {
 			return OperationStatus{}, ErrStaleGeneration
+		}
+		if pinned && !resumed {
+			r, e := m.checkPins(ctx, cmd, next)
+			if e != nil {
+				return OperationStatus{}, e
+			}
+			release = &r
 		}
 	default:
 		return OperationStatus{}, ErrConflict
@@ -275,13 +321,26 @@ func (m *Manager) Submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		receipt, published := m.canceled[cmd.OperationID]
 		delete(m.canceled, cmd.OperationID)
 		if !published {
-			r, e := m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
-			if e != nil {
-				return fail()
+			var r catalog.Release
+			if release != nil {
+				r = *release
+			} else {
+				var e error
+				r, e = m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+				if e != nil {
+					return fail()
+				}
 			}
 			staged, e := m.installer.Stage(ctx, r, nil)
 			if e != nil {
 				return fail()
+			}
+			if release != nil {
+				// An explicit upgrade never changes the trusted identity,
+				// the library or the channel, whatever the add-on holds.
+				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); !ok || recovery.CheckCompatible(last, staged.Receipt()) != nil || staged.Receipt().Digest != cmd.CandidateDigest {
+					return fail()
+				}
 			}
 			if m.recovery != nil && m.recovery.HasData(cmd.AddonID) {
 				// Retained data is only handed to the same trusted identity
@@ -742,6 +801,13 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		snap := apps.Snapshot{AddonID: id, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
+		}
+		// The apps list answers from the check cache only: it never
+		// evaluates and never reaches a library.
+		if m.updates != nil {
+			if cached, ok := m.updates.Cached(id, receipt.Digest, st.Generation); ok && cached.State == updates.UpdateAvailable {
+				snap.UpdatePending = true
+			}
 		}
 		snaps = append(snaps, snap)
 	}

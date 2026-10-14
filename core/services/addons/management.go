@@ -181,6 +181,14 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 				list[i].Recovery = st
 			}
 		}
+		// The owner's own check, from library data it already holds. An
+		// add-on the checker cannot answer for has no update object, which
+		// the page reads as unknown, never as current.
+		if m.updates != nil {
+			if st, e := m.updates.Check(ctx, id, false); e == nil {
+				list[i].Update = updateView(st)
+			}
+		}
 	}
 	return list, ctx.Err()
 }

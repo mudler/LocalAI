@@ -45,7 +45,8 @@ type Installed struct {
 	Restarts int     `json:"restarts"`
 	Storage  Storage `json:"storage"`
 	// Update is present only when the owner has an authoritative update check
-	// for this addon. This release has none, so the field is absent.
+	// for this addon. It carries the state of the check, so a failed check is
+	// never read as up to date.
 	Update *Update `json:"update,omitempty"`
 	// Recovery is the recovery state of the add-on's data when it is not
 	// ready: upgrading, restoring, needs-recovery or purging. An add-on in
@@ -75,11 +76,26 @@ type Storage struct {
 	Truncated bool  `json:"truncated"`
 }
 
-// Update is an authoritative update check result.
+// Update is an authoritative update check result of the owner.
 type Update struct {
-	Available bool   `json:"available"`
-	Version   string `json:"version,omitempty"`
-	CheckedAt string `json:"checkedAt,omitempty"`
+	// Available is true only for the state update-available.
+	Available bool `json:"available"`
+	// State is unknown, up-to-date, update-available, incompatible,
+	// check-failed or integrity-error.
+	State string `json:"state" enums:"unknown,up-to-date,update-available,incompatible,check-failed,integrity-error" example:"update-available"`
+	// Version and Digest are the candidate the check resolved.
+	Version string `json:"version,omitempty" example:"1.3.0"`
+	Digest  string `json:"digest,omitempty"`
+	// CheckedAt is when the status was computed and LastSuccess when the
+	// library was last read successfully, both RFC 3339.
+	CheckedAt   string `json:"checkedAt,omitempty"`
+	LastSuccess string `json:"lastSuccess,omitempty"`
+	// Stale is true when the answer rests on data older than the time to live.
+	Stale bool `json:"stale,omitempty"`
+	// Reasons say which range an incompatible candidate does not fit.
+	Reasons []string `json:"reasons,omitempty" example:"host-version"`
+	// Error is the redacted class of a failed check.
+	Error string `json:"error,omitempty" example:"refresh-failed"`
 }
 
 // BuildInstalled builds the management view of the installed addons, sorted by

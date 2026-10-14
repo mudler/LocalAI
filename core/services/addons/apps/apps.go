@@ -26,6 +26,9 @@ type Snapshot struct {
 	// State is the supervisor's observation of the process.
 	State   string
 	Receipt packages.PackageReceipt
+	// UpdatePending is true when the owner's cached update check says an
+	// update is available for exactly this installed package.
+	UpdatePending bool
 }
 
 // List is the response of the apps list.
@@ -73,9 +76,14 @@ type App struct {
 	// Enabled is the durable desired state. Health is State, a separate
 	// observation: an enabled app can be failed.
 	Enabled bool `json:"enabled"`
-	// State is running, starting, failed or stopped. update-pending is not
-	// reported in this release: the owner has no authoritative update check.
+	// State is running, starting, failed or stopped: the observation of the
+	// process, never an update.
 	State string `json:"state" enums:"running,starting,failed,stopped" example:"running"`
+	// Update is update-pending when the owner's cached update check says an
+	// update is available for the installed package. It is a separate
+	// observation from State and is absent otherwise: an unchecked, failed
+	// or up to date add-on has none. The list never reaches a library.
+	Update string `json:"update,omitempty" enums:"update-pending" example:"update-pending"`
 	// MainPage is the path the Open action navigates to. It is present only
 	// for an enabled addon whose manifest declares a main page that is one of
 	// its pages.
@@ -213,6 +221,9 @@ func build(s Snapshot, admin bool) App {
 		if s.Enabled {
 			a.UI = uiView(id, s.Receipt.Digest, u)
 		}
+	}
+	if s.UpdatePending {
+		a.Update = "update-pending"
 	}
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}

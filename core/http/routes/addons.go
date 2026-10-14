@@ -82,6 +82,14 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	group.POST("/:id/recovery/delete-backup", endpoints.DeleteBackup(gw, db, mode))
 	group.POST("/:id/recovery/prune", endpoints.PruneBackups(gw, db, mode))
 	group.POST("/:id/purge", endpoints.PurgeAddon(gw, db, mode))
+	// Update detection and the explicit upgrade. The status is a read for
+	// every caller with the feature (the owner redacts it for anyone who is
+	// not an administrator); the check and the upgrade accept only the
+	// administrator's own browser session. Never tools: no MCP tool maps to
+	// them, and a status read may be exposed as a tool later.
+	group.GET("/:id/update", endpoints.GetUpdate(gw, db, mode))
+	group.POST("/:id/update/check", endpoints.CheckUpdate(gw, db, mode))
+	group.POST("/:id/upgrade", endpoints.UpgradeAddon(gw, db, mode))
 	// Immutable UI code of an installed, enabled addon, by package digest. A
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.

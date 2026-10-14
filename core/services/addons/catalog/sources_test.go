@@ -168,3 +168,74 @@ var _ = Describe("source reads", func() {
 		wg.Wait()
 	})
 })
+
+var _ = Describe("what the update check reads", func() {
+	serve := func(rs ...Release) *Sources {
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(rs) })
+		s := setup()
+		Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, e := s.Refresh(ctx, "lib")
+		Expect(e).NotTo(HaveOccurred())
+		return s
+	}
+	It("keeps the compatibility hint of an entry and refuses a malformed range", func() {
+		r := release()
+		r.Requires = Requirements{Host: contract.VersionRange{Min: 1, Max: 2}, SDK: contract.VersionRange{Min: 1, Max: 1}}
+		s := serve(r)
+		got, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "lib", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.Requires).To(Equal(r.Requires))
+		for name, bad := range map[string]Requirements{
+			"min zero":     {Host: contract.VersionRange{Min: 0, Max: 3}},
+			"max under":    {API: contract.VersionRange{Min: 3, Max: 2}},
+			"sdk inverted": {SDK: contract.VersionRange{Min: 2, Max: 1}},
+		} {
+			b := release()
+			b.Requires = bad
+			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode([]Release{b}) })
+			s := setup()
+			Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+			_, e := s.Refresh(ctx, "lib")
+			Expect(e).To(MatchError(ErrRefresh), name)
+		}
+		b, _ := json.Marshal(release())
+		Expect(string(b)).NotTo(ContainSubstring("requires"))
+	})
+	It("lists the releases of one add-on for every platform, from the cache, and refuses a failed library", func() {
+		other := release()
+		other.OS = "plan9"
+		unrelated := release()
+		unrelated.AddonID = "notes"
+		s := serve(release(), other, unrelated)
+		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+		list, e := c.Releases(ctx, "lib", "tables")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(2))
+		_, e = c.Releases(ctx, "absent", "tables")
+		Expect(e).To(MatchError(ErrUnavailable))
+		state, ok := s.State("lib")
+		Expect(ok).To(BeTrue())
+		Expect(state.Failed).To(BeFalse())
+		Expect(state.LastSuccess).NotTo(BeZero())
+		_, ok = s.State("absent")
+		Expect(ok).To(BeFalse())
+		// A failed fetch is not served as the old data, and keeps the last success.
+		Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: "http://127.0.0.1:1/none", Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, e = s.Refresh(ctx, "lib")
+		Expect(e).To(MatchError(ErrRefresh))
+		_, e = c.Releases(ctx, "lib", "tables")
+		Expect(e).To(MatchError(ErrRefresh))
+		state, _ = s.State("lib")
+		Expect(state.Failed).To(BeTrue())
+	})
+	It("names an unavailable credential reference as a credential failure inside the refresh failure", func() {
+		server := library(func(w http.ResponseWriter, _ *http.Request) { _ = json.NewEncoder(w).Encode([]Release{release()}) })
+		s := setup()
+		s.credentials = CredentialResolver{References: map[string]CredentialBinding{"gone": {Origin: server.URL}}}
+		Expect(s.Save(ctx, admin, Source{ID: "lib", Name: "lib", URL: server.URL, Enabled: true, AllowLoopbackHTTP: true, AuthReference: "gone"})).To(Succeed())
+		_, e := s.Refresh(ctx, "lib")
+		Expect(e).To(MatchError(ErrRefresh))
+		Expect(e).To(MatchError(ErrCredential))
+		Expect(e.Error()).NotTo(ContainSubstring(server.URL))
+	})
+})

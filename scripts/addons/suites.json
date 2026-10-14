@@ -162,7 +162,10 @@
       "pins channels and restricts package transport to secure or opted in loopback origins",
       "surfaces optional UI metadata in search results and resolutions without changing plain entries",
       "rejects entries with remote icons, reserved launch modes, markup or overlong display text",
-      "lists only releases the configured target platform can install"
+      "lists only releases the configured target platform can install",
+      "keeps the compatibility hint of an entry and refuses a malformed range",
+      "lists the releases of one add-on for every platform, from the cache, and refuses a failed library",
+      "names an unavailable credential reference as a credential failure inside the refresh failure"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -246,7 +249,21 @@
       "does not keep a result cut short by the caller",
       "is what the installed view reports for the data directory",
       "resolves a package for the current enabled generation and digest only",
-      "answers from the current installed manifest only and follows a generation change"
+      "answers from the current installed manifest only and follows a generation change",
+      "reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade",
+      "refuses a second operation ID for the same transition, in flight or done, and applies it once",
+      "runs concurrent requests with one operation ID once and gives each the same answer",
+      "serializes conflicting upgrades by the installed digest and refuses the loser without a record",
+      "refuses a candidate that is not the one the library resolves now",
+      "refuses an upgrade to the digest that is already installed",
+      "rechecks compatibility at execution and refuses an incompatible candidate",
+      "selects a newer immutable version and treats a rewritten version as an integrity error",
+      "keeps the last good generation when the candidate cannot be staged",
+      "never switches the library or channel, and a failed check is never up to date",
+      "lets an administrator refresh and everyone with the feature read a redacted status",
+      "shows the pending update in the apps list from the cache only",
+      "does not accept pins without an update checker or on another action",
+      "keeps the unpinned typed upgrade of an earlier release working"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -431,7 +448,14 @@
       "separates a denial from an unavailable declaration source",
       "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+      "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+      "checks only for an administrator's own browser session, and applies nothing",
+      "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+      "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+      "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+      "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -553,7 +577,14 @@
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
           "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+          "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+          "checks only for an administrator's own browser session, and applies nothing",
+          "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+          "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+          "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+          "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
         ]
       }
     ]
@@ -892,7 +923,14 @@
       "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
       "forgets the records of one add-on and no other",
       "maps an owner on a restore to a local-owner store only when nothing named is in it",
-      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
+      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade",
+      "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+      "checks only for an administrator's own browser session, and applies nothing",
+      "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+      "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+      "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+      "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -1078,7 +1116,14 @@
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
           "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+          "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+          "checks only for an administrator's own browser session, and applies nothing",
+          "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+          "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+          "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+          "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
         ]
       }
     ]
@@ -1266,7 +1311,14 @@
       "separates a denial from an unavailable declaration source",
       "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+      "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+      "checks only for an administrator's own browser session, and applies nothing",
+      "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+      "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+      "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+      "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1428,7 +1480,14 @@
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
           "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+          "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+          "checks only for an administrator's own browser session, and applies nothing",
+          "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+          "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+          "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+          "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
         ]
       }
     ]
@@ -1599,7 +1658,28 @@
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
       "creates one private data directory per addon and passes its path in the startup object",
       "gives no data directory without a data root and refuses an unsafe root or addon ID",
-      "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+      "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+      "reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade",
+      "refuses a second operation ID for the same transition, in flight or done, and applies it once",
+      "runs concurrent requests with one operation ID once and gives each the same answer",
+      "serializes conflicting upgrades by the installed digest and refuses the loser without a record",
+      "refuses a candidate that is not the one the library resolves now",
+      "refuses an upgrade to the digest that is already installed",
+      "rechecks compatibility at execution and refuses an incompatible candidate",
+      "selects a newer immutable version and treats a rewritten version as an integrity error",
+      "keeps the last good generation when the candidate cannot be staged",
+      "never switches the library or channel, and a failed check is never up to date",
+      "lets an administrator refresh and everyone with the feature read a redacted status",
+      "shows the pending update in the apps list from the cache only",
+      "does not accept pins without an update checker or on another action",
+      "keeps the unpinned typed upgrade of an earlier release working",
+      "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+      "checks only for an administrator's own browser session, and applies nothing",
+      "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+      "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+      "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+      "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1642,7 +1722,21 @@
           "does not keep a result cut short by the caller",
           "is what the installed view reports for the data directory",
           "resolves a package for the current enabled generation and digest only",
-          "answers from the current installed manifest only and follows a generation change"
+          "answers from the current installed manifest only and follows a generation change",
+          "reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade",
+          "refuses a second operation ID for the same transition, in flight or done, and applies it once",
+          "runs concurrent requests with one operation ID once and gives each the same answer",
+          "serializes conflicting upgrades by the installed digest and refuses the loser without a record",
+          "refuses a candidate that is not the one the library resolves now",
+          "refuses an upgrade to the digest that is already installed",
+          "rechecks compatibility at execution and refuses an incompatible candidate",
+          "selects a newer immutable version and treats a rewritten version as an integrity error",
+          "keeps the last good generation when the candidate cannot be staged",
+          "never switches the library or channel, and a failed check is never up to date",
+          "lets an administrator refresh and everyone with the feature read a redacted status",
+          "shows the pending update in the apps list from the cache only",
+          "does not accept pins without an update checker or on another action",
+          "keeps the unpinned typed upgrade of an earlier release working"
         ]
       },
       {
@@ -1738,7 +1832,14 @@
           "refuses a declared file that is not a regular file of the package",
           "documents the asset route and its binary response in the Swagger spec",
           "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-          "lists the caller's own pending proposals the same from the owner and every forwarding frontend"
+          "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
+          "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
+          "checks only for an administrator's own browser session, and applies nothing",
+          "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
+          "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
+          "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
+          "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
         ]
       }
     ]

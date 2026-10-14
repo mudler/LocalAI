@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 var (
@@ -43,6 +45,19 @@ type EntryUI struct {
 	LaunchMode string `json:"launchMode,omitempty"`
 }
 
+// Requirements is what an entry says its package needs from the host. Like
+// EntryUI it is a hint for the owner's update check, never authority: the
+// manifest inside the verified package is checked again when the package is
+// staged. A zero range means the entry makes no claim; the SDK range is zero
+// for a package without a UI. It is comparable on purpose.
+type Requirements struct {
+	Host       contract.VersionRange `json:"host,omitzero"`
+	API        contract.VersionRange `json:"api,omitzero"`
+	Protocol   contract.VersionRange `json:"protocol,omitzero"`
+	DataFormat contract.VersionRange `json:"dataFormat,omitzero"`
+	SDK        contract.VersionRange `json:"sdk,omitzero"`
+}
+
 type Release struct {
 	Channel           string `json:"channel,omitempty"`
 	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
@@ -62,6 +77,8 @@ type Release struct {
 	// UI is the optional display metadata of the entry. It is comparable on
 	// purpose: a release is compared with its trusted resolution at staging.
 	UI EntryUI `json:"ui,omitzero"`
+	// Requires is the optional compatibility hint of the entry.
+	Requires Requirements `json:"requires,omitzero"`
 }
 type Query struct {
 	Text, SourceID string
@@ -181,3 +198,41 @@ func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string)
 	}
 	return *found, nil
 }
+
+// Releases lists every release of one add-on in one library, for any platform.
+// It is a read of the cache a refresh filled and never touches the network.
+// The update check uses it to tell an entry that exists for another platform
+// from one that does not exist at all. The order is stable.
+func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Release, error) {
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if c.Sources == nil {
+		return nil, ErrUnavailable
+	}
+	s := c.Sources
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok || !src.Enabled {
+		return nil, ErrUnavailable
+	}
+	cache, ok := s.cache[sourceID]
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	if cache.failed {
+		return nil, ErrRefresh
+	}
+	out := []Release{}
+	for _, r := range cache.releases {
+		if r.AddonID == addonID {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return releaseKey(out[i]) < releaseKey(out[j]) })
+	return out, nil
+}
+
+// Target is the platform an install must match.
+func (c Catalog) Target() (string, string) { return c.target() }

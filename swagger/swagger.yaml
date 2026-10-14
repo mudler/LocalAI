@@ -127,6 +127,37 @@ definitions:
           characters.
         type: string
     type: object
+  addons.UpdateCheckRequest:
+    properties:
+      operationId:
+        description: OperationID identifies the request and is the confirmation header.
+        example: check-notes-1
+        type: string
+    type: object
+  addons.UpgradeRequest:
+    properties:
+      candidateDigest:
+        description: CandidateDigest is the digest of the candidate the check resolved.
+        example: sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+        type: string
+      expectedDigest:
+        description: ExpectedDigest is the digest of the installed package the caller
+          saw.
+        example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        type: string
+      generation:
+        description: Generation is the installed generation the caller saw, when it
+          knows it.
+        example: 1
+        type: integer
+      operationId:
+        description: |-
+          OperationID is the identity of the upgrade: repeat it to replay safely
+          and, after an outcome_unknown answer, poll operation-status with it. The
+          same transition under another operation ID is refused.
+        example: upgrade-notes-1
+        type: string
+    type: object
   apps.AdminView:
     properties:
       canStart:
@@ -192,8 +223,8 @@ definitions:
         type: string
       state:
         description: |-
-          State is running, starting, failed or stopped. update-pending is not
-          reported in this release: the owner has no authoritative update check.
+          State is running, starting, failed or stopped: the observation of the
+          process, never an update.
         enum:
         - running
         - starting
@@ -235,6 +266,16 @@ definitions:
         description: |-
           UI describes what the shell loads for this app. It is present only for
           an enabled addon with a UI whose installed package has a sha256 digest.
+      update:
+        description: |-
+          Update is update-pending when the owner's cached update check says an
+          update is available for the installed package. It is a separate
+          observation from State and is absent otherwise: an unchecked, failed
+          or up to date add-on has none. The list never reaches a library.
+        enum:
+        - update-pending
+        example: update-pending
+        type: string
       version:
         example: 1.2.3
         type: string
@@ -4916,6 +4957,97 @@ definitions:
         description: Webhook endpoint URL
         type: string
     type: object
+  updates.State:
+    enum:
+    - unknown
+    - up-to-date
+    - update-available
+    - incompatible
+    - check-failed
+    - integrity-error
+    type: string
+    x-enum-varnames:
+    - Unknown
+    - UpToDate
+    - UpdateAvailable
+    - Incompatible
+    - CheckFailed
+    - IntegrityError
+  updates.Status:
+    properties:
+      addonId:
+        example: notes
+        type: string
+      available:
+        description: Available is true only for update-available.
+        type: boolean
+      candidateDigest:
+        type: string
+      candidateVersion:
+        example: 1.1.0
+        type: string
+      channel:
+        example: development
+        type: string
+      checkedAt:
+        description: |-
+          CheckedAt is when the status was computed. LastSuccess is when the
+          library was last read successfully: a failed check keeps it, so the
+          page can say how old the knowledge is.
+        type: string
+      error:
+        description: Error is the redacted class of a failed check.
+        example: refresh-failed
+        type: string
+      generation:
+        description: Generation is the installed generation the status describes.
+        example: 1
+        type: integer
+      installedDigest:
+        type: string
+      installedVersion:
+        example: 1.0.0
+        type: string
+      lastSuccess:
+        type: string
+      reasons:
+        description: |-
+          Reasons are the compatibility reasons of an incompatible or
+          integrity-error status.
+        items:
+          type: string
+        type: array
+      selection:
+        example: 1.0.0
+        type: string
+      sourceId:
+        description: |-
+          SourceID, Channel and Selection are the library, channel and
+          selection the add-on was installed from. They never change by themselves.
+        example: official
+        type: string
+      stale:
+        description: |-
+          Stale is true when the library data or the cached answer is older than
+          the time to live.
+        type: boolean
+      state:
+        allOf:
+        - $ref: '#/definitions/updates.State'
+        enum:
+        - unknown
+        - up-to-date
+        - update-available
+        - incompatible
+        - check-failed
+        - integrity-error
+        example: update-available
+      throttled:
+        description: |-
+          Throttled is true when an explicit refresh was not performed because
+          one ran moments ago. The status is then the last one.
+        type: boolean
+    type: object
   voiceprofile.AudioMetadata:
     properties:
       bit_depth:
@@ -5460,6 +5592,165 @@ paths:
       summary: Verify a backup of an add-on (administrators, browser session)
       tags:
       - Addons
+  /api/addons/{id}/update:
+    get:
+      description: 'Returns the owner''s update check for an installed add-on, for
+        every authenticated caller who holds the addons feature and may see the add-on
+        (an administrator any installed add-on, others only an enabled one; anything
+        else is the same 403). The status is computed by the owner from the library
+        the add-on was installed from and never from the browser: state is unknown,
+        up-to-date, update-available, incompatible (with reasons: platform, host-version,
+        api-version, protocol-version, sdk-version or data-format), check-failed (with
+        a redacted error class and the time the library was last read) or integrity-error.
+        A failed check is never up-to-date. A moving channel (development, a branch,
+        latest) compares resolved digests, so a changed digest with the same version
+        label is an update; an immutable version selects only a greater compatible
+        version of the same major. The library and channel never change by themselves.
+        The route never uses the network and never applies anything. Callers who are
+        not administrators get the state, versions and times only, without library,
+        channel or digests. No MCP tool maps to this route.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Update status
+          schema:
+            $ref: '#/definitions/updates.Status'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature denied, or the add-on is unknown or hidden
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read the update status of an addon
+      tags:
+      - Addons
+  /api/addons/{id}/update/check:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the operationId). The owner fetches the
+        library the add-on was installed from again, through the credential reference
+        the library is configured with, and answers with the new update status. It
+        is rate limited per add-on and per library: within the interval the last status
+        is returned with throttled true. It applies nothing; an upgrade is a separate
+        explicit request. No MCP tool maps to this route.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Operation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addons.UpdateCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Update status
+          schema:
+            $ref: '#/definitions/updates.Status'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature, administration or browser session denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Check an addon for updates now (administrators, browser session)
+      tags:
+      - Addons
+  /api/addons/{id}/upgrade:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies
+        an update. It carries the digest of the installed package the caller saw (expectedDigest)
+        and the digest of the candidate the check resolved (candidateDigest). The
+        owner re-resolves the library the add-on came from and refuses, before it
+        records anything, an installed package that is not the expected one (409 stale_installed),
+        a candidate that is not the one it resolves now (409 candidate_changed), an
+        incompatible candidate (409 incompatible), a rewritten immutable version (409
+        integrity_error) and the same transition under another operation ID (409 upgrade_conflict).
+        It never changes the library or the channel. The upgrade then follows the
+        lifecycle of an add-on: the candidate is staged and verified, the data is
+        backed up and migrated when the add-on has any, and the new generation is
+        published only when it starts. A failure or cancellation keeps the last good
+        generation or leaves an explicit recovery state; the previous installation
+        is never deleted. Repeating the operationId returns the recorded result and
+        never runs again; after outcome_unknown read operation-status with the same
+        operationId. No MCP tool maps to this route.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Operation and the pinned digests
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addons.UpgradeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Operation accepted; the payload is the operation status
+          schema:
+            $ref: '#/definitions/contract.Result'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature, administration or browser session denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: Type stale_installed, candidate_changed, incompatible, integrity_error,
+            upgrade_conflict, upgrade_failed or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, check_failed, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Upgrade an addon to the candidate that was checked (administrators,
+        browser session)
+      tags:
+      - Addons
   /api/addons/apps:
     get:
       description: Returns the installed addons that are enabled, for every authenticated
@@ -5471,7 +5762,10 @@ paths:
         its main page when its manifest declares a valid one, and a bounded tool summary.
         A headless addon is listed without a main page. Administrators additionally
         see installed addons that are disabled and, per app, the start and stop controls
-        and the management link. Update-pending is not reported in this release.
+        and the management link. An app carries update update-pending, separate from
+        state, only when the owner's cached update check says an update is available
+        for the installed package; the list never evaluates a check and never reaches
+        a library.
       produces:
       - application/json
       responses:

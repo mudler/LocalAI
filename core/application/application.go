@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/policy"
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
@@ -860,6 +861,9 @@ func (a *Application) startAddons() error {
 			return rerr
 		}
 		m.SetRecovery(rec)
+		// The update check reads the libraries and the journal the owner
+		// holds; it applies nothing, and its cache is bounded.
+		m.EnableUpdates(updates.Config{})
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
 			_ = m.Close()
 			return err

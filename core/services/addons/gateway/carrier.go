@@ -291,7 +291,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 }
 
 // denials are authorization, policy and request-level rejections.
-var denials = []error{ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+var denials = []error{ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, addons.ErrStaleInstalled, addons.ErrCandidateChanged, addons.ErrTransitionConflict, addons.ErrIncompatible, addons.ErrIntegrity, addons.ErrCheckFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
 
 // unavailable are operational failures. They say the owner could not serve the
 // request, not that it ran nothing: the owner can return them after it recorded
@@ -447,7 +447,9 @@ func mutationOutcome(r contract.Request, e error) error {
 
 // readManagement are the management reads of the typed dispatch. They change
 // nothing, so a lost answer is plainly unavailable.
-var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true, ActionRecoveryStatus: true}
+var readManagement = map[string]bool{"catalog-search": true, "catalog-details": true, "catalog-sources": true, "addons-installed": true, ActionRecoveryStatus: true,
+	// The update reads change no state: the check fetches a library and applies nothing.
+	ActionUpdateStatus: true, ActionUpdateCheck: true}
 
 // resourceRead are the resource management calls that have no operation with
 // an outcome to report: the reads and the two idempotent selection calls.

@@ -146,6 +146,9 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/:id/recovery/delete-backup": true,
 			"POST /api/addons/:id/recovery/prune":         true,
 			"POST /api/addons/:id/purge":                  true,
+			// Update detection: the check and the explicit upgrade.
+			"POST /api/addons/:id/update/check": true,
+			"POST /api/addons/:id/upgrade":      true,
 		}))
 		// The grant changes and the conversation selection are PUT and DELETE;
 		// nothing else uses those methods.
@@ -172,6 +175,7 @@ var _ = Describe("registered addon routes with real authentication", func() {
 		}
 		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals": true, "/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true,
 			"/api/addons/:id/recovery": true,
+			"/api/addons/:id/update":   true,
 			"/api/addons/resources":    true, "/api/addons/resources/:resourceId/grants": true, "/api/addons/resources/:resourceId/users": true,
 			"/api/addons/resources/:resourceId/operations/:operationId": true, "/api/addons/conversations/:conversationId/selection/:addonId": true}))
 	})

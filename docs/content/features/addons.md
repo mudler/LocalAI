@@ -1325,8 +1325,12 @@ addon's own endpoint is returned.
 | `failed` | The process is not serving and no launch is under way. The supervisor restarts it after its backoff while its budget lasts, so `failed` can be followed by `starting`; when the budget is spent it stays `failed` until an administrator stops and starts the addon. |
 | `stopped` | The addon is disabled, or no process of this generation is held. |
 
-`update-pending` is not reported in this release: the owner has no authoritative update
-check yet, and a label is never turned into one.
+An app can also carry `update: "update-pending"`. It is a separate observation from
+`state` and is present only when the owner's cached update check says an update is
+available for exactly the installed package. The list answers from that cache: it never
+evaluates a check and never reaches a library, so an add-on nobody checked, one whose
+check failed and one that is up to date have no `update` field. See
+[Update detection and upgrade](#update-detection-and-upgrade).
 
 `mainPage` is `/app/addons/{id}/{page}` and is present only for an enabled addon whose
 manifest declares a `ui.mainPage` that is one of its pages. `icon` is
@@ -1374,8 +1378,8 @@ an app (`/app/addons?manage=ID`) opens the Installed tab with that addon's detai
 
 The Apps tab draws `GET /api/addons/apps`: the icon from the host's icon route, the
 title in the interface language (falling back to the default text and then to the
-identifier), the description, a state chip (`running`, `starting`, `failed`, `stopped`
-and `update-pending` when the owner reports it), an **Open** link only when the entry
+identifier), the description, a state chip (`running`, `starting`, `failed`, `stopped`),
+an **update pending** chip when the owner's cached check reports one, an **Open** link only when the entry
 has a `mainPage`, and for an add-on without pages a short tool summary. Icons always
 come from the same origin; the page never loads an image from a manifest or a library.
 
@@ -1443,10 +1447,14 @@ stops after 20000 entries or about 0.75 seconds, whichever comes first; `truncat
 true and `bytes` is a lower bound. The owner keeps the last result for 30 seconds, so a
 page that polls does not walk the tree again.
 
-`update` is present only when the owner has an authoritative update check. This release
-has none, so the field is absent and the page says that the update status is unknown; it
-never compares version labels. Process output is not collected in this release, so the
-page has no log view; the `state` and `restarts` fields are the health evidence it shows.
+`update` is the owner's update check of the add-on: `state`, `available`, the candidate
+`version` and `digest`, `checkedAt`, `lastSuccess`, `stale`, `reasons` and a redacted
+`error` class. It is absent when the owner cannot answer for the add-on, and then the page
+says that the update status is unknown. The page never compares version labels itself and
+never reads a failed check as current. See
+[Update detection and upgrade](#update-detection-and-upgrade). Process output is not
+collected in this release, so the page has no log view; the `state` and `restarts` fields
+are the health evidence it shows.
 
 Uninstalling stops the addon and removes its package from use. Its data, identity and
 grants are kept, so a later install of the same addon picks them up. The page says so
@@ -1606,6 +1614,118 @@ The Add-ons page shows the recovery state of an installed add-on: the backups wi
 their size and verification state, a banner for `needs-recovery` with the actions
 restore and purge, the phase of an upgrade in progress and the warnings of the last
 restore.
+
+## Update detection and upgrade
+
+The owner knows what is installed and which library and channel it came from, so the
+owner decides whether an update exists. A browser never compares versions and never
+chooses the library. Detection and upgrade are two different things: a check only
+reads, and an upgrade is one explicit administrator action that names the exact
+candidate.
+
+### States
+
+`GET /api/addons/{id}/update` returns one of these states:
+
+| State | Meaning |
+|---|---|
+| `unknown` | No check has run for the installed package. |
+| `up-to-date` | The library offers nothing newer for the selection the add-on was installed from. |
+| `update-available` | A compatible candidate exists and differs from the installed package. |
+| `incompatible` | A candidate exists that this host cannot run. `reasons` names `platform`, `host-version`, `api-version`, `protocol-version`, `sdk-version` or `data-format`. |
+| `check-failed` | The owner could not tell. `error` is a class: `source-unavailable`, `refresh-failed`, `credential-unavailable`, `not-listed`, `ambiguous-release`, `canceled` or `internal`, and `lastSuccess` is when the library was last read. A failed check is never shown as up to date. |
+| `integrity-error` | The library lists the installed immutable version with another digest. It is never an update. |
+
+The status also carries `installedVersion`, `installedDigest`, `candidateVersion`,
+`candidateDigest`, the `sourceId`, `channel` and `selection` the add-on came from,
+`checkedAt`, `stale` (the answer rests on data older than the time to live) and
+`throttled` (an explicit refresh was not run because one ran moments ago).
+
+### How the candidate is chosen
+
+- A moving channel (`development`, a `branch-*` channel, `latest`) compares resolved
+  digests. A different digest is an update even when the version label is the same.
+- An add-on installed from a version label is immutable. The owner offers the highest
+  greater version of the same major version, and never a pre-release to a stable
+  install. The catalog entry of the installed version with another digest is an
+  `integrity-error`: an immutable version was rewritten.
+- The library and the channel never change by themselves. An entry of another channel or
+  another library is never offered, whatever its version.
+- A catalog entry may carry an optional `requires` object with `host`, `api`,
+  `protocol`, `dataFormat` and `sdk` ranges (`{"min": 1, "max": 2}`). It is a hint for the
+  check only: the manifest of the verified package is checked again when the candidate is
+  staged. A candidate whose data format ends below the installed one is incompatible. The
+  `sdk` range is only checked for a package that declares one, so a package without a UI
+  is not refused for it.
+
+### Cache, refresh and credentials
+
+The check keeps a bounded cache for each add-on (default 256 entries, 15 minutes). A
+status read answers from it or evaluates the library data the owner already holds; it never
+uses the network. `POST /api/addons/{id}/update/check` fetches the library again through
+the credential reference the library is configured with, at most once per interval for an
+add-on and for a library (default 15 seconds), and then returns the new status. A secret,
+an address or the text of a failure never appears in a status. Checks never apply an
+update.
+
+### Who sees what
+
+Anyone who holds the addons feature and may see the add-on reads the status: an
+administrator any installed add-on, everyone else an enabled one. A caller who is not an
+administrator gets the state, the versions, the times and the reasons, without the
+library, channel, selection or digests. Checking and upgrading are administrator-only and
+accepted only from the administrator's own browser session (same-origin fetch,
+`X-LocalAI-Confirm` equal to the `operationId`); an API key is refused, whatever its
+role. The owner decides again on every call, from every frontend.
+
+### Routes
+
+| Route | Who | What |
+|---|---|---|
+| `GET /api/addons/{id}/update` | Feature holders | The owner's status, redacted for non-administrators. |
+| `POST /api/addons/{id}/update/check` | Administrator, browser session | Fetch the library again and return the status. Applies nothing. |
+| `POST /api/addons/{id}/upgrade` | Administrator, browser session | Upgrade to the candidate that was checked. |
+| `POST /api/addons/dispatch` | Administrator | The typed actions `update-status`, `update-check` and `update-upgrade` (arguments `expectedDigest` and `candidateDigest`) give the same answers; the plain `upgrade` action of earlier releases still works and is not pinned. |
+
+No MCP tool maps to these routes. A read-only status tool may be exposed later.
+
+### The upgrade
+
+`POST /api/addons/{id}/upgrade` takes `operationId`, `expectedDigest` (the digest of the
+installed package the caller saw), `candidateDigest` (the digest of the candidate the
+check resolved) and optionally `generation`. The owner then:
+
+1. refuses, before it records anything, an installed package that is not the expected one
+   (`409 stale_installed`), a candidate that is not the one the library resolves now
+   (`409 candidate_changed`), an incompatible candidate (`409 incompatible`), a rewritten
+   immutable version (`409 integrity_error`), and the same transition under another
+   operation ID that has not failed (`409 upgrade_conflict`). A library that cannot be
+   read is `503 check_failed`;
+2. stages and verifies the candidate, never changing the library, the channel or the
+   trusted identity of the package;
+3. for an add-on with data, backs it up, drains it and migrates it under the data recovery
+   described above, and publishes the new generation only when it starts.
+
+Repeating an `operationId` returns the recorded result and does not run again, from
+any frontend. Two requests with the same pins and different operation IDs run once: the
+second is `upgrade_conflict`, in flight or finished. Two upgrades to different candidates
+from the same installed package are serialized by the installed digest, and the loser is
+`stale_installed`. A candidate that fails to stage, fails its compatibility check at
+execution, does not start or is canceled keeps the last good generation running, or leaves
+the add-on in the explicit recovery state described under data recovery. The previous
+installation is never deleted. `409 upgrade_failed` says that the attempt failed; a new
+attempt needs a new operation ID. After `outcome_unknown`, read `operation-status` with
+the same ID and do not submit a new upgrade.
+
+### In the page
+
+The Installed list and the management sheet show a badge with the candidate version and
+the short digest, and the compatibility reasons of an incompatible candidate. An
+administrator gets **Check for updates** with the time of the last check, and **Upgrade**
+when the state is `update-available`. **Upgrade** opens a confirmation that names the
+library, the channel, the installed and the new version and digest, and says that the data
+of the add-on is backed up first. It then shows progress and, on failure, the error and the
+kept version. Anyone else sees the status without actions.
 
 ## Add-on pages
 
@@ -2019,6 +2139,9 @@ names the repository and the immutable tag, carries the channel it is current fo
 holds the expected signature policy. The catalog resolves a selection by version or by
 channel, so a channel is metadata that names the entry and its digest, never a tag that
 is read at install time. See [gallery/addons/README.md](https://github.com/mudler/LocalAI/blob/master/gallery/addons/README.md).
+
+An entry may also carry a `requires` object, the compatibility hint of the update check
+(see [Update detection and upgrade](#update-detection-and-upgrade)).
 
 The host applies the signature policy of the library (source), not the one of an entry:
 a refresh replaces an entry's policy with the policy the administrator configured on the

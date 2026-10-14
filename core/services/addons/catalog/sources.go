@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -160,6 +161,19 @@ func (s *Sources) HasReference(reference string) bool {
 	return ok
 }
 
+// State is what the owner last learned from fetching one library, without an
+// administrator check: it is for the owner's own update check, never for a
+// request. The bool is false when the library was never fetched.
+func (s *Sources) State(sourceID string) (RefreshState, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.cache[sourceID]
+	if !ok {
+		return RefreshState{}, false
+	}
+	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Failed: c.failed}, true
+}
+
 // Get returns a value copy only after authoritative administrator validation.
 func (s *Sources) Get(ctx context.Context, actor contract.Actor, sourceID string) (Source, error) {
 	if e := ctx.Err(); e != nil {
@@ -246,6 +260,9 @@ func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, 
 	releases, e := s.fetch(ctx, src)
 	if e != nil {
 		s.cache[sourceID] = cached{result: result, failed: true}
+		if errors.Is(e, ErrCredential) {
+			return result, e
+		}
 		return result, ErrRefresh
 	}
 	result.Count = len(releases)
@@ -260,11 +277,13 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 	}
 	if src.AuthReference != "" {
 		c, e := s.credentials.Resolve(ctx, src.AuthReference, src.URL)
-		if e != nil {
-			return nil, ErrRefresh
+		if e == nil {
+			e = c.ApplyHeaders(req.Header)
 		}
-		if e = c.ApplyHeaders(req.Header); e != nil {
-			return nil, ErrRefresh
+		if e != nil {
+			// A refresh that failed for want of a credential is still a
+			// failed refresh; the class lets a caller say which one.
+			return nil, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
 		}
 	}
 	response, e := httpclient.NewWithTimeout(30 * time.Second).Do(req)
@@ -293,7 +312,7 @@ func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, error) {
 		if r.Channel != "" && (!channelPattern.MatchString(r.Channel) || versionPattern.MatchString(r.Channel)) {
 			return nil, ErrRefresh
 		}
-		if !validEntryUI(r.UI) {
+		if !validEntryUI(r.UI) || !validRequirements(r.Requires) {
 			return nil, ErrRefresh
 		}
 		r.Selection = ""
@@ -319,6 +338,16 @@ func validEntryUI(u EntryUI) bool {
 		(u.MainPage == "" || contract.ValidName(u.MainPage)) &&
 		(u.Icon == "" || contract.ValidIconPath(u.Icon)) &&
 		(u.LaunchMode == "" || u.LaunchMode == contract.LaunchModeAlways)
+}
+
+// validRequirements accepts a zero range (no claim) or a well formed one.
+func validRequirements(q Requirements) bool {
+	for _, r := range []contract.VersionRange{q.Host, q.API, q.Protocol, q.DataFormat, q.SDK} {
+		if r != (contract.VersionRange{}) && (r.Min == 0 || r.Max < r.Min) {
+			return false
+		}
+	}
+	return true
 }
 
 var channelPattern = regexp.MustCompile(`^[a-z][a-z0-9/_-]{0,127}$`)

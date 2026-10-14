@@ -119,7 +119,7 @@
         },
         "/api/addons/apps": {
             "get": {
-                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. Update-pending is not reported in this release.",
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library.",
                 "produces": [
                     "application/json"
                 ],
@@ -2436,6 +2436,189 @@
                     },
                     "503": {
                         "description": "Unavailable, or outcome_unknown (with operationId)",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/update": {
+            "get": {
+                "description": "Returns the owner's update check for an installed add-on, for every authenticated caller who holds the addons feature and may see the add-on (an administrator any installed add-on, others only an enabled one; anything else is the same 403). The status is computed by the owner from the library the add-on was installed from and never from the browser: state is unknown, up-to-date, update-available, incompatible (with reasons: platform, host-version, api-version, protocol-version, sdk-version or data-format), check-failed (with a redacted error class and the time the library was last read) or integrity-error. A failed check is never up-to-date. A moving channel (development, a branch, latest) compares resolved digests, so a changed digest with the same version label is an update; an immutable version selects only a greater compatible version of the same major. The library and channel never change by themselves. The route never uses the network and never applies anything. Callers who are not administrators get the state, versions and times only, without library, channel or digests. No MCP tool maps to this route.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read the update status of an addon",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Update status",
+                        "schema": {
+                            "$ref": "#/definitions/updates.Status"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature denied, or the add-on is unknown or hidden",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/update/check": {
+            "post": {
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The owner fetches the library the add-on was installed from again, through the credential reference the library is configured with, and answers with the new update status. It is rate limited per add-on and per library: within the interval the last status is returned with throttled true. It applies nothing; an upgrade is a separate explicit request. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Check an addon for updates now (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.UpdateCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Update status",
+                        "schema": {
+                            "$ref": "#/definitions/updates.Status"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/{id}/upgrade": {
+            "post": {
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies an update. It carries the digest of the installed package the caller saw (expectedDigest) and the digest of the candidate the check resolved (candidateDigest). The owner re-resolves the library the add-on came from and refuses, before it records anything, an installed package that is not the expected one (409 stale_installed), a candidate that is not the one it resolves now (409 candidate_changed), an incompatible candidate (409 incompatible), a rewritten immutable version (409 integrity_error) and the same transition under another operation ID (409 upgrade_conflict). It never changes the library or the channel. The upgrade then follows the lifecycle of an add-on: the candidate is staged and verified, the data is backed up and migrated when the add-on has any, and the new generation is published only when it starts. A failure or cancellation keeps the last good generation or leaves an explicit recovery state; the previous installation is never deleted. Repeating the operationId returns the recorded result and never runs again; after outcome_unknown read operation-status with the same operationId. No MCP tool maps to this route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Upgrade an addon to the candidate that was checked (administrators, browser session)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Operation and the pinned digests",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.UpgradeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operation accepted; the payload is the operation status",
+                        "schema": {
+                            "$ref": "#/definitions/contract.Result"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature, administration or browser session denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Type stale_installed, candidate_changed, incompatible, integrity_error, upgrade_conflict, upgrade_failed or operation_conflict",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Unavailable, check_failed, or outcome_unknown (with operationId)",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -7135,6 +7318,41 @@
                 }
             }
         },
+        "addons.UpdateCheckRequest": {
+            "type": "object",
+            "properties": {
+                "operationId": {
+                    "description": "OperationID identifies the request and is the confirmation header.",
+                    "type": "string",
+                    "example": "check-notes-1"
+                }
+            }
+        },
+        "addons.UpgradeRequest": {
+            "type": "object",
+            "properties": {
+                "candidateDigest": {
+                    "description": "CandidateDigest is the digest of the candidate the check resolved.",
+                    "type": "string",
+                    "example": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+                },
+                "expectedDigest": {
+                    "description": "ExpectedDigest is the digest of the installed package the caller saw.",
+                    "type": "string",
+                    "example": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation the caller saw, when it knows it.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "operationId": {
+                    "description": "OperationID is the identity of the upgrade: repeat it to replay safely\nand, after an outcome_unknown answer, poll operation-status with it. The\nsame transition under another operation ID is refused.",
+                    "type": "string",
+                    "example": "upgrade-notes-1"
+                }
+            }
+        },
         "apps.AdminView": {
             "type": "object",
             "properties": {
@@ -7209,7 +7427,7 @@
                     "example": "notes"
                 },
                 "state": {
-                    "description": "State is running, starting, failed or stopped. update-pending is not\nreported in this release: the owner has no authoritative update check.",
+                    "description": "State is running, starting, failed or stopped: the observation of the\nprocess, never an update.",
                     "type": "string",
                     "enum": [
                         "running",
@@ -7254,6 +7472,14 @@
                             "$ref": "#/definitions/apps.UIView"
                         }
                     ]
+                },
+                "update": {
+                    "description": "Update is update-pending when the owner's cached update check says an\nupdate is available for the installed package. It is a separate\nobservation from State and is absent otherwise: an unchecked, failed\nor up to date add-on has none. The list never reaches a library.",
+                    "type": "string",
+                    "enum": [
+                        "update-pending"
+                    ],
+                    "example": "update-pending"
                 },
                 "version": {
                     "type": "string",
@@ -13700,6 +13926,113 @@
                 "url": {
                     "description": "Webhook endpoint URL",
                     "type": "string"
+                }
+            }
+        },
+        "updates.State": {
+            "type": "string",
+            "enum": [
+                "unknown",
+                "up-to-date",
+                "update-available",
+                "incompatible",
+                "check-failed",
+                "integrity-error"
+            ],
+            "x-enum-varnames": [
+                "Unknown",
+                "UpToDate",
+                "UpdateAvailable",
+                "Incompatible",
+                "CheckFailed",
+                "IntegrityError"
+            ]
+        },
+        "updates.Status": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string",
+                    "example": "notes"
+                },
+                "available": {
+                    "description": "Available is true only for update-available.",
+                    "type": "boolean"
+                },
+                "candidateDigest": {
+                    "type": "string"
+                },
+                "candidateVersion": {
+                    "type": "string",
+                    "example": "1.1.0"
+                },
+                "channel": {
+                    "type": "string",
+                    "example": "development"
+                },
+                "checkedAt": {
+                    "description": "CheckedAt is when the status was computed. LastSuccess is when the\nlibrary was last read successfully: a failed check keeps it, so the\npage can say how old the knowledge is.",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "Error is the redacted class of a failed check.",
+                    "type": "string",
+                    "example": "refresh-failed"
+                },
+                "generation": {
+                    "description": "Generation is the installed generation the status describes.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "installedDigest": {
+                    "type": "string"
+                },
+                "installedVersion": {
+                    "type": "string",
+                    "example": "1.0.0"
+                },
+                "lastSuccess": {
+                    "type": "string"
+                },
+                "reasons": {
+                    "description": "Reasons are the compatibility reasons of an incompatible or\nintegrity-error status.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "selection": {
+                    "type": "string",
+                    "example": "1.0.0"
+                },
+                "sourceId": {
+                    "description": "SourceID, Channel and Selection are the library, channel and\nselection the add-on was installed from. They never change by themselves.",
+                    "type": "string",
+                    "example": "official"
+                },
+                "stale": {
+                    "description": "Stale is true when the library data or the cached answer is older than\nthe time to live.",
+                    "type": "boolean"
+                },
+                "state": {
+                    "enum": [
+                        "unknown",
+                        "up-to-date",
+                        "update-available",
+                        "incompatible",
+                        "check-failed",
+                        "integrity-error"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/updates.State"
+                        }
+                    ],
+                    "example": "update-available"
+                },
+                "throttled": {
+                    "description": "Throttled is true when an explicit refresh was not performed because\none ran moments ago. The status is then the last one.",
+                    "type": "boolean"
                 }
             }
         },
