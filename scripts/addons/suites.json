@@ -1841,5 +1841,87 @@
       "foundation: deep links of the add-on page work behind a proxy path prefix on a non-owner frontend",
       "foundation: a session ended through one frontend is refused for add-on assets by the other servers"
     ]
+  },
+  "tables-databases": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./addons/tables/internal/store",
+        "-ginkgo.json-report=../../../../.cache/addons/logs/tables-databases-store.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./tests/addons/tables",
+        "-ginkgo.json-report=../../../.cache/addons/logs/tables-databases.json"
+      ]
+    ],
+    "report": ".cache/addons/logs/tables-databases-store.json",
+    "reports": [
+      {
+        "path": ".cache/addons/logs/tables-databases-store.json",
+        "cases": [
+          "creates one private WAL database file named by the host resource ID",
+          "never lets an opaque ID or a name reach outside the storage directory",
+          "refuses a symbolic link as storage directory, database file or ledger",
+          "is idempotent by operation ID and never creates a second database",
+          "serializes concurrent creation of one operation into one database",
+          "recovers creation after a crash on either side of the file, and hides half-built files",
+          "renames only the named database and replays a renamed operation without effect",
+          "reports an unknown database and creates nothing for it",
+          "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
+          "encodes its receipts so the host can read them"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/tables-databases.json",
+        "cases": [
+          "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
+          "creates a database under the host-assigned ID and lists it only for people who may read it",
+          "drops the reservation when the addon refuses the name, and leaves no database",
+          "drops a reservation at reconcile when the crash came before the database was created",
+          "commits a reservation at reconcile when the crash came after the database was created",
+          "never exposes a database that has no host record",
+          "renames one database by operation, replays safely, and leaves every other database alone",
+          "rejects an undeclared tool, a forged addon binding and an unknown resource",
+          "keeps databases and operation receipts across an addon restart",
+          "fails closed when the addon cannot answer, and drops only for an addon that is not installed"
+        ]
+      }
+    ],
+    "cases": [
+      "creates one private WAL database file named by the host resource ID",
+      "never lets an opaque ID or a name reach outside the storage directory",
+      "refuses a symbolic link as storage directory, database file or ledger",
+      "is idempotent by operation ID and never creates a second database",
+      "serializes concurrent creation of one operation into one database",
+      "recovers creation after a crash on either side of the file, and hides half-built files",
+      "renames only the named database and replays a renamed operation without effect",
+      "reports an unknown database and creates nothing for it",
+      "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
+      "encodes its receipts so the host can read them",
+      "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
+      "creates a database under the host-assigned ID and lists it only for people who may read it",
+      "drops the reservation when the addon refuses the name, and leaves no database",
+      "drops a reservation at reconcile when the crash came before the database was created",
+      "commits a reservation at reconcile when the crash came after the database was created",
+      "never exposes a database that has no host record",
+      "renames one database by operation, replays safely, and leaves every other database alone",
+      "rejects an undeclared tool, a forged addon binding and an unknown resource",
+      "keeps databases and operation receipts across an addon restart",
+      "fails closed when the addon cannot answer, and drops only for an addon that is not installed"
+    ]
   }
 }

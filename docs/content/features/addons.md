@@ -6,7 +6,7 @@ title: Addon contracts
 
 The version-one contracts in `pkg/addons/contract` define managed-process addons.
 The owner can install and run addons. Public HTTP routes, distributed request
-forwarding, and Tables storage are not yet available. Installed executables are trusted code, not sandboxed code. Every addon
+forwarding, and the Tables user interface are not yet available. Tables databases are described in [Tables](../tables/). Installed executables are trusted code, not sandboxed code. Every addon
 requires an executable; a UI bundle alone is not an addon.
 
 ## Manifest

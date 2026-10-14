@@ -15,6 +15,10 @@ cache="$root/.cache/addons"
 mkdir -p "$cache/logs" "$cache/tmp"
 . "$root/scripts/addons/leaks.sh"
 suites='prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots foundation-acceptance'
+# Tables suites are not foundation suites: scripts/addons/tables_gate.sh runs
+# them. They are named here only so the inventory check does not report them
+# as missing from the foundation gate.
+tables_suites='tables-databases'
 results="$cache/logs/foundation-gate-$$.jsonl"
 : >"$results"
 for suite in $suites; do
@@ -35,12 +39,13 @@ for suite in $suites; do
         printf '{"suite":"%s","passed":0,"skipped":0,"status":"failed","log":"%s"}\n' "$suite" "$out" >>"$results"
     fi
 done
-python3 -I - "$results" "$root/scripts/addons/suites.json" "$suites" <<'PY'
+python3 -I - "$results" "$root/scripts/addons/suites.json" "$suites" "$tables_suites" <<'PY'
 import json, sys
 rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 inventory = json.load(open(sys.argv[2]))
 named = sys.argv[3].split()
-missing = sorted(set(inventory) - set(named))
+tables = sys.argv[4].split()
+missing = sorted(set(inventory) - set(named) - set(tables))
 absent = sorted(set(named) - set(inventory))
 width = max(len(r['suite']) for r in rows)
 print('foundation gate inventory')
