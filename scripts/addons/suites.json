@@ -1938,7 +1938,9 @@
           "renames one database by operation, replays safely, and leaves every other database alone",
           "rejects an undeclared tool, a forged addon binding and an unknown resource",
           "keeps databases and operation receipts across an addon restart",
-          "fails closed when the addon cannot answer, and drops only for an addon that is not installed"
+          "fails closed when the addon cannot answer, and drops only for an addon that is not installed",
+          "creates a database from a chat proposal that only the proposer's session confirms",
+          "settles reservations at bootstrap by asking the real addon and keeps those of pending proposals"
         ]
       }
     ],
@@ -1962,7 +1964,9 @@
       "renames one database by operation, replays safely, and leaves every other database alone",
       "rejects an undeclared tool, a forged addon binding and an unknown resource",
       "keeps databases and operation receipts across an addon restart",
-      "fails closed when the addon cannot answer, and drops only for an addon that is not installed"
+      "fails closed when the addon cannot answer, and drops only for an addon that is not installed",
+      "creates a database from a chat proposal that only the proposer's session confirms",
+      "settles reservations at bootstrap by asking the real addon and keeps those of pending proposals"
     ]
   }
 }

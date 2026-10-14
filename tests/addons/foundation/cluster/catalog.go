@@ -33,6 +33,12 @@ type Package struct {
 	Effects string
 	// Files are extra package files, by package path.
 	Files map[string]string
+	// Executable is the package path of the executable. The default is
+	// bin/fixture, which holds the protocol fixture.
+	Executable string
+	// Binary replaces the library's executable for this package, for a real
+	// add-on built by the test.
+	Binary []byte
 }
 
 // Library serves releases as a catalog source on loopback.
@@ -87,8 +93,15 @@ func (l *Library) Close() { _ = l.server.Close() }
 // Add builds a package archive and lists it. effectsDir receives the durable
 // effect log of packages that ask for one.
 func (l *Library) Add(p Package, effectsDir string) error {
+	executable, binary := p.Executable, p.Binary
+	if executable == "" {
+		executable = "bin/fixture"
+	}
+	if binary == nil {
+		binary = l.exe
+	}
 	manifest := map[string]any{
-		"schemaVersion": 1, "id": p.ID, "version": p.Version, "executable": "bin/fixture",
+		"schemaVersion": 1, "id": p.ID, "version": p.Version, "executable": executable,
 		"os": runtime.GOOS, "arch": runtime.GOARCH,
 		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 1, "max": 1},
 		"protocol": map[string]int{"min": 1, "max": 1}, "dataFormat": map[string]int{"min": 1, "max": 2},
@@ -110,7 +123,7 @@ func (l *Library) Add(p Package, effectsDir string) error {
 	if err := add("manifest.json", raw, 0o644); err != nil {
 		return err
 	}
-	if err := add("bin/fixture", l.exe, 0o755); err != nil {
+	if err := add(executable, binary, 0o755); err != nil {
 		return err
 	}
 	fixture := map[string]any{}
