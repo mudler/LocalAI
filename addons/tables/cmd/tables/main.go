@@ -29,12 +29,18 @@ func main() {
 	if err != nil {
 		os.Exit(6)
 	}
-	st, err := store.Open(filepath.Join(startup.DataDir, "tables"), store.Options{})
+	// A staged export of an earlier process has no handle any more.
+	exports := filepath.Join(startup.DataDir, "exports")
+	if err := server.ClearExports(exports); err != nil {
+		os.Exit(7)
+	}
+	// An export never exceeds the host's bound for one file.
+	st, err := store.Open(filepath.Join(startup.DataDir, "tables"), store.Options{ExportMaxBytes: min(store.DefaultExportBytes, startup.Limits.ArtifactBytes)})
 	if err != nil {
 		os.Exit(7)
 	}
 	defer st.Close()
-	if err := server.Serve(context.Background(), listener, startup, &server.Tables{Store: st}); err != nil {
+	if err := server.Serve(context.Background(), listener, startup, &server.Tables{Store: st, ExportDir: exports}); err != nil {
 		os.Exit(8)
 	}
 }

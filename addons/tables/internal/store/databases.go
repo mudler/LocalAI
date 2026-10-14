@@ -69,6 +69,11 @@ type Options struct {
 	// MaxPages caps one database file in 4096-byte pages. It defaults to
 	// MaxPages (1 GiB) and is lowered only by tests.
 	MaxPages int
+	// ExportMaxRows, ExportMaxBytes and ExportTimeout bound one CSV export.
+	// They default when zero.
+	ExportMaxRows  int
+	ExportMaxBytes int64
+	ExportTimeout  time.Duration
 }
 type DatabaseInfo struct {
 	ResourceID string            `json:"resourceId"`

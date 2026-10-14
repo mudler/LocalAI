@@ -26,6 +26,7 @@ type rowArgs struct {
 	Rows       []map[string]json.RawMessage `json:"rows"`
 	Set        map[string]json.RawMessage   `json:"set"`
 	IDs        []int64                      `json:"ids"`
+	MaxRows    int                          `json:"maxRows"`
 }
 
 func parseRows(env contract.Envelope) (rowArgs, error) {
@@ -62,7 +63,12 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 		return contract.Result{}, err
 	}
 	id := env.Request.ResourceID
+	if a.Tool != ToolRowsExport && a.MaxRows != 0 {
+		return contract.Result{}, ErrBadRequest
+	}
 	switch a.Tool {
+	case ToolRowsExport:
+		return t.exportRows(ctx, env, a)
 	case ToolRowsQuery:
 		if a.Aggregates != nil || a.GroupBy != "" || a.Rows != nil || a.Set != nil || a.IDs != nil {
 			return contract.Result{}, ErrBadRequest
@@ -95,7 +101,7 @@ func (t *Tables) readRows(ctx context.Context, env contract.Envelope) (contract.
 
 // rowMutationShape refuses fields a mutation does not use.
 func (a rowArgs) mutationShape() error {
-	if a.Columns != nil || a.Sort != nil || a.Limit != 0 || a.Cursor != "" || a.Aggregates != nil || a.GroupBy != "" {
+	if a.Columns != nil || a.Sort != nil || a.Limit != 0 || a.Cursor != "" || a.Aggregates != nil || a.GroupBy != "" || a.MaxRows != 0 {
 		return ErrBadRequest
 	}
 	return nil

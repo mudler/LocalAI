@@ -42,7 +42,7 @@ var _ = Describe("Add-on tools in the chat executors", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(exec.HasTools()).To(BeTrue())
 		fns, _ := exec.DiscoverTools(context.Background())
-		Expect(fns).To(HaveLen(14))
+		Expect(fns).To(HaveLen(15))
 		Expect(exec.IsTool("addon__tables__rows-query")).To(BeTrue())
 		// The whole namespace is claimed, so an unknown name ends in a typed
 		// error here and never in another executor.

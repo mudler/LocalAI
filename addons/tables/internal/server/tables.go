@@ -32,6 +32,7 @@ const (
 	ToolColumnDrop     = "columns-drop"
 	ToolRowsQuery      = "rows-query"
 	ToolRowsAggregate  = "rows-aggregate"
+	ToolRowsExport     = "rows-export"
 	ToolRowsInsert     = "rows-insert"
 	ToolRowsUpdate     = "rows-update"
 	ToolRowsDelete     = "rows-delete"
@@ -73,7 +74,7 @@ const deleteAction = "delete"
 // Tools is the declared tool set of this addon.
 var Tools = []string{ToolResourceExists, ToolDatabaseCreate, ToolDatabaseRename, ToolDatabaseInspect,
 	ToolTableCreate, ToolTableRename, ToolTableDrop, ToolColumnAdd, ToolColumnRename, ToolColumnDrop,
-	ToolRowsQuery, ToolRowsAggregate, ToolRowsInsert, ToolRowsUpdate, ToolRowsDelete}
+	ToolRowsQuery, ToolRowsAggregate, ToolRowsExport, ToolRowsInsert, ToolRowsUpdate, ToolRowsDelete}
 
 // Tables implements contract.Runtime over the database store. It trusts the
 // host binding of actor and resource ID: by the time a request arrives the
@@ -82,6 +83,10 @@ var Tools = []string{ToolResourceExists, ToolDatabaseCreate, ToolDatabaseRename,
 type Tables struct {
 	Store *store.Store
 	Now   func() time.Time
+	// ExportDir is the private directory CSV exports are staged in until the
+	// owner streams them. Empty turns exports off.
+	ExportDir string
+	exp       exports
 }
 
 var _ contract.Runtime = (*Tables)(nil)
@@ -143,7 +148,7 @@ func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Resu
 		return contract.Result{}, err
 	}
 	id := env.Request.ResourceID
-	if a.Tool == ToolRowsQuery || a.Tool == ToolRowsAggregate {
+	if a.Tool == ToolRowsQuery || a.Tool == ToolRowsAggregate || a.Tool == ToolRowsExport {
 		return t.readRows(ctx, env)
 	}
 	switch a.Tool {
@@ -403,6 +408,8 @@ func (t *Tables) Receipt(ctx context.Context, op string) (contract.Receipt, erro
 	return r, mapErr(err)
 }
 
-func (t *Tables) OpenOutput(context.Context, contract.Envelope, string) (io.ReadCloser, error) {
-	return nil, ErrNotFound
+// OpenOutput streams a staged export to the owner. The handle opens only for
+// the operation, person and database that produced it.
+func (t *Tables) OpenOutput(_ context.Context, env contract.Envelope, handle string) (io.ReadCloser, error) {
+	return t.openExport(env, handle)
 }

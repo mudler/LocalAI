@@ -35,6 +35,7 @@
       "columns-drop",
       "rows-query",
       "rows-aggregate",
+      "rows-export",
       "rows-insert",
       "rows-update",
       "rows-delete"
@@ -158,6 +159,55 @@
             "resourceId",
             "table",
             "aggregates"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "rows-export",
+        "description": "Export the rows of one table, with an optional filter and sort, to a CSV file for the person to download. The result is a private file with a name, size and expiry; the rows themselves are not returned. Use rows-query to read rows.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the database, as the person gave it or as returned by a database creation."
+            },
+            "table": {
+              "type": "string",
+              "description": "Table name as it is labelled in the database.",
+              "maxLength": 80
+            },
+            "columns": {
+              "type": "array",
+              "description": "Column labels to export, in order. Empty exports all columns. \"_id\" adds the row ID.",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            },
+            "filter": {
+              "type": "object",
+              "description": "Row filter. A node is exactly one of: {\"and\":[nodes]}, {\"or\":[nodes]} or a leaf {\"column\":label,\"op\":op,\"value\":v} with op eq, ne, lt, lte, gt, gte, contains, starts-with, ends-with, or {\"column\":label,\"op\":\"in\",\"values\":[v]}, or op is-null and is-not-null with no value."
+            },
+            "sort": {
+              "type": "array",
+              "description": "Sort keys: {\"column\":label,\"desc\":bool}.",
+              "items": {
+                "type": "object"
+              },
+              "maxItems": 4
+            },
+            "maxRows": {
+              "type": "integer",
+              "description": "Most rows to export. Empty exports every row up to the export limit; past the limit nothing is exported.",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "resourceId",
+            "table"
           ],
           "additionalProperties": false
         }

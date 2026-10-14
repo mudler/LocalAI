@@ -544,6 +544,74 @@ func queryHash(parts ...any) string {
 	return hex.EncodeToString(h[:])
 }
 
+// selectPlan is the compiled shape of a Query: the selected columns, the
+// WHERE clause with its bound values and the ORDER BY terms. Every identifier
+// in it comes from the catalog.
+type selectPlan struct {
+	sel   []colRef
+	where string
+	args  []any
+	order []string
+}
+
+// planSelect resolves the labels of q against tbl. With allowID the row
+// identifier label may be selected as a column (the export does; a page of
+// rows always returns the identifier on its own).
+func planSelect(tbl *catalogTable, q Query, allowID bool) (selectPlan, error) {
+	var sel []colRef
+	if len(q.Columns) == 0 {
+		for _, c := range tbl.cols {
+			sel = append(sel, colRef{sql: c.ID, typ: c.Type, label: c.Name})
+		}
+	} else {
+		if len(q.Columns) > MaxColumns {
+			return selectPlan{}, badQuery("too many columns")
+		}
+		seen := map[string]bool{}
+		for _, l := range q.Columns {
+			r, err := tbl.ref(l, allowID)
+			if err != nil {
+				return selectPlan{}, err
+			}
+			if seen[r.sql] {
+				return selectPlan{}, badQuery("column %q is selected twice", l)
+			}
+			seen[r.sql] = true
+			sel = append(sel, r)
+		}
+	}
+	comp := &compiler{tbl: tbl}
+	where, err := comp.where(q.Filter)
+	if err != nil {
+		return selectPlan{}, err
+	}
+	if len(q.Sort) > MaxSortKeys {
+		return selectPlan{}, badQuery("at most %d sort keys", MaxSortKeys)
+	}
+	var order []string
+	seen := map[string]bool{}
+	for _, k := range q.Sort {
+		r, err := tbl.ref(k.Column, true)
+		if err != nil {
+			return selectPlan{}, err
+		}
+		if seen[r.sql] {
+			return selectPlan{}, badQuery("column %q is sorted twice", k.Column)
+		}
+		seen[r.sql] = true
+		dir := " ASC"
+		if k.Desc {
+			dir = " DESC"
+		}
+		order = append(order, r.sql+dir)
+	}
+	if !seen[rowIDColumn] {
+		order = append(order, rowIDColumn+" ASC")
+	}
+
+	return selectPlan{sel: sel, where: where, args: comp.args, order: order}, nil
+}
+
 // Query returns one page of rows. Every identifier in the SQL comes from the
 // catalog and every value is bound; labels are only looked up.
 func (s *Store) Query(ctx context.Context, resourceID string, q Query) (RowPage, error) {
@@ -560,56 +628,11 @@ func (s *Store) Query(ctx context.Context, resourceID string, q Query) (RowPage,
 		case limit < 0 || limit > MaxPage:
 			return badQuery("limit is 1 to %d", MaxPage)
 		}
-		var sel []colRef
-		if len(q.Columns) == 0 {
-			for _, c := range tbl.cols {
-				sel = append(sel, colRef{sql: c.ID, typ: c.Type, label: c.Name})
-			}
-		} else {
-			if len(q.Columns) > MaxColumns {
-				return badQuery("too many columns")
-			}
-			seen := map[string]bool{}
-			for _, l := range q.Columns {
-				r, err := tbl.ref(l, false)
-				if err != nil {
-					return err
-				}
-				if seen[r.sql] {
-					return badQuery("column %q is selected twice", l)
-				}
-				seen[r.sql] = true
-				sel = append(sel, r)
-			}
-		}
-		comp := &compiler{tbl: tbl}
-		where, err := comp.where(q.Filter)
+		pl, err := planSelect(tbl, q, false)
 		if err != nil {
 			return err
 		}
-		if len(q.Sort) > MaxSortKeys {
-			return badQuery("at most %d sort keys", MaxSortKeys)
-		}
-		var order []string
-		seen := map[string]bool{}
-		for _, k := range q.Sort {
-			r, err := tbl.ref(k.Column, true)
-			if err != nil {
-				return err
-			}
-			if seen[r.sql] {
-				return badQuery("column %q is sorted twice", k.Column)
-			}
-			seen[r.sql] = true
-			dir := " ASC"
-			if k.Desc {
-				dir = " DESC"
-			}
-			order = append(order, r.sql+dir)
-		}
-		if !seen[rowIDColumn] {
-			order = append(order, rowIDColumn+" ASC")
-		}
+		sel, where, order, args0 := pl.sel, pl.where, pl.order, pl.args
 		ids := make([]string, len(sel))
 		for i, c := range sel {
 			ids[i] = c.sql
@@ -631,7 +654,7 @@ func (s *Store) Query(ctx context.Context, resourceID string, q Query) (RowPage,
 			cols += "," + c.sql
 		}
 		stmt := "SELECT " + cols + " FROM " + tbl.ID + where + " ORDER BY " + strings.Join(order, ",") + " LIMIT ? OFFSET ?"
-		args := append(comp.args, limit+1, offset)
+		args := append(args0, limit+1, offset)
 		rows, err := tx.QueryContext(ctx, stmt, args...)
 		if err != nil {
 			return err

@@ -119,7 +119,7 @@ var _ = Describe("Addon tool adapter", func() {
 			Expect(names).To(Equal([]string{
 				"addon__tables__columns-add", "addon__tables__columns-drop", "addon__tables__columns-rename",
 				"addon__tables__databases-create", "addon__tables__databases-inspect", "addon__tables__databases-rename",
-				"addon__tables__rows-aggregate", "addon__tables__rows-delete", "addon__tables__rows-insert",
+				"addon__tables__rows-aggregate", "addon__tables__rows-delete", "addon__tables__rows-export", "addon__tables__rows-insert",
 				"addon__tables__rows-query", "addon__tables__rows-update",
 				"addon__tables__tables-create", "addon__tables__tables-drop", "addon__tables__tables-rename",
 			}))

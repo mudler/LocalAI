@@ -45,7 +45,7 @@ var _ = Describe("Manifest tool definitions", func() {
 			"databases-create": "create", "databases-inspect": "read", "databases-rename": "schema",
 			"tables-create": "schema", "tables-rename": "schema", "tables-drop": "schema",
 			"columns-add": "schema", "columns-rename": "schema", "columns-drop": "schema",
-			"rows-query": "read", "rows-aggregate": "read", "rows-insert": "write", "rows-update": "write", "rows-delete": "write",
+			"rows-query": "read", "rows-aggregate": "read", "rows-export": "read", "rows-insert": "write", "rows-update": "write", "rows-delete": "write",
 		}))
 	})
 
