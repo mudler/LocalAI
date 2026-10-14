@@ -184,4 +184,27 @@ if ! env PATH="$fixture/bin:$PATH" PLAYWRIGHT_CHROMIUM_PATH="$fixture/bin/chromi
 fi
 count=$((count + 1))
 printf '{"case":"configured-browser-setup","status":"passed"}\n'
+# The leak scan of the shared scratch directory looks at executables and
+# working directories only. A shell of another session that merely names the
+# directory in its command line (a log tail, a wait loop) is not a leak and is
+# never killed; a process that runs in or from the directory still is.
+leaks="$root/scripts/addons/leaks.sh"
+[ -n "${LEAKS_SCRIPT:-}" ] && leaks=$LEAKS_SCRIPT
+scratch="$fixture/shared-scratch"
+mkdir -p "$scratch/run"
+sh -c ': '"$scratch"'/named-only; sleep 10' &
+named=$!
+(cd "$scratch/run" && exec sleep 10) &
+inside=$!
+sleep 0.3
+found=$(. "$leaks"; leaked_pids "$scratch/" paths-only)
+pkill -P "$named" 2>/dev/null || true
+kill "$named" "$inside" 2>/dev/null || true
+wait "$named" "$inside" 2>/dev/null || true
+case " $(echo $found) " in *" $named "*) echo 'FAIL leak-ignores-command-line: a shell that only names the directory was reported' >&2; exit 1 ;; esac
+count=$((count + 1))
+printf '{"case":"leak-ignores-command-line","status":"passed"}\n'
+case " $(echo $found) " in *" $inside "*) ;; *) echo 'FAIL leak-finds-working-directory: a process running in the directory was missed' >&2; exit 1 ;; esac
+count=$((count + 1))
+printf '{"case":"leak-finds-working-directory","status":"passed"}\n'
 printf '{"total":%s,"passed":%s,"skipped":0}\n' "$count" "$count"

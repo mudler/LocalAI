@@ -51,7 +51,7 @@ cleanup() {
     # Nothing that names the work or scratch directories may survive. Whatever
     # does is killed, and the gate fails.
     reap_leaks "$work" foundation || leaked=1
-    reap_leaks "$cache/tmp/" foundation || leaked=1
+    reap_leaks "$cache/tmp/" foundation paths-only || leaked=1
     find "$work" -type d -exec chmod u+rwx {} + 2>/dev/null || true
     rm -rf "$work"
     if [ "$leaked" -ne 0 ] && [ "$code" -eq 0 ]; then

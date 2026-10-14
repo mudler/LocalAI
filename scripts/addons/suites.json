@@ -41,7 +41,9 @@
       "ui-report-skipped",
       "ui-report-flaky",
       "ui-report-empty",
-      "ui-report-missing"
+      "ui-report-missing",
+      "leak-ignores-command-line",
+      "leak-finds-working-directory"
     ],
     "readiness": {
       "ginkgo": {

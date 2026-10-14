@@ -28,7 +28,7 @@ for suite in $suites; do
     leak=0
     ok=0
     sh scripts/addons/verify.sh "$suite" >"$out" 2>&1 || ok=1
-    reap_leaks "$cache/tmp/" "$suite" >>"$out" 2>&1 || leak=1
+    reap_leaks "$cache/tmp/" "$suite" paths-only >>"$out" 2>&1 || leak=1
     if [ "$leak" -eq 1 ]; then
         printf '{"suite":"%s","passed":0,"skipped":0,"status":"leaked-processes","log":"%s"}\n' "$suite" "$out" >>"$results"
     elif [ "$ok" -eq 0 ]; then
