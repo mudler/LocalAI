@@ -12,15 +12,28 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/artifacts"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 )
 
 func (a *Application) AddonGateway() *gateway.Gateway { return a.addonGateway }
+
+// AddonToolProvider binds the tools of installed addons to the principal of a
+// chat request. It is nil when the host has no addon gateway: the chat
+// handler then rejects an opt-in with a typed error. The provider reads the
+// ownership mode from configuration, never from a request.
+func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
+	if a.addonGateway == nil {
+		return nil
+	}
+	return mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+}
 
 // AddonPolicy is the owner-local resource policy. It is nil on frontends and on
 // hosts without the addon transport, which then deny every resource.

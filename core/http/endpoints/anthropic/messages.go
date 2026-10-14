@@ -61,6 +61,12 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 		// Convert Anthropic tools to internal Functions format
 		funcs, shouldUseFn := convertAnthropicTools(input, cfg)
 
+		// Add-on tools need a per-request actor and the host broker; this
+		// surface does not serve them and says so.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		// MCP injection: prompts, resources, and tools
 		var mcpExecutor mcpTools.ToolExecutor
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)

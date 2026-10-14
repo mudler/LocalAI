@@ -916,6 +916,9 @@ func (s *AgentJobService) ExecuteJobInternal(job schema.Job, task schema.Task, c
 		cogitoOpts,
 		cogito.WithContext(ctx),
 		cogito.WithMCPs(sessions...),
+		// Agent jobs run unattended and have no per-request principal, so
+		// they never serve add-on tools. A session cannot publish one.
+		cogito.WithMCPToolFilter(mcpTools.SessionToolFilter()),
 		cogito.WithStatusCallback(func(status string) {
 			xlog.Debug("Status", "job_id", job.ID, "model", modelConfig.Name, "status", status)
 			// Store trace

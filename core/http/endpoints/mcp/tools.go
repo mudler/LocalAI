@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -443,6 +444,13 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 			if seen[tool.Name] {
 				continue
 			}
+			// The add-on namespace belongs to the broker. A session is shared
+			// by every user of its model, so a tool it publishes under that
+			// namespace is never offered: it could pass for a brokered call.
+			if addontools.IsToolName(tool.Name) {
+				xlog.Warn("Ignoring MCP tool in the reserved add-on namespace", "tool", tool.Name, "server", ns.Name)
+				continue
+			}
 			seen[tool.Name] = true
 
 			f := functions.Function{
@@ -482,6 +490,9 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 
 // ExecuteMCPToolCall finds the matching tool and executes it.
 func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName string, arguments string) (string, error) {
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
 	var toolInfo *MCPToolInfo
 	for i := range tools {
 		if tools[i].ToolName == toolName {
@@ -537,6 +548,9 @@ func ExecuteMCPToolCallRemote(
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
 	toolName, arguments string,
 ) (string, error) {
+	if addontools.IsToolName(toolName) {
+		return "", ErrAddonToolsUnsupported
+	}
 	if agentControl == nil {
 		return "", fmt.Errorf("agent control not configured for distributed MCP")
 	}

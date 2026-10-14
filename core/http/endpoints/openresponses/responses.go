@@ -93,6 +93,12 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			funcs, shouldUseFn = convertORToolsToFunctions(input, cfg)
 		}
 
+		// Add-on tools need a per-request actor and the host broker; this
+		// surface does not serve them and says so.
+		if mcpTools.AddonToolsFromMetadata(input.Metadata) {
+			return mcpTools.RejectAddonTools(c)
+		}
+
 		// MCP injection: prompts, resources, and tools
 		mcpServers := mcpTools.MCPServersFromMetadata(input.Metadata)
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)

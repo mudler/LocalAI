@@ -61,11 +61,13 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 	// The legacy /v1/mcp/chat/completions endpoint never opts into the
 	// in-process LocalAI Assistant tool surface — pass nil holder so the
 	// assistant branch in chat.go is unreachable from this code path.
+	// The same holds for add-on tools: this endpoint passes no provider, so a
+	// request that opts into addon_tools gets the typed rejection.
 	// Stream-side PII filter is also nil: this legacy endpoint pre-dates
 	// the per-model PII config and is kept for backward compatibility.
 	// The request-side middleware on the main chat route handles
 	// filtering for the standard /v1/chat/completions path.
-	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, agentControl, nil, compressor)
+	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, agentControl, nil, nil, compressor)
 
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
