@@ -4,6 +4,46 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: minicpm-v-4.7-35b-a3b
+  description: |
+    # MiniCPM-V 4.7
+
+    GitHub · On-device results · Evaluation · Examples · Usage · Model weights
+
+    **MiniCPM-V 4.7** is the latest model in the MiniCPM-V series, available in a **35B-A3B** variant, with **35B-A3B being the first MoE model in the MiniCPM-V series**. It builds on the family's single-image, multi-image, and video understanding capabilities, combining stronger foundation capabilities with efficient visual encoding and on-device inference. Notable features of MiniCPM-V 4.7 include:
+
+    ...
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B-gguf
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM-o/main/assets/minicpmv4.7/moe_speed_comparison_en.gif
+  tags:
+    - llm
+    - gguf
+    - multimodal
+  files:
+    - filename: llama-cpp/models/MiniCPM-V-4_7-35B-A3B-Q4_K_M/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf
+      sha256: bf3d1c67f7843193e4483aebd26c5dea6b6d1f6a06ffa03c2387a6f3cc6d7df5
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B-gguf/resolve/main/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/MiniCPM-V-4_7-35B-A3B-Q4_K_M/mmproj-model-f16.gguf
+      sha256: bff3b688e14c300eca273092c37c50a0ddfcc2054e079af1a0480edeed5d20f1
+      uri: https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B-gguf/resolve/main/mmproj-model-f16.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/MiniCPM-V-4_7-35B-A3B-Q4_K_M/mmproj-model-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM-V-4_7-35B-A3B-Q4_K_M/MiniCPM-V-4_7-35B-A3B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: adavar-3b-q4
   description: |
     AdaVaR-3B is a Qwen2.5-VL-3B-Instruct fine-tune for visual reasoning
