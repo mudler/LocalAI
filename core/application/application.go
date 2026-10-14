@@ -850,7 +850,7 @@ func (a *Application) startAddons() error {
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
-		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax})
+		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax})
 		if err != nil {
 			_ = m.Close()
 			return err

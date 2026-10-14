@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	goruntime "runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +26,11 @@ import (
 var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
 
 type Config struct {
-	StateRoot                  string // private owner-local durable process ledger, required
+	StateRoot string // private owner-local durable process ledger, required
+	// DataRoot holds one private directory per addon ID. When set, the
+	// supervisor creates the directory (mode 0700) and tells the addon its
+	// path in Startup.DataDir. Empty means the addon is given no data directory.
+	DataRoot                   string
 	Limits                     contract.Limits
 	ReadyTimeout, StableHealth time.Duration
 }
@@ -45,6 +50,9 @@ type Startup struct {
 	Registration Registration    `json:"registration"`
 	Credential   string          `json:"credential"`
 	Limits       contract.Limits `json:"limits"`
+	// DataDir is the addon's private mutable data directory, an absolute path
+	// the owner created. The package directory is immutable and never holds data.
+	DataDir string `json:"dataDir,omitempty"`
 }
 type Instance struct {
 	PID         int
@@ -254,6 +262,19 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 		return nil, ErrRuntime
 	}
 	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: 1, Endpoint: "http://" + listener.Addr().String(), Capabilities: pkg.Manifest.Capabilities}
+	dataDir := ""
+	if s.config.DataRoot != "" {
+		if !filepath.IsAbs(s.config.DataRoot) || !relativeSafe(pkg.Manifest.ID) {
+			return nil, ErrRuntime
+		}
+		dataDir = filepath.Join(s.config.DataRoot, pkg.Manifest.ID)
+		if os.MkdirAll(dataDir, 0o700) != nil {
+			return nil, ErrRuntime
+		}
+		if fi, e := os.Lstat(dataDir); e != nil || !fi.IsDir() {
+			return nil, ErrRuntime
+		}
+	}
 	// No shell, no inherited environment, no ambient host credentials. The argv
 	// contract is fixed; package manifests cannot smuggle interpreter switches.
 	cmd := exec.Command(path, "--localai-addon-v1")
@@ -299,7 +320,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	// The startup object is bounded; write with a deadline so even a child that
 	// never reads its inherited pipe cannot hang the owner.
 	_ = parent.SetWriteDeadline(time.Now().Add(s.config.ReadyTimeout))
-	e = json.NewEncoder(parent).Encode(Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits})
+	e = json.NewEncoder(parent).Encode(Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits, DataDir: dataDir})
 	if e != nil {
 		s.terminate(p)
 		return nil, ErrRuntime
@@ -599,4 +620,9 @@ func (s *Supervisor) Close(ctx context.Context) error {
 		return s.ledger.close()
 	}
 	return nil
+}
+
+// relativeSafe reports an addon ID that is one plain path element.
+func relativeSafe(id string) bool {
+	return id != "" && id != "." && id != ".." && !strings.ContainsAny(id, `/\`)
 }

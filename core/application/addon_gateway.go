@@ -131,7 +131,7 @@ func (a *Application) startAddonGateway() error {
 	// resources are kept; the check is supplied by the code that creates them.
 	exists := a.addonResourceExists
 	if exists == nil {
-		exists = func(context.Context, policy.ResourceKey) (bool, error) { return false, nil }
+		exists = a.addonBackingExists(contract.DefaultLimits())
 	}
 	if e = p.Reconcile(a.applicationConfig.Context, exists); e != nil {
 		closeState()
@@ -185,6 +185,25 @@ func (a *Application) startAddonGateway() error {
 	go func() { _ = server.Serve(tls.NewListener(listener, server.TLSConfig)) }()
 	go func() { <-a.applicationConfig.Context.Done(); _ = server.Close(); closeState() }()
 	return nil
+}
+
+// addonBackingExists is the real existence check for resources whose backing
+// lives in an addon (Tables databases). Without a manager there is no addon
+// that could back a resource, so a pending record is dropped as before.
+func (a *Application) addonBackingExists(limits contract.Limits) func(context.Context, policy.ResourceKey) (bool, error) {
+	m := a.addonManager
+	if m == nil {
+		return func(context.Context, policy.ResourceKey) (bool, error) { return false, nil }
+	}
+	return policy.BackingExists(policy.BackingOptions{
+		Runtime: m,
+		Tools:   m,
+		Installed: func(ctx context.Context, id string) (bool, error) {
+			s, err := m.Status(ctx, id)
+			return s.Installed, err
+		},
+		Limits: limits,
+	})
 }
 
 // artifactAddonState reports the lifecycle state the artifact store needs. A
