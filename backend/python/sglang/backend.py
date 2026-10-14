@@ -207,6 +207,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return self.effort_budgets[effort]
         return self.thinking_budget
 
+    def _configured_budget(self) -> Optional[int]:
+        """Any budget configured for this model (fixed or per effort), for the load-time warning."""
+        return self.thinking_budget or max((self.effort_budgets or {}).values(), default=None)
+
     @staticmethod
     def _strict_thinking_warning(thinking_budget: Optional[int], engine_kwargs: dict) -> Optional[str]:
         """sglang only enforces the budget with enable_strict_thinking on; without
@@ -389,9 +393,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print(f"engine_args error: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=str(err))
 
-        warning = self._strict_thinking_warning(
-            self.thinking_budget or max((self.effort_budgets or {}).values(), default=None), engine_kwargs
-        )
+        warning = self._strict_thinking_warning(self._configured_budget(), engine_kwargs)
         if warning:
             print(warning, file=sys.stderr)
 

@@ -402,6 +402,16 @@ class TestSglangHelpers(unittest.TestCase):
         self.assertIsNone(servicer._strict_thinking_warning(512, {"enable_strict_thinking": True}))
         self.assertIsNone(servicer._strict_thinking_warning(None, {}))
 
+    def test_warns_when_only_effort_budgets_are_set(self):
+        """A model with effort_budgets but no thinking_budget still needs strict thinking."""
+        servicer = self._servicer()
+        servicer.thinking_budget = None
+        servicer.effort_budgets = {"low": 256, "max": 16384}
+        self.assertEqual(servicer._configured_budget(), 16384)
+        self.assertIn("enable_strict_thinking", servicer._strict_thinking_warning(servicer._configured_budget(), {}))
+        servicer.effort_budgets = {}
+        self.assertIsNone(servicer._configured_budget())
+
     def test_explicit_zero_temperature_and_seed_are_preserved(self):
         """Temperature=0 is greedy decoding and 0 is a valid seed — neither is
         an unset value. A dropped seed turns a reproducible request random."""
