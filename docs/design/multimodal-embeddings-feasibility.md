@@ -26,7 +26,7 @@ Unknown values are deliberately explicit, not guessed model configuration.
   "pooling": "unknown",
   "decoder_versions": "host ffmpeg and ffprobe 6.1.1-3ubuntu5; packaged runtime unknown",
   "hardware": "Linux 6.8.0-139-generic x86_64; CPU model, RAM and usable accelerator unknown",
-  "preprocessing_version": "mm-v1-pending-native-review",
+  "preprocessing_version": "mm-v1-f4-tsms-a16k-mono",
   "commands_results": ["df -B1 .: 3045408768 bytes available, filesystem 100% used", "command -v: python3, ffmpeg, ffprobe, protoc, go, cmake, c++ found; not build suitability proof", "ffmpeg -version; ffprobe -version: 6.1.1-3ubuntu5", "git rev-parse HEAD: 83418c8996e5e25db2c8c6a62253001155778572", "read-only git show/git grep f2cc7282: pinned source present; no candidate artifact documentation found in docs/models/tools/mtmd"],
   "peak_storage": "unknown until model/projector sizes and build strategy are selected; approval blocked",
   "approval": "absent; root must authorize downloads, native versus Docker build, isolated runtime and paths"
@@ -120,3 +120,37 @@ Inventory verification is intentionally narrower than runtime verification.
 The Task 1 checker rejects every native PASS until a later task supplies and
 validates actual runtime evidence. Inventory success cannot advertise native
 all-modality support.
+
+## Native proof protocol (fixed before any retrieval score)
+
+Task 7 fixes these settings before any embedding score is computed. Version:
+`mm-v1-f4-tsms-a16k-mono`. The same values are in the `preprocessing` block of
+the acceptance contract. Callers must include the version in their
+embedding-space identity.
+
+- Text: bare UTF-8, no retrieval prefix, no chat template, no separators.
+- Image: the fixture PNG bytes, unchanged.
+- Audio: complete first audio track, converted by `ffmpeg` with `-ac 1 -ar 16000
+  -c:a pcm_s16le` (default swresample resampler) into a WAV file. The projector
+  reports a 16 kHz audio sample rate. Standalone audio fixtures use the same step.
+- Video expansion, in order: the text part `Video:\n`; for each selected frame
+  the text part `Timestamp: <integer> ms\n` followed by the frame as an image
+  part; when the first audio track exists the text part `Audio track:\n`
+  followed by the audio part.
+- Frame selection: sample times 0, 250, 500, ... ms while below the video stream
+  duration (4 fps). Each sample takes the first decoded frame, in presentation
+  order, whose elapsed time is at or after the sample time. A frame is never
+  selected twice. The timestamp is the selected frame's elapsed milliseconds from
+  the first presentation timestamp, rounded half up. Frames are decoded to RGB at
+  their native resolution and encoded as PNG.
+- Pooling and normalization are the model defaults of the pinned server (pooling
+  type from the GGUF metadata, L2 normalization). Server arguments:
+  `--embeddings -c 16384 -b 16384 -ub 16384 -np 1 --no-warmup`.
+- One input item per request. The 12 queries, targets, distractors, the 0.01
+  retrieval margin and the 0.001 distance thresholds are those of the frozen
+  contract; nothing is tuned.
+- Additional decisions: the mixed item is the contract order text, image, audio,
+  then the audiovisual video expansion. The no-dropped-parts case requires the
+  token count of the mixed item to match the sum of its parts minus the repeated
+  special tokens within 2 tokens, and the leave-one-out vectors to differ from
+  the full item by at least the media-change distance.
