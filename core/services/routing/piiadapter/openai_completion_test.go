@@ -94,6 +94,42 @@ var _ = Describe("OpenAICompletion adapter", func() {
 		})
 	})
 
+	It("round-trips a text to its slot when the element index is large", func() {
+		req := &schema.OpenAIRequest{}
+		arr := make([]any, 300)
+		for i := range arr {
+			arr[i] = "plain"
+		}
+		arr[299] = map[string]any{"content": []any{
+			map[string]any{"type": "text", "text": "tail secret"},
+		}}
+		req.Input = arr
+		got := a.Scan(req)
+		Expect(got).To(HaveLen(300))
+		applyAll(a, req, func(s string) string {
+			if s == "tail secret" {
+				return "[X]"
+			}
+			return s
+		})
+		out := req.Input.([]any)
+		Expect(out[0]).To(Equal("plain"))
+		Expect(out[298]).To(Equal("plain"))
+		parts := out[299].(map[string]any)["content"].([]any)
+		Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+	})
+
+	It("drops an update whose index names no scanned slot", func() {
+		req := &schema.OpenAIRequest{}
+		req.Prompt = []any{"a"}
+		// Index 1<<24 is outside the scanned slots. The old packing decoded it as
+		// element 0 of Prompt and wrote the update there.
+		a.Apply(req, []pii.ScannedText{{Index: 1 << 24, Text: "X"}})
+		Expect(req.Prompt).To(Equal([]any{"a"}))
+		Expect(req.Input).To(BeNil())
+		Expect(req.Instruction).To(BeEmpty())
+	})
+
 	It("returns nothing for an empty / non-matching request", func() {
 		Expect(a.Scan(&schema.OpenAIRequest{})).To(BeEmpty())
 		Expect(a.Scan(nil)).To(BeNil())

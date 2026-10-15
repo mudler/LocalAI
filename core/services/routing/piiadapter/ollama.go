@@ -78,12 +78,20 @@ func OllamaGenerate() pii.Adapter {
 	}
 }
 
-// Field selectors for OllamaEmbed (Input + its Prompt alias). Reuses the
-// shared encPart/decPart packing.
+// Field selectors for OllamaEmbed (Input + its Prompt alias). They share the
+// slot addressing used by the OpenAI adapter.
 const (
 	ollamaEmbInput = iota
 	ollamaEmbPrompt
 )
+
+// ollamaEmbWalk visits Input and its Prompt alias in a fixed order.
+func ollamaEmbWalk(req *schema.OllamaEmbedRequest) func(textVisitor) {
+	return func(visit textVisitor) {
+		visitAnyText(ollamaEmbInput, req.Input, false, visit)
+		visitAnyText(ollamaEmbPrompt, req.Prompt, false, visit)
+	}
+}
 
 // OllamaEmbed returns a pii.Adapter for *schema.OllamaEmbedRequest (POST
 // /api/embed, /api/embeddings). Input and its Prompt alias may be a string or
@@ -95,23 +103,24 @@ func OllamaEmbed() pii.Adapter {
 			if !ok || req == nil {
 				return nil
 			}
-			var out []pii.ScannedText
-			scanAnyText(ollamaEmbInput, req.Input, false, &out)
-			scanAnyText(ollamaEmbPrompt, req.Prompt, false, &out)
-			return out
+			return scanSlots(ollamaEmbWalk(req))
 		},
 		Apply: func(parsed any, updates []pii.ScannedText) {
 			req, ok := parsed.(*schema.OllamaEmbedRequest)
 			if !ok || req == nil {
 				return
 			}
+			slots := slotsOf(ollamaEmbWalk(req))
 			for _, u := range updates {
-				field, elem, part := decPart(u.Index)
-				switch field {
+				if u.Index < 0 || u.Index >= len(slots) {
+					continue
+				}
+				s := slots[u.Index]
+				switch s.field {
 				case ollamaEmbInput:
-					req.Input = applyAnyText(req.Input, elem, part, u.Text)
+					req.Input = applyAnyText(req.Input, s.elem, s.part, u.Text)
 				case ollamaEmbPrompt:
-					req.Prompt = applyAnyText(req.Prompt, elem, part, u.Text)
+					req.Prompt = applyAnyText(req.Prompt, s.elem, s.part, u.Text)
 				}
 			}
 		},
