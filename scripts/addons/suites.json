@@ -3155,6 +3155,8 @@
       "go: refuses development when its commit is unreachable, even for a push",
       "go: fails on any git error that is not a plain not-ancestor answer",
       "go: tells an unreachable commit from a plain not-ancestor",
+      "go: accepts the add-on namespace and refuses every other go-skynet repository",
+      "go: reads a YAML list and refuses JSON, unknown fields and a second document",
       "go: refuses missing and backend repositories before any request",
       "go: pushes platform digests then the index, and a retry is digest-identical",
       "go: rejects overwriting an immutable version with different content",

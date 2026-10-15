@@ -2,16 +2,19 @@
 package packaging
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1"
+	"gopkg.in/yaml.v3"
 )
 
 var ownerRepoRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
@@ -66,7 +69,7 @@ func jsonString(s string) string {
 // were built and verified.
 func cmdCatalog(args []string) error {
 	fs := flag.NewFlagSet("catalog", flag.ContinueOnError)
-	template := fs.String("template", "gallery/addons/tables.json.tmpl", "entry template")
+	template := fs.String("template", "gallery/addons/tables.yaml.tmpl", "entry template")
 	dir := fs.String("merged", "", "merged layout")
 	config := fs.String("config", "", "platform matrix file")
 	repository := fs.String("repository", "", "registry and repository the package was published to")
@@ -120,6 +123,7 @@ func cmdCatalog(args []string) error {
 		return err
 	}
 	var releases []catalogRelease
+	var doc bytes.Buffer
 	for _, d := range im.Manifests {
 		l, err := loadLegByDescriptor(*dir, d)
 		if err != nil {
@@ -161,27 +165,60 @@ func cmdCatalog(args []string) error {
 		if strings.Contains(text, "{{") {
 			return fmt.Errorf("template has an unknown placeholder near %q", text[strings.Index(text, "{{"):min(len(text), strings.Index(text, "{{")+40)])
 		}
-		var r catalogRelease
-		if err := strictJSON([]byte(text), &r); err != nil {
-			return fmt.Errorf("rendered entry: %w", err)
+		item := "- " + strings.ReplaceAll(strings.TrimRight(text, "\n"), "\n", "\n  ") + "\n"
+		parsed, err := readCatalogIndex([]byte(item))
+		if err != nil || len(parsed) != 1 {
+			return fmt.Errorf("rendered entry: %v", err)
 		}
+		r := parsed[0]
 		if err := checkRelease(r, m.Version, d.Digest.String(), repo.Name(), *tag); err != nil {
 			return err
 		}
 		releases = append(releases, r)
+		doc.WriteString(item)
 	}
-	b, err := json.MarshalIndent(releases, "", "  ")
-	if err != nil {
-		return err
+	if _, err := readCatalogIndex(doc.Bytes()); err != nil {
+		return fmt.Errorf("rendered index: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(*out), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(*out, append(b, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(*out, doc.Bytes(), 0o644); err != nil {
 		return err
 	}
 	fmt.Fprintf(stdout, "entries=%d\nchannel=%s\n", len(releases), *channel)
 	return nil
+}
+
+// readCatalogIndex reads a generated library index: one YAML document that is
+// a block list of entries, with no unknown field. It is a second, independent
+// reader of the format on purpose; the host has its own, and the integration
+// test makes the host's reader judge the generated file.
+func readCatalogIndex(b []byte) ([]catalogRelease, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	var doc yaml.Node
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if err := dec.Decode(new(yaml.Node)); !errors.Is(err, io.EOF) {
+		return nil, errors.New("index holds more than one document")
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.SequenceNode || doc.Content[0].Style&yaml.FlowStyle != 0 {
+		return nil, errors.New("index must be a YAML block list of entries")
+	}
+	var plain any
+	if err := doc.Content[0].Decode(&plain); err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(plain)
+	if err != nil {
+		return nil, err
+	}
+	var out []catalogRelease
+	if err := strictJSON(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // checkRelease is the template contract: an entry pins the digest that was

@@ -123,7 +123,7 @@ if grep -n -E 'docker push|docker login|git tag|git push|oras (push|copy)|cosign
     exit 1
 fi
 case_ok 'scripts never push, tag, sign or log in'
-if grep -n -i -E 'quay\.io|go-skynet|backend_merge|backend_build|backend\.yml|ci-cache|docker\.io' .github/workflows/addons-package.yml scripts/addons/package.sh scripts/addons/channel.sh addons/tables/package/platforms.yaml gallery/addons/tables.json.tmpl; then
+if grep -n -i -E 'quay\.io|go-skynet|backend_merge|backend_build|backend\.yml|ci-cache|docker\.io' .github/workflows/addons-package.yml scripts/addons/package.sh scripts/addons/channel.sh addons/tables/package/platforms.yaml gallery/addons/tables.yaml.tmpl; then
     echo 'FAIL: a packaging file references the backend pipeline' >&2
     exit 1
 fi

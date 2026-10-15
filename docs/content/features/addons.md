@@ -247,10 +247,30 @@ refresh time and prevents stale cached releases from resolving successfully.
 
 ### Catalog document and limits
 
-A catalog is a JSON array of releases with `addonId`, `name`, optional
-`description`, `version`, `artifact` (`oci://host/repository`), `digest`
-(`sha256:` plus 64 lowercase hex characters), `os` and `arch`. Unknown fields
-and trailing JSON are rejected. Source identity and verification policy always
+A catalog (the library index) is one YAML document: a block list of releases with
+`addonId`, `name`, optional `description`, `version`, `artifact`
+(`oci://host/repository`), `digest` (`sha256:` plus 64 lowercase hex characters),
+`os` and `arch`. It uses the same format as the model and backend gallery indexes:
+
+```yaml
+- addonId: tables
+  name: Tables
+  description: Tables for LocalAI
+  version: 1.0.0
+  channel: latest
+  artifact: oci://quay.io/go-skynet/local-ai-addons:1.0.0
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  os: linux
+  arch: amd64
+  ui:
+    title: Tables
+    mainPage: databases
+```
+
+Unknown fields, a second YAML document and duplicate keys are rejected. A JSON
+array is refused too, even though YAML can read it: write the index as a block
+list. An empty library is `[]`. Package manifests (`manifest.json`) stay JSON; only
+the library index is YAML. Source identity and verification policy always
 come from protected source configuration, not from the remote release.
 The policy describes requirements for later package verification; refresh does
 not claim to verify executable signatures.
@@ -2145,8 +2165,9 @@ archive other than the executable bit.
 while `enabled: true`, and it needs a native runner and the `executable-start` native
 check. Until a platform's native check passes on a runner of that platform, it stays
 listed with `enabled: false`. The workflow fails closed on an empty matrix and on a
-missing registry/namespace input (`ADDON_OCI_REPOSITORY`). There is no default registry,
-and a backend image repository is refused.
+missing registry/namespace input (`ADDON_OCI_REPOSITORY`). There is no default registry.
+The add-on repository namespace is `quay.io/go-skynet/local-ai-addons`; every other
+backend image repository is refused.
 
 ### Channels and tags
 
@@ -2223,7 +2244,7 @@ ref of the run, which differs for each release tag.
 
 ### Catalog entries
 
-`gallery/addons/tables.json.tmpl` and `addonpkg catalog` render one entry for each
+`gallery/addons/tables.yaml.tmpl` and `addonpkg catalog` render one entry for each
 platform from a verified merged layout. An entry pins the digest of the platform image,
 names the repository and the immutable tag, carries the channel it is current for and
 holds the expected signature policy. The catalog resolves a selection by version or by

@@ -9,7 +9,6 @@ package packaging_test
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -39,6 +38,7 @@ import (
 	"github.com/mudler/LocalAI/tests/addons/fixtures/signing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 func TestPackagingContract(t *testing.T) {
@@ -114,14 +114,18 @@ func publishPackage(version string, signAs string) published {
 	var pub strings.Builder
 	Expect(packaging.Run([]string{"publish", "--config", cfg, "--layout", merged, "--repository", repository, "--tag", version}, &pub)).To(Succeed())
 
-	catalogFile := filepath.Join(work, "catalog.json")
-	Expect(packaging.Run([]string{"catalog", "--config", cfg, "--template", filepath.Join(repoRoot, "gallery/addons/tables.json.tmpl"),
+	catalogFile := filepath.Join(work, "catalog.yaml")
+	Expect(packaging.Run([]string{"catalog", "--config", cfg, "--template", filepath.Join(repoRoot, "gallery/addons/tables.yaml.tmpl"),
 		"--merged", merged, "--repository", repository, "--tag", version, "--channel", "latest",
 		"--owner-repo", "example/localai", "--signer-ref", "refs/tags/v" + version, "--out", catalogFile}, io.Discard)).To(Succeed())
 	b, err := os.ReadFile(catalogFile)
 	Expect(err).NotTo(HaveOccurred())
+	// The host's own reader is the judge of the generated index.
+	hostEntries, err := catalog.DecodeIndex(b)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(hostEntries).To(HaveLen(1))
 	var entries []map[string]any
-	Expect(json.Unmarshal(b, &entries)).To(Succeed())
+	Expect(yaml.Unmarshal(b, &entries)).To(Succeed())
 	Expect(entries).To(HaveLen(1))
 
 	p := published{repository: repository, entry: entries[0], registry: host, authority: nil}
@@ -166,7 +170,9 @@ func installer(p published, policy catalog.VerificationPolicy) (*packages.Instal
 			w.WriteHeader(403)
 			return
 		}
-		_ = json.NewEncoder(w).Encode([]map[string]any{entry})
+		doc, err := yaml.Marshal([]map[string]any{entry})
+		Expect(err).NotTo(HaveOccurred())
+		_, _ = w.Write(doc)
 	}))
 	DeferCleanup(server.Close)
 	store, err := credentials.Parse([]byte("- match: "+server.URL+"\n  allow_insecure: true\n  bearer: catalog-only"), nil)

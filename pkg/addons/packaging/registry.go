@@ -35,6 +35,11 @@ var backendRepositoryPrefixes = []string{
 	"ghcr.io/mudler/localai",
 }
 
+// addonRepositoryNamespace is the one repository under the backend registry
+// organization that belongs to add-on packages. It is the only exception to
+// backendRepositoryPrefixes.
+const addonRepositoryNamespace = "quay.io/go-skynet/local-ai-addons"
+
 // parseRepository validates the registry and repository input. It has no
 // default: an empty value is an error, so a missing configuration variable
 // fails the run instead of publishing somewhere unintended.
@@ -50,6 +55,9 @@ func parseRepository(s string) (name.Repository, error) {
 		return name.Repository{}, fmt.Errorf("repository %q: %w", s, err)
 	}
 	full := strings.ToLower(repo.Name())
+	if full == addonRepositoryNamespace || strings.HasPrefix(full, addonRepositoryNamespace+"/") {
+		return repo, nil
+	}
 	for _, p := range backendRepositoryPrefixes {
 		if strings.HasPrefix(full+"/", p) || strings.HasPrefix(full, p) {
 			return name.Repository{}, fmt.Errorf("repository %q is a backend image repository; add-on packages use their own namespace", s)

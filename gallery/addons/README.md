@@ -10,17 +10,18 @@ the release workflow (`ADDON_OCI_REPOSITORY`), and the release platform matrix i
 ```sh
 go run ./scripts/addons/cmd/addonpkg catalog \
   --config addons/tables/package/platforms.yaml \
-  --template gallery/addons/tables.json.tmpl \
+  --template gallery/addons/tables.yaml.tmpl \
   --merged <merged layout> \
   --repository <registry>/<namespace>/<repository> \
   --tag <immutable tag: the version or sha-<12 hex>> \
   --channel <latest | development | branch-...> \
   --owner-repo <owner>/<repository> \
   --signer-ref <refs/tags/vX.Y.Z | refs/heads/master> \
-  --out <catalog.json>
+  --out <catalog.yaml>
 ```
 
-The result is a JSON array with one entry for each enabled platform. Each entry:
+The add-on packages live in `quay.io/go-skynet/local-ai-addons`; the template itself holds
+no registry value. The result is a YAML list with one entry for each enabled platform. Each entry:
 
 - pins the digest of the platform image, so a tag that moves later changes nothing;
 - names `oci://<repository>:<tag>` for the immutable tag;

@@ -505,6 +505,42 @@ var _ = Describe("merge and completeness", func() {
 	})
 })
 
+var _ = Describe("add-on repository", func() {
+	It("accepts the add-on namespace and refuses every other go-skynet repository", func() {
+		for _, ok := range []string{"quay.io/go-skynet/local-ai-addons", "quay.io/go-skynet/local-ai-addons/tables"} {
+			_, err := parseRepository(ok)
+			Expect(err).NotTo(HaveOccurred(), ok)
+		}
+		for _, bad := range []string{"quay.io/go-skynet/local-ai-addons-evil", "quay.io/go-skynet/local-ai-backends", "quay.io/go-skynet/ci-cache", "quay.io/go-skynet/local-ai", "quay.io/other/local-ai-addons"} {
+			_, err := parseRepository(bad)
+			if bad == "quay.io/other/local-ai-addons" {
+				Expect(err).NotTo(HaveOccurred(), bad)
+				continue
+			}
+			Expect(err).To(HaveOccurred(), bad)
+		}
+	})
+})
+
+var _ = Describe("catalog index reader", func() {
+	const entry = "- addonId: tables\n  name: Tables\n  version: 1.0.0\n  channel: latest\n  artifact: oci://registry.example/tables:1.0.0\n  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n  os: linux\n  arch: amd64\n"
+	It("reads a YAML list and refuses JSON, unknown fields and a second document", func() {
+		got, err := readCatalogIndex([]byte(entry))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].AddonID).To(Equal("tables"))
+		for name, body := range map[string]string{
+			"json":            `[{"addonId":"tables"}]`,
+			"unknown field":   entry + "  extra: 1\n",
+			"second document": entry + "---\n" + entry,
+			"mapping":         "addonId: tables\n",
+		} {
+			_, err := readCatalogIndex([]byte(body))
+			Expect(err).To(HaveOccurred(), name)
+		}
+	})
+})
+
 var _ = Describe("publication", func() {
 	ctx := context.Background()
 	It("refuses missing and backend repositories before any request", func() {
@@ -801,17 +837,18 @@ var _ = Describe("catalog template", func() {
 		p := newProject(both)
 		m := p.merged("1.2.3", rev, nil)
 		repoName := reg.repo("addons/tables")
-		out := filepath.Join(GinkgoT().TempDir(), "catalog.json")
+		out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
 		render := func(extra ...string) error {
-			args := append([]string{"catalog", "--config", p.config, "--template", "../../../gallery/addons/tables.json.tmpl", "--merged", m, "--repository", repoName, "--tag", "1.2.3", "--channel", "latest", "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--out", out}, extra...)
+			args := append([]string{"catalog", "--config", p.config, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--merged", m, "--repository", repoName, "--tag", "1.2.3", "--channel", "latest", "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--out", out}, extra...)
 			_, err := run(args...)
 			return err
 		}
 		Expect(render()).To(Succeed())
 		b, err := os.ReadFile(out)
 		Expect(err).NotTo(HaveOccurred())
-		var entries []catalogRelease
-		Expect(json.Unmarshal(b, &entries)).To(Succeed())
+		Expect(string(b)).To(HavePrefix("- addonId: "))
+		entries, err := readCatalogIndex(b)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(HaveLen(2))
 		cfg := mustCfg(p)
 		_, _, err = verifyMerged(m, cfg)
@@ -833,9 +870,9 @@ var _ = Describe("catalog template", func() {
 		reg := newRegistry()
 		p := newProject(both)
 		m := p.merged("1.2.3", rev, nil)
-		out := filepath.Join(GinkgoT().TempDir(), "c.json")
+		out := filepath.Join(GinkgoT().TempDir(), "c.yaml")
 		base := func(over map[string]string) error {
-			vals := map[string]string{"--config": p.config, "--template": "../../../gallery/addons/tables.json.tmpl", "--merged": m, "--repository": reg.repo("addons/tables"), "--tag": "1.2.3", "--channel": "latest", "--owner-repo": "example/localai", "--signer-ref": "refs/tags/v1.2.3", "--out": out}
+			vals := map[string]string{"--config": p.config, "--template": "../../../gallery/addons/tables.yaml.tmpl", "--merged": m, "--repository": reg.repo("addons/tables"), "--tag": "1.2.3", "--channel": "latest", "--owner-repo": "example/localai", "--signer-ref": "refs/tags/v1.2.3", "--out": out}
 			for k, v := range over {
 				vals[k] = v
 			}
@@ -855,15 +892,15 @@ var _ = Describe("catalog template", func() {
 		Expect(base(map[string]string{"--signer-ref": "refs/pull/1/merge"})).To(HaveOccurred())
 		Expect(base(map[string]string{"--tag": "latest"})).To(HaveOccurred())
 		bad := filepath.Join(GinkgoT().TempDir(), "bad.tmpl")
-		tmpl, _ := os.ReadFile("../../../gallery/addons/tables.json.tmpl")
+		tmpl, _ := os.ReadFile("../../../gallery/addons/tables.yaml.tmpl")
 		Expect(os.WriteFile(bad, bytes.ReplaceAll(tmpl, []byte("{{arch}}"), []byte("{{unknown}}")), 0o644)).To(Succeed())
 		Expect(base(map[string]string{"--template": bad})).To(HaveOccurred())
 		weak := filepath.Join(GinkgoT().TempDir(), "weak.tmpl")
-		Expect(os.WriteFile(weak, bytes.ReplaceAll(tmpl, []byte(`"requireSignature": true`), []byte(`"requireSignature": false`)), 0o644)).To(Succeed())
+		Expect(os.WriteFile(weak, bytes.ReplaceAll(tmpl, []byte("requireSignature: true"), []byte("requireSignature: false")), 0o644)).To(Succeed())
 		Expect(base(map[string]string{"--template": weak})).To(HaveOccurred())
 	})
 	It("carries placeholders only: no fabricated URL, registry or namespace", func() {
-		b, err := os.ReadFile("../../../gallery/addons/tables.json.tmpl")
+		b, err := os.ReadFile("../../../gallery/addons/tables.yaml.tmpl")
 		Expect(err).NotTo(HaveOccurred())
 		text := string(b)
 		for _, bad := range []string{"http://", "https://", "quay.io", "docker.io", "ghcr.io", "go-skynet"} {
