@@ -27,12 +27,15 @@ finish() {
 trap finish EXIT
 exec > >(tee "$scratch/commands.log") 2>&1
 rm -f "$scratch"/*.json
+# After the cleanup above: it removes *.json, and overlay.json is one of them.
+source test/multimodal/generated-overlay.sh
+write_generated_overlay "$scratch"
 set -x
 # Each suite gets its own report: go test does not merge Ginkgo JSON reports.
 run() {
     local name=$1 package=$2
     shift 2
-    go test "$@" -race -timeout 15m -p 1 "./$package" -count=1 \
+    go test "$@" -race -timeout 15m -p 1 -overlay="$scratch/overlay.json" "./$package" -count=1 \
         -ginkgo.fail-on-empty -ginkgo.fail-on-pending \
         -ginkgo.json-report="$scratch/$name.json"
 }
