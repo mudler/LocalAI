@@ -233,7 +233,9 @@ func validateEmbeddingBase64(s string, b *embeddingmedia.Budget) error {
 }
 
 // ParseEmbeddingRequest inspects every input occurrence before binding can
-// discard duplicates. Strict envelope validation applies only to structured input.
+// discard duplicates. Strict envelope validation applies only to structured input: duplicate
+// keys (case-insensitive), input aliases, and non-empty messages. Unrelated
+// top-level fields are left to the binder; strictness covers content objects.
 func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	token, err := d.Token()
@@ -242,12 +244,11 @@ func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, err
 	}
 	seen := map[string]bool{}
 	duplicate := false
-	unknown := false
+	alias := false
 	messages := false
 	var items []EmbeddingInputItem
 	structured := false
 	var parseErr error
-	allowed := map[string]bool{"model": true, "input": true, "messages": true, "encoding_format": true, "dimensions": true, "user": true, "pooling": true, "pooling_half_life_tokens": true}
 	for d.More() {
 		token, err = d.Token()
 		if err != nil {
@@ -257,13 +258,18 @@ func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, err
 		if !ok {
 			return embeddingEnvelopeError(structured)
 		}
-		duplicate = duplicate || seen[key]
-		seen[key] = true
-		unknown = unknown || !allowed[key]
-		messages = messages || key == "messages"
+		// The JSON binder matches keys case-insensitively, so fold before
+		// looking for duplicates and reject non-canonical aliases of input.
+		folded := strings.ToLower(key)
+		duplicate = duplicate || seen[folded]
+		seen[folded] = true
+		alias = alias || (folded == "input" && key != "input")
 		var value json.RawMessage
 		if d.Decode(&value) != nil {
 			return embeddingEnvelopeError(structured)
+		}
+		if folded == "messages" && !emptyMessages(value) {
+			messages = true
 		}
 		if strings.EqualFold(key, "input") {
 			parsed, isStructured, e := ParseEmbeddingInput(value)
@@ -285,10 +291,21 @@ func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, err
 	if !structured {
 		return nil, false, nil
 	}
-	if duplicate || unknown || messages {
+	if duplicate || alias || messages {
 		return nil, true, embeddingMalformed()
 	}
 	return items, true, parseErr
+}
+
+// emptyMessages reports whether a messages value is null or an empty array.
+// Only a non-empty value conflicts with structured input.
+func emptyMessages(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	if string(raw) == "null" {
+		return true
+	}
+	var items []json.RawMessage
+	return json.Unmarshal(raw, &items) == nil && len(items) == 0
 }
 
 // Legacy syntax errors remain the responsibility of the existing binder.

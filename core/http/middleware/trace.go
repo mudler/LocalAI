@@ -237,18 +237,23 @@ func redactSensitiveHeaders(h http.Header) http.Header {
 	return out
 }
 
+// isLegacyEmbeddingBody reports whether an embedding request body is a valid
+// legacy (string, token or messages) request. Anything else, including
+// malformed JSON, is treated as private and is not captured.
+func isLegacyEmbeddingBody(body []byte) bool {
+	if !json.Valid(body) {
+		return false
+	}
+	_, structured, err := schema.ParseEmbeddingRequest(body)
+	return err == nil && !structured
+}
+
 // TraceMiddleware logs JSON exchanges and transcription upload metadata.
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	initializeTracing(app.ApplicationConfig().DataPath, app.ApplicationConfig().TracingMaxItems)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !app.ApplicationConfig().EnableTracing {
-				return next(c)
-			}
-
-			// Embedding inputs and error responses can contain private text, media,
-			// or URLs. Omit the exchange before any capture, including in-flight.
-			if isEmbeddingRoute(c.Path()) {
 				return next(c)
 			}
 
@@ -268,6 +273,7 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 
 			var body []byte
+			redactExchange := false
 			if !multipartTranscription {
 				var err error
 				body, err = io.ReadAll(c.Request().Body)
@@ -276,6 +282,13 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 					return err
 				}
 				c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+				// Structured embedding input can carry private text, media or URLs
+				// (and so can its errors). Legacy string/token requests stay traced.
+				// The read above is bounded by the embedding body limiter.
+				if isEmbeddingRoute(c.Path()) && !isLegacyEmbeddingBody(body) {
+					body = []byte(`{"body_omitted":"embedding payload omitted"}`)
+					redactExchange = true
+				}
 			} else {
 				// Leave the upload untouched. Only the endpoint should parse or
 				// spool audio, regardless of the configured trace capture limit.
@@ -374,7 +387,16 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				BodyTruncated: mw.truncated,
 				BodyBytes:     mw.totalBytes,
 			}
-			if handlerErr != nil {
+			if redactExchange {
+				// Keep status and timing, drop anything that can echo the payload.
+				omitted := []byte(`{"body_omitted":"embedding payload omitted"}`)
+				exchange.Response.Body = &omitted
+				exchange.Response.BodyTruncated = false
+				exchange.Response.BodyBytes = len(omitted)
+				if handlerErr != nil {
+					exchange.Error = "embedding error omitted"
+				}
+			} else if handlerErr != nil {
 				exchange.Error = handlerErr.Error()
 			}
 

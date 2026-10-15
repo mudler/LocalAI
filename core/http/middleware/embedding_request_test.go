@@ -67,13 +67,19 @@ var _ = Describe("Multimodal contracts", func() {
 	})
 	for _, body := range []string{
 		`{"input":{"content":[]}}`,
-		`{"input":{"content":[{"type":"text","text":"a"}]},"messages":[]}`,
+		`{"input":{"content":[{"type":"text","text":"a"}]},"messages":[{"role":"user","content":"x"}]}`,
 		`{"input":{"content":[{"type":"text","text":"a"}]},"input":"hidden"}`,
 		`{"input":"hidden","input":{"content":[{"type":"text","text":"a"}]}}`,
 		`{"input":{"content":[{"type":"text","text":"a"}]},"model":"a","model":"b"}`,
-		`{"input":{"content":[{"type":"text","text":"a"}]},"unexpected":true}`,
 	} {
 		It("rejects raw structured conflicts before bind "+body, func() { Expect(postJSON(app, "/embeddings", body).Code).To(Equal(400)) })
+	}
+	for _, body := range []string{
+		`{"input":{"content":[{"type":"text","text":"a"}]},"messages":null}`,
+		`{"input":{"content":[{"type":"text","text":"a"}]},"messages":[]}`,
+		`{"input":{"content":[{"type":"text","text":"a"}]},"truncate":"END"}`,
+	} {
+		It("accepts structured input with empty messages or unrelated envelope fields "+body, func() { Expect(postJSON(app, "/embeddings", body).Code).To(Equal(501)) })
 	}
 	It("does not cap other endpoints", func() {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", io.MultiReader(strings.NewReader(strings.Repeat(" ", 48<<20)), strings.NewReader(`{}`)))
