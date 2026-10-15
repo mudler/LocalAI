@@ -199,6 +199,10 @@ without restarting it or the worker. This does not bypass authentication or make
 the worker ready during the outage: all readiness evidence must become current
 again. Static credentials retain NATS's default terminal authentication-error
 behavior. The credential manager's existing bounded renewal retries are unchanged.
+A launcher-managed worker also keeps a durable record of its backend process
+groups, tagged with the launch generation, and refuses to start while an earlier
+group cannot be verified or cleaned up. See
+[Backend process ownership](/features/distributed-mode/#backend-process-ownership).
 This worker-only surface is not an admin action or a UI capability.
 The approval route is not registered when the controller has no registration
 token, and renewal-only requests are refused in that configuration. Missing or

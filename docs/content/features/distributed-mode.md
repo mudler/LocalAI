@@ -1539,3 +1539,23 @@ subscription permissions remain enforced, and readiness still requires fresh
 approval, renewal, NATS, readiness checks, and heartbeat evidence. Static and
 unauthenticated connection retry semantics are unchanged; the credential manager's
 existing bounded renewal retry policy still applies.
+
+#### Backend process ownership
+
+A worker records every backend process group it starts in
+`worker-processes.json` in its data directory (owner-only file, atomic replace).
+Each record holds the group leader's process ID, its start time and, for
+launcher-managed workers, the launch generation. The start time comes from
+`/proc` where it exists and from `ps` elsewhere, such as macOS, so a recycled
+process ID is not mistaken for a backend.
+
+- The worker does not run a backend whose record it cannot write. The start
+  fails and the new process is stopped.
+- A record is released only when the whole process group is gone. A group whose
+  leader exited but still has members is killed, and stays recorded if it
+  cannot be emptied within five seconds.
+- At startup the worker kills the groups an earlier worker left behind. If a
+  record cannot be resolved (the identity of a live group cannot be verified,
+  a group survives the kill, or the file is unreadable) the worker refuses to
+  start, kills nothing unverified, and keeps the record. Remove the file only
+  after you confirm that no backend process of the earlier worker is running.
