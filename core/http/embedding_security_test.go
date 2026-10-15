@@ -45,9 +45,44 @@ func (r *countedEmbeddingBody) Read(p []byte) (int, error) {
 }
 func (*countedEmbeddingBody) Close() error { return nil }
 
+// traceDirSnapshot describes the trace store directory so two snapshots can be
+// compared. It returns "" when the directory does not exist yet.
+func traceDirSnapshot(dir string) string {
+	var b strings.Builder
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		info, err := d.Info()
+		if err == nil {
+			fmt.Fprintf(&b, "%s|%d|%d\n", path, info.Size(), info.ModTime().UnixNano())
+		}
+		return nil
+	})
+	return b.String()
+}
+
+// removeEmbeddingTempDir removes root after the async trace writer has gone
+// quiet. The trace consumer persists through temp files and renames, so a
+// bare RemoveAll can race it and fail with "directory not empty".
+func removeEmbeddingTempDir(root string) {
+	traces := filepath.Join(root, "traces")
+	prev := "\x00"
+	Eventually(func() bool {
+		cur := traceDirSnapshot(traces)
+		stable := cur == prev
+		prev = cur
+		return stable
+	}, "10s", "20ms").Should(BeTrue(), "trace writes did not settle")
+	Eventually(func() error { return os.RemoveAll(root) }, "10s", "50ms").Should(Succeed())
+}
+
 var _ = Describe("Embedding production security", func() {
 	newApp := func(global int, authenticated bool) (*application.Application, string) {
-		root := GinkgoT().TempDir()
+		root, err := os.MkdirTemp("", "embedding-security-")
+		Expect(err).NotTo(HaveOccurred())
+		// Registered first, so it runs last: after the app has shut down.
+		DeferCleanup(func() { removeEmbeddingTempDir(root) })
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		a, err := application.New(config.WithContext(ctx), config.WithDataPath(root), config.WithDisableStats(true), config.WithDisableLocalAIAssistant(true), config.WithUploadLimitMB(global), config.WithAuthEnabled(authenticated), config.WithAuthDatabaseURL(root+"/auth.db"), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
