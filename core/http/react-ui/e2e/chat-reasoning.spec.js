@@ -1,8 +1,9 @@
 import { test, expect } from './coverage-fixtures.js'
 import { chatOf, pair, mockChat, openChat, storedChats } from './chat-fixtures.js'
 
-// The composer has two reasoning controls, stored per chat: an effort select
-// and a "No reasoning" toggle. Both are also slash actions.
+// The composer has one reasoning control, stored per chat: the effort select.
+// "None" asks for no reasoning and hides what the model still sends. It is
+// also the /effort slash action.
 
 const sendWith = async (page, answer) => {
   let body = null
@@ -40,12 +41,13 @@ test.describe('Chat reasoning controls', () => {
     expect(body.reasoning_effort).toBe('high')
   })
 
-  test('the toggle asks for "none" and hides reasoning the model still sends', async ({ page }) => {
+  test('"None" asks for "none" and hides reasoning the model still sends', async ({ page }) => {
     await openChat(page, [chatOf('c1', 'R', 'qwen3-8b', pair('hi', 'hello'))])
-    const toggle = page.getByTestId('chat-reasoning-off')
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('chat-effort-chip')).toBeDisabled()
+    const chip = page.getByTestId('chat-effort-chip')
+    await chip.click()
+    await page.getByTestId('chat-effort-none').click()
+    await expect(chip).toContainText('None')
+    await expect(chip).toBeEnabled()
     const body = await sendWith(page, stream({ reasoning: 'secret plan' }, { content: 'The answer.' }))
     expect(body.reasoning_effort).toBe('none')
     await expect(page.getByText('The answer.')).toBeVisible()
@@ -54,14 +56,17 @@ test.describe('Chat reasoning controls', () => {
     expect(history.some(m => m.role === 'thinking')).toBe(false)
   })
 
-  test('the slash actions toggle reasoning and open the effort select', async ({ page }) => {
+  test('a chat saved with the old reasoningOff flag still hides reasoning', async ({ page }) => {
+    const chat = { ...chatOf('c1', 'R', 'qwen3-8b', pair('hi', 'hello')), reasoningOff: true }
+    await openChat(page, [chat])
+    await expect(page.getByTestId('chat-effort-chip')).toContainText('None')
+    const body = await sendWith(page, stream({ reasoning: 'secret plan' }, { content: 'The answer.' }))
+    expect(body.reasoning_effort).toBe('none')
+    await expect(page.getByText('secret plan')).toHaveCount(0)
+  })
+
+  test('the /effort slash action opens the effort select', async ({ page }) => {
     await openChat(page, [chatOf('c1', 'R', 'qwen3-8b', pair('hi', 'hello'))])
-    await page.getByTestId('chat-input').fill('/reasoning')
-    await page.getByTestId('chat-input').press('Enter')
-    await expect(page.getByTestId('chat-reasoning-off')).toHaveAttribute('aria-pressed', 'true')
-    await page.getByTestId('chat-input').fill('/reasoning')
-    await page.getByTestId('chat-input').press('Enter')
-    await expect(page.getByTestId('chat-reasoning-off')).toHaveAttribute('aria-pressed', 'false')
     await page.getByTestId('chat-input').fill('/effort')
     await page.getByTestId('chat-input').press('Enter')
     await expect(page.getByTestId('chat-effort-menu')).toBeVisible()

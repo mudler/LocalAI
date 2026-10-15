@@ -1002,11 +1002,6 @@ export default function Chat() {
     />
   )
 
-  const toggleReasoningOff = (reasoningOff) => {
-    updateChatSettings(activeChat.id, { reasoningOff })
-    addToast(t(reasoningOff ? 'reasoning.offToast' : 'reasoning.onToast'), 'info', 2000)
-  }
-
   const mcp = (
     <UnifiedMCPDropdown
       serverMCPAvailable={mcpAvailable}
@@ -1051,9 +1046,7 @@ export default function Chat() {
     <ReasoningChips
       ref={effortRef}
       effort={activeChat.reasoningEffort}
-      off={activeChat.reasoningOff}
       onEffort={(reasoningEffort) => updateChatSettings(activeChat.id, { reasoningEffort })}
-      onOff={toggleReasoningOff}
     />
     <span className="cx-chipset">
       <button
@@ -1102,7 +1095,6 @@ export default function Chat() {
         effortRef.current?.open()
         break
       }
-      case 'reasoning': toggleReasoningOff(!activeChat.reasoningOff); break
       case 'assistant': updateChatSettings(activeChat.id, { localaiAssistant: !activeChat.localaiAssistant }); break
       case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
