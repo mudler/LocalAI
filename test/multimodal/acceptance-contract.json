@@ -349,16 +349,33 @@
     ]
   },
   "preprocessing": {
-    "version": "mm-v1-pending-native-review",
+    "version": "mm-v1-f4-tsms-a16k-mono",
     "fps": 4,
     "timeline_origin": "first presentation timestamp",
     "frame_rule": "first decoded frame at or after sample time; no duplicates",
+    "sample_times": "k * 250 ms for k = 0, 1, 2, ... while the time is below the video stream duration",
+    "timestamp_syntax": "Timestamp: <integer> ms\\n",
+    "timestamp_value": "elapsed milliseconds of the selected frame from the first presentation timestamp, rounded half up",
+    "markers": {
+      "video": "Video:\\n",
+      "audio": "Audio track:\\n"
+    },
     "expansion": [
       "Video:",
       "timestamp/frame pairs",
       "Audio track:",
       "complete first audio track if present"
     ],
+    "frame_encoding": "decoded RGB at native resolution, encoded as PNG",
+    "audio": {
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "sample_format": "s16le",
+      "container": "wav",
+      "resampler": "ffmpeg swresample defaults",
+      "track": "complete first audio track, no truncation"
+    },
+    "text": "bare UTF-8, no retrieval prefix, no template, no separators",
     "multiple_tracks": "reject",
     "context_overflow_http": 413
   }
