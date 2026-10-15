@@ -686,36 +686,9 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		xlog.Debug("input.Input", "structured_items", len(input.EmbeddingInput))
 	}
 
-	switch inputs := input.Input.(type) {
-	case string:
-		if inputs != "" {
-			config.InputStrings = append(config.InputStrings, inputs)
-		}
-	case []any:
-		for _, pp := range inputs {
-			switch i := pp.(type) {
-			case string:
-				config.InputStrings = append(config.InputStrings, i)
-			case []any:
-				tokens := []int{}
-				inputStrings := []string{}
-				for _, ii := range i {
-					switch ii := ii.(type) {
-					case int:
-						tokens = append(tokens, ii)
-					case float64:
-						tokens = append(tokens, int(ii))
-					case string:
-						inputStrings = append(inputStrings, ii)
-					default:
-						xlog.Error("Unknown input type", "type", fmt.Sprintf("%T", ii))
-					}
-				}
-				config.InputToken = append(config.InputToken, tokens)
-				config.InputStrings = append(config.InputStrings, inputStrings...)
-			}
-		}
-	}
+	inputStrings, inputTokens := ParseLegacyEmbeddingInput(input.Input)
+	config.InputStrings = append(config.InputStrings, inputStrings...)
+	config.InputToken = append(config.InputToken, inputTokens...)
 
 	// Per-request Go-side pooling override for /v1/embeddings (LocalAI
 	// extension) — copy-if-set onto the per-request config like the Input
@@ -952,4 +925,43 @@ func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 	}
 	request.EmbeddingInput = items
 	return nil
+}
+
+// ParseLegacyEmbeddingInput splits a legacy "input" value (a string, an array
+// of strings, or an array of token arrays) into the strings and token arrays
+// the embeddings endpoint sends to the backend. Endpoints call it again after
+// request rewriting middleware, such as PII redaction, so the backend receives
+// the rewritten text rather than the text captured at parse time.
+func ParseLegacyEmbeddingInput(value any) (strs []string, tokens [][]int) {
+	switch inputs := value.(type) {
+	case string:
+		if inputs != "" {
+			strs = append(strs, inputs)
+		}
+	case []any:
+		for _, pp := range inputs {
+			switch i := pp.(type) {
+			case string:
+				strs = append(strs, i)
+			case []any:
+				toks := []int{}
+				inputStrings := []string{}
+				for _, ii := range i {
+					switch ii := ii.(type) {
+					case int:
+						toks = append(toks, ii)
+					case float64:
+						toks = append(toks, int(ii))
+					case string:
+						inputStrings = append(inputStrings, ii)
+					default:
+						xlog.Error("Unknown input type", "type", fmt.Sprintf("%T", ii))
+					}
+				}
+				tokens = append(tokens, toks)
+				strs = append(strs, inputStrings...)
+			}
+		}
+	}
+	return strs, tokens
 }

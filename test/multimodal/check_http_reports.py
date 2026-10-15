@@ -20,6 +20,9 @@ STATUS_CASES = {
     '400 invalid structure rejects unknown content fields',
     '400 structured input conflicts with messages',
     '413 acquisition limit',
+    '415 backend unsupported media format',
+    '429 backend busy',
+    '502 backend cancellation while the client is alive',
     '413 backend resource exhausted',
     '415 unsupported media format',
     '422 backend refuses after probing',
@@ -36,6 +39,12 @@ STATUS_CASES = {
 REQUIRED_STATUSES = {400, 413, 415, 422, 429, 501, 502, 504}
 
 ENDPOINT_CASES = {
+    'blocks a plain string and the same text in a content object alike',
+    'sends redacted string and text-part content to the backend',
+    'sends redacted text to the legacy RPC for a plain string input',
+    'returns admission and loading errors unchanged so the application handler maps them',
+    'treats missing consumption on an item with media as a corrupt result',
+    'accepts missing consumption on a text-only item',
     'charges Go-known media bytes even when the backend under-reports',
     'checks selected loaded-model metadata before fetching any media',
     'denies unauthenticated requests before any metadata read or fetch',

@@ -98,6 +98,13 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			})
 		}
 
+		// The PII middleware rewrites input.Input after the request middleware
+		// captured InputStrings. Re-read both from the current value so the
+		// backend receives the redacted text.
+		if input.Input != nil && len(input.Messages) == 0 {
+			modelConfig.InputStrings, modelConfig.InputToken = middleware.ParseLegacyEmbeddingInput(input.Input)
+		}
+
 		if len(input.Messages) > 0 {
 			// One conversation per request: messages[] renders to a single
 			// input string, so it cannot be combined with input.
