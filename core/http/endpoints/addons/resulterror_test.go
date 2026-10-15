@@ -37,6 +37,20 @@ func (deadRuntime) Runtime(context.Context, string) (addonruntime.Instance, erro
 	return addonruntime.Instance{}, addonruntime.ErrRuntime
 }
 
+// refusedRuntime is a running add-on whose every read is refused as invalid,
+// the way the runtime client reports an HTTP 400 of the add-on.
+type refusingClient struct{ contract.Runtime }
+
+func (refusingClient) Read(context.Context, contract.Envelope) (contract.Result, error) {
+	return contract.Result{}, &addonruntime.Refusal{Status: 400, Reason: "invalid request"}
+}
+
+type refusedRuntime struct{}
+
+func (refusedRuntime) Runtime(context.Context, string) (addonruntime.Instance, error) {
+	return addonruntime.Instance{Generation: 1, Incarnation: "current", Client: refusingClient{}}, nil
+}
+
 type openAdmission struct{}
 
 func (openAdmission) Admit(ctx context.Context, _ contract.Actor, _ gateway.ResourceKey, _ string, f func(context.Context) error) error {
@@ -179,6 +193,42 @@ var _ = Describe("dispatch failure responses on the registered route", func() {
 		code, body := call("read-op", "read")
 		Expect(code).To(Equal(http.StatusServiceUnavailable))
 		Expect(body.Error["type"]).To(Equal("addon_error"))
+		Expect(body.Error).NotTo(HaveKey("operationId"))
+	})
+	It("answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend", func() {
+		allowAll := func(context.Context, contract.Actor) error { return nil }
+		ownerGateway := &gateway.Gateway{Revalidate: allowAll, Admission: openAdmission{}, Resolver: boundResolver{}, Runtime: refusedRuntime{}}
+		code, body := serve(ownerGateway)("refused-op", "read")
+		Expect(code).To(Equal(http.StatusBadRequest))
+		Expect(body.Error["type"]).To(Equal("invalid_request"))
+		Expect(body.Error).NotTo(HaveKey("operationId"))
+
+		certs, roots := certificates()
+		pins := map[string][32]byte{}
+		keys := map[string]ed25519.PublicKey{}
+		private := map[string]ed25519.PrivateKey{}
+		for _, id := range []string{"owner", "front-a"} {
+			pins[id] = sha256.Sum256(certs[id].Certificate[0])
+			pub, priv, e := ed25519.GenerateKey(rand.Reader)
+			Expect(e).NotTo(HaveOccurred())
+			keys[id], private[id] = pub, priv
+		}
+		server := httptest.NewUnstartedServer(nil)
+		carrier := func(id string) *gateway.Carrier {
+			c, e := gateway.NewCarrier(gateway.CarrierConfig{InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
+			Expect(e).NotTo(HaveOccurred())
+			return c
+		}
+		ownerCarrier := carrier("owner")
+		handler, e := ownerCarrier.OwnerHandler(ownerGateway)
+		Expect(e).NotTo(HaveOccurred())
+		server.Config.Handler = handler
+		server.TLS = ownerCarrier.ServerTLS()
+		server.StartTLS()
+		DeferCleanup(server.Close)
+		code, body = serve(&gateway.Gateway{Forward: carrier("front-a"), Revalidate: allowAll})("refused-op", "read")
+		Expect(code).To(Equal(http.StatusBadRequest))
+		Expect(body.Error["type"]).To(Equal("invalid_request"))
 		Expect(body.Error).NotTo(HaveKey("operationId"))
 	})
 	It("reports a denial as forbidden", func() {

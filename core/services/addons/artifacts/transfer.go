@@ -275,6 +275,8 @@ func failure(err error, cancelled, closing bool) (gateway.ArtifactState, string)
 		return gateway.ArtifactCancelled, "cancelled"
 	case errors.Is(err, gateway.ErrForbidden):
 		return gateway.ArtifactFailed, "access denied"
+	case errors.Is(err, contract.ErrRefused):
+		return gateway.ArtifactFailed, "output refused as invalid"
 	}
 	return gateway.ArtifactFailed, "output unavailable"
 }

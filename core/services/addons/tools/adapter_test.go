@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -216,6 +217,29 @@ var _ = Describe("Addon tool adapter", func() {
 				Expect(e).To(HaveOccurred())
 				Expect(gateway.StatusFor(e)).To(Equal(gateway.StatusFor(want)))
 			}
+		})
+	})
+
+	Describe("refusals of the add-on", func() {
+		It("gives the model an error result that says the request was invalid, for a read and for a change", func() {
+			for _, refused := range []error{gateway.ErrInvalidRequest, fmt.Errorf("%w: %w", gateway.ErrInvalidRequest, contract.ErrRefused)} {
+				f.readErr, f.proposeErr = refused, refused
+				res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Kind).To(Equal(tools.ResultError))
+				Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
+				Expect(res.Note).To(ContainSubstring("Nothing was changed"))
+				res, e = a.Execute(context.Background(), member, "addon__tables__rows-insert", args(`{"resourceId":"db-one","table":"t","rows":[{}]}`))
+				Expect(e).NotTo(HaveOccurred())
+				Expect(res.Kind).To(Equal(tools.ResultError))
+				Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
+				Expect(res.Proposal).To(BeNil())
+			}
+		})
+		It("keeps an outage an error, never the refused result", func() {
+			f.readErr = gateway.ErrUnavailable
+			_, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).To(HaveOccurred())
 		})
 	})
 

@@ -252,12 +252,19 @@ func RuntimeCreate(rt gateway.CurrentRuntime, tools gateway.ToolSource, limits c
 			if ctx.Err() != nil {
 				return err
 			}
+			if errors.Is(err, contract.ErrRefused) {
+				// A refused preview is final and created nothing.
+				return fmt.Errorf("%w: %w", ErrNotCreated, err)
+			}
 			if found, e := askExists(ctx, instance, key, limits, time.Now); e == nil && !found {
 				return fmt.Errorf("%w: %w", ErrNotCreated, err)
 			}
 			return err
 		}
 		receipt, err := instance.Client.Apply(ctx, env("apply"), preview.Revision)
+		if errors.Is(err, contract.ErrRefused) {
+			return fmt.Errorf("%w: %w", ErrNotCreated, err)
+		}
 		if err != nil {
 			return err
 		}

@@ -218,6 +218,9 @@ func unavailable(err error) error {
 	if errors.Is(err, gateway.ErrUnavailable) {
 		return err
 	}
+	if errors.Is(err, contract.ErrRefused) {
+		return gateway.Refused(err)
+	}
 	return fmt.Errorf("%w: %w", gateway.ErrUnavailable, err)
 }
 
@@ -755,6 +758,10 @@ func (s *Service) typedChange(ctx context.Context, actor contract.Actor, key pol
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		if errors.Is(err, contract.ErrRefused) {
+			// The add-on's own refusal: deterministic, nothing applied.
+			return gateway.Refused(err)
+		}
 		return s.previewFailure(ctx, actor, key, cur, err)
 	}
 	if seen.Schema != 0 && preview.Revision != seen {
@@ -764,6 +771,9 @@ func (s *Service) typedChange(ctx context.Context, actor contract.Actor, key pol
 	if err != nil {
 		if errors.Is(err, addonruntime.ErrConflict) {
 			return gateway.ErrOperationConflict
+		}
+		if errors.Is(err, contract.ErrRefused) {
+			return gateway.Refused(err)
 		}
 		return &gateway.OutcomeUnknown{OperationID: original}
 	}
@@ -904,6 +914,9 @@ func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key poli
 		if ctx.Err() != nil {
 			return gateway.ApplyResult{}, ctx.Err()
 		}
+		if errors.Is(err, contract.ErrRefused) {
+			return gateway.ApplyResult{}, gateway.Refused(err)
+		}
 		return gateway.ApplyResult{}, s.previewFailure(ctx, actor, key, cur, err)
 	}
 	if preview.Revision != seen {
@@ -924,6 +937,12 @@ func (s *Service) typedApply(ctx context.Context, actor contract.Actor, key poli
 			// The add-on's ledger holds the ID for another request and
 			// changed nothing.
 			return gateway.ApplyResult{}, gateway.ErrOperationConflict
+		}
+		if errors.Is(err, contract.ErrRefused) {
+			// The add-on refused the apply before it began, so nothing was
+			// applied and nothing was recorded for the ID: it is free again.
+			s.unbind(wire, want)
+			return gateway.ApplyResult{}, gateway.Refused(err)
 		}
 		return gateway.ApplyResult{}, &gateway.OutcomeUnknown{OperationID: original}
 	}

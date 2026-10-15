@@ -1238,6 +1238,19 @@ people or conversations, not part of the chat history and not sent to the model.
 | 503 | `outcome_unknown` | A mutation may have run. `operationId` is the original; repeat the same call. |
 | 503 | `addon_error` | The owner or the add-on cannot answer. |
 
+A request that the add-on itself refuses as invalid (an unknown table, an unknown field, a
+value its schema rejects) is `400` with `error.type` `invalid_request` on every route that
+reaches the add-on: the typed apply, a read through dispatch or relay, a proposal and its
+confirmation, an artifact open, and the chat tool result (kind `error`, code
+`invalid_request`). The owner's own frontend and every forwarding frontend give the same
+answer. The add-on answers HTTP 400 or 422 and the runtime client types that answer as a
+refusal; any other non-success stays an outage (`503`). A refusal is deterministic and
+nothing was applied: it is never `outcome_unknown`, the same call is refused again, and the
+caller corrects the request instead of repeating it. An operation ID whose preview or
+apply was refused is not consumed: the host forgets its binding and the add-on removes the
+pending line it wrote for it, so the corrected request may reuse the same ID. A refused
+proposal is not stored. A confirmation the add-on refused ends the proposal as `rejected`.
+
 A selection call has no operation: a lost answer is plain unavailability and the call is
 safe to repeat.
 

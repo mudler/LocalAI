@@ -694,7 +694,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Malformed or unknown request fields",
+                        "description": "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -806,7 +806,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Malformed or unknown request fields",
+                        "description": "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -965,7 +965,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Malformed or unknown request fields",
+                        "description": "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -1077,7 +1077,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Malformed or unknown request fields",
+                        "description": "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -1139,7 +1139,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Malformed or unknown request fields",
+                        "description": "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }

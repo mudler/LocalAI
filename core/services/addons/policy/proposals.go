@@ -744,6 +744,11 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			if rctx.Err() != nil {
 				return rctx.Err()
 			}
+			if errors.Is(e, contract.ErrRefused) {
+				// The add-on judged the request invalid. A preview changes
+				// nothing, so nothing is stored and the ID stays free.
+				return gateway.Refused(e)
+			}
 			return ErrUnavailable
 		}
 		eff, e := effects(preview.Summary)
@@ -842,6 +847,9 @@ func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Ac
 		_ = p.dropReservation(key)
 		if ctx.Err() != nil {
 			return Proposal{}, ctx.Err()
+		}
+		if errors.Is(err, contract.ErrRefused) {
+			return Proposal{}, gateway.Refused(err)
 		}
 		return Proposal{}, ErrUnavailable
 	}
@@ -1311,6 +1319,13 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		b.hooks.afterApply(id)
 	}
 	unknown := &gateway.OutcomeUnknown{OperationID: id}
+	if errors.Is(err, contract.ErrRefused) {
+		// The add-on refused the apply before it began: it is deterministic
+		// and nothing was applied, so the proposal ends as rejected and the
+		// resource is not blocked by an unresolved outcome.
+		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as invalid")
+		return contract.Receipt{}, gateway.Refused(err)
+	}
 	if err != nil {
 		b.settle(id, gateway.ProposalOutcomeUnknown, nil, "apply did not report")
 		return contract.Receipt{}, unknown

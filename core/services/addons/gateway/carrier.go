@@ -291,7 +291,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 }
 
 // denials are authorization, policy and request-level rejections.
-var denials = []error{ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, addons.ErrStaleInstalled, addons.ErrCandidateChanged, addons.ErrTransitionConflict, addons.ErrIncompatible, addons.ErrIntegrity, addons.ErrCheckFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
+var denials = []error{contract.ErrRefused, ErrForbidden, recovery.ErrForbidden, addons.ErrForbidden, addons.ErrStaleGeneration, catalog.ErrForbidden, addons.ErrConflict, addons.ErrOperationNotFound, addons.ErrOperationFailed, addons.ErrStaleInstalled, addons.ErrCandidateChanged, addons.ErrTransitionConflict, addons.ErrIncompatible, addons.ErrIntegrity, addons.ErrCheckFailed, catalog.ErrNotFound, catalog.ErrInvalid, packages.ErrPackage}
 
 // unavailable are operational failures. They say the owner could not serve the
 // request, not that it ran nothing: the owner can return them after it recorded
@@ -323,6 +323,14 @@ func StatusFor(e error) int {
 
 // typedError writes the owner's typed failure response.
 func typedError(w http.ResponseWriter, e error) {
+	if e = Refused(e); errors.Is(e, ErrInvalidRequest) {
+		// The add-on refused the request as invalid. A forwarding frontend
+		// decodes the body back to the same typed error.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
+		return
+	}
 	http.Error(w, "addon request failed", StatusFor(e))
 }
 
@@ -422,6 +430,14 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		}
 		if wire.Resource != nil {
 			return nil, resourceReplyErrorFor(resp.Body, resp.StatusCode, wire.Request)
+		}
+		if resp.StatusCode == http.StatusBadRequest {
+			// The owner's typed refusal is a decision, not an outage: nothing
+			// was applied and the same call is refused again.
+			var b resourceWire
+			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireInvalid {
+				return nil, ErrInvalidRequest
+			}
 		}
 		// Any other status, including a typed 503, leaves a mutation uncertain:
 		// the owner may have recorded or applied it before it failed.

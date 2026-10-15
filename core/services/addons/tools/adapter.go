@@ -126,6 +126,14 @@ const (
 // no resource in a conversation that has none selected.
 const CodeSelectResource = "select_resource"
 
+// CodeInvalidRequest is the Code of a ResultError for a call the add-on
+// refused as invalid. Nothing was changed, so the model corrects the call
+// instead of reporting an outage or retrying it unchanged.
+const CodeInvalidRequest = "invalid_request"
+
+// InvalidNote is what the model is told when the add-on refused a call.
+const InvalidNote = "The add-on refused this request as invalid. Nothing was changed. Check the arguments against the tool description and correct them; do not repeat the same call and do not report an outage."
+
 // SelectNote is what the model is told when no resource is selected.
 const SelectNote = "No resource is selected for this conversation. Ask the person to choose one with the Select action of the add-on in the chat, or to give its ID. Do not guess an ID."
 
@@ -340,14 +348,14 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 		request.Action = "read"
 		out, err := t.backend.Dispatch(ctx, actor, request)
 		if err != nil {
-			return ToolResult{}, err
+			return refusedResult(name, err)
 		}
 		return readResult(name, out)
 	}
 	request.Action = map[string]string{contract.ToolKindWrite: "write", contract.ToolKindSchema: "schema", contract.ToolKindCreate: "create"}[def.Kind]
 	p, err := t.backend.Propose(ctx, actor, request)
 	if err != nil {
-		return ToolResult{}, err
+		return refusedResult(name, err)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
 		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
@@ -355,6 +363,16 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 		ref.Summary = p.Effects.Sample
 	}
 	return ToolResult{Kind: ResultProposal, Tool: name, Proposal: &ref, Note: ProposalNote}, nil
+}
+
+// refusedResult turns the add-on's own refusal into a result the model can act
+// on. Every other error, an outage and an unknown outcome included, passes
+// through unchanged.
+func refusedResult(name string, err error) (ToolResult, error) {
+	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote}, nil
+	}
+	return ToolResult{}, err
 }
 
 // requiresResource reports a tool whose schema requires the resource.

@@ -40,6 +40,18 @@ var (
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
 
+// Refused types the add-on's own invalid-request refusal as ErrInvalidRequest,
+// so every path that reaches the runtime answers it the same way: a
+// deterministic 400 with nothing applied, never an outage and never an
+// unknown outcome. The runtime's cause stays in the chain. Every other error
+// passes through unchanged.
+func Refused(err error) error {
+	if err == nil || errors.Is(err, ErrInvalidRequest) || !errors.Is(err, contract.ErrRefused) || errors.Is(err, ErrUnavailable) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+}
+
 // ResourceInfo is one resource as the caller sees it. It carries nothing of
 // any other user: not their role, not their identity, not their grants.
 type ResourceInfo struct {

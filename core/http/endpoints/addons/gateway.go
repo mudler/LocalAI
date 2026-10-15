@@ -120,6 +120,9 @@ func decode(c echo.Context, v any) error {
 	return nil
 }
 func resultError(c echo.Context, e error) error {
+	// The add-on's own refusal of a request is a typed 400 from every path,
+	// never an outage banner.
+	e = gateway.Refused(e)
 	var unknown *gateway.OutcomeUnknown
 	if errors.As(e, &unknown) {
 		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "outcome_unknown", Message: "Check operation status; do not submit a new mutation", OperationID: unknown.OperationID}})
@@ -163,7 +166,7 @@ func resultError(c echo.Context, e error) error {
 // @Produce json
 // @Param request body contract.Request true "Typed addon request"
 // @Success 200 {object} contract.Result "Operation accepted or read result"
-// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
@@ -210,7 +213,7 @@ func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc 
 // @Produce text/css
 // @Param request body gateway.RelayRequest true "Relay request"
 // @Success 200 {string} string "Relayed response body"
-// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"

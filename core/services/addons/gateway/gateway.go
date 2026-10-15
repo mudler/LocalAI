@@ -85,7 +85,7 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 		return g.Forward.Dispatch(ctx, actor, request)
 	}
 	result, err := g.dispatchLocal(ctx, actor, request)
-	return result, mutationOutcome(request, err)
+	return result, mutationOutcome(request, Refused(err))
 }
 
 // dispatchLocal serves a request on the owner itself, with no forwarding.

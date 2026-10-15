@@ -357,8 +357,8 @@ distinct, every case passed, and a failed case has a trace that exists.
 - **A confirmation that committed and lost its reply.** The race and the crash specs
   accept it whenever it happens and check the invariants; the `foundation-acceptance`
   suite produces it on demand with the protocol fixture.
-- **A refused request is reported as unavailable.** A request that the add-on refuses
-  as invalid (an unknown table, an unknown field) is `400` on the apply route, and `503`
-  on the read, proposal and chat routes, because the runtime client reports every
-  non-success of the add-on the same way. It fails closed and never applies anything;
-  the clients that follow the documented recovery loop cannot tell it from an outage.
+- **A refused request is a typed `400`.** A request that the add-on refuses as invalid
+  (an unknown table, an unknown field) is `400` `invalid_request` on every route: the
+  runtime client types the add-on's HTTP 400 and 422 as a refusal, and the host answers
+  it the same way from the apply, read, proposal, chat and artifact paths, and from the
+  owner and every frontend. The authorization specs pin the exact status.

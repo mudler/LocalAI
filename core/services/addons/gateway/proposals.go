@@ -271,10 +271,10 @@ func (g *Gateway) proposal(ctx context.Context, a contract.Actor, request contra
 	request.Action = call.wireAction(request)
 	if g.Forward != nil {
 		p, e := g.Forward.Proposal(ctx, a, request, call)
-		return p, proposalOutcome(call, request.OperationID, e)
+		return p, proposalOutcome(call, request.OperationID, Refused(e))
 	}
 	p, e := g.proposalLocal(ctx, a, request, call)
-	return p, proposalOutcome(call, request.OperationID, e)
+	return p, proposalOutcome(call, request.OperationID, Refused(e))
 }
 
 // proposalLocal serves a proposal call on the owner itself.
@@ -452,6 +452,14 @@ func proposalFailure(w http.ResponseWriter, call ProposalCall, id string, e erro
 	var unavailable *ProposalUnavailable
 	var blocked *OutcomeBlocked
 	body := proposalWire{OperationID: id}
+	if e = Refused(e); errors.Is(e, ErrInvalidRequest) {
+		// A refusal of the add-on is final and changed nothing: it is not an
+		// outage, and the proposal ID is not an unknown outcome.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(proposalWire{Type: wireInvalid, OperationID: id})
+		return
+	}
 	if errors.As(e, &blocked) && blocked.BlockedBy != "" && StatusFor(e) == http.StatusForbidden {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
@@ -493,6 +501,8 @@ func proposalReplyError(r io.Reader, call ProposalCall, id string) error {
 			return &OutcomeUnknown{OperationID: id}
 		case wireProposalUnavailable:
 			return &ProposalUnavailable{ProposalID: id}
+		case wireInvalid:
+			return ErrInvalidRequest
 		}
 	}
 	return uncertainProposal(call, id)
