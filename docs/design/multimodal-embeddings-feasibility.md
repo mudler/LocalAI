@@ -1,8 +1,10 @@
 # Multimodal embeddings feasibility inventory
 
-This is Task 1 inventory, not native or runtime proof. **Native proof: PENDING.**
-The approved all-modality specification remains unchanged. No downloads,
-builds, services, model execution or GPU checks occurred.
+This started as the Task 1 inventory. Task 7 added the native run below.
+**Native proof: FAIL (recorded).** All seven input forms run natively and the
+audio and soundtrack changes move the vectors, but 2 of the 12 frozen retrieval
+queries miss the frozen margin. See the Task 7 results section. The approved
+specification is unchanged and nothing was retuned.
 
 ## Machine-readable register
 
@@ -11,25 +13,42 @@ Unknown values are deliberately explicit, not guessed model configuration.
 ```json
 {
   "schema_version": 1,
-  "native_proof": "PENDING",
-  "blockers": ["approval absent", "model/projector unknown", "fixture bytes absent", "native single-space proof absent"],
-  "candidate": "EmbeddingGemma 2 (candidate only)",
-  "model_identity": "unknown",
-  "model_sha256": "unknown",
-  "projector_identity": "unknown",
-  "projector_sha256": "unknown",
-  "license": "unknown; model and projector rights require review",
+  "native_proof": "FAIL",
+  "blockers": [
+    "text-to-audio-drum margin 0.005249 is below the frozen 0.01 minimum (audio-typing 0.6947 vs audio-drum 0.6999)",
+    "text-to-audio-water margin 0.006343 is below the frozen 0.01 minimum (audio-typing 0.5816 vs audio-water 0.5879)",
+    "no retuning is allowed: an alternative candidate or a contract revision needs a root decision"
+  ],
+  "candidate": "EmbeddingGemma 2 (candidate; native run recorded)",
+  "model_identity": "AtomicChat/embeddinggemma-2-GGUF@96a5415769c8a56d2557846c4ac23b9f724231be:embeddinggemma-2-Q8_0.gguf",
+  "model_sha256": "60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73",
+  "projector_identity": "AtomicChat/embeddinggemma-2-GGUF@96a5415769c8a56d2557846c4ac23b9f724231be:mmproj-embeddinggemma-2-Q8_0.gguf",
+  "projector_sha256": "bebe3951e09e0b232422fb58c9d6f9f271640808a6bfd698f9c65696b315308c",
+  "license": "GGUF metadata and both model cards say apache-2.0; no LICENSE file in either repository; base card links the Gemma 4 license page and a Prohibited Use Policy; redistribution terms need owner review",
   "native_revision": "f2cc7282ce0042641df55e0e563b75e824e2b647",
   "localai_revision": "83418c8996e5e25db2c8c6a62253001155778572",
-  "modality_evidence": {"text": "PENDING", "image": "PENDING", "audio": "PENDING", "silent-video": "PENDING", "audiovisual-video": "PENDING", "mixed": "PENDING"},
-  "dimensions": "unknown",
-  "pooling": "unknown",
-  "decoder_versions": "host ffmpeg and ffprobe 6.1.1-3ubuntu5; packaged runtime unknown",
-  "hardware": "Linux 6.8.0-139-generic x86_64; CPU model, RAM and usable accelerator unknown",
+  "modality_evidence": {
+    "text": "PASS",
+    "image": "PASS",
+    "audio": "PASS",
+    "silent-video": "PASS",
+    "audiovisual-video": "PASS",
+    "mixed": "PASS"
+  },
+  "dimensions": 768,
+  "pooling": "mean",
+  "decoder_versions": "host ffmpeg and ffprobe 6.1.1-3ubuntu5 (probe-side decoder only; packaged runtime unknown)",
+  "hardware": "AMD Ryzen 9 9950X3D 16-Core Processor, 20 logical cores, 90659504128 bytes RAM, Linux 6.8.0-139-generic x86_64, CPU only",
   "preprocessing_version": "mm-v1-f4-tsms-a16k-mono",
-  "commands_results": ["df -B1 .: 3045408768 bytes available, filesystem 100% used", "command -v: python3, ffmpeg, ffprobe, protoc, go, cmake, c++ found; not build suitability proof", "ffmpeg -version; ffprobe -version: 6.1.1-3ubuntu5", "git rev-parse HEAD: 83418c8996e5e25db2c8c6a62253001155778572", "read-only git show/git grep f2cc7282: pinned source present; no candidate artifact documentation found in docs/models/tools/mtmd"],
-  "peak_storage": "unknown until model/projector sizes and build strategy are selected; approval blocked",
-  "approval": "absent; root must authorize downloads, native versus Docker build, isolated runtime and paths"
+  "commands_results": [
+    "approved native build: cmake -DGGML_NATIVE=ON -DLLAMA_CURL=OFF (Release, CPU) of the pinned source, done before this task",
+    "bash test/multimodal/verify.sh native-proof (re-runs the probe when MM_MODEL, MM_PROJECTOR, MM_UPSTREAM_SOURCE, MM_BUILD_DIR, MM_DECODER_DIR and MM_APPROVAL_RECORD are set): MM_* set, python3 test/multimodal/native_probe/probe.py, exit status 3 = recorded FAIL, 21 of 23 cases passed, 677.8 s",
+    "backend: llama-server version: 0.6.0-dev (build 1, commit f2cc7282c), sha256 a200455a44a460a82f7918bc9d40d6a1bc3ef09ca0fe3c6c9d6af21530446974",
+    "server: --embeddings -c 16384 -b 16384 -ub 16384 -np 1 --no-warmup, /v1/embeddings, one input item per request",
+    "report: test/multimodal/native-proof-report.json (raw float32 vectors, token counts, similarities, margins)"
+  ],
+  "peak_storage": "model 309855520 bytes + projector 554821120 bytes, source checkout 247 MB, CPU build 115 MB (all before the probe); the probe wrote about 1 MB of scratch and used no GPU; free space on the work volume stayed above 24 GB",
+  "approval": "owner-recorded approvals: native builds and model downloads under the control-room work area; no remote execution"
 }
 ```
 
@@ -154,3 +173,109 @@ embedding-space identity.
   token count of the mixed item to match the sum of its parts minus the repeated
   special tokens within 2 tokens, and the leave-one-out vectors to differ from
   the full item by at least the media-change distance.
+
+## Task 7 results (native run, exact pin)
+
+Outcome: **FAIL, recorded.** Machine-readable evidence:
+`test/multimodal/native-proof-report.json`, checked by
+`bash test/multimodal/verify.sh native-proof` (exit status 3 for a recorded FAIL).
+The probe is `test/multimodal/native_probe/probe.py`; the fixtures come from
+`test/multimodal/native_probe/generate_fixtures.py`.
+
+Run command (artifact paths come from environment variables; the approval record
+is a JSON file with the owner's recorded approvals and the license review):
+
+```
+MM_MODEL=<model.gguf> MM_PROJECTOR=<mmproj.gguf> MM_UPSTREAM_SOURCE=<llama.cpp checkout at the pin> \
+MM_BUILD_DIR=<cmake build dir> MM_DECODER_DIR=<dir with ffmpeg and ffprobe> \
+MM_APPROVAL_RECORD=<approval.json> python3 test/multimodal/native_probe/probe.py
+```
+
+Identity and runtime:
+
+- Model: AtomicChat/embeddinggemma-2-GGUF at 96a5415769c8a56d2557846c4ac23b9f724231be,
+  `embeddinggemma-2-Q8_0.gguf`, sha256 `60b2a9e5f0673aa25931d285a73ae712e447fcc3439330102a8eabea31da7c73`, architecture
+  `gemma-embedding2`. Projector `mmproj-embeddinggemma-2-Q8_0.gguf`, sha256
+  `bebe3951e09e0b232422fb58c9d6f9f271640808a6bfd698f9c65696b315308c` (vision `gemma4v`, audio `gemma4a`). Upstream base model:
+  google/embeddinggemma-2 (revision 914f7f89142e33e77833254d9c9b90c3cef7303b when fetched).
+- Output: 768 dimensions, mean pooling (GGUF `pooling_type` 1), L2-normalized
+  output (all vector norms are 1 within 1e-6). 16384-token server context. The
+  server reports vision, audio and video capability.
+- Source: llama.cpp `f2cc7282ce0042641df55e0e563b75e824e2b647`, CPU Release build,
+  server binary sha256 `a200455a44a460a82f7918bc9d40d6a1bc3ef09ca0fe3c6c9d6af21530446974`.
+- Hardware: AMD Ryzen 9 9950X3D, 20 logical cores, 90.7 GB RAM, no GPU.
+  Decoder: ffmpeg and ffprobe 6.1.1-3ubuntu5 (probe side only).
+- Special tokens added per item: 2 (BOS and EOS).
+
+License. Model-card statements, quoted:
+
+- Quantized repository front matter: `license: apache-2.0`, `base_model:
+  google/embeddinggemma-2`, `base_model_relation: quantized`. Its body says
+  "google/embeddinggemma-2, revision 914f7f8, Apache 2.0." Both GGUF files carry
+  `general.license = apache-2.0`. No LICENSE file is in the repository.
+- Base model card front matter: `license: apache-2.0`. Header line: "License:
+  Apache 2.0" linking `https://ai.google.dev/gemma/docs/gemma_4_license`. Safety
+  section: "Deployments must adhere to the Gemma Prohibited Use Policy". No LICENSE
+  file is in the repository, and the repository is not gated.
+- Open question for the owner: the cards say Apache 2.0, but they also link the
+  Gemma license page and a Prohibited Use Policy. Confirm the redistribution
+  terms before shipping the weights or documenting them as Apache 2.0.
+
+Required items:
+
+| Item | Verdict | Evidence |
+| --- | --- | --- |
+| Plain text, structured text | PASS | one 768-d vector each, 9 tokens, identical content |
+| Image | PASS | 85 tokens |
+| Audio (`input_audio` WAV) | PASS | 54 tokens for 2 s |
+| Silent video (frames only) | PASS | 8 frames, 735 tokens |
+| Audiovisual video | PASS | 8 frames plus 32785 samples of audio, 792 tokens |
+| Mixed ordered item | PASS | 934 tokens; sum of parts minus repeated special tokens is 934 |
+| No dropped parts | PASS | leave-one-out vectors all differ from the full item |
+| Media change (same text, bell vs drum image) | PASS | cosine distance 0.086461 (>= 0.001) |
+| Soundtrack change (identical frames, bell vs drum track) | PASS | cosine distance 0.003933 (>= 0.001) |
+| Single identity and space | PASS | one server instance, one model, projector, pooling, 768 dimensions |
+| 12 retrieval queries | FAIL | 10 of 12 pass; 2 miss the 0.01 margin |
+
+Retrieval (cosine of query to target, to the best distractor, and the margin):
+
+| Query | Target | Best distractor | Margin | Verdict |
+| --- | --- | --- | --- | --- |
+| text-to-image-bell | image-bell | 0.7426 | 0.6342 | 0.1084 | PASS |
+| text-to-image-drum | image-drum | 0.7507 | 0.6714 | 0.0793 | PASS |
+| text-to-image-water | image-water | 0.7574 | 0.5417 | 0.2157 | PASS |
+| text-to-audio-bell | audio-bell | 0.6682 | 0.6364 | 0.0318 | PASS |
+| text-to-audio-drum | audio-drum | 0.6999 | 0.6947 | 0.0052 | FAIL |
+| text-to-audio-water | audio-water | 0.5879 | 0.5816 | 0.0063 | FAIL |
+| text-to-video-bell | video-bell | 0.7036 | 0.6138 | 0.0898 | PASS |
+| text-to-video-drum | video-drum | 0.7366 | 0.6607 | 0.0759 | PASS |
+| text-to-video-water | video-water | 0.7048 | 0.5214 | 0.1834 | PASS |
+| media-to-text-bell | text-bell | 0.7426 | 0.6714 | 0.0712 | PASS |
+| media-to-text-drum | text-drum | 0.6999 | 0.6355 | 0.0644 | PASS |
+| media-to-text-water | text-water | 0.7048 | 0.6249 | 0.0799 | PASS |
+
+The two failures are both text-to-audio and both rank the target first with a
+margin under 0.01: `text-to-audio-drum` (0.6999 against audio-typing 0.6947) and
+`text-to-audio-water` (0.5879 against audio-typing 0.5816). Nothing was retuned.
+Whether to accept this candidate, change the candidate, or revise the contract
+(with a new contract version) is a root decision.
+
+Supplementary, not gating: a 7-item batch in the contract permutation returned
+indexes 0 to 6 in request order and each vector matched the single-item vector
+(cosine at least 0.9999999). Repeated requests with identical content returned
+bit-identical vectors.
+
+Weaknesses of this evidence:
+
+- The fixtures are synthetic clip-art and procedural sounds, 2 s each, four
+  concepts. Margins are small-sample measurements, not a quality benchmark.
+- The video path is a probe-side construction (frames plus audio in one content
+  array). The model has no learned temporal alignment between frames and audio.
+- The soundtrack-change distance of 0.003933 is above the frozen floor of 0.001
+  but small. Audio tokens are few compared with 735 frame tokens.
+- The server-side vectors come from the upstream HTTP server, not the future
+  LocalAI backend, so tokenization of the same content array is assumed equal.
+- The report is machine-validated but a self-produced file; the checker cannot
+  prove that it came from a real run. The server log hash and binary hash are
+  recorded for audit.
+- The run used a Q8_0 quantization from a third party, not the base weights.
