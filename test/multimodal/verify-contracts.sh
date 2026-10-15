@@ -30,9 +30,15 @@ go build -mod=readonly -p 1 -overlay="$scratch/overlay.json" -o tests/e2e/mock-b
 for package in core/schema pkg/embeddingmedia core/http/middleware core/http/auth core/http; do
  report=${package//\//-}
  rm -f "$scratch/$report.json"
- printf '%s\n' "go test -mod=readonly -tags auth -p 1 -overlay=$scratch/overlay.json ./$package -args -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report=$scratch/$report.json" >> "$scratch/commands.log"
+ # core/http also runs an unrelated gallery spec that downloads a large model;
+ # the contract gate runs only the multimodal security group there.
+ focus=()
+ if [[ $package == core/http ]]; then
+  focus=(-ginkgo.focus='Embedding production security')
+ fi
+ printf '%s\n' "go test -mod=readonly -tags auth -p 1 -overlay=$scratch/overlay.json ./$package -args ${focus[*]} -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report=$scratch/$report.json" >> "$scratch/commands.log"
  go test -mod=readonly -tags auth -p 1 -overlay="$scratch/overlay.json" "./$package" -args \
-  -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report="$scratch/$report.json" 2>&1 | tee "$scratch/$report.log"
+  "${focus[@]}" -ginkgo.fail-on-empty -ginkgo.fail-on-pending -ginkgo.json-report="$scratch/$report.json" 2>&1 | tee "$scratch/$report.log"
 done
 MM_CONTRACT_TEST_SCRATCH="$scratch" python3 -m unittest discover -s test/multimodal -p test_contract_reports.py -v 2>&1 | tee "$scratch/checker-tests.log"
 python3 test/multimodal/check_contract_reports.py "$scratch" "$revision"

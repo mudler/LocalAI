@@ -36,6 +36,11 @@ class ContractReportTests(unittest.TestCase):
             else:
                 specs.extend({'ContainerHierarchyTexts': ['Embedding trace security'],
                               'LeafNodeText': name, 'State': 'passed'} for name in names)
+        # Ginkgo's focus excludes the other core/http specs and reports them as skipped.
+        core_http = self.reports['core-http'][0]['SpecReports']
+        core_http.extend({'ContainerHierarchyTexts': ['Route auth coverage'],
+                          'LeafNodeText': 'excluded %d' % i, 'State': 'skipped'} for i in range(3))
+        core_http.append({'ContainerHierarchyTexts': None, 'State': 'passed'})
         self.save()
 
     def test_suite_lifecycle_report(self):
@@ -98,6 +103,35 @@ class ContractReportTests(unittest.TestCase):
     def test_missing_boundaries(self):
         for spec in self.reports['pkg-embeddingmedia'][0]['SpecReports']:
             spec['ContainerHierarchyTexts'] = ['Multimodal contracts']
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_core_http_unfocused_spec_passing(self):
+        self.reports['core-http'][0]['SpecReports'].append(
+            {'ContainerHierarchyTexts': ['Gallery'], 'LeafNodeText': 'applies models from a gallery',
+             'State': 'passed'})
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_core_http_unfocused_spec_failing(self):
+        self.reports['core-http'][0]['SpecReports'][-2]['State'] = 'failed'
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_core_http_group_missing(self):
+        for spec in self.reports['core-http'][0]['SpecReports']:
+            if spec.get('ContainerHierarchyTexts') == ['Embedding production security']:
+                spec['ContainerHierarchyTexts'] = ['Route auth coverage']
+        self.save()
+        with self.assertRaises(ValueError):
+            check(self.root)
+
+    def test_core_http_group_count_differs_from_pin(self):
+        spec = dict(self.reports['core-http'][0]['SpecReports'][0])
+        self.reports['core-http'][0]['SpecReports'].append(spec)
         self.save()
         with self.assertRaises(ValueError):
             check(self.root)

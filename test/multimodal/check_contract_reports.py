@@ -20,6 +20,16 @@ SECURITY_CASES = {
     },
 }
 
+# The gate focuses these packages on one group. Ginkgo still lists the specs it
+# excluded, as skipped with no failure message, so those are the only allowed
+# non-group entries besides the suite lifecycle record.
+FOCUSED_GROUPS = {'core-http': 'Embedding production security'}
+
+
+def is_lifecycle(spec):
+    return not spec.get('ContainerHierarchyTexts') and not spec.get('LeafNodeText')
+
+
 def check(scratch):
     counts = {}
     required = {
@@ -40,7 +50,13 @@ def check(scratch):
             matched = [s for s in specs if s.get('LeafNodeText') == name]
             if len(matched) != 1 or matched[0]['State'] != 'passed':
                 raise ValueError('missing or unexecuted security case: ' + name)
+        focus = FOCUSED_GROUPS.get(package)
         for spec in specs:
+            hierarchy = spec.get('ContainerHierarchyTexts') or []
+            if focus and focus not in hierarchy and not is_lifecycle(spec):
+                if spec['State'] == 'skipped' and not spec.get('Failure', {}).get('Message'):
+                    continue
+                raise ValueError('spec outside focus group ran or failed: ' + package)
             if spec['State'] == 'skipped':
                 reason = spec.get('Failure', {}).get('Message', '')
                 native_skip = (package == 'core-http-middleware'
@@ -55,6 +71,12 @@ def check(scratch):
             selected = [s for s in specs if group in (s.get('ContainerHierarchyTexts') or [])]
             if len(selected) < minimum or any(s['State'] != 'passed' for s in selected):
                 raise ValueError('missing, skipped, pending or failed group: ' + group)
+            if focus == group and len(selected) != minimum:
+                raise ValueError('focused group count differs from pin: ' + group)
+        if focus:
+            passed = [s for s in specs if s['State'] == 'passed' and not is_lifecycle(s)]
+            if len(passed) != groups[focus]:
+                raise ValueError('passing specs outside focus group: ' + package)
         if package == 'pkg-embeddingmedia':
             boundaries = [s for s in specs if 'budget boundaries' in (s.get('ContainerHierarchyTexts') or [])]
             if len(boundaries) < 12 or any(s['State'] != 'passed' for s in boundaries):
