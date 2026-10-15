@@ -255,6 +255,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// A previous worker that was killed left its backends running. Kill them
 	// now, before this worker hands out ports or reports an incarnation.
 	supervisor.ledger = newProcessLedger(filepath.Join(dataDir, "worker-processes.json"))
+	supervisor.ledger.generation = status.Generation()
 	n, sweepErr := supervisor.ledger.sweepStale()
 	if n > 0 {
 		xlog.Warn("Killed backend process groups left behind by a previous worker", "count", n)

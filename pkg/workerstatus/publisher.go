@@ -27,6 +27,18 @@ func FromEnvironment(ctx context.Context, cancel context.CancelFunc) (*Publisher
 	}
 	return NewPublisher(ctx, path, generation, cancel)
 }
+
+// Generation returns the launch generation this publisher reports, or "" for a
+// nil publisher (a worker not managed by a launcher).
+func (p *Publisher) Generation() string {
+	if p == nil {
+		return ""
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.state.Generation
+}
+
 func NewPublisher(ctx context.Context, path, generation string, cancel context.CancelFunc) (*Publisher, error) {
 	p := &Publisher{path: path, cancel: cancel, state: Snapshot{PID: os.Getpid(), Schema: Schema, Generation: generation, Registration: "starting", HeartbeatInterval: 10 * time.Second}}
 	// A fresh launch must never adopt a previous session's file.

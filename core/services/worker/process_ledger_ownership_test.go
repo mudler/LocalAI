@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/workerstatus"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,10 +42,11 @@ var _ = Describe("Durable backend process ownership", func() {
 		})
 
 		It("stores the launch generation next to the process identity", func() {
-			GinkgoT().Setenv(workerstatus.GenerationEnv, "launch-7")
 			path := filepath.Join(GinkgoT().TempDir(), "processes.json")
 			_, pid := sleeper()
-			Expect(newProcessLedger(path).add("model#0", pid)).To(Succeed())
+			ledger := newProcessLedger(path)
+			ledger.generation = "launch-7"
+			Expect(ledger.add("model#0", pid)).To(Succeed())
 			data, err := os.ReadFile(path)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(data)).To(ContainSubstring(`"generation":"launch-7"`))

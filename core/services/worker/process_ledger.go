@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/workerstatus"
 	"github.com/mudler/xlog"
 )
 
@@ -31,6 +30,9 @@ import (
 // leader exits: descendants can outlive their leader. A nil ledger does nothing.
 type processLedger struct {
 	path string
+	// generation is the launch generation stored with each new record. Empty
+	// for a worker that no launcher manages.
+	generation string
 
 	mu      sync.Mutex
 	entries map[string]ledgerEntry
@@ -118,7 +120,7 @@ func (l *processLedger) add(key string, pid int) error {
 	if start == "" && startTimesReadable() {
 		return fmt.Errorf("recording ownership of %s: cannot read the start time of process %d", key, pid)
 	}
-	generation := os.Getenv(workerstatus.GenerationEnv)
+	generation := l.generation
 	if len(generation) > 128 {
 		generation = generation[:128]
 	}
@@ -324,7 +326,8 @@ func psStartTime(pid int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
-	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C")
+	// A fixed locale keeps the text identical for every process that reads it.
+	cmd.Env = []string{"LC_ALL=C", "LANG=C", "PATH=/usr/bin:/bin"}
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
