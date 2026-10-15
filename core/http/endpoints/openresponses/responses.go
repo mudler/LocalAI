@@ -647,6 +647,7 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 			messages = append(messages, schema.Message{
 				Role:          "tool",
 				Name:          item.CallID,
+				ToolCallID:    item.CallID,
 				Content:       outputStr,
 				StringContent: outputStr,
 			})
@@ -2274,6 +2275,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					}
 					c.Response().Flush()
 					xlog.Debug("MCP streaming tools executed, re-running inference", "iteration", mcpStreamIter)
+					// These items are already in the trail. The loop can end at
+					// the iteration limit without another inference to reset them.
+					toolCalls = nil
+					currentReasoningID, finalReasoning = "", ""
+					currentMessageID, textContent = "", ""
 					continue // next MCP stream iteration
 				}
 			}

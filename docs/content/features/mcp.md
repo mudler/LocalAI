@@ -227,7 +227,9 @@ curl http://localhost:8080/v1/responses \
 
 The tools LocalAI runs server-side are part of the response: `output` lists a
 `function_call` item and its `function_call_output` item for every MCP tool call,
-in the order they ran, before the final `message`. This holds for streaming
+in the order they ran, before the final `message`. Replayed tool results retain
+the `call_id` association with their calls. If the streaming iteration limit is
+reached, each executed tool round appears once in the final output. This holds for streaming
 (`response.completed`) and non-streaming requests and for the stored response.
 A follow-up request with `previous_response_id` therefore replays the earlier
 tool calls and results to the model, and a client that keeps the `output` items

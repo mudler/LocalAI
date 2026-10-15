@@ -41,7 +41,8 @@ type trailBackend struct {
 	calls [][]schema.Message
 	// toolReasoning, when set, is emitted as a <think> block before the
 	// tool call, so the trail also has to carry that iteration's reasoning.
-	toolReasoning string
+	toolReasoning  string
+	alwaysCallTool bool
 }
 
 func (b *trailBackend) install() {
@@ -57,7 +58,7 @@ func (b *trailBackend) install() {
 		b.mu.Lock()
 		b.calls = append(b.calls, append([]schema.Message(nil), messages...))
 		b.mu.Unlock()
-		wantTool := tools != "" && (len(messages) == 0 || messages[len(messages)-1].Role != "tool")
+		wantTool := tools != "" && (b.alwaysCallTool || len(messages) == 0 || messages[len(messages)-1].Role != "tool")
 		return func() (backend.LLMResponse, error) {
 			usage := backend.TokenUsage{Prompt: 5, Completion: 7}
 			if wantTool {
@@ -245,6 +246,7 @@ func expectReplayed(messages []schema.Message, previous []schema.ORItemField) {
 	Expect(messages[1].ToolCalls[0].ID).To(Equal(previous[0].CallID))
 	Expect(messages[1].ToolCalls[0].FunctionCall.Name).To(Equal(trailToolName))
 	Expect(messages[2].Role).To(Equal("tool"))
+	Expect(messages[2].ToolCallID).To(Equal(previous[0].CallID))
 	Expect(messages[2].StringContent).To(ContainSubstring("4711"))
 	Expect(messages[3].Role).To(Equal("assistant"))
 	Expect(messages[3].StringContent).To(Equal(trailAnswer))
@@ -350,6 +352,30 @@ var _ = Describe("Responses keep the server-side MCP tool trail", func() {
 			Expect(*replayed[1].Reasoning).To(Equal(reasoning))
 			Expect(replayed[1].ToolCalls).To(HaveLen(1))
 		})
+	})
+
+	It("keeps each executed round once when streaming exhausts the iteration limit", func() {
+		be.alwaysCallTool = true
+		be.toolReasoning = "Need the current balance."
+		cfg.Agent.MaxIterations = 1
+		c, recorder := trailContext()
+		input, openAIReq := trailRequest(c.Request().Context(), exec, true)
+		responseID := "resp_trail_limit"
+		DeferCleanup(func() { GetGlobalStore().Delete(responseID) })
+		Expect(handleOpenResponsesStream(c, responseID, 1, input, cfg, nil, nil, config.NewApplicationConfig(), "", openAIReq, nil, true, true, exec, evaluator)).To(Succeed())
+		completed := completedFromSSE(recorder.Body.String())
+		Expect(completed).NotTo(BeNil())
+		Expect(toolCalls.Load()).To(Equal(int32(2)))
+		for _, output := range [][]schema.ORItemField{completed.Output, storedOutput(responseID)} {
+			Expect(itemTypes(output)).To(Equal([]string{"reasoning", "function_call", "function_call_output", "reasoning", "function_call", "function_call_output"}))
+			expectToolPair(output[1], output[2])
+			expectToolPair(output[4], output[5])
+			ids := map[string]bool{}
+			for _, item := range output {
+				Expect(ids[item.ID]).To(BeFalse(), "duplicate item ID: %s", item.ID)
+				ids[item.ID] = true
+			}
+		}
 	})
 
 	Context("counter-checks", func() {
