@@ -162,5 +162,68 @@ class InventoryTests(unittest.TestCase):
             self.validate()
 
 
+class RecordedOutcomeTests(unittest.TestCase):
+    """A dossier may leave PENDING only with a valid native report that agrees."""
+
+    def setUp(self):
+        import test_native_reports as native
+        self.native = native
+        self.contract, self.manifest, self.dossier = checker.load_inventory()
+        self.builder = native.Builder()
+        self.dossier.update(model_sha256=native.MODEL, projector_sha256=native.PROJECTOR)
+
+    def validate(self, report=None):
+        checker.validate_inventory(self.contract, self.manifest, self.dossier, report)
+
+    def failing_report(self):
+        self.builder.items['audio-bell']['vector'] = self.native.encode(self.native.vec('typing', 0.3))
+        return self.builder.report()
+
+    def test_failure_outcome_without_report(self):
+        self.dossier['native_proof'] = 'FAIL'
+        with self.assertRaises(ValueError):
+            self.validate(None)
+
+    def test_modality_claim_while_pending(self):
+        self.dossier['modality_evidence']['audio'] = 'PASS'
+        with self.assertRaises(ValueError):
+            self.validate(None)
+
+    def test_pass_claim_against_failing_report(self):
+        self.dossier['native_proof'] = 'PASS'
+        with self.assertRaises(ValueError):
+            self.validate(self.failing_report())
+
+    def test_pass_claim_without_report(self):
+        self.dossier['native_proof'] = 'PASS'
+        with self.assertRaises(ValueError):
+            self.validate(None)
+
+    def test_pending_claim_with_report(self):
+        with self.assertRaises(ValueError):
+            self.validate(self.builder.report())
+
+    def test_recorded_failure_accepted(self):
+        report = self.failing_report()
+        self.dossier['native_proof'] = 'FAIL'
+        self.dossier['modality_evidence'] = {k: 'PASS' for k in self.dossier['modality_evidence']}
+        self.dossier['blockers'] = ['recorded failure']
+        self.validate(report)
+
+    def test_recorded_pass_accepted(self):
+        self.dossier['native_proof'] = 'PASS'
+        self.dossier['modality_evidence'] = {k: 'PASS' for k in self.dossier['modality_evidence']}
+        self.dossier['blockers'] = ['none outstanding for the candidate']
+        self.validate(self.builder.report())
+
+    def test_dossier_hash_must_match_report(self):
+        report = self.failing_report()
+        self.dossier['native_proof'] = 'FAIL'
+        self.dossier['modality_evidence'] = {k: 'PASS' for k in self.dossier['modality_evidence']}
+        self.dossier['model_sha256'] = 'e' * 64
+        with self.assertRaises(ValueError):
+            self.validate(report)
+
+
 if __name__ == '__main__':
     unittest.main()
