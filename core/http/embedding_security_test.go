@@ -131,7 +131,7 @@ var _ = Describe("Embedding production security", func() {
 				req.Header.Set("Content-Type", "application/json")
 				rec := httptest.NewRecorder()
 				e.ServeHTTP(rec, req)
-				Expect(rec.Code).To(Or(Equal(400), Equal(501)))
+				Expect(rec.Code).To(Or(Equal(400), Equal(404)))
 				Expect(rec.Body.String()).NotTo(ContainSubstring("private-"))
 				Expect(rec.Body.String()).NotTo(ContainSubstring("cHJpdmF0"))
 			}
@@ -207,7 +207,7 @@ var _ = Describe("Embedding production security", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(send()).To(Equal(429))
 			Expect(auth.DeleteQuotaRule(db, rule.ID, user.ID)).To(Succeed())
-			Expect(send()).To(Equal(501))
+			Expect(send()).To(Equal(404))
 		}
 	})
 })

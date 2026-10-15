@@ -333,3 +333,47 @@ func embeddingEnvelopeError(structured bool) ([]EmbeddingInputItem, bool, error)
 	}
 	return nil, true, embeddingMalformed()
 }
+
+// The types below describe the structured embedding input for the API schema.
+// They are documentation only: requests are validated by ParseEmbeddingInput,
+// which rejects unknown fields and duplicate keys.
+
+// EmbeddingContentObject is one structured input item. It produces exactly one
+// vector from all of its parts, taken in order.
+type EmbeddingContentObject struct {
+	// Content is a non-empty ordered list of parts.
+	Content []EmbeddingContentPartDoc `json:"content"`
+}
+
+// EmbeddingContentPartDoc is one part of a content object. Set `type` and the
+// member of the same name; no other member is accepted.
+type EmbeddingContentPartDoc struct {
+	// Type selects the part kind. video_url is an alias of input_video.
+	Type string `json:"type" enums:"text,image_url,input_audio,input_video,video_url"`
+	// Text is used by type text. It is passed without separators, prefixes or templates.
+	Text string `json:"text,omitempty"`
+	// ImageURL is used by type image_url: an HTTP(S) URL or a base64 data URI (PNG or JPEG).
+	ImageURL *EmbeddingImageSourceDoc `json:"image_url,omitempty"`
+	// InputAudio is used by type input_audio (WAV, MP3 or FLAC).
+	InputAudio *EmbeddingMediaSourceDoc `json:"input_audio,omitempty"`
+	// InputVideo is used by type input_video (MP4 or WebM).
+	InputVideo *EmbeddingMediaSourceDoc `json:"input_video,omitempty"`
+	// VideoURL is an alias of input_video with the same members.
+	VideoURL *EmbeddingMediaSourceDoc `json:"video_url,omitempty"`
+}
+
+// EmbeddingImageSourceDoc is the source of an image part.
+type EmbeddingImageSourceDoc struct {
+	URL string `json:"url"`
+}
+
+// EmbeddingMediaSourceDoc is the source of an audio or video part. Exactly one
+// of data and url is set.
+type EmbeddingMediaSourceDoc struct {
+	// Data is raw base64.
+	Data string `json:"data,omitempty"`
+	// URL is an HTTP(S) URL or a base64 data URI.
+	URL string `json:"url,omitempty"`
+	// Format is optional and must match the detected media format.
+	Format string `json:"format,omitempty"`
+}
