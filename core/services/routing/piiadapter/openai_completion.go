@@ -14,23 +14,21 @@ const (
 	fldInstruction
 )
 
-// encPart packs (field, element, part) into one ScannedText.Index. element=-1
-// means the field is a whole value; element>=0 indexes into a []any value.
-// part=-1 means the element itself is the text; part>=0 indexes into the
-// "content" array of a structured content object. Offsets by one let -1 map to
-// zero. Layout: field in bits 48+, element+1 in bits 24-47, part+1 in bits 0-23.
-func encPart(field, elem, part int) int {
-	return (field << 48) | ((elem + 1) << 24) | (part + 1)
+// slot addresses one scannable text in a request: a field, an element of an
+// array value (elem -1 means the whole value) and a part of a structured
+// content object (part -1 means the element itself is the text). Slots are
+// plain ints, so no width of int can overflow or collide with another slot.
+type slot struct {
+	field, elem, part int
 }
-func decPart(p int) (field, elem, part int) {
-	return p >> 48, ((p >> 24) & 0xFFFFFF) - 1, (p & 0xFFFFFF) - 1
-}
-func encField(field, elem int) int { return encPart(field, elem, -1) }
 
-// scanContentParts appends the text parts of a structured content object
+// textVisitor receives one scannable text and the slot it came from.
+type textVisitor func(s slot, text string)
+
+// visitContentParts visits the text parts of a structured content object
 // ({"content":[{"type":"text","text":"..."},...]}). Media parts are not text
 // and are skipped.
-func scanContentParts(field, elem int, obj map[string]any, out *[]pii.ScannedText) {
+func visitContentParts(field, elem int, obj map[string]any, visit textVisitor) {
 	parts, _ := obj["content"].([]any)
 	for k, p := range parts {
 		m, ok := p.(map[string]any)
@@ -38,39 +36,56 @@ func scanContentParts(field, elem int, obj map[string]any, out *[]pii.ScannedTex
 			continue
 		}
 		if s, ok := m["text"].(string); ok && s != "" {
-			*out = append(*out, pii.ScannedText{Index: encPart(field, elem, k), Text: s})
+			visit(slot{field, elem, k}, s)
 		}
 	}
 }
 
-// scanAnyText appends scannable strings from a string-or-[]any field. Non-string
+// visitAnyText visits scannable strings from a string-or-[]any field. Non-string
 // array elements (token-id arrays, numbers) are skipped; only human text is
 // redacted. When structured is set, the text parts of content objects are
-// scanned too, with the same results as a plain string.
-func scanAnyText(field int, v any, structured bool, out *[]pii.ScannedText) {
+// visited too, with the same results as a plain string.
+func visitAnyText(field int, v any, structured bool, visit textVisitor) {
 	switch t := v.(type) {
 	case string:
 		if t != "" {
-			*out = append(*out, pii.ScannedText{Index: encField(field, -1), Text: t})
+			visit(slot{field, -1, -1}, t)
 		}
 	case map[string]any:
 		if structured {
-			scanContentParts(field, -1, t, out)
+			visitContentParts(field, -1, t, visit)
 		}
 	case []any:
 		for k, e := range t {
 			switch el := e.(type) {
 			case string:
 				if el != "" {
-					*out = append(*out, pii.ScannedText{Index: encField(field, k), Text: el})
+					visit(slot{field, k, -1}, el)
 				}
 			case map[string]any:
 				if structured {
-					scanContentParts(field, k, el, out)
+					visitContentParts(field, k, el, visit)
 				}
 			}
 		}
 	}
+}
+
+// scanSlots turns a walk into ScannedText values. Index is the position in walk
+// order, so Apply can find the same slot again by walking the same request.
+func scanSlots(walk func(textVisitor)) []pii.ScannedText {
+	var out []pii.ScannedText
+	walk(func(_ slot, text string) {
+		out = append(out, pii.ScannedText{Index: len(out), Text: text})
+	})
+	return out
+}
+
+// slotsOf lists the slots of a walk in the order scanSlots numbers them.
+func slotsOf(walk func(textVisitor)) []slot {
+	var out []slot
+	walk(func(s slot, _ string) { out = append(out, s) })
+	return out
 }
 
 // applyContentPart writes redacted text into one text part of a content object.
@@ -109,6 +124,17 @@ func applyAnyText(v any, elem, part int, text string) any {
 	return v
 }
 
+// completionWalk visits Prompt, Input and Instruction in a fixed order.
+func completionWalk(req *schema.OpenAIRequest) func(textVisitor) {
+	return func(visit textVisitor) {
+		visitAnyText(fldPrompt, req.Prompt, false, visit)
+		visitAnyText(fldInput, req.Input, true, visit)
+		if req.Instruction != "" {
+			visit(slot{fldInstruction, -1, -1}, req.Instruction)
+		}
+	}
+}
+
 // OpenAICompletion returns a pii.Adapter for the prompt-style OpenAI requests
 // (completions, embeddings, edits) on *schema.OpenAIRequest. It scans Prompt,
 // Input and Instruction: the string form, the string elements of an array
@@ -121,26 +147,27 @@ func OpenAICompletion() pii.Adapter {
 			if !ok || req == nil {
 				return nil
 			}
-			var out []pii.ScannedText
-			scanAnyText(fldPrompt, req.Prompt, false, &out)
-			scanAnyText(fldInput, req.Input, true, &out)
-			if req.Instruction != "" {
-				out = append(out, pii.ScannedText{Index: encField(fldInstruction, -1), Text: req.Instruction})
-			}
-			return out
+			return scanSlots(completionWalk(req))
 		},
 		Apply: func(parsed any, updates []pii.ScannedText) {
 			req, ok := parsed.(*schema.OpenAIRequest)
 			if !ok || req == nil {
 				return
 			}
+			// Resolve every index before the first write, against the request as
+			// Scan saw it. An index outside the scanned slots names no text and is
+			// dropped; it can never be written into another field.
+			slots := slotsOf(completionWalk(req))
 			for _, u := range updates {
-				field, elem, part := decPart(u.Index)
-				switch field {
+				if u.Index < 0 || u.Index >= len(slots) {
+					continue
+				}
+				s := slots[u.Index]
+				switch s.field {
 				case fldPrompt:
-					req.Prompt = applyAnyText(req.Prompt, elem, part, u.Text)
+					req.Prompt = applyAnyText(req.Prompt, s.elem, s.part, u.Text)
 				case fldInput:
-					req.Input = applyAnyText(req.Input, elem, part, u.Text)
+					req.Input = applyAnyText(req.Input, s.elem, s.part, u.Text)
 				case fldInstruction:
 					req.Instruction = u.Text
 				}
