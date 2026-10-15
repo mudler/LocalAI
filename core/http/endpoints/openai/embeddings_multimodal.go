@@ -32,6 +32,27 @@ const (
 	backendLimitExceeded          = "limit_exceeded"
 )
 
+// grpcStatus returns the gRPC status carried by err, possibly wrapped. The
+// status package reports a wrapped error's whole text as the message, so the
+// status error is found with errors.As first.
+func grpcStatus(err error) (*status.Status, bool) {
+	var carrier interface{ GRPCStatus() *status.Status }
+	if errors.As(err, &carrier) {
+		if st := carrier.GRPCStatus(); st != nil {
+			return st, true
+		}
+	}
+	return nil, false
+}
+
+// hasReason reports whether msg starts with reason and the reason ends there:
+// at the end of the message, or before ':' or a space. A longer word that only
+// starts with the reason is a different reason.
+func hasReason(msg, reason string) bool {
+	rest, ok := strings.CutPrefix(msg, reason)
+	return ok && (rest == "" || rest[0] == ':' || rest[0] == ' ')
+}
+
 // embeddingFailure classifies an error without ever echoing user input, URLs
 // or backend text. Only fixed codes reach the response.
 func embeddingFailure(c echo.Context, err error) error {
@@ -68,15 +89,15 @@ func embeddingFailure(c echo.Context, err error) error {
 	if errors.Is(err, context.Canceled) && clientGone {
 		return echo.NewHTTPError(statusClientClosed, "request_canceled")
 	}
-	if st, ok := status.FromError(err); ok {
+	if st, ok := grpcStatus(err); ok {
 		switch st.Code() {
 		case codes.InvalidArgument:
-			if strings.HasPrefix(st.Message(), backendUnsupportedMediaFormat) {
+			if hasReason(st.Message(), backendUnsupportedMediaFormat) {
 				return echo.NewHTTPError(http.StatusUnsupportedMediaType, "unsupported_media_format")
 			}
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid_embedding_input")
 		case codes.ResourceExhausted:
-			if strings.HasPrefix(st.Message(), backendLimitExceeded) {
+			if hasReason(st.Message(), backendLimitExceeded) {
 				return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "embedding_resource_limit")
 			}
 			return echo.NewHTTPError(http.StatusTooManyRequests, "embedding_backend_busy")

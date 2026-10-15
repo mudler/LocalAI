@@ -474,6 +474,13 @@ var _ = Describe("Multimodal HTTP", func() {
 				}
 			}
 		}
+		wrappedGRPC := func(c codes.Code, msg string) func(*harness) {
+			return func(h *harness) {
+				h.be.multimodal = func(context.Context, *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+					return nil, fmt.Errorf("backend call failed: %w", status.Error(c, msg+" private-token"))
+				}
+			}
+		}
 		cases := []tc{
 			{"400 invalid structure rejects unknown content fields", 400, `{"model":"emb","input":[{"content":[{"type":"text","text":"x","extra":1}]}]}`, nil},
 			{"400 empty content array", 400, `{"model":"emb","input":[{"content":[]}]}`, nil},
@@ -482,6 +489,10 @@ var _ = Describe("Multimodal HTTP", func() {
 			{"413 acquisition limit", 413, img, typed(413)},
 			{"413 backend resource exhausted", 413, img, grpcMsg(codes.ResourceExhausted, "limit_exceeded: frames")},
 			{"429 backend busy", 429, img, grpcErr(codes.ResourceExhausted)},
+			{"415 wrapped backend unsupported media format", 415, img, wrappedGRPC(codes.InvalidArgument, "unsupported_media_format: codec")},
+			{"413 wrapped backend limit exceeded", 413, img, wrappedGRPC(codes.ResourceExhausted, "limit_exceeded: frames")},
+			{"400 unsupported media format with a suffix is not the reason", 400, img, grpcMsg(codes.InvalidArgument, "unsupported_media_formatXYZ")},
+			{"429 limit exceeded with a suffix is not the reason", 429, img, grpcMsg(codes.ResourceExhausted, "limit_exceededXYZ")},
 			{"415 backend unsupported media format", 415, img, grpcMsg(codes.InvalidArgument, "unsupported_media_format: codec")},
 			{"502 backend cancellation while the client is alive", 502, img, grpcErr(codes.Canceled)},
 			{"415 unsupported media format", 415, img, typed(415)},
