@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
@@ -232,10 +233,25 @@ func validateEmbeddingBase64(s string, b *embeddingmedia.Budget) error {
 	return b.Consume(embeddingmedia.Consumption{MediaBytes: uint64(n)})
 }
 
+// embeddingKeyFold maps a member name to the canonical form encoding/json uses
+// for its case-insensitive field match. Names that the binder treats as the
+// same field, such as "ſ" for "s" or the Kelvin sign for "k", fold equal here.
+func embeddingKeyFold(key string) string {
+	return strings.Map(func(r rune) rune {
+		for {
+			next := unicode.SimpleFold(r)
+			if next <= r {
+				return next
+			}
+			r = next
+		}
+	}, key)
+}
+
 // ParseEmbeddingRequest inspects every input occurrence before binding can
 // discard duplicates. Strict envelope validation applies only to structured input: duplicate
-// keys (case-insensitive), input aliases, and non-empty messages. Unrelated
-// top-level fields are left to the binder; strictness covers content objects.
+// keys (case-insensitive, as the binder folds them), input aliases, and non-empty messages.
+// Unrelated top-level fields are left to the binder; strictness covers content objects.
 func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	token, err := d.Token()
@@ -246,6 +262,8 @@ func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, err
 	duplicate := false
 	alias := false
 	messages := false
+	inputName := embeddingKeyFold("input")
+	messagesName := embeddingKeyFold("messages")
 	var items []EmbeddingInputItem
 	structured := false
 	var parseErr error
@@ -258,20 +276,20 @@ func ParseEmbeddingRequest(raw json.RawMessage) ([]EmbeddingInputItem, bool, err
 		if !ok {
 			return embeddingEnvelopeError(structured)
 		}
-		// The JSON binder matches keys case-insensitively, so fold before
-		// looking for duplicates and reject non-canonical aliases of input.
-		folded := strings.ToLower(key)
+		// The JSON binder matches keys with its own case folding, so fold the
+		// same way before looking for duplicates and reject aliases of input.
+		folded := embeddingKeyFold(key)
 		duplicate = duplicate || seen[folded]
 		seen[folded] = true
-		alias = alias || (folded == "input" && key != "input")
+		alias = alias || (folded == inputName && key != "input")
 		var value json.RawMessage
 		if d.Decode(&value) != nil {
 			return embeddingEnvelopeError(structured)
 		}
-		if folded == "messages" && !emptyMessages(value) {
+		if folded == messagesName && !emptyMessages(value) {
 			messages = true
 		}
-		if strings.EqualFold(key, "input") {
+		if folded == inputName {
 			parsed, isStructured, e := ParseEmbeddingInput(value)
 			structured = structured || isStructured
 			if isStructured {

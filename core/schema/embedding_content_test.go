@@ -138,3 +138,19 @@ var _ = Describe("Multimodal contracts", func() {
 		Expect(items).To(HaveLen(1))
 	})
 })
+
+var _ = Describe("Multimodal contracts", func() {
+	const input = `"input":{"content":[{"type":"text","text":"a"}]}`
+	// encoding/json folds names with unicode.SimpleFold, so these spellings bind
+	// to messages and user even though they are not ASCII.
+	It("rejects a folded messages alias that the JSON binder still binds", func() {
+		_, structured, err := schema.ParseEmbeddingRequest(json.RawMessage(`{` + input + `,"meſſages":[{"role":"user","content":"hi"}]}`))
+		Expect(structured).To(BeTrue())
+		Expect(err).To(HaveOccurred())
+	})
+	It("reports a folded duplicate key as a duplicate", func() {
+		_, structured, err := schema.ParseEmbeddingRequest(json.RawMessage(`{` + input + `,"user":"a","uſer":"b"}`))
+		Expect(structured).To(BeTrue())
+		Expect(err).To(HaveOccurred())
+	})
+})

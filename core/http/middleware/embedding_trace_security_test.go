@@ -80,4 +80,41 @@ var _ = Describe("Embedding trace security", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(func() int { records, err := store.Load(); Expect(err).NotTo(HaveOccurred()); return len(records) }).Should(Equal(count))
 	})
+
+	It("omits a top-level array body that the embedding binder rejects as structured", func() {
+		root := GinkgoT().TempDir()
+		app, err := application.New(config.EnableTracing, config.WithDataPath(root), config.WithDisableStats(true), config.WithDisableLocalAIAssistant(true), config.WithSystemState(&system.SystemState{Model: system.Model{ModelsPath: root}, Backend: system.Backend{BackendsPath: root}}))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+		trace := TraceMiddleware(app)
+		ClearTraces()
+		payload := `[{"model":"m","input":{"content":[{"type":"input_audio","input_audio":{"data":"SECRETB64==","format":"wav"}}]}}]`
+		for _, status := range []int{200, 400} {
+			e := echo.New()
+			req := httptest.NewRequest("POST", "/v1/embeddings", strings.NewReader(payload))
+			req.Header.Set("Content-Type", "application/json")
+			c := e.NewContext(req, httptest.NewRecorder())
+			c.SetPath("/v1/embeddings")
+			_ = trace(func(c echo.Context) error {
+				if status != 200 {
+					return echo.NewHTTPError(status, "SECRETB64 echoed in error")
+				}
+				return c.String(200, "SECRETB64 echoed in response")
+			})(c)
+		}
+		Eventually(func() int { return len(GetTraces()) }).Should(Equal(2))
+		for _, exchange := range GetTraces() {
+			dump, err := json.Marshal(exchange)
+			Expect(err).NotTo(HaveOccurred())
+			// The request body is stored as base64 in the JSON dump, so check the
+			// raw bytes as well as the dump to catch the payload in either form.
+			Expect(string(*exchange.Request.Body)).To(ContainSubstring("embedding payload omitted"))
+			Expect(string(*exchange.Request.Body)).NotTo(ContainSubstring("SECRETB64"))
+			Expect(string(dump)).NotTo(ContainSubstring("SECRETB64"))
+		}
+		// Exchanges are collected asynchronously. Flush them so a late write
+		// cannot land in the shared buffer after this spec, as the pagination
+		// specs seed that buffer and expect exact counts.
+		ClearTraces()
+	})
 })

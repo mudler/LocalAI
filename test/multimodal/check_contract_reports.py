@@ -16,13 +16,14 @@ SECURITY_CASES = {
     },
     'core-http-middleware': {
         'keeps legacy embedding traces and omits structured payloads including errors',
+        'omits a top-level array body that the embedding binder rejects as structured',
     },
 }
 
 def check(scratch):
     counts = {}
     required = {
-        'core-schema': {'Multimodal contracts': 44, 'Legacy embedding parsing': 7},
+        'core-schema': {'Multimodal contracts': 46, 'Legacy embedding parsing': 7},
         'pkg-embeddingmedia': {'Multimodal contracts': 20},
         'core-http-middleware': {'Multimodal contracts': 19, 'Legacy embedding parsing': 1},
         'core-http': {'Embedding production security': 5},
