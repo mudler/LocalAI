@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 scratch="$PWD/.sdd-work/task2/verify"
-mkdir -p "$scratch/generated" pkg/grpc/proto
+mkdir -p pkg/grpc/proto
+source test/multimodal/generated-overlay.sh
 revision=$(git rev-parse HEAD)
 finish() {
  code=$?
@@ -11,27 +12,7 @@ finish() {
  exit "$code"
 }
 trap finish EXIT
-protoc --experimental_allow_proto3_optional -Ibackend/ \
- --go_out="$scratch/generated" --go_opt=paths=source_relative \
- --go-grpc_out="$scratch/generated" --go-grpc_opt=paths=source_relative backend/backend.proto
-# pkg/motion/proto/motion.pb.go is generated and gitignored; build it the same way.
-protoc -Ipkg/motion/proto --go_out="$scratch/generated" --go_opt=paths=source_relative pkg/motion/proto/motion.proto
-python3 - "$scratch" <<'PY'
-import json,sys
-from pathlib import Path
-scratch=Path(sys.argv[1]); root=Path.cwd()
-replacements = {str(root/'pkg/grpc/proto'/name): str(scratch/'generated'/name)
-                for name in ('backend.pb.go','backend_grpc.pb.go')}
-# Compile-only embed fixture, not a UI build. Keep it outside the source tree.
-fixture = scratch/'index.html'
-fixture.write_text('<!doctype html><html><head><script src="/assets/contracts-12345678.js"></script></head><body><div id="root"></div></body></html>\n')
-asset = scratch/'contracts-12345678.js'
-asset.write_text('// Compile-only HTTP static-handler fixture, not a React build.\n')
-replacements[str(root/'core/http/react-ui/dist/assets/contracts-12345678.js')] = str(asset)
-replacements[str(root/'core/http/react-ui/dist/index.html')] = str(fixture)
-replacements[str(root/'pkg/motion/proto/motion.pb.go')] = str(scratch/'generated'/'motion.pb.go')
-(scratch/'overlay.json').write_text(json.dumps({'Replace': replacements}))
-PY
+write_generated_overlay "$scratch"
 # The HTTP suite supports an isolated port; avoid unrelated local services.
 if [[ -z ${LOCALAI_TEST_HTTP_PORT:-} ]]; then
  export LOCALAI_TEST_HTTP_PORT=$(python3 - <<'PYPORT'
