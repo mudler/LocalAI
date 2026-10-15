@@ -192,6 +192,13 @@ The optional `renewal_failure` field records `request_failed`, `pending`, or
 `missing_credentials` independently of retained credentials. Any renewal failure
 prevents ready status until a successful credential renewal clears it. Heartbeat
 and approval success cannot clear a renewal failure.
+Dynamic credential-provider NATS connections keep retrying authentication if the
+JWT expires during a renewal outage, including repeated identical broker errors.
+A later successful renewal can therefore reconnect to the still-running broker
+without restarting it or the worker. This does not bypass authentication or make
+the worker ready during the outage: all readiness evidence must become current
+again. Static credentials retain NATS's default terminal authentication-error
+behavior. The credential manager's existing bounded renewal retries are unchanged.
 This worker-only surface is not an admin action or a UI capability.
 The approval route is not registered when the controller has no registration
 token, and renewal-only requests are refused in that configuration. Missing or

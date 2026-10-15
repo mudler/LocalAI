@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
@@ -214,19 +215,53 @@ var _ = Describe("Worker status", func() {
 			}
 			Expect(s.RenewalFailure).To(Equal(reason))
 			Expect(s.Credentials).To(BeTrue(), "retained credentials are independent of renewal failure")
-			// Keep the broker down during the production 30s retry backoff.
-			// Otherwise repeated attempts with the expired JWT exhaust NATS'
-			// authorization retries before the renewal can run.
-			stop()
-			Eventually(bus.IsConnected, 5*time.Second).Should(BeFalse())
+			// Leave the same authenticated broker live through expiry and the real
+			// 30s renewal retry. An independent connection continuously proves it
+			// remains responsive; reconnect must not need a broker restart.
+			probe, e := nats.Connect(fmt.Sprintf("nats://127.0.0.1:%d", port), nats.UserJWTAndSeed(renewedToken, renewedSeed), nats.NoReconnect())
+			Expect(e).NotTo(HaveOccurred())
+			defer probe.Close()
+			broker := server.Process
+			var probeFailed atomic.Bool
+			probeCtx, stopProbe := context.WithCancel(ctx)
+			probeDone := make(chan struct{})
+			defer func() { stopProbe(); <-probeDone }()
+			go func() {
+				defer close(probeDone)
+				ticker := time.NewTicker(100 * time.Millisecond)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-probeCtx.Done():
+						return
+					case <-ticker.C:
+						if broker.Signal(syscall.Signal(0)) != nil || probe.FlushTimeout(time.Second) != nil {
+							probeFailed.Store(true)
+						}
+					}
+				}
+			}()
+			Eventually(bus.IsConnected, 15*time.Second).Should(BeFalse())
+			Expect(time.Now().Unix()).To(BeNumerically(">=", claims.Expires))
+			// JWT timestamps have second precision; wait past the expiry boundary
+			// and allow several identical reconnect rejections before renewal.
+			Consistently(bus.IsConnected, 6*time.Second).Should(BeFalse())
+			// Prove the broker rejects the original JWT, not just wall-clock expiry.
+			old, e := nats.Connect(fmt.Sprintf("nats://127.0.0.1:%d", port), nats.UserJWTAndSeed(token, userSeed), nats.NoReconnect())
+			if old != nil {
+				old.Close()
+			}
+			Expect(e).To(MatchError(nats.ErrAuthorization))
+			Expect(classify()).NotTo(Equal("ready"))
 			renewalCode.Store(0)
 			Eventually(func() string { token, _ := manager.Current(); return token }, 45*time.Second).Should(Equal(renewedToken))
 			Expect(renewals.Load()).To(BeNumerically(">=", 2))
-			start()
 			Eventually(bus.IsConnected, 10*time.Second).Should(BeTrue())
-			// The original JWT has expired: this authenticated reconnect requires
-			// the newly minted JWT and seed from the production renewal callback.
-			Expect(time.Now().Unix()).To(BeNumerically(">", claims.Expires))
+			Expect(bus.SubscriptionsReady()).To(BeTrue())
+			stopProbe()
+			Eventually(probeDone).Should(BeClosed())
+			Expect(probeFailed.Load()).To(BeFalse(), "same broker must remain live throughout renewal")
+			Expect(server.Process).To(BeIdenticalTo(broker))
 			publisher.Heartbeat(client.Heartbeat(ctx, "status-node", nil))
 			Eventually(classify).Should(Equal("ready"))
 		} else {

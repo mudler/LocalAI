@@ -1531,3 +1531,11 @@ credentials and current approval: `request_failed`, `pending`, or
 `missing_credentials`. Only a successful credential renewal clears this evidence;
 a successful approval query or heartbeat cannot clear it. A retained JWT can still
 work on the current connection while renewal needs attention.
+
+For dynamic credential-provider connections, repeated authentication errors after
+JWT expiry do not terminate NATS reconnect attempts. A successful renewal can
+restore the connection to a continuously running broker. Authentication and
+subscription permissions remain enforced, and readiness still requires fresh
+approval, renewal, NATS, readiness checks, and heartbeat evidence. Static and
+unauthenticated connection retry semantics are unchanged; the credential manager's
+existing bounded renewal retry policy still applies.

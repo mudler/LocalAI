@@ -83,6 +83,11 @@ func New(url string, opts ...Option) (*Client, error) {
 	}
 	switch {
 	case cfg.jwtProvider != nil:
+		// Dynamic credentials can recover after expiry during a renewal outage.
+		// MaxReconnects alone does not prevent nats.go from closing permanently
+		// after two identical auth errors. Keep retrying with the provider;
+		// static credentials retain the default terminal auth-error behavior.
+		natsOpts = append(natsOpts, nats.IgnoreAuthErrorAbort())
 		// Fetch creds on every (re)connect so a refresh loop can rotate the JWT
 		// before expiry; the server expiring the old JWT triggers a reconnect
 		// that transparently picks up the new one.
