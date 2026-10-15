@@ -1,9 +1,9 @@
 # Multimodal embeddings feasibility inventory
 
-This started as the Task 1 inventory. Task 7 added the native run below.
+This started as the inventory. The native run below was added later.
 **Native proof: FAIL (recorded).** All seven input forms run natively and the
 audio and soundtrack changes move the vectors, but 2 of the 12 frozen retrieval
-queries miss the frozen margin. See the Task 7 results section. The approved
+queries miss the frozen margin. See the native run results section. The approved
 specification is unchanged and nothing was retuned.
 
 ## Machine-readable register
@@ -17,7 +17,7 @@ Unknown values are deliberately explicit, not guessed model configuration.
   "blockers": [
     "text-to-audio-drum margin 0.005249 is below the frozen 0.01 minimum (audio-typing 0.6947 vs audio-drum 0.6999)",
     "text-to-audio-water margin 0.006343 is below the frozen 0.01 minimum (audio-typing 0.5816 vs audio-water 0.5879)",
-    "no retuning is allowed: an alternative candidate or a contract revision needs a root decision"
+    "no retuning is allowed: an alternative candidate or a contract revision needs a maintainer decision"
   ],
   "candidate": "EmbeddingGemma 2 (candidate; native run recorded)",
   "model_identity": "AtomicChat/embeddinggemma-2-GGUF@96a5415769c8a56d2557846c4ac23b9f724231be:embeddinggemma-2-Q8_0.gguf",
@@ -41,14 +41,14 @@ Unknown values are deliberately explicit, not guessed model configuration.
   "hardware": "AMD Ryzen 9 9950X3D 16-Core Processor, 20 logical cores, 90659504128 bytes RAM, Linux 6.8.0-139-generic x86_64, CPU only",
   "preprocessing_version": "mm-v1-f4-tsms-a16k-mono",
   "commands_results": [
-    "approved native build: cmake -DGGML_NATIVE=ON -DLLAMA_CURL=OFF (Release, CPU) of the pinned source, done before this task",
+    "approved native build: cmake -DGGML_NATIVE=ON -DLLAMA_CURL=OFF (Release, CPU) of the pinned source, done before the probe run",
     "bash test/multimodal/verify.sh native-proof (re-runs the probe when MM_MODEL, MM_PROJECTOR, MM_UPSTREAM_SOURCE, MM_BUILD_DIR, MM_DECODER_DIR and MM_APPROVAL_RECORD are set): MM_* set, python3 test/multimodal/native_probe/probe.py, exit status 3 = recorded FAIL, 21 of 23 cases passed, 677.8 s",
     "backend: llama-server version: 0.6.0-dev (build 1, commit f2cc7282c), sha256 a200455a44a460a82f7918bc9d40d6a1bc3ef09ca0fe3c6c9d6af21530446974",
     "server: --embeddings -c 16384 -b 16384 -ub 16384 -np 1 --no-warmup, /v1/embeddings, one input item per request",
     "report: test/multimodal/native-proof-report.json (raw float32 vectors, token counts, similarities, margins)"
   ],
   "peak_storage": "model 309855520 bytes + projector 554821120 bytes, source checkout 247 MB, CPU build 115 MB (all before the probe); the probe wrote about 1 MB of scratch and used no GPU; free space on the work volume stayed above 24 GB",
-  "approval": "owner-recorded approvals: native builds and model downloads under the control-room work area; no remote execution"
+  "approval": "owner-recorded approvals: native builds and model downloads under an isolated scratch area; no remote execution"
 }
 ```
 
@@ -71,10 +71,9 @@ full revision above, never the cache checkout's HEAD:
 - Host ffmpeg configuration includes `--enable-gpl`; redistribution/license
   compatibility and minimal packaged codec closure remain unverified.
 
-Commands and output are retained in `.sdd-work/task1/local-inventory.log` and
-`.sdd-work/task1/source-inventory.log`. Tool presence is not codec, packaging,
-compile, security, runtime or GPU proof. Sibling llama-decisions at a different
-revision and LocalRecall MiniLM text-only results cannot establish this feature.
+Command output was kept in local logs that are not committed. Tool presence is not codec, packaging,
+compile, security, runtime or GPU proof. Results from other local models at a different
+revision, and text-only results, cannot establish this feature.
 
 ## Frozen acceptance and planned fixtures
 
@@ -96,7 +95,7 @@ SHA-256 and rights confirmation before any native acceptance. The soundtrack
 pair must reuse identical decoded video frames and replace the entire audio
 track. Fixture production must not use acceptance scores to select examples.
 
-## Clarification register (root decision before native work)
+## Clarification register (maintainer decision before native work)
 
 These interpretations preserve numeric bounds and do not amend the spec:
 
@@ -107,17 +106,17 @@ These interpretations preserve numeric bounds and do not amend the spec:
 2. A finite model context can reject 120 selected frames plus full soundtrack
    with 413. Never reduce fps, truncate audio or silently discard parts to fit.
 3. Proposed timestamp syntax is `Timestamp: <integer> ms\n`, elapsed from first
-   PTS. Root must finalize rounding/nonmonotonic timestamp rules and version them
+   PTS. Maintainers must finalize rounding/nonmonotonic timestamp rules and version them
    before native implementation; 4 fps and no duplicate selected frames stand.
 4. Resampling/downmix parameters depend on verified projector requirements and
-   remain unknown. Root must freeze rates, sample format, channel policy and
+   remain unknown. Maintainers must freeze rates, sample format, channel policy and
    cumulative allocation accounting under a final preprocessing version.
-5. Exact duration endpoints and preparation-clock accounting require root
+5. Exact duration endpoints and preparation-clock accounting require maintainer
    clarification: proposed inclusive duration limits, cumulative monotonic
    preparation time across probe/decode/fetch excluding inference; slot held
    through inference and batch completion. No counters may reset between items.
 
-## Task 7 prerequisites and storage gate
+## Prerequisites and storage gate
 
 Available space was 3,045,408,768 bytes (filesystem reports 100% used). This is
 not adequate evidence to authorize a build. Compute peak additional disk as
@@ -127,7 +126,7 @@ concurrent temporary media + safety reserve, subtracting only verified reusable
 read-only artifacts at the required revision. Every term is currently unknown;
 a numeric peak cannot honestly be asserted. No shared-cache deletion is allowed.
 
-Root must select native versus Docker, approve the peak estimate against fresh
+Maintainers must select native versus Docker, approve the peak estimate against fresh
 free-space measurements, authorize exact paths/downloads/licenses, and isolate
 runtime ports/configuration. Verify compiler/dependency versions and decoder
 codec/protocol/process cleanup support before long work. Native proof must then
@@ -136,13 +135,13 @@ pooling, every modality and complete soundtrack consumption. Missing approval,
 artifacts or platform runners are blockers, never skipped tests or PASS.
 
 Inventory verification is intentionally narrower than runtime verification.
-The Task 1 checker rejects every native PASS until a later task supplies and
+The inventory checker rejects every native PASS until later work supplies and
 validates actual runtime evidence. Inventory success cannot advertise native
 all-modality support.
 
 ## Native proof protocol (fixed before any retrieval score)
 
-Task 7 fixes these settings before any embedding score is computed. Version:
+These settings are fixed before any embedding score is computed. Version:
 `mm-v1-f4-tsms-a16k-mono`. The same values are in the `preprocessing` block of
 the acceptance contract. Callers must include the version in their
 embedding-space identity.
@@ -174,7 +173,7 @@ embedding-space identity.
   special tokens within 2 tokens, and the leave-one-out vectors to differ from
   the full item by at least the media-change distance.
 
-## Task 7 results (native run, exact pin)
+## Native run results (exact pin)
 
 Outcome: **FAIL, recorded.** Machine-readable evidence:
 `test/multimodal/native-proof-report.json`, checked by
@@ -183,7 +182,7 @@ The probe is `test/multimodal/native_probe/probe.py`; the fixtures come from
 `test/multimodal/native_probe/generate_fixtures.py`.
 
 Run command (artifact paths come from environment variables; the approval record
-is a JSON file with the owner's recorded approvals and the license review):
+is a JSON file with the maintainer's recorded approvals and the license review):
 
 ```
 MM_MODEL=<model.gguf> MM_PROJECTOR=<mmproj.gguf> MM_UPSTREAM_SOURCE=<llama.cpp checkout at the pin> \
@@ -217,7 +216,7 @@ License. Model-card statements, quoted:
   Apache 2.0" linking `https://ai.google.dev/gemma/docs/gemma_4_license`. Safety
   section: "Deployments must adhere to the Gemma Prohibited Use Policy". No LICENSE
   file is in the repository, and the repository is not gated.
-- Open question for the owner: the cards say Apache 2.0, but they also link the
+- Open question for maintainer review: the cards say Apache 2.0, but they also link the
   Gemma license page and a Prohibited Use Policy. Confirm the redistribution
   terms before shipping the weights or documenting them as Apache 2.0.
 
@@ -231,7 +230,7 @@ Required items:
 | Silent video (frames only) | PASS | 8 frames, 735 tokens |
 | Audiovisual video | PASS | 8 frames plus 32785 samples of audio, 792 tokens |
 | Mixed ordered item | PASS | 934 tokens; sum of parts minus repeated special tokens is 934 |
-| No dropped parts | PASS | leave-one-out vectors all differ from the full item |
+| No dropped parts | PASS | leave-one-out distances from the full item: image 0.002943, audio 0.001005, video 0.077505; floor 0.001. The audio ablation is only marginally above the floor |
 | Media change (same text, bell vs drum image) | PASS | cosine distance 0.086461 (>= 0.001) |
 | Soundtrack change (identical frames, bell vs drum track) | PASS | cosine distance 0.003933 (>= 0.001) |
 | Single identity and space | PASS | one server instance, one model, projector, pooling, 768 dimensions |
@@ -258,7 +257,7 @@ The two failures are both text-to-audio and both rank the target first with a
 margin under 0.01: `text-to-audio-drum` (0.6999 against audio-typing 0.6947) and
 `text-to-audio-water` (0.5879 against audio-typing 0.5816). Nothing was retuned.
 Whether to accept this candidate, change the candidate, or revise the contract
-(with a new contract version) is a root decision.
+(with a new contract version) is a maintainer decision.
 
 Supplementary, not gating: a 7-item batch in the contract permutation returned
 indexes 0 to 6 in request order and each vector matched the single-item vector
