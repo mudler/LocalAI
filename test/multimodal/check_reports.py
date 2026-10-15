@@ -2,6 +2,7 @@
 """Fail-closed Task 1 inventory gate; deliberately not a native proof validator."""
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -74,7 +75,24 @@ def load_inventory():
     return contract, manifest, json.loads(blocks[0])
 
 
-def validate_inventory(c, m, d):
+def native_checker():
+    spec = importlib.util.spec_from_file_location('check_native_reports', BASE / 'check_native_reports.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_native_report():
+    path = BASE / 'native-proof-report.json'
+    return json.loads(path.read_text()) if path.is_file() else None
+
+
+MODALITY_CASES = {'text': ['plain-text', 'structured-text'], 'image': ['image'], 'audio': ['audio'],
+                  'silent-video': ['silent-video'], 'audiovisual-video': ['audiovisual-video'],
+                  'mixed': ['mixed-item', 'mixed-no-dropped-parts']}
+
+
+def validate_inventory(c, m, d, native_report=None):
     fields(c, ['schema_version', 'contract_version', 'frozen', 'freeze_policy', 'native_proof', 'required_case_ids', 'directions', 'queries_per_direction', 'distractors_per_query', 'queries', 'space', 'thresholds', 'pairs', 'input_forms', 'ordered_mixed_batch', 'failure_matrix', 'provenance', 'preprocessing'])
     fields(m, ['schema_version', 'status', 'materialization_policy', 'fixtures'])
     require(c['schema_version'] == m['schema_version'] == 1 and c['frozen'] is True, 'contract version/freeze missing')
@@ -141,12 +159,24 @@ def validate_inventory(c, m, d):
     require(set(batch.get('items', [])) == FORMS and sorted(batch.get('permutation', [])) == list(range(7)) and batch['permutation'] != list(range(7)), 'missing reordered mixed batch')
     fields(d, ['schema_version', 'native_proof', 'blockers', 'candidate', 'model_identity', 'model_sha256', 'projector_identity', 'projector_sha256', 'license', 'native_revision', 'localai_revision', 'modality_evidence', 'dimensions', 'pooling', 'decoder_versions', 'hardware', 'preprocessing_version', 'commands_results', 'peak_storage', 'approval'])
     require(all(d.values()), 'incomplete dossier')
-    require(d['native_proof'] == 'PENDING' and d['blockers'] and d['native_revision'] == PIN, 'inconsistent dossier/native status')
+    require(d['native_proof'] in ('PENDING', 'FAIL', 'PASS') and d['blockers'] and d['native_revision'] == PIN, 'inconsistent dossier/native status')
     require(d['localai_revision'] == c['provenance']['localai_baseline'], 'dossier revision mismatch')
     require(d['preprocessing_version'] == c['preprocessing']['version'], 'preprocessing mismatch')
-    require(d['modality_evidence'] == dict.fromkeys(['text', 'image', 'audio', 'silent-video', 'audiovisual-video', 'mixed'], 'PENDING'), 'unproven modality claim')
+    require(set(d['modality_evidence']) == set(MODALITY_CASES), 'invalid modality evidence keys')
     for key in ['model_sha256', 'projector_sha256']:
         require(d[key] == 'unknown' or sha(d[key], 64), 'invalid artifact checksum')
+    if d['native_proof'] == 'PENDING':
+        require(native_report is None, 'dossier is PENDING but a native report exists')
+        require(d['modality_evidence'] == dict.fromkeys(MODALITY_CASES, 'PENDING'), 'unproven modality claim')
+        return
+    # Any recorded outcome must come from a valid native report that agrees.
+    require(native_report is not None, 'recorded native outcome without a native report')
+    outcome = native_checker().validate_native_report(native_report, c, m, d)
+    require(outcome == d['native_proof'], 'dossier outcome %s differs from report outcome %s' % (d['native_proof'], outcome))
+    cases = {x['id']: x['status'] for x in native_report['cases']}
+    for name, ids in MODALITY_CASES.items():
+        expected = 'PASS' if all(cases[i] == 'PASS' for i in ids) else 'FAIL'
+        require(d['modality_evidence'][name] == expected, 'modality evidence differs from report: ' + name)
 
 
 def main():
@@ -157,11 +187,12 @@ def main():
     try:
         require(args.mode == 'inventory', 'native proof PENDING: no approved runtime evidence validator yet')
         c, m, d = load_inventory()
-        validate_inventory(c, m, d)
+        native_report = load_native_report()
+        validate_inventory(c, m, d, native_report)
         if args.report:
             report = json.loads(args.report.read_text())
             validate_report(report, {'inventory'}, args.mode)
-        print(f"Inventory complete: {len(c['required_case_ids'])} planned cases, {len(c['queries'])} queries, {len(m['fixtures'])} planned fixtures; native proof PENDING")
+        print(f"Inventory complete: {len(c['required_case_ids'])} planned cases, {len(c['queries'])} queries, {len(m['fixtures'])} fixtures; native proof {d['native_proof']}")
     except (ValueError, KeyError, TypeError, OSError) as exc:
         print(f'FAIL: {exc}', file=sys.stderr)
         return 1
