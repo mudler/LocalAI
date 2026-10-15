@@ -281,7 +281,12 @@ var _ = Describe("Tables when the add-on is disabled, updated, removed and insta
 			Expect(w.Status).To(BeElementOf(403, 503), n+": "+w.String())
 			r := d.read(d.c.Token(n, "viewer"), res, map[string]any{"tool": "rows-query", "table": "Entries"})
 			Expect(r.Status).To(BeElementOf(403, 503), n+": "+r.String())
-			Expect(d.chatTool(n, "member", "rows-query", map[string]any{"resourceId": res, "table": "Entries"}).Status).To(BeElementOf(200, 403, 503))
+			// A disabled add-on offers the model no tools: the turn is a
+			// plain answer and no tool ran.
+			chat := d.chatTool(n, "member", "rows-query", map[string]any{"resourceId": res, "table": "Entries"})
+			Expect(chat.Status).To(Equal(200), n+": "+chat.String())
+			Expect(chat.String()).To(ContainSubstring("This is a mocked response."))
+			Expect(chat.String()).NotTo(ContainSubstring("kept"), n)
 		}
 		// A member does not see a disabled add-on; the administrator does.
 		for _, n := range nodes {
@@ -293,6 +298,9 @@ var _ = Describe("Tables when the add-on is disabled, updated, removed and insta
 		for _, n := range nodes {
 			Expect(d.rowCount(n, "viewer", res)).To(Equal(1), n)
 		}
+		// Nothing the disabled add-on was asked left a proposal behind.
+		Expect(d.pending(cluster.Owner, "member")).To(BeEmpty())
+		Expect(d.pending(cluster.Owner, "editor")).To(BeEmpty())
 	})
 
 	It("keeps data and grants when the add-on is removed and installed again, and refuses what the old generation prepared", func() {
@@ -328,12 +336,21 @@ var _ = Describe("Tables when the add-on is disabled, updated, removed and insta
 		stale := d.tab(cluster.FrontB, "editor", "POST", "/api/addons/resources/"+res+"/apply", map[string]any{
 			"operationId": opID("stale-gen"), "generation": oldGen, "revision": oldRev, "tool": "rows-insert", "arguments": map[string]any{"table": "Entries", "rows": []any{map[string]any{"Item": "old"}}},
 		}, res)
-		Expect(stale.Status).NotTo(Equal(200), stale.String())
+		Expect(stale.Status).To(Equal(409), stale.String())
+		Expect(errType(stale)).To(Equal("stale"))
 		got := d.confirm(cluster.FrontA, "editor", heldID, heldDigest)
-		if got.Status == 200 {
-			Expect(body(got)["state"]).NotTo(Equal("applied"), got.String())
-		}
+		Expect(got.Status).To(Equal(403), got.String())
+		Expect(errType(got)).To(Equal("addon_error"))
 		Expect(d.rowCount(cluster.Owner, "member", res)).To(Equal(1))
+		// The proposal of the old generation is still listed, unchanged and
+		// never applied: it names the generation it was made for, which no
+		// confirmation can reach any more, and it expires.
+		left := d.pending(cluster.Owner, "editor")
+		Expect(left).To(HaveLen(1))
+		Expect(left[0]["id"]).To(Equal(heldID))
+		Expect(left[0]["generation"]).To(BeNumerically("==", oldGen))
+		again := d.confirm(cluster.FrontB, "editor", heldID, heldDigest)
+		Expect(again.Status).To(Equal(403), again.String())
 		// New work in the new generation succeeds.
 		Expect(d.apply(cluster.FrontB, "editor", res, opID("new-gen"), "rows-insert", d.revisionOf(res), map[string]any{"table": "Entries", "rows": []any{map[string]any{"Item": "new"}}}).Status).To(Equal(200))
 	})

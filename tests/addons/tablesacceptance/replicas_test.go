@@ -206,12 +206,9 @@ var _ = Describe("Tables when the owner is down", Ordered, func() {
 			var bodies []string
 			for _, n := range []string{cluster.FrontA, cluster.FrontB} {
 				r := c.do(n)
-				if c.name == "chat tool" {
-					// The chat route answers its own envelope: the model's
-					// turn is served and no proposal exists anywhere.
-					Expect(r.Status).To(BeElementOf(200, 403, 503), c.name+" on "+n+": "+r.String())
-					continue
-				}
+				// The chat route reports the add-on tools as unavailable with
+				// its own envelope, the same from both frontends: it never
+				// serves a model turn that could invent an answer.
 				Expect(r.Status).To(Equal(503), c.name+" on "+n+": "+r.String())
 				Expect(r.String()).NotTo(ContainSubstring("pen"), c.name)
 				bodies = append(bodies, r.String())
@@ -239,6 +236,12 @@ var _ = Describe("Tables when the owner is down", Ordered, func() {
 			Expect(asset.Status).To(Equal(200), n)
 		}
 		Expect(len(d.receipts(res))).To(Equal(receipts), "nothing was applied by a failed call")
+		// No call made while the owner was down stored a proposal: the editor
+		// holds exactly the one it held before, whatever route the call took.
+		pending := d.pending(cluster.Owner, "editor")
+		Expect(pending).To(HaveLen(1))
+		Expect(pending[0]["id"]).To(Equal(heldID))
+		Expect(d.pending(cluster.Owner, "member")).To(BeEmpty())
 		// The held proposal is still the editor's, and applies once.
 		ok := d.confirm(cluster.FrontB, "editor", heldID, heldDigest)
 		Expect(ok.Status).To(Equal(200), ok.String())

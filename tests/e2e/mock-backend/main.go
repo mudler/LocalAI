@@ -110,6 +110,11 @@ func promptHasAddonFile(prompt string) bool {
 // answered its call: a file result is ready to download, anything else is a
 // change that waits for the person.
 func addonAnswer(prompt string) string {
+	// A call the add-on refused as invalid ends in an error result with the
+	// code invalid_request: nothing was changed and the model says so.
+	if strings.Contains(prompt, `"code":"invalid_request"`) || strings.Contains(prompt, `"code": "invalid_request"`) {
+		return "The add-on refused the request as invalid."
+	}
 	if promptHasAddonFile(prompt) {
 		return "The file is ready to download."
 	}

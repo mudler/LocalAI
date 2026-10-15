@@ -339,23 +339,27 @@ var _ = Describe("Tables authority and approval cannot be forged", Ordered, func
 			}
 			for _, n := range nodes {
 				r := d.propose(n, "editor", res, "write", opID("fa"), args)
-				// The add-on refuses a field it does not know; the host reports
-				// a refused preview as unavailable (see the report), and nothing
-				// is stored in every case.
-				Expect(r.Status).To(BeElementOf(400, 403, 503), fmt.Sprintf("%s %v: %s", n, field, r.String()))
-				Expect(r.Status).NotTo(Equal(200))
+				// A field the tool does not declare is refused as invalid, with
+				// the same typed 400 from every node, and nothing is stored.
+				Expect(r.Status).To(Equal(400), fmt.Sprintf("%s %v: %s", n, field, r.String()))
+				Expect(errType(r)).To(Equal("invalid_request"), fmt.Sprintf("%s %v: %s", n, field, r.String()))
 				chatArgs := map[string]any{"resourceId": res, "table": "Entries", "rows": []any{row}}
 				for k, v := range field {
 					chatArgs[k] = v
 				}
-				d.chatTool(n, "editor", "rows-insert", chatArgs)
+				// The chat consumer's own argument binding rejects the field
+				// before the add-on is asked: the turn is served, nothing ran
+				// (the pending list below proves it).
+				chat := d.chatTool(n, "editor", "rows-insert", chatArgs)
+				Expect(chat.Status).To(Equal(200), chat.String())
+				Expect(chat.String()).NotTo(ContainSubstring("pen"), fmt.Sprintf("%s %v", n, field))
 			}
 		}
 		Expect(len(d.pending(cluster.FrontB, "editor"))).To(Equal(before))
 		// The tool of the arguments must be the declared one, exactly.
 		for _, tool := range []string{"Rows-insert", "rows-insert ", "tables-drop-all", ""} {
 			r := d.read(d.c.Token(cluster.FrontA, "editor"), res, map[string]any{"tool": tool, "table": "Entries"})
-			Expect(r.Status).To(BeElementOf(400, 403), tool+": "+r.String())
+			Expect(r.Status).To(Equal(403), tool+": "+r.String())
 			Expect(r.String()).NotTo(ContainSubstring("pen"))
 		}
 		Expect(d.rowCount(cluster.Owner, "member", res)).To(Equal(1))
