@@ -68,6 +68,13 @@ instead of being served unfiltered. Use `POST /v1/responses` for those models.
 Requests whose `model` names an agent are handed to the agent pool before
 model resolution and are not filtered by the per-model policy.
 
+Stored history loaded through `previous_response_id` or `item_reference`
+is resolved after filtering and is not scanned against the current model's
+policy. That history can contain unfiltered text from another model or
+model-generated output. Tool output supplied directly in the request is
+scanned as text, or as its complete JSON encoding for non-string values,
+including arrays.
+
 A request's messages are scanned **as one document** (joined in order), so
 the NER detector keeps conversational context: whether `4421` is a PIN or
 `jdoe_42` is a username is usually decided by the question asked in the
