@@ -108,6 +108,12 @@ using grpc::Status;
 // requests without a matching "authorization: Bearer <token>" metadata header.
 
 // Cached auth token — empty means auth is disabled.
+// Newer llama.cpp returns common_chat_params::prompt as a common_chat_prompt
+// (use .str()); older forks such as turboquant still return std::string.
+static inline std::string chat_prompt_str(const std::string & p) { return p; }
+template <typename T>
+static inline std::string chat_prompt_str(const T & p) { return p.str(); }
+
 static std::string g_grpc_auth_token;
 
 // Minimal constant-time comparison (avoids OpenSSL dependency)
@@ -3823,7 +3829,7 @@ public:
             dummy_inputs.use_jinja = params_base.use_jinja;
             
             const auto rendered = common_chat_templates_apply(ctx_server.impl->chat_params.tmpls.get(), dummy_inputs);
-            rendered_template = rendered.prompt;
+            rendered_template = chat_prompt_str(rendered.prompt);
         }
         
         response->set_rendered_template(rendered_template);
