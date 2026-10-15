@@ -539,8 +539,29 @@ resampled buffers; a video's source duration is counted once, not again for its
 soundtrack. The response wraps the unchanged `EmbeddingResult` plus consumption.
 Callers deduct consumption before the next item; native implementations must
 independently enforce remaining allowances during preparation, not only report
-overruns afterward. The serialized request must be strictly below 50 MiB; the Go
+overruns afterward. A response for an item with media must carry `consumption`;
+a missing one is a corrupt result, because it would hide the frames, pixels,
+audio, duration and temporary bytes that item used. A text-only item may omit
+it. The Go server charges its own acquisition time and the exact media and text
+bytes it sent, and trusts the backend for the remaining units, bounded by the
+budget it supplied. It does not charge the RPC wall time, since that includes
+inference. The serialized request must be strictly below 50 MiB; the Go
 client rejects requests at or above the ceiling before dispatch.
+
+Backend errors use gRPC status codes, refined by a fixed message prefix. The
+Go server never forwards the message text to the client.
+
+| gRPC status | Message prefix | HTTP status |
+| --- | --- | --- |
+| `INVALID_ARGUMENT` | `unsupported_media_format` | 415 |
+| `INVALID_ARGUMENT` | any other | 400 |
+| `RESOURCE_EXHAUSTED` | `limit_exceeded` | 413 |
+| `RESOURCE_EXHAUSTED` | any other (backend busy) | 429 |
+| `OUT_OF_RANGE` | any | 413 |
+| `FAILED_PRECONDITION` | any | 422 |
+| `UNIMPLEMENTED` | any | 501 |
+| `DEADLINE_EXCEEDED` | any | 504 |
+| any other, including `CANCELED` while the client is connected | any | 502 |
 
 `ModelMetadataResponse.embedding_protocol_version` is 1 for this contract;
 `embedding_modalities` distinguishes TEXT, IMAGE, AUDIO, SILENT_VIDEO and

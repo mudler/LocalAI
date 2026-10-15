@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -18,10 +19,14 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	grpcpkg "github.com/mudler/LocalAI/pkg/grpc"
@@ -49,6 +54,8 @@ type fakeEmbedBackend struct {
 	legacyN      atomic.Int32
 	requests     []*pb.MultimodalEmbeddingRequest
 	legacyInputs []*pb.PredictOptions
+	// loadErr, when set, is what the model router returns instead of a client.
+	loadErr atomic.Pointer[error]
 }
 
 func (b *fakeEmbedBackend) HealthCheck(context.Context) (bool, error) { return true, nil }
@@ -85,7 +92,10 @@ func metadataWith(mod ...pb.EmbeddingModality) *pb.ModelMetadataResponse {
 	return &pb.ModelMetadataResponse{EmbeddingProtocolVersion: 1, EmbeddingGeneration: "g1", EmbeddingModalities: mod}
 }
 func finalResult(v ...float32) *pb.MultimodalEmbeddingResponse {
-	return &pb.MultimodalEmbeddingResponse{Result: &pb.EmbeddingResult{Embeddings: v, Tokens: 1, Dim: int32(len(v)), Layout: pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL}}
+	return &pb.MultimodalEmbeddingResponse{
+		Result:      &pb.EmbeddingResult{Embeddings: v, Tokens: 1, Dim: int32(len(v)), Layout: pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL},
+		Consumption: &pb.EmbeddingConsumption{},
+	}
 }
 
 type acquireCall struct {
@@ -137,6 +147,8 @@ func (a *fakeAcquirer) count() int {
 
 type harness struct {
 	e       *echo.Echo
+	chain   []echo.MiddlewareFunc
+	handler echo.HandlerFunc
 	be      *fakeEmbedBackend
 	acq     *fakeAcquirer
 	limiter *embeddingmedia.Limiter
@@ -169,6 +181,9 @@ func newHarness(apiKeys ...string) *harness {
 	}
 	ml := model.NewModelLoader(app.SystemState)
 	ml.SetModelRouter(func(_ context.Context, _, id, _, _, _ string, _ *pb.ModelOptions, _ bool) (*model.Model, error) {
+		if e := be.loadErr.Load(); e != nil {
+			return nil, *e
+		}
 		return model.NewModelWithClient(id, "test://embeddings", be), nil
 	})
 	acq := &fakeAcquirer{}
@@ -191,7 +206,53 @@ func newHarness(apiKeys ...string) *harness {
 	for _, p := range []string{"/v1/embeddings", "/embeddings", "/v1/engines/:model/embeddings"} {
 		e.POST(p, handler, chain...)
 	}
-	return &harness{e: e, be: be, acq: acq, limiter: limiter, app: app}
+	return &harness{e: e, chain: chain, handler: handler, be: be, acq: acq, limiter: limiter, app: app}
+}
+
+// redactTrigger is the entity the test detector reports.
+const redactTrigger = "SECRET"
+
+type triggerDetector struct{}
+
+func (triggerDetector) Detect(_ context.Context, text string) ([]pii.NEREntity, error) {
+	var out []pii.NEREntity
+	for from := 0; ; {
+		i := strings.Index(text[from:], redactTrigger)
+		if i < 0 {
+			return out, nil
+		}
+		start := from + i
+		out = append(out, pii.NEREntity{Group: "PERSON", Start: start, End: start + len(redactTrigger), Score: 1})
+		from = start + len(redactTrigger)
+	}
+}
+
+// withPII rebuilds the routes with the production PII middleware and the
+// completion adapter the embeddings route uses, running the given action.
+func (h *harness) withPII(action pii.Action) {
+	mw := pii.RequestMiddleware(&pii.Redactor{}, pii.NewMemoryEventStore(0), piiadapter.OpenAICompletion(), nil,
+		pii.WithNERResolver(func(string) (pii.NERConfig, bool) {
+			return pii.NERConfig{Detector: triggerDetector{}, DefaultAction: action}, true
+		}),
+		pii.WithPolicyResolver(func(any) (bool, []string) { return true, []string{"d"} }),
+	)
+	e := echo.New()
+	chain := append(append([]echo.MiddlewareFunc{}, h.chain...), mw)
+	for _, p := range []string{"/v1/embeddings", "/embeddings"} {
+		e.POST(p, h.handler, chain...)
+	}
+	h.e = e
+}
+
+// captureErrors replaces the error handler so a test sees the raw error the
+// endpoint returned, which is what the production handler classifies.
+func (h *harness) captureErrors() *error {
+	var got error
+	h.e.HTTPErrorHandler = func(err error, c echo.Context) {
+		got = err
+		_ = c.NoContent(http.StatusTeapot)
+	}
+	return &got
 }
 
 func (h *harness) post(path, body string, mutate ...func(*http.Request)) *httptest.ResponseRecorder {
@@ -406,13 +467,23 @@ var _ = Describe("Multimodal HTTP", func() {
 				}
 			}
 		}
+		grpcMsg := func(c codes.Code, msg string) func(*harness) {
+			return func(h *harness) {
+				h.be.multimodal = func(context.Context, *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+					return nil, status.Error(c, msg+" private-token")
+				}
+			}
+		}
 		cases := []tc{
 			{"400 invalid structure rejects unknown content fields", 400, `{"model":"emb","input":[{"content":[{"type":"text","text":"x","extra":1}]}]}`, nil},
 			{"400 empty content array", 400, `{"model":"emb","input":[{"content":[]}]}`, nil},
 			{"400 structured input conflicts with messages", 400, `{"model":"emb","input":[{"content":[{"type":"text","text":"x"}]}],"messages":[{"role":"user","content":"hi"}]}`, nil},
 			{"400 backend invalid argument", 400, img, grpcErr(codes.InvalidArgument)},
 			{"413 acquisition limit", 413, img, typed(413)},
-			{"413 backend resource exhausted", 413, img, grpcErr(codes.ResourceExhausted)},
+			{"413 backend resource exhausted", 413, img, grpcMsg(codes.ResourceExhausted, "limit_exceeded: frames")},
+			{"429 backend busy", 429, img, grpcErr(codes.ResourceExhausted)},
+			{"415 backend unsupported media format", 415, img, grpcMsg(codes.InvalidArgument, "unsupported_media_format: codec")},
+			{"502 backend cancellation while the client is alive", 502, img, grpcErr(codes.Canceled)},
 			{"415 unsupported media format", 415, img, typed(415)},
 			{"422 model cannot consume the modality", 422, img, func(h *harness) {
 				h.be.metadata = func() (*pb.ModelMetadataResponse, error) { return metadataWith(pb.EmbeddingModality_TEXT), nil }
@@ -763,5 +834,109 @@ var _ = Describe("Legacy embedding response", func() {
 		}
 		rec := h.post("/v1/embeddings", `{"model":"emb","pooling":"mean","input":"x"}`)
 		Expect(rec.Code).To(Equal(400))
+	})
+})
+
+var _ = Describe("Multimodal HTTP", func() {
+	Describe("Structured input PII policy", func() {
+		var h *harness
+		BeforeEach(func() { h = newHarness() })
+
+		plain := structuredBody(`"my SECRET value"`)
+		object := structuredBody(content(textPart("my SECRET value"), imagePart(imageData)))
+
+		It("blocks a plain string and the same text in a content object alike", func() {
+			h.withPII(pii.ActionBlock)
+			for name, body := range map[string]string{"string": plain, "content object": object} {
+				rec := h.post("/v1/embeddings", body)
+				Expect(rec.Code).To(Equal(http.StatusBadRequest), name+": "+rec.Body.String())
+			}
+			Expect(h.be.multimodalN.Load()).To(BeZero())
+			Expect(h.acq.count()).To(BeZero())
+		})
+
+		It("sends redacted string and text-part content to the backend", func() {
+			h.withPII(pii.ActionMask)
+			h.vectors(h.post("/v1/embeddings", structuredBody(`"my SECRET value"`, content(textPart("also SECRET"), imagePart(imageData)))))
+			sent := h.be.sent()
+			Expect(sent).To(HaveLen(2))
+			Expect(sent[0].Parts[0].GetText()).NotTo(ContainSubstring(redactTrigger))
+			Expect(sent[0].Parts[0].GetText()).To(ContainSubstring("REDACTED"))
+			Expect(sent[1].Parts[0].GetText()).NotTo(ContainSubstring(redactTrigger))
+			Expect(sent[1].Parts[0].GetText()).To(ContainSubstring("REDACTED"))
+			Expect(sent[1].Parts[1].GetMedia()).NotTo(BeNil())
+		})
+
+		It("sends redacted text to the legacy RPC for a plain string input", func() {
+			h.withPII(pii.ActionMask)
+			h.vectors(h.post("/v1/embeddings", `{"model":"emb","input":"my SECRET value"}`))
+			Expect(h.be.legacyInputs).To(HaveLen(1))
+			Expect(h.be.legacyInputs[0].Embeddings).NotTo(ContainSubstring(redactTrigger))
+		})
+	})
+})
+
+var _ = Describe("Multimodal HTTP", func() {
+	Describe("Structured input error pass-through", func() {
+		var h *harness
+		BeforeEach(func() { h = newHarness() })
+
+		body := structuredBody(content(textPart("a")))
+
+		It("returns admission and loading errors unchanged so the application handler maps them", func() {
+			admission := &backend.BackendAdmissionError{Limit: 1, RetryAfter: time.Second}
+			cooldown := &model.ModelLoadCooldownError{ModelID: "emb", RetryAfter: time.Second}
+			loading := &nodes.ModelLoadingError{RetryAfter: time.Second}
+			for name, want := range map[string]error{"admission": admission, "cooldown": cooldown, "loading": loading, "no nodes": fmt.Errorf("routing: %w", nodes.ErrNoAvailableNodes)} {
+				h = newHarness()
+				h.be.loadErr.Store(&want)
+				got := h.captureErrors()
+				rec := h.post("/v1/embeddings", body)
+				Expect(rec.Code).To(Equal(http.StatusTeapot), name)
+				Expect(*got).To(HaveOccurred(), name)
+				var he *echo.HTTPError
+				Expect(errors.As(*got, &he)).To(BeFalse(), name+": flattened to an HTTP error: %v", *got)
+				switch name {
+				case "admission":
+					var t *backend.BackendAdmissionError
+					Expect(errors.As(*got, &t)).To(BeTrue())
+				case "cooldown":
+					var t *model.ModelLoadCooldownError
+					Expect(errors.As(*got, &t)).To(BeTrue())
+				case "loading":
+					var t *nodes.ModelLoadingError
+					Expect(errors.As(*got, &t)).To(BeTrue())
+				default:
+					Expect(errors.Is(*got, nodes.ErrNoAvailableNodes)).To(BeTrue())
+				}
+			}
+		})
+	})
+})
+
+var _ = Describe("Multimodal HTTP", func() {
+	Describe("Structured consumption trust", func() {
+		var h *harness
+		BeforeEach(func() { h = newHarness() })
+
+		noConsumption := func(h *harness) {
+			h.be.multimodal = func(context.Context, *pb.MultimodalEmbeddingRequest) (*pb.MultimodalEmbeddingResponse, error) {
+				res := finalResult(1, 2)
+				res.Consumption = nil
+				return res, nil
+			}
+		}
+
+		It("treats missing consumption on an item with media as a corrupt result", func() {
+			noConsumption(h)
+			rec := h.post("/v1/embeddings", structuredBody(content(imagePart(imageData))))
+			Expect(rec.Code).To(Equal(502), rec.Body.String())
+			Expect(rec.Body.String()).NotTo(ContainSubstring(`"embedding"`))
+		})
+
+		It("accepts missing consumption on a text-only item", func() {
+			noConsumption(h)
+			Expect(h.vectors(h.post("/v1/embeddings", structuredBody(content(textPart("a")), `"b"`)))).To(HaveLen(2))
+		})
 	})
 })

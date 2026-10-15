@@ -238,15 +238,19 @@ given has returned a corrupt result.
 | Status | Meaning |
 | --- | --- |
 | 400 | Malformed structure, unknown or duplicate fields, empty content, `messages` together with structured input |
-| 413 | Body, media, duration, part, pixel, frame or context limit exceeded |
-| 415 | Unsupported or mismatched media format |
+| 413 | Body, media, duration, part, pixel, frame or context limit exceeded, including a backend `RESOURCE_EXHAUSTED` error that starts with `limit_exceeded` |
+| 415 | Unsupported or mismatched media format, including a backend error that starts with `unsupported_media_format` |
 | 422 | The loaded model cannot consume a requested modality |
-| 429 | Media preparation capacity (2 per frontend) is in use |
+| 429 | Media preparation capacity (2 per frontend) is in use, the backend is busy (`RESOURCE_EXHAUSTED` without the `limit_exceeded` prefix), or the global backend capacity is reached |
 | 501 | The backend has no multimodal protocol, or it did not publish capabilities |
 | 502 | Source fetch failed, the backend result was invalid, or the backend failed |
+| 503 | The model is loading, in a load cooldown, or no node is available. These answers carry `Retry-After` where known, as for text requests |
 | 504 | Fetch, preparation or inference deadline exceeded |
 
-Client cancellation stops fetching and inference and releases the slot. Error
+Client cancellation stops fetching and inference and releases the slot. Status
+499 is reported only when the client itself went away; a cancellation that
+starts in the backend is a 502. A backend response without consumption for an
+element with media is also a 502. Error
 messages never contain input text, URLs, query strings or credentials, and these
 values are not logged. Media limits are listed above; the preparation limiter is
 per frontend, so several frontends multiply capacity.

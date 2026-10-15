@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/embeddingmedia"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -23,12 +25,28 @@ import (
 // abandoned. Nobody reads it, but it keeps cancellation out of the 5xx counters.
 const statusClientClosed = 499
 
+// Message prefixes a backend uses to refine a gRPC status code. The message
+// text itself never reaches the client.
+const (
+	backendUnsupportedMediaFormat = "unsupported_media_format"
+	backendLimitExceeded          = "limit_exceeded"
+)
+
 // embeddingFailure classifies an error without ever echoing user input, URLs
 // or backend text. Only fixed codes reach the response.
 func embeddingFailure(c echo.Context, err error) error {
 	var httpErr *echo.HTTPError
 	if errors.As(err, &httpErr) {
 		return httpErr
+	}
+	// Capacity, cooldown and loading errors are answers to retry. The
+	// application error handler maps them to 429/503 with Retry-After, exactly
+	// as for the legacy path, so they leave here unchanged.
+	var admission *backend.BackendAdmissionError
+	var cooldown *model.ModelLoadCooldownError
+	var loading *nodes.ModelLoadingError
+	if errors.As(err, &admission) || errors.As(err, &cooldown) || errors.As(err, &loading) || errors.Is(err, nodes.ErrNoAvailableNodes) {
+		return err
 	}
 	var media *embeddingmedia.Error
 	if errors.As(err, &media) {
@@ -44,14 +62,25 @@ func embeddingFailure(c echo.Context, err error) error {
 	if errors.Is(err, context.DeadlineExceeded) || c.Request().Context().Err() == context.DeadlineExceeded {
 		return echo.NewHTTPError(http.StatusGatewayTimeout, "embedding_deadline_exceeded")
 	}
-	if errors.Is(err, context.Canceled) {
+	// 499 only when this client actually went away. A cancellation that
+	// originates in the backend or the session is a backend failure.
+	clientGone := c.Request().Context().Err() != nil
+	if errors.Is(err, context.Canceled) && clientGone {
 		return echo.NewHTTPError(statusClientClosed, "request_canceled")
 	}
 	if st, ok := status.FromError(err); ok {
 		switch st.Code() {
 		case codes.InvalidArgument:
+			if strings.HasPrefix(st.Message(), backendUnsupportedMediaFormat) {
+				return echo.NewHTTPError(http.StatusUnsupportedMediaType, "unsupported_media_format")
+			}
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid_embedding_input")
-		case codes.OutOfRange, codes.ResourceExhausted:
+		case codes.ResourceExhausted:
+			if strings.HasPrefix(st.Message(), backendLimitExceeded) {
+				return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "embedding_resource_limit")
+			}
+			return echo.NewHTTPError(http.StatusTooManyRequests, "embedding_backend_busy")
+		case codes.OutOfRange:
 			return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "embedding_resource_limit")
 		case codes.FailedPrecondition:
 			return echo.NewHTTPError(http.StatusUnprocessableEntity, "embedding_unsupported_modality")
@@ -59,22 +88,18 @@ func embeddingFailure(c echo.Context, err error) error {
 			return echo.NewHTTPError(http.StatusNotImplemented, "multimodal_embedding_unavailable")
 		case codes.DeadlineExceeded:
 			return echo.NewHTTPError(http.StatusGatewayTimeout, "embedding_deadline_exceeded")
-		case codes.Canceled:
-			return echo.NewHTTPError(statusClientClosed, "request_canceled")
 		}
 	}
 	return echo.NewHTTPError(http.StatusBadGateway, "embedding_backend_failure")
 }
 
 // structuredParts builds the ordered typed parts of one item. Media bytes are
-// attached by the caller; a nil acquire builds the capability skeleton used to
-// check the loaded model before anything is fetched.
-func structuredParts(item schema.EmbeddingInputItem, text *string) []*pb.EmbeddingPart {
+// attached by the caller; before anything is fetched it also serves as the
+// capability skeleton used to check the loaded model.
+func structuredParts(item schema.EmbeddingInputItem) []*pb.EmbeddingPart {
 	if item.Text != nil || len(item.Content) == 0 {
 		s := ""
-		if text != nil {
-			s = *text
-		} else if item.Text != nil {
+		if item.Text != nil {
 			s = *item.Text
 		}
 		return []*pb.EmbeddingPart{{Part: &pb.EmbeddingPart_Text{Text: s}}}
@@ -143,6 +168,15 @@ func fromProtoConsumption(c *pb.EmbeddingConsumption) embeddingmedia.Consumption
 	}
 }
 
+func hasMedia(item schema.EmbeddingInputItem) bool {
+	for _, p := range item.Content {
+		if p.Type != "text" {
+			return true
+		}
+	}
+	return false
+}
+
 func exceeds(c embeddingmedia.Consumption, remaining embeddingmedia.Budget) bool {
 	return c.Frames > remaining.Frames || c.Pixels > remaining.Pixels || c.AudioBytes > remaining.AudioBytes ||
 		c.DurationMilliseconds > remaining.DurationMilliseconds || c.TemporaryBytes > remaining.TemporaryBytes ||
@@ -157,24 +191,12 @@ func embedStructured(c echo.Context, input *schema.OpenAIRequest, cfg *config.Mo
 	if ctx == nil {
 		ctx = c.Request().Context()
 	}
-	items := input.EmbeddingInput
-	// Redaction middleware rewrites the legacy string view of the input; use it
-	// for string items so the redacted text is what reaches the backend.
-	var strs []string
-	stringItems := 0
-	for _, it := range items {
-		if it.Text != nil {
-			stringItems++
-		}
-	}
-	if len(cfg.InputStrings) == stringItems {
-		strs = cfg.InputStrings
-	}
-	textFor := func(item schema.EmbeddingInputItem, nth int) *string {
-		if item.Text != nil && nth < len(strs) {
-			return &strs[nth]
-		}
-		return nil
+	// The PII middleware rewrites input.Input after the request was parsed into
+	// EmbeddingInput. Read the text back from input.Input so what reaches the
+	// backend is the redacted text, not the text the client sent.
+	items, err := currentEmbeddingItems(input)
+	if err != nil {
+		return nil, embeddingFailure(c, err)
 	}
 
 	session, err := backend.OpenMultimodalEmbeddingSession(ctx, ml, *cfg, appConfig)
@@ -186,7 +208,7 @@ func embedStructured(c echo.Context, input *schema.OpenAIRequest, cfg *config.Mo
 	// Capability check precedes every fetch and every slot.
 	var skeleton []*pb.EmbeddingPart
 	for _, it := range items {
-		skeleton = append(skeleton, structuredParts(it, nil)...)
+		skeleton = append(skeleton, structuredParts(it)...)
 	}
 	if err := backend.CheckEmbeddingModalities(session.Metadata(), skeleton); err != nil {
 		return nil, embeddingFailure(c, err)
@@ -200,14 +222,8 @@ func embedStructured(c echo.Context, input *schema.OpenAIRequest, cfg *config.Mo
 
 	budget := embeddingmedia.NewBudget()
 	vectors := make([][]float32, 0, len(items))
-	nth := 0
 	for _, item := range items {
-		var text *string
-		if item.Text != nil {
-			text = textFor(item, nth)
-			nth++
-		}
-		vec, err := embedStructuredItem(c, ctx, session, item, text, &budget, *cfg, opts)
+		vec, err := embedStructuredItem(c, ctx, session, item, &budget, *cfg, opts)
 		if err != nil {
 			return nil, embeddingFailure(c, err)
 		}
@@ -216,7 +232,7 @@ func embedStructured(c echo.Context, input *schema.OpenAIRequest, cfg *config.Mo
 	return vectors, nil
 }
 
-func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.MultimodalEmbeddingSession, item schema.EmbeddingInputItem, text *string, budget *embeddingmedia.Budget, cfg config.ModelConfig, opts embeddingsOptions) ([]float32, error) {
+func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.MultimodalEmbeddingSession, item schema.EmbeddingInputItem, budget *embeddingmedia.Budget, cfg config.ModelConfig, opts embeddingsOptions) ([]float32, error) {
 	// The scratch budget lets the acquirer enforce cumulative limits inside the
 	// item. What the backend may spend is the live budget, minus preparation
 	// time already used here.
@@ -225,7 +241,7 @@ func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.M
 	if err := work.Consume(embeddingmedia.Consumption{Items: 1}); err != nil {
 		return nil, err
 	}
-	parts := structuredParts(item, text)
+	parts := structuredParts(item)
 	prepCtx, cancel := context.WithTimeout(ctx, time.Duration(budget.PreparationMilliseconds)*time.Millisecond)
 	defer cancel()
 	started := time.Now()
@@ -282,6 +298,13 @@ func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.M
 	if err != nil {
 		return nil, err
 	}
+	// A response that wraps no consumption cannot be charged. For an item with
+	// media that would let a backend bypass the frame, pixel, audio, duration
+	// and temporary-byte budgets, so it is a corrupt result. Text-only items
+	// consume none of those and may omit it.
+	if res.GetConsumption() == nil && hasMedia(item) {
+		return nil, &embeddingmedia.Error{Status: http.StatusBadGateway, Code: "embedding_corrupt_result"}
+	}
 	consumed := fromProtoConsumption(res.GetConsumption())
 	if exceeds(consumed, supplied) {
 		return nil, &embeddingmedia.Error{Status: http.StatusBadGateway, Code: "embedding_corrupt_result"}
@@ -300,4 +323,59 @@ func embedStructuredItem(c echo.Context, ctx context.Context, session *backend.M
 		return nil, &embeddingmedia.Error{Status: http.StatusBadGateway, Code: "embedding_corrupt_result"}
 	}
 	return vec, nil
+}
+
+// currentEmbeddingItems returns the parsed items with their text taken from the
+// request's current input value, which the PII middleware may have rewritten.
+// Media sources are not text and are kept as parsed. A value whose shape no
+// longer matches the parsed items fails closed instead of sending the text the
+// client originally supplied.
+func currentEmbeddingItems(input *schema.OpenAIRequest) ([]schema.EmbeddingInputItem, error) {
+	var entries []any
+	switch v := input.Input.(type) {
+	case []any:
+		entries = v
+	case map[string]any:
+		entries = []any{v}
+	default:
+		entries = nil
+	}
+	if len(entries) != len(input.EmbeddingInput) {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "invalid_embedding_input")
+	}
+	out := make([]schema.EmbeddingInputItem, len(input.EmbeddingInput))
+	for i, item := range input.EmbeddingInput {
+		cur := schema.EmbeddingInputItem{}
+		switch e := entries[i].(type) {
+		case string:
+			if item.Text == nil {
+				return nil, echo.NewHTTPError(http.StatusInternalServerError, "invalid_embedding_input")
+			}
+			cur.Text = &e
+		case map[string]any:
+			parts, _ := e["content"].([]any)
+			if item.Text != nil || len(parts) != len(item.Content) {
+				return nil, echo.NewHTTPError(http.StatusInternalServerError, "invalid_embedding_input")
+			}
+			cur.Content = append([]schema.EmbeddingContentPart(nil), item.Content...)
+			for j, raw := range parts {
+				if cur.Content[j].Type != "text" {
+					continue
+				}
+				m, ok := raw.(map[string]any)
+				text, isString := "", false
+				if ok {
+					text, isString = m["text"].(string)
+				}
+				if !isString {
+					return nil, echo.NewHTTPError(http.StatusInternalServerError, "invalid_embedding_input")
+				}
+				cur.Content[j].Text = text
+			}
+		default:
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "invalid_embedding_input")
+		}
+		out[i] = cur
+	}
+	return out, nil
 }
