@@ -38,6 +38,8 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/pkg/atomicfile"
+
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
@@ -465,10 +467,7 @@ func syncDir(dir string) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	if err := f.Sync(); err != nil && !errors.Is(err, os.ErrInvalid) {
-		return err
-	}
-	return nil
+	return atomicfile.SyncDirTolerant(f)
 }
 
 func (d *data) snapshot() snapshot {

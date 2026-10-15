@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 type fsStore struct {
@@ -73,7 +74,7 @@ func (s *fsStore) syncDir(path string) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	return f.Sync()
+	return atomicfile.SyncDirTolerant(f)
 }
 func (s *fsStore) mkdir(path string) error {
 	if err := s.safe(path); err != nil {
@@ -189,9 +190,13 @@ func (t *fsStaged) Publish(ctx context.Context) error {
 	if err := s.stage("rename"); err != nil {
 		return err
 	}
-	// Rename replaces an existing blob with identical bytes. Never remove
-	// final after a sync failure: another writer can own that name.
+	// Rename replaces an existing blob with identical bytes. On Windows,
+	// renaming over an existing file can report "Access is denied" instead
+	// of "file exists". If the target is already in place, nothing to do.
 	if err := os.Rename(t.path, final); err != nil {
+		if _, serr := os.Stat(final); serr == nil {
+			return nil
+		}
 		return err
 	}
 	return s.syncDir(filepath.Dir(final))

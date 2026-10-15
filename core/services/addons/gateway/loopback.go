@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -85,7 +86,13 @@ func readLoopbackPortFile(root string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file", filepath.Join(root, loopbackPortFile))
+	}
+	// On Windows, skip the Unix-style permission check since Windows
+	// doesn't use Unix-style file permissions (0600). The file is
+	// already protected by being inside the user's data directory.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		return nil, fmt.Errorf("add-on owner loopback port file %s must be a regular file with mode 0600 or less; fix or remove it together with the add-on state", filepath.Join(root, loopbackPortFile))
 	}
 	return io.ReadAll(io.LimitReader(f, 64))

@@ -8,9 +8,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -214,21 +215,6 @@ type Store struct {
 	// durable. Memory then already holds the change, and no further write is
 	// accepted until the store is reopened and reloaded from disk.
 	failed bool
-}
-
-func lockDir(dir string) (*os.File, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
-	if err != nil {
-		return nil, err
-	}
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = f.Close()
-		return nil, ErrStoreBusy
-	}
-	return f, nil
 }
 
 func load(dir string) (*document, error) {
@@ -512,5 +498,13 @@ func durableWrite(path string, b []byte) (renamed bool, err error) {
 		return true, err
 	}
 	defer func() { _ = d.Close() }()
-	return true, syncDirectory(d)
+	// On Windows, directory sync may fail with "Access is denied" due to
+	// permissions. This is non-fatal as the file data is already synced.
+	if err = syncDirectory(d); err != nil {
+		if runtime.GOOS == "windows" && strings.Contains(err.Error(), "Access is denied") {
+			return true, nil
+		}
+		return true, err
+	}
+	return true, nil
 }

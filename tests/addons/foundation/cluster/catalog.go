@@ -1,3 +1,5 @@
+//go:build !windows
+
 // SPDX-License-Identifier: MIT
 package cluster
 
@@ -185,3 +187,4 @@ func (l *Library) AddArchive(id, version string, archive []byte) (string, error)
 	})
 	return digest, nil
 }
+

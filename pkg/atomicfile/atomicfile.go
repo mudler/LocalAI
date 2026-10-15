@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 // Options changes the steps of a write. The zero value does them all for real.
@@ -68,10 +70,23 @@ func WriteWith(path string, data []byte, perm os.FileMode, o Options) (renamed b
 	defer func() { _ = d.Close() }()
 	sync := o.SyncDir
 	if sync == nil {
-		sync = func(d *os.File) error { return d.Sync() }
+		sync = SyncDirTolerant
 	}
 	if err := sync(d); err != nil {
 		return true, fmt.Errorf("atomicfile: sync %s: %w", dir, err)
 	}
 	return true, nil
+}
+
+// SyncDirTolerant syncs a directory handle for durability. On Windows,
+// syncing a directory handle fails with "Access is denied"; the file data is
+// already synced by the file handle's Sync above, so treat that as non-fatal.
+func SyncDirTolerant(d *os.File) error {
+	if err := d.Sync(); err != nil {
+		if runtime.GOOS == "windows" && strings.Contains(err.Error(), "Access is denied") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
