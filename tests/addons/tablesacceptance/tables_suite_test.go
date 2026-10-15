@@ -114,12 +114,23 @@ var _ = BeforeSuite(func() {
 // of the container. A failed spec keeps the logs of every node as a trace.
 func start(versions ...string) *cluster.Cluster {
 	GinkgoHelper()
+	return startFrom(nil, packages, versions...)
+}
+
+// startFrom is start with releases of another build and a change of the
+// cluster configuration that is saved before any process starts.
+func startFrom(tune func(*cluster.Config), releases map[string]tablespkg.Release, versions ...string) *cluster.Cluster {
+	GinkgoHelper()
 	dir, err := os.MkdirTemp("", "tables-acceptance-*")
 	Expect(err).NotTo(HaveOccurred())
 	c, err := cluster.New(dir, paths)
 	Expect(err).NotTo(HaveOccurred())
+	if tune != nil {
+		tune(c.Config)
+		Expect(c.Config.Save()).To(Succeed())
+	}
 	for _, v := range versions {
-		_, err := c.Library.AddArchive("tables", v, packages[v].Archive)
+		_, err := c.Library.AddArchive("tables", v, releases[v].Archive)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	DeferCleanup(func() {

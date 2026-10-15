@@ -345,18 +345,41 @@ the three servers). A Go test (`TestEvidenceManifest`) checks it against the inv
 of `scripts/addons/suites.json`: the platform is native, the digests are well formed and
 distinct, every case passed, and a failed case has a trace that exists.
 
+### Faults the real executable cannot show on its own
+
+Three cases need a fault that the product executable does not have, and the product
+executable gets no flag or variable for them. The suite builds a second, test-only
+executable from `addons/tables/cmd/tables-faults`, packages it with the same
+`scripts/addons/package.sh` and installs it on one cluster. It serves exactly what the
+product serves. A spec arms a fault by creating a file in the `fault` directory of the
+add-on's data:
+
+- `crash-after-commit` ends the process after the next change committed and before the
+  answer is sent. The spec checks that the host reports the original operation ID as
+  unknown from the frontend, that the receipt lookup finds it committed, and that the same
+  operation again returns the same receipt: one row and one receipt in total.
+- `hold-output` keeps a stream of the add-on from being served, so a transfer stays in
+  flight. The spec disables the add-on and checks that the artifact ends without being
+  downloadable on any node, that no byte stays on disk and that a new export works.
+
+The expiry spec needs a short artifact lifetime. The fixture's cluster configuration has
+an `artifactExpiryMillis` field, which the test launcher passes to the owner as the
+programmatic `AddonConfig.ArtifactExpiry` option. No flag sets it and the default stays
+one hour. The spec checks that every node gives the same denial for the expired file
+and that the database and the backups are untouched.
+
 ### What it does not prove
 
 - **Other platforms.** The evidence is of the platform it ran on. Advertising another
   platform needs a native run on that platform; the platform matrix keeps it disabled.
-- **Expiry of an artifact and the free space seam** are time and storage bounds that
-  need a seam the real add-on does not have. The `artifacts` and `recovery` suites
-  cover them with in-process seams.
+- **The free space seam** is a storage bound that needs a seam the real add-on does not
+  have. The `recovery` suite covers it with an in-process seam. The expiry and the
+  withdrawal of an artifact are covered here (see below).
 - **A needs-recovery upgrade** needs a data format change that fails to migrate. The
   `recovery` suite covers it; this suite covers the successful upgrade and the restore.
-- **A confirmation that committed and lost its reply.** The race and the crash specs
-  accept it whenever it happens and check the invariants; the `foundation-acceptance`
-  suite produces it on demand with the protocol fixture.
+- **Which interleaving a race takes.** The race and the crash specs accept whatever
+  order happens and check the invariants. The committed-and-lost-reply case is not left
+  to chance: see the fault specs below.
 - **A refused request is a typed `400`.** A request that the add-on refuses as invalid
   (an unknown table, an unknown field) is `400` `invalid_request` on every route: the
   runtime client types the add-on's HTTP 400 and 422 as a refusal, and the host answers

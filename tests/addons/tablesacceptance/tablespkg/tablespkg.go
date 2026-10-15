@@ -54,7 +54,13 @@ func run(root string, rec Recorder, env []string, name string, args ...string) e
 
 // BuildExecutable builds the Tables executable of this platform.
 func BuildExecutable(root, out string, rec Recorder) error {
-	return run(root, rec, []string{"CGO_ENABLED=1"}, "go", "build", "-p", "2", "-trimpath", "-o", out, "./addons/tables/cmd/tables")
+	return BuildExecutableFrom(root, out, "./addons/tables/cmd/tables", rec)
+}
+
+// BuildExecutableFrom builds another main package of the Tables module. The
+// fault suites use it for the test-only executable; nothing else does.
+func BuildExecutableFrom(root, out, pkg string, rec Recorder) error {
+	return run(root, rec, []string{"CGO_ENABLED=1"}, "go", "build", "-p", "2", "-trimpath", "-o", out, pkg)
 }
 
 // Build packages one executable under each version and returns the releases.
