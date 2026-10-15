@@ -6,14 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -566,80 +563,6 @@ func syncPackage(root string) error {
 		}
 	}
 	return nil
-}
-
-// Only unpublished Installer staging is collectible. An unreferenced published
-// package may be the result of a crash before prepared; retain it for inspection.
-func (m *Manager) cleanStages() error {
-	root, e := openPackageRoot(m.installer.Root)
-	if os.IsNotExist(e) {
-		return nil
-	}
-	if e != nil {
-		return e
-	}
-	defer func() { _ = root.Close() }()
-	entries, e := fs.ReadDir(root.FS(), ".")
-	if e != nil {
-		return e
-	}
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), "stage-") {
-			continue
-		}
-		if e = fs.WalkDir(root.FS(), entry.Name(), func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() {
-				return nil
-			}
-			// Descriptor chmod avoids following a link swapped in after WalkDir.
-			f, err := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0)
-			if err != nil {
-				return err
-			}
-			return errors.Join(f.Chmod(0700), f.Close()) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
-		}); e != nil {
-			return e
-		}
-		if e = root.RemoveAll(entry.Name()); e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
-// Pin each ancestor and reject links, including the package root, before any
-// enumeration or mutation. Root operations keep later path races contained.
-func openPackageRoot(path string) (*os.Root, error) {
-	root, err := os.OpenRoot(string(filepath.Separator))
-	if err != nil {
-		return nil, err
-	}
-	for _, part := range strings.Split(strings.TrimPrefix(filepath.Clean(path), string(filepath.Separator)), string(filepath.Separator)) {
-		info, e := root.Lstat(part)
-		if e != nil {
-			_ = root.Close()
-			return nil, e
-		}
-		if !info.IsDir() {
-			_ = root.Close()
-			return nil, ErrConfiguration
-		}
-		next, e := root.OpenRoot(part)
-		_ = root.Close()
-		if e != nil {
-			return nil, e
-		}
-		pinned, e := next.Stat(".")
-		if e != nil || !os.SameFile(info, pinned) {
-			_ = next.Close()
-			return nil, ErrConfiguration
-		}
-		root = next
-	}
-	return root, nil
 }
 
 // AttachRuntime is owner-only. Durable reconciliation precedes process execution.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//go:build !windows// SPDX-License-Identifier: MIT
 package cluster
 
 import (
@@ -352,3 +352,4 @@ func (c Client) Do(method, path string, body any, extra map[string]string) (*Res
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	return &Response{Status: resp.StatusCode, Header: resp.Header, Body: data}, err
 }
+

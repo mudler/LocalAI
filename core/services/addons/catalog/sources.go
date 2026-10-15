@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"regexp/syntax"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -226,12 +227,22 @@ func anchoredPattern(p string) bool {
 }
 func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (*Sources, error) {
 	s := &Sources{path: path, admin: admin, credentials: credentials, sources: map[string]Source{}, cache: map[string]cached{}}
+	// On Windows, use native paths (backslashes) for os.Lstat
+	if runtime.GOOS == "windows" {
+		path = filepath.FromSlash(path)
+	}
 	info, e := os.Lstat(path)
 	if os.IsNotExist(e) {
 		s.fresh = true
 		return s, nil
 	}
-	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+	if e != nil || !info.Mode().IsRegular() {
+		return nil, ErrInvalid
+	}
+	// On Windows, skip the Unix-style permission check since Windows
+	// doesn't use Unix-style file permissions (0600). The file is
+	// already protected by being inside the user's data directory.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
 		return nil, ErrInvalid
 	}
 	data, e := os.ReadFile(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request

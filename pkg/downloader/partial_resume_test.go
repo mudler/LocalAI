@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -157,6 +158,12 @@ var _ = Describe("DownloadFile with a leftover .partial", func() {
 	})
 
 	It("reports an informative error when the partial cannot be stat'd", func() {
+		if runtime.GOOS == "windows" {
+			// A self-referencing symlink is the portable trick that makes
+			// os.Stat fail with ELOOP, but creating symlinks on Windows needs
+			// admin rights or Developer Mode, so the setup itself errors first.
+			Skip("symlink creation requires privileges on Windows")
+		}
 		server := rangeServer(true, nil, nil)
 		defer server.Close()
 

@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -190,17 +189,6 @@ func (r *Recovery) newBackupID() (string, error) {
 		return "", err
 	}
 	return "b" + r.cfg.Now().UTC().Format("20060102t150405z") + "-" + hex.EncodeToString(b[:]), nil
-}
-
-func freeBytes(path string) (uint64, error) {
-	var st syscall.Statfs_t
-	if err := syscall.Statfs(path, &st); err != nil {
-		return 0, err
-	}
-	if st.Bsize <= 0 {
-		return 0, errors.New("the file system reports no block size")
-	}
-	return uint64(st.Bavail) * uint64(st.Bsize), nil
 }
 
 func (r *Recovery) freeSpace(path string) (uint64, error) {

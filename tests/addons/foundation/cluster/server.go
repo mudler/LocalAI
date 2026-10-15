@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//go:build !windows// SPDX-License-Identifier: MIT
 package cluster
 
 import (
@@ -180,3 +180,4 @@ func (c *Config) ControlServer(app *application.Application) (*http.Server, erro
 
 // StateDir is where one instance keeps its models, data and generated files.
 func (c *Config) StateDir(role string) string { return filepath.Join(c.Nodes[role].Dir, "state") }
+

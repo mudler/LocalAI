@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//go:build !windows// SPDX-License-Identifier: MIT
 package cluster
 
 // The fixture packages. All run the protocol fixture; they differ only in what
@@ -40,3 +40,4 @@ func ToolPackage(version string, fixture map[string]any) Package {
 func ServicePackage(version string, fixture map[string]any) Package {
 	return Package{ID: "found-svc", Version: version, Effects: "yes", Fixture: fixture, Capabilities: map[string]any{"service": true}}
 }
+
