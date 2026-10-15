@@ -43,6 +43,7 @@ run core-http-endpoints-openai core/http/endpoints/openai
 run core-http-middleware core/http/middleware
 run core-http-auth core/http/auth -tags auth
 run core-backend core/backend
+run core-services-routing-piiadapter core/services/routing/piiadapter
 MM_HTTP_TEST_SCRATCH="$scratch" python3 -I -m unittest discover -s test/multimodal \
     -p test_http_reports.py -v
 python3 -I test/multimodal/check_http_reports.py "$scratch" "$revision" "bash test/multimodal/verify.sh http"

@@ -32,6 +32,7 @@ class HttpReportTests(unittest.TestCase):
             'core-http-middleware': [spec('Multimodal contracts', 'x')],
             'core-http-auth': [spec('Auth', 'y')],
             'core-backend': [spec(c.HTTP_GROUP, n) for n in sorted(c.BACKEND_CASES)],
+            'core-services-routing-piiadapter': [spec('OpenAICompletion adapter', str(i)) for i in range(c.PIIADAPTER_MIN_PASSED)],
         }
         self.save()
 
@@ -97,6 +98,19 @@ class HttpReportTests(unittest.TestCase):
         broken = copy.deepcopy(report)
         broken[0]['SuiteConfig']['FocusStrings'] = ['x']
         path.write_text(json.dumps(broken))
+        with self.assertRaises(ValueError):
+            c.check(self.dir, 'rev')
+
+    def test_piiadapter_suite_is_pinned_to_its_total(self):
+        self.assertEqual(c.check(self.dir, 'rev')['counts']['core-services-routing-piiadapter'], c.PIIADAPTER_MIN_PASSED)
+        self.setUp()
+        self.suites['core-services-routing-piiadapter'] = self.suites['core-services-routing-piiadapter'][1:]
+        self.save()
+        with self.assertRaises(ValueError):
+            c.check(self.dir, 'rev')
+        self.setUp()
+        self.suites['core-services-routing-piiadapter'][0]['State'] = 'skipped'
+        self.save()
         with self.assertRaises(ValueError):
             c.check(self.dir, 'rev')
 
