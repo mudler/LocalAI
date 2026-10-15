@@ -16,10 +16,10 @@ class ContractReportTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.reports = {}
         for package, groups in {
-            'core-schema': {'Multimodal contracts': 39, 'Legacy embedding parsing': 7},
+            'core-schema': {'Multimodal contracts': 44, 'Legacy embedding parsing': 7},
             'pkg-embeddingmedia': {'Multimodal contracts': 20},
-            'core-http-middleware': {'Multimodal contracts': 17, 'Legacy embedding parsing': 1},
-            'core-http': {'Embedding production security': 4},
+            'core-http-middleware': {'Multimodal contracts': 19, 'Legacy embedding parsing': 1},
+            'core-http': {'Embedding production security': 5},
             'core-http-auth': {'Auth Middleware': 1},
         }.items():
             specs = []
@@ -67,7 +67,7 @@ class ContractReportTests(unittest.TestCase):
             (self.root / (name + '.json')).write_text(json.dumps(report))
 
     def test_complete(self):
-        self.assertEqual(check(self.root)['core-schema']['passed'], 46)
+        self.assertEqual(check(self.root)['core-schema']['passed'], 51)
 
     def test_missing_file(self):
         (self.root / 'core-schema.json').unlink()

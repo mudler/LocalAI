@@ -12,19 +12,20 @@ SECURITY_CASES = {
         'preserves nonadmin model permissions and quotas on every alias',
         'omits production validation and unsupported payloads from traces',
         'leaves nonembedding body consumption and global limits unchanged',
+        'reads almost nothing from unauthenticated embedding requests',
     },
     'core-http-middleware': {
-        'omits embedding exchanges before inflight completed and persisted capture including errors',
+        'keeps legacy embedding traces and omits structured payloads including errors',
     },
 }
 
 def check(scratch):
     counts = {}
     required = {
-        'core-schema': {'Multimodal contracts': 39, 'Legacy embedding parsing': 7},
+        'core-schema': {'Multimodal contracts': 44, 'Legacy embedding parsing': 7},
         'pkg-embeddingmedia': {'Multimodal contracts': 20},
-        'core-http-middleware': {'Multimodal contracts': 17, 'Legacy embedding parsing': 1},
-        'core-http': {'Embedding production security': 4},
+        'core-http-middleware': {'Multimodal contracts': 19, 'Legacy embedding parsing': 1},
+        'core-http': {'Embedding production security': 5},
         'core-http-auth': {},
     }
     for package, groups in required.items():

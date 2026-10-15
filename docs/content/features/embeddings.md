@@ -321,14 +321,15 @@ Content supports `text`, `image_url`, `input_audio`, and `input_video`;
 `video_url` is an alias for `input_video`. Image sources have a `url`. Audio and
 video sources have exactly one of `data` (raw base64) or `url` (HTTP(S) or a
 base64 data URI), and may include `format`. Empty sources, invalid base64,
-unknown fields, duplicate keys, empty content, mixed token/content batches,
-and structured input combined with `messages` return 400. Strings are never
+unknown fields in content objects, duplicate keys, empty content, mixed
+token/content batches, and structured input combined with a non-empty `messages`
+return 400 (`messages` of `null` or `[]` is ignored). Strings are never
 reinterpreted as JSON. Format consistency with decoded media is checked by the
 later media implementation, not this syntax parser.
 
-The structured envelope accepts `model`, `input`, `encoding_format`, `dimensions`,
-`user`, `pooling`, and `pooling_half_life_tokens`. Legacy envelope parsing remains
-permissive. Valid structured requests currently return **501**, not an empty
+Strictness covers content objects and the `input`/`messages` conflict. Other
+top-level request fields are not rejected by the structured parser. Legacy
+envelope parsing remains permissive. Valid structured requests currently return **501**, not an empty
 successful embedding response: HTTP acquisition and inference orchestration are
 not yet enabled. These parser changes do not establish native multimodal support.
 
@@ -348,8 +349,11 @@ preparation work, excludes inference, and is not reset between items. Frame and
 context limits are independent: fitting 120 frames does not guarantee that a
 model's context can fit them. Context overflow must reject, not drop content.
 
-The embedding body limit runs before authentication model extraction and tracing,
-including requests with unknown length or chunked transfer encoding. Embedding
-exchanges are excluded from in-flight, completed, and persisted API traces so
-text, media, and private source URLs are not captured, even on errors. Other
-endpoints keep their existing upload limits and tracing behavior.
+The embedding body limit is a lazy reader installed before authentication, so
+nothing is buffered before a request is authenticated. No reader (authentication
+model extraction, tracing, binding) can read past the limit, including requests
+with unknown length or chunked transfer encoding; overflow returns 413. Legacy
+string and token requests are traced as before. Exchanges with structured input
+(or an unparseable body) are traced without their request or response body and
+without error text, so text, media, and private source URLs are not captured.
+Other endpoints keep their existing upload limits and tracing behavior.

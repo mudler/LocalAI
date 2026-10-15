@@ -115,3 +115,26 @@ var _ = Describe("Multimodal contracts", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("Multimodal contracts", func() {
+	const input = `"input":{"content":[{"type":"text","text":"a"}]}`
+	for _, empty := range []string{`null`, `[]`, `[ ]`} {
+		It("does not treat empty messages "+empty+" as a conflict", func() {
+			items, structured, err := schema.ParseEmbeddingRequest(json.RawMessage(`{` + input + `,"messages":` + empty + `}`))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(structured).To(BeTrue())
+			Expect(items).To(HaveLen(1))
+		})
+	}
+	It("rejects nonempty messages alongside structured input", func() {
+		_, structured, err := schema.ParseEmbeddingRequest(json.RawMessage(`{` + input + `,"messages":[{"role":"user","content":"x"}]}`))
+		Expect(structured).To(BeTrue())
+		Expect(err).To(HaveOccurred())
+	})
+	It("leaves unrelated envelope fields alone; strictness covers content objects only", func() {
+		items, structured, err := schema.ParseEmbeddingRequest(json.RawMessage(`{` + input + `,"truncate":"END","unexpected":true}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(structured).To(BeTrue())
+		Expect(items).To(HaveLen(1))
+	})
+})

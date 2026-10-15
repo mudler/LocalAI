@@ -5,6 +5,7 @@ package http_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -90,13 +91,29 @@ var _ = Describe("Embedding production security", func() {
 						rec := httptest.NewRecorder()
 						e.ServeHTTP(rec, req)
 						Expect(body.read).To(BeNumerically("<=", limit+1), fmt.Sprintf("global=%d auth=%v path=%s known=%v", global, authenticated, path, known))
-						Expect(rec.Code).To(Equal(413))
+						Expect(rec.Code).To(Equal(413), fmt.Sprintf("global=%d auth=%v path=%s known=%v body=%s", global, authenticated, path, known, rec.Body.String()))
 						if known {
 							Expect(body.read).To(BeZero())
 						}
 					}
 				}
 			}
+		}
+	})
+	It("reads almost nothing from unauthenticated embedding requests", func() {
+		a, _ := newApp(0, true)
+		e, err := API(a)
+		Expect(err).NotTo(HaveOccurred())
+		for _, path := range aliases {
+			body := &countedEmbeddingBody{remaining: 40 << 20}
+			req := httptest.NewRequest(http.MethodPost, path, body)
+			req.ContentLength = -1
+			req.TransferEncoding = []string{"chunked"}
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(401), path)
+			Expect(body.read).To(BeNumerically("<=", 64<<10), path)
 		}
 	})
 	It("omits production validation and unsupported payloads from traces", func() {
@@ -117,8 +134,14 @@ var _ = Describe("Embedding production security", func() {
 				Expect(rec.Code).To(Or(Equal(400), Equal(501)))
 				Expect(rec.Body.String()).NotTo(ContainSubstring("private-"))
 				Expect(rec.Body.String()).NotTo(ContainSubstring("cHJpdmF0"))
-				Expect(middleware.GetTraces()).To(BeEmpty())
 			}
+		}
+		// Traces are written asynchronously; whatever lands must carry no payload.
+		Eventually(func() int { return len(middleware.GetTraces()) }).Should(Equal(len(aliases) * 3))
+		dump, err := json.Marshal(middleware.GetTraces())
+		Expect(err).NotTo(HaveOccurred())
+		for _, secret := range []string{"private-", "cHJpdmF0"} {
+			Expect(string(dump)).NotTo(ContainSubstring(secret))
 		}
 		Expect(filepath.Walk(a.ApplicationConfig().DataPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {

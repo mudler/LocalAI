@@ -919,7 +919,7 @@ func isEmbeddingRoute(path string) bool {
 }
 func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 	limit := int64(embeddingmedia.MaxBodyBytes)
-	if c.Request().ContentLength > limit {
+	if c.Request().ContentLength > limit || embeddingBodyOverflowed(c) {
 		return echo.ErrStatusRequestEntityTooLarge
 	}
 	raw, err := io.ReadAll(io.LimitReader(c.Request().Body, limit+1))
@@ -930,7 +930,7 @@ func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 		}
 		return echo.NewHTTPError(400, "invalid_embedding_request")
 	}
-	if embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
+	if embeddingBodyOverflowed(c) || embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
 		return echo.ErrStatusRequestEntityTooLarge
 	}
 	items, structured, err := schema.ParseEmbeddingRequest(raw)
