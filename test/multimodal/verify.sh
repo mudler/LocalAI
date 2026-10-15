@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
-if [[ $# != 1 || ( $1 != inventory && $1 != wire && $1 != routing && $1 != contracts && $1 != acquisition ) ]]; then
-    echo 'usage: bash test/multimodal/verify.sh inventory|wire|routing|contracts|acquisition' >&2
+if [[ $# != 1 || ( $1 != inventory && $1 != wire && $1 != routing && $1 != contracts && $1 != acquisition && $1 != http ) ]]; then
+    echo 'usage: bash test/multimodal/verify.sh inventory|wire|routing|contracts|acquisition|http' >&2
     exit 2
 fi
 export PYTHONDONTWRITEBYTECODE=1
+if [[ $1 == http ]]; then
+    exec bash test/multimodal/verify-http.sh
+fi
 if [[ $1 == acquisition ]]; then
     exec bash test/multimodal/verify-acquisition.sh
 fi
