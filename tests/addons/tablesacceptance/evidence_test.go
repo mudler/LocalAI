@@ -27,9 +27,9 @@ func TestEvidenceManifest(t *testing.T) {
 	}
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
-	path := os.Getenv("TABLES_ACCEPTANCE_EVIDENCE")
-	if path == "" {
-		path = filepath.Join(root, ".cache/addons/tables-acceptance-evidence.json")
+	path, err := evidenceLocation(os.Getenv("TABLES_ACCEPTANCE_EVIDENCE"), root)
+	if err != nil {
+		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -144,5 +144,23 @@ func TestEvidenceManifest(t *testing.T) {
 	}
 	if len(want) == 0 {
 		t.Error("the inventory has no Go case")
+	}
+}
+
+// A relative evidence path resolves against the package directory the test
+// binary runs in, which once left a stale manifest inside the tree. The suite
+// refuses it, whatever the writer or the checker.
+func TestEvidencePathMustBeAbsolute(t *testing.T) {
+	if _, err := evidenceLocation(".cache/addons/tables-acceptance-evidence.json", "/repo"); err == nil {
+		t.Fatal("a relative evidence path must be refused")
+	}
+	if _, err := evidenceLocation("../evidence.json", "/repo"); err == nil {
+		t.Fatal("a parent-relative evidence path must be refused")
+	}
+	if p, err := evidenceLocation("", "/repo"); err != nil || p != "/repo/.cache/addons/tables-acceptance-evidence.json" {
+		t.Fatalf("the default is under the repository cache: %q %v", p, err)
+	}
+	if p, err := evidenceLocation("/work/evidence.json", "/repo"); err != nil || p != "/work/evidence.json" {
+		t.Fatalf("an absolute path is used as given: %q %v", p, err)
 	}
 }

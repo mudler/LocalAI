@@ -66,6 +66,8 @@ func run(dir string, env []string, name string, args ...string) {
 var _ = BeforeSuite(func() {
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot = filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+	_, err := evidenceLocation(os.Getenv("TABLES_ACCEPTANCE_EVIDENCE"), repoRoot)
+	Expect(err).NotTo(HaveOccurred())
 	scratch, err := os.MkdirTemp("", "tables-acceptance-bin-*")
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
@@ -178,10 +180,24 @@ func sanitize(s string) string {
 
 // evidencePath is where the suite writes the acceptance evidence.
 func evidencePath() string {
-	if p := os.Getenv("TABLES_ACCEPTANCE_EVIDENCE"); p != "" {
-		return p
+	p, err := evidenceLocation(os.Getenv("TABLES_ACCEPTANCE_EVIDENCE"), repoRoot)
+	if err != nil {
+		panic(err)
 	}
-	return filepath.Join(repoRoot, ".cache/addons/tables-acceptance-evidence.json")
+	return p
+}
+
+// evidenceLocation resolves where the manifest goes. A relative path would
+// resolve against the package directory of the test binary and leave the
+// manifest inside the tree, so it is refused.
+func evidenceLocation(env, root string) (string, error) {
+	if env == "" {
+		return filepath.Join(root, ".cache/addons/tables-acceptance-evidence.json"), nil
+	}
+	if !filepath.IsAbs(env) {
+		return "", fmt.Errorf("TABLES_ACCEPTANCE_EVIDENCE must be an absolute path, got %q", env)
+	}
+	return env, nil
 }
 
 type evidenceCase struct {
