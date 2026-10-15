@@ -37,6 +37,23 @@ func rowCount(r *rowsRig) int {
 var _ = Describe("Tables confirmed row mutations", func() {
 	ctx := context.Background()
 
+	It("leaves no pending line for a change the add-on refused, so the same ID applies the corrected request", func() {
+		r := newRowsRig(store.Options{})
+		r.must(store.SchemaChange{Kind: store.KindColumnAdd, Table: "People", Column: "Role", Type: "text", Required: true})
+		const op = "refused-then-fixed"
+		bad := store.RowChange{ResourceID: idA, Table: "People", Kind: store.KindRowInsert, Rows: rowsOf(map[string]any{"Name": "no role"})}
+		_, e := r.s.ApplyRows(ctx, bad, r.rev, op)
+		Expect(e).To(MatchError(store.ErrRowConstraint))
+		got, e := r.s.Receipt(ctx, op)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.State).To(Equal(contract.ReceiptUnknown), "a refused change leaves no ledger line, not even a pending one")
+		good := store.RowChange{ResourceID: idA, Table: "People", Kind: store.KindRowInsert, Rows: rowsOf(map[string]any{"Name": "ok", "Role": "dev"})}
+		rc, e := r.s.ApplyRows(ctx, good, r.rev, op)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+		Expect(rowCount(r)).To(Equal(1))
+	})
+
 	It("inserts bound rows atomically with defaults, required and unique checks", func() {
 		r := newRowsRig(store.Options{})
 		r.must(store.SchemaChange{Kind: store.KindColumnAdd, Table: "People", Column: "Email", Type: "text", Unique: true})
