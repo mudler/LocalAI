@@ -133,8 +133,8 @@ var _ = Describe("Invalid-request refusals of the add-on", func() {
 				Expect(errors.Is(e, ErrConflict)).To(BeFalse(), name)
 			}
 		},
-		Entry("400", http.StatusBadRequest),
-		Entry("422", http.StatusUnprocessableEntity),
+		Entry("an HTTP 400 answer", http.StatusBadRequest),
+		Entry("an HTTP 422 answer", http.StatusUnprocessableEntity),
 	)
 	It("keeps a bounded, printable reason and nothing else of the body", func() {
 		c := refusing(http.StatusBadRequest, "secret-looking "+strings.Repeat("x", 4096)+"\x00\n")

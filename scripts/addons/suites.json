@@ -307,7 +307,11 @@
       "reports stopped, running, failed, starting and running again across a crash and a restart",
       "keeps reporting failed once the restart budget is exhausted",
       "creates one private data directory per addon and passes its path in the startup object",
-      "gives no data directory without a data root and refuses an unsafe root or addon ID"
+      "gives no data directory without a data root and refuses an unsafe root or addon ID",
+      "an HTTP 400 answer",
+      "an HTTP 422 answer",
+      "keeps a bounded, printable reason and nothing else of the body",
+      "leaves 503, 500 and 404 as outages"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
@@ -381,6 +385,17 @@
       "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
       "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
       "denies private relays without host resolution and admission",
+      "serves declared assets of the current enabled generation by package digest only",
+      "allows only an exact declared tool name and fails closed otherwise",
+      "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "denies a repeated key at any depth however it is spelled",
+      "denies arguments that are not exactly one object",
+      "separates a denial from an unavailable declaration source",
+      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
+      "is the typed invalid request on the owner for a read, never an outage",
+      "is the typed invalid request on the owner for a proposal call",
+      "is the typed invalid request on the owner for a json relay",
+      "is the same typed answer from a forwarding frontend",
       "stores a proposal from an API key and lets only the proposer's browser session confirm it",
       "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
       "denies sharing and deletion proposals and an unauthenticated caller",
@@ -433,7 +448,6 @@
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
       "documents the management actions and every emitted field of the installed view",
-      "serves declared assets of the current enabled generation by package digest only",
       "serves the declared files of the current package through every frontend with immutable headers",
       "lists the same URLs the route serves, and only for an enabled addon",
       "denies every other path, digest, addon and credential form with one answer and no immutable caching",
@@ -441,12 +455,6 @@
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
-      "allows only an exact declared tool name and fails closed otherwise",
-      "never contacts the add-on for an undeclared tool and still serves a declared one",
-      "denies a repeated key at any depth however it is spelled",
-      "denies arguments that are not exactly one object",
-      "separates a denial from an unavailable declaration source",
-      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
       "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
       "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
@@ -455,7 +463,8 @@
       "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -511,7 +520,11 @@
           "denies a repeated key at any depth however it is spelled",
           "denies arguments that are not exactly one object",
           "separates a denial from an unavailable declaration source",
-          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key"
+          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
+          "is the typed invalid request on the owner for a read, never an outage",
+          "is the typed invalid request on the owner for a proposal call",
+          "is the typed invalid request on the owner for a json relay",
+          "is the same typed answer from a forwarding frontend"
         ]
       },
       {
@@ -584,7 +597,8 @@
           "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
         ]
       }
     ]
@@ -718,7 +732,9 @@
       "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
       "forgets the records of one add-on and no other",
       "maps an owner on a restore to a local-owner store only when nothing named is in it",
-      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
+      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade",
+      "refuses a proposal whose preview the add-on refused, storing nothing",
+      "settles a confirmation the add-on refused as rejected, never as an unknown outcome"
     ],
     "report": ".cache/addons/logs/policy.json"
   },
@@ -829,6 +845,42 @@
       "answers the same typed outage for a resolution whoever proposed the operation",
       "returns the applied proposal when the owner cannot read it back after a successful apply",
       "does not show another user's blocking operation in a proposal view",
+      "denies a proposal for an undeclared tool before any preview and stores nothing",
+      "denies a proposal that names a tool when no tool source is installed",
+      "rechecks the stored tool at confirmation and never applies a withdrawn tool",
+      "denies a proposal whose arguments repeat a key and stores nothing",
+      "reports an unavailable declaration source as unavailable, never as a denial",
+      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
+      "reserves a create proposal as a pending resource that nobody can reach",
+      "commits the reservation on confirmation and makes the proposer the private owner",
+      "abandons the reservation when a create proposal is cancelled or expires",
+      "abandons the reservation when the addon rejects the creation",
+      "keeps a lost create reply pending and unknown and settles it by receipt",
+      "abandons an unknown create only when the addon confirms the backing is absent",
+      "settles reservations at restart by asking the addon and keeps those of live proposals",
+      "bounds concurrent create proposals by the pending quota",
+      "lets only the proposer confirm, cancel or read a create proposal",
+      "denies a create proposal when creation authority is revoked before confirmation",
+      "denies a create proposal for an undeclared tool or an existing resource without reserving",
+      "does not let reconcile drop the reservation of a creation in flight",
+      "commits the reservation at recovery when the crash came after the receipt was stored",
+      "never reads an add-on that cannot answer as a backing that is gone",
+      "accepts the explicit answer of the declared existence tool, true or false",
+      "holds the resources of one add-on and leaves another add-on alone",
+      "cancels admitted work and reports a drain that did not finish",
+      "restores grants through the account directory and the lowerings since the backup, never beyond them",
+      "keeps a bounded durable log of lowered access",
+      "keeps a revocation however many later lowerings of another person follow",
+      "restores the data but no access when the history may have lost a lowering",
+      "reads a store that is full of lowerings as one whose history may be cut",
+      "applies a lowering made after the export whatever time the backup is given",
+      "refuses a change that was authorized just before the hold began",
+      "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
+      "forgets the records of one add-on and no other",
+      "maps an owner on a restore to a local-owner store only when nothing named is in it",
+      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade",
+      "refuses a proposal whose preview the add-on refused, storing nothing",
+      "settles a confirmation the add-on refused as rejected, never as an unknown outcome",
       "stores a proposal from an API key and lets only the proposer's browser session confirm it",
       "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
       "denies sharing and deletion proposals and an unauthenticated caller",
@@ -888,49 +940,16 @@
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
-      "denies a proposal for an undeclared tool before any preview and stores nothing",
-      "denies a proposal that names a tool when no tool source is installed",
-      "rechecks the stored tool at confirmation and never applies a withdrawn tool",
-      "denies a proposal whose arguments repeat a key and stores nothing",
-      "reports an unavailable declaration source as unavailable, never as a denial",
-      "does not apply at confirmation while the declaration source is unavailable, and applies once it recovers",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-      "reserves a create proposal as a pending resource that nobody can reach",
-      "commits the reservation on confirmation and makes the proposer the private owner",
-      "abandons the reservation when a create proposal is cancelled or expires",
-      "abandons the reservation when the addon rejects the creation",
-      "keeps a lost create reply pending and unknown and settles it by receipt",
-      "abandons an unknown create only when the addon confirms the backing is absent",
-      "settles reservations at restart by asking the addon and keeps those of live proposals",
-      "bounds concurrent create proposals by the pending quota",
-      "lets only the proposer confirm, cancel or read a create proposal",
-      "denies a create proposal when creation authority is revoked before confirmation",
-      "denies a create proposal for an undeclared tool or an existing resource without reserving",
-      "does not let reconcile drop the reservation of a creation in flight",
-      "commits the reservation at recovery when the crash came after the receipt was stored",
       "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
-      "never reads an add-on that cannot answer as a backing that is gone",
-      "accepts the explicit answer of the declared existence tool, true or false",
-      "holds the resources of one add-on and leaves another add-on alone",
-      "cancels admitted work and reports a drain that did not finish",
-      "restores grants through the account directory and the lowerings since the backup, never beyond them",
-      "keeps a bounded durable log of lowered access",
-      "keeps a revocation however many later lowerings of another person follow",
-      "restores the data but no access when the history may have lost a lowering",
-      "reads a store that is full of lowerings as one whose history may be cut",
-      "applies a lowering made after the export whatever time the backup is given",
-      "refuses a change that was authorized just before the hold began",
-      "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
-      "forgets the records of one add-on and no other",
-      "maps an owner on a restore to a local-owner store only when nothing named is in it",
-      "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade",
       "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
       "checks only for an administrator's own browser session, and applies nothing",
       "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
       "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
     ],
     "report": ".cache/addons/logs/proposals.json",
     "reports": [
@@ -1050,7 +1069,9 @@
           "cancels a pending proposal and leaves an executing one outcome-unknown after a restore",
           "forgets the records of one add-on and no other",
           "maps an owner on a restore to a local-owner store only when nothing named is in it",
-          "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade"
+          "migrates the ownership of a stopped store with a backup and an explicit mapping and refuses a populated downgrade",
+          "refuses a proposal whose preview the add-on refused, storing nothing",
+          "settles a confirmation the add-on refused as rejected, never as an unknown outcome"
         ]
       },
       {
@@ -1123,7 +1144,8 @@
           "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
         ]
       }
     ]
@@ -1198,6 +1220,11 @@
       "never serves incomplete, short, long or failed transfers and removes their partial bytes",
       "streams ingestion and download without buffering the whole file",
       "rejects an output declared larger than one artifact may be before reading it",
+      "never opens an output for a request that names a tool no source declares",
+      "denies an output request whose arguments repeat a key and never opens the output",
+      "reports an unavailable declaration source as unavailable and never opens the output",
+      "shortens the lifetime and keeps the bounds consistent, and zero keeps the defaults",
+      "fails the artifact with a fixed reason that says it was refused, not that the add-on is down",
       "serves only declared installed generation assets and rejects traversal",
       "fails closed without current identity or resource policy and reports the original ID of an unknown mutation outcome",
       "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden",
@@ -1241,6 +1268,17 @@
       "adopts read outputs as private artifacts inside admission and replaces a forged resource identity",
       "refuses at ingest a file result larger than the relay file bound so nothing unservable is staged",
       "denies private relays without host resolution and admission",
+      "serves declared assets of the current enabled generation by package digest only",
+      "allows only an exact declared tool name and fails closed otherwise",
+      "never contacts the add-on for an undeclared tool and still serves a declared one",
+      "denies a repeated key at any depth however it is spelled",
+      "denies arguments that are not exactly one object",
+      "separates a denial from an unavailable declaration source",
+      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
+      "is the typed invalid request on the owner for a read, never an outage",
+      "is the typed invalid request on the owner for a proposal call",
+      "is the typed invalid request on the owner for a json relay",
+      "is the same typed answer from a forwarding frontend",
       "stores a proposal from an API key and lets only the proposer's browser session confirm it",
       "cancels a proposal from the same chain and never lets typed dispatch or relay confirm",
       "denies sharing and deletion proposals and an unauthenticated caller",
@@ -1293,7 +1331,6 @@
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
       "documents the management actions and every emitted field of the installed view",
-      "serves declared assets of the current enabled generation by package digest only",
       "serves the declared files of the current package through every frontend with immutable headers",
       "lists the same URLs the route serves, and only for an enabled addon",
       "denies every other path, digest, addon and credential form with one answer and no immutable caching",
@@ -1301,15 +1338,6 @@
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
-      "never opens an output for a request that names a tool no source declares",
-      "denies an output request whose arguments repeat a key and never opens the output",
-      "reports an unavailable declaration source as unavailable and never opens the output",
-      "allows only an exact declared tool name and fails closed otherwise",
-      "never contacts the add-on for an undeclared tool and still serves a declared one",
-      "denies a repeated key at any depth however it is spelled",
-      "denies arguments that are not exactly one object",
-      "separates a denial from an unavailable declaration source",
-      "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
       "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
       "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
@@ -1318,7 +1346,8 @@
       "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -1359,7 +1388,9 @@
           "rejects an output declared larger than one artifact may be before reading it",
           "never opens an output for a request that names a tool no source declares",
           "denies an output request whose arguments repeat a key and never opens the output",
-          "reports an unavailable declaration source as unavailable and never opens the output"
+          "reports an unavailable declaration source as unavailable and never opens the output",
+          "shortens the lifetime and keeps the bounds consistent, and zero keeps the defaults",
+          "fails the artifact with a fixed reason that says it was refused, not that the add-on is down"
         ]
       },
       {
@@ -1414,7 +1445,11 @@
           "denies a repeated key at any depth however it is spelled",
           "denies arguments that are not exactly one object",
           "separates a denial from an unavailable declaration source",
-          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key"
+          "answers 503 and never contacts the add-on when the source is unavailable or the arguments repeat a key",
+          "is the typed invalid request on the owner for a read, never an outage",
+          "is the typed invalid request on the owner for a proposal call",
+          "is the typed invalid request on the owner for a json relay",
+          "is the same typed answer from a forwarding frontend"
         ]
       },
       {
@@ -1487,7 +1522,8 @@
           "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
         ]
       }
     ]
@@ -1545,6 +1581,7 @@
       "derives display fields, the main page and the icon URL from the verified manifest only",
       "bounds the tool summary and coerces unknown process states to failed",
       "shows controls and the management link only to administrators and never leaks owner details",
+      "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
       "denies enable and disable for a stale generation without recording anything",
       "lists apps by visibility and serves an icon only for a visible app at its generation",
       "cancels status lookup while a lifecycle writer holds the journal lock",
@@ -1570,6 +1607,22 @@
       "stops at the time bound and reports a truncated size",
       "does not keep a result cut short by the caller",
       "is what the installed view reports for the data directory",
+      "resolves a package for the current enabled generation and digest only",
+      "answers from the current installed manifest only and follows a generation change",
+      "reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade",
+      "refuses a second operation ID for the same transition, in flight or done, and applies it once",
+      "runs concurrent requests with one operation ID once and gives each the same answer",
+      "serializes conflicting upgrades by the installed digest and refuses the loser without a record",
+      "refuses a candidate that is not the one the library resolves now",
+      "refuses an upgrade to the digest that is already installed",
+      "rechecks compatibility at execution and refuses an incompatible candidate",
+      "selects a newer immutable version and treats a rewritten version as an integrity error",
+      "keeps the last good generation when the candidate cannot be staged",
+      "never switches the library or channel, and a failed check is never up to date",
+      "lets an administrator refresh and everyone with the feature read a redacted status",
+      "shows the pending update in the apps list from the cache only",
+      "does not accept pins without an update checker or on another action",
+      "keeps the unpinned typed upgrade of an earlier release working",
       "registers only ready generation bound service headless and UI capabilities",
       "rejects forged registration nonloopback and stale incarnation handshakes",
       "bounds readiness and handles exit during start and stop",
@@ -1593,6 +1646,12 @@
       "bounds output streams cancellation deadlines and stop admission",
       "tells a 409 conflict of the add-on from an outage",
       "withdraws and initiates every live slot before a cleanup timeout",
+      "creates one private data directory per addon and passes its path in the startup object",
+      "gives no data directory without a data root and refuses an unsafe root or addon ID",
+      "an HTTP 400 answer",
+      "an HTTP 422 answer",
+      "keeps a bounded, printable reason and nothing else of the body",
+      "leaves 503, 500 and 404 as outages",
       "rejects anonymous and forged forwarding authority through real authentication",
       "lets callers through only when the deployment selected local-owner mode",
       "keeps authentication, the feature gate and administration when accounts exist",
@@ -1645,8 +1704,6 @@
       "upgrades an installed addon through the typed action and keeps its earlier generation",
       "reports a lost source change as an unknown outcome and a lost read as unavailable",
       "documents the management actions and every emitted field of the installed view",
-      "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
-      "resolves a package for the current enabled generation and digest only",
       "serves the declared files of the current package through every frontend with immutable headers",
       "lists the same URLs the route serves, and only for an enabled addon",
       "denies every other path, digest, addon and credential form with one answer and no immutable caching",
@@ -1654,32 +1711,16 @@
       "withdraws the code the moment the addon is disabled, uninstalled or replaced, even for a page that is still open",
       "refuses a declared file that is not a regular file of the package",
       "documents the asset route and its binary response in the Swagger spec",
-      "answers from the current installed manifest only and follows a generation change",
       "gives the same 403 on the owner and on a forwarding frontend and never contacts the add-on",
-      "creates one private data directory per addon and passes its path in the startup object",
-      "gives no data directory without a data root and refuses an unsafe root or addon ID",
       "lists the caller's own pending proposals the same from the owner and every forwarding frontend",
-      "reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade",
-      "refuses a second operation ID for the same transition, in flight or done, and applies it once",
-      "runs concurrent requests with one operation ID once and gives each the same answer",
-      "serializes conflicting upgrades by the installed digest and refuses the loser without a record",
-      "refuses a candidate that is not the one the library resolves now",
-      "refuses an upgrade to the digest that is already installed",
-      "rechecks compatibility at execution and refuses an incompatible candidate",
-      "selects a newer immutable version and treats a rewritten version as an integrity error",
-      "keeps the last good generation when the candidate cannot be staged",
-      "never switches the library or channel, and a failed check is never up to date",
-      "lets an administrator refresh and everyone with the feature read a redacted status",
-      "shows the pending update in the apps list from the cache only",
-      "does not accept pins without an update checker or on another action",
-      "keeps the unpinned typed upgrade of an earlier release working",
       "gives every caller with the feature the same status from every frontend, redacted for non-administrators",
       "checks only for an administrator's own browser session, and applies nothing",
       "upgrades only to the checked candidate, with the same typed refusals from every frontend, and never twice",
       "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
       "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
       "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-      "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+      "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+      "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -1766,7 +1807,11 @@
           "tells a 409 conflict of the add-on from an outage",
           "withdraws and initiates every live slot before a cleanup timeout",
           "creates one private data directory per addon and passes its path in the startup object",
-          "gives no data directory without a data root and refuses an unsafe root or addon ID"
+          "gives no data directory without a data root and refuses an unsafe root or addon ID",
+          "an HTTP 400 answer",
+          "an HTTP 422 answer",
+          "keeps a bounded, printable reason and nothing else of the body",
+          "leaves 503, 500 and 404 as outages"
         ]
       },
       {
@@ -1839,7 +1884,8 @@
           "runs two concurrent upgrades from two frontends once: the same ID shares the answer, another ID is a conflict",
           "refuses an incompatible candidate and a library that cannot be read, with a typed answer",
           "reports a lost upgrade as an unknown outcome with its original operation, and a lost status read or check as plainly unavailable",
-          "keeps the update actions out of the tools and names every field of the status in the Swagger spec"
+          "keeps the update actions out of the tools and names every field of the status in the Swagger spec",
+          "answers an add-on's invalid-request refusal as a typed 400 from the owner and from a forwarding frontend"
         ]
       }
     ]
@@ -2160,7 +2206,8 @@
           "records the current format of a new store and migrates nothing",
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
-          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
         ]
       },
       {
@@ -2247,6 +2294,19 @@
       "reports an unknown database and creates nothing for it",
       "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
       "encodes its receipts so the host can read them",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+      "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
       "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
       "creates a database under the host-assigned ID and lists it only for people who may read it",
       "drops the reservation when the addon refuses the name, and leaves no database",
@@ -2268,19 +2328,7 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota",
-      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
-      "prefixes text cells and labels that a spreadsheet would run, never numbers",
-      "honours columns, the row identifier column, filter, sort and the row limit of the query",
-      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
-      "streams a large table row by row with bounded memory",
-      "fails cleanly past the row or byte bound and keeps the bound finite by default",
-      "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads",
-      "records the current format of a new store and migrates nothing",
-      "migrates every database in its own transaction, records the version last and repeats as a no-op",
-      "leaves a database whose step fails exactly as it was and resumes on the next run",
-      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
     ]
   },
   "tables-schema": {
@@ -2380,7 +2428,8 @@
           "records the current format of a new store and migrates nothing",
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
-          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
         ]
       },
       {
@@ -2467,6 +2516,19 @@
       "reports an unknown database and creates nothing for it",
       "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
       "encodes its receipts so the host can read them",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+      "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
       "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
       "creates a database under the host-assigned ID and lists it only for people who may read it",
       "drops the reservation when the addon refuses the name, and leaves no database",
@@ -2488,19 +2550,7 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota",
-      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
-      "prefixes text cells and labels that a spreadsheet would run, never numbers",
-      "honours columns, the row identifier column, filter, sort and the row limit of the query",
-      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
-      "streams a large table row by row with bounded memory",
-      "fails cleanly past the row or byte bound and keeps the bound finite by default",
-      "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads",
-      "records the current format of a new store and migrates nothing",
-      "migrates every database in its own transaction, records the version last and repeats as a no-op",
-      "leaves a database whose step fails exactly as it was and resumes on the next run",
-      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
     ]
   },
   "tables-rows": {
@@ -2600,7 +2650,8 @@
           "records the current format of a new store and migrates nothing",
           "migrates every database in its own transaction, records the version last and repeats as a no-op",
           "leaves a database whose step fails exactly as it was and resumes on the next run",
-          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+          "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+          "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request"
         ]
       },
       {
@@ -2687,6 +2738,19 @@
       "reports an unknown database and creates nothing for it",
       "honours the busy timeout and the per-operation deadline, then succeeds once the lock is gone",
       "encodes its receipts so the host can read them",
+      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
+      "prefixes text cells and labels that a spreadsheet would run, never numbers",
+      "honours columns, the row identifier column, filter, sort and the row limit of the query",
+      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
+      "streams a large table row by row with bounded memory",
+      "fails cleanly past the row or byte bound and keeps the bound finite by default",
+      "stops on cancellation, on its deadline and on a failing destination, and reports each",
+      "does not change the database it reads",
+      "records the current format of a new store and migrates nothing",
+      "migrates every database in its own transaction, records the version last and repeats as a no-op",
+      "leaves a database whose step fails exactly as it was and resumes on the next run",
+      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing",
+      "leaves no pending line for a change the add-on refused, so the same ID applies the corrected request",
       "starts the real executable through the authenticated handshake and refuses unauthenticated callers",
       "creates a database under the host-assigned ID and lists it only for people who may read it",
       "drops the reservation when the addon refuses the name, and leaves no database",
@@ -2708,19 +2772,7 @@
       "offers the manifest tools to a permitted user and nothing to a user without the feature or after revocation",
       "stores every change as a pending proposal and applies it only on the proposer's own session, exactly once",
       "keeps the roles of the host for tool calls and rejects forged fields before the owner sees them",
-      "lists at most the bound of pending proposals and refuses more than the user's quota",
-      "writes a header and one record per row with RFC 4180 quoting, UTF-8 and the documented value forms",
-      "prefixes text cells and labels that a spreadsheet would run, never numbers",
-      "honours columns, the row identifier column, filter, sort and the row limit of the query",
-      "reads one snapshot: writes that commit while the export streams are not in it, and are not blocked by it",
-      "streams a large table row by row with bounded memory",
-      "fails cleanly past the row or byte bound and keeps the bound finite by default",
-      "stops on cancellation, on its deadline and on a failing destination, and reports each",
-      "does not change the database it reads",
-      "records the current format of a new store and migrates nothing",
-      "migrates every database in its own transaction, records the version last and repeats as a no-op",
-      "leaves a database whose step fails exactly as it was and resumes on the next run",
-      "refuses data in a newer format, a downgrade and a version it has no path to, and writes nothing"
+      "lists at most the bound of pending proposals and refuses more than the user's quota"
     ]
   },
   "tables-tools": {
@@ -2789,7 +2841,9 @@
       "proposals: an expired proposal is disabled in the card and the host refuses a late confirmation",
       "proposals: forged fields and approval names in a tool call create no proposal",
       "proposals: a user whose add-ons feature is withdrawn sees no data and the host answers no",
-      "proposals: logging out clears the card and leaves no data in the stored conversation"
+      "proposals: logging out clears the card and leaves no data in the stored conversation",
+      "go: gives the model an error result that says the request was invalid, for a read and for a change",
+      "go: keeps an outage an error, never the refused result"
     ]
   },
   "tables-admin": {
@@ -3287,6 +3341,11 @@
       "go: exports a CSV through a frontend and serves the same bytes from every node to its requester only",
       "go: stops the downloads of a person whose access to the database was revoked, on every node, and keeps the owner's",
       "go: denies downloads while the add-on is disabled and serves a complete file again when it is enabled",
+      "go: answers the refusal as invalid_request with status 400 on every route and node and changes nothing",
+      "go: does not consume the operation ID of a refused change",
+      "go: denies an expired file identically from every node and leaves the data and the backups untouched",
+      "go: withdraws a transfer held in flight when the add-on is disabled and leaves no downloadable file",
+      "go: reports a change that committed and lost its answer as unknown, finds it by receipt and replays the same receipt once",
       "tables-acceptance: a member opens the databases and a grid through each non-owner frontend and the module comes from the owner by digest",
       "tables-acceptance: an approval card from chat on one frontend applies once and the row shows on the other frontend",
       "tables-acceptance: deep links keep the proxy path prefix on a non-owner frontend and survive a reload",
