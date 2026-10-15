@@ -16,6 +16,8 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // These cases all fail before a backend is loaded, so no model loader is
@@ -52,26 +54,47 @@ var _ = Describe("slot cache endpoints", func() {
 		Expect(SlotCacheErrorForTest(plain)).To(Equal(plain))
 	})
 
+	It("answers 404 with a fixed text for an unknown ID", func() {
+		err := SlotCacheErrorForTest(status.Error(codes.NotFound, "/srv/slots/abc: secret path detail"))
+		var he *echo.HTTPError
+		Expect(errors.As(err, &he)).To(BeTrue())
+		Expect(he.Code).To(Equal(http.StatusNotFound))
+		Expect(he.Message).To(Equal("no saved state with this id for this model"))
+	})
+
+	It("keeps the model identity mismatch off the 404 text", func() {
+		err := SlotCacheErrorForTest(status.Error(codes.NotFound, "llama-cpp: model identity mismatch: loaded \"a\", requested \"b\""))
+		var he *echo.HTTPError
+		Expect(errors.As(err, &he)).To(BeTrue())
+		Expect(he.Message).ToNot(Equal("no saved state with this id for this model"))
+	})
+
+	It("answers 412 when the saved file no longer matches its record", func() {
+		err := SlotCacheErrorForTest(status.Error(codes.FailedPrecondition, "the saved file does not match its record"))
+		var he *echo.HTTPError
+		Expect(errors.As(err, &he)).To(BeTrue())
+		Expect(he.Code).To(Equal(http.StatusPreconditionFailed))
+	})
+
 	handlers := map[string]func() echo.HandlerFunc{
 		"save":    func() echo.HandlerFunc { return SlotCacheSaveEndpoint(nil, nil) },
 		"restore": func() echo.HandlerFunc { return SlotCacheRestoreEndpoint(nil, nil) },
 	}
+	const goodID = "0123456789abcdef0123456789abcdef"
 
 	for name, h := range handlers {
 		Describe(name, func() {
-			It("is disabled when slot_save_path is not set", func() {
-				Expect(call(h, []string{"cache_ram:1024"}, schema.SlotCacheRequest{Filename: "a.bin"})).To(Equal(http.StatusBadRequest))
-			})
+			id := goodID
+			if name == "save" {
+				id = ""
+			}
 
-			It("rejects unsafe file names", func() {
-				opts := []string{"slot_save_path:/srv/slots"}
-				for _, f := range []string{"", ".", "..", "../a", "a/b", `a\b`, "/etc/passwd", "a\x00b", "a."} {
-					Expect(call(h, opts, schema.SlotCacheRequest{Filename: f})).To(Equal(http.StatusBadRequest), f)
-				}
+			It("is disabled when slot_save_path is not set", func() {
+				Expect(call(h, []string{"cache_ram:1024"}, schema.SlotCacheRequest{ID: id})).To(Equal(http.StatusBadRequest))
 			})
 
 			It("rejects a negative slot", func() {
-				Expect(call(h, []string{"slot_save_path:/srv/slots"}, schema.SlotCacheRequest{Filename: "a.bin", Slot: -1})).To(Equal(http.StatusBadRequest))
+				Expect(call(h, []string{"slot_save_path:/srv/slots"}, schema.SlotCacheRequest{ID: id, Slot: -1})).To(Equal(http.StatusBadRequest))
 			})
 
 			It("requires a model", func() {
@@ -82,4 +105,20 @@ var _ = Describe("slot cache endpoints", func() {
 			})
 		})
 	}
+
+	Describe("restore", func() {
+		h := handlers["restore"]
+		It("rejects an ID that is not 32 lowercase hex characters", func() {
+			opts := []string{"slot_save_path:/srv/slots"}
+			for _, id := range []string{"", ".", "..", "../a", "a/b", "prompt.bin", "0123456789ABCDEF0123456789abcdef", "0123456789abcdef", "a\x00b"} {
+				Expect(call(h, opts, schema.SlotCacheRequest{ID: id})).To(Equal(http.StatusBadRequest), id)
+			}
+		})
+	})
+
+	Describe("save", func() {
+		It("rejects a client-chosen ID", func() {
+			Expect(call(handlers["save"], []string{"slot_save_path:/srv/slots"}, schema.SlotCacheRequest{ID: goodID})).To(Equal(http.StatusBadRequest))
+		})
+	})
 })

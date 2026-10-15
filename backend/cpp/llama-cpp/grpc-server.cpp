@@ -83,6 +83,7 @@
 #include <iterator>
 #include <list>
 #include <map>
+#include <ctime>
 #include <mutex>
 #include <signal.h>
 #include <thread>
@@ -686,10 +687,21 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
             const size_t sep = opt.find(':');
             const std::string dir = (sep == std::string::npos) ? "" : opt.substr(sep + 1);
             if (!dir.empty()) {
+                // A missing directory is created with mode 0700. An existing
+                // one is left as it is, with a warning when others can read it.
+                std::string warn, derr;
+#ifdef _WIN32
                 std::error_code ec;
                 std::filesystem::create_directories(std::filesystem::u8path(dir), ec);
-                if (ec || !std::filesystem::is_directory(std::filesystem::u8path(dir))) {
-                    fprintf(stderr, "slot_save_path %s is not a usable directory, slot save/restore stays disabled\n", dir.c_str());
+                const bool dir_ok = !ec && std::filesystem::is_directory(std::filesystem::u8path(dir));
+#else
+                const bool dir_ok = llama_grpc::slot_ensure_private_dir(dir, warn, derr);
+#endif
+                if (!warn.empty()) {
+                    fprintf(stderr, "slot_save_path: %s\n", warn.c_str());
+                }
+                if (!dir_ok) {
+                    fprintf(stderr, "slot_save_path %s is not a usable directory (%s), slot save/restore stays disabled\n", dir.c_str(), derr.c_str());
                 } else {
                     params.slot_save_path = dir;
                     if (params.slot_save_path.back() != '/' && params.slot_save_path.back() != '\\') {
@@ -3746,15 +3758,38 @@ public:
         return grpc::Status::OK;
     }
 
+    // slotStatusToGrpc maps a slot cache helper status to a gRPC status.
+    static grpc::Status slotStatusToGrpc(llama_grpc::SlotStatus s, const std::string& msg) {
+        switch (s) {
+            case llama_grpc::SlotStatus::NotFound: return grpc::Status(grpc::StatusCode::NOT_FOUND, msg);
+            case llama_grpc::SlotStatus::Invalid:  return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, msg);
+            case llama_grpc::SlotStatus::Corrupt:  return grpc::Status(grpc::StatusCode::DATA_LOSS, msg);
+            default:                               return grpc::Status(grpc::StatusCode::INTERNAL, msg);
+        }
+    }
+
     // SlotCache saves or restores the prompt cache of one slot. It reuses the
     // task the llama-server /slots endpoint posts, so the file format is the
-    // same. The file name comes from the caller and is never trusted: it must
-    // be a single path component and must resolve inside slot_save_path.
+    // same. The caller never names a file. A save writes
+    // <slot_save_path>/<hash of the model identity>/<id> with an ID the backend
+    // generates, and records it in that directory's manifest.json. A restore
+    // takes an ID, looks it up in the manifest and builds the path from the
+    // manifest entry (see slot_cache.h for the checks and their limits).
     grpc::Status SlotCache(ServerContext* context, const backend::SlotCacheRequest* request, backend::SlotCacheResponse* response) override {
+#ifdef _WIN32
+        (void)context; (void)request; (void)response;
+        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "slot save/restore is not supported on Windows");
+#else
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
-        auto identity = checkModelIdentity(request);
-        if (!identity.ok()) return identity;
+        // Same rule as checkModelIdentity; written out because this request
+        // names the field model_identity, so it has no modelidentity().
+        if (!request->model_identity().empty() && !loaded_model_identity.empty() &&
+            loaded_model_identity != request->model_identity()) {
+            return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                                "llama-cpp: model identity mismatch: loaded \"" + loaded_model_identity +
+                                "\", requested \"" + request->model_identity() + "\"");
+        }
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
@@ -3763,53 +3798,115 @@ public:
                 "slot save/restore is disabled: set the slot_save_path option for this model");
         }
 
-        server_task_type type;
-        switch (request->action()) {
-            case backend::SLOT_CACHE_ACTION_SAVE:    type = SERVER_TASK_TYPE_SLOT_SAVE;    break;
-            case backend::SLOT_CACHE_ACTION_RESTORE: type = SERVER_TASK_TYPE_SLOT_RESTORE; break;
-            default:
-                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "action must be save or restore");
+        const bool is_save = request->action() == backend::SLOT_CACHE_ACTION_SAVE;
+        if (!is_save && request->action() != backend::SLOT_CACHE_ACTION_RESTORE) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "action must be save or restore");
         }
         if (request->slot() < 0) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "slot must not be negative");
         }
 
-        // llama.cpp's own check first, then ours, which also checks containment.
-        if (!fs_validate_filename(request->filename())) {
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "invalid filename");
-        }
-        std::string filepath, path_err;
-        if (!llama_grpc::resolve_slot_file(params_base.slot_save_path, request->filename(), filepath, path_err)) {
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, path_err);
+        // The identity that names the directory and is written to the manifest.
+        std::string model_id = !loaded_model_identity.empty() ? loaded_model_identity : request->model_identity();
+        if (model_id.empty()) {
+            model_id = params_base.model.path;
         }
 
-        server_task task(type);
+        std::string err, dir, id, filepath;
+        llama_grpc::SlotEntry entry;
+        if (is_save) {
+            if (!request->id().empty()) {
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "id must be empty on save: the backend issues it");
+            }
+            auto s = llama_grpc::slot_identity_dir(params_base.slot_save_path, model_id, true, dir, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            // Fail before writing a large file if the manifest is unusable.
+            std::vector<llama_grpc::SlotEntry> existing;
+            {
+                std::lock_guard<std::mutex> lock(llama_grpc::slot_cache_mutex());
+                s = llama_grpc::slot_manifest_load(dir, existing, err);
+            }
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            s = llama_grpc::slot_reserve_id(dir, id, filepath, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+        } else {
+            auto s = llama_grpc::slot_lookup_restore(params_base.slot_save_path, model_id, request->id(), entry, filepath, err);
+            if (s != llama_grpc::SlotStatus::Ok) return slotStatusToGrpc(s, err);
+            id = entry.id;
+        }
+
+        // On a failed save the reserved (empty or partial) file is removed.
+        auto drop_reserved = [&]() { if (is_save) { std::error_code rec; std::filesystem::remove(std::filesystem::u8path(filepath), rec); } };
+
+        server_task task(is_save ? SERVER_TASK_TYPE_SLOT_SAVE : SERVER_TASK_TYPE_SLOT_RESTORE);
         auto rd = ctx_server.get_response_reader();
         task.id = rd.get_new_id();
         task.slot_action.id_slot  = request->slot();
-        task.slot_action.filename = request->filename();
+        task.slot_action.filename = id;
         task.slot_action.filepath = filepath;
         rd.post_task(std::move(task));
 
         auto res = rd.next([context]() { return context->IsCancelled(); });
         if (!res) {
+            drop_reserved();
             return grpc::Status(grpc::StatusCode::CANCELLED, "slot cache request cancelled");
         }
         if (res->is_error()) {
+            drop_reserved();
             return grpc::Status(grpc::StatusCode::INTERNAL, res->to_json().dump());
         }
         auto * slot_res = dynamic_cast<server_task_result_slot_save_load *>(res.get());
         if (slot_res == nullptr) {
+            drop_reserved();
             return grpc::Status(grpc::StatusCode::INTERNAL, "unexpected result type for a slot cache task");
         }
 
+        uint64_t n_bytes = slot_res->n_bytes;
+        std::string message;
+        if (is_save) {
+            // The size is only known after llama.cpp wrote the file. Use the
+            // size on disk: restore compares against it.
+            std::error_code sec;
+            const auto on_disk = std::filesystem::file_size(std::filesystem::u8path(filepath), sec);
+            if (sec) {
+                drop_reserved();
+                return grpc::Status(grpc::StatusCode::INTERNAL, "cannot read the size of the saved file");
+            }
+            n_bytes = static_cast<uint64_t>(on_disk);
+            if (n_bytes > llama_grpc::SLOT_CACHE_MAX_FILE_BYTES) {
+                drop_reserved();
+                return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED,
+                    "the saved state is larger than the " + std::to_string(llama_grpc::SLOT_CACHE_MAX_FILE_BYTES) +
+                    " byte limit and was deleted");
+            }
+            entry.id = id;
+            entry.model_identity = model_id;
+            entry.slot = request->slot();
+            entry.n_tokens = slot_res->n_tokens;
+            entry.n_bytes = n_bytes;
+            entry.created_unix = static_cast<int64_t>(std::time(nullptr));
+            std::vector<std::string> pruned;
+            auto s = llama_grpc::slot_commit_save(dir, entry, pruned, err);
+            if (s != llama_grpc::SlotStatus::Ok) {
+                drop_reserved();
+                return slotStatusToGrpc(s, err);
+            }
+            if (!pruned.empty()) {
+                message = "pruned the oldest saved state to keep at most " +
+                          std::to_string(llama_grpc::SLOT_CACHE_MAX_ENTRIES) + ":";
+                for (const auto & p : pruned) message += " " + p;
+            }
+        }
+
         response->set_success(true);
+        response->set_message(message);
         response->set_slot(slot_res->id_slot);
-        response->set_filename(slot_res->filename);
+        response->set_id(id);
         response->set_n_tokens(slot_res->n_tokens);
-        response->set_n_bytes(slot_res->n_bytes);
+        response->set_n_bytes(n_bytes);
         response->set_duration_ms(slot_res->t_ms);
         return grpc::Status::OK;
+#endif
     }
 
     grpc::Status Detokenize(ServerContext* context, const backend::DetokenizeRequest* request, backend::DetokenizeResponse* response) override {

@@ -40,19 +40,20 @@ func callSlotCache(ctx context.Context, c slotCacheCaller, req *pb.SlotCacheRequ
 
 // newSlotCacheRequest always sends the configured model as ModelIdentity, so a
 // backend that checks it can refuse a request meant for another model.
-func newSlotCacheRequest(action pb.SlotCacheAction, slot int32, filename string, modelConfig config.ModelConfig) *pb.SlotCacheRequest {
+func newSlotCacheRequest(action pb.SlotCacheAction, slot int32, id string, modelConfig config.ModelConfig) *pb.SlotCacheRequest {
 	return &pb.SlotCacheRequest{
 		ModelIdentity: modelConfig.Model,
 		Action:        action,
 		Slot:          slot,
-		Filename:      filename,
+		Id:            id,
 	}
 }
 
 // ModelSlotCache saves or restores the prompt cache of one slot of a loaded
-// model. The caller must have validated filename (see pkg/slotcache); the
-// backend checks it again before it touches the disk.
-func ModelSlotCache(action pb.SlotCacheAction, slot int32, filename string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.SlotCacheResponse, error) {
+// model. On save id is empty and the backend issues one. On restore the caller
+// must have validated id (see pkg/slotcache); the backend checks it again and
+// accepts only an ID it issued for this model.
+func ModelSlotCache(action pb.SlotCacheAction, slot int32, id string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.SlotCacheResponse, error) {
 	name := "restore"
 	if action == pb.SlotCacheAction_SLOT_CACHE_ACTION_SAVE {
 		name = "save"
@@ -79,7 +80,7 @@ func ModelSlotCache(action pb.SlotCacheAction, slot int32, filename string, load
 	}
 	defer trace.CancelBackendTrace(traceID)
 
-	resp, err := callSlotCache(appConfig.Context, inferenceModel, newSlotCacheRequest(action, slot, filename, modelConfig))
+	resp, err := callSlotCache(appConfig.Context, inferenceModel, newSlotCacheRequest(action, slot, id, modelConfig))
 
 	if appConfig.EnableTracing {
 		errStr := ""
@@ -93,9 +94,9 @@ func ModelSlotCache(action pb.SlotCacheAction, slot int32, filename string, load
 			Type:      trace.BackendTraceTokenize,
 			ModelName: modelConfig.Name,
 			Backend:   modelConfig.Backend,
-			Summary:   fmt.Sprintf("slot cache %s %s", name, filename),
+			Summary:   fmt.Sprintf("slot cache %s", name),
 			Error:     errStr,
-			Data:      map[string]any{"action": name, "slot": slot, "filename": filename},
+			Data:      map[string]any{"action": name, "slot": slot, "id": id},
 		})
 	}
 	if err != nil {
@@ -109,7 +110,8 @@ func ModelSlotCache(action pb.SlotCacheAction, slot int32, filename string, load
 		Model:      modelConfig.Name,
 		Action:     name,
 		Slot:       resp.GetSlot(),
-		Filename:   resp.GetFilename(),
+		ID:         resp.GetId(),
+		Message:    resp.GetMessage(),
 		NTokens:    resp.GetNTokens(),
 		NBytes:     resp.GetNBytes(),
 		DurationMS: resp.GetDurationMs(),

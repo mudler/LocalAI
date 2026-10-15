@@ -592,7 +592,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
 | `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
 | `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `8192` MiB (llama.cpp default). `-1` removes the limit. `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
-| `slot_save_path` | string | Directory where the slot save and restore API writes and reads prompt-cache files. Save and restore are off unless this is set. LocalAI creates the directory if it is missing. See [Saving and restoring a prompt cache](#saving-and-restoring-a-prompt-cache). | `slot_save_path:/var/lib/localai/slots` |
+| `slot_save_path` | string | Directory where the slot save and restore API writes and reads prompt-cache files. Save and restore are off unless this is set. LocalAI creates the directory with mode `0700` if it is missing. See [Saving and restoring a prompt cache](#saving-and-restoring-a-prompt-cache). | `slot_save_path:/var/lib/localai/slots` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
@@ -678,30 +678,36 @@ options:
 
 Both calls need an admin API key when authentication is on. Without `slot_save_path` they return `400`.
 
+The server chooses the name of every saved file. A save returns an `id`, and a restore takes that `id`. A client cannot pick a file name or a path.
+
 ```bash
-# Save slot 0 of the model to a file in the save directory
+# Save slot 0 of the model. The reply contains the id.
 curl http://localhost:8080/v1/slots/save \
   -H "Content-Type: application/json" \
-  -d '{"model": "my-model", "slot": 0, "filename": "assistant.bin"}'
+  -d '{"model": "my-model", "slot": 0}'
 
-# Load that file back into slot 0
+# Load that state back into slot 0
 curl http://localhost:8080/v1/slots/restore \
   -H "Content-Type: application/json" \
-  -d '{"model": "my-model", "slot": 0, "filename": "assistant.bin"}'
+  -d '{"model": "my-model", "slot": 0, "id": "0123456789abcdef0123456789abcdef"}'
 ```
 
 | Field | Description |
 |---|---|
 | `model` | Name of a `llama-cpp` model. |
-| `filename` | One file name. It must not contain `/`, `\`, `..` or a NUL byte, and it cannot be an absolute path. The file is always inside `slot_save_path`. |
 | `slot` | Slot id. Default `0`. With `parallel:N` the ids are `0` to `N-1`. |
+| `id` | Restore only. The `id` that a save returned for this model: 32 lowercase hex characters. Do not send it on save. |
 
-The reply gives the slot, the file name, the number of tokens and bytes, and the time taken in `duration_ms`.
+The save reply gives the `id`, the slot, the number of tokens and bytes, and the time taken in `duration_ms`. The `message` field lists the IDs of any older saves that were deleted to make room. The restore reply has the same fields. Neither reply contains a path on the host.
 
 Keep these points in mind:
 
-- A file is only as fresh as the last save. To change the cached prompt, save again.
-- A file holds the prompt state for the model and quantisation it came from. Do not restore it into a different model, quantisation or context size. The restore call fails if the file does not fit, but a file from another model is not always detected.
+- A client cannot choose names. The backend creates a directory for each model under `slot_save_path` (mode `0700`) and writes a `manifest.json` in it. A restore works only for an `id` in the manifest of that model. Any other `id` returns `404` with `no saved state with this id for this model`.
+- The backend keeps at most 32 saves for each model. When a save would go over that, it deletes the oldest one and lists its `id` in `message`. A save larger than 8 GiB is deleted and fails.
+- A restore also checks that the file is a plain file and has the size that was recorded at save time. A file that was replaced or cut short is refused.
+- Keep `slot_save_path` private to the user that runs LocalAI. LocalAI creates it with mode `0700` when it is missing, and writes a warning to the log when an existing directory is open to other users. The checks above cannot stop a local user who can write to the directory.
+- A saved state is only as fresh as its save. To change the cached prompt, save again and use the new `id`.
+- A saved state holds the prompt state for the model and quantisation it came from. Do not restore it into a different model, quantisation or context size. The restore call fails if the state does not fit, but a state from another model is not always detected.
 - A slot that is busy with a request is served after that request ends.
 - The API is for `llama-cpp` only. Other backends return `501`.
 

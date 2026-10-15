@@ -140,6 +140,7 @@ if(LLAMA_GRPC_BUILD_TESTS)
 
     add_executable(slot_cache_test slot_cache_test.cpp slot_cache.h)
     target_include_directories(slot_cache_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(slot_cache_test PRIVATE ${_LLAMA_COMMON_TARGET}) # vendored nlohmann/json
     target_compile_features(slot_cache_test PRIVATE cxx_std_17)
     add_test(NAME slot_cache_test COMMAND slot_cache_test)
 

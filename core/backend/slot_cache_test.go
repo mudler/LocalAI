@@ -51,16 +51,25 @@ var _ = Describe("slot cache backend call", func() {
 		Expect(got).To(Equal(want))
 	})
 
+	It("returns the issued ID and the message", func() {
+		f := &fakeSlotCache{resp: &pb.SlotCacheResponse{Success: true, Id: "0123456789abcdef0123456789abcdef", Message: "pruned x", Slot: 1, NTokens: 3, NBytes: 9}}
+		cfg := config.ModelConfig{Name: "m"}
+		resp, err := callSlotCache(context.Background(), f, newSlotCacheRequest(pb.SlotCacheAction_SLOT_CACHE_ACTION_SAVE, 1, "", cfg))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(f.got.GetId()).To(BeEmpty())
+		Expect(resp.GetId()).To(Equal("0123456789abcdef0123456789abcdef"))
+	})
+
 	It("sends the configured model as the identity", func() {
 		cfg := config.ModelConfig{Name: "alias"}
 		cfg.Model = "weights.gguf"
-		req := newSlotCacheRequest(pb.SlotCacheAction_SLOT_CACHE_ACTION_RESTORE, 2, "a.bin", cfg)
+		req := newSlotCacheRequest(pb.SlotCacheAction_SLOT_CACHE_ACTION_RESTORE, 2, "0123456789abcdef0123456789abcdef", cfg)
 		f := &fakeSlotCache{resp: &pb.SlotCacheResponse{Success: true}}
 		_, err := callSlotCache(context.Background(), f, req)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.got.GetModelIdentity()).To(Equal("weights.gguf"))
 		Expect(f.got.GetAction()).To(Equal(pb.SlotCacheAction_SLOT_CACHE_ACTION_RESTORE))
 		Expect(f.got.GetSlot()).To(Equal(int32(2)))
-		Expect(f.got.GetFilename()).To(Equal("a.bin"))
+		Expect(f.got.GetId()).To(Equal("0123456789abcdef0123456789abcdef"))
 	})
 })

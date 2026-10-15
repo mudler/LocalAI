@@ -9,14 +9,17 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/slotcache"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// SlotCacheSaveEndpoint saves the prompt cache of a model slot to a file.
-// @Summary Save a slot's prompt cache to a file.
-// @Description Writes the prompt cache (KV state) of one slot of a llama-cpp model to a file in the directory set by the model's slot_save_path option. The file name must be a single file name. Admin only.
+// SlotCacheSaveEndpoint saves the prompt cache of a model slot.
+// @Summary Save a slot's prompt cache.
+// @Description Writes the prompt cache (KV state) of one slot of a llama-cpp model under the directory set by the model's slot_save_path option, and returns an ID for it. The server issues the ID; the client cannot choose a name or a path. The server keeps at most 32 saves per model and deletes the oldest one beyond that. Admin only.
 // @Tags inference
 // @Param request body schema.SlotCacheRequest true "Request"
 // @Success 200 {object} schema.SlotCacheResponse "Response"
@@ -26,8 +29,8 @@ func SlotCacheSaveEndpoint(ml *model.ModelLoader, appConfig *config.ApplicationC
 }
 
 // SlotCacheRestoreEndpoint loads a saved prompt cache back into a model slot.
-// @Summary Restore a slot's prompt cache from a file.
-// @Description Reads a file written by the save call from the directory set by the model's slot_save_path option into one slot of a llama-cpp model. The file must come from the same model and quantisation. Admin only.
+// @Summary Restore a slot's prompt cache by ID.
+// @Description Loads the prompt cache that a save call returned an ID for into one slot of a llama-cpp model. The ID must have been issued for this model. The state is only as fresh as the save. Admin only.
 // @Tags inference
 // @Param request body schema.SlotCacheRequest true "Request"
 // @Success 200 {object} schema.SlotCacheResponse "Response"
@@ -50,19 +53,19 @@ func slotCacheEndpoint(action pb.SlotCacheAction, ml *model.ModelLoader, appConf
 		if input.Slot < 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "slot must not be negative")
 		}
-		// Refuse bad names before any backend is loaded or called.
-		if err := slotcache.ValidateFilename(input.Filename); err != nil {
+		// Refuse bad input before any backend is loaded or called.
+		if action == pb.SlotCacheAction_SLOT_CACHE_ACTION_SAVE {
+			if input.ID != "" {
+				return echo.NewHTTPError(http.StatusBadRequest, "id must not be set on save: the server issues it")
+			}
+		} else if err := slotcache.ValidateID(input.ID); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
-		dir := slotcache.DirFromOptions(cfg.Options)
-		if dir == "" {
+		if slotcache.DirFromOptions(cfg.Options) == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "slot save and restore is disabled for this model: set the slot_save_path option")
 		}
-		if _, err := slotcache.Resolve(dir, input.Filename); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		}
 
-		resp, err := backend.ModelSlotCache(action, input.Slot, input.Filename, ml, *cfg, appConfig)
+		resp, err := backend.ModelSlotCache(action, input.Slot, input.ID, ml, *cfg, appConfig)
 		if err != nil {
 			return slotCacheError(err)
 		}
@@ -70,11 +73,25 @@ func slotCacheEndpoint(action pb.SlotCacheAction, ml *model.ModelLoader, appConf
 	}
 }
 
+// errSlotNotFound is the fixed text for an ID the backend does not know.
+const errSlotNotFound = "no saved state with this id for this model"
+
 // slotCacheError turns a backend error into an HTTP error. A backend without
-// slot cache support gets 501; everything else follows mapBackendError.
+// slot cache support gets 501. NOT_FOUND gets 404 with a fixed text, so the
+// response says nothing about the disk; a model identity mismatch is not an
+// unknown ID and keeps the existing mapping. Everything else follows
+// mapBackendError.
 func slotCacheError(err error) error {
 	if errors.Is(err, backend.ErrSlotCacheUnsupported) {
 		return echo.NewHTTPError(http.StatusNotImplemented, backend.ErrSlotCacheUnsupported.Error())
+	}
+	if st, ok := status.FromError(err); ok {
+		switch {
+		case st.Code() == codes.NotFound && !grpcerrors.IsModelMismatch(err):
+			return echo.NewHTTPError(http.StatusNotFound, errSlotNotFound)
+		case st.Code() == codes.ResourceExhausted:
+			return echo.NewHTTPError(http.StatusInsufficientStorage, st.Message())
+		}
 	}
 	return mapBackendError(err)
 }

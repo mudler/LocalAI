@@ -4231,11 +4231,11 @@ const docTemplate = `{
         },
         "/v1/slots/restore": {
             "post": {
-                "description": "Reads a file written by the save call from the directory set by the model's slot_save_path option into one slot of a llama-cpp model. The file must come from the same model and quantisation. Admin only.",
+                "description": "Loads the prompt cache that a save call returned an ID for into one slot of a llama-cpp model. The ID must have been issued for this model. The state is only as fresh as the save. Admin only.",
                 "tags": [
                     "inference"
                 ],
-                "summary": "Restore a slot's prompt cache from a file.",
+                "summary": "Restore a slot's prompt cache by ID.",
                 "parameters": [
                     {
                         "description": "Request",
@@ -4259,11 +4259,11 @@ const docTemplate = `{
         },
         "/v1/slots/save": {
             "post": {
-                "description": "Writes the prompt cache (KV state) of one slot of a llama-cpp model to a file in the directory set by the model's slot_save_path option. The file name must be a single file name. Admin only.",
+                "description": "Writes the prompt cache (KV state) of one slot of a llama-cpp model under the directory set by the model's slot_save_path option, and returns an ID for it. The server issues the ID; the client cannot choose a name or a path. The server keeps at most 32 saves per model and deletes the oldest one beyond that. Admin only.",
                 "tags": [
                     "inference"
                 ],
-                "summary": "Save a slot's prompt cache to a file.",
+                "summary": "Save a slot's prompt cache.",
                 "parameters": [
                     {
                         "description": "Request",
@@ -8945,8 +8945,8 @@ const docTemplate = `{
         "schema.SlotCacheRequest": {
             "type": "object",
             "properties": {
-                "filename": {
-                    "description": "one file name, no directories",
+                "id": {
+                    "description": "restore only: an ID issued by a save for this model",
                     "type": "string"
                 },
                 "model": {
@@ -8969,7 +8969,12 @@ const docTemplate = `{
                     "description": "time the backend spent",
                     "type": "number"
                 },
-                "filename": {
+                "id": {
+                    "description": "issued by the save, sent back to restore",
+                    "type": "string"
+                },
+                "message": {
+                    "description": "for example the IDs a save pruned",
                     "type": "string"
                 },
                 "model": {
