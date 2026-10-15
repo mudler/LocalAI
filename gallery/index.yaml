@@ -2768,6 +2768,93 @@
     - filename: llama-cpp/mmproj/qwen3.8-flash-next-atomic/mmproj-Qwen3.8-Flash-Next-F16.gguf
       uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/mmproj-Qwen3.8-Flash-Next-F16.gguf
       sha256: 0e61454a76dd154a10aaa8fb1ada32615f55a13e4171014dacd06913e4aa6889
+- name: bge-small-en-v1.5-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/BAAI/bge-small-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf
+  license: mit
+  description: |
+    BGE-small-en-v1.5 is a 33M English embedding model for semantic search
+    and retrieval. This F16 GGUF build produces 384-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 512
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-small-en-v1.5-f16.gguf
+  files:
+    - filename: bge-small-en-v1.5-f16.gguf
+      uri: https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/bge-small-en-v1.5-f16.gguf
+      sha256: f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999
+  variants:
+    - model: bge-small-en-v1.5-q8-0
+    - model: bge-small-en-v1.5-q4-k-m
+- name: bge-small-en-v1.5-q8-0
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/BAAI/bge-small-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf
+  license: mit
+  description: |
+    BGE-small-en-v1.5 is a 33M English embedding model for semantic search
+    and retrieval. This Q8_0 GGUF build produces 384-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 512
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-small-en-v1.5-q8_0.gguf
+  files:
+    - filename: bge-small-en-v1.5-q8_0.gguf
+      uri: https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/bge-small-en-v1.5-q8_0.gguf
+      sha256: ec38e8da142596baa913124ae50550de284b6916bf59577ef2f0cb9660c2f514
+- name: bge-small-en-v1.5-q4-k-m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/BAAI/bge-small-en-v1.5
+    - https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf
+  license: mit
+  description: |
+    BGE-small-en-v1.5 is a 33M English embedding model for semantic search
+    and retrieval. This Q4_K_M GGUF build produces 384-dimensional embeddings
+    with a 512-token context. For retrieval, prefix queries with
+    "Represent this sentence for searching relevant passages: "; leave passages unprefixed.
+  tags:
+    - embeddings
+    - gguf
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    context_size: 512
+    options:
+      - pooling:cls
+    parameters:
+      model: bge-small-en-v1.5-q4_k_m.gguf
+  files:
+    - filename: bge-small-en-v1.5-q4_k_m.gguf
+      uri: https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/d32f8c040ea3b516330eeb75b72bcc2d3a780ab7/bge-small-en-v1.5-q4_k_m.gguf
+      sha256: 363a0a4855dff6c653e06efe3209157debcf7f74e52d0d7c71e2747cd523043e
 - &wemm-embedding-2b
   name: wemm-embedding-2b
   variants:
