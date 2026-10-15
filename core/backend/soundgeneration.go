@@ -86,6 +86,17 @@ func SoundGeneration(
 	}
 	if caption != "" {
 		req.Caption = &caption
+		// Studio supplies a caption; audio.cpp's YuE2 route calls it style.
+		// Copy before adding the default so caller-owned parameters stay intact.
+		if modelConfig.Backend == "audio-cpp" {
+			if _, explicit := params["style"]; !explicit {
+				req.Params = make(map[string]string, len(params)+1)
+				for key, value := range params {
+					req.Params[key] = value
+				}
+				req.Params["style"] = caption
+			}
+		}
 	}
 	if lyrics != "" {
 		req.Lyrics = &lyrics
