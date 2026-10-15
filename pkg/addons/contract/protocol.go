@@ -4,12 +4,18 @@ package contract
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"strings"
 	"time"
 )
+
+// ErrRefused is the add-on's own refusal of a request it answered as
+// invalid: nothing was changed and repeating the same call cannot succeed.
+// It is not an outage and not an unknown outcome.
+var ErrRefused = errors.New("addon refused the request as invalid")
 
 type Actor struct {
 	UserID       string `json:"userId"`

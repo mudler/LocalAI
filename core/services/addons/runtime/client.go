@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -92,13 +93,40 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 		return nil, ErrRuntime
 	}
 	if resp.StatusCode != http.StatusOK {
+		reason := refusalReason(resp.Body)
 		resp.Body.Close()
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
 		}
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
+			return nil, &Refusal{Status: resp.StatusCode, Reason: reason}
+		}
 		return nil, ErrRuntime
 	}
 	return resp, nil
+}
+
+// maxReason bounds the reason a refusal carries.
+const maxReason = 64
+
+// refusalReason reads a short printable class from an error answer. Only
+// ASCII letters, digits, space and a few marks survive, so the reason never
+// carries control bytes or a long echo of the request.
+func refusalReason(body io.Reader) string {
+	b, _ := io.ReadAll(io.LimitReader(body, maxReason*4))
+	out := make([]byte, 0, maxReason)
+	for _, c := range b {
+		if len(out) == maxReason {
+			break
+		}
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == ' ', c == '_', c == '-', c == '.':
+			out = append(out, c)
+		case c == '\n':
+			return string(out)
+		}
+	}
+	return strings.TrimSpace(string(out))
 }
 func decode(body io.Reader, max int64, out any) error {
 	b, e := io.ReadAll(io.LimitReader(body, max+1))

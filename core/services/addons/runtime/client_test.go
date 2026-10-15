@@ -103,6 +103,58 @@ var _ = Describe("Refusals of the add-on", func() {
 	})
 })
 
+var _ = Describe("Invalid-request refusals of the add-on", func() {
+	refusing := func(status int, body string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, body, status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	DescribeTable("types a 400 or 422 answer as a refusal, never as an outage",
+		func(status int) {
+			c := refusing(status, "invalid request")
+			for name, call := range map[string]func() error{
+				"read":    func() error { _, e := c.Read(context.Background(), envelope("read")); return e },
+				"preview": func() error { _, e := c.Preview(context.Background(), envelope("preview")); return e },
+				"apply": func() error {
+					_, e := c.Apply(context.Background(), envelope("apply"), contract.Revision{Schema: 1})
+					return e
+				},
+				"output": func() error { _, e := c.OpenOutput(context.Background(), envelope("output"), "h"); return e },
+			} {
+				e := call()
+				Expect(errors.Is(e, ErrRefused)).To(BeTrue(), name)
+				Expect(errors.Is(e, contract.ErrRefused)).To(BeTrue(), name)
+				Expect(errors.Is(e, ErrRuntime)).To(BeFalse(), name)
+				Expect(errors.Is(e, ErrConflict)).To(BeFalse(), name)
+			}
+		},
+		Entry("400", http.StatusBadRequest),
+		Entry("422", http.StatusUnprocessableEntity),
+	)
+	It("keeps a bounded, printable reason and nothing else of the body", func() {
+		c := refusing(http.StatusBadRequest, "secret-looking "+strings.Repeat("x", 4096)+"\x00\n")
+		_, e := c.Read(context.Background(), envelope("read"))
+		var r *Refusal
+		Expect(errors.As(e, &r)).To(BeTrue())
+		Expect(r.Status).To(Equal(http.StatusBadRequest))
+		Expect(len(r.Reason)).To(BeNumerically("<=", 64))
+		Expect(r.Reason).NotTo(ContainSubstring("\x00"))
+	})
+	It("leaves 503, 500 and 404 as outages", func() {
+		for _, status := range []int{http.StatusServiceUnavailable, http.StatusInternalServerError, http.StatusNotFound, http.StatusForbidden} {
+			c := refusing(status, "no")
+			_, e := c.Read(context.Background(), envelope("read"))
+			Expect(errors.Is(e, ErrRefused)).To(BeFalse(), http.StatusText(status))
+			Expect(e).To(MatchError(ErrRuntime))
+		}
+	})
+})
+
 var _ = Describe("Transport limits", func() {
 	It("rejects nonloopback endpoints and bounds oversized streams and concurrency", func() {
 		s := supervisor()

@@ -32,6 +32,24 @@ var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
 // caller that does not tell refusals apart.
 var ErrConflict = fmt.Errorf("addon refused the request as a conflict: %w", ErrRuntime)
 
+// ErrRefused is the add-on's own refusal (HTTP 400 or 422) of a request it
+// judged invalid. It is deterministic: the add-on changed nothing and the same
+// request is refused again, so it is neither an outage nor an unknown outcome.
+// It is not an ErrRuntime.
+var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused)
+
+// Refusal is the typed form of ErrRefused. Reason is a short printable class
+// taken from the add-on's answer and bounded, so it is safe to log.
+type Refusal struct {
+	Status int
+	Reason string
+}
+
+func (r *Refusal) Error() string {
+	return fmt.Sprintf("addon refused the request (%d): %s", r.Status, r.Reason)
+}
+func (r *Refusal) Unwrap() error { return ErrRefused }
+
 type Config struct {
 	StateRoot string // private owner-local durable process ledger, required
 	// DataRoot holds one private directory per addon ID. When set, the
