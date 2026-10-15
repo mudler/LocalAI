@@ -7,9 +7,32 @@ import { copyToClipboard } from '../utils/clipboard'
 import DOMPurify from 'dompurify'
 import hljs from '../utils/hljs'
 import Icon from './Icon'
+import { apiUrl } from '../utils/basePath'
 
 const WIDTH_KEY = 'localai_canvas_width'
 const MIME_BY_EXT = { html: 'text/html', svg: 'image/svg+xml', json: 'application/json', css: 'text/css' }
+
+// Renders HTML in a sandboxed iframe loaded from a same-origin URL. srcDoc
+// would inherit the app's CSP and block CDN scripts, so the code is posted to
+// the server, which serves it back with a preview-specific CSP.
+function HtmlPreviewFrame({ code, title }) {
+  const [src, setSrc] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    setSrc(null)
+    fetch(apiUrl('/api/canvas/preview'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => { if (!cancelled) setSrc(apiUrl('/api/canvas/preview/' + d.id)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [code])
+  if (!src) return <div className="canvas-preview-iframe" />
+  return <iframe src={src} sandbox="allow-scripts" className="canvas-preview-iframe" title={title} />
+}
 
 export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }) {
   const { t } = useTranslation('chat')
@@ -134,7 +157,7 @@ export default function CanvasPanel({ artifacts, selectedId, onSelect, onClose }
     // Code artifacts
     if (showPreview && hasPreview) {
       if (current.language === 'html') {
-        return <iframe srcDoc={current.code} sandbox="allow-scripts" className="canvas-preview-iframe" title={t('canvas.htmlPreview')} />
+        return <HtmlPreviewFrame code={current.code} title={t('canvas.htmlPreview')} />
       }
       if (current.language === 'svg') {
         return <div className="canvas-preview-svg" dangerouslySetInnerHTML={{
