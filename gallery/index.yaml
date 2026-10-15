@@ -1,4 +1,127 @@
 ---
+- name: diplodocus-preview-q4
+  variants:
+    - model: diplodocus-preview-q6
+    - model: diplodocus-preview-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IFM/K2-Horizon-7B
+    - https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF
+  description: |
+    Diplodocus preview 4 is OsaurusAI's K2 Horizon 7B fine-tune for documents,
+    spreadsheets, and tool-assisted tasks. This Q4_K_M GGUF build uses the
+    embedded chat template and enables reasoning by default. Applications
+    must provide the tools; the model download does not include workspace tools.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - function-calling
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    reasoning_effort: high
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Diplodocus-preview-Q4_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: Diplodocus-preview-Q4_K_M.gguf
+      uri: https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF/resolve/7072381575adfe4e528349799f30d27488a4ca89/Diplodocus-preview-Q4_K_M.gguf
+      sha256: 32c4d81cacb4af48c61e852e8bca2d974548900aca337088c14c2869e15311e4
+- name: diplodocus-preview-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IFM/K2-Horizon-7B
+    - https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF
+  description: |
+    Diplodocus preview 4 is OsaurusAI's K2 Horizon 7B fine-tune for documents,
+    spreadsheets, and tool-assisted tasks. This Q6_K GGUF build uses the
+    embedded chat template and enables reasoning by default. Applications
+    must provide the tools; the model download does not include workspace tools.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - function-calling
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    reasoning_effort: high
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Diplodocus-preview-Q6_K.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: Diplodocus-preview-Q6_K.gguf
+      uri: https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF/resolve/7072381575adfe4e528349799f30d27488a4ca89/Diplodocus-preview-Q6_K.gguf
+      sha256: c81c80cc2f3d5f9fec0eb06d9a8732404ac37516fde2d8692eb49f6e1d39cfd9
+- name: diplodocus-preview-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IFM/K2-Horizon-7B
+    - https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF
+  description: |
+    Diplodocus preview 4 is OsaurusAI's K2 Horizon 7B fine-tune for documents,
+    spreadsheets, and tool-assisted tasks. This Q8_0 GGUF build uses the
+    embedded chat template and enables reasoning by default. Applications
+    must provide the tools; the model download does not include workspace tools.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - function-calling
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    reasoning_effort: high
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Diplodocus-preview-Q8_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: Diplodocus-preview-Q8_0.gguf
+      uri: https://huggingface.co/OsaurusAI/Diplodocus-preview-GGUF/resolve/7072381575adfe4e528349799f30d27488a4ca89/Diplodocus-preview-Q8_0.gguf
+      sha256: 8d39a2d47b56b308d60d79efa194a2f0796571b439b14499cd4847ccacdf8a16
 - name: adavar-3b-q4
   variants:
     - model: adavar-3b-q8
