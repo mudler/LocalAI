@@ -44,6 +44,10 @@ type AddonConfig struct {
 	// of one add-on and of one library; zero is 15 seconds.
 	UpdateCacheTTL        time.Duration
 	UpdateRefreshInterval time.Duration
+	// ArtifactExpiry is how long a private file result stays downloadable;
+	// zero is the contract default of one hour. It is a programmatic option
+	// that no flag sets: the acceptance fixture shortens it to test expiry.
+	ArtifactExpiry time.Duration
 }
 
 func WithAddons(c AddonConfig) AppOption {

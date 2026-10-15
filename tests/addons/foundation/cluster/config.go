@@ -67,6 +67,10 @@ type Config struct {
 	Pins        map[string]string   `json:"pins"`
 	Verify      map[string]string   `json:"verify"`
 	Nodes       map[string]Instance `json:"nodes"`
+	// ArtifactExpiryMillis is the lifetime of a private file result in
+	// milliseconds; zero is the product default. A test that needs expiry
+	// sets it and saves the configuration before the cluster starts.
+	ArtifactExpiryMillis int64 `json:"artifactExpiryMillis,omitempty"`
 	// Alias names a derived configuration (see Derive); it only changes the
 	// file the configuration is saved to.
 	Alias string `json:"alias,omitempty"`

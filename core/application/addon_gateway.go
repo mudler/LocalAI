@@ -229,6 +229,7 @@ func (a *Application) startAddonGateway() error {
 			Policy:  p,
 			Runtime: a.addonManager,
 			Addon:   artifactAddonState(a.addonManager),
+			Limits:  artifacts.DefaultLimits().WithExpiry(cfg.ArtifactExpiry),
 		})
 		if e != nil {
 			closeState()

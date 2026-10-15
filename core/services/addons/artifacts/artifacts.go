@@ -74,6 +74,19 @@ func DefaultLimits() Limits {
 	}
 }
 
+// WithExpiry returns the limits with another artifact lifetime. The transfer
+// bound and the sweep follow it, so the result stays consistent. Zero keeps
+// the limits as they are. Only a fixture that needs a short lifetime sets it.
+func (l Limits) WithExpiry(d time.Duration) Limits {
+	if d <= 0 {
+		return l
+	}
+	l.Expiry = d
+	l.TransferTimeout = min(l.TransferTimeout, d/2)
+	l.SweepInterval = min(l.SweepInterval, max(d/4, time.Millisecond))
+	return l
+}
+
 // Validate refuses an unbounded or inconsistent configuration.
 func (l Limits) Validate() error {
 	if l.MaxBytes < 1 || l.MaxBytes > MaxArtifactBytes || l.UserBytes < l.MaxBytes || l.TotalBytes < l.UserBytes ||

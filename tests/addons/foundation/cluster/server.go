@@ -40,6 +40,7 @@ func (c *Config) AppOptions(role string) ([]config.AppOption, error) {
 	}
 	if role == Owner {
 		addon.ListenAddress = node.CarrierAddr
+		addon.ArtifactExpiry = time.Duration(c.ArtifactExpiryMillis) * time.Millisecond
 	}
 	return []config.AppOption{
 		config.WithAuthEnabled(true),
