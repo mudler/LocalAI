@@ -12,7 +12,11 @@ import sys
 
 HTTP_GROUP = 'Multimodal HTTP'
 LEGACY_GROUP = 'Legacy embedding response'
-PACKAGES = ('core-http-endpoints-openai', 'core-http-middleware', 'core-http-auth', 'core-backend')
+PACKAGES = ('core-http-endpoints-openai', 'core-http-middleware', 'core-http-auth', 'core-backend',
+            'core-services-routing-piiadapter')
+# Floor on passed specs of the PII adapter suite: the real total at the time of
+# the pin. Raise it when specs are added; never lower it.
+PIIADAPTER_MIN_PASSED = 22
 
 STATUS_CASES = {
     '400 backend invalid argument',
@@ -163,6 +167,8 @@ def check(scratch, revision, command='bash test/multimodal/verify.sh http'):
         if name == 'core-backend':
             result = require_cases(specs, HTTP_GROUP, BACKEND_CASES, name)
             counts[name + ': ' + HTTP_GROUP] = len(result)
+        if name == 'core-services-routing-piiadapter':
+            require(counts[name] >= PIIADAPTER_MIN_PASSED, name + ': fewer passed specs than the pinned total')
     out = {'revision': revision, 'exit_status': 0, 'command': command, 'counts': counts,
            'status_cases': sorted(STATUS_CASES),
            'evidence_paths': [str(Path(scratch) / (n + '.json')) for n in PACKAGES]}
