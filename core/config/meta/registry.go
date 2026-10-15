@@ -457,6 +457,20 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     []FieldOption{{Value: "", Label: "Keep"}, {Value: "drop", Label: "Drop"}},
 			Order:       5,
 		},
+		"profile.evidence_check.numbers": {
+			Section:     "alias",
+			Label:       "Profile: mark unverified numbers",
+			Description: "Alias only. When no MCP tool ran in the request and the answer contains a number found in no input message, append a note marking it as not verified.",
+			Component:   "toggle",
+			Order:       6,
+		},
+		"profile.evidence_check.note": {
+			Section:     "alias",
+			Label:       "Profile: unverified-number note",
+			Description: "Alias only. Text appended by profile.evidence_check.numbers. Empty uses the built-in English note.",
+			Component:   "input",
+			Order:       7,
+		},
 
 		// --- Failover ---
 		"failover.targets": {

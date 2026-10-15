@@ -399,6 +399,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				xlog.Error("Failed to parse MCP config", "error", mcpErr)
 			}
 		}
+		// Before compression, which may summarise away numbers the client sent.
+		evidence := newEvidenceGate(config, input.Messages)
 		if err := middleware.CompressChatRequest(c, compressor); err != nil {
 			return err
 		}
@@ -635,7 +637,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						// We collect the RAW (unfiltered) content so the model's tool-call
 						// markup keeps parsing correctly even when PII redaction would mask
 						// substrings.
-						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback) && haveContent {
+						if (hasMCPToolsStream || config.FunctionsConfig.AutomaticToolParsingFallback || evidence != nil) && haveContent {
 							collectedContent += rawContent
 						}
 						respData, err := json.Marshal(ev)
@@ -732,6 +734,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							if toolErr != nil {
 								xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
+							} else {
+								// A failed call delivers no evidence for the answer.
+								evidence.markToolExecuted()
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",
@@ -792,6 +797,23 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 						c.Response().Flush()
 						toolsCalled = true
+					}
+				}
+
+				// The answer has been streamed already, so the note can only
+				// follow it as one more content delta.
+				if !toolsCalled {
+					if note := evidence.suffix(collectedContent); note != "" {
+						noteChunk := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   input.Model,
+							Choices: []schema.Choice{{Index: 0, Delta: &schema.Message{Content: &note}}},
+							Object:  "chat.completion.chunk",
+						}
+						noteData, _ := json.Marshal(noteChunk)
+						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", noteData)
+						c.Response().Flush()
 					}
 				}
 
@@ -1162,6 +1184,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							if toolErr != nil {
 								xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
+							} else {
+								// A failed call delivers no evidence for the answer.
+								evidence.markToolExecuted()
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",
@@ -1191,6 +1216,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						}
 					}
 				}
+
+				evidence.apply(result)
 
 				// No MCP tools to execute (or no MCP tools configured), return response
 				usage := schema.OpenAIUsage{

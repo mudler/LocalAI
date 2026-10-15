@@ -57,6 +57,9 @@ type TTSVoice struct {
 type ModelConfig struct {
 	modelConfigFile string `yaml:"-" json:"-"`
 	modelTemplate   string `yaml:"-" json:"-"`
+	// evidenceCheck is set only from a profile alias's block, so a plain
+	// model config cannot switch it on by a top-level key.
+	evidenceCheck EvidenceCheckConfig `yaml:"-" json:"-"`
 	// persistedConfigRevision is the revision of this model's persisted
 	// configuration, stamped when the loader materializes it and therefore
 	// before any per-request override is merged in. The request pipeline
@@ -639,6 +642,31 @@ type ProfileConfig struct {
 	MCP MCPConfig `yaml:"mcp,omitempty" json:"mcp,omitempty"`
 	// ClientTools overrides the target's client_tools policy.
 	ClientTools string `yaml:"client_tools,omitempty" json:"client_tools,omitempty"`
+	// EvidenceCheck marks answers whose numbers have no evidence in the request.
+	EvidenceCheck EvidenceCheckConfig `yaml:"evidence_check,omitempty" json:"evidence_check,omitempty"`
+}
+
+// DefaultEvidenceNote is appended when evidence_check.note is empty.
+const DefaultEvidenceNote = "_Note: this answer contains numbers that no tool returned in this turn — not verified._"
+
+// @Description Output check of a profile alias
+type EvidenceCheckConfig struct {
+	// Numbers enables the check for numbers in the final answer.
+	Numbers bool `yaml:"numbers,omitempty" json:"numbers,omitempty"`
+	// Note replaces DefaultEvidenceNote.
+	Note string `yaml:"note,omitempty" json:"note,omitempty"`
+}
+
+// EvidenceCheck returns the evidence check a profile alias applied to this
+// resolved config; it is zero for every other config.
+func (c ModelConfig) EvidenceCheck() EvidenceCheckConfig { return c.evidenceCheck }
+
+// EvidenceNote returns the configured note or the default one.
+func (e EvidenceCheckConfig) EvidenceNote() string {
+	if e.Note != "" {
+		return e.Note
+	}
+	return DefaultEvidenceNote
 }
 
 // IsZero reports whether the block sets nothing.
@@ -665,6 +693,7 @@ func (c *ModelConfig) applyProfileOverlay(alias *ModelConfig) {
 	if p.ClientTools != "" {
 		c.ClientTools = p.ClientTools
 	}
+	c.evidenceCheck = p.EvidenceCheck
 }
 
 // @Description PII filtering configuration. PII redaction is per-model so
@@ -2089,6 +2118,9 @@ func (c *ModelConfig) validateProfileFields() error {
 		if _, _, err := c.Profile.MCP.MCPConfigFromYAML(); err != nil {
 			return fmt.Errorf("profile: invalid MCP configuration: %w", err)
 		}
+	}
+	if ec := c.Profile.EvidenceCheck; ec.Note != "" && !ec.Numbers {
+		return fmt.Errorf("profile.evidence_check.note has no effect without numbers: true")
 	}
 	return nil
 }

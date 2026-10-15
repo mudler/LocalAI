@@ -151,6 +151,38 @@ mcp:
 		Expect(resolved.MCPSessionKey()).To(Equal("base-llm"))
 	})
 
+	It("carries evidence_check into the resolved config and nowhere else", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "checked.yaml"), []byte("name: checked\nalias: base-llm\nprofile:\n  evidence_check:\n    numbers: true\n    note: custom note\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "default-note.yaml"), []byte("name: default-note\nalias: base-llm\nprofile:\n  evidence_check:\n    numbers: true\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "gpt-4.yaml"), []byte(plain), 0644)).To(Succeed())
+		cl = config.NewModelConfigLoader(dir)
+		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
+
+		checked := resolve("checked").EvidenceCheck()
+		Expect(checked.Numbers).To(BeTrue())
+		Expect(checked.EvidenceNote()).To(Equal("custom note"))
+		Expect(resolve("default-note").EvidenceCheck().EvidenceNote()).To(Equal(config.DefaultEvidenceNote))
+
+		// A plain alias and the target itself stay unchecked.
+		Expect(resolve("gpt-4").EvidenceCheck().Numbers).To(BeFalse())
+		base, ok := cl.GetModelConfig("base-llm")
+		Expect(ok).To(BeTrue())
+		Expect(base.EvidenceCheck().Numbers).To(BeFalse())
+	})
+
+	It("ignores a top-level evidence_check on a model, which only a profile can set", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target+"evidence_check:\n  numbers: true\n"), 0644)).To(Succeed())
+		cl = config.NewModelConfigLoader(dir)
+		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
+
+		base, ok := cl.GetModelConfig("base-llm")
+		Expect(ok).To(BeTrue())
+		Expect(base.EvidenceCheck().Numbers).To(BeFalse())
+	})
+
 	Context("validation", func() {
 		It("rejects an unknown profile.client_tools value", func() {
 			cfg := config.ModelConfig{Name: "p", Alias: "base-llm"}
@@ -166,6 +198,19 @@ mcp:
 			ok, err := cfg.Validate()
 			Expect(ok).To(BeFalse())
 			Expect(err).To(MatchError(ContainSubstring("invalid MCP configuration")))
+		})
+
+		It("rejects an evidence_check note without numbers: true", func() {
+			cfg := config.ModelConfig{Name: "p", Alias: "base-llm"}
+			cfg.Profile.EvidenceCheck.Note = "unverified"
+			ok, err := cfg.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("profile.evidence_check.note")))
+
+			cfg.Profile.EvidenceCheck.Numbers = true
+			ok, err = cfg.Validate()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
 		})
 
 		It("rejects a profile block on a model that is not an alias", func() {

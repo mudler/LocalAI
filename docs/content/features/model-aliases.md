@@ -54,6 +54,8 @@ top of the target's config for requests to the alias:
 | `profile.mcp` (`remote`, `stdio`) | Replaces the target's MCP servers. |
 | `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`, when MCP is enabled and the caller has the `mcp` permission. See [MCP]({{%relref "features/mcp" %}}). |
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
+| `profile.evidence_check.numbers` | Marks answers that contain numbers without evidence in the request. See [Evidence check](#evidence-check). |
+| `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
 
 ```yaml
 name: researcher
@@ -82,6 +84,47 @@ so profiles with different tool sets do not interfere with each other.
 `GET /v1/mcp/servers/<alias>` (and the `prompts` and `resources` endpoints) report
 the servers a chat request for the alias would use, so a profile's tool set can
 be checked without calling the model.
+
+### Evidence check
+
+A profile with server-side MCP tools returns only the final answer to the
+client; the tool calls and their results stay on the server. When the client
+sends the conversation back on the next turn, that tool trail is missing, and a
+model may answer a follow-up question with a number it never looked up instead
+of calling the tool again. The evidence check marks such answers at the output,
+independently of the prompt:
+
+```yaml
+name: bookkeeper
+alias: my-llama-3
+profile:
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"ledger": {"url": "http://ledger.internal/mcp"}}}
+  evidence_check:
+    numbers: true
+    # optional, defaults to the note below
+    note: "_Note: this answer contains numbers that no tool returned in this turn — not verified._"
+```
+
+The rule is deterministic and applies to each request on its own:
+
+1. If an MCP tool call succeeded on the server during this request, the answer
+   is left unchanged. A call that failed (the tool could not be called or
+   returned an error to LocalAI) delivers no evidence and does not count.
+2. Otherwise every number in the final answer (a digit sequence, optionally with
+   one `.` or `,` decimal part) is looked up among the numbers of the request as
+   received: the profile's system prompt and the content of every system, user,
+   assistant and tool message. `3,5` and `3.5` count as the same number.
+3. If at least one number of the answer is not found, the note is appended after
+   a blank line. In a streamed response it arrives as one additional content
+   chunk before the final chunk.
+
+Answers that hand tool calls to the client are not checked. The check is off
+unless `numbers: true` is set, and `note` without `numbers: true` is rejected.
+It flags, it does not prove: a number the client happened to mention is
+accepted even if the answer uses it wrongly.
 
 ## Managing aliases
 
