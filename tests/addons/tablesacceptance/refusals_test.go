@@ -72,7 +72,7 @@ var _ = Describe("Tables refusals of invalid requests across the owner and two f
 		fixed := map[string]any{"table": "Entries", "rows": []any{map[string]any{"Item": "ink", "Qty": 2}}}
 		ok := d.apply(cluster.FrontA, "editor", res, op, "rows-insert", rev, fixed)
 		Expect(ok.Status).To(Equal(200), ok.String())
-		Expect(count(d.receipts(res), "ui-"+op)+count(d.receipts(res), op)).To(BeNumerically(">=", 0))
+		Expect(count(d.receipts(res), "ui-"+op) + count(d.receipts(res), op)).To(BeNumerically(">=", 0))
 		Expect(d.rowCount(cluster.Owner, "member", res)).To(Equal(2))
 		again := d.apply(cluster.Owner, "editor", res, op, "rows-insert", rev, fixed)
 		Expect(again.Status).To(Equal(200), again.String())

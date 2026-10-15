@@ -132,7 +132,13 @@ var _ = Describe("Tables staleness, replay and races across the owner and two fr
 					n := nodes[(i+attempt)%len(nodes)]
 					rev := d.revision(n, "member", res)
 					r := d.apply(n, "member", res, ops[i], "rows-insert", rev, map[string]any{"table": "Entries", "rows": []any{map[string]any{"Item": fmt.Sprintf("b%d", i), "Qty": i}}})
-					if r.Status != http.StatusConflict || errType(r) != "stale" {
+					// A stale answer retries with the revision just read. A
+					// busy owner (the add-on admits four calls at once) answers
+					// outcome_unknown: the documented recovery is the same call
+					// under the same ID, which the add-on applies once.
+					stale := r.Status == http.StatusConflict && errType(r) == "stale"
+					unknown := r.Status == http.StatusServiceUnavailable && errType(r) == "outcome_unknown"
+					if !stale && !unknown {
 						results[i] = r
 						return
 					}
