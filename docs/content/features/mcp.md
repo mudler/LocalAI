@@ -225,6 +225,17 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+The tools LocalAI runs server-side are part of the response: `output` lists a
+`function_call` item and its `function_call_output` item for every MCP tool call,
+in the order they ran, before the final `message`. This holds for streaming
+(`response.completed`) and non-streaming requests and for the stored response.
+A follow-up request with `previous_response_id` therefore replays the earlier
+tool calls and results to the model, and a client that keeps the `output` items
+and sends them back as input does the same. Without this trail, models tend to
+answer follow-up questions from the earlier text instead of calling the tool
+again. Chat completions (`/v1/chat/completions`) return only the final answer,
+so a client cannot carry the tool trail over to the next turn there.
+
 ### Server Listing Endpoint
 
 You can list available MCP servers and their tools for a given model:

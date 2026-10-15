@@ -283,7 +283,9 @@ Response IDs created with `store: false` are available only on the WebSocket
 connection that created them and are removed when that connection closes. A
 `previous_response_id` chain can contain multiple responses; LocalAI replays the
 complete conversation from the oldest response through the referenced response
-before appending the new input. Keep `store: false` for every descendant of a
+before appending the new input. The replay includes server-side MCP tool calls
+and their results, which are stored as `function_call` and
+`function_call_output` output items. Keep `store: false` for every descendant of a
 connection-local response. LocalAI rejects a `store: true` response that depends
 on connection-local history because the resulting stored chain would be broken
 after the WebSocket closes.
