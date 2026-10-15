@@ -3,26 +3,25 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { REASONING_EFFORTS } from './chatActions'
 
-// The two reasoning controls in the Chat composer, both stored per chat:
-//   the effort chip   opens a menu. "Model default" sends no reasoning_effort.
-//   the traces chip   a toggle. On, the chat asks for reasoning_effort "none" and
-//                     the thread drops any reasoning the model still sends.
+// The reasoning effort chip in the Chat composer, stored per chat. It opens a
+// menu. "Model default" sends no reasoning_effort. "None" sends "none" and the
+// thread drops any reasoning the model still sends.
 // The ref gives the page open() for the /effort action.
-const ReasoningChips = forwardRef(function ReasoningChips({ effort, off, onEffort, onOff }, ref) {
+const ReasoningChips = forwardRef(function ReasoningChips({ effort, onEffort }, ref) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const chipRef = useRef(null)
   const menuRef = useRef(null)
   const choices = ['', ...REASONING_EFFORTS]
-  const current = off ? 'none' : (effort || '')
+  const current = effort || ''
   const nameOf = (v) => (v ? t(`reasoning.level.${v}`) : t('reasoning.default'))
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false)
     if (restoreFocus) chipRef.current?.focus()
   }, [])
-  const openMenu = useCallback(() => { if (!off) setOpen(true) }, [off])
+  const openMenu = useCallback(() => setOpen(true), [])
   useImperativeHandle(ref, () => ({ open: openMenu }), [openMenu])
 
   useEffect(() => {
@@ -59,7 +58,6 @@ const ReasoningChips = forwardRef(function ReasoningChips({ effort, off, onEffor
           className="home-chip"
           aria-haspopup="menu"
           aria-expanded={open}
-          disabled={off}
           title={t('reasoning.effortTitle')}
           onClick={() => (open ? close() : openMenu())}
           data-testid="chat-effort-chip"
@@ -94,17 +92,6 @@ const ReasoningChips = forwardRef(function ReasoningChips({ effort, off, onEffor
           </div>
         )}
       </span>
-      <button
-        type="button"
-        className="home-chip cx-chip-toggle"
-        aria-pressed={!!off}
-        onClick={() => { close(); onOff(!off) }}
-        title={t('reasoning.offTitle')}
-        data-testid="chat-reasoning-off"
-      >
-        <Icon name="eye-off" />
-        <span className="home-chip__text">{t('reasoning.offLabel')}</span>
-      </button>
     </span>
   )
 })

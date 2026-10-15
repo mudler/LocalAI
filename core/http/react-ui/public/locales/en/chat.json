@@ -142,11 +142,7 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High"
-    },
-    "offLabel": "No reasoning",
-    "offTitle": "Turn reasoning off for this chat: ask the model for no reasoning and hide any reasoning it sends",
-    "offToast": "Reasoning is off for this chat",
-    "onToast": "Reasoning is on for this chat"
+    }
   },
   "deleteAllDialog": {
     "title": "Delete All Chats",
@@ -232,10 +228,6 @@
     "effort": {
       "label": "Reasoning effort",
       "desc": "Choose how hard the model thinks"
-    },
-    "reasoning": {
-      "label": "Toggle reasoning",
-      "desc": "Turn reasoning off or on for this chat"
     },
     "assistant": {
       "label": "Manage mode",

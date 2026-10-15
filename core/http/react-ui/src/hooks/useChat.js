@@ -104,6 +104,11 @@ function loadChats() {
     if (stored) {
       const data = JSON.parse(stored)
       if (data && Array.isArray(data.chats)) {
+        // Older chats stored a separate reasoningOff flag. It now means
+        // reasoning_effort 'none'.
+        data.chats = data.chats.map(({ reasoningOff, ...chat }) => (
+          reasoningOff ? { ...chat, reasoningEffort: 'none' } : chat
+        ))
         return data
       }
     }
@@ -129,7 +134,6 @@ function saveChats(chats, activeChatId) {
         topP: chat.topP,
         topK: chat.topK,
         reasoningEffort: chat.reasoningEffort,
-        reasoningOff: chat.reasoningOff,
         tokenUsage: chat.tokenUsage,
         contextSize: chat.contextSize,
         createdAt: chat.createdAt,
@@ -163,10 +167,9 @@ function createNewChat(model = '', systemPrompt = '', mcpMode = false) {
     temperature: null,
     topP: null,
     topK: null,
-    // '' leaves reasoning_effort to the model config. reasoningOff asks for
-    // 'none' and hides reasoning traces in the thread.
+    // '' leaves reasoning_effort to the model config. 'none' also hides
+    // reasoning traces in the thread.
     reasoningEffort: '',
-    reasoningOff: false,
     tokenUsage: { prompt: 0, completion: 0, total: 0 },
     contextSize: null,
     createdAt: Date.now(),
@@ -288,7 +291,7 @@ export function useChat(initialModel = '') {
     const temperature = activeChat.temperature
     const topP = activeChat.topP
     const topK = activeChat.topK
-    const hideReasoning = !!activeChat.reasoningOff
+    const hideReasoning = activeChat.reasoningEffort === 'none'
     const showReasoning = (text) => { if (!hideReasoning) setStreamingReasoning(text) }
 
     // Build user message content
@@ -383,7 +386,7 @@ export function useChat(initialModel = '') {
     if (topP !== null && topP !== undefined) requestBody.top_p = topP
     if (topK !== null && topK !== undefined) requestBody.top_k = topK
     // reasoning_effort is honoured per request. 'none' also turns thinking off.
-    const reasoningEffort = hideReasoning ? 'none' : activeChat.reasoningEffort
+    const reasoningEffort = activeChat.reasoningEffort
     if (reasoningEffort) requestBody.reasoning_effort = reasoningEffort
     // contextSize is the model's input+output window, not an
     // output cap. Backends bound generation at remaining context
