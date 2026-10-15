@@ -52,6 +52,48 @@ var _ = Describe("OpenAICompletion adapter", func() {
 		Expect(req.Instruction).To(Equal("*"))
 	})
 
+	Context("structured content objects", func() {
+		image := map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://media.example.invalid/a.png"}}
+		newReq := func() *schema.OpenAIRequest {
+			req := &schema.OpenAIRequest{}
+			req.Input = []any{
+				"plain secret",
+				map[string]any{"content": []any{
+					map[string]any{"type": "text", "text": "object secret"},
+					image,
+					map[string]any{"type": "text", "text": "second secret"},
+				}},
+			}
+			return req
+		}
+
+		It("scans text parts exactly like strings and leaves media alone", func() {
+			req := newReq()
+			got := a.Scan(req)
+			texts := []string{}
+			for _, g := range got {
+				texts = append(texts, g.Text)
+			}
+			Expect(texts).To(ConsistOf("plain secret", "object secret", "second secret"))
+			applyAll(a, req, func(string) string { return "[X]" })
+			arr := req.Input.([]any)
+			Expect(arr[0]).To(Equal("[X]"))
+			parts := arr[1].(map[string]any)["content"].([]any)
+			Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+			Expect(parts[1]).To(Equal(image))
+			Expect(parts[2].(map[string]any)["text"]).To(Equal("[X]"))
+		})
+
+		It("scans a single content object given without an array", func() {
+			req := &schema.OpenAIRequest{}
+			req.Input = map[string]any{"content": []any{map[string]any{"type": "text", "text": "solo secret"}}}
+			Expect(a.Scan(req)).To(HaveLen(1))
+			applyAll(a, req, func(string) string { return "[X]" })
+			parts := req.Input.(map[string]any)["content"].([]any)
+			Expect(parts[0].(map[string]any)["text"]).To(Equal("[X]"))
+		})
+	})
+
 	It("returns nothing for an empty / non-matching request", func() {
 		Expect(a.Scan(&schema.OpenAIRequest{})).To(BeEmpty())
 		Expect(a.Scan(nil)).To(BeNil())

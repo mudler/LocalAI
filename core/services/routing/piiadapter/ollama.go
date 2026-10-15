@@ -79,7 +79,7 @@ func OllamaGenerate() pii.Adapter {
 }
 
 // Field selectors for OllamaEmbed (Input + its Prompt alias). Reuses the
-// shared encField/decField packing.
+// shared encPart/decPart packing.
 const (
 	ollamaEmbInput = iota
 	ollamaEmbPrompt
@@ -96,8 +96,8 @@ func OllamaEmbed() pii.Adapter {
 				return nil
 			}
 			var out []pii.ScannedText
-			scanAnyText(ollamaEmbInput, req.Input, &out)
-			scanAnyText(ollamaEmbPrompt, req.Prompt, &out)
+			scanAnyText(ollamaEmbInput, req.Input, false, &out)
+			scanAnyText(ollamaEmbPrompt, req.Prompt, false, &out)
 			return out
 		},
 		Apply: func(parsed any, updates []pii.ScannedText) {
@@ -106,12 +106,12 @@ func OllamaEmbed() pii.Adapter {
 				return
 			}
 			for _, u := range updates {
-				field, elem := decField(u.Index)
+				field, elem, part := decPart(u.Index)
 				switch field {
 				case ollamaEmbInput:
-					req.Input = applyAnyText(req.Input, elem, u.Text)
+					req.Input = applyAnyText(req.Input, elem, part, u.Text)
 				case ollamaEmbPrompt:
-					req.Prompt = applyAnyText(req.Prompt, elem, u.Text)
+					req.Prompt = applyAnyText(req.Prompt, elem, part, u.Text)
 				}
 			}
 		},
