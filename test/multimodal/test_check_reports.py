@@ -120,7 +120,7 @@ class InventoryTests(unittest.TestCase):
         self.contract, self.manifest, self.dossier = checker.load_inventory()
 
     def validate(self):
-        checker.validate_inventory(self.contract, self.manifest, self.dossier)
+        checker.validate_inventory(self.contract, self.manifest, self.dossier, checker.load_native_report())
 
     def test_complete_inventory(self):
         self.validate()
