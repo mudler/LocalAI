@@ -115,8 +115,23 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--f16` | `false` | Enable GPU acceleration | `$LOCALAI_F16`, `$F16` |
-| `-t, --threads` | | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | `$LOCALAI_THREADS`, `$THREADS` |
+| `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
 | `--context-size` | | Default context size for models (`-1` = each model's full trained context from GGUF metadata) | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+
+### Default thread count
+
+When the server thread setting is unset or zero, LocalAI selects the smaller
+of the physical core count and Go's current `GOMAXPROCS` value at startup.
+The result is at least one thread.
+
+By default, Go accounts for CPU affinity and Linux container CPU quotas.
+For example, `docker run --cpus=2` limits the automatic default to two threads.
+Go normally applies a minimum of two for CPU quotas, so `--cpus=1` can still
+produce two threads. Set `--threads=1` if you need one inference thread.
+
+An explicit `GOMAXPROCS` value overrides Go's automatic CPU detection.
+A nonzero server thread setting from the CLI, environment, or saved runtime
+settings bypasses this automatic default.
 
 ## API Flags
 
