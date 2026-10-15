@@ -232,9 +232,12 @@ build_sound_generation_request(const backend::SoundGenerationRequest &request,
         task.options["think"] = bool_option(request.think());
     }
     if (request.has_caption()) {
-        // Read only by irodori_tts, which advertises Tts/VoiceCloning/VoiceDesign
-        // and not AudioGeneration, so it is unreachable from this RPC: DEAD here.
         task.options["caption"] = request.caption();
+        // YuE2 calls the musical caption "style". Preserve explicit options,
+        // including an empty style, while accepting Studio's caption field.
+        if (!request.caption().empty()) {
+            task.options.emplace("style", request.caption());
+        }
     }
     if (request.has_lyrics()) {
         // Read by ace_step and heartmula.
