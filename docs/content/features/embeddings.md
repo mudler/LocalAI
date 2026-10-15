@@ -171,6 +171,86 @@ Go-side pooling requires an up-to-date backend that reports its embedding
 layout. A legacy backend fails closed for Go-side schemes with an error asking
 you to rebuild or update it.
 
+## Multimodal input
+
+{{% notice warning %}}
+**Native backend support is pending.** The HTTP route, the typed backend
+protocol and the resource limits are in place, but no shipped backend or model
+configuration implements the `MultimodalEmbedding` RPC yet, and no model has
+been accepted for text, image, audio and video retrieval. Until a backend
+publishes protocol version 1 with modality capabilities, structured requests
+return `501`. Nothing here is an availability claim for any model.
+{{% /notice %}}
+
+`input` can be a content object, or an array whose elements are strings and
+content objects. Every element produces exactly one vector, in request order,
+and the response keeps the usual envelope and `index` values. Parts of one
+content object are embedded together, in order. A string inside a structured
+batch is sent as plain text: no template, prefix or separator is added.
+
+```bash
+curl http://localhost:8080/v1/embeddings -X POST -H "Content-Type: application/json" -d '{
+  "model": "my-multimodal-embedding-model",
+  "input": [
+    {"content": [{"type": "text", "text": "Find related evidence"}]},
+    {"content": [{"type": "image_url", "image_url": {"url": "https://media.example.com/photo.png"}}]},
+    {"content": [{"type": "input_audio", "input_audio": {"data": "<base64>", "format": "wav"}}]},
+    {"content": [{"type": "input_video", "input_video": {"url": "https://media.example.com/clip.mp4"}}]},
+    {"content": [
+      {"type": "text", "text": "Caption context:"},
+      {"type": "image_url", "image_url": {"url": "data:image/png;base64,<base64>"}},
+      {"type": "input_audio", "input_audio": {"url": "data:audio/wav;base64,<base64>"}}
+    ]},
+    "a separate text input"
+  ],
+  "encoding_format": "float"
+}'
+```
+
+- **Text** is passed as given. **Images** are PNG or JPEG. **Audio** is WAV, MP3
+  or FLAC. **Video** is MP4 (H.264, optional AAC) or WebM (VP8/VP9, optional
+  Opus); `video_url` is an alias of `input_video`.
+- **Video** is expanded in place into a `Video:` marker, frames sampled at 4 per
+  second with an elapsed-milliseconds marker before each frame, and the first
+  audio track after an `Audio track:` marker. This is a joint audiovisual
+  sequence, not synchronized attention. Videos with several video streams or
+  audio tracks are rejected.
+- A requested `format` must match the detected bytes; otherwise the part is
+  rejected. Media is fetched by LocalAI, never by the backend.
+- Results are buffered: the response is returned only when every element
+  succeeded. There is no partial success envelope. `encoding_format` selects
+  float arrays or base64, as for text. Results that are empty, not finite or
+  all zero are rejected rather than returned.
+- `messages` cannot be combined with structured `input`. Input made only of
+  strings and token arrays keeps using the existing text route, unchanged.
+
+### Order of work and errors
+
+For a structured request LocalAI loads the selected model and reads the
+capabilities of that exact loaded instance first. If a requested modality is not
+declared, the request ends with `422` and nothing is fetched. Only then does it
+take one preparation slot for the whole batch and hold it until the last item
+finished, including inference. Elements are prepared and sent one at a time with
+the remaining request budgets; the backend reports what it consumed and LocalAI
+deducts it before the next element. A backend that reports more than it was
+given has returned a corrupt result.
+
+| Status | Meaning |
+| --- | --- |
+| 400 | Malformed structure, unknown or duplicate fields, empty content, `messages` together with structured input |
+| 413 | Body, media, duration, part, pixel, frame or context limit exceeded |
+| 415 | Unsupported or mismatched media format |
+| 422 | The loaded model cannot consume a requested modality |
+| 429 | Media preparation capacity (2 per frontend) is in use |
+| 501 | The backend has no multimodal protocol, or it did not publish capabilities |
+| 502 | Source fetch failed, the backend result was invalid, or the backend failed |
+| 504 | Fetch, preparation or inference deadline exceeded |
+
+Client cancellation stops fetching and inference and releases the slot. Error
+messages never contain input text, URLs, query strings or credentials, and these
+values are not logged. Media limits are listed above; the preparation limiter is
+per frontend, so several frontends multiply capacity.
+
 ## 💡 Examples
 
 - Example that uses LLamaIndex and LocalAI as embedding: [here](https://github.com/mudler/LocalAI-examples/tree/main/query_data).
@@ -257,8 +337,9 @@ image/audio/video bytes, selected model identity, inference options, and remaini
 request-wide resource allowances. Responses wrap the existing embedding result
 with typed resource consumption. Binary media is not encoded into a text prompt.
 
-This protocol addition does **not** enable multimodal HTTP embeddings or establish
-native model support. Legacy Go models and old backend servers return gRPC
+This protocol addition does not establish native model support: no shipped
+backend implements the RPC yet (see [Multimodal input](#multimodal-input) for the
+HTTP behavior). Legacy Go models and old backend servers return gRPC
 `UNIMPLEMENTED` for the new RPC; text embeddings continue unchanged. Structured
 callers must require protocol version 1 and explicit modality capabilities for
 the selected loaded instance. Missing or unknown versions are not evidence of
@@ -329,9 +410,8 @@ later media implementation, not this syntax parser.
 
 Strictness covers content objects and the `input`/`messages` conflict. Other
 top-level request fields are not rejected by the structured parser. Legacy
-envelope parsing remains permissive. Valid structured requests currently return **501**, not an empty
-successful embedding response: HTTP acquisition and inference orchestration are
-not yet enabled. These parser changes do not establish native multimodal support.
+envelope parsing remains permissive. A valid structured request is orchestrated
+as described in [Multimodal input](#multimodal-input).
 
 Request budgets reject rather than truncate: 16 items, 128 source parts (including
 string items), 1 MiB UTF-8 text, 32 MiB compressed media, 120 selected frames,
@@ -352,8 +432,8 @@ model's context can fit them. Context overflow must reject, not drop content.
 ### Media acquisition and admission (protocol groundwork)
 
 The `pkg/embeddingmedia` acquirer turns a parsed media source into validated
-compressed bytes. It is not yet connected to the HTTP route, so this section
-describes the rules the route will use, not a request you can send today.
+compressed bytes. The embeddings route calls it for every media part of a
+structured request, after the loaded model's capabilities were checked.
 
 - **Sources.** Raw base64 `data`, a base64 data URI, or an HTTP(S) URL. File
   paths, `file://`, other schemes, shell strings and URLs with embedded

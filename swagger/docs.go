@@ -6139,6 +6139,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/embeddings": {
+            "post": {
+                "description": "` + "`" + `input` + "`" + ` is a string, an array of strings, an array of token arrays, a content object, or an array of strings and content objects. A content object is ` + "`" + `{\"content\":[part,...]}` + "`" + ` and each element produces exactly one vector. Parts are ` + "`" + `text` + "`" + `, ` + "`" + `image_url` + "`" + `, ` + "`" + `input_audio` + "`" + ` and ` + "`" + `input_video` + "`" + ` (alias ` + "`" + `video_url` + "`" + `). Native backend support for media parts is pending; a model that cannot consume a requested modality returns 422 and a backend without the multimodal RPC returns 501.",
+                "tags": [
+                    "embeddings"
+                ],
+                "summary": "Get a vector representation of a given input that can be easily consumed by machine learning models and algorithms.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/schema.OpenAIRequest"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "input": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/schema.EmbeddingContentObject"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/metrics": {
             "get": {
                 "produces": [
@@ -6876,6 +6919,7 @@ const docTemplate = `{
         },
         "/v1/embeddings": {
             "post": {
+                "description": "` + "`" + `input` + "`" + ` is a string, an array of strings, an array of token arrays, a content object, or an array of strings and content objects. A content object is ` + "`" + `{\"content\":[part,...]}` + "`" + ` and each element produces exactly one vector. Parts are ` + "`" + `text` + "`" + `, ` + "`" + `image_url` + "`" + `, ` + "`" + `input_audio` + "`" + ` and ` + "`" + `input_video` + "`" + ` (alias ` + "`" + `video_url` + "`" + `). Native backend support for media parts is pending; a model that cannot consume a requested modality returns 422 and a backend without the multimodal RPC returns 501.",
                 "tags": [
                     "embeddings"
                 ],
@@ -6887,7 +6931,22 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schema.OpenAIRequest"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/schema.OpenAIRequest"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "input": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/schema.EmbeddingContentObject"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 ],
@@ -11929,6 +11988,95 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "vocal_language": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.EmbeddingContentObject": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Content is a non-empty ordered list of parts.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.EmbeddingContentPartDoc"
+                    }
+                }
+            }
+        },
+        "schema.EmbeddingContentPartDoc": {
+            "type": "object",
+            "properties": {
+                "image_url": {
+                    "description": "ImageURL is used by type image_url: an HTTP(S) URL or a base64 data URI (PNG or JPEG).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.EmbeddingImageSourceDoc"
+                        }
+                    ]
+                },
+                "input_audio": {
+                    "description": "InputAudio is used by type input_audio (WAV, MP3 or FLAC).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.EmbeddingMediaSourceDoc"
+                        }
+                    ]
+                },
+                "input_video": {
+                    "description": "InputVideo is used by type input_video (MP4 or WebM).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.EmbeddingMediaSourceDoc"
+                        }
+                    ]
+                },
+                "text": {
+                    "description": "Text is used by type text. It is passed without separators, prefixes or templates.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type selects the part kind. video_url is an alias of input_video.",
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "image_url",
+                        "input_audio",
+                        "input_video",
+                        "video_url"
+                    ]
+                },
+                "video_url": {
+                    "description": "VideoURL is an alias of input_video with the same members.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.EmbeddingMediaSourceDoc"
+                        }
+                    ]
+                }
+            }
+        },
+        "schema.EmbeddingImageSourceDoc": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.EmbeddingMediaSourceDoc": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data is raw base64.",
+                    "type": "string"
+                },
+                "format": {
+                    "description": "Format is optional and must match the detected media format.",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is an HTTP(S) URL or a base64 data URI.",
                     "type": "string"
                 }
             }

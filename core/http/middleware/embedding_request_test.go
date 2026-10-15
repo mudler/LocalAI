@@ -36,8 +36,9 @@ var _ = Describe("Multimodal contracts", func() {
 		}
 	})
 	for _, path := range []string{"/embeddings", "/v1/embeddings", "/v1/engines/test/embeddings"} {
-		It("fails closed for valid structured input on "+path, func() {
-			Expect(postJSON(app, path, `{"model":"missing","input":{"content":[{"type":"text","text":"hello"}]}}`).Code).To(Equal(501))
+		It("binds valid structured input and leaves it to the endpoint on "+path, func() {
+			// No model "missing" exists: resolution, not the binder, refuses it.
+			Expect(postJSON(app, path, `{"model":"missing","input":{"content":[{"type":"text","text":"hello"}]}}`).Code).To(Equal(404))
 		})
 		for _, unknown := range []bool{false, true} {
 			It("enforces prebind body boundary on "+path+" unknown="+map[bool]string{false: "false", true: "true"}[unknown], func() {
@@ -79,7 +80,7 @@ var _ = Describe("Multimodal contracts", func() {
 		`{"input":{"content":[{"type":"text","text":"a"}]},"messages":[]}`,
 		`{"input":{"content":[{"type":"text","text":"a"}]},"truncate":"END"}`,
 	} {
-		It("accepts structured input with empty messages or unrelated envelope fields "+body, func() { Expect(postJSON(app, "/embeddings", body).Code).To(Equal(501)) })
+		It("accepts structured input with empty messages or unrelated envelope fields "+body, func() { Expect(postJSON(app, "/embeddings", body).Code).To(Equal(200)) })
 	}
 	It("does not cap other endpoints", func() {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", io.MultiReader(strings.NewReader(strings.Repeat(" ", 48<<20)), strings.NewReader(`{}`)))

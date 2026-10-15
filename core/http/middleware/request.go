@@ -687,7 +687,12 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.TypicalP = input.TypicalP
 	}
 
-	xlog.Debug("input.Input", "input", fmt.Sprintf("%+v", input.Input))
+	if len(input.EmbeddingInput) == 0 {
+		xlog.Debug("input.Input", "input", fmt.Sprintf("%+v", input.Input))
+	} else {
+		// Structured embedding input holds caller text and media locations.
+		xlog.Debug("input.Input", "structured_items", len(input.EmbeddingInput))
+	}
 
 	switch inputs := input.Input.(type) {
 	case string:
@@ -945,7 +950,7 @@ func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 	if embeddingBodyOverflowed(c) || embeddingmedia.CheckLimit(uint64(len(raw)), embeddingmedia.MaxBodyBytes) != nil {
 		return echo.ErrStatusRequestEntityTooLarge
 	}
-	items, structured, err := schema.ParseEmbeddingRequest(raw)
+	items, _, err := schema.ParseEmbeddingRequest(raw)
 	if err != nil {
 		var classified *embeddingmedia.Error
 		if errors.As(err, &classified) {
@@ -958,10 +963,5 @@ func bindEmbeddingRequest(c echo.Context, request *schema.OpenAIRequest) error {
 		return echo.NewHTTPError(400, "invalid_embedding_request")
 	}
 	request.EmbeddingInput = items
-	if structured {
-		// Parsing must not dispatch content objects into the legacy text-only path.
-		// The HTTP orchestration task replaces this explicit unsupported response.
-		return echo.NewHTTPError(501, "multimodal_embedding_unavailable")
-	}
 	return nil
 }

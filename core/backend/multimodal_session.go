@@ -15,6 +15,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// MultimodalMaxRPCBytes is the existing gRPC transport ceiling (50 MiB).
+const MultimodalMaxRPCBytes = 50 << 20
+
 // MultimodalEmbeddingError exposes HTTP classification without depending on
 // acquisition or HTTP packages. The cause remains available to routing callers.
 type MultimodalEmbeddingError struct {
@@ -118,40 +121,17 @@ func (s *MultimodalEmbeddingSession) Embed(ctx context.Context, request *pb.Mult
 	if !proto.Equal(m, s.metadata) {
 		return nil, multimodalError(501, "embedding capabilities changed; reopen session", nil)
 	}
-	supported := map[pb.EmbeddingModality]bool{}
-	for _, v := range m.EmbeddingModalities {
-		supported[v] = true
-	}
-	for _, part := range request.Parts {
-		var modality pb.EmbeddingModality
-		switch p := part.GetPart().(type) {
-		case *pb.EmbeddingPart_Text:
-			modality = pb.EmbeddingModality_TEXT
-		case *pb.EmbeddingPart_Media:
-			switch p.Media.GetKind() {
-			case pb.EmbeddingMedia_IMAGE:
-				modality = pb.EmbeddingModality_IMAGE
-			case pb.EmbeddingMedia_AUDIO:
-				modality = pb.EmbeddingModality_AUDIO
-			case pb.EmbeddingMedia_VIDEO:
-				// Track-specific refusal belongs to the decoder after probing, not Go.
-				if supported[pb.EmbeddingModality_AUDIOVISUAL_VIDEO] {
-					continue
-				}
-				modality = pb.EmbeddingModality_SILENT_VIDEO
-			}
-		}
-		if modality == pb.EmbeddingModality_EMBEDDING_MODALITY_UNSPECIFIED {
-			return nil, multimodalError(400, "invalid embedding part", nil)
-		}
-		if !supported[modality] {
-			return nil, multimodalError(422, "model does not support embedding modality", nil)
-		}
+	if err := CheckEmbeddingModalities(m, request.Parts); err != nil {
+		return nil, err
 	}
 	in := proto.Clone(request).(*pb.MultimodalEmbeddingRequest)
 	in.Model = s.modelOptions.Model
 	in.EmbeddingGeneration = s.metadata.EmbeddingGeneration
 	in.Options = proto.Clone(s.options).(*pb.PredictOptions)
+	// The ceiling covers the request as the transport will carry it, options included.
+	if proto.Size(in) > MultimodalMaxRPCBytes {
+		return nil, multimodalError(413, "multimodal embedding request exceeds the transport limit", nil)
+	}
 	release, err := AcquireGlobalBackendSlot()
 	if err != nil {
 		return nil, err
